@@ -1542,34 +1542,11 @@ tasks.register("customNotarizeDmg") {
             throw GradleException("❌ Notarization failed (status=$status)")
         }
 
-        // Wait for ticket propagation — 90s gives Apple's CDN time to distribute the ticket.
-        logger.lifecycle("⏳ Waiting 90s for ticket propagation...")
-        Thread.sleep(90000)
-
-        // Staple ticket to DMG — retry up to 5 times with 30s backoff.
-        // Error 65 is a transient CDN propagation race that reliably resolves on retry.
-        logger.lifecycle("📎 Stapling DMG...")
-        var dmgStapleExitValue = -1
-        for (attempt in 1..5) {
-            val result =
-                execOps.exec {
-                    commandLine("xcrun", "stapler", "staple", "-v", signedDmg.absolutePath)
-                    isIgnoreExitValue = true
-                }
-            dmgStapleExitValue = result.exitValue
-            if (dmgStapleExitValue == 0) break
-            logger.lifecycle("⚠️ Stapler attempt $attempt/5 failed (exit $dmgStapleExitValue) — retrying in 30s...")
-            if (attempt < 5) Thread.sleep(30000)
-        }
-
-        if (dmgStapleExitValue != 0) {
-            throw GradleException(
-                "❌ Stapler failed for DMG after 5 attempts (last exit $dmgStapleExitValue). " +
-                    "Apple accepted the ticket — re-run the task to retry stapling.",
-            )
-        }
-
-        logger.lifecycle("✅ Stapled DMG successfully")
+        logger.lifecycle("✅ DMG accepted by Apple notarization service — ticket is registered on Apple CDN")
+        logger.lifecycle("ℹ️  Skipping DMG staple: xcrun stapler Error 65 in CI means the runner cannot")
+        logger.lifecycle("   validate the local codesign chain. The CDN ticket is sufficient —")
+        logger.lifecycle("   Gatekeeper does an online lookup for any file downloaded from the internet.")
+        logger.lifecycle("   To staple for offline use, run locally: xcrun stapler staple Askimo-signed.dmg")
 
         logger.lifecycle("✅ Done. Output: ${signedDmg.absolutePath}")
         logger.lifecycle("")
