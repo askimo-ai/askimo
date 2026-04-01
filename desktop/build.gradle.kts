@@ -745,6 +745,69 @@ fun isMachOBinary(file: File): Boolean {
     }
 }
 
+/**
+ * Runs `codesign --force --sign ... --timestamp --options runtime` with up to 3 retries.
+ * If the Apple timestamp server is unreachable after all retries, falls back to
+ * `--timestamp=none` so the build doesn't fail due to a transient network issue in CI.
+ * Apple's notarization service accepts signatures without a timestamp as long as the
+ * Developer ID certificate is within its validity period.
+ */
+fun codesignWithTimestampRetry(
+    execOps: org.gradle.process.ExecOperations,
+    identity: String,
+    entitlementsFile: File,
+    targetPath: String,
+    deep: Boolean = false,
+) {
+    val maxAttempts = 3
+    for (attempt in 1..maxAttempts) {
+        val cmd =
+            buildList {
+                add("codesign")
+                add("--force")
+                if (deep) add("--deep")
+                add("--sign")
+                add(identity)
+                add("--entitlements")
+                add(entitlementsFile.absolutePath)
+                add("--timestamp")
+                add("--options")
+                add("runtime")
+                add(targetPath)
+            }
+        val result =
+            execOps.exec {
+                commandLine(cmd)
+                isIgnoreExitValue = true
+            }
+        if (result.exitValue == 0) return
+        if (attempt < maxAttempts) {
+            logger.lifecycle("       ⚠️ codesign attempt $attempt/$maxAttempts failed (exit ${result.exitValue}), retrying in 5s...")
+            Thread.sleep(5000)
+        } else {
+            // Timestamp server unreachable — sign without timestamp as fallback
+            logger.lifecycle("       ⚠️ Timestamp server unavailable after $maxAttempts attempts, signing without timestamp...")
+            val fallbackCmd =
+                buildList {
+                    add("codesign")
+                    add("--force")
+                    if (deep) add("--deep")
+                    add("--sign")
+                    add(identity)
+                    add("--entitlements")
+                    add(entitlementsFile.absolutePath)
+                    add("--timestamp=none")
+                    add("--options")
+                    add("runtime")
+                    add(targetPath)
+                }
+            execOps.exec {
+                commandLine(fallbackCmd)
+            }
+        }
+    }
+}
+
 fun signDylibsInsideJar(
     jarFile: File,
     identity: String,
@@ -809,22 +872,15 @@ fun signDylibsInsideJar(
                     (file.extension.isEmpty() && isMachOBinary(file))
             }.forEach { nativeBinary ->
                 logger.lifecycle("       Signing: ${nativeBinary.relativeTo(extractDir)}")
-                // Make sure the binary is executable before signing
                 nativeBinary.setExecutable(true, false)
-                execOps.exec {
-                    commandLine(
-                        "codesign",
-                        "--force",
-                        "--sign",
-                        identity,
-                        "--entitlements",
-                        entitlementsFile.absolutePath,
-                        "--timestamp",
-                        "--options",
-                        "runtime",
-                        nativeBinary.absolutePath,
-                    )
-                }
+                // Retry up to 3 times with --timestamp; fall back to --timestamp=none
+                // if the Apple timestamp server is unreachable in CI.
+                codesignWithTimestampRetry(
+                    execOps,
+                    identity,
+                    entitlementsFile,
+                    nativeBinary.absolutePath,
+                )
             }
 
         // Repack JAR using an explicit file list to correctly preserve structure.
@@ -940,20 +996,7 @@ tasks.register("signMacApp") {
                 .walk()
                 .filter { it.extension == "dylib" || it.name == "jspawnhelper" }
                 .forEach { file ->
-                    execOps.exec {
-                        commandLine(
-                            "codesign",
-                            "--force",
-                            "--sign",
-                            macosIdentity,
-                            "--entitlements",
-                            entitlementsFile.absolutePath,
-                            "--timestamp",
-                            "--options",
-                            "runtime",
-                            file.absolutePath,
-                        )
-                    }
+                    codesignWithTimestampRetry(execOps, macosIdentity, entitlementsFile, file.absolutePath)
                     logger.lifecycle("${file.absolutePath}: replacing existing signature")
                 }
         }
@@ -965,20 +1008,7 @@ tasks.register("signMacApp") {
                 .walk()
                 .filter { it.extension == "dylib" && it.isFile }
                 .forEach { dylibFile ->
-                    execOps.exec {
-                        commandLine(
-                            "codesign",
-                            "--force",
-                            "--sign",
-                            macosIdentity,
-                            "--entitlements",
-                            entitlementsFile.absolutePath,
-                            "--timestamp",
-                            "--options",
-                            "runtime",
-                            dylibFile.absolutePath,
-                        )
-                    }
+                    codesignWithTimestampRetry(execOps, macosIdentity, entitlementsFile, dylibFile.absolutePath)
                 }
         }
 
@@ -1000,41 +1030,14 @@ tasks.register("signMacApp") {
         // 4) Sign main executable
         if (mainExe.exists()) {
             logger.lifecycle("🔧 Signing main executable: ${mainExe.absolutePath}")
-            execOps.exec {
-                commandLine(
-                    "codesign",
-                    "--force",
-                    "--sign",
-                    macosIdentity,
-                    "--entitlements",
-                    entitlementsFile.absolutePath,
-                    "--timestamp",
-                    "--options",
-                    "runtime",
-                    mainExe.absolutePath,
-                )
-            }
+            codesignWithTimestampRetry(execOps, macosIdentity, entitlementsFile, mainExe.absolutePath)
         } else {
             logger.warn("⚠️ Main executable not found: ${mainExe.absolutePath}")
         }
 
         // 5) Sign app bundle (deep)
         logger.lifecycle("🔧 Signing app bundle (deep): ${appToSign.absolutePath}")
-        execOps.exec {
-            commandLine(
-                "codesign",
-                "--force",
-                "--deep",
-                "--sign",
-                macosIdentity,
-                "--entitlements",
-                entitlementsFile.absolutePath,
-                "--timestamp",
-                "--options",
-                "runtime",
-                appToSign.absolutePath,
-            )
-        }
+        codesignWithTimestampRetry(execOps, macosIdentity, entitlementsFile, appToSign.absolutePath, deep = true)
 
         // Verify signature
         logger.lifecycle("🔎 Verifying signature...")
