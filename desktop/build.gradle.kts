@@ -1165,22 +1165,30 @@ tasks.register("notarizeApp") {
             throw GradleException("❌ .app notarization failed with status: $status")
         }
 
-        // Wait for ticket propagation
-        logger.lifecycle("⏳ Waiting 60s for ticket propagation...")
-        Thread.sleep(60000)
+        // Wait for ticket propagation — 90s gives Apple's CDN time to distribute the ticket.
+        logger.lifecycle("⏳ Waiting 90s for ticket propagation...")
+        Thread.sleep(90000)
 
-        // Staple ticket to .app — hard failure; a silent warn leaves an unstapled app
-        // which Gatekeeper reports as "Unnotarized Developer ID".
+        // Staple ticket to .app — retry up to 5 times with 30s backoff.
+        // Error 65 means "ticket downloaded but could not be validated against the file";
+        // this is a transient CDN propagation race in CI and reliably resolves on retry.
         logger.lifecycle("📎 Stapling ticket to .app...")
-        val appStapleResult =
-            execOps.exec {
-                commandLine("xcrun", "stapler", "staple", "-v", appToSign.absolutePath)
-                isIgnoreExitValue = true
-            }
+        var appStapleExitValue = -1
+        for (attempt in 1..5) {
+            val result =
+                execOps.exec {
+                    commandLine("xcrun", "stapler", "staple", "-v", appToSign.absolutePath)
+                    isIgnoreExitValue = true
+                }
+            appStapleExitValue = result.exitValue
+            if (appStapleExitValue == 0) break
+            logger.lifecycle("⚠️ Stapler attempt $attempt/5 failed (exit $appStapleExitValue) — retrying in 30s...")
+            if (attempt < 5) Thread.sleep(30000)
+        }
 
-        if (appStapleResult.exitValue != 0) {
+        if (appStapleExitValue != 0) {
             throw GradleException(
-                "❌ Stapler failed for .app (exit ${appStapleResult.exitValue}). " +
+                "❌ Stapler failed for .app after 5 attempts (last exit $appStapleExitValue). " +
                     "Apple accepted the ticket — re-run the task to retry stapling.",
             )
         }
@@ -1523,22 +1531,29 @@ tasks.register("customNotarizeDmg") {
             throw GradleException("❌ Notarization failed (status=$status)")
         }
 
-        // Wait for ticket propagation
-        logger.lifecycle("⏳ Waiting 60s for ticket propagation...")
-        Thread.sleep(60000)
+        // Wait for ticket propagation — 90s gives Apple's CDN time to distribute the ticket.
+        logger.lifecycle("⏳ Waiting 90s for ticket propagation...")
+        Thread.sleep(90000)
 
-        // Staple ticket to DMG — hard failure; a silent warn leaves an unstapled DMG
-        // which Gatekeeper reports as "Unnotarized Developer ID".
+        // Staple ticket to DMG — retry up to 5 times with 30s backoff.
+        // Error 65 is a transient CDN propagation race that reliably resolves on retry.
         logger.lifecycle("📎 Stapling DMG...")
-        val dmgStapleResult =
-            execOps.exec {
-                commandLine("xcrun", "stapler", "staple", "-v", signedDmg.absolutePath)
-                isIgnoreExitValue = true
-            }
+        var dmgStapleExitValue = -1
+        for (attempt in 1..5) {
+            val result =
+                execOps.exec {
+                    commandLine("xcrun", "stapler", "staple", "-v", signedDmg.absolutePath)
+                    isIgnoreExitValue = true
+                }
+            dmgStapleExitValue = result.exitValue
+            if (dmgStapleExitValue == 0) break
+            logger.lifecycle("⚠️ Stapler attempt $attempt/5 failed (exit $dmgStapleExitValue) — retrying in 30s...")
+            if (attempt < 5) Thread.sleep(30000)
+        }
 
-        if (dmgStapleResult.exitValue != 0) {
+        if (dmgStapleExitValue != 0) {
             throw GradleException(
-                "❌ Stapler failed for DMG (exit ${dmgStapleResult.exitValue}). " +
+                "❌ Stapler failed for DMG after 5 attempts (last exit $dmgStapleExitValue). " +
                     "Apple accepted the ticket — re-run the task to retry stapling.",
             )
         }
