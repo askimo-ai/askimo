@@ -220,8 +220,21 @@ jobs:
 
       - name: Staple notarization ticket to DMG
         if: runner.os == 'macOS'
+        env:
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
         run: |
           DMG="desktop/build/compose/notarized/Askimo-signed.dmg"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+
+          # stapler validates the DMG's codesign chain before embedding the ticket.
+          # The signing certificate lives in the temporary keychain created during
+          # "Import Code Signing Certificate". Re-unlock it and put it back in the
+          # search list so the Security framework can verify the chain.
+          if [ -f "$KEYCHAIN_PATH" ]; then
+            echo "🔓 Unlocking signing keychain for stapler..."
+            security unlock-keychain -p "$MACOS_CERTIFICATE_PASSWORD" "$KEYCHAIN_PATH"
+            security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychain -d user | tr -d '"')
+          fi
 
           echo "⏳ Waiting 90s for Apple CDN ticket propagation..."
           sleep 90
