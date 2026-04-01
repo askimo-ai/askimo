@@ -1250,9 +1250,24 @@ tasks.register("createSignedDmg") {
             standardOutput = mountOutput
         }
 
+        val mountOutputStr = mountOutput.toString()
+
+        // hdiutil attach output lines look like:
+        //   /dev/disk2          Apple_partition_scheme
+        //   /dev/disk2s1        Apple_partition_map
+        //   /dev/disk2s2        Apple_HFS    /Volumes/Askimo
+        // Capture the device node (first token on the HFS line) so we can detach by
+        // device even after the /Volumes path has already disappeared.
+        val deviceNode =
+            mountOutputStr
+                .lines()
+                .firstOrNull { it.contains("/Volumes/") }
+                ?.trim()
+                ?.split(Regex("\\s+"))
+                ?.firstOrNull()
+
         val mountPath =
-            mountOutput
-                .toString()
+            mountOutputStr
                 .lines()
                 .firstOrNull { it.contains("/Volumes/") }
                 ?.substringAfter("/Volumes/")
@@ -1260,7 +1275,11 @@ tasks.register("createSignedDmg") {
                 ?.let { "/Volumes/$it" }
                 ?: throw GradleException("Could not determine mount path")
 
-        logger.lifecycle("✅ Mounted at: $mountPath")
+        if (deviceNode == null) {
+            throw GradleException("Could not determine device node from hdiutil attach output:\n$mountOutputStr")
+        }
+
+        logger.lifecycle("✅ Mounted at: $mountPath (device: $deviceNode)")
 
         try {
             // Copy background image to .background folder in DMG
@@ -1327,39 +1346,48 @@ tasks.register("createSignedDmg") {
             }
             Thread.sleep(1000)
         } finally {
-            // Unmount with retries
-            logger.lifecycle("💿 Unmounting DMG...")
+            // Unmount by device node — the /Volumes/Askimo path disappears after the
+            // first eject attempt, so subsequent retries must use the device.
+            logger.lifecycle("💿 Unmounting DMG ($deviceNode)...")
             var unmounted = false
-            var attempts = 0
-            val maxAttempts = 5
-
-            while (!unmounted && attempts < maxAttempts) {
-                attempts++
-                try {
-                    if (attempts > 1) {
-                        logger.lifecycle("   Retry attempt $attempts/$maxAttempts...")
-                        Thread.sleep(2000)
-                    }
-
+            for (attempt in 1..5) {
+                if (attempt > 1) {
+                    logger.lifecycle("   Retry attempt $attempt/5...")
+                    Thread.sleep(3000)
+                    // Kill Finder and osascript sessions holding the volume open
                     execOps.exec {
-                        commandLine("hdiutil", "detach", mountPath, "-force")
-                        isIgnoreExitValue = false
+                        commandLine(
+                            "bash",
+                            "-c",
+                            "pkill -9 -f 'osascript' 2>/dev/null; " +
+                                "osascript -e 'tell application \"Finder\" to close every window' 2>/dev/null; " +
+                                "true",
+                        )
+                        isIgnoreExitValue = true
                     }
+                    Thread.sleep(1000)
+                }
+
+                val result =
+                    execOps.exec {
+                        commandLine("hdiutil", "detach", deviceNode, "-force")
+                        isIgnoreExitValue = true
+                    }
+
+                if (result.exitValue == 0) {
                     unmounted = true
                     logger.lifecycle("✅ DMG unmounted successfully")
-                } catch (_: Exception) {
-                    if (attempts < maxAttempts) {
-                        logger.lifecycle("⚠️  Unmount failed, will retry...")
-                        // Kill any processes that might be using the volume
-                        execOps.exec {
-                            commandLine("lsof", "+D", mountPath)
-                            isIgnoreExitValue = true
-                            standardOutput = System.out
-                        }
-                    } else {
-                        logger.warn("⚠️  Could not unmount DMG after $maxAttempts attempts, continuing anyway...")
-                    }
+                    break
                 }
+
+                logger.lifecycle("⚠️  Unmount attempt $attempt/5 failed (exit ${result.exitValue})")
+            }
+
+            if (!unmounted) {
+                throw GradleException(
+                    "❌ Could not unmount DMG device $deviceNode after 5 attempts. " +
+                        "hdiutil convert would fail on a mounted DMG — aborting.",
+                )
             }
         }
 
