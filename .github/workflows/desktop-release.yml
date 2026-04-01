@@ -218,6 +218,32 @@ jobs:
             ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx4g" desktop:${{ matrix.task }}
           fi
 
+      - name: Staple notarization ticket to DMG
+        if: runner.os == 'macOS'
+        run: |
+          DMG="desktop/build/compose/notarized/Askimo-signed.dmg"
+
+          echo "⏳ Waiting 90s for Apple CDN ticket propagation..."
+          sleep 90
+
+          echo "📎 Stapling notarization ticket to DMG..."
+          for attempt in 1 2 3 4 5; do
+            if xcrun stapler staple "$DMG" 2>&1; then
+              echo "✅ Ticket stapled successfully (attempt $attempt)"
+              break
+            fi
+            if [ "$attempt" -eq 5 ]; then
+              echo "❌ Stapler failed after 5 attempts"
+              exit 1
+            fi
+            echo "⚠️ Attempt $attempt failed — retrying in 30s..."
+            sleep 30
+          done
+
+          echo "🔎 Validating stapled ticket..."
+          xcrun stapler validate "$DMG"
+          echo "✅ Staple validated"
+
       - name: Package desktop installer (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -230,10 +256,6 @@ jobs:
 
       - name: Verify macOS Notarization
         if: runner.os == 'macOS'
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           DMG="desktop/build/compose/notarized/Askimo-signed.dmg"
 
@@ -256,15 +278,16 @@ jobs:
           fi
           echo "✅ Code signature is valid"
 
-          # xcrun stapler validate fails with Error 65 in CI because the runner cannot
-          # verify the local codesign chain. Use spctl online assessment instead —
-          # this is exactly what Gatekeeper does when a user opens a downloaded file.
+          # Validate the stapled notarization ticket.
+          # xcrun stapler validate is the correct check for a DMG — spctl -a -t open
+          # assesses the .app content inside, not the DMG container, and requires
+          # the ticket to already be stapled to work offline.
           echo ""
-          echo "🔐 Gatekeeper online assessment:"
-          if spctl -a -t open --context context:primary-signature -v "$DMG" 2>&1; then
-            echo "✅ Gatekeeper accepts the DMG (notarization ticket found on Apple CDN)"
+          echo "🎫 Validating stapled notarization ticket:"
+          if xcrun stapler validate "$DMG" 2>&1; then
+            echo "✅ Notarization ticket is valid and stapled"
           else
-            echo "❌ Gatekeeper rejected the DMG — notarization ticket not found on Apple CDN"
+            echo "❌ Notarization ticket missing or invalid"
             exit 1
           fi
 

@@ -1542,16 +1542,9 @@ tasks.register("customNotarizeDmg") {
             throw GradleException("❌ Notarization failed (status=$status)")
         }
 
-        logger.lifecycle("✅ DMG accepted by Apple notarization service — ticket is registered on Apple CDN")
-        logger.lifecycle("ℹ️  Skipping DMG staple: xcrun stapler Error 65 in CI means the runner cannot")
-        logger.lifecycle("   validate the local codesign chain. The CDN ticket is sufficient —")
-        logger.lifecycle("   Gatekeeper does an online lookup for any file downloaded from the internet.")
-        logger.lifecycle("   To staple for offline use, run locally: xcrun stapler staple Askimo-signed.dmg")
-
+        logger.lifecycle("✅ DMG notarization accepted (submission: $submissionId)")
+        logger.lifecycle("📎 Stapling will be performed by the CI shell step after this task.")
         logger.lifecycle("✅ Done. Output: ${signedDmg.absolutePath}")
-        logger.lifecycle("")
-        logger.lifecycle("Suggested checks:")
-        logger.lifecycle("  spctl -a -t open -vv \"${signedDmg.absolutePath}\"")
     }
 }
 
