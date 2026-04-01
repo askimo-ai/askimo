@@ -1165,35 +1165,9 @@ tasks.register("notarizeApp") {
             throw GradleException("❌ .app notarization failed with status: $status")
         }
 
-        // Wait for ticket propagation — 90s gives Apple's CDN time to distribute the ticket.
-        logger.lifecycle("⏳ Waiting 90s for ticket propagation...")
-        Thread.sleep(90000)
-
-        // Staple ticket to .app — retry up to 5 times with 30s backoff.
-        // Error 65 means "ticket downloaded but could not be validated against the file";
-        // this is a transient CDN propagation race in CI and reliably resolves on retry.
-        logger.lifecycle("📎 Stapling ticket to .app...")
-        var appStapleExitValue = -1
-        for (attempt in 1..5) {
-            val result =
-                execOps.exec {
-                    commandLine("xcrun", "stapler", "staple", "-v", appToSign.absolutePath)
-                    isIgnoreExitValue = true
-                }
-            appStapleExitValue = result.exitValue
-            if (appStapleExitValue == 0) break
-            logger.lifecycle("⚠️ Stapler attempt $attempt/5 failed (exit $appStapleExitValue) — retrying in 30s...")
-            if (attempt < 5) Thread.sleep(30000)
-        }
-
-        if (appStapleExitValue != 0) {
-            throw GradleException(
-                "❌ Stapler failed for .app after 5 attempts (last exit $appStapleExitValue). " +
-                    "Apple accepted the ticket — re-run the task to retry stapling.",
-            )
-        }
-
-        logger.lifecycle("✅ Ticket stapled to .app")
+        logger.lifecycle("✅ .app accepted by Apple notarization service — ticket is registered on Apple CDN")
+        logger.lifecycle("ℹ️  Skipping .app staple: the DMG will be stapled in customNotarizeDmg.")
+        logger.lifecycle("   Gatekeeper checks the DMG ticket; the inner .app only needs to be signed.")
 
         // Clean up ZIP
         appZip.delete()
