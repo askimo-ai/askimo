@@ -223,25 +223,38 @@ jobs:
         env:
           MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
         run: |
+          set -euo pipefail
           DMG="desktop/build/compose/notarized/Askimo-signed.dmg"
           KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
 
-          # stapler validates the DMG's codesign chain before embedding the ticket.
-          # The signing certificate lives in the temporary keychain created during
-          # "Import Code Signing Certificate". Re-unlock it and put it back in the
-          # search list so the Security framework can verify the chain.
+          # Re-unlock the signing keychain so Security.framework can verify the
+          # DMG's codesign chain (required by xcrun stapler before embedding ticket).
           if [ -f "$KEYCHAIN_PATH" ]; then
-            echo "🔓 Unlocking signing keychain for stapler..."
+            echo "🔓 Unlocking signing keychain..."
             security unlock-keychain -p "$MACOS_CERTIFICATE_PASSWORD" "$KEYCHAIN_PATH"
-            security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychain -d user | tr -d '"')
+            # Rebuild the search list: signing keychain first, then system defaults
+            security list-keychain -d user -s \
+              "$KEYCHAIN_PATH" \
+              ~/Library/Keychains/login.keychain-db \
+              /Library/Keychains/System.keychain
+            echo "✅ Keychain search list:"
+            security list-keychain -d user
           fi
 
-          echo "⏳ Waiting 90s for Apple CDN ticket propagation..."
-          sleep 90
+          # xcrun stapler Error 65 on GitHub Actions is caused by the workspace being
+          # on a virtual/network-mounted filesystem. Copy the DMG to /tmp (a real local
+          # filesystem) before stapling, then copy back.
+          TMP_DMG="/tmp/Askimo-staple.dmg"
+          cp "$DMG" "$TMP_DMG"
+          echo "📋 Copied DMG to $TMP_DMG for stapling"
 
-          echo "📎 Stapling notarization ticket to DMG..."
+          echo "⏳ Waiting 120s for Apple CDN ticket propagation..."
+          sleep 120
+
+          echo "📎 Stapling notarization ticket..."
           for attempt in 1 2 3 4 5; do
-            if xcrun stapler staple "$DMG" 2>&1; then
+            echo "   Attempt $attempt/5..."
+            if xcrun stapler staple -v "$TMP_DMG" 2>&1; then
               echo "✅ Ticket stapled successfully (attempt $attempt)"
               break
             fi
@@ -254,8 +267,12 @@ jobs:
           done
 
           echo "🔎 Validating stapled ticket..."
-          xcrun stapler validate "$DMG"
-          echo "✅ Staple validated"
+          xcrun stapler validate "$TMP_DMG"
+
+          # Copy the stapled DMG back to the original location
+          cp "$TMP_DMG" "$DMG"
+          rm -f "$TMP_DMG"
+          echo "✅ Stapled DMG copied back to $DMG"
 
       - name: Package desktop installer (Windows)
         if: runner.os == 'Windows'
