@@ -1217,6 +1217,15 @@ tasks.register("createSignedDmg") {
 
         // Create temporary read-write DMG
         val tempDmg = File(notarizedDir, "Askimo-temp.dmg").apply { delete() }
+
+        // Detach any stale /Volumes/Askimo left over from a previous failed run.
+        // hdiutil create fails with "Resource busy" if the volume name is still mounted.
+        logger.lifecycle("🧹 Detaching any stale /Volumes/Askimo mounts...")
+        execOps.exec {
+            commandLine("hdiutil", "detach", "/Volumes/Askimo", "-force")
+            isIgnoreExitValue = true
+        }
+
         logger.lifecycle("📀 Creating temporary DMG...")
         execOps.exec {
             commandLine(
