@@ -1108,9 +1108,11 @@ tasks.register("notarizeApp") {
 
         logger.lifecycle("🔎 ZIP SHA256: $sha256Before")
 
-        // Submit for notarization
+        // Submit for notarization.
+        // Capture stdout+stderr together — Xcode 15+ notarytool writes progress to stderr
+        // and the final JSON to stdout; merging both ensures the JSON is always found.
         val notarizationOutput =
-            ByteArrayOutputStream().use { output ->
+            ByteArrayOutputStream().use { combined ->
                 execOps.exec {
                     commandLine(
                         "xcrun",
@@ -1122,9 +1124,10 @@ tasks.register("notarizeApp") {
                         "--output-format",
                         "json",
                     )
-                    standardOutput = output
+                    standardOutput = combined
+                    errorOutput = combined
                 }
-                output.toString()
+                combined.toString()
             }
 
         logger.lifecycle(notarizationOutput)
@@ -1139,11 +1142,10 @@ tasks.register("notarizeApp") {
         logger.lifecycle(".app submission: id=$submissionId, status=$status")
 
         if (status != "Accepted") {
-            // Fetch the detailed log from Apple so we can see exactly which file was rejected
             if (submissionId != null) {
                 logger.lifecycle("📋 Fetching notarization log for submission $submissionId...")
                 val logOutput =
-                    ByteArrayOutputStream().use { output ->
+                    ByteArrayOutputStream().use { combined ->
                         execOps.exec {
                             commandLine(
                                 "xcrun",
@@ -1152,10 +1154,11 @@ tasks.register("notarizeApp") {
                                 submissionId,
                                 *notaryArgs.toTypedArray(),
                             )
-                            standardOutput = output
+                            standardOutput = combined
+                            errorOutput = combined
                             isIgnoreExitValue = true
                         }
-                        output.toString()
+                        combined.toString()
                     }
                 logger.lifecycle("📋 Notarization log:\n$logOutput")
             }
@@ -1166,25 +1169,23 @@ tasks.register("notarizeApp") {
         logger.lifecycle("⏳ Waiting 60s for ticket propagation...")
         Thread.sleep(60000)
 
-        // Staple ticket to .app
+        // Staple ticket to .app — hard failure; a silent warn leaves an unstapled app
+        // which Gatekeeper reports as "Unnotarized Developer ID".
         logger.lifecycle("📎 Stapling ticket to .app...")
-        val staplerOutput = ByteArrayOutputStream()
-        val staplerError = ByteArrayOutputStream()
-        val stapleResult =
+        val appStapleResult =
             execOps.exec {
                 commandLine("xcrun", "stapler", "staple", "-v", appToSign.absolutePath)
                 isIgnoreExitValue = true
-                standardOutput = staplerOutput
-                errorOutput = staplerError
             }
 
-        if (stapleResult.exitValue != 0) {
-            logger.warn("⚠️ Stapler failed for .app, but continuing (ticket is available online)")
-            logger.lifecycle(staplerOutput.toString())
-            logger.lifecycle(staplerError.toString())
-        } else {
-            logger.lifecycle("✅ Ticket stapled to .app")
+        if (appStapleResult.exitValue != 0) {
+            throw GradleException(
+                "❌ Stapler failed for .app (exit ${appStapleResult.exitValue}). " +
+                    "Apple accepted the ticket — re-run the task to retry stapling.",
+            )
         }
+
+        logger.lifecycle("✅ Ticket stapled to .app")
 
         // Clean up ZIP
         appZip.delete()
@@ -1465,9 +1466,11 @@ tasks.register("customNotarizeDmg") {
         logger.lifecycle("🔎 DMG SHA256 before submit: $sha256Before")
         logger.lifecycle("🔐 Notarizing DMG...")
 
-        // Submit for notarization
+        // Submit for notarization.
+        // Capture stdout+stderr together — Xcode 15+ notarytool writes progress to stderr
+        // and the final JSON to stdout; merging both ensures the JSON is always found.
         val notarizationOutput =
-            ByteArrayOutputStream().use { output ->
+            ByteArrayOutputStream().use { combined ->
                 execOps.exec {
                     commandLine(
                         "xcrun",
@@ -1479,9 +1482,10 @@ tasks.register("customNotarizeDmg") {
                         "--output-format",
                         "json",
                     )
-                    standardOutput = output
+                    standardOutput = combined
+                    errorOutput = combined
                 }
-                output.toString()
+                combined.toString()
             }
 
         logger.lifecycle(notarizationOutput)
@@ -1496,11 +1500,10 @@ tasks.register("customNotarizeDmg") {
         logger.lifecycle("DMG submission: id=$submissionId, status=$status")
 
         if (status != "Accepted") {
-            // Fetch the detailed log from Apple so we can see exactly which file was rejected
             if (submissionId.isNotEmpty()) {
                 logger.lifecycle("📋 Fetching notarization log for submission $submissionId...")
                 val logOutput =
-                    ByteArrayOutputStream().use { output ->
+                    ByteArrayOutputStream().use { combined ->
                         execOps.exec {
                             commandLine(
                                 "xcrun",
@@ -1509,94 +1512,38 @@ tasks.register("customNotarizeDmg") {
                                 submissionId,
                                 *notaryArgs.toTypedArray(),
                             )
-                            standardOutput = output
+                            standardOutput = combined
+                            errorOutput = combined
                             isIgnoreExitValue = true
                         }
-                        output.toString()
+                        combined.toString()
                     }
                 logger.lifecycle("📋 Notarization log:\n$logOutput")
             }
             throw GradleException("❌ Notarization failed (status=$status)")
         }
 
-        // Verify bytes didn't change
-        val sha256After =
-            ByteArrayOutputStream().use { output ->
-                execOps.exec {
-                    commandLine("shasum", "-a", "256", signedDmg.absolutePath)
-                    standardOutput = output
-                }
-                output.toString().split(" ")[0]
-            }
-
-        if (sha256Before != sha256After) {
-            throw GradleException("❌ DMG bytes changed after notarization submission")
-        }
-
         // Wait for ticket propagation
         logger.lifecycle("⏳ Waiting 60s for ticket propagation...")
         Thread.sleep(60000)
 
-        // Try to staple
+        // Staple ticket to DMG — hard failure; a silent warn leaves an unstapled DMG
+        // which Gatekeeper reports as "Unnotarized Developer ID".
         logger.lifecycle("📎 Stapling DMG...")
-        val staplerOutput = ByteArrayOutputStream()
-        val staplerError = ByteArrayOutputStream()
-        val stapleResult =
+        val dmgStapleResult =
             execOps.exec {
                 commandLine("xcrun", "stapler", "staple", "-v", signedDmg.absolutePath)
                 isIgnoreExitValue = true
-                standardOutput = staplerOutput
-                errorOutput = staplerError
             }
 
-        if (stapleResult.exitValue != 0) {
-            logger.warn("⚠️ Stapler failed, attempting manual ticket attachment...")
-
-            // Extract ticket path from stapler output
-            val combinedOutput = staplerOutput.toString() + staplerError.toString()
-            val ticketPathMatch = Regex("""file://([^\s]+\.ticket)""").find(combinedOutput)
-            val ticketPath = ticketPathMatch?.groupValues?.get(1)
-
-            if (ticketPath != null && File(ticketPath).exists()) {
-                logger.lifecycle("📋 Found downloaded ticket: $ticketPath")
-                logger.lifecycle("📎 Manually attaching ticket to DMG...")
-
-                // Use Python to attach binary ticket data
-                val pythonScript =
-                    """
-                    import subprocess
-                    ticket_path = '$ticketPath'
-                    dmg_path = '${signedDmg.absolutePath}'
-                    with open(ticket_path, 'rb') as f:
-                        ticket_data = f.read()
-                    subprocess.run(['xattr', '-wx', 'com.apple.stapler', ticket_data.hex(), dmg_path], check=True)
-                    print('✅ Ticket attached successfully')
-                    """.trimIndent()
-
-                execOps.exec {
-                    commandLine("python3", "-c", pythonScript)
-                }
-
-                // Verify ticket is attached
-                val xattrOutput = ByteArrayOutputStream()
-                execOps.exec {
-                    commandLine("xattr", "-l", signedDmg.absolutePath)
-                    standardOutput = xattrOutput
-                }
-
-                val hasTicket = xattrOutput.toString().contains("com.apple.stapler")
-
-                if (hasTicket) {
-                    logger.lifecycle("✅ Ticket is attached via xattr")
-                } else {
-                    throw GradleException("❌ Failed to attach notarization ticket")
-                }
-            } else {
-                throw GradleException("❌ Could not find downloaded ticket file")
-            }
-        } else {
-            logger.lifecycle("✅ Stapled DMG successfully")
+        if (dmgStapleResult.exitValue != 0) {
+            throw GradleException(
+                "❌ Stapler failed for DMG (exit ${dmgStapleResult.exitValue}). " +
+                    "Apple accepted the ticket — re-run the task to retry stapling.",
+            )
         }
+
+        logger.lifecycle("✅ Stapled DMG successfully")
 
         logger.lifecycle("✅ Done. Output: ${signedDmg.absolutePath}")
         logger.lifecycle("")

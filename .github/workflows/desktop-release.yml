@@ -232,48 +232,47 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           DMG="desktop/build/compose/notarized/Askimo-signed.dmg"
-          
+
           echo "🔍 Verifying notarized DMG..."
-          
-          # Check if DMG exists
+
           if [ ! -f "$DMG" ]; then
             echo "❌ DMG not found at: $DMG"
             exit 1
           fi
-          
           echo "✅ DMG exists: $DMG"
-          
-          # Check code signature
+
+          # Verify code signature
           echo ""
           echo "📝 Code signature:"
           codesign -dvv "$DMG" 2>&1 | grep -E "Signature|Authority|Timestamp" | head -5
-          
-          # Verify signature
-          if codesign --verify --verbose "$DMG" 2>&1; then
-            echo "✅ Code signature is valid"
-          else
+
+          if ! codesign --verify --verbose "$DMG" 2>&1; then
             echo "❌ Code signature verification failed"
             exit 1
           fi
-          
-          # Check for notarization ticket
+          echo "✅ Code signature is valid"
+
+          # Validate staple ticket is embedded (xcrun stapler validate is the correct check,
+          # not xattr — the ticket lives inside the DMG, not in extended attributes)
           echo ""
           echo "🎫 Checking notarization ticket:"
-          if xattr -l "$DMG" | grep -q "com.apple.stapler"; then
-            echo "✅ Notarization ticket is attached"
+          if xcrun stapler validate "$DMG" 2>&1; then
+            echo "✅ Notarization ticket is stapled"
           else
-            echo "⚠️  No stapler ticket found (may not be accessible in CI)"
+            echo "❌ Notarization ticket is NOT stapled — Gatekeeper will reject this DMG"
+            exit 1
           fi
-          
-          # Check with spctl (Gatekeeper)
+
+          # Gatekeeper assessment — hard failure, not a warning
           echo ""
           echo "🔐 Gatekeeper assessment:"
           if spctl -a -t open --context context:primary-signature -v "$DMG" 2>&1; then
             echo "✅ Gatekeeper accepts the DMG"
           else
-            echo "⚠️  Gatekeeper assessment unavailable in CI (this is normal)"
+            echo "❌ Gatekeeper rejected the DMG — check signing identity and notarization"
+            exit 1
           fi
-          
+
           echo ""
           echo "✅ Notarization verification complete"
 
