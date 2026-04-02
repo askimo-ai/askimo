@@ -242,19 +242,24 @@ jobs:
           sleep 120
 
           echo "📎 Stapling notarization ticket..."
+          STAPLED=false
           for attempt in 1 2 3 4 5; do
             echo "   Attempt $attempt/5..."
-            if xcrun stapler staple "$DMG" 2>&1; then
-              echo "✅ Ticket stapled successfully"
+            if xcrun stapler staple "$DMG"; then
+              STAPLED=true
+              echo "✅ Ticket stapled successfully (attempt $attempt)"
               break
             fi
-            if [ "$attempt" -eq 5 ]; then
-              echo "❌ Stapler failed after 5 attempts"
-              exit 1
+            if [ "$attempt" -lt 5 ]; then
+              echo "⚠️ Attempt $attempt failed — retrying in 30s..."
+              sleep 30
             fi
-            echo "⚠️ Attempt $attempt failed — retrying in 30s..."
-            sleep 30
           done
+
+          if [ "$STAPLED" != "true" ]; then
+            echo "❌ Stapler failed after 5 attempts"
+            exit 1
+          fi
 
           echo "🔎 Validating..."
           xcrun stapler validate "$DMG"
