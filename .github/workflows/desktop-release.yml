@@ -220,10 +220,6 @@ jobs:
 
       - name: Staple notarization ticket to DMG
         if: runner.os == 'macOS'
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
           DMG="desktop/build/compose/notarized/Askimo-signed.dmg"
@@ -240,10 +236,7 @@ jobs:
           echo "📎 Stapling notarization ticket with notarytool..."
           for attempt in 1 2 3 4 5; do
             echo "   Attempt $attempt/5..."
-            if xcrun notarytool staple "$DMG" \
-                --apple-id "$APPLE_ID" \
-                --password "$APPLE_PASSWORD" \
-                --team-id "$APPLE_TEAM_ID" 2>&1; then
+            if xcrun notarytool staple "$DMG" 2>&1; then
               echo "✅ Ticket stapled successfully (attempt $attempt)"
               break
             fi
