@@ -136,6 +136,8 @@ jobs:
           # Create temporary keychain
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
           KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+          # Save keychain password so later steps (staple) can re-unlock it
+          echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
           
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
@@ -221,14 +223,16 @@ jobs:
       - name: Staple notarization ticket to DMG
         if: runner.os == 'macOS'
         env:
-          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ env.KEYCHAIN_PASSWORD }}
         run: |
           set -euo pipefail
           DMG="desktop/build/compose/notarized/Askimo-signed.dmg"
           KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
 
-          # Unlock the signing keychain so Security.framework can verify the chain
-          security unlock-keychain -p "$MACOS_CERTIFICATE_PASSWORD" "$KEYCHAIN_PATH"
+          # Unlock the signing keychain with the correct password (saved during import step).
+          # MACOS_CERTIFICATE_PASSWORD is the p12 password — the keychain password is different.
+          echo "🔓 Unlocking signing keychain..."
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychain -d user -s \
             "$KEYCHAIN_PATH" \
             ~/Library/Keychains/login.keychain-db \
@@ -384,7 +388,7 @@ jobs:
   # Create GitHub release with all desktop installers and JARs
   release:
     name: Create Desktop Release
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') && !failure() && !cancelled()
     needs: [ desktop-package ]
     runs-on: ubuntu-latest
     permissions:
@@ -550,7 +554,7 @@ jobs:
           append_body: false
           fail_on_unmatched_files: true
           prerelease: true
-          draft: false
+          draft: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
