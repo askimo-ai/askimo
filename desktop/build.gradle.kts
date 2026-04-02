@@ -1413,17 +1413,49 @@ tasks.register("createSignedDmg") {
         tempDmg.delete()
         dmgStaging.deleteRecursively()
 
-        // Sign DMG
+        // Sign DMG — must include --options runtime so xcrun stapler can validate
+        // the code signature via SecStaticCodeCheckValidity before embedding the ticket.
+        // Without this flag, stapler always fails with Error 65.
+        // DMGs do not use entitlements, so we pass none.
         logger.lifecycle("🔧 Signing DMG...")
-        execOps.exec {
-            commandLine(
-                "codesign",
-                "--force",
-                "--sign",
-                macosIdentity,
-                "--timestamp",
-                signedDmg.absolutePath,
-            )
+        var dmgSignExitValue = -1
+        for (attempt in 1..3) {
+            val result =
+                execOps.exec {
+                    commandLine(
+                        "codesign",
+                        "--force",
+                        "--sign",
+                        macosIdentity,
+                        "--timestamp",
+                        "--options",
+                        "runtime",
+                        signedDmg.absolutePath,
+                    )
+                    isIgnoreExitValue = true
+                }
+            dmgSignExitValue = result.exitValue
+            if (dmgSignExitValue == 0) break
+            if (attempt < 3) {
+                logger.lifecycle("   ⚠️ codesign attempt $attempt/3 failed, retrying in 5s...")
+                Thread.sleep(5000)
+            }
+        }
+        if (dmgSignExitValue != 0) {
+            // Fallback: sign without timestamp
+            logger.lifecycle("   ⚠️ Timestamp server unreachable, signing without timestamp...")
+            execOps.exec {
+                commandLine(
+                    "codesign",
+                    "--force",
+                    "--sign",
+                    macosIdentity,
+                    "--timestamp=none",
+                    "--options",
+                    "runtime",
+                    signedDmg.absolutePath,
+                )
+            }
         }
 
         // Verify DMG signature
