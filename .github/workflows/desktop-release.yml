@@ -243,44 +243,74 @@ jobs:
           path: dist
 
       # ── CHECKPOINT 2: confirm what arrived after upload-artifact round-trip ──
-      # upload-artifact zips the file which strips macOS xattrs (staple ticket).
-      # We must re-staple here. This step shows exactly what we received.
+      # upload-artifact zips the file; that zip round-trip may strip the staple
+      # ticket xattr. We re-staple from Apple CDN and HARD FAIL if it doesn't work.
       - name: "[macOS] Re-staple DMGs after artifact download"
         shell: bash
         run: |
           set -euo pipefail
           echo "══════════════════════════════════════════════════════════════"
-          echo "CHECKPOINT 2 — DMGs after download-artifact (xattrs stripped)"
+          echo "CHECKPOINT 2 — DMGs after download-artifact"
           echo "══════════════════════════════════════════════════════════════"
-          echo "Downloaded artifact tree:"
+          echo "Full artifact tree received:"
           ls -lhR dist/
           echo ""
 
+          FAILED=0
           for platform in macos-arm64 macos-intel; do
+            echo "──────────────────────────────────────────────────────────"
+            echo "Platform: $platform"
             DMG=$(find "dist/askimo-desktop-installer-${platform}" -name "*.dmg" -type f 2>/dev/null | head -n1 || true)
             if [ -z "$DMG" ]; then
-              echo "⚠️  No DMG for $platform — skipping"
+              echo "⚠️  No DMG found for $platform — skipping (matrix may have failed)"
               continue
             fi
 
-            echo "── $platform ────────────────────────────────────────────────"
+            echo "   File    : $DMG"
             ls -lh "$DMG"
-            shasum -a 256 "$DMG"
-            codesign --display --verbose=4 "$DMG" 2>&1 | grep -E "CDHash|TeamIdentifier|Identifier" || true
+            echo "   SHA-256 : $(shasum -a 256 "$DMG")"
 
-            # Ticket is expected to be gone after upload-artifact zip round-trip
+            echo "   Code signature:"
+            codesign --verify --verbose=2 "$DMG" 2>&1 \
+              && echo "   ✅ Signature OK" \
+              || { echo "   ❌ SIGNATURE INVALID"; FAILED=1; continue; }
+            codesign --display --verbose=4 "$DMG" 2>&1 | grep -E "CDHash|TeamIdentifier|Identifier|Authority|Signed Time" || true
+
+            echo "   Staple ticket before re-staple:"
             xcrun stapler validate "$DMG" 2>&1 \
-              && echo "ℹ️  Ticket still present (lucky)" \
-              || echo "ℹ️  Ticket stripped by upload-artifact (expected)"
+              && echo "   ℹ️  Ticket still present (survived zip)" \
+              || echo "   ℹ️  Ticket stripped by upload-artifact zip (expected — will re-staple)"
 
-            echo "📎 Re-stapling from Apple CDN..."
-            xcrun stapler staple "$DMG" 2>&1 || { echo "❌ Re-staple FAILED for $platform"; exit 1; }
+            echo "   📎 Re-stapling from Apple CDN..."
+            set +e
+            xcrun stapler staple "$DMG" 2>&1
+            STAPLE_EXIT=$?
+            set -e
+            if [ $STAPLE_EXIT -ne 0 ]; then
+              echo "   ❌ RE-STAPLE FAILED (exit $STAPLE_EXIT) for $platform"
+              echo "   This means Apple CDN does not have a ticket for this DMG."
+              echo "   The notarization step may have succeeded but the DMG was"
+              echo "   re-created/modified after stapling — the hashes won't match."
+              FAILED=1
+              continue
+            fi
 
-            xcrun stapler validate "$DMG" 2>&1 || { echo "❌ Validate FAILED after re-staple for $platform"; exit 1; }
-            echo "✅ Re-staple verified for $platform"
+            echo "   Staple ticket after re-staple:"
+            xcrun stapler validate "$DMG" 2>&1 \
+              && echo "   ✅ Re-staple verified" \
+              || { echo "   ❌ VALIDATE FAILED after re-staple"; FAILED=1; }
+
+            echo "   SHA-256 after re-staple: $(shasum -a 256 "$DMG")"
             echo ""
           done
+
           echo "══════════════════════════════════════════════════════════════"
+          if [ "$FAILED" -ne 0 ]; then
+            echo "❌ CHECKPOINT 2 FAILED — one or more DMGs are not properly notarized."
+            echo "   Do NOT release. Fix the notarization pipeline and re-run."
+            exit 1
+          fi
+          echo "✅ CHECKPOINT 2 PASSED — all DMGs re-stapled successfully"
 
       - name: Prepare release assets
         shell: bash
@@ -288,38 +318,66 @@ jobs:
           set -euo pipefail
           mkdir -p release
 
+          echo "══════════════════════════════════════════════════════════════"
+          echo "Prepare release assets"
+          echo "══════════════════════════════════════════════════════════════"
+
           # ── macOS ARM64 DMG ──────────────────────────────────────────────
           if [ -d "dist/askimo-desktop-installer-macos-arm64" ]; then
             SRC=$(find dist/askimo-desktop-installer-macos-arm64 -name "*.dmg" -type f | head -n1)
+            if [ -z "$SRC" ]; then
+              echo "❌ ARM64 DMG not found in dist/askimo-desktop-installer-macos-arm64/" >&2; exit 1
+            fi
             DEST="release/Askimo-Desktop-macos-arm64.dmg"
-            ditto "$SRC" "$DEST"
-            echo "✓ Copied ARM64 DMG → $DEST"
+            # cp preserves the embedded staple ticket (it's in the DMG code signature,
+            # not a filesystem xattr, so a plain copy is sufficient)
+            cp "$SRC" "$DEST"
+            echo "✓ Copied ARM64 DMG  : $DEST  ($(du -sh "$DEST" | cut -f1))"
+            # Verify ticket survived the copy
+            xcrun stapler validate "$DEST" 2>&1 \
+              && echo "  ✅ Staple ticket intact after copy" \
+              || { echo "  ❌ Staple ticket LOST after cp — aborting"; exit 1; }
           fi
 
           # ── macOS Intel DMG ──────────────────────────────────────────────
           if [ -d "dist/askimo-desktop-installer-macos-intel" ]; then
             SRC=$(find dist/askimo-desktop-installer-macos-intel -name "*.dmg" -type f | head -n1)
+            if [ -z "$SRC" ]; then
+              echo "❌ Intel DMG not found in dist/askimo-desktop-installer-macos-intel/" >&2; exit 1
+            fi
             DEST="release/Askimo-Desktop-macos-x64.dmg"
-            ditto "$SRC" "$DEST"
-            echo "✓ Copied Intel DMG → $DEST"
+            cp "$SRC" "$DEST"
+            echo "✓ Copied Intel DMG  : $DEST  ($(du -sh "$DEST" | cut -f1))"
+            xcrun stapler validate "$DEST" 2>&1 \
+              && echo "  ✅ Staple ticket intact after copy" \
+              || { echo "  ❌ Staple ticket LOST after cp — aborting"; exit 1; }
           fi
 
           # ── Windows MSI ──────────────────────────────────────────────────
           if [ -d "dist/askimo-desktop-installer-windows" ]; then
             MSI=$(find dist/askimo-desktop-installer-windows -name "*.msi" -type f | head -n1)
-            [ -n "$MSI" ] && cp "$MSI" "release/Askimo-Desktop-windows-x64.msi" && echo "✓ Copied Windows MSI"
+            if [ -n "$MSI" ]; then
+              cp "$MSI" "release/Askimo-Desktop-windows-x64.msi"
+              echo "✓ Copied Windows MSI: release/Askimo-Desktop-windows-x64.msi"
+            fi
           fi
 
           # ── Linux x64 DEB ────────────────────────────────────────────────
           if [ -d "dist/askimo-desktop-installer-linux" ]; then
             DEB=$(find dist/askimo-desktop-installer-linux -name "*.deb" -type f | head -n1)
-            [ -n "$DEB" ] && cp "$DEB" "release/Askimo-Desktop-linux-x64.deb" && echo "✓ Copied Linux x64 DEB"
+            if [ -n "$DEB" ]; then
+              cp "$DEB" "release/Askimo-Desktop-linux-x64.deb"
+              echo "✓ Copied Linux x64  : release/Askimo-Desktop-linux-x64.deb"
+            fi
           fi
 
           # ── Linux ARM64 DEB ──────────────────────────────────────────────
           if [ -d "dist/askimo-desktop-installer-linux-arm64" ]; then
             DEB=$(find dist/askimo-desktop-installer-linux-arm64 -name "*.deb" -type f | head -n1)
-            [ -n "$DEB" ] && cp "$DEB" "release/Askimo-Desktop-linux-arm64.deb" && echo "✓ Copied Linux ARM64 DEB"
+            if [ -n "$DEB" ]; then
+              cp "$DEB" "release/Askimo-Desktop-linux-arm64.deb"
+              echo "✓ Copied Linux ARM64: release/Askimo-Desktop-linux-arm64.deb"
+            fi
           fi
 
           # ── Uber JARs ────────────────────────────────────────────────────
@@ -333,21 +391,30 @@ jobs:
             destname="${entry##*:}"
             if [ -d "dist/$artifact" ]; then
               JAR=$(find "dist/$artifact" -name "*.jar" -type f | head -n1)
-              [ -n "$JAR" ] && cp "$JAR" "release/$destname" && echo "✓ Copied $destname"
+              if [ -n "$JAR" ]; then
+                cp "$JAR" "release/$destname"
+                echo "✓ Copied JAR        : release/$destname"
+              fi
             fi
           done
 
+          echo ""
           if [ -z "$(ls release/ 2>/dev/null)" ]; then
-            echo "❌ No release files found" >&2
+            echo "❌ No release files found in release/ — aborting" >&2
             exit 1
           fi
 
+          echo "Computing checksums..."
           cd release && shasum -a 256 * > SHA256SUMS.txt && cd ..
-          echo "Release files:" && ls -lh release/
+
+          echo ""
+          echo "Release files prepared:"
+          ls -lh release/
+          echo "══════════════════════════════════════════════════════════════"
 
       # ── CHECKPOINT 3: final gate before upload to GitHub Releases ────────
-      # If staple ticket is missing here, users will see the security warning.
-      # Hard fail so we never publish a broken DMG.
+      # Hard fail if staple ticket or Gatekeeper check is missing.
+      # This is the LAST line of defence before files reach users.
       - name: "[macOS] Final validation of release DMGs before GitHub upload"
         shell: bash
         run: |
@@ -358,17 +425,30 @@ jobs:
           echo "CHECKPOINT 3 — Final gate before GitHub Releases upload"
           echo "══════════════════════════════════════════════════════════════"
 
-          for DMG in release/Askimo-Desktop-macos-*.dmg; do
-            [ -f "$DMG" ] || continue
-            echo "── $DMG ─────────────────────────────────────────────────"
-            ls -lh "$DMG"
-            shasum -a 256 "$DMG"
-            codesign --display --verbose=4 "$DMG" 2>&1 | grep -E "CDHash|TeamIdentifier|Identifier" || true
+          shopt -s nullglob
+          DMGS=(release/Askimo-Desktop-macos-*.dmg)
+          if [ ${#DMGS[@]} -eq 0 ]; then
+            echo "⚠️  No macOS DMGs found in release/ — skipping macOS validation"
+          fi
 
+          for DMG in "${DMGS[@]}"; do
+            echo "──────────────────────────────────────────────────────────"
+            echo "Validating: $DMG"
+            ls -lh "$DMG"
+            echo "SHA-256: $(shasum -a 256 "$DMG")"
+
+            echo "Code signature:"
+            codesign --verify --verbose=2 "$DMG" 2>&1 \
+              && echo "✅ Signature OK" \
+              || { echo "❌ SIGNATURE INVALID — DO NOT RELEASE"; FAILED=1; }
+            codesign --display --verbose=4 "$DMG" 2>&1 | grep -E "CDHash|TeamIdentifier|Identifier|Authority|Signed Time" || true
+
+            echo "Staple ticket:"
             xcrun stapler validate "$DMG" 2>&1 \
               && echo "✅ Staple ticket present" \
               || { echo "❌ STAPLE TICKET MISSING — DO NOT RELEASE"; FAILED=1; }
 
+            echo "Gatekeeper assessment:"
             spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG" 2>&1 \
               && echo "✅ Gatekeeper accepts" \
               || { echo "❌ Gatekeeper REJECTS — DO NOT RELEASE"; FAILED=1; }
@@ -377,10 +457,11 @@ jobs:
 
           echo "══════════════════════════════════════════════════════════════"
           if [ "$FAILED" -ne 0 ]; then
-            echo "❌ One or more DMGs failed validation. Aborting release."
+            echo "❌ CHECKPOINT 3 FAILED — one or more DMGs did not pass validation."
+            echo "   Aborting release. Check the output above for details."
             exit 1
           fi
-          echo "✅ All DMGs passed — safe to upload to GitHub Releases"
+          echo "✅ CHECKPOINT 3 PASSED — all DMGs are safe to upload to GitHub Releases"
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2

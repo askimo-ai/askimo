@@ -1633,9 +1633,14 @@ tasks.register("createSignedDmg") {
             commandLine("ln", "-s", "/Applications", "Applications")
         }
 
-        // Create temporary read-write DMG
+        // ── Step 1: Create temporary read-write DMG ───────────────────────────
+        // Use -nobrowse so Finder never auto-opens the volume (which would hold
+        // it open and make hdiutil detach fail with "Resource busy").
         val tempDmg = File(notarizedDir, "Askimo-temp.dmg").apply { delete() }
-        logger.lifecycle("📀 Creating temporary DMG...")
+        logger.lifecycle("── createSignedDmg ─────────────────────────────────────────────────")
+        logger.lifecycle("📀 [1/6] Creating temporary read-write DMG from staging dir...")
+        logger.lifecycle("   srcfolder : ${dmgStaging.absolutePath}")
+        logger.lifecycle("   output    : ${tempDmg.absolutePath}")
         execOps.exec {
             commandLine(
                 "hdiutil",
@@ -1650,131 +1655,138 @@ tasks.register("createSignedDmg") {
                 tempDmg.absolutePath,
             )
         }
+        if (!tempDmg.exists()) throw GradleException("❌ Temp DMG was not created: ${tempDmg.absolutePath}")
+        logger.lifecycle("   ✅ Temp DMG created (${tempDmg.length() / 1024 / 1024} MB)")
 
-        // Mount the DMG
-        logger.lifecycle("💿 Mounting DMG for customization...")
+        // ── Step 2: Mount with -nobrowse (no Finder auto-open) ───────────────
+        logger.lifecycle("💿 [2/6] Mounting DMG (nobrowse, noverify)...")
         val mountOutput = ByteArrayOutputStream()
         execOps.exec {
-            commandLine("hdiutil", "attach", "-readwrite", "-noverify", tempDmg.absolutePath)
+            commandLine(
+                "hdiutil",
+                "attach",
+                "-readwrite",
+                "-noverify",
+                "-nobrowse", // <-- prevents Finder from holding the volume open
+                tempDmg.absolutePath,
+            )
             standardOutput = mountOutput
         }
 
+        val mountOutputStr = mountOutput.toString()
+        logger.lifecycle("   hdiutil attach output:\n$mountOutputStr")
+
+        // hdiutil attach output has lines like:
+        //   /dev/disk2s1  Apple_APFS  /Volumes/Askimo
+        // Extract the /Volumes/... path from the last tab-separated field on the matching line.
         val mountPath =
-            mountOutput
-                .toString()
+            mountOutputStr
                 .lines()
                 .firstOrNull { it.contains("/Volumes/") }
-                ?.substringAfter("/Volumes/")
+                ?.split("\t")
+                ?.lastOrNull { it.trim().startsWith("/Volumes/") }
                 ?.trim()
-                ?.let { "/Volumes/$it" }
-                ?: throw GradleException("Could not determine mount path")
+                ?: mountOutputStr
+                    .lines()
+                    .firstOrNull { it.contains("/Volumes/") }
+                    ?.let { line ->
+                        val idx = line.indexOf("/Volumes/")
+                        line
+                            .substring(idx)
+                            .trim()
+                            .substringBefore("\t")
+                            .trim()
+                    }
+                ?: throw GradleException("❌ Could not determine mount path from hdiutil output:\n$mountOutputStr")
 
-        logger.lifecycle("✅ Mounted at: $mountPath")
+        logger.lifecycle("   ✅ Mounted at: $mountPath")
 
+        // ── Step 3: Copy background (no Finder involved) ─────────────────────
         try {
-            // Copy background image to .background folder in DMG
+            logger.lifecycle("🖼️  [3/6] Copying background image (headless, no Finder)...")
             val backgroundDir = File(mountPath, ".background")
             backgroundDir.mkdirs()
             val backgroundImage = project.file("src/main/resources/images/dmg-background.png")
 
             if (backgroundImage.exists()) {
-                logger.lifecycle("🖼️ Copying background image...")
                 backgroundImage.copyTo(File(backgroundDir, "background.png"), overwrite = true)
+                logger.lifecycle("   ✅ Background image copied")
+            } else {
+                logger.lifecycle("   ⚠️  No background image found at ${backgroundImage.absolutePath} — skipping")
             }
 
-            // Wait for Finder to recognize the mounted volume
-            logger.lifecycle("⏳ Waiting for Finder to recognize volume...")
-            Thread.sleep(2000)
-
-            // Set background image and window settings
-            val backgroundScript =
-                """
-                tell application "Finder"
-                    tell disk "Askimo"
-                        open
-                        set current view of container window to icon view
-                        set toolbar visible of container window to false
-                        set statusbar visible of container window to false
-                        set the bounds of container window to {400, 100, 920, 480}
-                        set viewOptions to the icon view options of container window
-                        set arrangement of viewOptions to not arranged
-                        set icon size of viewOptions to 100
-                        set background picture of viewOptions to file ".background:background.png"
-                        set text size of viewOptions to 13
-                        set position of item "${appToSign.name}" of container window to {130, 190}
-                        set position of item "Applications" of container window to {390, 190}
-                        update without registering applications
-                        delay 1
-                        close
-                    end tell
-                end tell
-                """.trimIndent()
-
-            logger.lifecycle("🎨 Applying window settings...")
-            execOps.exec {
-                commandLine("osascript", "-e", backgroundScript)
-                isIgnoreExitValue = true
-            }
-
-            // Give Finder time to save the settings
-            logger.lifecycle("⏳ Waiting for Finder to save settings...")
-            Thread.sleep(3000)
-
-            // Sync to ensure all changes are written
-            logger.lifecycle("💾 Syncing filesystem...")
+            // Sync filesystem writes before unmount
+            logger.lifecycle("💾 [3/6] Syncing filesystem writes...")
             execOps.exec {
                 commandLine("sync")
                 isIgnoreExitValue = true
             }
             Thread.sleep(500)
-
-            // Force Finder to close all windows for the volume
-            logger.lifecycle("🔒 Closing Finder windows...")
-            execOps.exec {
-                commandLine("osascript", "-e", "tell application \"Finder\" to close every window")
-                isIgnoreExitValue = true
-            }
-            Thread.sleep(1000)
         } finally {
-            // Unmount with retries
-            logger.lifecycle("💿 Unmounting DMG...")
+            // ── Step 4: Unmount cleanly ──────────────────────────────────────
+            // Strategy: sync → diskutil quiet unmount → hdiutil detach -force
+            // No Finder involved, so unmount should be immediate.
+            logger.lifecycle("💿 [4/6] Unmounting DMG (no Finder, should be clean)...")
             var unmounted = false
-            var attempts = 0
-            val maxAttempts = 5
 
-            while (!unmounted && attempts < maxAttempts) {
-                attempts++
-                try {
-                    if (attempts > 1) {
-                        logger.lifecycle("   Retry attempt $attempts/$maxAttempts...")
-                        Thread.sleep(2000)
-                    }
+            // Try diskutil first (gentler)
+            val diskutilResult =
+                ByteArrayOutputStream().let { out ->
+                    execOps
+                        .exec {
+                            commandLine("diskutil", "unmount", mountPath)
+                            standardOutput = out
+                            errorOutput = out
+                            isIgnoreExitValue = true
+                        }.exitValue
+                        .also { logger.lifecycle("   diskutil unmount exit=$it  $out") }
+                }
+            if (diskutilResult == 0) {
+                unmounted = true
+                logger.lifecycle("   ✅ Unmounted via diskutil")
+            }
 
+            if (!unmounted) {
+                // Fallback: hdiutil detach -force
+                logger.lifecycle("   ⚠️  diskutil failed, trying hdiutil detach -force...")
+                val detachOut = ByteArrayOutputStream()
+                val detachResult =
                     execOps.exec {
                         commandLine("hdiutil", "detach", mountPath, "-force")
-                        isIgnoreExitValue = false
+                        standardOutput = detachOut
+                        errorOutput = detachOut
+                        isIgnoreExitValue = true
                     }
+                logger.lifecycle("   hdiutil detach exit=${detachResult.exitValue}  $detachOut")
+                if (detachResult.exitValue == 0) {
                     unmounted = true
-                    logger.lifecycle("✅ DMG unmounted successfully")
-                } catch (_: Exception) {
-                    if (attempts < maxAttempts) {
-                        logger.lifecycle("⚠️  Unmount failed, will retry...")
-                        // Kill any processes that might be using the volume
-                        execOps.exec {
-                            commandLine("lsof", "+D", mountPath)
-                            isIgnoreExitValue = true
-                            standardOutput = System.out
-                        }
-                    } else {
-                        logger.warn("⚠️  Could not unmount DMG after $maxAttempts attempts, continuing anyway...")
-                    }
+                    logger.lifecycle("   ✅ Unmounted via hdiutil detach -force")
                 }
+            }
+
+            if (!unmounted) {
+                // Last resort: list open files and hard fail so we don't try to
+                // convert a still-mounted DMG (which always fails with ETXTBSY).
+                val lsofOut = ByteArrayOutputStream()
+                execOps.exec {
+                    commandLine("lsof", "+D", mountPath)
+                    standardOutput = lsofOut
+                    errorOutput = lsofOut
+                    isIgnoreExitValue = true
+                }
+                throw GradleException(
+                    "❌ Could not unmount $mountPath after all attempts.\n" +
+                        "Open files:\n$lsofOut\n" +
+                        "Cannot safely convert a mounted DMG — fix the above before retrying.",
+                )
             }
         }
 
-        // Convert to compressed, read-only DMG
+        // ── Step 5: Convert to compressed, read-only DMG ─────────────────────
         val signedDmg = File(notarizedDir, "Askimo-signed.dmg").apply { delete() }
-        logger.lifecycle("📀 Creating final compressed DMG...")
+        logger.lifecycle("📀 [5/6] Converting temp DMG → compressed read-only DMG...")
+        logger.lifecycle("   input  : ${tempDmg.absolutePath} (${tempDmg.length() / 1024 / 1024} MB)")
+        logger.lifecycle("   output : ${signedDmg.absolutePath}")
         execOps.exec {
             commandLine(
                 "hdiutil",
@@ -1786,13 +1798,17 @@ tasks.register("createSignedDmg") {
                 signedDmg.absolutePath,
             )
         }
+        if (!signedDmg.exists()) throw GradleException("❌ Compressed DMG was not created: ${signedDmg.absolutePath}")
+        logger.lifecycle("   ✅ Compressed DMG created (${signedDmg.length() / 1024 / 1024} MB)")
 
-        // Clean up
+        // Clean up temp artifacts
         tempDmg.delete()
         dmgStaging.deleteRecursively()
 
-        // Sign DMG
-        logger.lifecycle("🔧 Signing DMG...")
+        // ── Step 6: Sign the compressed DMG ──────────────────────────────────
+        logger.lifecycle("🔧 [6/6] Code-signing the compressed DMG...")
+        logger.lifecycle("   identity  : $macosIdentity")
+        logger.lifecycle("   keychain  : ${keychainPath ?: "(default)"}")
         execOps.exec {
             val cmd =
                 buildList {
@@ -1810,13 +1826,47 @@ tasks.register("createSignedDmg") {
             commandLine(cmd)
         }
 
-        // Verify DMG signature
-        logger.lifecycle("🔎 Verifying DMG signature...")
-        execOps.exec {
-            commandLine("codesign", "--verify", "--verbose=2", signedDmg.absolutePath)
+        // Hard-fail verification of DMG signature
+        logger.lifecycle("🔎 [6/6] Verifying DMG code signature...")
+        val verifyOut = ByteArrayOutputStream()
+        val verifyResult =
+            execOps.exec {
+                commandLine("codesign", "--verify", "--verbose=2", signedDmg.absolutePath)
+                standardOutput = verifyOut
+                errorOutput = verifyOut
+                isIgnoreExitValue = true
+            }
+        logger.lifecycle(verifyOut.toString())
+        if (verifyResult.exitValue != 0) {
+            throw GradleException("❌ codesign verify failed (exit ${verifyResult.exitValue}) — DMG signature is invalid")
         }
 
+        // Display signature details
+        val displayOut = ByteArrayOutputStream()
+        execOps.exec {
+            commandLine("codesign", "--display", "--verbose=4", signedDmg.absolutePath)
+            standardOutput = displayOut
+            errorOutput = displayOut
+            isIgnoreExitValue = true
+        }
+        logger.lifecycle(
+            displayOut
+                .toString()
+                .lines()
+                .filter { line ->
+                    line.contains("CDHash") || line.contains("TeamIdentifier") ||
+                        line.contains("Identifier") || line.contains("Authority") ||
+                        line.contains("Signed Time")
+                }.joinToString("\n"),
+        )
+
+        logger.lifecycle("── createSignedDmg complete ────────────────────────────────────────")
         logger.lifecycle("✅ DMG created and signed: ${signedDmg.absolutePath}")
+        logger.lifecycle("   SHA-256:")
+        execOps.exec {
+            commandLine("shasum", "-a", "256", signedDmg.absolutePath)
+            isIgnoreExitValue = true
+        }
     }
 }
 
@@ -1834,9 +1884,44 @@ tasks.register("customNotarizeDmg") {
         val notarizedDir = file("${layout.buildDirectory.get()}/compose/notarized")
         val signedDmg = File(notarizedDir, "Askimo-signed.dmg")
 
+        logger.lifecycle("── customNotarizeDmg ───────────────────────────────────────────────")
+
         if (!signedDmg.exists()) {
-            throw GradleException("Signed DMG not found: ${signedDmg.absolutePath}")
+            throw GradleException(
+                "❌ Signed DMG not found: ${signedDmg.absolutePath}\n" +
+                    "Contents of $notarizedDir:\n" +
+                    (notarizedDir.listFiles()?.joinToString("\n") { "  ${it.name}" } ?: "  (empty)"),
+            )
         }
+        logger.lifecycle("📦 DMG: ${signedDmg.absolutePath} (${signedDmg.length() / 1024 / 1024} MB)")
+
+        // ── Pre-submission check: DMG must be signed ──────────────────────
+        logger.lifecycle("🔍 [pre] Verifying DMG is signed before submission...")
+        val preVerifyOut = ByteArrayOutputStream()
+        val preVerifyResult =
+            execOps.exec {
+                commandLine("codesign", "--verify", "--verbose=2", signedDmg.absolutePath)
+                standardOutput = preVerifyOut
+                errorOutput = preVerifyOut
+                isIgnoreExitValue = true
+            }
+        logger.lifecycle(preVerifyOut.toString())
+        if (preVerifyResult.exitValue != 0) {
+            throw GradleException("❌ DMG is not properly signed before notarization — aborting (exit ${preVerifyResult.exitValue})")
+        }
+        logger.lifecycle("   ✅ DMG signature OK before submission")
+
+        // ── SHA-256 before submission ─────────────────────────────────────
+        val sha256Before =
+            ByteArrayOutputStream().use { out ->
+                execOps.exec {
+                    commandLine("shasum", "-a", "256", signedDmg.absolutePath)
+                    standardOutput = out
+                    isIgnoreExitValue = true
+                }
+                out.toString().trim()
+            }
+        logger.lifecycle("   SHA-256 before submission: $sha256Before")
 
         // Notarization credentials - App-Specific Password
         val appleId =
@@ -1859,7 +1944,7 @@ tasks.register("customNotarizeDmg") {
                 applePassword,
             )
 
-        logger.lifecycle("🔐 Notarizing DMG...")
+        logger.lifecycle("🔐 [1/3] Submitting DMG to Apple notarytool (--wait)...")
 
         // Submit for notarization
         val notarizationOutput =
@@ -1914,10 +1999,45 @@ tasks.register("customNotarizeDmg") {
             }
             throw GradleException("❌ Notarization failed (status=$status)")
         }
+        logger.lifecycle("   ✅ Apple accepted the notarization submission")
 
-        // Wait for ticket propagation and staple with retries
+        // ── Staple the ticket ─────────────────────────────────────────────
+        logger.lifecycle("📎 [2/3] Stapling notarization ticket to DMG...")
         stapleWithRetry(signedDmg)
 
+        // ── Post-staple validation: hard fail if ticket is missing ────────
+        logger.lifecycle("🔍 [3/3] Post-staple validation...")
+        val validateOut = ByteArrayOutputStream()
+        val validateResult =
+            execOps.exec {
+                commandLine("xcrun", "stapler", "validate", signedDmg.absolutePath)
+                standardOutput = validateOut
+                errorOutput = validateOut
+                isIgnoreExitValue = true
+            }
+        logger.lifecycle(validateOut.toString())
+        if (validateResult.exitValue != 0) {
+            throw GradleException(
+                "❌ xcrun stapler validate FAILED after stapling (exit ${validateResult.exitValue})\n" +
+                    "The staple ticket was NOT embedded — this DMG will trigger Gatekeeper warnings.\n" +
+                    validateOut.toString(),
+            )
+        }
+        logger.lifecycle("   ✅ Staple ticket embedded and validated")
+
+        // Final SHA-256 (should match before since stapler only adds a resource)
+        val sha256After =
+            ByteArrayOutputStream().use { out ->
+                execOps.exec {
+                    commandLine("shasum", "-a", "256", signedDmg.absolutePath)
+                    standardOutput = out
+                    isIgnoreExitValue = true
+                }
+                out.toString().trim()
+            }
+        logger.lifecycle("   SHA-256 after staple : $sha256After")
+
+        logger.lifecycle("── customNotarizeDmg complete ──────────────────────────────────────")
         logger.lifecycle("✅ Done. Output: ${signedDmg.absolutePath}")
         logger.lifecycle("")
         logger.lifecycle("Verify with:")
