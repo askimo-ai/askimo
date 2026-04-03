@@ -2,12 +2,12 @@ name: Desktop
 
 on:
   push:
-    tags: [ "v*" ]  # Trigger on version tags (e.g., v0.3.0)
-  pull_request:  # Build on every PR
-  workflow_dispatch:  # Allow manual trigger
+    tags: [ "v*" ]
+  pull_request:
+  workflow_dispatch:
 
 jobs:
-  # Build desktop application for each platform (runs on PRs and releases)
+  # ── Build (PRs + releases) ────────────────────────────────────────────────
   desktop-build:
     name: desktop-build-${{ matrix.name }}
     runs-on: ${{ matrix.os }}
@@ -51,7 +51,7 @@ jobs:
         run: .\gradlew.bat --no-daemon "-Dorg.gradle.jvmargs=-Xmx4g" desktop:build
 
 
-  # Package desktop installers for each platform (runs only on release tags)
+  # ── Package + notarize installers (release tags only) ────────────────────
   desktop-package:
     name: desktop-package-${{ matrix.name }}
     if: startsWith(github.ref, 'refs/tags/v')
@@ -103,21 +103,11 @@ jobs:
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/') }}
 
-      - name: Build desktop application (Linux/macOS)
-        if: runner.os != 'Windows'
-        run: ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx4g" desktop:build
-
-      - name: Build desktop application (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: .\gradlew.bat --no-daemon "-Dorg.gradle.jvmargs=-Xmx4g" desktop:build
-
-      - name: Package desktop installer (Linux/macOS)
+      # Runs build + sign + notarize + staple in one Gradle task chain.
+      # On macOS the chain is: build → signMacApp → notarizeApp → createSignedDmg → customNotarizeDmg → customNotarizeMacApp
+      - name: Package and notarize installer (Linux/macOS)
         if: runner.os != 'Windows'
         env:
-          # Certificate import + keychain setup is handled entirely by the Gradle task.
-          # These env vars mirror exactly what you set in your local .env file.
-          # MACOS_IDENTITY is optional — auto-detected from the imported cert.
           MACOS_CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
           MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
@@ -126,24 +116,60 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx4g" desktop:${{ matrix.task }}
 
-      - name: Package desktop installer (Windows)
+      - name: Package installer (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: .\gradlew.bat --no-daemon "-Dorg.gradle.jvmargs=-Xmx4g" desktop:${{ matrix.task }}
 
+      # ── CHECKPOINT 1: verify DMG is properly signed + stapled before upload ──
+      # If this fails the whole pipeline stops — no point uploading a broken artifact.
+      - name: "[macOS] Verify DMG signature and staple ticket before upload"
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DMG="${{ matrix.artifact-pattern }}"
+
+          echo "══════════════════════════════════════════════════════════════"
+          echo "CHECKPOINT 1 — DMG before upload to artifact store"
+          echo "══════════════════════════════════════════════════════════════"
+
+          if [ ! -f "$DMG" ]; then
+            echo "❌ DMG not found: $DMG"
+            echo "Contents of desktop/build/compose/notarized/:"
+            ls -la desktop/build/compose/notarized/ || true
+            exit 1
+          fi
+
+          echo "── File ────────────────────────────────────────────────────"
+          ls -lh "$DMG"
+          shasum -a 256 "$DMG"
+
+          echo "── Code signature ──────────────────────────────────────────"
+          codesign --verify --verbose=2 "$DMG" 2>&1 || { echo "❌ codesign verify failed"; exit 1; }
+          codesign --display --verbose=4 "$DMG" 2>&1 | grep -E "CDHash|TeamIdentifier|Identifier|Authority" || true
+
+          echo "── Staple ticket ───────────────────────────────────────────"
+          xcrun stapler validate "$DMG" 2>&1 || { echo "❌ STAPLE TICKET MISSING — Gradle task failed to staple"; exit 1; }
+          echo "✅ Staple ticket present"
+
+          echo "── Gatekeeper assessment ───────────────────────────────────"
+          spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG" 2>&1 \
+            || { echo "❌ Gatekeeper rejected DMG"; exit 1; }
+          echo "✅ Gatekeeper accepts DMG"
+          echo "══════════════════════════════════════════════════════════════"
 
       - name: Build uber JAR (Linux/macOS)
         if: runner.os != 'Windows'
         run: ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx4g" desktop:packageUberJarForCurrentOS
-
 
       - name: Build uber JAR (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: .\gradlew.bat --no-daemon "-Dorg.gradle.jvmargs=-Xmx4g" desktop:packageUberJarForCurrentOS
 
-      - name: Find installer package
-        id: package
+      - name: Locate artifacts
+        id: locate
         shell: bash
         run: |
           set -euo pipefail
@@ -152,46 +178,34 @@ jobs:
           if [ "$RUNNER_OS" == "macOS" ]; then
             PKG="$PATTERN"
             if [ ! -f "$PKG" ]; then
-              echo "Error: artifact not found at: $PKG" >&2
-              echo "Listing desktop/build/compose/notarized/:"
+              echo "❌ Installer not found at: $PKG" >&2
               ls -la desktop/build/compose/notarized/ || true
               exit 1
             fi
           else
-            if compgen -G "$PATTERN" > /dev/null 2>&1; then
-              PKG="$(compgen -G "$PATTERN" | head -n1)"
-            else
-              PKG="$(ls $PATTERN 2>/dev/null | head -n1)" || true
-            fi
+            PKG="$(compgen -G "$PATTERN" 2>/dev/null | head -n1 || ls $PATTERN 2>/dev/null | head -n1 || true)"
             if [ -z "$PKG" ]; then
-              echo "Error: No installer found matching pattern: $PATTERN" >&2
+              echo "❌ No installer found matching: $PATTERN" >&2
               exit 1
             fi
           fi
 
-          echo "package=$PKG" >> $GITHUB_OUTPUT
-          echo "Found installer: $PKG"
-
-      - name: Find uber JAR
-        id: jar
-        shell: bash
-        run: |
-          set -euo pipefail
-          JAR=$(find desktop/build/compose/jars -name "*.jar" -type f | head -n1)
-
+          JAR=$(find desktop/build/compose/jars -name "*.jar" -type f 2>/dev/null | head -n1 || true)
           if [ -z "$JAR" ]; then
-            echo "Error: No uber JAR found" >&2
+            echo "❌ No uber JAR found in desktop/build/compose/jars/" >&2
             exit 1
           fi
 
-          echo "jar=$JAR" >> $GITHUB_OUTPUT
-          echo "Found uber JAR: $JAR"
+          echo "package=$PKG" >> $GITHUB_OUTPUT
+          echo "jar=$JAR"     >> $GITHUB_OUTPUT
+          echo "✓ Installer : $PKG"
+          echo "✓ Uber JAR  : $JAR"
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v6
         with:
           name: askimo-desktop-installer-${{ matrix.artifact-suffix }}
-          path: ${{ steps.package.outputs.package }}
+          path: ${{ steps.locate.outputs.package }}
           if-no-files-found: error
           retention-days: 14
 
@@ -199,7 +213,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: askimo-desktop-jar-${{ matrix.artifact-suffix }}
-          path: ${{ steps.jar.outputs.jar }}
+          path: ${{ steps.locate.outputs.jar }}
           if-no-files-found: error
           retention-days: 14
 
@@ -212,7 +226,8 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-  # Create GitHub release with all desktop installers and JARs
+
+  # ── Create GitHub release ─────────────────────────────────────────────────
   release:
     name: Create Desktop Release
     if: startsWith(github.ref, 'refs/tags/v')
@@ -227,74 +242,87 @@ jobs:
         with:
           path: dist
 
-      - name: List downloaded artifacts
+      # ── CHECKPOINT 2: confirm what arrived after upload-artifact round-trip ──
+      # upload-artifact zips the file which strips macOS xattrs (staple ticket).
+      # We must re-staple here. This step shows exactly what we received.
+      - name: "[macOS] Re-staple DMGs after artifact download"
         shell: bash
         run: |
-          echo "Downloaded artifacts:"
-          ls -lhR dist/
-
-      - name: Re-staple notarization tickets to macOS DMGs
-        # actions/upload-artifact zips artifacts during transfer which can strip the
-        # embedded staple ticket from DMG files. Since notarization was accepted in
-        # the desktop-package job, the ticket is permanently on Apple's CDN and can
-        # be re-stapled here without re-submitting to notarytool.
-        run: |
           set -euo pipefail
+          echo "══════════════════════════════════════════════════════════════"
+          echo "CHECKPOINT 2 — DMGs after download-artifact (xattrs stripped)"
+          echo "══════════════════════════════════════════════════════════════"
+          echo "Downloaded artifact tree:"
+          ls -lhR dist/
+          echo ""
+
           for platform in macos-arm64 macos-intel; do
-            DMG=$(find "dist/askimo-desktop-installer-${platform}" -name "*.dmg" -type f 2>/dev/null | head -n1)
+            DMG=$(find "dist/askimo-desktop-installer-${platform}" -name "*.dmg" -type f 2>/dev/null | head -n1 || true)
             if [ -z "$DMG" ]; then
-              echo "⚠️  No DMG found for $platform, skipping"
+              echo "⚠️  No DMG for $platform — skipping"
               continue
             fi
-            echo "📎 Re-stapling $platform DMG: $DMG"
-            xcrun stapler staple "$DMG"
-            xcrun stapler validate "$DMG"
-            echo "✅ Staple verified: $DMG"
+
+            echo "── $platform ────────────────────────────────────────────────"
+            ls -lh "$DMG"
+            shasum -a 256 "$DMG"
+            codesign --display --verbose=4 "$DMG" 2>&1 | grep -E "CDHash|TeamIdentifier|Identifier" || true
+
+            # Ticket is expected to be gone after upload-artifact zip round-trip
+            xcrun stapler validate "$DMG" 2>&1 \
+              && echo "ℹ️  Ticket still present (lucky)" \
+              || echo "ℹ️  Ticket stripped by upload-artifact (expected)"
+
+            echo "📎 Re-stapling from Apple CDN..."
+            xcrun stapler staple "$DMG" 2>&1 || { echo "❌ Re-staple FAILED for $platform"; exit 1; }
+
+            xcrun stapler validate "$DMG" 2>&1 || { echo "❌ Validate FAILED after re-staple for $platform"; exit 1; }
+            echo "✅ Re-staple verified for $platform"
+            echo ""
           done
+          echo "══════════════════════════════════════════════════════════════"
 
       - name: Prepare release assets
         shell: bash
         run: |
           set -euo pipefail
-
           mkdir -p release
 
-          # ── macOS DMG (ARM64) ────────────────────────────────────────────────
+          # ── macOS ARM64 DMG ──────────────────────────────────────────────
           if [ -d "dist/askimo-desktop-installer-macos-arm64" ]; then
-            DMG=$(find dist/askimo-desktop-installer-macos-arm64 -name "*.dmg" -type f | head -n1)
+            SRC=$(find dist/askimo-desktop-installer-macos-arm64 -name "*.dmg" -type f | head -n1)
             DEST="release/Askimo-Desktop-macos-arm64.dmg"
-            # Use ditto (not cp) so the DMG's resource fork and staple ticket are preserved
-            ditto "$DMG" "$DEST"
-            echo "✓ Packaged macOS ARM64 DMG: $DEST"
+            ditto "$SRC" "$DEST"
+            echo "✓ Copied ARM64 DMG → $DEST"
           fi
 
-          # ── macOS DMG (Intel) ────────────────────────────────────────────────
+          # ── macOS Intel DMG ──────────────────────────────────────────────
           if [ -d "dist/askimo-desktop-installer-macos-intel" ]; then
-            DMG=$(find dist/askimo-desktop-installer-macos-intel -name "*.dmg" -type f | head -n1)
+            SRC=$(find dist/askimo-desktop-installer-macos-intel -name "*.dmg" -type f | head -n1)
             DEST="release/Askimo-Desktop-macos-x64.dmg"
-            ditto "$DMG" "$DEST"
-            echo "✓ Packaged macOS x64 DMG: $DEST"
+            ditto "$SRC" "$DEST"
+            echo "✓ Copied Intel DMG → $DEST"
           fi
 
-          # ── Windows MSI ──────────────────────────────────────────────────────
+          # ── Windows MSI ──────────────────────────────────────────────────
           if [ -d "dist/askimo-desktop-installer-windows" ]; then
             MSI=$(find dist/askimo-desktop-installer-windows -name "*.msi" -type f | head -n1)
-            [ -n "$MSI" ] && cp "$MSI" "release/Askimo-Desktop-windows-x64.msi" && echo "✓ Packaged Windows x64 MSI"
+            [ -n "$MSI" ] && cp "$MSI" "release/Askimo-Desktop-windows-x64.msi" && echo "✓ Copied Windows MSI"
           fi
 
-          # ── Linux DEB (x64) ──────────────────────────────────────────────────
+          # ── Linux x64 DEB ────────────────────────────────────────────────
           if [ -d "dist/askimo-desktop-installer-linux" ]; then
             DEB=$(find dist/askimo-desktop-installer-linux -name "*.deb" -type f | head -n1)
-            [ -n "$DEB" ] && cp "$DEB" "release/Askimo-Desktop-linux-x64.deb" && echo "✓ Packaged Linux x64 DEB"
+            [ -n "$DEB" ] && cp "$DEB" "release/Askimo-Desktop-linux-x64.deb" && echo "✓ Copied Linux x64 DEB"
           fi
 
-          # ── Linux DEB (ARM64) ────────────────────────────────────────────────
+          # ── Linux ARM64 DEB ──────────────────────────────────────────────
           if [ -d "dist/askimo-desktop-installer-linux-arm64" ]; then
             DEB=$(find dist/askimo-desktop-installer-linux-arm64 -name "*.deb" -type f | head -n1)
-            [ -n "$DEB" ] && cp "$DEB" "release/Askimo-Desktop-linux-arm64.deb" && echo "✓ Packaged Linux ARM64 DEB"
+            [ -n "$DEB" ] && cp "$DEB" "release/Askimo-Desktop-linux-arm64.deb" && echo "✓ Copied Linux ARM64 DEB"
           fi
 
-          # ── uber JARs ────────────────────────────────────────────────────────
+          # ── Uber JARs ────────────────────────────────────────────────────
           for entry in \
             "askimo-desktop-jar-macos-arm64:askimo-desktop-macos-arm64.jar" \
             "askimo-desktop-jar-macos-intel:askimo-desktop-macos-x64.jar" \
@@ -305,23 +333,56 @@ jobs:
             destname="${entry##*:}"
             if [ -d "dist/$artifact" ]; then
               JAR=$(find "dist/$artifact" -name "*.jar" -type f | head -n1)
-              [ -n "$JAR" ] && cp "$JAR" "release/$destname" && echo "✓ Packaged $destname"
+              [ -n "$JAR" ] && cp "$JAR" "release/$destname" && echo "✓ Copied $destname"
             fi
           done
 
-          # ── Checksums ────────────────────────────────────────────────────────
           if [ -z "$(ls release/ 2>/dev/null)" ]; then
-            echo "Error: No release files found" >&2
+            echo "❌ No release files found" >&2
             exit 1
           fi
-          cd release
-          shasum -a 256 * > SHA256SUMS.txt
-          cd ..
 
-          echo ""
-          echo "Release files prepared:"
-          ls -lh release/
-      - name: Upload Desktop Binaries to Existing Release
+          cd release && shasum -a 256 * > SHA256SUMS.txt && cd ..
+          echo "Release files:" && ls -lh release/
+
+      # ── CHECKPOINT 3: final gate before upload to GitHub Releases ────────
+      # If staple ticket is missing here, users will see the security warning.
+      # Hard fail so we never publish a broken DMG.
+      - name: "[macOS] Final validation of release DMGs before GitHub upload"
+        shell: bash
+        run: |
+          set -euo pipefail
+          FAILED=0
+
+          echo "══════════════════════════════════════════════════════════════"
+          echo "CHECKPOINT 3 — Final gate before GitHub Releases upload"
+          echo "══════════════════════════════════════════════════════════════"
+
+          for DMG in release/Askimo-Desktop-macos-*.dmg; do
+            [ -f "$DMG" ] || continue
+            echo "── $DMG ─────────────────────────────────────────────────"
+            ls -lh "$DMG"
+            shasum -a 256 "$DMG"
+            codesign --display --verbose=4 "$DMG" 2>&1 | grep -E "CDHash|TeamIdentifier|Identifier" || true
+
+            xcrun stapler validate "$DMG" 2>&1 \
+              && echo "✅ Staple ticket present" \
+              || { echo "❌ STAPLE TICKET MISSING — DO NOT RELEASE"; FAILED=1; }
+
+            spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG" 2>&1 \
+              && echo "✅ Gatekeeper accepts" \
+              || { echo "❌ Gatekeeper REJECTS — DO NOT RELEASE"; FAILED=1; }
+            echo ""
+          done
+
+          echo "══════════════════════════════════════════════════════════════"
+          if [ "$FAILED" -ne 0 ]; then
+            echo "❌ One or more DMGs failed validation. Aborting release."
+            exit 1
+          fi
+          echo "✅ All DMGs passed — safe to upload to GitHub Releases"
+
+      - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
