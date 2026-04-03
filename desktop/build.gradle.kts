@@ -1577,10 +1577,15 @@ tasks.register("notarizeApp") {
             throw GradleException("❌ .app notarization failed with status: $status")
         }
 
-        // Wait for ticket propagation and staple with retries
+        // Clean up the temporary ZIP — we do NOT staple the .app here.
+        // The .app will be packaged inside a DMG which is stapled in customNotarizeDmg.
+        // Stapling the .app directly is unreliable: xcrun stapler computes the ticket
+        // lookup hash differently from how notarytool records it for a ZIP submission,
+        // causing "Could not validate ticket" errors even when notarization was Accepted.
+        // Gatekeeper falls back to Apple's CDN for online verification when there is no
+        // embedded staple ticket, so the .app inside the stapled DMG is fully accepted.
         appZip.delete()
-        stapleWithRetry(appToSign)
-        logger.lifecycle("✅ .app notarization complete!")
+        logger.lifecycle("✅ .app notarization complete! (ticket on Apple CDN — DMG will be stapled)")
     }
 }
 

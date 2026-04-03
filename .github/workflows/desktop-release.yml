@@ -149,8 +149,6 @@ jobs:
           set -euo pipefail
           PATTERN="${{ matrix.artifact-pattern }}"
 
-          # For macOS the Gradle task produces a specific tar path; use it directly.
-          # For other platforms glob-expand the pattern.
           if [ "$RUNNER_OS" == "macOS" ]; then
             PKG="$PATTERN"
             if [ ! -f "$PKG" ]; then
@@ -236,14 +234,10 @@ jobs:
           ls -lhR dist/
 
       - name: Re-staple notarization tickets to macOS DMGs
-        # actions/upload-artifact zips files and strips macOS extended attributes,
-        # removing the staple ticket. Since the notarization was accepted in the
-        # desktop-package job, the ticket is permanently on Apple's CDN and can
+        # actions/upload-artifact zips artifacts during transfer which can strip the
+        # embedded staple ticket from DMG files. Since notarization was accepted in
+        # the desktop-package job, the ticket is permanently on Apple's CDN and can
         # be re-stapled here without re-submitting to notarytool.
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
           for platform in macos-arm64 macos-intel; do
@@ -269,7 +263,8 @@ jobs:
           if [ -d "dist/askimo-desktop-installer-macos-arm64" ]; then
             DMG=$(find dist/askimo-desktop-installer-macos-arm64 -name "*.dmg" -type f | head -n1)
             DEST="release/Askimo-Desktop-macos-arm64.dmg"
-            cp -p "$DMG" "$DEST"
+            # Use ditto (not cp) so the DMG's resource fork and staple ticket are preserved
+            ditto "$DMG" "$DEST"
             echo "✓ Packaged macOS ARM64 DMG: $DEST"
           fi
 
@@ -277,7 +272,7 @@ jobs:
           if [ -d "dist/askimo-desktop-installer-macos-intel" ]; then
             DMG=$(find dist/askimo-desktop-installer-macos-intel -name "*.dmg" -type f | head -n1)
             DEST="release/Askimo-Desktop-macos-x64.dmg"
-            cp -p "$DMG" "$DEST"
+            ditto "$DMG" "$DEST"
             echo "✓ Packaged macOS x64 DMG: $DEST"
           fi
 
