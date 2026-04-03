@@ -62,13 +62,13 @@ jobs:
         include:
           - os: macos-latest
             name: macos-arm64
-            task: packageNotarizedDmgForCI
-            artifact-pattern: "desktop/build/compose/notarized/Askimo-signed.dmg.tar"
+            task: customNotarizeMacApp
+            artifact-pattern: "desktop/build/compose/notarized/Askimo-signed.dmg"
             artifact-suffix: "macos-arm64"
           - os: macos-15-intel
             name: macos-intel
-            task: packageNotarizedDmgForCI
-            artifact-pattern: "desktop/build/compose/notarized/Askimo-signed.dmg.tar"
+            task: customNotarizeMacApp
+            artifact-pattern: "desktop/build/compose/notarized/Askimo-signed.dmg"
             artifact-suffix: "macos-intel"
           - os: ubuntu-22.04
             name: linux
@@ -235,8 +235,28 @@ jobs:
           echo "Downloaded artifacts:"
           ls -lhR dist/
 
-      - name: Install gnu-tar (needed for --xattrs on macOS)
-        run: brew install gnu-tar
+      - name: Re-staple notarization tickets to macOS DMGs
+        # actions/upload-artifact zips files and strips macOS extended attributes,
+        # removing the staple ticket. Since the notarization was accepted in the
+        # desktop-package job, the ticket is permanently on Apple's CDN and can
+        # be re-stapled here without re-submitting to notarytool.
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          for platform in macos-arm64 macos-intel; do
+            DMG=$(find "dist/askimo-desktop-installer-${platform}" -name "*.dmg" -type f 2>/dev/null | head -n1)
+            if [ -z "$DMG" ]; then
+              echo "⚠️  No DMG found for $platform, skipping"
+              continue
+            fi
+            echo "📎 Re-stapling $platform DMG: $DMG"
+            xcrun stapler staple "$DMG"
+            xcrun stapler validate "$DMG"
+            echo "✅ Staple verified: $DMG"
+          done
 
       - name: Prepare release assets
         shell: bash
@@ -246,41 +266,19 @@ jobs:
           mkdir -p release
 
           # ── macOS DMG (ARM64) ────────────────────────────────────────────────
-          # Use gtar (GNU tar) to extract — bsdtar on macOS does not support
-          # --xattrs-include, which is required to restore the notarization staple ticket.
           if [ -d "dist/askimo-desktop-installer-macos-arm64" ]; then
-            TAR=$(find dist/askimo-desktop-installer-macos-arm64 -name "*.dmg.tar" -type f | head -n1)
-            if [ -n "$TAR" ]; then
-              gtar --xattrs --xattrs-include='*' -xf "$TAR" -C dist/askimo-desktop-installer-macos-arm64/
-              DMG=$(find dist/askimo-desktop-installer-macos-arm64 -name "*.dmg" -type f | head -n1)
-              DEST="release/Askimo-Desktop-macos-arm64.dmg"
-              cp -p "$DMG" "$DEST"
-              if xcrun stapler validate "$DEST" 2>&1 | grep -q "action worked"; then
-                echo "✅ Staple ticket verified: $DEST"
-              else
-                echo "❌ Staple ticket missing in $DEST — aborting to avoid shipping broken DMG" >&2
-                exit 1
-              fi
-              echo "✓ Packaged macOS ARM64 DMG: $DEST"
-            fi
+            DMG=$(find dist/askimo-desktop-installer-macos-arm64 -name "*.dmg" -type f | head -n1)
+            DEST="release/Askimo-Desktop-macos-arm64.dmg"
+            cp -p "$DMG" "$DEST"
+            echo "✓ Packaged macOS ARM64 DMG: $DEST"
           fi
 
           # ── macOS DMG (Intel) ────────────────────────────────────────────────
           if [ -d "dist/askimo-desktop-installer-macos-intel" ]; then
-            TAR=$(find dist/askimo-desktop-installer-macos-intel -name "*.dmg.tar" -type f | head -n1)
-            if [ -n "$TAR" ]; then
-              gtar --xattrs --xattrs-include='*' -xf "$TAR" -C dist/askimo-desktop-installer-macos-intel/
-              DMG=$(find dist/askimo-desktop-installer-macos-intel -name "*.dmg" -type f | head -n1)
-              DEST="release/Askimo-Desktop-macos-x64.dmg"
-              cp -p "$DMG" "$DEST"
-              if xcrun stapler validate "$DEST" 2>&1 | grep -q "action worked"; then
-                echo "✅ Staple ticket verified: $DEST"
-              else
-                echo "❌ Staple ticket missing in $DEST — aborting to avoid shipping broken DMG" >&2
-                exit 1
-              fi
-              echo "✓ Packaged macOS x64 DMG: $DEST"
-            fi
+            DMG=$(find dist/askimo-desktop-installer-macos-intel -name "*.dmg" -type f | head -n1)
+            DEST="release/Askimo-Desktop-macos-x64.dmg"
+            cp -p "$DMG" "$DEST"
+            echo "✓ Packaged macOS x64 DMG: $DEST"
           fi
 
           # ── Windows MSI ──────────────────────────────────────────────────────
@@ -339,4 +337,3 @@ jobs:
           draft: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
