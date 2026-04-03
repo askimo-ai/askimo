@@ -103,92 +103,6 @@ jobs:
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/') }}
 
-      # Install Apple intermediate certificates (macOS only)
-      - name: Install Apple Intermediate Certificates
-        if: runner.os == 'macOS'
-        run: |
-          echo "Installing Apple intermediate certificates..."
-          
-          # Download Apple intermediate certificates
-          curl -s -o /tmp/DeveloperIDG2.cer "https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer"
-          curl -s -o /tmp/AppleRootCA-G3.cer "https://www.apple.com/certificateauthority/AppleRootCA-G3.cer"
-          curl -s -o /tmp/AppleWWDRCAG3.cer "https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer"
-          
-          # Install to system keychain as trusted
-          sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain /tmp/DeveloperIDG2.cer
-          sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain /tmp/AppleRootCA-G3.cer
-          sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain /tmp/AppleWWDRCAG3.cer
-          
-          echo "✅ Apple intermediate certificates installed"
-
-      # Import Apple Developer ID certificate for code signing (macOS only)
-      - name: Import Code Signing Certificate
-        if: runner.os == 'macOS'
-        env:
-          MACOS_CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
-          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
-        run: |
-          echo "Setting up code signing certificate..."
-          
-          # Decode certificate from base64
-          echo "$MACOS_CERTIFICATE_BASE64" | base64 --decode > certificate.p12
-          
-          # Create temporary keychain
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
-          
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          
-          # Import certificate to keychain with proper ACLs
-          security import certificate.p12 \
-            -P "$MACOS_CERTIFICATE_PASSWORD" \
-            -k "$KEYCHAIN_PATH" \
-            -T /usr/bin/codesign \
-            -T /usr/bin/productbuild \
-            -A
-          
-          # Import Apple intermediate certificates to build keychain too
-          security import /tmp/DeveloperIDG2.cer -k "$KEYCHAIN_PATH" -T /usr/bin/codesign -A
-          security import /tmp/AppleRootCA-G3.cer -k "$KEYCHAIN_PATH" -T /usr/bin/codesign -A
-          
-          # Set keychain to be used by codesign
-          security list-keychain -d user -s "$KEYCHAIN_PATH"
-          security default-keychain -s "$KEYCHAIN_PATH"
-          
-          # Set partition list to allow codesign access without prompts
-          security set-key-partition-list -S apple-tool:,apple:,codesign: \
-            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          
-          # Find and export certificate identity
-          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | \
-            grep "Developer ID Application" | \
-            head -1 | \
-            sed 's/.*"\(.*\)".*/\1/')
-          
-          if [ -z "$IDENTITY" ]; then
-            echo "❌ Error: Could not find Developer ID Application certificate"
-            security find-identity -v -p codesigning "$KEYCHAIN_PATH"
-            exit 1
-          fi
-          
-          echo "MACOS_IDENTITY=$IDENTITY" >> $GITHUB_ENV
-          echo "✅ Code signing certificate configured: $IDENTITY"
-          
-          # Verify the setup
-          echo "Testing code signing..."
-          echo "test" > /tmp/test-sign.txt
-          if codesign --sign "$IDENTITY" /tmp/test-sign.txt 2>&1; then
-            echo "✅ Code signing test successful"
-          else
-            echo "❌ Code signing test failed"
-            exit 1
-          fi
-          
-          # Clean up
-          rm -f certificate.p12 /tmp/test-sign.txt /tmp/*.cer
-
       - name: Build desktop application (Linux/macOS)
         if: runner.os != 'Windows'
         run: ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx4g" desktop:build
@@ -201,22 +115,16 @@ jobs:
       - name: Package desktop installer (Linux/macOS)
         if: runner.os != 'Windows'
         env:
-          MACOS_IDENTITY: ${{ runner.os == 'macOS' && env.MACOS_IDENTITY || '' }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Certificate import + keychain setup is handled entirely by the Gradle task.
+          # These env vars mirror exactly what you set in your local .env file.
+          # MACOS_IDENTITY is optional — auto-detected from the imported cert.
+          MACOS_CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-        run: |
-          if [ "$RUNNER_OS" == "macOS" ]; then
-            # For macOS: Build, sign, and notarize using custom Gradle task
-            # Redirect output to a log file so we can upload it on failure
-            ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx4g" desktop:customNotarizeMacApp \
-              2>&1 | tee /tmp/notarize.log
-            # Preserve the exit code from gradlew (tee always exits 0)
-            exit "${PIPESTATUS[0]}"
-          else
-            # For Linux: Just package
-            ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx4g" desktop:${{ matrix.task }}
-          fi
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx4g" desktop:${{ matrix.task }}
 
       - name: Package desktop installer (Windows)
         if: runner.os == 'Windows'
@@ -351,7 +259,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: notarize-log-${{ matrix.name }}-attempt${{ github.run_attempt }}
-          path: /tmp/notarize.log
+          path: ~/Library/Logs/notarytool/
           if-no-files-found: warn
           retention-days: 7
 
@@ -360,7 +268,7 @@ jobs:
     name: Create Desktop Release
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [ desktop-package ]
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     permissions:
       contents: write
 
@@ -523,7 +431,7 @@ jobs:
             release/*
           append_body: false
           fail_on_unmatched_files: true
-          prerelease: true
+          prerelease: ${{ contains(github.ref, '-rc') || contains(github.ref, '-beta') || contains(github.ref, '-alpha') }}
           draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

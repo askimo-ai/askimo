@@ -4,6 +4,7 @@ import java.time.Instant
 import java.time.Year
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.util.Base64
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
@@ -525,17 +526,19 @@ tasks.register("detectUnusedLocalizations") {
 
                     // Pattern 4: Keys with variable interpolation
                     // Matches: stringResource("log.level.${variable}"), stringResource("prefix.${var}.suffix")
-                    Regex("""stringResource\s*\(\s*"([a-z][a-z0-9._-]*)\$\{[^}]+\}([a-z0-9._-]*)"""").findAll(content).forEach { match ->
-                        val prefix = match.groupValues[1]
-                        val suffix = match.groupValues[2]
-                        // Find all keys that start with the prefix and end with the suffix
-                        allKeys.keys.forEach { key ->
-                            if (key.startsWith(prefix) && (suffix.isEmpty() || key.endsWith(suffix))) {
-                                usedKeys.add(key)
-                                keyUsageMap.getOrPut(key) { mutableListOf() }.add(relativePath)
+                    Regex("""stringResource\s*\(\s*"([a-z][a-z0-9._-]*)\$\{[^}]+\}([a-z0-9._-]*)"""")
+                        .findAll(content)
+                        .forEach { match ->
+                            val prefix = match.groupValues[1]
+                            val suffix = match.groupValues[2]
+                            // Find all keys that start with the prefix and end with the suffix
+                            allKeys.keys.forEach { key ->
+                                if (key.startsWith(prefix) && (suffix.isEmpty() || key.endsWith(suffix))) {
+                                    usedKeys.add(key)
+                                    keyUsageMap.getOrPut(key) { mutableListOf() }.add(relativePath)
+                                }
                             }
                         }
-                    }
 
                     // Pattern 5: LocalizationManager.getString with interpolation
                     Regex(
@@ -672,7 +675,392 @@ tasks.register("detectUnusedLocalizations") {
 
 // =============================================================================
 // macOS Code Signing and Notarization Tasks
+//
+// All certificate/keychain setup lives here — portable across local and CI.
+//
+// Environment variables (pass via .env or command line):
+//
+//   ── Signing ──────────────────────────────────────────────────────────────
+//   KEYCHAIN_PASSWORD          Required always.
+//                              Local dev : your macOS login password.
+//                              CI        : any random string (ephemeral keychain).
+//
+//   MACOS_CERTIFICATE_BASE64   Optional.  base64-encoded .p12 file.
+//                              Set this in CI where the cert is not pre-installed.
+//                              If absent the login keychain is used as-is.
+//
+//   MACOS_CERTIFICATE_PASSWORD Optional.  Password for the .p12 (default: "").
+//
+//   MACOS_IDENTITY             Optional.  "Developer ID Application: Name (TEAM)".
+//                              Auto-detected from the keychain when not set.
+//
+//   ── Notarization ─────────────────────────────────────────────────────────
+//   APPLE_ID                   Required.  Your Apple ID email.
+//   APPLE_PASSWORD             Required.  App-specific password.
+//   APPLE_TEAM_ID              Required.  10-character team ID.
+//
+// Usage (local and CI are identical):
+//   ./gradlew customNotarizeMacApp
 // =============================================================================
+
+// -----------------------------------------------------------------------------
+// Shared helpers
+// -----------------------------------------------------------------------------
+
+/**
+ * Prepares the macOS Keychain so codesign can access the Developer ID private key.
+ *
+ * CI mode   (MACOS_CERTIFICATE_BASE64 set):
+ *   Decodes the base64 .p12, creates a short-lived keychain, imports the cert,
+ *   grants codesign partition-list access, and puts the keychain first in the
+ *   search list.  No Apple intermediate cert download is needed — codesign
+ *   fetches them automatically via the --timestamp server.
+ *
+ * Local dev (MACOS_CERTIFICATE_BASE64 absent):
+ *   Just unlocks the existing login keychain with KEYCHAIN_PASSWORD and raises
+ *   the auto-lock timeout so it stays open for the whole build.
+ *
+ * After this call use [resolveIdentity] to get the signing identity string.
+ */
+fun prepareSigningKeychain() {
+    val keychainPassword =
+        getEnvOrProperty("KEYCHAIN_PASSWORD")
+            ?: throw GradleException(
+                "KEYCHAIN_PASSWORD is required.\n" +
+                    "  Local dev: set it to your macOS login password.\n" +
+                    "  CI: set it to any random string (the ephemeral keychain password).",
+            )
+    val certBase64 = getEnvOrProperty("MACOS_CERTIFICATE_BASE64")
+    val certPassword = getEnvOrProperty("MACOS_CERTIFICATE_PASSWORD") ?: ""
+
+    if (certBase64 != null) {
+        // ── CI mode: import the .p12 into an ephemeral keychain ──────────────
+        logger.lifecycle("🔑 CI mode: creating ephemeral keychain and importing certificate...")
+
+        val tmpDir = File(System.getProperty("java.io.tmpdir"))
+        val keychainPath = File(tmpDir, "askimo-signing.keychain-db")
+        val p12File = File(tmpDir, "askimo-cert.p12")
+
+        try {
+            // Write decoded certificate
+            p12File.writeBytes(Base64.getDecoder().decode(certBase64.trim()))
+
+            // Delete any leftover keychain from a previous run
+            execOps.exec {
+                commandLine("security", "delete-keychain", keychainPath.absolutePath)
+                isIgnoreExitValue = true
+            }
+
+            // Create keychain, unlock it, extend auto-lock timeout to 6 hours
+            execOps.exec { commandLine("security", "create-keychain", "-p", keychainPassword, keychainPath.absolutePath) }
+            execOps.exec { commandLine("security", "unlock-keychain", "-p", keychainPassword, keychainPath.absolutePath) }
+            execOps.exec { commandLine("security", "set-keychain-settings", "-lut", "21600", keychainPath.absolutePath) }
+
+            // Import certificate — grant codesign access without prompts (-A = all apps, -T = specific tool)
+            execOps.exec {
+                commandLine(
+                    "security",
+                    "import",
+                    p12File.absolutePath,
+                    "-P",
+                    certPassword,
+                    "-k",
+                    keychainPath.absolutePath,
+                    "-T",
+                    "/usr/bin/codesign",
+                    "-A",
+                )
+            }
+
+            // Allow codesign to access the key without a UI password prompt
+            execOps.exec {
+                commandLine(
+                    "security",
+                    "set-key-partition-list",
+                    "-S",
+                    "apple-tool:,apple:,codesign:",
+                    "-s",
+                    "-k",
+                    keychainPassword,
+                    keychainPath.absolutePath,
+                )
+            }
+
+            // Put our keychain first so codesign finds the identity
+            execOps.exec {
+                commandLine(
+                    "security",
+                    "list-keychains",
+                    "-d",
+                    "user",
+                    "-s",
+                    keychainPath.absolutePath,
+                    "login.keychain-db",
+                )
+            }
+
+            logger.lifecycle("✅ Ephemeral keychain ready: ${keychainPath.absolutePath}")
+        } finally {
+            p12File.delete()
+        }
+
+        resolveAndCacheIdentity(keychainPath.absolutePath)
+    } else {
+        // ── Local dev mode: unlock the login keychain ─────────────────────────
+        // Resolve the actual login keychain path dynamically — on some macOS
+        // versions or after upgrades the path may differ from the default.
+        val home = System.getProperty("user.home")
+
+        // Candidate paths in priority order
+        val keychainCandidates =
+            listOf(
+                "$home/Library/Keychains/login.keychain-db", // modern macOS
+                "$home/Library/Keychains/login.keychain", // legacy path
+            )
+        val loginKeychain =
+            keychainCandidates.firstOrNull { File(it).exists() }
+                ?: run {
+                    // Last resort: ask the system which keychains are in the list
+                    val out = ByteArrayOutputStream()
+                    execOps.exec {
+                        commandLine("security", "list-keychains", "-d", "user")
+                        standardOutput = out
+                        isIgnoreExitValue = true
+                    }
+                    out
+                        .toString()
+                        .lines()
+                        .map { it.trim().removeSurrounding("\"") }
+                        .firstOrNull { it.contains("login") && File(it).exists() }
+                        ?: throw GradleException(
+                            "Cannot find login keychain. Set KEYCHAIN_PASSWORD and ensure " +
+                                "your Developer ID certificate is in the login keychain.",
+                        )
+                }
+
+        logger.lifecycle("🔓 Local mode: unlocking $loginKeychain")
+
+        // Unlock — Gradle commandLine does NOT go through a shell, so passwords
+        // with special characters are passed safely as raw process arguments.
+        execOps.exec {
+            commandLine("security", "unlock-keychain", "-p", keychainPassword, loginKeychain)
+        }
+
+        // Prevent auto-lock for 1 hour during the build
+        execOps.exec {
+            commandLine("security", "set-keychain-settings", "-t", "3600", "-u", loginKeychain)
+            isIgnoreExitValue = true
+        }
+
+        // Grant codesign access without interactive UI prompts
+        execOps.exec {
+            commandLine(
+                "security",
+                "set-key-partition-list",
+                "-S",
+                "apple-tool:,apple:,codesign:",
+                "-s",
+                "-k",
+                keychainPassword,
+                loginKeychain,
+            )
+            isIgnoreExitValue = true
+        }
+
+        // Ensure the login keychain is at the top of the search list
+        execOps.exec {
+            commandLine("security", "list-keychains", "-d", "user", "-s", loginKeychain)
+            isIgnoreExitValue = true
+        }
+
+        logger.lifecycle("✅ Login keychain unlocked: $loginKeychain")
+
+        resolveAndCacheIdentity(loginKeychain)
+    }
+}
+
+/**
+ * Finds the first "Developer ID Application" identity in [keychainPath]
+ * (or the default search list when null) and caches it in a project extra
+ * property so [resolveIdentity] can return it cheaply.
+ *
+ * MACOS_IDENTITY env var takes precedence if set.
+ */
+fun resolveAndCacheIdentity(keychainPath: String?) {
+    val explicit = getEnvOrProperty("MACOS_IDENTITY")
+
+    // Determine which keychain actually holds the signing identity.
+    // In CI mode the identity is always in the ephemeral keychain we just created,
+    // so we can use keychainPath directly.
+    // In local-dev mode the cert may live in System.keychain (or any other keychain
+    // in the search list), NOT necessarily in login.keychain-db.  Passing the wrong
+    // --keychain path to codesign causes errSecInternalComponent even when the
+    // keychain is unlocked, so we probe for the real keychain here.
+    val effectiveKeychainPath: String? =
+        run {
+            if (keychainPath == null) return@run null
+
+            // Check whether the identity is actually present in keychainPath.
+            val probeOut = ByteArrayOutputStream()
+            execOps.exec {
+                commandLine("security", "find-identity", "-v", "-p", "codesigning", keychainPath)
+                standardOutput = probeOut
+                isIgnoreExitValue = true
+            }
+            val identityName = explicit?.takeIf { it.isNotBlank() } ?: "Developer ID Application"
+            if (probeOut.toString().contains(identityName)) {
+                // Identity lives in the supplied keychain — use it.
+                keychainPath
+            } else {
+                // Identity is NOT in keychainPath (e.g. it lives in System.keychain).
+                // Find the actual keychain by asking security for the certificate.
+                val certOut = ByteArrayOutputStream()
+                execOps.exec {
+                    commandLine(
+                        "security",
+                        "find-certificate",
+                        "-c",
+                        if (!explicit.isNullOrBlank()) {
+                            explicit.substringAfter(": ").substringBefore(" (")
+                        } else {
+                            "Developer ID Application"
+                        },
+                    )
+                    standardOutput = certOut
+                    isIgnoreExitValue = true
+                }
+                val match = Regex("""keychain:\s*"([^"]+)"""").find(certOut.toString())
+                val foundKeychain = match?.groupValues?.get(1)
+                if (foundKeychain != null) {
+                    logger.lifecycle("🔑 Identity found in keychain: $foundKeychain (not in $keychainPath)")
+                    // Do NOT pass --keychain for System.keychain: codesign can reach it via the
+                    // default search list, and explicitly passing System.keychain with
+                    // set-key-partition-list would require sudo (causing errSecInternalComponent).
+                    if (foundKeychain == "/Library/Keychains/System.keychain") {
+                        logger.lifecycle(
+                            "ℹ️  Identity is in System.keychain — omitting --" +
+                                "keychain from codesign (uses default search list)",
+                        )
+                        null
+                    } else {
+                        foundKeychain
+                    }
+                } else {
+                    // Cannot determine keychain — let codesign use the default search list.
+                    logger.lifecycle("⚠️  Could not determine keychain for identity; omitting --keychain from codesign")
+                    null
+                }
+            }
+        }
+
+    if (effectiveKeychainPath != null) {
+        project.extra["macosKeychainPath"] = effectiveKeychainPath
+    }
+
+    if (!explicit.isNullOrBlank()) {
+        project.extra["macosIdentityResolved"] = explicit
+        logger.lifecycle("🔑 Using provided identity: $explicit")
+        return
+    }
+
+    val output = ByteArrayOutputStream()
+    val args =
+        buildList {
+            add("security")
+            add("find-identity")
+            add("-v")
+            add("-p")
+            add("codesigning")
+            if (effectiveKeychainPath != null) {
+                add(effectiveKeychainPath)
+            }
+        }
+    execOps.exec {
+        commandLine(args)
+        standardOutput = output
+        isIgnoreExitValue = true
+    }
+
+    val identity =
+        output
+            .toString()
+            .lines()
+            .firstOrNull { it.contains("Developer ID Application") }
+            ?.let { Regex(""""([^"]+)"""").find(it)?.groupValues?.get(1) }
+            ?: throw GradleException(
+                "❌ No 'Developer ID Application' certificate found.\n" +
+                    "  Local: make sure your cert is in the login keychain.\n" +
+                    "  CI: verify MACOS_CERTIFICATE_BASE64 is correct.",
+            )
+
+    project.extra["macosIdentityResolved"] = identity
+    logger.lifecycle("🔑 Resolved identity: $identity")
+}
+
+/** Returns the signing identity resolved by [prepareSigningKeychain]. */
+fun resolveIdentity(): String =
+    (project.extra.get("macosIdentityResolved") as? String)
+        ?: throw GradleException("prepareSigningKeychain() must run before resolveIdentity()")
+
+/**
+ * Returns the keychain path cached by [prepareSigningKeychain], or null when
+ * not available (falls back to the system default keychain search list).
+ */
+fun resolveKeychainPath(): String? = project.extra.properties["macosKeychainPath"] as? String
+
+/**
+ * Staples the notarization ticket to [target] with up to [maxAttempts] retries,
+ * waiting [waitSeconds] between attempts.
+ *
+ * Apple's CDN can take several minutes to publish the ticket after "Accepted"
+ * (Error 65 = "Record not found" = CDN lag, safe to retry).
+ */
+fun stapleWithRetry(
+    target: File,
+    maxAttempts: Int = 5,
+    waitSeconds: Long = 60,
+) {
+    var stapled = false
+    for (attempt in 1..maxAttempts) {
+        logger.lifecycle("⏳ Waiting ${waitSeconds}s for ticket CDN propagation (attempt $attempt/$maxAttempts)...")
+        Thread.sleep(waitSeconds * 1000)
+
+        logger.lifecycle("📎 Stapling: ${target.name} ...")
+        val out = ByteArrayOutputStream()
+        val err = ByteArrayOutputStream()
+        val result =
+            execOps.exec {
+                commandLine("xcrun", "stapler", "staple", "-v", target.absolutePath)
+                isIgnoreExitValue = true
+                standardOutput = out
+                errorOutput = err
+            }
+
+        if (result.exitValue == 0) {
+            logger.lifecycle("✅ Stapled successfully on attempt $attempt")
+            stapled = true
+            break
+        }
+
+        val combined = out.toString() + err.toString()
+        logger.lifecycle("⚠️  Attempt $attempt failed (exit ${result.exitValue}):\n$combined")
+
+        if (!combined.contains("Error 65") && !combined.contains("Record not found")) {
+            throw GradleException("❌ Stapler failed with unexpected error:\n$combined")
+        }
+    }
+    if (!stapled) {
+        throw GradleException(
+            "❌ Stapler failed after $maxAttempts attempts (${maxAttempts * waitSeconds}s).\n" +
+                "Run manually when the ticket propagates:\n" +
+                "  xcrun stapler staple -v \"${target.absolutePath}\"",
+        )
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Task: createEntitlements
+// -----------------------------------------------------------------------------
 
 /**
  * Create entitlements file for hardened runtime
@@ -748,8 +1136,9 @@ fun isMachOBinary(file: File): Boolean {
 fun signDylibsInsideJar(
     jarFile: File,
     identity: String,
-    entitlementsFile: File,
+    @Suppress("UNUSED_PARAMETER") entitlementsFile: File,
     workRoot: File,
+    keychainPath: String? = null,
 ) {
     logger.lifecycle("   • Signing native binaries inside JAR: ${jarFile.name}")
     logger.lifecycle("     Path: ${jarFile.absolutePath}")
@@ -812,18 +1201,24 @@ fun signDylibsInsideJar(
                 // Make sure the binary is executable before signing
                 nativeBinary.setExecutable(true, false)
                 execOps.exec {
-                    commandLine(
-                        "codesign",
-                        "--force",
-                        "--sign",
-                        identity,
-                        "--entitlements",
-                        entitlementsFile.absolutePath,
-                        "--timestamp",
-                        "--options",
-                        "runtime",
-                        nativeBinary.absolutePath,
-                    )
+                    // Dylibs/jnilibs do NOT need entitlements — passing --entitlements
+                    // to a dylib causes errSecInternalComponent on some macOS versions.
+                    val cmd =
+                        buildList {
+                            add("codesign")
+                            if (keychainPath != null) {
+                                add("--keychain")
+                                add(keychainPath)
+                            }
+                            add("--force")
+                            add("--sign")
+                            add(identity)
+                            add("--timestamp")
+                            add("--options")
+                            add("runtime")
+                            add(nativeBinary.absolutePath)
+                        }
+                    commandLine(cmd)
                 }
             }
 
@@ -870,19 +1265,36 @@ fun signDylibsInsideJar(
 }
 
 /**
- * Sign all components of the .app bundle
+ * Sign all components of the .app bundle.
+ * Keychain setup (cert import in CI, or unlock in local dev) happens here.
  */
 tasks.register("signMacApp") {
     group = "distribution"
-    description = "Sign all components of the macOS .app bundle with entitlements"
+    description = "Prepare keychain + sign all components of the macOS .app bundle"
 
     dependsOn("createEntitlements", "createDistributable")
 
     @Suppress("DEPRECATION")
     doLast {
-        val macosIdentity =
-            getEnvOrProperty("MACOS_IDENTITY")
-                ?: throw GradleException("MACOS_IDENTITY environment variable is required")
+        // Prepares keychain (imports cert in CI, unlocks login keychain locally)
+        // and resolves the signing identity — works on any macOS machine.
+        prepareSigningKeychain()
+        val macosIdentity = resolveIdentity()
+        val keychainPath = resolveKeychainPath()
+
+        // Build a helper that appends "--keychain <path>" when a keychain is known.
+        // Passing --keychain explicitly ensures codesign can reach the private key
+        // even when running inside a JVM subprocess that doesn't inherit the macOS
+        // GUI session's keychain search list.
+        fun codesignArgs(vararg extra: String): List<String> =
+            buildList {
+                add("codesign")
+                if (keychainPath != null) {
+                    add("--keychain")
+                    add(keychainPath)
+                }
+                addAll(extra)
+            }
 
         val appDir = file("${layout.buildDirectory.get()}/compose/binaries/main/app")
         val appBundle =
@@ -934,6 +1346,9 @@ tasks.register("signMacApp") {
         logger.lifecycle("Main executable: $mainExeName at ${mainExe.absolutePath}")
 
         // 1) Sign embedded runtime dylibs + jspawnhelper
+        //    Dylibs do NOT need entitlements — passing --entitlements to a dylib
+        //    triggers errSecInternalComponent on some macOS versions.  Just sign
+        //    with --options runtime and --timestamp, which is all Apple requires.
         if (runtimeDir.exists()) {
             logger.lifecycle("🔧 Signing embedded runtime dylibs + helpers...")
             runtimeDir
@@ -942,23 +1357,22 @@ tasks.register("signMacApp") {
                 .forEach { file ->
                     execOps.exec {
                         commandLine(
-                            "codesign",
-                            "--force",
-                            "--sign",
-                            macosIdentity,
-                            "--entitlements",
-                            entitlementsFile.absolutePath,
-                            "--timestamp",
-                            "--options",
-                            "runtime",
-                            file.absolutePath,
+                            codesignArgs(
+                                "--force",
+                                "--sign",
+                                macosIdentity,
+                                "--timestamp",
+                                "--options",
+                                "runtime",
+                                file.absolutePath,
+                            ),
                         )
                     }
                     logger.lifecycle("${file.absolutePath}: replacing existing signature")
                 }
         }
 
-        // 2) Sign loose dylibs under Contents/app
+        // 2) Sign loose dylibs under Contents/app (no entitlements needed)
         if (appLibDir.exists()) {
             logger.lifecycle("🔧 Signing loose dylibs under Contents/app...")
             appLibDir
@@ -967,16 +1381,15 @@ tasks.register("signMacApp") {
                 .forEach { dylibFile ->
                     execOps.exec {
                         commandLine(
-                            "codesign",
-                            "--force",
-                            "--sign",
-                            macosIdentity,
-                            "--entitlements",
-                            entitlementsFile.absolutePath,
-                            "--timestamp",
-                            "--options",
-                            "runtime",
-                            dylibFile.absolutePath,
+                            codesignArgs(
+                                "--force",
+                                "--sign",
+                                macosIdentity,
+                                "--timestamp",
+                                "--options",
+                                "runtime",
+                                dylibFile.absolutePath,
+                            ),
                         )
                     }
                 }
@@ -991,19 +1404,41 @@ tasks.register("signMacApp") {
                 .walk()
                 .filter { it.extension == "jar" && it.isFile }
                 .forEach { jarFile ->
-                    signDylibsInsideJar(jarFile, macosIdentity, entitlementsFile, workRoot)
+                    signDylibsInsideJar(jarFile, macosIdentity, entitlementsFile, workRoot, keychainPath)
                 }
 
             workRoot.deleteRecursively()
         }
 
-        // 4) Sign main executable
+        // 4) Sign main executable (with entitlements — executable needs them)
         if (mainExe.exists()) {
             logger.lifecycle("🔧 Signing main executable: ${mainExe.absolutePath}")
             execOps.exec {
                 commandLine(
-                    "codesign",
+                    codesignArgs(
+                        "--force",
+                        "--sign",
+                        macosIdentity,
+                        "--entitlements",
+                        entitlementsFile.absolutePath,
+                        "--timestamp",
+                        "--options",
+                        "runtime",
+                        mainExe.absolutePath,
+                    ),
+                )
+            }
+        } else {
+            logger.warn("⚠️ Main executable not found: ${mainExe.absolutePath}")
+        }
+
+        // 5) Sign app bundle (deep, with entitlements)
+        logger.lifecycle("🔧 Signing app bundle (deep): ${appToSign.absolutePath}")
+        execOps.exec {
+            commandLine(
+                codesignArgs(
                     "--force",
+                    "--deep",
                     "--sign",
                     macosIdentity,
                     "--entitlements",
@@ -1011,28 +1446,8 @@ tasks.register("signMacApp") {
                     "--timestamp",
                     "--options",
                     "runtime",
-                    mainExe.absolutePath,
-                )
-            }
-        } else {
-            logger.warn("⚠️ Main executable not found: ${mainExe.absolutePath}")
-        }
-
-        // 5) Sign app bundle (deep)
-        logger.lifecycle("🔧 Signing app bundle (deep): ${appToSign.absolutePath}")
-        execOps.exec {
-            commandLine(
-                "codesign",
-                "--force",
-                "--deep",
-                "--sign",
-                macosIdentity,
-                "--entitlements",
-                entitlementsFile.absolutePath,
-                "--timestamp",
-                "--options",
-                "runtime",
-                appToSign.absolutePath,
+                    appToSign.absolutePath,
+                ),
             )
         }
 
@@ -1162,33 +1577,9 @@ tasks.register("notarizeApp") {
             throw GradleException("❌ .app notarization failed with status: $status")
         }
 
-        // Wait for ticket propagation
-        logger.lifecycle("⏳ Waiting 60s for ticket propagation...")
-        Thread.sleep(60000)
-
-        // Staple ticket to .app
-        logger.lifecycle("📎 Stapling ticket to .app...")
-        val staplerOutput = ByteArrayOutputStream()
-        val staplerError = ByteArrayOutputStream()
-        val stapleResult =
-            execOps.exec {
-                commandLine("xcrun", "stapler", "staple", "-v", appToSign.absolutePath)
-                isIgnoreExitValue = true
-                standardOutput = staplerOutput
-                errorOutput = staplerError
-            }
-
-        if (stapleResult.exitValue != 0) {
-            logger.warn("⚠️ Stapler failed for .app, but continuing (ticket is available online)")
-            logger.lifecycle(staplerOutput.toString())
-            logger.lifecycle(staplerError.toString())
-        } else {
-            logger.lifecycle("✅ Ticket stapled to .app")
-        }
-
-        // Clean up ZIP
+        // Wait for ticket propagation and staple with retries
         appZip.delete()
-
+        stapleWithRetry(appToSign)
         logger.lifecycle("✅ .app notarization complete!")
     }
 }
@@ -1204,9 +1595,9 @@ tasks.register("createSignedDmg") {
 
     @Suppress("DEPRECATION")
     doLast {
-        val macosIdentity =
-            getEnvOrProperty("MACOS_IDENTITY")
-                ?: throw GradleException("MACOS_IDENTITY environment variable is required")
+        // Identity was already resolved by signMacApp earlier in the chain
+        val macosIdentity = resolveIdentity()
+        val keychainPath = resolveKeychainPath()
 
         val notarizedDir = file("${layout.buildDirectory.get()}/compose/notarized")
         val appToSign =
@@ -1223,7 +1614,12 @@ tasks.register("createSignedDmg") {
         logger.lifecycle("📦 Preparing DMG contents...")
         // Use rsync to preserve permissions
         execOps.exec {
-            commandLine("rsync", "-a", "${appToSign.absolutePath}/", "${File(dmgStaging, appToSign.name).absolutePath}/")
+            commandLine(
+                "rsync",
+                "-a",
+                "${appToSign.absolutePath}/",
+                "${File(dmgStaging, appToSign.name).absolutePath}/",
+            )
         }
 
         // Create Applications symlink
@@ -1393,14 +1789,20 @@ tasks.register("createSignedDmg") {
         // Sign DMG
         logger.lifecycle("🔧 Signing DMG...")
         execOps.exec {
-            commandLine(
-                "codesign",
-                "--force",
-                "--sign",
-                macosIdentity,
-                "--timestamp",
-                signedDmg.absolutePath,
-            )
+            val cmd =
+                buildList {
+                    add("codesign")
+                    if (keychainPath != null) {
+                        add("--keychain")
+                        add(keychainPath)
+                    }
+                    add("--force")
+                    add("--sign")
+                    add(macosIdentity)
+                    add("--timestamp")
+                    add(signedDmg.absolutePath)
+                }
+            commandLine(cmd)
         }
 
         // Verify DMG signature
@@ -1452,17 +1854,6 @@ tasks.register("customNotarizeDmg") {
                 applePassword,
             )
 
-        // Calculate SHA256 before submission
-        val sha256Before =
-            ByteArrayOutputStream().use { output ->
-                execOps.exec {
-                    commandLine("shasum", "-a", "256", signedDmg.absolutePath)
-                    standardOutput = output
-                }
-                output.toString().split(" ")[0]
-            }
-
-        logger.lifecycle("🔎 DMG SHA256 before submit: $sha256Before")
         logger.lifecycle("🔐 Notarizing DMG...")
 
         // Submit for notarization
@@ -1493,7 +1884,7 @@ tasks.register("customNotarizeDmg") {
         val status = statusMatch?.groupValues?.get(1) ?: "Unknown"
         val submissionId = idMatch?.groupValues?.get(1) ?: ""
 
-        logger.lifecycle("DMG submission: id=$submissionId, status=$status")
+        logger.lifecycle("📋 Status: $status  (id: $submissionId)")
 
         if (status != "Accepted") {
             // Fetch the detailed log from Apple so we can see exactly which file was rejected
@@ -1519,89 +1910,13 @@ tasks.register("customNotarizeDmg") {
             throw GradleException("❌ Notarization failed (status=$status)")
         }
 
-        // Verify bytes didn't change
-        val sha256After =
-            ByteArrayOutputStream().use { output ->
-                execOps.exec {
-                    commandLine("shasum", "-a", "256", signedDmg.absolutePath)
-                    standardOutput = output
-                }
-                output.toString().split(" ")[0]
-            }
-
-        if (sha256Before != sha256After) {
-            throw GradleException("❌ DMG bytes changed after notarization submission")
-        }
-
-        // Wait for ticket propagation
-        logger.lifecycle("⏳ Waiting 60s for ticket propagation...")
-        Thread.sleep(60000)
-
-        // Try to staple
-        logger.lifecycle("📎 Stapling DMG...")
-        val staplerOutput = ByteArrayOutputStream()
-        val staplerError = ByteArrayOutputStream()
-        val stapleResult =
-            execOps.exec {
-                commandLine("xcrun", "stapler", "staple", "-v", signedDmg.absolutePath)
-                isIgnoreExitValue = true
-                standardOutput = staplerOutput
-                errorOutput = staplerError
-            }
-
-        if (stapleResult.exitValue != 0) {
-            logger.warn("⚠️ Stapler failed, attempting manual ticket attachment...")
-
-            // Extract ticket path from stapler output
-            val combinedOutput = staplerOutput.toString() + staplerError.toString()
-            val ticketPathMatch = Regex("""file://([^\s]+\.ticket)""").find(combinedOutput)
-            val ticketPath = ticketPathMatch?.groupValues?.get(1)
-
-            if (ticketPath != null && File(ticketPath).exists()) {
-                logger.lifecycle("📋 Found downloaded ticket: $ticketPath")
-                logger.lifecycle("📎 Manually attaching ticket to DMG...")
-
-                // Use Python to attach binary ticket data
-                val pythonScript =
-                    """
-                    import subprocess
-                    ticket_path = '$ticketPath'
-                    dmg_path = '${signedDmg.absolutePath}'
-                    with open(ticket_path, 'rb') as f:
-                        ticket_data = f.read()
-                    subprocess.run(['xattr', '-wx', 'com.apple.stapler', ticket_data.hex(), dmg_path], check=True)
-                    print('✅ Ticket attached successfully')
-                    """.trimIndent()
-
-                execOps.exec {
-                    commandLine("python3", "-c", pythonScript)
-                }
-
-                // Verify ticket is attached
-                val xattrOutput = ByteArrayOutputStream()
-                execOps.exec {
-                    commandLine("xattr", "-l", signedDmg.absolutePath)
-                    standardOutput = xattrOutput
-                }
-
-                val hasTicket = xattrOutput.toString().contains("com.apple.stapler")
-
-                if (hasTicket) {
-                    logger.lifecycle("✅ Ticket is attached via xattr")
-                } else {
-                    throw GradleException("❌ Failed to attach notarization ticket")
-                }
-            } else {
-                throw GradleException("❌ Could not find downloaded ticket file")
-            }
-        } else {
-            logger.lifecycle("✅ Stapled DMG successfully")
-        }
+        // Wait for ticket propagation and staple with retries
+        stapleWithRetry(signedDmg)
 
         logger.lifecycle("✅ Done. Output: ${signedDmg.absolutePath}")
         logger.lifecycle("")
-        logger.lifecycle("Suggested checks:")
-        logger.lifecycle("  spctl -a -t open -vv \"${signedDmg.absolutePath}\"")
+        logger.lifecycle("Verify with:")
+        logger.lifecycle("  spctl -a -t open --context context:primary-signature -v \"${signedDmg.absolutePath}\"")
     }
 }
 
