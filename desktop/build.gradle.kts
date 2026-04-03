@@ -1944,3 +1944,81 @@ tasks.register("customNotarizeMacApp") {
         logger.lifecycle("The app will launch without security warnings.")
     }
 }
+
+/**
+ * CI-only task: wraps the notarized + stapled DMG inside a tar archive so that
+ * macOS extended attributes (including the notarization staple ticket stored as
+ * com.apple.stapler-ticket) survive the GitHub Actions artifact upload/download
+ * cycle.  actions/upload-artifact zips files internally which strips xattrs;
+ * wrapping in tar first preserves them end-to-end.
+ *
+ * Output: build/compose/notarized/Askimo-signed.dmg.tar
+ *
+ * Local usage: no need to run this — use customNotarizeMacApp directly.
+ * CI usage:    ./gradlew desktop:packageNotarizedDmgForCI
+ *              Then upload build/compose/notarized/Askimo-signed.dmg.tar as the artifact.
+ *              In the release job, extract with: tar --xattrs --xattrs-include='*' -xf ...
+ */
+tasks.register("packageNotarizedDmgForCI") {
+    group = "distribution"
+    description = "Wraps the notarized DMG in a tar archive to preserve the staple ticket xattr through GitHub Actions artifact upload"
+
+    dependsOn("customNotarizeMacApp")
+
+    @Suppress("DEPRECATION")
+    doLast {
+        val notarizedDir = file("${layout.buildDirectory.get()}/compose/notarized")
+        val signedDmg = File(notarizedDir, "Askimo-signed.dmg")
+        val tarFile = File(notarizedDir, "Askimo-signed.dmg.tar")
+
+        if (!signedDmg.exists()) {
+            throw GradleException("Notarized DMG not found: ${signedDmg.absolutePath}")
+        }
+
+        tarFile.delete()
+
+        // Prefer GNU tar (gtar) which has reliable --xattrs support on macOS.
+        // GitHub-hosted macOS runners have gnu-tar pre-installed as 'gtar'.
+        val tarCmd =
+            listOf("gtar", "tar").firstOrNull { cmd ->
+                val result =
+                    execOps.exec {
+                        commandLine("which", cmd)
+                        isIgnoreExitValue = true
+                        standardOutput = ByteArrayOutputStream()
+                        errorOutput = ByteArrayOutputStream()
+                    }
+                result.exitValue == 0
+            } ?: throw GradleException("Neither 'gtar' nor 'tar' found on PATH")
+
+        logger.lifecycle("📦 Wrapping DMG in tar (using $tarCmd) to preserve staple ticket xattr...")
+        execOps.exec {
+            commandLine(
+                tarCmd,
+                "--xattrs",
+                "--xattrs-include=*",
+                "-cf",
+                tarFile.absolutePath,
+                "-C",
+                notarizedDir.absolutePath,
+                signedDmg.name,
+            )
+        }
+
+        // Verify the xattr round-trips correctly inside the tar
+        val verifyOut = ByteArrayOutputStream()
+        execOps.exec {
+            commandLine(tarCmd, "--xattrs", "--xattrs-include=*", "-tvf", tarFile.absolutePath)
+            standardOutput = verifyOut
+            isIgnoreExitValue = true
+        }
+        logger.lifecycle("📋 Tar contents:\n$verifyOut")
+
+        logger.lifecycle("✅ CI-ready tar: ${tarFile.absolutePath} (${tarFile.length() / 1_048_576} MB)")
+        logger.lifecycle("")
+        logger.lifecycle("Upload this tar as the artifact. In the release job, extract with:")
+        logger.lifecycle("  tar --xattrs --xattrs-include='*' -xf Askimo-signed.dmg.tar")
+        logger.lifecycle("Then verify:")
+        logger.lifecycle("  xcrun stapler validate Askimo-signed.dmg")
+    }
+}
