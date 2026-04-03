@@ -129,7 +129,7 @@ compose.desktop {
             includeAllModules = true
 
             macOS {
-                bundleID = "io.askimo.desktop"
+                bundleID = "io.askimo.askimo-personal"
                 iconFile.set(project.file("src/main/resources/images/askimo.icns"))
 
                 // Disable automatic signing - we do custom signing with entitlements in signMacApp task

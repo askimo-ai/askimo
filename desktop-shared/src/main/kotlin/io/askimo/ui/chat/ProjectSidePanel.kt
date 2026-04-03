@@ -52,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -120,6 +121,7 @@ fun projectSidePanel(
         modifier = modifier
             .width(animatedWidth)
             .fillMaxHeight(),
+        shape = RectangleShape,
         colors = CardDefaults.cardColors(
             containerColor = AppComponents.sidebarSurfaceColor(),
             contentColor = MaterialTheme.colorScheme.onSurface,

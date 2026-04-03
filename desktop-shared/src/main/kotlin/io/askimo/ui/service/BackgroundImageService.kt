@@ -95,19 +95,4 @@ object BackgroundImageService {
             log.error("Failed to remove custom background", e)
         }
     }
-
-    /**
-     * Returns the absolute path of the currently stored custom background file,
-     * or `null` if none exists.
-     *
-     * Useful for validating on startup that the stored preference path still
-     * points to an existing file inside the managed directory.
-     */
-    fun getStoredCustomBackgroundPath(): String? = backgroundsDir.listFiles()
-        ?.firstOrNull {
-            it.isFile &&
-                it.nameWithoutExtension == STORED_NAME &&
-                it.extension.lowercase() in VALID_EXTENSIONS
-        }
-        ?.absolutePath
 }
