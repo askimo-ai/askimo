@@ -235,6 +235,9 @@ jobs:
           echo "Downloaded artifacts:"
           ls -lhR dist/
 
+      - name: Install gnu-tar (needed for --xattrs on macOS)
+        run: brew install gnu-tar
+
       - name: Prepare release assets
         shell: bash
         run: |
@@ -243,12 +246,12 @@ jobs:
           mkdir -p release
 
           # ── macOS DMG (ARM64) ────────────────────────────────────────────────
-          # Untar with xattr support to restore the notarization staple ticket,
-          # then copy preserving all attributes (-p) so the ticket stays intact.
+          # Use gtar (GNU tar) to extract — bsdtar on macOS does not support
+          # --xattrs-include, which is required to restore the notarization staple ticket.
           if [ -d "dist/askimo-desktop-installer-macos-arm64" ]; then
             TAR=$(find dist/askimo-desktop-installer-macos-arm64 -name "*.dmg.tar" -type f | head -n1)
             if [ -n "$TAR" ]; then
-              tar --xattrs --xattrs-include='*' -xf "$TAR" -C dist/askimo-desktop-installer-macos-arm64/
+              gtar --xattrs --xattrs-include='*' -xf "$TAR" -C dist/askimo-desktop-installer-macos-arm64/
               DMG=$(find dist/askimo-desktop-installer-macos-arm64 -name "*.dmg" -type f | head -n1)
               DEST="release/Askimo-Desktop-macos-arm64.dmg"
               cp -p "$DMG" "$DEST"
@@ -266,7 +269,7 @@ jobs:
           if [ -d "dist/askimo-desktop-installer-macos-intel" ]; then
             TAR=$(find dist/askimo-desktop-installer-macos-intel -name "*.dmg.tar" -type f | head -n1)
             if [ -n "$TAR" ]; then
-              tar --xattrs --xattrs-include='*' -xf "$TAR" -C dist/askimo-desktop-installer-macos-intel/
+              gtar --xattrs --xattrs-include='*' -xf "$TAR" -C dist/askimo-desktop-installer-macos-intel/
               DMG=$(find dist/askimo-desktop-installer-macos-intel -name "*.dmg" -type f | head -n1)
               DEST="release/Askimo-Desktop-macos-x64.dmg"
               cp -p "$DMG" "$DEST"
