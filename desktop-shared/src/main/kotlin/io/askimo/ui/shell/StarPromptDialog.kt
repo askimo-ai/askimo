@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -135,6 +136,7 @@ private fun sentimentButton(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
             .clickable(onClick = onClick)
             .pointerHoverIcon(PointerIcon.Hand),
         shape = MaterialTheme.shapes.medium,
@@ -150,6 +152,69 @@ private fun sentimentButton(
                 .fillMaxWidth(),
             textAlign = TextAlign.Center,
         )
+    }
+}
+
+/**
+ * Shown after neutral/unhappy sentiment — asks if user wants to share feedback.
+ * - Yes → [onConfirm] caller opens the contact/feedback page
+ * - No  → [onDecline] caller dismisses
+ */
+@Composable
+fun feedbackPromptDialog(
+    onConfirm: () -> Unit,
+    onDecline: () -> Unit,
+) {
+    Dialog(onDismissRequest = {}) {
+        Surface(
+            modifier = Modifier.width(400.dp),
+            shape = MaterialTheme.shapes.large,
+            tonalElevation = 8.dp,
+        ) {
+            Column(
+                modifier = Modifier.padding(28.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = "💬",
+                    style = MaterialTheme.typography.displaySmall,
+                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        text = stringResource("happiness.gate.feedback.title"),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = stringResource("happiness.gate.feedback.message"),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    sentimentButton(
+                        label = stringResource("happiness.gate.feedback.yes"),
+                        onClick = onConfirm,
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                    sentimentButton(
+                        label = stringResource("happiness.gate.feedback.no"),
+                        onClick = onDecline,
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -236,6 +301,7 @@ private fun shareActionCard(modifier: Modifier = Modifier) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
+                .clip(MaterialTheme.shapes.medium)
                 .hoverable(interactionSource)
                 .clickable { showMenu = true }
                 .pointerHoverIcon(PointerIcon.Hand),
@@ -305,6 +371,7 @@ private fun supportActionCard(
 
     Surface(
         modifier = modifier
+            .clip(MaterialTheme.shapes.medium)
             .hoverable(interactionSource)
             .clickable(onClick = onClick)
             .pointerHoverIcon(PointerIcon.Hand),

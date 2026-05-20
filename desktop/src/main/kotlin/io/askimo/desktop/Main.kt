@@ -61,6 +61,8 @@ import io.askimo.core.backup.BackupManager
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
+import io.askimo.core.chat.repository.ChatSessionRepository
+import io.askimo.core.chat.repository.ProjectRepository
 import io.askimo.core.chat.service.ChatSessionService
 import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
@@ -76,6 +78,7 @@ import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.LogbackConfigurator
 import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.mcp.McpInstanceService
+import io.askimo.core.plan.repository.PlanDefRepository
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.user.domain.UserProfile
 import io.askimo.core.util.AskimoHome
@@ -147,6 +150,7 @@ import io.askimo.ui.shell.NativeMenuBar
 import io.askimo.ui.shell.UpdateViewModel
 import io.askimo.ui.shell.eventLogPanel
 import io.askimo.ui.shell.eventLogWindow
+import io.askimo.ui.shell.feedbackPromptDialog
 import io.askimo.ui.shell.globalErrorHandler
 import io.askimo.ui.shell.globalSearchDialog
 import io.askimo.ui.shell.happinessGateDialog
@@ -262,6 +266,8 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     var pendingTerminalCommand by remember { mutableStateOf<PendingTerminalCommand?>(null) }
     var showStarPromptDialog by remember { mutableStateOf(false) }
     var showHappinessGateDialog by remember { mutableStateOf(false) }
+    var showFeedbackPromptDialog by remember { mutableStateOf(false) }
+    var feedbackSentiment by remember { mutableStateOf("neutral") }
     var showNewProjectDialog by remember { mutableStateOf(false) }
     var showEditProjectDialog by remember { mutableStateOf(false) }
     var showGlobalSearchDialog by remember { mutableStateOf(false) }
@@ -480,6 +486,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
         AccountPreferences.device().recordFirstUseIfNeeded()
         val launchCount = AccountPreferences.device().incrementLaunchCount()
         Analytics.trackRetentionMilestone(launchCount)
+
         if (AccountPreferences.device().shouldShowStarPrompt()) {
             showHappinessGateDialog = true
             Analytics.track(AnalyticsEvent.STAR_PROMPT_SHOWN)
@@ -1599,19 +1606,35 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                 showStarPromptDialog = true
                             },
                             onNeutral = {
-                                AccountPreferences.device().markAsPrompted()
                                 showHappinessGateDialog = false
+                                feedbackSentiment = "neutral"
+                                showFeedbackPromptDialog = true
                             },
                             onUnhappy = {
-                                AccountPreferences.device().markAsPrompted()
                                 showHappinessGateDialog = false
+                                feedbackSentiment = "unhappy"
+                                showFeedbackPromptDialog = true
+                            },
+                        )
+                    }
+
+                    // Feedback prompt — shown after neutral/unhappy; user opts in to open contact form
+                    if (showFeedbackPromptDialog) {
+                        feedbackPromptDialog(
+                            onConfirm = {
+                                AccountPreferences.device().markAsPrompted()
+                                showFeedbackPromptDialog = false
                                 runCatching {
                                     if (Desktop.isDesktopSupported()) {
                                         Desktop.getDesktop().browse(
-                                            URI("https://askimo.chat/contact/?subject=feedback"),
+                                            URI("https://askimo.chat/feedback/?sentiment=$feedbackSentiment"),
                                         )
                                     }
                                 }.onFailure { log.error("Cannot open browser for feedback", it) }
+                            },
+                            onDecline = {
+                                AccountPreferences.device().markAsPrompted()
+                                showFeedbackPromptDialog = false
                             },
                         )
                     }
@@ -1753,9 +1776,9 @@ fun mainContent(
     userAvatarPath: String? = null,
     userProfile: UserProfile? = null,
     totalMcpServers: Int = 0,
-    chatSessionRepository: io.askimo.core.chat.repository.ChatSessionRepository,
-    projectRepository: io.askimo.core.chat.repository.ProjectRepository,
-    planDefRepository: io.askimo.core.plan.repository.PlanDefRepository,
+    chatSessionRepository: ChatSessionRepository,
+    projectRepository: ProjectRepository,
+    planDefRepository: PlanDefRepository,
 ) {
     Box(
         modifier = Modifier

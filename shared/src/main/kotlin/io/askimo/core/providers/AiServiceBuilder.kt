@@ -183,7 +183,7 @@ object AiServiceBuilder {
             }
 
         if (toolProvider != null) {
-            builder.toolProvider(toolProvider).maxSequentialToolsInvocations(10)
+            builder.toolProvider(toolProvider).maxToolCallingRoundTrips(10)
         }
 
         if (retriever != null) {
