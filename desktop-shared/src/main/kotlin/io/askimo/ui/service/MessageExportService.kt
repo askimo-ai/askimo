@@ -29,7 +29,7 @@ object MessageExportService {
      * @param targetFile Destination file (created/overwritten).
      * @param format    [ExportFormat.PDF] or [ExportFormat.WORD].
      */
-    fun export(
+    suspend fun export(
         content: String,
         targetFile: File,
         format: ExportFormat = ExportFormat.PDF,

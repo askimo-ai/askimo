@@ -8,6 +8,7 @@ import com.lowagie.text.Chunk
 import com.lowagie.text.Document
 import com.lowagie.text.Element
 import com.lowagie.text.Font
+import com.lowagie.text.Image
 import com.lowagie.text.PageSize
 import com.lowagie.text.Paragraph
 import com.lowagie.text.Phrase
@@ -31,7 +32,7 @@ import java.io.FileOutputStream
  * using IDENTITY_H encoding so that any Unicode character — including emoji,
  * CJK, Arabic, etc. — renders correctly instead of appearing as "?".
  *
- * Handles: headings (H1–H3), horizontal rules, bullet lists, code fences,
+ * Handles: headings (H1–H6), horizontal rules, bullet lists, code fences,
  * blockquotes, GFM tables, blank lines, and inline **bold** / *italic* / `code`.
  */
 internal object PdfExporter {
@@ -62,6 +63,9 @@ internal object PdfExporter {
     private fun fontH1() = Font(baseFontBold, 20f, Font.BOLD, Color(30, 90, 180))
     private fun fontH2() = Font(baseFontBold, 15f, Font.BOLD, Color(50, 50, 50))
     private fun fontH3() = Font(baseFontBold, 12f, Font.BOLD, Color(80, 80, 80))
+    private fun fontH4() = Font(baseFontBold, 11f, Font.BOLD, Color(90, 90, 90))
+    private fun fontH5() = Font(baseFontBold, 10f, Font.BOLD, Color(100, 100, 100))
+    private fun fontH6() = Font(baseFontItalic, 10f, Font.ITALIC, Color(110, 110, 110))
     private fun fontCode() = Font(baseFontRegular, 9f, Font.NORMAL, Color(60, 60, 60))
     private fun fontFooter() = Font(baseFontItalic, 8f, Font.ITALIC, Color(130, 130, 130))
 
@@ -140,7 +144,7 @@ internal object PdfExporter {
         }
     }
 
-    fun export(markdown: String, copyright: String, targetFile: File) {
+    suspend fun export(markdown: String, copyright: String, targetFile: File) {
         targetFile.parentFile?.mkdirs()
 
         val bos = ByteArrayOutputStream(65536)
@@ -173,11 +177,13 @@ internal object PdfExporter {
         .replace("\u200D", "") // ZERO WIDTH JOINER
         .replace("\uFEFF", "") // BYTE ORDER MARK
 
-    private fun renderMarkdownToDocument(doc: Document, markdown: String) {
+    private suspend fun renderMarkdownToDocument(doc: Document, markdown: String) {
         val lines = normalizePdfText(markdown).lines()
         var i = 0
         var inCodeBlock = false
+        var isMermaidBlock = false
         val codeBuffer = StringBuilder()
+        val mermaidService by lazy { MermaidSvgService() }
 
         while (i < lines.size) {
             val line = lines[i]
@@ -186,18 +192,39 @@ internal object PdfExporter {
             if (line.trimStart().startsWith("```")) {
                 if (!inCodeBlock) {
                     inCodeBlock = true
+                    isMermaidBlock = line.trimStart().removePrefix("```").trim().lowercase() == "mermaid"
                     codeBuffer.clear()
                 } else {
                     inCodeBlock = false
-                    val codePara = Paragraph().apply {
-                        alignment = Element.ALIGN_LEFT
-                        spacingBefore = 4f
-                        spacingAfter = 4f
+                    val fenceContent = codeBuffer.toString().trimEnd()
+
+                    if (isMermaidBlock && mermaidService.isMermaidCliAvailable()) {
+                        val pngBytes = runCatching {
+                            mermaidService.convertToPng(fenceContent, theme = "default", backgroundColor = "#ffffff")
+                        }.getOrNull()
+
+                        if (pngBytes != null && pngBytes.isNotEmpty()) {
+                            val img = Image.getInstance(pngBytes)
+                            // Scale to fit page width (A4 usable = 72*2 margins → ~451pt)
+                            val maxWidth = doc.pageSize.width - doc.leftMargin() - doc.rightMargin()
+                            if (img.width > maxWidth) {
+                                img.scaleToFit(maxWidth, doc.pageSize.height)
+                            }
+                            img.alignment = Element.ALIGN_CENTER
+                            img.spacingBefore = 8f
+                            img.spacingAfter = 8f
+                            doc.add(img)
+                            log.debug("Embedded mermaid diagram as PNG ({} bytes)", pngBytes.size)
+                        } else {
+                            // mmdc available but render failed — fall back to code block
+                            addCodeBlock(doc, fenceContent)
+                        }
+                    } else {
+                        // Not mermaid, or mmdc not installed — render as code block
+                        addCodeBlock(doc, fenceContent)
                     }
-                    codeBuffer.toString().lines().forEach { codeLine ->
-                        codePara.add(Chunk("$codeLine\n", fontCode()))
-                    }
-                    doc.add(codePara)
+
+                    isMermaidBlock = false
                     codeBuffer.clear()
                 }
                 i++
@@ -256,6 +283,36 @@ internal object PdfExporter {
             }
 
             when {
+                line.startsWith("###### ") -> {
+                    val p = Paragraph().apply {
+                        font = fontH6()
+                        spacingBefore = 4f
+                        spacingAfter = 1f
+                    }
+                    buildInlinePhrase(line.removePrefix("###### "), fontH6()).forEach { p.add(it as Element) }
+                    doc.add(p)
+                }
+
+                line.startsWith("##### ") -> {
+                    val p = Paragraph().apply {
+                        font = fontH5()
+                        spacingBefore = 4f
+                        spacingAfter = 1f
+                    }
+                    buildInlinePhrase(line.removePrefix("##### "), fontH5()).forEach { p.add(it as Element) }
+                    doc.add(p)
+                }
+
+                line.startsWith("#### ") -> {
+                    val p = Paragraph().apply {
+                        font = fontH4()
+                        spacingBefore = 6f
+                        spacingAfter = 2f
+                    }
+                    buildInlinePhrase(line.removePrefix("#### "), fontH4()).forEach { p.add(it as Element) }
+                    doc.add(p)
+                }
+
                 line.startsWith("# ") -> {
                     val p = Paragraph().apply {
                         font = fontH1()
@@ -328,6 +385,19 @@ internal object PdfExporter {
             }
             i++
         }
+    }
+
+    /** Renders [content] as a monospaced code block paragraph. */
+    private fun addCodeBlock(doc: Document, content: String) {
+        val codePara = Paragraph().apply {
+            alignment = Element.ALIGN_LEFT
+            spacingBefore = 4f
+            spacingAfter = 4f
+        }
+        content.lines().forEach { codeLine ->
+            codePara.add(Chunk("$codeLine\n", fontCode()))
+        }
+        doc.add(codePara)
     }
 
     private fun isTableRow(line: String) = line.trim().let { it.startsWith("|") && it.length > 1 }
