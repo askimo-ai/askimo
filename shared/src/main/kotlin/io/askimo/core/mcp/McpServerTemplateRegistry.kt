@@ -79,105 +79,6 @@ object McpServerTemplateRegistry {
             author = "GitHub",
         ),
 
-        McpServerDefinition(
-            id = "template-puppeteer",
-            name = "Puppeteer",
-            description = "Browser automation — navigate web pages, take screenshots, fill forms, and run scripts.",
-            transportType = TransportType.STDIO,
-            stdioConfig = StdioConfig(
-                commandTemplate = listOf("npx", "-y", "@modelcontextprotocol/server-puppeteer"),
-            ),
-            parameters = emptyList(),
-            tags = listOf("popular", "dev-tools"),
-            author = "Anthropic",
-        ),
-
-        // ── Productivity ──────────────────────────────────────────────────────
-
-        McpServerDefinition(
-            id = "template-notion",
-            name = "Notion",
-            description = "Read and write Notion pages, databases, and blocks via the Notion API.",
-            transportType = TransportType.STDIO,
-            stdioConfig = StdioConfig(
-                commandTemplate = listOf("npx", "-y", "@notionhq/notion-mcp-server"),
-                envTemplate = mapOf(
-                    "OPENAPI_MCP_HEADERS" to """{"Authorization": "Bearer {{notionToken}}", "Notion-Version": "2022-06-28"}""",
-                ),
-            ),
-            parameters = listOf(
-                Parameter(
-                    key = "notionToken",
-                    label = "Notion Integration Token",
-                    type = ParameterType.SECRET,
-                    description = "Create an integration at notion.so/my-integrations and copy the token.",
-                    placeholder = "ntn_...",
-                    location = ParameterLocation.ENVIRONMENT,
-                ),
-            ),
-            tags = listOf("popular", "productivity"),
-            author = "Notion",
-        ),
-
-        McpServerDefinition(
-            id = "template-slack",
-            name = "Slack",
-            description = "Read messages, post to channels, list users, and manage Slack workspaces.",
-            transportType = TransportType.STDIO,
-            stdioConfig = StdioConfig(
-                commandTemplate = listOf("npx", "-y", "@modelcontextprotocol/server-slack"),
-                envTemplate = mapOf(
-                    "SLACK_BOT_TOKEN" to "{{slackBotToken}}",
-                    "SLACK_TEAM_ID" to "{{slackTeamId}}",
-                ),
-            ),
-            parameters = listOf(
-                Parameter(
-                    key = "slackBotToken",
-                    label = "Slack Bot Token",
-                    type = ParameterType.SECRET,
-                    description = "OAuth token for your Slack app bot user (starts with xoxb-).",
-                    placeholder = "xoxb-...",
-                    location = ParameterLocation.ENVIRONMENT,
-                ),
-                Parameter(
-                    key = "slackTeamId",
-                    label = "Slack Team ID",
-                    type = ParameterType.STRING,
-                    description = "Your Slack workspace Team ID. Found in the workspace URL or admin panel.",
-                    placeholder = "T01234567",
-                    location = ParameterLocation.ENVIRONMENT,
-                ),
-            ),
-            tags = listOf("popular", "productivity"),
-            author = "Anthropic",
-        ),
-
-        // ── Search ────────────────────────────────────────────────────────────
-
-        McpServerDefinition(
-            id = "template-brave-search",
-            name = "Brave Search",
-            description = "Search the web and retrieve results using the Brave Search API.",
-            transportType = TransportType.STDIO,
-            stdioConfig = StdioConfig(
-                commandTemplate = listOf("npx", "-y", "@modelcontextprotocol/server-brave-search"),
-                envTemplate = mapOf("BRAVE_API_KEY" to "{{braveApiKey}}"),
-            ),
-            parameters = listOf(
-                Parameter(
-                    key = "braveApiKey",
-                    label = "Brave Search API Key",
-                    type = ParameterType.SECRET,
-                    description = "Get a free API key at brave.com/search/api.",
-                    placeholder = "BSAxxxxxxxx...",
-                    location = ParameterLocation.ENVIRONMENT,
-                ),
-            ),
-            tags = listOf("popular", "search"),
-            author = "Anthropic",
-        ),
-
         // ── Utilities ─────────────────────────────────────────────────────────
 
         McpServerDefinition(
@@ -203,12 +104,12 @@ object McpServerTemplateRegistry {
         ),
 
         McpServerDefinition(
-            id = "template-fetch",
-            name = "Fetch",
-            description = "Fetch any URL and convert the response to Markdown for easy reading.",
+            id = "template-time",
+            name = "Time",
+            description = "Query the current time and convert between timezones. No configuration required.",
             transportType = TransportType.STDIO,
             stdioConfig = StdioConfig(
-                commandTemplate = listOf("uvx", "mcp-server-fetch"),
+                commandTemplate = listOf("uvx", "mcp-server-time"),
             ),
             parameters = emptyList(),
             tags = listOf("popular", "utilities"),
@@ -216,12 +117,12 @@ object McpServerTemplateRegistry {
         ),
 
         McpServerDefinition(
-            id = "template-memory",
-            name = "Memory",
-            description = "Persistent knowledge graph memory — lets the AI remember facts across sessions.",
+            id = "template-fetch",
+            name = "Fetch",
+            description = "Fetch any URL and convert the response to Markdown for easy reading.",
             transportType = TransportType.STDIO,
             stdioConfig = StdioConfig(
-                commandTemplate = listOf("npx", "-y", "@modelcontextprotocol/server-memory"),
+                commandTemplate = listOf("uvx", "mcp-server-fetch"),
             ),
             parameters = emptyList(),
             tags = listOf("popular", "utilities"),

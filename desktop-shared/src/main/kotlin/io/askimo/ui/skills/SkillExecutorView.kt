@@ -83,6 +83,7 @@ import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.markdownText
 import io.askimo.ui.common.ui.selectableText
+import io.askimo.ui.common.ui.themedTooltip
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -290,33 +291,40 @@ internal fun skillExecutionArea(
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                         shape = MaterialTheme.shapes.medium,
                     ) {
+                        val systemPromptTooltip = remember(skill.systemPrompt) {
+                            skill.systemPrompt.trim().take(600).let {
+                                if (skill.systemPrompt.trim().length > 600) "$it…" else it
+                            }
+                        }
                         Column {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .pointerHoverIcon(PointerIcon.Hand)
-                                    .toggleable(value = systemPromptExpanded, role = Role.Button, onValueChange = { systemPromptExpanded = it })
-                                    .padding(horizontal = Spacing.large, vertical = Spacing.medium),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {
-                                    Text(stringResource("skills.view.system.prompt.preview"), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    if (skill.supplementalFileNames.isNotEmpty()) {
-                                        Box(
-                                            modifier = Modifier
-                                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), shape = MaterialTheme.shapes.extraSmall)
-                                                .padding(horizontal = 6.dp, vertical = 1.dp),
-                                        ) {
-                                            Text(
-                                                "+${skill.supplementalFileNames.size} ${if (skill.supplementalFileNames.size == 1) stringResource("skills.view.system.prompt.file") else stringResource("skills.view.system.prompt.files")}",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
+                            themedTooltip(text = if (systemPromptExpanded) "" else systemPromptTooltip) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .pointerHoverIcon(PointerIcon.Hand)
+                                        .toggleable(value = systemPromptExpanded, role = Role.Button, onValueChange = { systemPromptExpanded = it })
+                                        .padding(horizontal = Spacing.large, vertical = Spacing.medium),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {
+                                        Text(stringResource("skills.view.system.prompt.preview"), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        if (skill.supplementalFileNames.isNotEmpty()) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), shape = MaterialTheme.shapes.extraSmall)
+                                                    .padding(horizontal = 6.dp, vertical = 1.dp),
+                                            ) {
+                                                Text(
+                                                    "+${skill.supplementalFileNames.size} ${if (skill.supplementalFileNames.size == 1) stringResource("skills.view.system.prompt.file") else stringResource("skills.view.system.prompt.files")}",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
                                         }
                                     }
+                                    Icon(if (systemPromptExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                                 }
-                                Icon(if (systemPromptExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                             }
                             if (systemPromptExpanded) {
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))

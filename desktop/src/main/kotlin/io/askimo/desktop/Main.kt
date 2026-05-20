@@ -1794,7 +1794,7 @@ fun mainContent(
         when (currentView) {
             View.DISCOVER -> discoverView(
                 userProfile = userProfile,
-                recentSessions = sessionsViewModel.recentSessions.take(5),
+                recentSessions = sessionsViewModel.recentSessions.take(10),
                 totalMcpServers = totalMcpServers,
                 chatSessionRepository = chatSessionRepository,
                 projectRepository = projectRepository,

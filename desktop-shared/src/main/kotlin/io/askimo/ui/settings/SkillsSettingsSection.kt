@@ -86,6 +86,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.askimo.core.skills.SkillImporter
 import io.askimo.core.skills.SkillRepository
+import io.askimo.core.skills.agent.ExternalAgentLoader
 import io.askimo.core.skills.domain.SkillDefinition
 import io.askimo.core.skills.domain.SkillTreeNode
 import io.askimo.core.util.AskimoHome
@@ -396,20 +397,48 @@ private fun skillsMainContent(
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalAlignment = Alignment.Top,
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = stringResource("settings.skills"),
                             style = MaterialTheme.typography.headlineSmall,
                             color = MaterialTheme.colorScheme.onBackground,
                         )
+                        val runtimes = ExternalAgentLoader.displayNames()
+                        val runtimesLabel = runtimes.mapIndexed { i, r ->
+                            if (i == runtimes.lastIndex) "or $r" else r
+                        }.joinToString(", ")
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            text = stringResource("settings.skills.description"),
+                            text = stringResource("settings.skills.description", runtimesLabel),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                         )
+                        Spacer(Modifier.height(8.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = stringResource("settings.skills.runtimes"),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            runtimes.forEach { runtime ->
+                                Surface(
+                                    shape = MaterialTheme.shapes.small,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                ) {
+                                    Text(
+                                        text = runtime,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                    )
+                                }
+                            }
+                        }
                     }
                     themedTooltip(text = stringResource("skills.view.docs.tooltip")) {
                         IconButton(

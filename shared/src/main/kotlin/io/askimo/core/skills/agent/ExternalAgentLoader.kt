@@ -26,6 +26,12 @@ object ExternalAgentLoader {
     )
 
     /**
+     * Returns the display names of all known agents in preferred display order.
+     * Use this to build UI labels like "Claude Code, Gemini CLI, or Codex".
+     */
+    fun displayNames(): List<String> = ALL.map { it.name }
+
+    /**
      * Returns all known agents regardless of whether they are installed.
      * Use this to show the full list to users so they know what is supported.
      */

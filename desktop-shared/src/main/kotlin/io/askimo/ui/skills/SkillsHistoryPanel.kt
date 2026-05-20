@@ -120,7 +120,7 @@ private fun skillRunHistoryPanelRow(
                 if (isError) Icons.Default.Close else Icons.Default.CheckCircle,
                 contentDescription = null,
                 modifier = Modifier.size(12.dp),
-                tint = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                tint = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
             )
             Column(modifier = Modifier.weight(1f)) {
                 if (showSkillName) {
@@ -238,10 +238,10 @@ internal fun skillsHistoryPanel(
                             if (runHistory.isNotEmpty()) {
                                 Box(
                                     modifier = Modifier
-                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), shape = MaterialTheme.shapes.extraSmall)
+                                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), shape = MaterialTheme.shapes.extraSmall)
                                         .padding(horizontal = 6.dp, vertical = 1.dp),
                                 ) {
-                                    Text("${runHistory.size}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                    Text("${runHistory.size}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }

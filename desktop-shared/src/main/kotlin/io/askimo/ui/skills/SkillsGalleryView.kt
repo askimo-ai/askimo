@@ -4,13 +4,11 @@
  */
 package io.askimo.ui.skills
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -39,8 +37,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -59,9 +55,11 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.askimo.core.skills.agent.ExternalAgentLoader
 import io.askimo.core.skills.domain.SkillDefinition
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppComponents.clickableCard
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.themedTooltip
@@ -92,10 +90,11 @@ internal fun skillsListContent(
     }
 
     val grouped: Map<String, List<SkillDefinition>> = remember(filtered) {
+        val sortLast = "\u10FFFF" // Unicode max code point — sorts uncategorised items last
         filtered
             .groupBy { it.categoryPath.firstOrNull() ?: "" }
             .entries
-            .sortedWith(compareBy { if (it.key.isEmpty()) "\uFFFF" else it.key })
+            .sortedWith(compareBy { if (it.key.isEmpty()) sortLast else it.key })
             .associate { it.key to it.value }
     }
 
@@ -117,17 +116,21 @@ internal fun skillsListContent(
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalAlignment = Alignment.Top,
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = stringResource("skills.view.title"),
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground,
                         )
+                        val runtimes = ExternalAgentLoader.displayNames()
+                        val runtimesLabel = runtimes.mapIndexed { i, r ->
+                            if (i == runtimes.lastIndex) "or $r" else r
+                        }.joinToString(", ")
                         Text(
-                            text = stringResource("skills.view.description"),
+                            text = stringResource("skills.view.description", runtimesLabel),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp),
@@ -339,28 +342,9 @@ private fun skillCard(
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
 
-    Card(
-        modifier = modifier
-            .hoverable(interactionSource)
-            .clickable(onClick = onClick)
-            .pointerHoverIcon(PointerIcon.Hand),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(
-            containerColor = if (isHovered) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            },
-        ),
-        border = BorderStroke(
-            1.dp,
-            if (isHovered) {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-            } else {
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
-            },
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    clickableCard(
+        onClick = onClick,
+        modifier = modifier,
     ) {
         Column(
             modifier = Modifier

@@ -8,7 +8,6 @@ import androidx.compose.foundation.ScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -59,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import io.askimo.core.plan.domain.PlanDef
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppComponents.clickableCard
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.themedTooltip
@@ -373,22 +373,9 @@ private fun planCard(
     val isHovered by interactionSource.collectIsHoveredAsState()
     var showMenu by remember { mutableStateOf(false) }
 
-    Surface(
-        modifier = modifier
-            .hoverable(interactionSource)
-            .clickable(onClick = onSelect)
-            .pointerHoverIcon(PointerIcon.Hand),
-        shape = MaterialTheme.shapes.medium,
-        color = if (isHovered) {
-            MaterialTheme.colorScheme.primaryContainer
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant
-        },
-        contentColor = if (isHovered) {
-            MaterialTheme.colorScheme.onPrimaryContainer
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        },
+    clickableCard(
+        onClick = onSelect,
+        modifier = modifier,
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(Spacing.large)) {
             Row(
@@ -461,7 +448,7 @@ private fun planCard(
                 text = plan.name,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = if (isHovered) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -471,11 +458,7 @@ private fun planCard(
                 Text(
                     text = plan.description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (isHovered) {
-                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -491,16 +474,12 @@ private fun planCard(
                 Text(
                     text = "${plan.steps.size} ${if (plan.steps.size == 1) "step" else "steps"}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (isHovered) {
-                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
                 Icon(
                     Icons.Default.PlayArrow,
                     contentDescription = stringResource("plans.run"),
-                    tint = if (isHovered) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = if (isHovered) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
                     modifier = Modifier.size(20.dp),
                 )
             }

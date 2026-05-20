@@ -260,6 +260,11 @@ fun planDetailView(
                             .padding(start = 24.dp, end = 36.dp, top = 16.dp, bottom = 24.dp),
                     ) {
                         var stepsExpanded by remember { mutableStateOf(false) }
+                        val stepsTooltip = remember(plan.steps) {
+                            plan.steps.entries.mapIndexed { i, (stepId, _) ->
+                                "${i + 1}. $stepId"
+                            }.joinToString("\n")
+                        }
                         Spacer(modifier = Modifier.height(Spacing.small))
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
@@ -267,32 +272,36 @@ fun planDetailView(
                             shape = MaterialTheme.shapes.medium,
                         ) {
                             Column {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .pointerHoverIcon(PointerIcon.Hand)
-                                        .toggleable(
-                                            value = stepsExpanded,
-                                            role = Role.Button,
-                                            onValueChange = { stepsExpanded = it },
-                                        )
-                                        .padding(horizontal = Spacing.large, vertical = Spacing.medium),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically,
+                                themedTooltip(
+                                    text = if (stepsExpanded) "" else stepsTooltip,
                                 ) {
-                                    Text(
-                                        text = stringResource("plans.detail.how.it.works") +
-                                            " (${plan.steps.size} ${if (plan.steps.size == 1) stringResource("plans.detail.step") else stringResource("plans.detail.steps")})",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    Icon(
-                                        imageVector = if (stepsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(18.dp),
-                                    )
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .pointerHoverIcon(PointerIcon.Hand)
+                                            .toggleable(
+                                                value = stepsExpanded,
+                                                role = Role.Button,
+                                                onValueChange = { stepsExpanded = it },
+                                            )
+                                            .padding(horizontal = Spacing.large, vertical = Spacing.medium),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(
+                                            text = stringResource("plans.detail.how.it.works") +
+                                                " (${plan.steps.size} ${if (plan.steps.size == 1) stringResource("plans.detail.step") else stringResource("plans.detail.steps")})",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                        Icon(
+                                            imageVector = if (stepsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    }
                                 }
                                 if (stepsExpanded) {
                                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))

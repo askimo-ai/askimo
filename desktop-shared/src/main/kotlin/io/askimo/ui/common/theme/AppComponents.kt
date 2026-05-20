@@ -4,7 +4,12 @@
  */
 package io.askimo.ui.common.theme
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -13,6 +18,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardColors
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -29,10 +35,15 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -62,6 +73,70 @@ object AppComponents {
     )
 
     // ── Cards ─────────────────────────────────────────────────────────────────
+
+    /**
+     * A card with standardised hover behaviour across all themes.
+     *
+     * Bakes in:
+     * - `.clip(shape)` **before** `hoverable`/`clickable` so the ripple and hover
+     *   highlight are always clipped to rounded corners (prevents the rectangle-border bug).
+     * - Default: `surfaceVariant.copy(alpha = 0.5f)` + `outlineVariant.copy(alpha = 0.6f)` border.
+     * - Hover:   `primaryContainer.copy(alpha = 0.25f)` + `primary.copy(alpha = 0.4f)` border.
+     *
+     * Use this instead of bare [Card] whenever the card is clickable.
+     */
+    @Composable
+    fun clickableCard(
+        onClick: (() -> Unit)?,
+        modifier: Modifier = Modifier,
+        shape: Shape = MaterialTheme.shapes.medium,
+        colors: CardColors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ),
+        content: @Composable ColumnScope.() -> Unit,
+    ) {
+        val interactionSource = remember { MutableInteractionSource() }
+        val isHovered by interactionSource.collectIsHoveredAsState()
+
+        val resolvedColors = if (onClick != null && isHovered) {
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f),
+                contentColor = MaterialTheme.colorScheme.onSurface,
+            )
+        } else {
+            colors
+        }
+
+        val border = BorderStroke(
+            1.dp,
+            if (onClick != null && isHovered) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+            } else {
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+            },
+        )
+
+        Card(
+            modifier = modifier
+                .clip(shape)
+                .then(
+                    if (onClick != null) {
+                        Modifier
+                            .hoverable(interactionSource)
+                            .clickable(onClick = onClick)
+                            .pointerHoverIcon(PointerIcon.Hand)
+                    } else {
+                        Modifier
+                    },
+                ),
+            shape = shape,
+            colors = resolvedColors,
+            border = border,
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            content = content,
+        )
+    }
 
     @Composable
     fun primaryCardColors(): CardColors = CardDefaults.cardColors(
