@@ -4,6 +4,7 @@
  */
 package io.askimo.ui.project
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
@@ -119,6 +120,13 @@ fun projectsView(
                         Text(stringResource("project.new"))
                     }
                 }
+
+                Text(
+                    text = stringResource("projects.description"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp, bottom = 4.dp),
+                )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -280,6 +288,10 @@ private fun projectTable(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp,
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant,
+        ),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {

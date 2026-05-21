@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -100,6 +99,7 @@ import io.askimo.ui.chat.chatView
 import io.askimo.ui.common.components.dangerButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
+import io.askimo.ui.common.components.successIcon
 import io.askimo.ui.common.dialog.errorDialog
 import io.askimo.ui.common.dialog.updateCheckDialog
 import io.askimo.ui.common.i18n.provideLocalization
@@ -1443,12 +1443,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                                         verticalAlignment = Alignment.Top,
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.CheckCircle,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(32.dp),
-                                        )
+                                        successIcon(size = 32.dp)
                                         Column(
                                             verticalArrangement = Arrangement.spacedBy(8.dp),
                                             modifier = Modifier.weight(1f),
@@ -1670,6 +1665,12 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                             onDismiss = { showNewProjectDialog = false },
                             onCreateProject = { _, _ ->
                                 projectsViewModel.refresh()
+                            },
+                            onNavigateToProject = { projectId ->
+                                showNewProjectDialog = false
+                                projectsViewModel.refresh()
+                                selectedProjectId = projectId
+                                currentView = View.PROJECT_DETAIL
                             },
                         )
                     }

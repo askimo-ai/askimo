@@ -232,7 +232,7 @@ AGPLv3. See [LICENSE](./LICENSE).
 
 ## Star History
 
-<a href="https://www.star-history.com/?repos=haiphucnguyen%2Faskimo&type=date&legend=top-left">
+<a href="https://www.star-history.com/?repos=askimo-ai%2Faskimo&type=date&legend=top-left">
  <picture>
    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=askimo-ai/askimo&type=date&theme=dark&legend=top-left" />
    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=askimo-ai/askimo&type=date&legend=top-left" />

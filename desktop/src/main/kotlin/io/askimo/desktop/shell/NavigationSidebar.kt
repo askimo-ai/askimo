@@ -107,6 +107,7 @@ fun navigationSidebar(
         onNavigateToSessions = onNavigateToSessions,
         onNavigateToPlans = onNavigateToPlans,
         onNavigateToSkills = onNavigateToSkills,
+        onNewProject = onNewProject,
         onSelectProject = onSelectProject,
         onResumeSession = onResumeSession,
         onDeleteSession = onDeleteSession,

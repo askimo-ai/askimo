@@ -70,6 +70,7 @@ private const val SUCCESS_COUNTDOWN_SECONDS = 5
 fun newProjectDialog(
     onDismiss: () -> Unit,
     onCreateProject: (name: String, description: String?) -> Unit,
+    onNavigateToProject: ((projectId: String) -> Unit)? = null,
     projectService: ProjectService = GlobalContext.get().get(),
 ) {
     var projectName by remember { mutableStateOf("") }
@@ -167,6 +168,12 @@ fun newProjectDialog(
                     createdProject.name,
                     createdProject.description,
                 )
+
+                // Navigate immediately if handler provided (skips countdown screen)
+                if (onNavigateToProject != null) {
+                    onDismiss()
+                    onNavigateToProject(createdProject.id)
+                }
             } catch (e: Exception) {
                 log.error("Failed to create project", e)
                 dialogState.setError(e, errorCreateFailed.format(e.message ?: "Unknown error"))

@@ -133,6 +133,7 @@ fun navigationSidebar(
     onNavigateToSessions: () -> Unit,
     onNavigateToPlans: () -> Unit = {},
     onNavigateToSkills: () -> Unit = {},
+    onNewProject: () -> Unit = {},
     onSelectProject: (String) -> Unit = {},
     onResumeSession: (String) -> Unit,
     onDeleteSession: (String) -> Unit,
@@ -173,6 +174,7 @@ fun navigationSidebar(
             onNavigateToSessions = onNavigateToSessions,
             onNavigateToPlans = onNavigateToPlans,
             onNavigateToSkills = onNavigateToSkills,
+            onNewProject = onNewProject,
             onSelectProject = onSelectProject,
             onResumeSession = onResumeSession,
             onDeleteSession = onDeleteSession,
@@ -231,6 +233,7 @@ private fun expandedNavigationSidebar(
     onNavigateToSessions: () -> Unit,
     onNavigateToPlans: () -> Unit,
     onNavigateToSkills: () -> Unit,
+    onNewProject: () -> Unit,
     onSelectProject: (String) -> Unit,
     onResumeSession: (String) -> Unit,
     onDeleteSession: (String) -> Unit,
@@ -313,16 +316,42 @@ private fun expandedNavigationSidebar(
 
             // Projects
             if (showProjectsInSidebar) {
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.FolderOpen, contentDescription = null) },
-                    label = { Text(stringResource("project.title"), style = MaterialTheme.typography.labelLarge) },
-                    selected = isProjectsSelected,
-                    onClick = onToggleProjects,
+                val projectsInteractionSource = remember { MutableInteractionSource() }
+                val isProjectsHovered by projectsInteractionSource.collectIsHoveredAsState()
+
+                Box(
                     modifier = Modifier
                         .padding(horizontal = (12 * fontScale).dp)
-                        .pointerHoverIcon(PointerIcon.Hand),
-                    colors = AppComponents.navigationDrawerItemColors(),
-                )
+                        .hoverable(projectsInteractionSource),
+                ) {
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.FolderOpen, contentDescription = null) },
+                        label = { Text(stringResource("project.title"), style = MaterialTheme.typography.labelLarge) },
+                        selected = isProjectsSelected,
+                        onClick = onToggleProjects,
+                        badge = {
+                            if (isProjectsHovered) {
+                                themedTooltip(text = stringResource("project.new.dialog.title")) {
+                                    IconButton(
+                                        onClick = onNewProject,
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .pointerHoverIcon(PointerIcon.Hand),
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Add,
+                                            contentDescription = stringResource("project.new.dialog.title"),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    }
+                                }
+                            }
+                        },
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                        colors = AppComponents.navigationDrawerItemColors(),
+                    )
+                }
             }
 
             // Plans
@@ -770,7 +799,7 @@ private fun pinnedProjectItem(
             AppComponents.dropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                 DropdownMenuItem(
                     text = { Text(stringResource("action.unpin")) },
-                    leadingIcon = { Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                    leadingIcon = { Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                     onClick = {
                         showMenu = false
                         onUnpin()
@@ -880,7 +909,7 @@ private fun pinnedSessionItem(
             ) {
                 DropdownMenuItem(
                     text = { Text(stringResource("action.unpin")) },
-                    leadingIcon = { Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                    leadingIcon = { Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                     onClick = {
                         showMenu = false
                         onUnpin()
