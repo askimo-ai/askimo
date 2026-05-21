@@ -387,17 +387,65 @@ internal object PdfExporter {
         }
     }
 
-    /** Renders [content] as a monospaced code block paragraph. */
+    /**
+     * Renders [content] as a framed monospaced code block (tech-book style).
+     *
+     * All lines go into a single PdfPTable with isSplitRows=true so OpenPDF
+     * splits between rows at page boundaries and redraws cell borders on both
+     * sides of the break automatically — no blank pages, no missing borders.
+     */
     private fun addCodeBlock(doc: Document, content: String) {
-        val codePara = Paragraph().apply {
-            alignment = Element.ALIGN_LEFT
-            spacingBefore = 4f
-            spacingAfter = 4f
+        val codeLines = content.lines()
+        if (codeLines.isEmpty()) return
+
+        val bg = Color(245, 246, 248)
+        val border = Color(200, 202, 210)
+        val bw = 0.75f
+
+        // Zero-height cap cell — used for top and bottom border lines
+        fun capCell(topBorder: Boolean) = PdfPCell(Phrase(" ", fontCode())).apply {
+            backgroundColor = bg
+            paddingLeft = 8f
+            paddingRight = 8f
+            paddingTop = 0f
+            paddingBottom = 0f
+            fixedHeight = 0f
+            borderWidthLeft = bw
+            borderWidthRight = bw
+            borderWidthTop = if (topBorder) bw else 0f
+            borderWidthBottom = if (!topBorder) bw else 0f
+            borderColorLeft = border
+            borderColorRight = border
+            borderColorTop = border
+            borderColorBottom = border
         }
-        content.lines().forEach { codeLine ->
-            codePara.add(Chunk("$codeLine\n", fontCode()))
+
+        // Content cell — left/right borders only so rows appear seamlessly joined
+        fun lineCell(codeLine: String) = PdfPCell(Paragraph(Chunk(codeLine.ifEmpty { " " }, fontCode()))).apply {
+            backgroundColor = bg
+            paddingLeft = 8f
+            paddingRight = 8f
+            paddingTop = 1.5f
+            paddingBottom = 1.5f
+            borderWidthLeft = bw
+            borderWidthRight = bw
+            borderWidthTop = 0f
+            borderWidthBottom = 0f
+            borderColorLeft = border
+            borderColorRight = border
         }
-        doc.add(codePara)
+
+        val wrapper = PdfPTable(1).apply {
+            widthPercentage = 100f
+            setSpacingBefore(6f)
+            setSpacingAfter(6f)
+            isSplitRows = true
+            isSplitLate = false
+        }
+        wrapper.addCell(capCell(topBorder = true))
+        codeLines.forEach { wrapper.addCell(lineCell(it)) }
+        wrapper.addCell(capCell(topBorder = false))
+        doc.add(wrapper)
     }
 
     private fun isTableRow(line: String) = line.trim().let { it.startsWith("|") && it.length > 1 }

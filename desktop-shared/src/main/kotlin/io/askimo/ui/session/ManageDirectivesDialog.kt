@@ -302,7 +302,7 @@ fun manageDirectivesDialog(
                                                 Text(
                                                     text = if (isExpanded) stringResource("action.show.less") else stringResource("action.show.more"),
                                                     style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.primary,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                     modifier = Modifier
                                                         .pointerHoverIcon(PointerIcon.Hand)
                                                         .clickable {

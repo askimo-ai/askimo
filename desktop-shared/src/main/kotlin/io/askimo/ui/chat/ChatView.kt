@@ -90,6 +90,7 @@ import io.askimo.ui.common.keymap.KeyMapManager
 import io.askimo.ui.common.keymap.KeyMapManager.AppShortcut
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.LocalBackgroundActive
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.TooltipPlacement
@@ -585,7 +586,7 @@ fun chatView(
                                     }
                                 }
 
-                                AppComponents.dropdownMenu(
+                                dropdownMenu(
                                     expanded = directiveDropdownExpanded,
                                     onDismissRequest = { directiveDropdownExpanded = false },
                                     modifier = Modifier.fillMaxWidth(0.3f),
@@ -726,13 +727,13 @@ fun chatView(
                                                 Icon(
                                                     Icons.Default.ChevronRight,
                                                     contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                                     modifier = Modifier.size(16.dp),
                                                 )
                                                 Text(
                                                     text = stringResource("chat.directive.learn.more"),
                                                     style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.primary,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 )
                                             }
                                         },

@@ -31,7 +31,7 @@ import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.ProjectsRefreshEvent
 import io.askimo.core.event.internal.SessionsRefreshEvent
 import io.askimo.ui.common.i18n.stringResource
-import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.project.newProjectDialog
 import io.askimo.ui.shell.DeveloperModePreferences
 
@@ -95,7 +95,7 @@ fun sessionActionsMenu(
             )
         }
 
-        AppComponents.dropdownMenu(
+        dropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
@@ -157,7 +157,7 @@ fun sessionActionsMenu(
                     Icon(
                         imageVector = if (isStarred) Icons.Default.Star else Icons.Default.StarBorder,
                         contentDescription = null,
-                        tint = if (isStarred) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        tint = MaterialTheme.colorScheme.onSurface,
                     )
                 },
                 modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
