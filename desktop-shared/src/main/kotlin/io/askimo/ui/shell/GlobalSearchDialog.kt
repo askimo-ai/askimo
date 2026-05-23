@@ -294,19 +294,27 @@ fun globalSearchDialog(
                                 .pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR))),
                             colors = AppComponents.outlinedTextFieldColors(),
                         )
-                        ExposedDropdownMenu(
-                            expanded = dateFilterExpanded,
-                            onDismissRequest = { dateFilterExpanded = false },
+
+                        MaterialTheme(
+                            colorScheme = MaterialTheme.colorScheme.copy(
+                                surfaceContainer = MaterialTheme.colorScheme.surface,
+                            ),
                         ) {
-                            dateFilterOptions.forEach { option ->
-                                DropdownMenuItem(
-                                    text = { Text(option) },
-                                    onClick = {
-                                        selectedDateFilter = option
-                                        dateFilterExpanded = false
-                                    },
-                                    modifier = Modifier.pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR))),
-                                )
+                            ExposedDropdownMenu(
+                                expanded = dateFilterExpanded,
+                                onDismissRequest = { dateFilterExpanded = false },
+                            ) {
+                                dateFilterOptions.forEach { option ->
+                                    DropdownMenuItem(
+                                        text = { Text(option) },
+                                        onClick = {
+                                            selectedDateFilter = option
+                                            dateFilterExpanded = false
+                                        },
+                                        colors = AppComponents.menuItemColors(),
+                                        modifier = Modifier.pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR))),
+                                    )
+                                }
                             }
                         }
                     }
@@ -329,19 +337,27 @@ fun globalSearchDialog(
                                 .pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR))),
                             colors = AppComponents.outlinedTextFieldColors(),
                         )
-                        ExposedDropdownMenu(
-                            expanded = sortByExpanded,
-                            onDismissRequest = { sortByExpanded = false },
+                        // Override surfaceContainer so the popup background matches the theme surface
+                        MaterialTheme(
+                            colorScheme = MaterialTheme.colorScheme.copy(
+                                surfaceContainer = MaterialTheme.colorScheme.surface,
+                            ),
                         ) {
-                            sortByOptions.forEach { option ->
-                                DropdownMenuItem(
-                                    text = { Text(option) },
-                                    onClick = {
-                                        selectedSortBy = option
-                                        sortByExpanded = false
-                                    },
-                                    modifier = Modifier.pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR))),
-                                )
+                            ExposedDropdownMenu(
+                                expanded = sortByExpanded,
+                                onDismissRequest = { sortByExpanded = false },
+                            ) {
+                                sortByOptions.forEach { option ->
+                                    DropdownMenuItem(
+                                        text = { Text(option) },
+                                        onClick = {
+                                            selectedSortBy = option
+                                            sortByExpanded = false
+                                        },
+                                        colors = AppComponents.menuItemColors(),
+                                        modifier = Modifier.pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR))),
+                                    )
+                                }
                             }
                         }
                     }
@@ -361,7 +377,10 @@ fun globalSearchDialog(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    CircularProgressIndicator()
+                                    CircularProgressIndicator(
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                                    )
                                     Spacer(modifier = Modifier.height(16.dp))
                                     Text(
                                         text = stringResource("global.search.searching"),
