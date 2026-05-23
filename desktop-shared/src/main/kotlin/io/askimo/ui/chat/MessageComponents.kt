@@ -368,9 +368,9 @@ private fun userMessageBubble(
                                     text = highlightSearchText(
                                         text = message.content,
                                         query = searchQuery,
-                                        highlightColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f),
+                                        highlightColor = Color(0xFFFFD54F), // amber-300 — visible on any bg
                                         isActiveResult = isActiveSearchResult,
-                                        activeHighlightColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.4f),
+                                        activeHighlightColor = Color(0xFFFF8F00), // amber-800 — bold active match
                                     ),
                                     modifier = Modifier.padding(12.dp),
                                     style = MaterialTheme.typography.bodyMedium,
@@ -597,9 +597,9 @@ private fun aiMessageBubble(
                                         text = highlightSearchText(
                                             text = markdownToPlainText(message.content),
                                             query = searchQuery,
-                                            highlightColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f),
+                                            highlightColor = Color(0xFFFFD54F), // amber-300 — visible on any bg
                                             isActiveResult = isActiveSearchResult,
-                                            activeHighlightColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.4f),
+                                            activeHighlightColor = Color(0xFFFF8F00), // amber-800 — bold active match
                                         ),
                                         modifier = Modifier.padding(start = 12.dp, end = 48.dp, top = 12.dp, bottom = 12.dp),
                                         style = MaterialTheme.typography.bodyMedium,

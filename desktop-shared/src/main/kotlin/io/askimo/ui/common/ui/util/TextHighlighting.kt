@@ -5,6 +5,7 @@
 package io.askimo.ui.common.ui.util
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -82,6 +83,9 @@ fun highlightSearchText(
         // Use active color if this is the active result, otherwise use normal color
         val bgColor = if (isActiveResult) activeHighlightColor else highlightColor
 
+        // Choose foreground: black on light backgrounds, white on dark ones
+        val fgColor = if (bgColor.luminance() > 0.3f) Color.Black else Color.White
+
         while (currentIndex < text.length) {
             val matchIndex = lowerText.indexOf(lowerQuery, currentIndex)
 
@@ -100,7 +104,7 @@ fun highlightSearchText(
             withStyle(
                 style = SpanStyle(
                     background = bgColor,
-                    color = Color.Black,
+                    color = fgColor,
                 ),
             ) {
                 append(text.substring(matchIndex, matchIndex + query.length))
