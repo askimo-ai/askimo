@@ -11,10 +11,22 @@ import dev.langchain4j.data.message.UserMessage
 import io.askimo.core.logging.logger
 import io.askimo.core.providers.ChatClient
 import kotlinx.coroutines.withTimeout
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Determines if RAG retrieval is needed for the user's message.
- * Uses AI classification for all queries to support multiple languages (Spanish, German, etc.).
+ * The routing decision returned by [RAGIntentClassifier].
+ *
+ * - [RAG]    – semantic vector+keyword search over the knowledge base
+ * - [SEARCH] – structural/pattern grep search over knowledge source paths
+ * - [SKIP]   – no retrieval needed; answer directly
+ */
+enum class RAGIntent { RAG, SEARCH, SKIP }
+
+/**
+ * Determines how to retrieve project context for the user's message.
+ * Returns a tri-state [RAGIntent] instead of a boolean so that pattern queries
+ * (find all X, list all Y) can be routed to grep-based search rather than
+ * semantic vector retrieval.
  */
 class RAGIntentClassifier(
     private val classifierChatClient: ChatClient,
@@ -26,44 +38,46 @@ class RAGIntentClassifier(
     }
 
     /**
-     * Classifies whether RAG should be used.
-     * Always uses AI to support multiple languages.
+     * Classifies the retrieval intent for [userMessage].
      *
-     * @param userMessage The current user message to classify
-     * @param conversationHistory Recent conversation context
-     * @return true if RAG should be used, false otherwise
+     * @param userMessage            The current user message.
+     * @param conversationHistory    Recent conversation context.
+     * @param knowledgeSourcePaths   Searchable root paths from the active project (used to inform SEARCH routing).
+     * @return [RAGIntent] routing decision.
      */
-    suspend fun shouldUseRAG(
+    suspend fun classify(
         userMessage: String,
         conversationHistory: List<ChatMessage>,
-    ): Boolean = try {
-        val prompt = buildPrompt(userMessage, conversationHistory)
+        knowledgeSourcePaths: List<String> = emptyList(),
+    ): RAGIntent = try {
+        val prompt = buildPrompt(userMessage, conversationHistory, knowledgeSourcePaths)
 
-        val response = withTimeout(CLASSIFICATION_TIMEOUT_MS) {
+        val response = withTimeout(CLASSIFICATION_TIMEOUT_MS.milliseconds) {
             classifierChatClient.sendMessage(prompt)
         }
 
-        val decision = response.trim().uppercase() == "YES"
-        log.debug("RAG Classification: ${if (decision) "Use RAG" else "Skip RAG"} (response: $response)")
+        val intent = when (response.trim().uppercase()) {
+            "RAG" -> RAGIntent.RAG
+            "SEARCH" -> RAGIntent.SEARCH
+            else -> RAGIntent.SKIP
+        }
 
-        decision
+        log.debug("RAG Classification: $intent (response: $response)")
+        intent
     } catch (e: Exception) {
-        log.warn("Intent classification failed: ${e.message}. Defaulting to using RAG", e)
-        true
+        log.warn("Intent classification failed: ${e.message}. Defaulting to RAG", e)
+        RAGIntent.RAG
     }
 
-    /**
-     * Builds the classification prompt.
-     * Includes recent conversation context to help AI understand if this is a follow-up.
-     */
     private fun buildPrompt(
         userMessage: String,
         history: List<ChatMessage>,
+        knowledgeSourcePaths: List<String>,
     ): String {
         val recentContext = if (history.isEmpty()) {
             "No previous conversation"
         } else {
-            history.takeLast(3).joinToString("\n") {
+            history.takeLast(4).joinToString("\n") {
                 val role = when {
                     it.type().name.contains("USER") -> "User"
                     it.type().name.contains("AI") -> "AI"
@@ -75,41 +89,64 @@ class RAGIntentClassifier(
             }
         }
 
-        return """
-            Does this user message need to search the knowledge base (RAG)?
+        val pathsSection = if (knowledgeSourcePaths.isEmpty()) {
+            ""
+        } else {
+            "\nSearchable knowledge source paths:\n" +
+                knowledgeSourcePaths.joinToString("\n") { "- $it" } + "\n"
+        }
 
-            Recent conversation:
+        return """
+            You are a retrieval router. Classify how to retrieve context for the user's message.
+
+            The knowledge base contains: project-specific code, documentation, configs, and domain content.
+            It does NOT contain: general programming knowledge, math, world facts, or language tasks.
+            $pathsSection
+            Recent conversation (last 4 turns):
             $recentContext
 
             Current message: "$userMessage"
 
-            Respond ONLY with "YES" or "NO":
+            Classify as exactly one of: RAG, SEARCH, or SKIP
 
-            YES - If the message is:
-            - A NEW question requiring knowledge base lookup
-            - Asking "who", "what", "where" about specific entities, people, or concepts
-            - Asking "how to" do something
-            - Requesting code examples or documentation
-            - Looking up API/library/feature information
-            - Asking about features, configuration, or implementation details
-            - Asking about people, projects, or domain-specific concepts
-            - Any factual query that might be in the knowledge base
+            SKIP when:
+            - Casual chat, greetings, thanks ("ok", "got it", "thanks")
+            - Pure math or logic ("calculate", "sort", "convert")
+            - General programming knowledge not specific to this project ("what is a HashMap?")
+            - Modifying, summarizing, or reformatting the AI's previous response
+            - The answer was clearly given in the last 2 AI turns above
+            - Creative writing, jokes, unrelated tasks
 
-            NO - If the message is:
-            - A follow-up clarification ("explain more", "what about X?")
-            - Correcting or critiquing the AI's previous answer
-            - Casual conversation ("yes", "no", "thanks", "ok")
-            - Requesting modification of the previous response
-            - Discussing something already covered in recent messages
-            - Asking the AI to correct/update its previous answer
+            SEARCH when (pattern/structural queries over project files):
+            - "find all X", "list all Y", "which files contain Z"
+            - "where is annotation/decorator X used?"
+            - "how many classes implement X?"
+            - "show all usages of X"
+            - Looking for a specific pattern, token, or identifier across the codebase
 
-            Answer:
+            RAG when (semantic/conceptual queries):
+            - "How does [project-specific thing] work?"
+            - "Where is [feature] implemented?" (needs understanding, not just grep)
+            - "What configuration does X use?"
+            - "Explain [concept in the project]"
+            - Any question where the answer requires understanding context, not just finding text
+
+            Examples:
+            Message: "How does the payment service handle retries?" → RAG
+            Message: "Find all Kafka consumer group IDs" → SEARCH
+            Message: "List all classes that implement RetryPolicy" → SEARCH
+            Message: "What is a design pattern?" → SKIP
+            Message: "Can you make that shorter?" → SKIP
+            Message: "Where is the Kafka consumer configured?" → RAG
+            Message: "Thanks, that helps" → SKIP
+            Message: "What does OrderService.process() do?" → RAG
+            Message: "Which files use @Transactional?" → SEARCH
+            Message: "Explain what a coroutine is" → SKIP
+
+            Respond with exactly one word: RAG, SEARCH, or SKIP
         """.trimIndent()
     }
 
-    /**
-     * Extract text content from ChatMessage
-     */
     private fun ChatMessage.getTextContent(): String = when (this) {
         is UserMessage -> this.singleText() ?: ""
         is AiMessage -> this.text() ?: ""

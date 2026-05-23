@@ -189,7 +189,6 @@ class ProjectsViewModel(
                     projectService.deleteProject(projectId)
                 }
                 if (deleted) {
-                    deleteProjectSuccessfulBannerMessage = LocalizationManager.getString("projects.delete.success")
                     refresh()
                 } else {
                     errorMessage = LocalizationManager.getString("projects.error.not.found")

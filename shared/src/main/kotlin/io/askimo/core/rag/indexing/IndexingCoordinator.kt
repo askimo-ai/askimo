@@ -48,6 +48,12 @@ interface IndexingCoordinator<out T : KnowledgeSourceConfig> : Closeable {
     fun stopWatching()
 
     /**
+     * Mark this coordinator as queued — waiting for another project to finish indexing.
+     * Called by [ProjectIndexer] before acquiring the global indexing mutex.
+     */
+    fun markQueued()
+
+    /**
      * Clear all indexed data for this knowledge source.
      * This is used when the project is deleted or reset.
      */

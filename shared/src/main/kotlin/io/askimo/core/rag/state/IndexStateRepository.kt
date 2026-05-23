@@ -30,6 +30,11 @@ class IndexStateRepository(
         Database.connect(databaseManager.dataSource)
     }
 
+    companion object {
+        /** SQLite bind-parameter limit is 999. We use 500 to stay well clear. */
+        private const val IN_LIST_CHUNK_SIZE = 100
+    }
+
     /**
      * Get all file hashes for a specific coordinator (project + resource + source type).
      */
@@ -59,15 +64,19 @@ class IndexStateRepository(
         filePaths: List<String>,
     ): Map<String, String> {
         if (filePaths.isEmpty()) return emptyMap()
-        return transaction(database) {
-            IndexFileStateTable.selectAll()
-                .where {
-                    (IndexFileStateTable.projectId eq projectId) and
-                        (IndexFileStateTable.resourceId eq resourceId) and
-                        (IndexFileStateTable.filePath inList filePaths)
-                }
-                .associate { it[IndexFileStateTable.filePath] to it[IndexFileStateTable.fileHash] }
+        val result = mutableMapOf<String, String>()
+        for (chunk in filePaths.chunked(IN_LIST_CHUNK_SIZE)) {
+            transaction(database) {
+                IndexFileStateTable.selectAll()
+                    .where {
+                        (IndexFileStateTable.projectId eq projectId) and
+                            (IndexFileStateTable.resourceId eq resourceId) and
+                            (IndexFileStateTable.filePath inList chunk)
+                    }
+                    .forEach { result[it[IndexFileStateTable.filePath]] = it[IndexFileStateTable.fileHash] }
+            }
         }
+        return result
     }
 
     /**
@@ -99,10 +108,12 @@ class IndexStateRepository(
     ) {
         if (fileHashes.isEmpty()) return
         transaction(database) {
-            IndexFileStateTable.deleteWhere {
-                (IndexFileStateTable.projectId eq projectId) and
-                    (IndexFileStateTable.resourceId eq resourceId) and
-                    (IndexFileStateTable.filePath inList fileHashes.keys.toList())
+            for (chunk in fileHashes.keys.toList().chunked(IN_LIST_CHUNK_SIZE)) {
+                IndexFileStateTable.deleteWhere {
+                    (IndexFileStateTable.projectId eq projectId) and
+                        (IndexFileStateTable.resourceId eq resourceId) and
+                        (IndexFileStateTable.filePath inList chunk)
+                }
             }
             batchInsertFileHashes(projectId, resourceId, sourceType, fileHashes)
         }
@@ -159,10 +170,12 @@ class IndexStateRepository(
     ) {
         if (filePaths.isEmpty()) return
         transaction(database) {
-            IndexFileStateTable.deleteWhere {
-                (IndexFileStateTable.projectId eq projectId) and
-                    (IndexFileStateTable.resourceId eq resourceId) and
-                    (IndexFileStateTable.filePath inList filePaths.toList())
+            for (chunk in filePaths.toList().chunked(IN_LIST_CHUNK_SIZE)) {
+                IndexFileStateTable.deleteWhere {
+                    (IndexFileStateTable.projectId eq projectId) and
+                        (IndexFileStateTable.resourceId eq resourceId) and
+                        (IndexFileStateTable.filePath inList chunk)
+                }
             }
         }
     }

@@ -40,9 +40,11 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -74,16 +76,21 @@ import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.ProjectIndexingRequestedEvent
 import io.askimo.core.event.internal.ProjectReIndexEvent
 import io.askimo.core.event.internal.SessionsRefreshEvent
+import io.askimo.core.rag.state.IndexProgress
+import io.askimo.core.rag.state.IndexStatus
 import io.askimo.core.util.TimeUtil
 import io.askimo.ui.chat.CreationMode
 import io.askimo.ui.chat.chatInputField
 import io.askimo.ui.common.components.linkButton
+import io.askimo.ui.common.components.successIcon
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.clickableCard
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.session.SessionActionMenu
+import io.askimo.ui.session.SessionActionMenu.projectViewMenu
 import org.koin.core.context.GlobalContext
 import org.koin.core.parameter.parametersOf
 import java.awt.Desktop
@@ -232,7 +239,7 @@ fun projectView(
                                 }
                             }
 
-                            AppComponents.dropdownMenu(
+                            dropdownMenu(
                                 expanded = showProjectMenu,
                                 onDismissRequest = { showProjectMenu = false },
                             ) {
@@ -491,11 +498,11 @@ private fun sessionCard(
                         )
                     }
 
-                    AppComponents.dropdownMenu(
+                    dropdownMenu(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false },
                     ) {
-                        SessionActionMenu.projectViewMenu(
+                        projectViewMenu(
                             currentProjectId = currentProject.id,
                             currentProjectName = currentProject.name,
                             availableProjects = allProjects,
@@ -560,6 +567,8 @@ private fun knowledgeSourcesPanel(
         mutableStateOf(currentProject.knowledgeSources.isEmpty())
     }
 
+    val indexProgress = viewModel.indexProgress
+
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = AppComponents.bannerCardColors(),
@@ -604,6 +613,23 @@ private fun knowledgeSourcesPanel(
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
+
+                        // ── Indexed badge ──────────────────────────────────
+                        if (indexProgress.isComplete) {
+                            themedTooltip(text = stringResource("project.indexing.ready.tooltip")) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    successIcon(size = 14.dp)
+                                    Text(
+                                        text = stringResource("project.indexing.ready.label"),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
 
                         val rotation by animateFloatAsState(
                             targetValue = if (isExpanded) 180f else 0f,
@@ -695,6 +721,12 @@ private fun knowledgeSourcesPanel(
                     }
                 }
             }
+
+            // ── Index progress indicator ───────────────────────────────────
+            indexProgressIndicator(
+                indexProgress = indexProgress,
+                hasKnowledgeSources = currentProject.knowledgeSources.isNotEmpty(),
+            )
 
             // Expandable content
             if (currentProject.knowledgeSources.isNotEmpty()) {
@@ -810,5 +842,105 @@ private fun knowledgeSourceItem(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun indexProgressIndicator(
+    indexProgress: IndexProgress,
+    hasKnowledgeSources: Boolean,
+) {
+    if (!hasKnowledgeSources) return
+
+    when (indexProgress.status) {
+        IndexStatus.QUEUED -> {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = stringResource("project.indexing.queued"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        IndexStatus.INDEXING -> {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource("project.indexing.label"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (indexProgress.totalFiles > 0) {
+                        Text(
+                            text = "${indexProgress.processedFiles} / ${indexProgress.totalFiles}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                if (indexProgress.totalFiles > 0) {
+                    LinearProgressIndicator(
+                        progress = { indexProgress.progressPercent / 100f },
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                    )
+                } else {
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                    )
+                }
+            }
+        }
+
+        IndexStatus.FAILED -> {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(16.dp),
+                )
+                Text(
+                    text = indexProgress.error
+                        ?: stringResource("project.indexing.failed"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+
+        else -> Unit // READY, WATCHING, NOT_STARTED — no indicator needed
     }
 }

@@ -109,6 +109,7 @@ object RagUtils {
         classifierChatClient: ChatClient,
         projectId: String,
         retriever: ContentRetriever,
+        knowledgeSourcePaths: List<String> = emptyList(),
     ): ContentRetriever {
         val ragConfig = AppConfig.rag
         val telemetry = AppContext.getInstance().telemetry
@@ -122,6 +123,7 @@ object RagUtils {
             ),
             classifierChatClient,
             telemetry,
+            knowledgeSourcePaths,
         )
     }
 }

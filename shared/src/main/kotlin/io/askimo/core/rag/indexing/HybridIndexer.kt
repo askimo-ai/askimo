@@ -15,11 +15,14 @@ import io.askimo.core.event.system.ShellErrorEvent
 import io.askimo.core.logging.logger
 import io.askimo.core.rag.LuceneIndexer
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.apache.lucene.store.AlreadyClosedException
 import java.nio.file.Path
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Coordinates hybrid indexing of text segments into both:
@@ -49,37 +52,67 @@ class HybridIndexer(
     private val pendingMappings = mutableListOf<Triple<Path, String, Int>>() // (filePath, segmentId, chunkIndex)
 
     /**
-     * Add segment to batch and flush if batch is full (thread-safe)
+     * Add segment to batch. If the batch is full, snapshots and clears the batch under
+     * the lock, then flushes **outside** the lock — so the expensive `embedAll` call
+     * never holds [batchMutex], preventing other coroutines from blocking indefinitely.
      */
     suspend fun addSegmentToBatch(
         segment: TextSegment,
         filePath: Path,
-    ): Boolean = batchMutex.withLock {
+    ): Boolean {
         log.trace("Adding segment {} to batch for project {}", segment.metadata().getString("file_name"), projectId)
-        segmentBatch.add(segment to filePath)
 
-        if (segmentBatch.size >= BATCH_SIZE) {
-            return flushSegmentBatchInternal()
+        val snapshot: List<Pair<TextSegment, Path>>? = batchMutex.withLock {
+            segmentBatch.add(segment to filePath)
+            if (segmentBatch.size >= BATCH_SIZE) {
+                val snap = segmentBatch.toList()
+                segmentBatch.clear()
+                snap
+            } else {
+                null
+            }
         }
 
-        return true
+        return if (snapshot != null) flushSnapshot(snapshot) else true
     }
 
     /**
-     * Internal flush method (must be called with lock held)
+     * Flush any remaining segments. Snapshots under the lock, then flushes outside.
      */
-    private suspend fun flushSegmentBatchInternal(): Boolean {
-        if (segmentBatch.isEmpty()) {
-            return true
+    suspend fun flushRemainingSegments(): Boolean {
+        val snapshot = batchMutex.withLock {
+            if (segmentBatch.isNotEmpty()) {
+                log.trace("Flushing {} remaining segments", segmentBatch.size)
+                val snap = segmentBatch.toList()
+                segmentBatch.clear()
+                snap
+            } else {
+                null
+            }
         }
+        return if (snapshot != null) {
+            flushSnapshot(snapshot)
+        } else {
+            // Nothing to flush — still persist any pending mappings
+            batchMutex.withLock { savePendingMappings() }
+            true
+        }
+    }
 
-        val segments = segmentBatch.map { it.first }
-        val filePaths = segmentBatch.map { it.second }
-        segmentBatch.clear()
+    /**
+     * Flush a snapshotted batch. Must NOT be called while holding [batchMutex].
+     */
+    private suspend fun flushSnapshot(snapshot: List<Pair<TextSegment, Path>>): Boolean {
+        val segments = snapshot.map { it.first }
+        val filePaths = snapshot.map { it.second }
 
         return try {
             withContext(Dispatchers.IO) {
-                val embeddings = embeddingModel.embedAll(segments).content()
+                log.debug("embedAll: calling embeddingModel for {} segments, project {}", segments.size, projectId)
+                val embeddings = withTimeout(60.seconds) {
+                    embeddingModel.embedAll(segments).content()
+                }
+                log.debug("embedAll: completed for {} segments, project {}", segments.size, projectId)
 
                 val segmentIds = segments.map { generateSegmentId(it) }
 
@@ -88,30 +121,41 @@ class HybridIndexer(
 
                 luceneIndexer.indexSegments(segments)
 
-                // Track segment IDs in database for future removal
-                for (i in segments.indices) {
-                    val segment = segments[i]
-                    val filePath = filePaths[i]
-                    val segmentId = segmentIds[i]
-                    val chunkIndex = segment.metadata().getInteger("chunk_index") ?: 0
-
-                    pendingMappings.add(Triple(filePath, segmentId, chunkIndex))
+                val mappings = segments.mapIndexed { i, seg ->
+                    Triple(filePaths[i], segmentIds[i], seg.metadata().getInteger("chunk_index") ?: 0)
                 }
 
-                // Save mappings to database
-                savePendingMappings()
+                batchMutex.withLock {
+                    pendingMappings.addAll(mappings)
+                    savePendingMappings()
+                }
 
                 log.trace("Hybrid indexed batch of {} segments (vector + keyword) for project {}", segments.size, projectId)
             }
-
             true
         } catch (_: AlreadyClosedException) {
-            // The LuceneIndexer was closed by a concurrent re-index/delete — this coordinator
-            // was cancelled. Suppress the error and signal the caller to stop.
             log.debug("Lucene IndexWriter already closed for project {} — indexing was cancelled", projectId)
             false
+        } catch (e: TimeoutCancellationException) {
+            // TimeoutCancellationException is a CancellationException subclass — must be caught
+            // explicitly before the generic Exception handler, otherwise it propagates silently
+            // and kills the entire coroutine scope with no log output.
+            val fileNames = filePaths.map { it.fileName.toString() }.toSet()
+            val displayNames = if (fileNames.size <= 3) fileNames.joinToString() else "${fileNames.take(3).joinToString()} and ${fileNames.size - 3} more"
+            log.error(
+                "embedAll timed out after 60s for project {} — batch of {} segments, files: {}",
+                projectId,
+                segments.size,
+                displayNames,
+            )
+            EventBus.emit(
+                ShellErrorEvent(
+                    cause = e,
+                    errorMessage = "Embedding timed out for [$displayNames] — the embedding model may be overloaded. Try re-indexing.",
+                ),
+            )
+            false
         } catch (e: Exception) {
-            // Find the largest segment in the batch to help debug token limit errors
             val maxSegmentChars = segments.maxOfOrNull { it.text().length } ?: 0
             val largestSegmentIndex = segments.indexOfFirst { it.text().length == maxSegmentChars }
             val largestSegment = if (largestSegmentIndex >= 0) segments[largestSegmentIndex] else null
@@ -145,19 +189,6 @@ class HybridIndexer(
                 ),
             )
             false
-        }
-    }
-
-    /**
-     * Flush any remaining segments in the batch (thread-safe)
-     */
-    suspend fun flushRemainingSegments(): Boolean = batchMutex.withLock {
-        if (segmentBatch.isNotEmpty()) {
-            log.trace("Flushing {} remaining segments", segmentBatch.size)
-            flushSegmentBatchInternal()
-        } else {
-            savePendingMappings()
-            true
         }
     }
 

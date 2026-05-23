@@ -10,6 +10,21 @@ import io.askimo.core.event.EventType
 import java.time.Instant
 
 /**
+ * Event emitted when a project is queued for indexing because another project
+ * is currently being indexed. The project will start indexing once the queue clears.
+ */
+data class IndexingQueuedEvent(
+    val projectId: String,
+    val projectName: String,
+    override val timestamp: Instant = Instant.now(),
+    override val source: EventSource = EventSource.SYSTEM,
+) : Event {
+    override val type = EventType.INTERNAL
+
+    override fun getDetails(): String = "Project '$projectName' is queued for indexing"
+}
+
+/**
  * Event emitted when project indexing starts.
  * This is a user-facing event shown in the notification footer.
  */

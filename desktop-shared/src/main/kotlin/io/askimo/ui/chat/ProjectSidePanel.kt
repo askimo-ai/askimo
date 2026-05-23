@@ -168,11 +168,47 @@ fun projectSidePanel(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
-                            text = stringResource(selectedTab.labelKey),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            // Index status icon — only shown when project has sources
+                            if (selectedTab == PanelTab.RAG_SOURCES && project != null && project.knowledgeSources.isNotEmpty()) {
+                                val statusTooltip = when (ragIndexingStatus) {
+                                    "started" -> stringResource("rag.status.started")
+                                    "inprogress" -> ragIndexingPercentage?.let { stringResource("rag.status.inprogress", it) } ?: stringResource("rag.status.inprogress.unknown")
+                                    "queued" -> stringResource("rag.status.queued")
+                                    "completed" -> stringResource("rag.status.ready")
+                                    "failed" -> stringResource("rag.status.failed")
+                                    else -> stringResource("rag.status.not.indexed")
+                                }
+                                themedTooltip(text = statusTooltip) {
+                                    if (ragIndexingStatus == "inprogress" || ragIndexingStatus == "started" || ragIndexingStatus == "queued") {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(14.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.AutoAwesome,
+                                            contentDescription = statusTooltip,
+                                            tint = when (ragIndexingStatus) {
+                                                "completed" -> MaterialTheme.colorScheme.onSurface
+                                                "failed" -> MaterialTheme.colorScheme.error
+                                                else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                            },
+                                            modifier = Modifier.size(14.dp),
+                                        )
+                                    }
+                                }
+                            }
+                            Text(
+                                text = stringResource(selectedTab.labelKey),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
 
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -455,60 +491,6 @@ private fun ragSourcesTabContent(
                     )
                     .fillMaxWidth(),
             ) {
-                if (project != null && project.knowledgeSources.isNotEmpty()) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .padding(vertical = 8.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = stringResource("rag.status.icon"),
-                            tint = when (ragIndexingStatus) {
-                                "completed" -> MaterialTheme.colorScheme.onSurface
-                                "failed" -> MaterialTheme.colorScheme.error
-                                "inprogress" -> MaterialTheme.colorScheme.tertiary
-                                else -> MaterialTheme.colorScheme.onSurface
-                            },
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Text(
-                            text = when (ragIndexingStatus) {
-                                "started" -> stringResource("rag.status.started")
-
-                                "inprogress" -> ragIndexingPercentage?.let {
-                                    stringResource("rag.status.inprogress", it)
-                                } ?: stringResource("rag.status.inprogress.unknown")
-
-                                "completed" -> stringResource("rag.status.ready")
-
-                                "failed" -> stringResource("rag.status.failed")
-
-                                else -> stringResource("rag.status.not.indexed")
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = when (ragIndexingStatus) {
-                                "failed" -> MaterialTheme.colorScheme.error
-                                else -> MaterialTheme.colorScheme.onSurface
-                            },
-                        )
-                        if (ragIndexingStatus == "inprogress") {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                    }
-                    HorizontalDivider(
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .padding(bottom = 8.dp),
-                    )
-                }
-
                 if (project == null || project.knowledgeSources.isEmpty()) {
                     ragSourcesEmptyState(
                         project = project,

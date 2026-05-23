@@ -81,6 +81,7 @@ import io.askimo.core.event.EventBus
 import io.askimo.core.event.user.IndexingCompletedEvent
 import io.askimo.core.event.user.IndexingFailedEvent
 import io.askimo.core.event.user.IndexingInProgressEvent
+import io.askimo.core.event.user.IndexingQueuedEvent
 import io.askimo.core.event.user.IndexingStartedEvent
 import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.rag.ProjectIndexer
@@ -225,6 +226,7 @@ fun chatView(
 
             EventBus.internalEvents.collect { event ->
                 val eventProjectId = when (event) {
+                    is IndexingQueuedEvent -> event.projectId
                     is IndexingStartedEvent -> event.projectId
                     is IndexingInProgressEvent -> event.projectId
                     is IndexingCompletedEvent -> event.projectId
@@ -234,6 +236,11 @@ fun chatView(
 
                 if (eventProjectId == project.id) {
                     when (event) {
+                        is IndexingQueuedEvent -> {
+                            ragIndexingStatus = "queued"
+                            ragIndexingPercentage = null
+                        }
+
                         is IndexingStartedEvent -> {
                             ragIndexingStatus = "started"
                             ragIndexingPercentage = null

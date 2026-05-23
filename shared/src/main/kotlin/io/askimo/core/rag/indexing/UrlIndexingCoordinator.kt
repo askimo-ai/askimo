@@ -44,6 +44,10 @@ class UrlIndexingCoordinator(
     private val _progress = MutableStateFlow(IndexProgress())
     override val progress: StateFlow<IndexProgress> = _progress
 
+    override fun markQueued() {
+        _progress.value = _progress.value.copy(status = IndexStatus.QUEUED)
+    }
+
     private val processedUrlsCounter = AtomicInteger(0)
     private val totalUrlsCounter = AtomicInteger(0)
 

@@ -16,12 +16,22 @@ import io.askimo.core.event.internal.ProjectIndexRemovalEvent
 import io.askimo.core.event.internal.ProjectReIndexEvent
 import io.askimo.core.event.internal.ProjectRefreshEvent
 import io.askimo.core.event.internal.ProjectSessionsRefreshEvent
+import io.askimo.core.event.user.IndexingCompletedEvent
+import io.askimo.core.event.user.IndexingFailedEvent
+import io.askimo.core.event.user.IndexingInProgressEvent
+import io.askimo.core.event.user.IndexingQueuedEvent
+import io.askimo.core.event.user.IndexingStartedEvent
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
+import io.askimo.core.rag.ProjectIndexer
+import io.askimo.core.rag.state.IndexProgress
+import io.askimo.core.rag.state.IndexStatus
 import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -32,6 +42,7 @@ import kotlinx.coroutines.withContext
 class ProjectViewModel(
     private val scope: CoroutineScope,
     private val projectId: String,
+    private val projectIndexer: ProjectIndexer? = null,
 ) {
     private val log = logger<ProjectViewModel>()
     private val projectRepository = DatabaseManager.getInstance().getProjectRepository()
@@ -56,11 +67,16 @@ class ProjectViewModel(
     var successMessage by mutableStateOf<String?>(null)
         private set
 
+    var indexProgress by mutableStateOf(IndexProgress())
+        private set
+
     init {
         loadProject()
         loadSessions()
         loadAllProjects()
         observeProjectEvents()
+        observeIndexProgress()
+        syncInitialIndexProgress()
     }
 
     /**
@@ -321,16 +337,57 @@ class ProjectViewModel(
     }
 
     /**
-     * Clear error message
+     * Observe indexing events from EventBus and update [indexProgress] state directly.
+     * This is reliably event-driven — no coordinator polling or race conditions.
      */
-    fun clearError() {
-        errorMessage = null
+    private fun observeIndexProgress() {
+        scope.launch {
+            merge(
+                EventBus.internalEvents.filterIsInstance<IndexingQueuedEvent>().filter { it.projectId == projectId },
+                EventBus.internalEvents.filterIsInstance<IndexingStartedEvent>().filter { it.projectId == projectId },
+                EventBus.internalEvents.filterIsInstance<IndexingInProgressEvent>().filter { it.projectId == projectId },
+                EventBus.internalEvents.filterIsInstance<IndexingCompletedEvent>().filter { it.projectId == projectId },
+                EventBus.internalEvents.filterIsInstance<IndexingFailedEvent>().filter { it.projectId == projectId },
+            ).collect { event ->
+                indexProgress = when (event) {
+                    is IndexingQueuedEvent -> IndexProgress(status = IndexStatus.QUEUED)
+
+                    is IndexingStartedEvent -> IndexProgress(status = IndexStatus.INDEXING)
+
+                    is IndexingInProgressEvent -> IndexProgress(
+                        status = IndexStatus.INDEXING,
+                        totalFiles = event.totalFiles,
+                        processedFiles = event.filesIndexed,
+                    )
+
+                    is IndexingCompletedEvent -> IndexProgress(
+                        status = IndexStatus.READY,
+                        processedFiles = event.filesIndexed,
+                        totalFiles = event.filesIndexed,
+                    )
+
+                    is IndexingFailedEvent -> IndexProgress(
+                        status = IndexStatus.FAILED,
+                        error = event.errorMessage,
+                    )
+
+                    else -> indexProgress
+                }
+            }
+        }
     }
 
     /**
-     * Clear success message
+     * Sync the current index progress from [ProjectIndexer] immediately on init.
+     * Without this, navigating back to the project view shows a blank progress bar
+     * because the ViewModel is recreated and misses all prior events.
      */
-    fun clearSuccessMessage() {
-        successMessage = null
+    private fun syncInitialIndexProgress() {
+        if (projectIndexer == null) return
+        scope.launch {
+            projectIndexer.getProgressFlow(projectId).collect { progress ->
+                indexProgress = progress
+            }
+        }
     }
 }

@@ -248,6 +248,7 @@ class ChatSessionService(
                     .maxResults(ragConfig.vectorSearchMaxResults)
                     .minScore(ragConfig.vectorSearchMinScore)
                     .build(),
+                project.knowledgeSources.map { it.resourceIdentifier },
             )
 
             return vectorRetriever

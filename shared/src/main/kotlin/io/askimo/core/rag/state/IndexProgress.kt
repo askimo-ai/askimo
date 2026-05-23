@@ -9,6 +9,7 @@ package io.askimo.core.rag.state
  */
 enum class IndexStatus {
     NOT_STARTED,
+    QUEUED,
     INDEXING,
     READY,
     WATCHING,

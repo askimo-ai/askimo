@@ -105,7 +105,7 @@ val desktopModule = module {
     }
 
     factory { (scope: CoroutineScope, projectId: String) ->
-        ProjectViewModel(scope = scope, projectId = projectId)
+        ProjectViewModel(scope = scope, projectId = projectId, projectIndexer = getOrNull())
     }
 
     factory { (scope: CoroutineScope) ->

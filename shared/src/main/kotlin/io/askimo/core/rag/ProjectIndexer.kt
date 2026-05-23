@@ -22,20 +22,23 @@ import io.askimo.core.event.internal.ProjectIndexingRequestedEvent
 import io.askimo.core.event.internal.ProjectReIndexEvent
 import io.askimo.core.event.user.IndexingCompletedEvent
 import io.askimo.core.event.user.IndexingFailedEvent
+import io.askimo.core.event.user.IndexingQueuedEvent
 import io.askimo.core.event.user.IndexingStartedEvent
 import io.askimo.core.logging.logger
 import io.askimo.core.rag.indexing.IndexingCoordinator
 import io.askimo.core.rag.indexing.IndexingCoordinatorFactory
+import io.askimo.core.rag.state.IndexProgress
 import io.askimo.core.rag.state.IndexStatus
 import io.askimo.core.util.AskimoHome
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -54,6 +57,22 @@ class ProjectIndexer(
 
     // Map of projectId -> EmbeddingStore, so we can close it when the project is removed
     private val embeddingStores = ConcurrentHashMap<String, EmbeddingStore<TextSegment>>()
+
+    // Per-project persistent progress StateFlow — updated eagerly at every state transition.
+    // This ensures getProgressFlow() always returns the current state immediately, even when
+    // the ViewModel subscribes after the event was emitted (hot flow miss).
+    private val projectProgressFlows = ConcurrentHashMap<String, MutableStateFlow<IndexProgress>>()
+
+    private fun projectProgressFlow(projectId: String): MutableStateFlow<IndexProgress> = projectProgressFlows.getOrPut(projectId) { MutableStateFlow(IndexProgress()) }
+
+    private fun updateProjectProgress(projectId: String, progress: IndexProgress) {
+        projectProgressFlow(projectId).value = progress
+    }
+
+    // Global mutex — only one project indexes at a time to avoid contention on the
+    // shared embedding model endpoint (Ollama, Docker AI, etc.).
+    // Projects that arrive while another is indexing show QUEUED status.
+    private val indexingMutex = Mutex()
     init {
         scope.launch {
             EventBus.internalEvents
@@ -69,7 +88,7 @@ class ProjectIndexer(
                 .filterIsInstance<ProjectReIndexEvent>()
                 .collect { event ->
                     log.info("Re-index requested for project ${event.projectId}: ${event.reason}")
-                    handleReIndexRequest(event)
+                    scope.launch { handleReIndexRequest(event) }
                 }
         }
 
@@ -78,7 +97,11 @@ class ProjectIndexer(
                 .filterIsInstance<ProjectIndexingRequestedEvent>()
                 .collect { event ->
                     log.info("Indexing requested for project ${event.projectId}")
-                    handleIndexingRequest(event)
+                    // Launch each request in its own coroutine so the collector never blocks.
+                    // Without this: when Project A suspends inside indexingMutex.withLock,
+                    // the collector is stuck — Project B's event queues up but handleIndexingRequest(B)
+                    // only runs after A finishes, at which point isLocked=false and QUEUED is missed.
+                    scope.launch { handleIndexingRequest(event) }
                 }
         }
 
@@ -125,6 +148,8 @@ class ProjectIndexer(
         } else {
             cleanupIndexData(projectId)
         }
+        // Reset the persistent progress so the UI shows NOT_STARTED after cleanup
+        updateProjectProgress(projectId, IndexProgress())
     }
 
     /**
@@ -214,107 +239,125 @@ class ProjectIndexer(
             projectCoordinators
         }
 
-        EventBus.emit(
-            IndexingStartedEvent(
-                projectId = projectId,
-                projectName = projectName,
-            ),
-        )
-
-        // Index all sources in parallel, skipping any coordinator that is already
-        // running or has successfully completed (guards against duplicate startIndexing calls
-        // when coordinators are appended to an already-indexed project).
-        val results = coroutineScope {
-            projectCoordinators.map { coordinator ->
-                async {
-                    val status = coordinator.progress.value.status
-                    when {
-                        status == IndexStatus.INDEXING -> {
-                            log.debug(
-                                "Coordinator for {} is already indexing — skipping duplicate startIndexing",
-                                coordinator.knowledgeSourceConfig.resourceIdentifier,
-                            )
-                            true
-                        }
-
-                        coordinator.progress.value.isComplete -> {
-                            log.debug(
-                                "Coordinator for {} is already complete — skipping startIndexing",
-                                coordinator.knowledgeSourceConfig.resourceIdentifier,
-                            )
-                            true
-                        }
-
-                        else -> {
-                            try {
-                                coordinator.startIndexing()
-                            } catch (e: Exception) {
-                                log.error("Failed to index knowledge source for project $projectId", e)
-                                false
-                            }
-                        }
-                    }
-                }
-            }.awaitAll()
+        // Mark as QUEUED if the mutex is already held by another project's indexing
+        if (indexingMutex.isLocked) {
+            log.info("Project $projectId queued — another project is currently indexing")
+            projectCoordinators.forEach { it.markQueued() }
+            val queuedProgress = IndexProgress(status = IndexStatus.QUEUED)
+            updateProjectProgress(projectId, queuedProgress)
+            EventBus.emit(IndexingQueuedEvent(projectId = projectId, projectName = projectName))
         }
 
-        val success = results.all { it }
+        indexingMutex.withLock {
+            // ── Begin serialized indexing ────────────────────────────────────
 
-        if (success) {
-            if (watchForChanges) {
-                projectCoordinators.forEach { coordinator ->
-                    try {
-                        coordinator.startWatching(scope)
-                    } catch (e: Exception) {
-                        log.error("Failed to start watching for project $projectId", e)
+            val startedProgress = IndexProgress(status = IndexStatus.INDEXING)
+            updateProjectProgress(projectId, startedProgress)
+            EventBus.emit(
+                IndexingStartedEvent(
+                    projectId = projectId,
+                    projectName = projectName,
+                ),
+            )
+
+            // Index sources sequentially — all coordinators share the same embeddingModel and
+            // the embedding endpoint (Docker AI, Ollama, etc.) handles one request at a time.
+            // Running in parallel causes concurrent embedAll calls that queue up and appear stuck.
+            val results = projectCoordinators.map { coordinator ->
+                val status = coordinator.progress.value.status
+                when {
+                    status == IndexStatus.INDEXING -> {
+                        log.debug(
+                            "Coordinator for {} is already indexing — skipping duplicate startIndexing",
+                            coordinator.knowledgeSourceConfig.resourceIdentifier,
+                        )
+                        true
+                    }
+
+                    coordinator.progress.value.isComplete -> {
+                        log.debug(
+                            "Coordinator for {} is already complete — skipping startIndexing",
+                            coordinator.knowledgeSourceConfig.resourceIdentifier,
+                        )
+                        true
+                    }
+
+                    else -> {
+                        log.info(
+                            "Starting indexing for knowledge source: {}",
+                            coordinator.knowledgeSourceConfig.resourceIdentifier,
+                        )
+                        try {
+                            coordinator.startIndexing()
+                        } catch (e: Exception) {
+                            log.error("Failed to index knowledge source for project $projectId", e)
+                            false
+                        }
                     }
                 }
             }
 
-            // Sum up total files indexed across all coordinators (removed saveEmbeddingDimension from here)
-            val totalFilesIndexed = projectCoordinators.sumOf { it.progress.value.processedFiles }
+            val success = results.all { it }
 
-            val indexDurationMs = System.currentTimeMillis() - indexingStartMs
-            val durationBucket = when {
-                indexDurationMs < 5_000L -> "<5s"
-                indexDurationMs < 30_000L -> "5-30s"
-                else -> ">30s"
+            if (success) {
+                if (watchForChanges) {
+                    projectCoordinators.forEach { coordinator ->
+                        try {
+                            coordinator.startWatching(scope)
+                        } catch (e: Exception) {
+                            log.error("Failed to start watching for project $projectId", e)
+                        }
+                    }
+                }
+
+                val totalFilesIndexed = projectCoordinators.sumOf { it.progress.value.processedFiles }
+
+                val indexDurationMs = System.currentTimeMillis() - indexingStartMs
+                val durationBucket = when {
+                    indexDurationMs < 5_000L -> "<5s"
+                    indexDurationMs < 30_000L -> "5-30s"
+                    else -> ">30s"
+                }
+                Analytics.track(
+                    AnalyticsEvent.RAG_INDEXED,
+                    mapOf(
+                        "file_count" to totalFilesIndexed.toString(),
+                        "index_duration_bucket" to durationBucket,
+                    ),
+                )
+
+                EventBus.emit(
+                    IndexingCompletedEvent(
+                        projectId = projectId,
+                        projectName = projectName,
+                        filesIndexed = totalFilesIndexed,
+                    ),
+                )
+                updateProjectProgress(
+                    projectId,
+                    IndexProgress(status = IndexStatus.READY, processedFiles = totalFilesIndexed, totalFiles = totalFilesIndexed),
+                )
+            } else {
+                val errors = projectCoordinators
+                    .mapNotNull { it.progress.value.error }
+                    .joinToString("; ")
+                    .takeIf { it.isNotEmpty() } ?: "Unknown error"
+
+                EventBus.emit(
+                    IndexingFailedEvent(
+                        projectId = projectId,
+                        projectName = projectName,
+                        errorMessage = errors,
+                    ),
+                )
+                updateProjectProgress(projectId, IndexProgress(status = IndexStatus.FAILED, error = errors))
             }
-            Analytics.track(
-                AnalyticsEvent.RAG_INDEXED,
-                mapOf(
-                    "file_count" to totalFilesIndexed.toString(),
-                    "index_duration_bucket" to durationBucket,
-                ),
-            )
 
-            EventBus.emit(
-                IndexingCompletedEvent(
-                    projectId = projectId,
-                    projectName = projectName,
-                    filesIndexed = totalFilesIndexed,
-                ),
-            )
-        } else {
-            // Collect errors from failed coordinators
-            val errors = projectCoordinators
-                .mapNotNull { it.progress.value.error }
-                .joinToString("; ")
-                .takeIf { it.isNotEmpty() } ?: "Unknown error"
-
-            EventBus.emit(
-                IndexingFailedEvent(
-                    projectId = projectId,
-                    projectName = projectName,
-                    errorMessage = errors,
-                ),
+            log.info(
+                "Indexing ${if (success) "completed" else "failed"} for project $projectId " +
+                    "(${projectCoordinators.size} knowledge source(s))",
             )
         }
-
-        log.info(
-            "Indexing ${if (success) "completed" else "failed"} for project $projectId " +
-                "(${projectCoordinators.size} knowledge source(s))",
-        )
     }
 
     /**
@@ -531,6 +574,15 @@ class ProjectIndexer(
             )
         }
     }
+
+    /**
+     * Returns a persistent [MutableStateFlow] for the given project's index progress.
+     *
+     * Unlike the old coordinator-based combine flow, this StateFlow is updated eagerly at
+     * every state transition (QUEUED → INDEXING → READY/FAILED), so a newly-created
+     * ViewModel always gets the current state immediately without missing events.
+     */
+    fun getProgressFlow(projectId: String): Flow<IndexProgress> = projectProgressFlow(projectId)
 
     /**
      * Check if a project has been successfully indexed

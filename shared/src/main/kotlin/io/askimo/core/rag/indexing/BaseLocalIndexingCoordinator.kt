@@ -49,6 +49,10 @@ abstract class BaseLocalIndexingCoordinator<T : KnowledgeSourceConfig>(
         _progress.value = _progress.value.update()
     }
 
+    override fun markQueued() {
+        updateProgress { copy(status = IndexStatus.QUEUED) }
+    }
+
     protected val processedFilesCounter = AtomicInteger(0)
     protected val totalFilesCounter = AtomicInteger(0)
 
