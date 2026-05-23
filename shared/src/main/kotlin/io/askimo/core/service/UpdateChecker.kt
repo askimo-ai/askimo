@@ -20,7 +20,7 @@ data class GitHubRelease(
     val name: String,
     val published_at: String,
     val html_url: String,
-    val body: String,
+    val body_html: String?,
 )
 
 /**
@@ -45,31 +45,26 @@ data class UpdateInfo(
  * This service is shared across desktop and CLI applications.
  */
 class UpdateChecker(
-    private val githubRepo: String = "askimo-ai/askimo",
     private val userAgent: String = "Askimo/${VersionInfo.version}",
 ) {
     private val log = logger<UpdateChecker>()
 
-    /**
-     * Uses the list endpoint (newest-first) so we can count how many releases
-     * the user is behind in a single request.
-     */
-    private val githubReleasesUrl = "https://api.github.com/repos/$githubRepo/releases?per_page=100"
+    private val releasesUrl = "https://api.askimo.chat/releases?per_page=1"
 
     private val httpClient = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(10))
         .build()
 
     /**
-     * Check for updates from GitHub releases.
+     * Check for updates from the Askimo public API.
      * Returns null if the check fails or if there's an error.
      */
     fun checkForUpdates(): UpdateInfo? = try {
-        log.debug("Checking for updates from: $githubReleasesUrl")
+        log.debug("Checking for updates from: $releasesUrl")
 
         val request = HttpRequest.newBuilder()
-            .uri(URI.create(githubReleasesUrl))
-            .header("Accept", "application/vnd.github.v3+json")
+            .uri(URI.create(releasesUrl))
+            .header("Accept", "application/json")
             .header("User-Agent", userAgent)
             .GET()
             .build()
@@ -91,7 +86,6 @@ class UpdateChecker(
         val releases = json.decodeFromString(ListSerializer(GitHubRelease.serializer()), jsonResponse)
         if (releases.isEmpty()) return null
 
-        // Releases are returned newest-first by the API
         val latest = releases.first()
         val latestVersion = latest.tag_name.removePrefix("v")
         val currentVersion = VersionInfo.version
@@ -100,31 +94,15 @@ class UpdateChecker(
 
         val isNewVersion = isNewerVersion(latestVersion, currentVersion)
 
-        // Count how many releases are newer than the current version (stop early at cap)
-        val versionsBehind = if (isNewVersion) {
-            var count = 0
-            for (release in releases) {
-                val v = release.tag_name.removePrefix("v")
-                if (v == currentVersion) break
-                count++
-                if (count >= MAX_VERSIONS_BEHIND_CAP) break
-            }
-            count
-        } else {
-            0
-        }
-
-        log.debug("Versions behind: $versionsBehind")
-
         UpdateInfo(
             currentVersion = currentVersion,
             latestVersion = latestVersion,
             releaseName = latest.name,
             releaseDate = formatReleaseDate(latest.published_at),
             downloadUrl = "https://askimo.chat/download/",
-            releaseNotes = latest.body,
+            releaseNotes = htmlToMarkdown(latest.body_html.orEmpty()),
             isNewVersion = isNewVersion,
-            versionsBehind = versionsBehind,
+            versionsBehind = if (isNewVersion) 1 else 0,
         )
     } catch (e: Exception) {
         log.error("Error parsing release info", e)
@@ -136,6 +114,40 @@ class UpdateChecker(
     } catch (_: Exception) {
         isoDate
     }
+
+    private fun htmlToMarkdown(html: String): String = html
+        .replace(Regex("<h1[^>]*>"), "# ")
+        .replace(Regex("</h1>"), "\n")
+        .replace(Regex("<h2[^>]*>"), "## ")
+        .replace(Regex("</h2>"), "\n")
+        .replace(Regex("<h3[^>]*>"), "### ")
+        .replace(Regex("</h3>"), "\n")
+        .replace(Regex("<strong[^>]*>"), "**")
+        .replace("</strong>", "**")
+        .replace(Regex("<em[^>]*>"), "_")
+        .replace("</em>", "_")
+        .replace(Regex("<code[^>]*>"), "`")
+        .replace("</code>", "`")
+        .replace(Regex("<a[^>]*href=\"([^\"]+)\"[^>]*>([^<]+)</a>")) { mr ->
+            "[${mr.groupValues[2]}](${mr.groupValues[1]})"
+        }
+        .replace(Regex("<li[^>]*>"), "- ")
+        .replace("</li>", "\n")
+        .replace(Regex("<ul[^>]*>"), "\n")
+        .replace("</ul>", "\n")
+        .replace(Regex("<ol[^>]*>"), "\n")
+        .replace("</ol>", "\n")
+        .replace(Regex("<p[^>]*>"), "\n")
+        .replace("</p>", "\n")
+        .replace(Regex("<br\\s*/?>"), "\n")
+        .replace(Regex("<[^>]+>"), "")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace(Regex("\n{3,}"), "\n\n")
+        .trim()
 
     /**
      * Compare two semantic version strings.

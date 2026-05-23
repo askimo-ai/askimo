@@ -27,7 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import io.askimo.core.service.UpdateChecker
+import io.askimo.core.service.UpdateChecker.Companion.MAX_VERSIONS_BEHIND_CAP
 import io.askimo.core.service.UpdateInfo
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
@@ -95,7 +95,7 @@ private fun newVersionDialog(
     onLater: () -> Unit,
 ) {
     val urgency = urgencyFor(releaseInfo.versionsBehind)
-    val cap = UpdateChecker.MAX_VERSIONS_BEHIND_CAP
+    val cap = MAX_VERSIONS_BEHIND_CAP
     val behindLabel = if (releaseInfo.versionsBehind >= cap) "$cap+" else "${releaseInfo.versionsBehind}"
 
     AppComponents.alertDialog(
