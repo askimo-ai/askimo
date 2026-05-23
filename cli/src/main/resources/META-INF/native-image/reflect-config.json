@@ -919,7 +919,11 @@
   "name": "com.github.dockerjava.api.model.PeerNode",
   "allDeclaredFields": true,
   "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
+  "queryAllDeclaredConstructors": true,
+  "methods": [ {
+    "name": "<init>",
+    "parameterTypes": [ ]
+  } ]
 }, {
   "name": "com.github.dockerjava.api.model.Ports",
   "allDeclaredFields": true,
@@ -1982,7 +1986,11 @@
   "name": "dev.langchain4j.model.openai.internal.embedding.EmbeddingRequest",
   "allDeclaredFields": true,
   "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
+  "queryAllDeclaredConstructors": true,
+  "methods": [ {
+    "name": "customParameters",
+    "parameterTypes": [ ]
+  } ]
 }, {
   "name": "dev.langchain4j.model.openai.internal.embedding.EmbeddingResponse$Builder",
   "allDeclaredFields": true,
@@ -4968,7 +4976,7 @@
     "parameterTypes": [ "dev.langchain4j.data.message.UserMessage", "dev.langchain4j.model.chat.request.ChatRequestParameters" ]
   } ]
 }, {
-  "name": "io.askimo.core.providers.ChatClient$MockitoMock$vg7auOS5",
+  "name": "io.askimo.core.providers.ChatClient$MockitoMock$S2BWGxvC",
   "queryAllDeclaredConstructors": true,
   "methods": [ {
     "name": "<init>",
@@ -7713,7 +7721,7 @@
     "parameterTypes": [ ]
   } ]
 }, {
-  "name": "org.jline.reader.ParsedLine$MockitoMock$3LMnFhvx",
+  "name": "org.jline.reader.ParsedLine$MockitoMock$Q5vYgTj1",
   "queryAllDeclaredConstructors": true,
   "methods": [ {
     "name": "<init>",
