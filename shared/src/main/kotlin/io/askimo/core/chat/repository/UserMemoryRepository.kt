@@ -15,7 +15,7 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
-import java.time.LocalDateTime
+import java.time.Instant
 
 private fun ResultRow.toUserMemory(): UserMemory = UserMemory(
     id = this[UserMemoryTable.id],
@@ -46,7 +46,7 @@ class UserMemoryRepository internal constructor(
      * Upsert user memory. Creates the row on first call, updates on subsequent calls.
      */
     fun save(memoryJson: String): UserMemory {
-        val now = LocalDateTime.now()
+        val now = Instant.now()
         return transaction(database) {
             val existing = UserMemoryTable.selectAll()
                 .where { UserMemoryTable.id eq UserMemory.DEFAULT_ID }

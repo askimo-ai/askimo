@@ -4,16 +4,16 @@
  */
 package io.askimo.core.chat.domain
 
-import io.askimo.core.db.sqliteDatetime
+import io.askimo.core.db.sqliteInstant
 import org.jetbrains.exposed.v1.core.ReferenceOption
 import org.jetbrains.exposed.v1.core.Table
-import java.time.LocalDateTime
+import java.time.Instant
 
 data class ChatSession(
     val id: String,
     val title: String,
-    val createdAt: LocalDateTime = LocalDateTime.now(),
-    val updatedAt: LocalDateTime = LocalDateTime.now(),
+    val createdAt: Instant = Instant.now(),
+    val updatedAt: Instant = Instant.now(),
     val projectId: String? = null, // null = no project (general chat)
     val directiveId: String? = null,
     val isStarred: Boolean = false,
@@ -29,8 +29,8 @@ const val SESSION_TITLE_MAX_LENGTH = 256
 object ChatSessionsTable : Table("chat_sessions") {
     val id = varchar("id", 36)
     val title = varchar("title", SESSION_TITLE_MAX_LENGTH)
-    val createdAt = sqliteDatetime("created_at")
-    val updatedAt = sqliteDatetime("updated_at")
+    val createdAt = sqliteInstant("created_at")
+    val updatedAt = sqliteInstant("updated_at")
 
     val projectId = varchar("project_id", 36).nullable()
 

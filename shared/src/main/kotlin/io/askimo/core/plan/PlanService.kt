@@ -14,7 +14,7 @@ import io.askimo.core.plan.domain.PlanExecution
 import io.askimo.core.plan.domain.PlanExecutionStatus
 import io.askimo.core.plan.repository.PlanDefRepository
 import io.askimo.core.plan.repository.PlanExecutionRepository
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.UUID
 
 /**
@@ -102,8 +102,8 @@ class PlanService(
                 planName = plan.name,
                 inputs = inputs,
                 status = PlanExecutionStatus.IDLE,
-                createdAt = LocalDateTime.now(),
-                updatedAt = LocalDateTime.now(),
+                createdAt = Instant.now(),
+                updatedAt = Instant.now(),
             ),
         )
 

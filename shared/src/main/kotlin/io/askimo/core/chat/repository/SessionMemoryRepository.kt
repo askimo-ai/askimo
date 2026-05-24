@@ -16,7 +16,7 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
-import java.time.LocalDateTime
+import java.time.Instant
 
 /**
  * Extension function to map an Exposed ResultRow to a SessionMemory object.
@@ -102,7 +102,7 @@ class SessionMemoryRepository internal constructor(
      * @param olderThan Timestamp threshold - memories last updated before this will be deleted
      * @return Number of records deleted
      */
-    fun cleanupOldMemories(olderThan: LocalDateTime): Int = transaction(database) {
+    fun cleanupOldMemories(olderThan: Instant): Int = transaction(database) {
         SessionMemoryTable.deleteWhere { SessionMemoryTable.lastUpdated less olderThan }
     }
 }

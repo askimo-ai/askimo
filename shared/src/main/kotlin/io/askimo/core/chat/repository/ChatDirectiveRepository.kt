@@ -13,6 +13,7 @@ import io.askimo.core.chat.domain.ChatDirectivesTable
 import io.askimo.core.chat.domain.ChatSessionsTable
 import io.askimo.core.chat.domain.DIRECTIVE_CONTENT_MAX_LENGTH
 import io.askimo.core.chat.domain.DIRECTIVE_NAME_MAX_LENGTH
+import io.askimo.core.chat.domain.DirectiveScope
 import io.askimo.core.db.AbstractSQLiteRepository
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.logging.logger
@@ -28,7 +29,7 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import org.jetbrains.exposed.v1.jdbc.upsert
-import java.time.LocalDateTime
+import java.time.Instant
 
 /** Simple DTO for deserializing the bundled directive YAML files. */
 private data class DirectiveYaml(val name: String = "", val content: String = "")
@@ -45,6 +46,9 @@ private fun ResultRow.toChatDirective(): ChatDirective = ChatDirective(
     id = this[ChatDirectivesTable.id],
     name = this[ChatDirectivesTable.name],
     content = this[ChatDirectivesTable.content],
+    scope = runCatching { DirectiveScope.valueOf(this[ChatDirectivesTable.scope]) }
+        .getOrDefault(DirectiveScope.PERSONAL),
+    createdBy = this[ChatDirectivesTable.createdBy],
     createdAt = this[ChatDirectivesTable.createdAt],
     updatedAt = this[ChatDirectivesTable.updatedAt],
     deletedAt = this[ChatDirectivesTable.deletedAt],
@@ -74,6 +78,8 @@ class ChatDirectiveRepository internal constructor(
                 it[id] = directive.id
                 it[name] = directive.name
                 it[content] = directive.content
+                it[scope] = directive.scope.name
+                it[createdBy] = directive.createdBy
                 it[createdAt] = directive.createdAt
             }
         }
@@ -177,14 +183,19 @@ class ChatDirectiveRepository internal constructor(
     }
 
     /**
-     * Returns all directives whose [syncedAt] is NULL or older than [updatedAt],
+     * Returns all PERSONAL directives whose [syncedAt] is NULL or older than [updatedAt],
      * meaning they have local changes that have not yet been pushed to the server.
+     *
+     * TEAM directives are excluded — they are read-only on the client and must never
+     * be pushed back to the server.
      */
     fun getUnsyncedDirectives(limit: Int = 50): List<ChatDirective> = transaction(database) {
         ChatDirectivesTable
             .selectAll()
             .orderBy(ChatDirectivesTable.updatedAt, SortOrder.ASC)
             .mapNotNull { row ->
+                // Never push TEAM directives — they are read-only on the client
+                if (row[ChatDirectivesTable.scope] == DirectiveScope.TEAM.name) return@mapNotNull null
                 val syncedAt = row[ChatDirectivesTable.syncedAt]
                 val updatedAt = row[ChatDirectivesTable.updatedAt].toString()
                 if (syncedAt == null || updatedAt > syncedAt) row.toChatDirective() else null
@@ -197,7 +208,7 @@ class ChatDirectiveRepository internal constructor(
      */
     fun markSynced(directiveId: String): Boolean = transaction(database) {
         ChatDirectivesTable.update({ ChatDirectivesTable.id eq directiveId }) {
-            it[syncedAt] = LocalDateTime.now().toString()
+            it[syncedAt] = Instant.now().toString()
         } > 0
     }
 
@@ -210,7 +221,7 @@ class ChatDirectiveRepository internal constructor(
         if (directives.isEmpty()) return
 
         transaction(database) {
-            val nowStr = LocalDateTime.now().toString()
+            val nowStr = Instant.now().toString()
             val ids = directives.map { it.id }
 
             val existingById = ChatDirectivesTable
@@ -228,6 +239,8 @@ class ChatDirectiveRepository internal constructor(
                         it[id] = directive.id
                         it[name] = directive.name.take(DIRECTIVE_NAME_MAX_LENGTH)
                         it[content] = directive.content.take(DIRECTIVE_CONTENT_MAX_LENGTH)
+                        it[scope] = directive.scope.name
+                        it[createdBy] = directive.createdBy
                         it[createdAt] = directive.createdAt
                         it[updatedAt] = directive.updatedAt
                         it[deletedAt] = directive.deletedAt
@@ -237,6 +250,8 @@ class ChatDirectiveRepository internal constructor(
                     ChatDirectivesTable.update({ ChatDirectivesTable.id eq directive.id }) {
                         it[name] = directive.name.take(DIRECTIVE_NAME_MAX_LENGTH)
                         it[content] = directive.content.take(DIRECTIVE_CONTENT_MAX_LENGTH)
+                        it[scope] = directive.scope.name
+                        it[createdBy] = directive.createdBy
                         it[updatedAt] = directive.updatedAt
                         it[deletedAt] = directive.deletedAt
                         it[syncedAt] = nowStr

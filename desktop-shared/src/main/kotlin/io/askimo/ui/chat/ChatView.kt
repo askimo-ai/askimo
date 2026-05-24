@@ -107,7 +107,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.context.GlobalContext
 import java.io.File
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.UUID.randomUUID
 
 private val log = currentFileLogger()
@@ -119,7 +119,7 @@ fun chatView(
     actions: ChatActions,
     provider: String? = null,
     model: String? = null,
-    onJumpToMessage: (String, LocalDateTime) -> Unit = { _, _ -> },
+    onJumpToMessage: (String, Instant) -> Unit = { _, _ -> },
     initialInputText: TextFieldValue = TextFieldValue(""),
     initialAttachments: List<FileAttachmentDTO> = emptyList(),
     initialEditingMessage: ChatMessageDTO? = null,
@@ -1154,7 +1154,7 @@ fun chatView(
                             fileName = file.name,
                             mimeType = file.extension,
                             size = file.length(),
-                            createdAt = LocalDateTime.now(),
+                            createdAt = Instant.now(),
                             content = null,
                             filePath = file.absolutePath,
                         )

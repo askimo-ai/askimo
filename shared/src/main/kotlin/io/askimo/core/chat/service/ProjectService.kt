@@ -12,7 +12,7 @@ import io.askimo.core.event.internal.ProjectDeletedEvent
 import io.askimo.core.event.internal.ProjectIndexingRequestedEvent
 import io.askimo.core.logging.logger
 import io.askimo.core.util.AskimoHome
-import java.time.LocalDateTime
+import java.time.Instant
 
 /**
  * Service for managing projects.
@@ -40,8 +40,8 @@ class ProjectService(
             name = name.trim(),
             description = description?.takeIf { it.isNotBlank() },
             knowledgeSources = knowledgeSources,
-            createdAt = LocalDateTime.now(),
-            updatedAt = LocalDateTime.now(),
+            createdAt = Instant.now(),
+            updatedAt = Instant.now(),
         )
 
         val createdProject = projectRepository.createProject(project)

@@ -4,7 +4,7 @@
  */
 package io.askimo.core.chat.dto
 
-import java.time.LocalDateTime
+import java.time.Instant
 
 /**
  * Data Transfer Object for file attachments.
@@ -17,7 +17,7 @@ data class FileAttachmentDTO(
     val fileName: String,
     val mimeType: String,
     val size: Long,
-    val createdAt: LocalDateTime,
+    val createdAt: Instant,
     val content: String? = null, // Lazy-loaded content, read just before sending to AI
     val filePath: String? = null, // File path for lazy loading
 )

@@ -46,7 +46,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 import java.io.File
-import java.time.LocalDateTime
+import java.time.Instant
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.toJavaDuration
 
@@ -79,7 +79,7 @@ data class ResumeSessionPaginatedResult(
     val directiveId: String?,
     val project: Project? = null,
     val messages: List<ChatMessageDTO> = emptyList(),
-    val cursor: LocalDateTime? = null,
+    val cursor: Instant? = null,
     val hasMore: Boolean = false,
     val errorMessage: String? = null,
 )
@@ -564,7 +564,7 @@ class ChatSessionService(
      * @param limit The number of messages to load
      * @return Pair of messages list and next cursor
      */
-    fun loadPreviousMessages(sessionId: String, cursor: LocalDateTime, limit: Int): Pair<List<ChatMessageDTO>, LocalDateTime?> {
+    fun loadPreviousMessages(sessionId: String, cursor: Instant, limit: Int): Pair<List<ChatMessageDTO>, Instant?> {
         val (messages, nextCursor) = messageRepository.getMessagesPaginated(
             sessionId = sessionId,
             limit = limit,
@@ -596,9 +596,9 @@ class ChatSessionService(
     fun getMessagesPaginated(
         sessionId: String,
         limit: Int = 20,
-        cursor: LocalDateTime? = null,
+        cursor: Instant? = null,
         direction: PaginationDirection = PaginationDirection.FORWARD,
-    ): Pair<List<ChatMessageDTO>, LocalDateTime?> {
+    ): Pair<List<ChatMessageDTO>, Instant?> {
         val (messages, nextCursor) = messageRepository.getMessagesPaginated(sessionId, limit, cursor, direction)
         return Pair(messages.toDTOs(), nextCursor)
     }

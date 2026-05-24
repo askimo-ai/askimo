@@ -4,7 +4,7 @@
  */
 package io.askimo.core.chat.dto
 
-import java.time.LocalDateTime
+import java.time.Instant
 
 /**
  * Data Transfer Object for chat messages.
@@ -14,7 +14,7 @@ data class ChatMessageDTO(
     val id: String?,
     val content: String,
     val isUser: Boolean,
-    val timestamp: LocalDateTime?,
+    val timestamp: Instant?,
     val isOutdated: Boolean = false,
     val editParentId: String? = null,
     val isEdited: Boolean = false,

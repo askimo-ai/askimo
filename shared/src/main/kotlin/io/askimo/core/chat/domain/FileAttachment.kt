@@ -4,9 +4,9 @@
  */
 package io.askimo.core.chat.domain
 
-import io.askimo.core.db.sqliteDatetime
+import io.askimo.core.db.sqliteInstant
 import org.jetbrains.exposed.v1.core.Table
-import java.time.LocalDateTime
+import java.time.Instant
 
 /**
  * Represents a file attachment associated with a chat message.
@@ -28,7 +28,7 @@ data class FileAttachment(
     val fileName: String,
     val mimeType: String,
     val size: Long,
-    val createdAt: LocalDateTime = LocalDateTime.now(),
+    val createdAt: Instant = Instant.now(),
     val content: String? = null,
 )
 
@@ -42,7 +42,7 @@ object ChatMessageAttachmentsTable : Table("chat_message_attachments") {
     val fileName = varchar("file_name", 255)
     val mimeType = varchar("mime_type", 100)
     val size = long("size")
-    val createdAt = sqliteDatetime("created_at")
+    val createdAt = sqliteInstant("created_at")
 
     override val primaryKey = PrimaryKey(id)
 }

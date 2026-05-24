@@ -14,7 +14,7 @@ import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import java.time.LocalDateTime
+import java.time.Instant
 
 /**
  * Repository for managing file index state in the database.
@@ -149,7 +149,7 @@ class IndexStateRepository(
         fileHashes: Map<String, String>,
     ) {
         if (fileHashes.isEmpty()) return
-        val now = LocalDateTime.now()
+        val now = Instant.now()
         IndexFileStateTable.batchInsert(fileHashes.entries) { (filePath, hash) ->
             this[IndexFileStateTable.projectId] = projectId
             this[IndexFileStateTable.resourceId] = resourceId

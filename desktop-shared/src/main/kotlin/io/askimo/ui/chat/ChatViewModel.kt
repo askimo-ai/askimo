@@ -34,7 +34,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.UUID
 import kotlin.collections.plus
 
@@ -160,7 +160,7 @@ class ChatViewModel(
     // Key = threadId, Value = subscription Job
     private val activeSubscriptions = mutableMapOf<String, Job>()
 
-    private var currentCursor: LocalDateTime? = null
+    private var currentCursor: Instant? = null
     private val currentSessionId = MutableStateFlow<String?>(null)
 
     private val spinnerFrames = charArrayOf('⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏')
@@ -613,7 +613,7 @@ class ChatViewModel(
             content = message,
             isUser = true,
             id = UUID.randomUUID().toString(),
-            timestamp = LocalDateTime.now(),
+            timestamp = Instant.now(),
             attachments = attachments,
         )
 
@@ -975,7 +975,7 @@ class ChatViewModel(
      * @param messageId The ID of the message to jump to
      * @param messageTimestamp The timestamp of the message
      */
-    fun jumpToMessage(messageId: String, messageTimestamp: LocalDateTime) {
+    fun jumpToMessage(messageId: String, messageTimestamp: Instant) {
         if (currentSessionId.value == null) return
 
         scope.launch {

@@ -101,7 +101,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.java.KoinJavaComponent
 import java.awt.Cursor
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.UUID
 import kotlin.collections.minus
 import kotlin.collections.plus
@@ -260,7 +260,7 @@ fun chatInputField(
                                 fileName = file.name,
                                 mimeType = file.extension,
                                 size = file.length(),
-                                createdAt = LocalDateTime.now(),
+                                createdAt = Instant.now(),
                                 content = null,
                                 filePath = file.absolutePath,
                             )

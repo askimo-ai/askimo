@@ -5,17 +5,17 @@
 package io.askimo.core.chat.domain
 
 import io.askimo.core.context.MessageRole
-import io.askimo.core.db.sqliteDatetime
+import io.askimo.core.db.sqliteInstant
 import org.jetbrains.exposed.v1.core.ReferenceOption
 import org.jetbrains.exposed.v1.core.Table
-import java.time.LocalDateTime
+import java.time.Instant
 
 data class ChatMessage(
     val id: String,
     val sessionId: String,
     val role: MessageRole,
     val content: String,
-    val createdAt: LocalDateTime = LocalDateTime.now(),
+    val createdAt: Instant = Instant.now(),
     val isOutdated: Boolean = false,
     val editParentId: String? = null,
     val isEdited: Boolean = false,
@@ -35,7 +35,7 @@ object ChatMessagesTable : Table("chat_messages") {
 
     val role = varchar("role", 50)
     val content = text("content")
-    val createdAt = sqliteDatetime("created_at")
+    val createdAt = sqliteInstant("created_at")
     val isOutdated = integer("is_outdated").default(0)
 
     // Column retained for data compatibility; no FK enforced —

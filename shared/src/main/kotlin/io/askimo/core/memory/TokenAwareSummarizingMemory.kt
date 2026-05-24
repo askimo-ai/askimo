@@ -22,7 +22,7 @@ import io.askimo.core.providers.getUserMemoryFacts
 import io.askimo.core.util.JsonUtils.json
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.Collections
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutorService
@@ -630,7 +630,7 @@ class TokenAwareSummarizingMemory(
             sessionId = sessionId,
             memorySummary = summaryJson,
             memoryMessages = messagesJson,
-            lastUpdated = LocalDateTime.now(),
+            lastUpdated = Instant.now(),
         )
     }
 

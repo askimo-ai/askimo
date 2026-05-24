@@ -4,9 +4,9 @@
  */
 package io.askimo.core.chat.domain
 
-import io.askimo.core.db.sqliteDatetime
+import io.askimo.core.db.sqliteInstant
 import org.jetbrains.exposed.v1.core.Table
-import java.time.LocalDateTime
+import java.time.Instant
 
 /**
  * Domain model for persistent user memory.
@@ -24,8 +24,8 @@ import java.time.LocalDateTime
 data class UserMemory(
     val id: String = DEFAULT_ID,
     val memoryJson: String,
-    val lastUpdated: LocalDateTime = LocalDateTime.now(),
-    val createdAt: LocalDateTime = LocalDateTime.now(),
+    val lastUpdated: Instant = Instant.now(),
+    val createdAt: Instant = Instant.now(),
 ) {
     companion object {
         const val DEFAULT_ID = "default"
@@ -39,8 +39,8 @@ data class UserMemory(
 object UserMemoryTable : Table("user_memory") {
     val id = varchar("id", 36).default(UserMemory.DEFAULT_ID)
     val memoryJson = text("memory_json")
-    val lastUpdated = sqliteDatetime("last_updated")
-    val createdAt = sqliteDatetime("created_at")
+    val lastUpdated = sqliteInstant("last_updated")
+    val createdAt = sqliteInstant("created_at")
 
     override val primaryKey = PrimaryKey(id)
 }

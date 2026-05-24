@@ -4,9 +4,9 @@
  */
 package io.askimo.core.plan.domain
 
-import io.askimo.core.db.sqliteDatetime
+import io.askimo.core.db.sqliteInstant
 import org.jetbrains.exposed.v1.core.Table
-import java.time.LocalDateTime
+import java.time.Instant
 
 /** Lifecycle state of a single [PlanExecution] run. */
 enum class PlanExecutionStatus {
@@ -48,8 +48,8 @@ data class PlanExecution(
     val output: String? = null,
     val stepOutputs: List<Pair<String, String>> = emptyList(),
     val errorMessage: String? = null,
-    val createdAt: LocalDateTime = LocalDateTime.now(),
-    val updatedAt: LocalDateTime = LocalDateTime.now(),
+    val createdAt: Instant = Instant.now(),
+    val updatedAt: Instant = Instant.now(),
 )
 
 /**
@@ -78,8 +78,8 @@ object PlanExecutionsTable : Table("plan_executions") {
      */
     val stepOutputs = text("step_outputs").nullable()
     val errorMessage = text("error_message").nullable()
-    val createdAt = sqliteDatetime("created_at")
-    val updatedAt = sqliteDatetime("updated_at")
+    val createdAt = sqliteInstant("created_at")
+    val updatedAt = sqliteInstant("updated_at")
 
     override val primaryKey = PrimaryKey(id)
 }

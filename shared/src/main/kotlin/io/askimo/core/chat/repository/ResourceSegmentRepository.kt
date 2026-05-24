@@ -15,7 +15,7 @@ import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.nio.file.Path
-import java.time.LocalDateTime
+import java.time.Instant
 
 /**
  * Repository for managing resource-to-segment mappings in the embedding store.
@@ -53,7 +53,7 @@ class ResourceSegmentRepository(
                 this[ResourceSegmentsTable.resourceId] = resourceId
                 this[ResourceSegmentsTable.segmentId] = segmentId
                 this[ResourceSegmentsTable.chunkIndex] = chunkIndex
-                this[ResourceSegmentsTable.createdAt] = LocalDateTime.now()
+                this[ResourceSegmentsTable.createdAt] = Instant.now()
             }
         }
     }

@@ -18,7 +18,7 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.UUID
 
 /**
@@ -41,7 +41,7 @@ class PlanExecutionRepository internal constructor(
         val record = execution.copy(
             id = execution.id.ifBlank { UUID.randomUUID().toString() },
             createdAt = execution.createdAt,
-            updatedAt = LocalDateTime.now(),
+            updatedAt = Instant.now(),
         )
 
         transaction(database) {
@@ -70,7 +70,7 @@ class PlanExecutionRepository internal constructor(
      * Only [status], [sessionId], [output], [errorMessage], [runCount], and [updatedAt] are written.
      */
     fun update(execution: PlanExecution): PlanExecution {
-        val record = execution.copy(updatedAt = LocalDateTime.now())
+        val record = execution.copy(updatedAt = Instant.now())
 
         transaction(database) {
             PlanExecutionsTable.update({ PlanExecutionsTable.id eq record.id }) {
@@ -99,7 +99,7 @@ class PlanExecutionRepository internal constructor(
             PlanExecutionsTable.update({ PlanExecutionsTable.id eq id }) {
                 it[PlanExecutionsTable.status] = status.name
                 it[PlanExecutionsTable.errorMessage] = errorMessage
-                it[updatedAt] = LocalDateTime.now()
+                it[updatedAt] = Instant.now()
             }
         }
     }

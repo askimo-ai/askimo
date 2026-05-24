@@ -35,7 +35,6 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import org.jetbrains.exposed.v1.jdbc.upsert
 import java.time.Instant
-import java.time.LocalDateTime
 import java.util.UUID
 
 enum class PaginationDirection {
@@ -148,9 +147,9 @@ class ChatMessageRepository internal constructor(
     fun getMessagesPaginated(
         sessionId: String,
         limit: Int = 20,
-        cursor: LocalDateTime? = null,
+        cursor: Instant? = null,
         direction: PaginationDirection = PaginationDirection.FORWARD,
-    ): Pair<List<ChatMessage>, LocalDateTime?> = transaction(database) {
+    ): Pair<List<ChatMessage>, Instant?> = transaction(database) {
         val query = ChatMessagesTable.selectAll()
             .where { ChatMessagesTable.sessionId eq sessionId }
 
@@ -245,11 +244,11 @@ class ChatMessageRepository internal constructor(
 
         // Apply time filters if provided
         if (startTime != null) {
-            val startDateTime = LocalDateTime.ofInstant(startTime, java.time.ZoneId.systemDefault())
+            val startDateTime = startTime
             selectQuery = selectQuery.andWhere { ChatMessagesTable.createdAt greaterEq startDateTime }
         }
         if (endTime != null) {
-            val endDateTime = LocalDateTime.ofInstant(endTime, java.time.ZoneId.systemDefault())
+            val endDateTime = endTime
             selectQuery = selectQuery.andWhere { ChatMessagesTable.createdAt lessEq endDateTime }
         }
 
@@ -343,7 +342,7 @@ class ChatMessageRepository internal constructor(
      * @return Number of messages marked as outdated
      */
     fun markMessagesAsOutdatedAfter(sessionId: String, fromMessageId: String): Int = transaction(database) {
-        val fromTimestamp: LocalDateTime? = ChatMessagesTable
+        val fromTimestamp: Instant? = ChatMessagesTable
             .selectAll()
             .where { ChatMessagesTable.id eq fromMessageId }
             .singleOrNull()
@@ -507,7 +506,7 @@ class ChatMessageRepository internal constructor(
      */
     fun markSynced(messageId: String): Boolean = transaction(database) {
         ChatMessagesTable.update({ ChatMessagesTable.id eq messageId }) {
-            it[syncedAt] = LocalDateTime.now().toString()
+            it[syncedAt] = Instant.now().toString()
         } > 0
     }
 

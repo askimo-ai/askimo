@@ -16,7 +16,7 @@ import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.upsert
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.UUID
 
 /**
@@ -57,7 +57,7 @@ class ModelClassificationRepository internal constructor(
     fun save(classification: ModelClassification): ModelClassification {
         val classificationWithId = classification.copy(
             id = classification.id.ifBlank { UUID.randomUUID().toString() },
-            updatedAt = LocalDateTime.now(),
+            updatedAt = Instant.now(),
         )
 
         transaction(database) {
@@ -168,7 +168,7 @@ class ModelClassificationRepository internal constructor(
         updateFn: (ModelClassification) -> ModelClassification,
     ): Boolean {
         val existing = getByProviderAndModel(provider, modelName) ?: return false
-        val updated = updateFn(existing).copy(updatedAt = LocalDateTime.now())
+        val updated = updateFn(existing).copy(updatedAt = Instant.now())
         save(updated)
         return true
     }

@@ -420,6 +420,22 @@ class DatabaseManager private constructor(
             } catch (_: Exception) {
                 // Column already exists — safe to ignore.
             }
+
+            // Migration: Add scope column — PERSONAL (default) or TEAM.
+            // TEAM directives are read-only on the client and never pushed back to the server.
+            try {
+                stmt.executeUpdate("ALTER TABLE chat_directives ADD COLUMN scope TEXT NOT NULL DEFAULT 'PERSONAL'")
+            } catch (_: Exception) {
+                // Column already exists — safe to ignore.
+            }
+
+            // Migration: Add created_by column — userId of whoever created this directive.
+            // NULL is valid for locally-seeded default directives.
+            try {
+                stmt.executeUpdate("ALTER TABLE chat_directives ADD COLUMN created_by TEXT")
+            } catch (_: Exception) {
+                // Column already exists — safe to ignore.
+            }
         }
     }
 

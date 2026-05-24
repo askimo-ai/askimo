@@ -5,7 +5,6 @@
 package io.askimo.core.util
 
 import java.time.Instant
-import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -17,26 +16,28 @@ object TimeUtil {
     fun stamp(): String = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
 
     /**
-     * Formats a LocalDateTime with the standard display format for the given locale.
+     * Formats an Instant with the standard display format for the given locale,
+     * converted to the user's local timezone.
      * Default format: "MMM dd, yyyy HH:mm" (e.g., "Nov 15, 2025 14:30")
      *
-     * @param dateTime The LocalDateTime to format
+     * @param instant The Instant to format
      * @param locale The locale to use for formatting (defaults to system locale)
-     * @return The formatted date-time string
+     * @return The formatted date-time string in the user's local timezone
      */
-    fun formatDisplay(dateTime: LocalDateTime, locale: Locale = Locale.getDefault()): String = format(dateTime, "MMM dd, yyyy HH:mm", locale)
+    fun formatDisplay(instant: Instant, locale: Locale = Locale.getDefault()): String = format(instant, "MMM dd, yyyy HH:mm", locale)
 
     /**
-     * Formats a LocalDateTime with a custom pattern for the given locale.
+     * Formats an Instant with a custom pattern for the given locale,
+     * converted to the user's local timezone.
      *
-     * @param dateTime The LocalDateTime to format
+     * @param instant The Instant to format
      * @param pattern The date-time pattern (e.g., "MMM dd, yyyy HH:mm")
      * @param locale The locale to use for formatting (defaults to system locale)
-     * @return The formatted date-time string
+     * @return The formatted date-time string in the user's local timezone
      */
-    fun format(dateTime: LocalDateTime, pattern: String, locale: Locale = Locale.getDefault()): String {
-        val formatter = DateTimeFormatter.ofPattern(pattern, locale)
-        return dateTime.format(formatter)
+    fun format(instant: Instant, pattern: String, locale: Locale = Locale.getDefault()): String {
+        val formatter = DateTimeFormatter.ofPattern(pattern, locale).withZone(ZoneId.systemDefault())
+        return formatter.format(instant)
     }
 
     /**

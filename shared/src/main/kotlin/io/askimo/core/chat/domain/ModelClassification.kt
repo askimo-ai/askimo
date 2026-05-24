@@ -4,9 +4,9 @@
  */
 package io.askimo.core.chat.domain
 
-import io.askimo.core.db.sqliteDatetime
+import io.askimo.core.db.sqliteInstant
 import org.jetbrains.exposed.v1.core.Table
-import java.time.LocalDateTime
+import java.time.Instant
 
 /**
  * Comprehensive domain model for storing AI model capabilities and classifications.
@@ -34,39 +34,9 @@ data class ModelClassification(
 
     // Metadata
     val description: String? = null,
-    val createdAt: LocalDateTime = LocalDateTime.now(),
-    val updatedAt: LocalDateTime = LocalDateTime.now(),
-) {
-    /**
-     * Returns true if the model supports multiple modalities (multimodal).
-     */
-    fun isMultimodal(): Boolean {
-        val modalityCount = listOf(supportsText, supportsImage, supportsAudio, supportsVideo).count { it }
-        return modalityCount > 1
-    }
-
-    /**
-     * Returns the primary modality of the model.
-     * For multimodal models, returns the first supported modality in priority order: text > image > audio > video.
-     */
-    fun getPrimaryModality(): String = when {
-        supportsText -> "text"
-        supportsImage -> "image"
-        supportsAudio -> "audio"
-        supportsVideo -> "video"
-        else -> "unknown"
-    }
-
-    /**
-     * Returns a list of all supported modalities.
-     */
-    fun getSupportedModalities(): List<String> = buildList {
-        if (supportsText) add("text")
-        if (supportsImage) add("image")
-        if (supportsAudio) add("audio")
-        if (supportsVideo) add("video")
-    }
-}
+    val createdAt: Instant = Instant.now(),
+    val updatedAt: Instant = Instant.now(),
+)
 
 /**
  * Exposed table definition for model_classifications.
@@ -90,8 +60,8 @@ object ModelClassificationsTable : Table("model_classifications") {
 
     // Metadata
     val description = text("description").nullable()
-    val createdAt = sqliteDatetime("created_at")
-    val updatedAt = sqliteDatetime("updated_at")
+    val createdAt = sqliteInstant("created_at")
+    val updatedAt = sqliteInstant("updated_at")
 
     override val primaryKey = PrimaryKey(id)
 

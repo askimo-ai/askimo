@@ -36,7 +36,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -175,8 +175,8 @@ class SessionManager(
                         ChatSession(
                             id = sessionId,
                             title = userMessage.content,
-                            createdAt = LocalDateTime.now(),
-                            updatedAt = LocalDateTime.now(),
+                            createdAt = Instant.now(),
+                            updatedAt = Instant.now(),
                         ),
                     )
                     createdSessions.add(sessionId)

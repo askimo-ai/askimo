@@ -16,7 +16,8 @@ import org.commonmark.parser.Parser
 import org.commonmark.renderer.html.HtmlRenderer
 import java.io.BufferedWriter
 import java.io.File
-import java.time.LocalDateTime
+import java.time.Instant
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 /**
@@ -306,8 +307,8 @@ class ChatSessionExporterService(
             appendLine("{")
             appendLine("  \"sessionId\": \"${escapeJson(session.id)}\",")
             appendLine("  \"title\": \"${escapeJson(session.title)}\",")
-            appendLine("  \"createdAt\": \"${session.createdAt.format(timestampFormatter)}\",")
-            appendLine("  \"lastUpdated\": \"${session.updatedAt.format(timestampFormatter)}\",")
+            appendLine("  \"createdAt\": \"${session.createdAt.atOffset(ZoneOffset.UTC).format(timestampFormatter)}\",")
+            appendLine("  \"lastUpdated\": \"${session.updatedAt.atOffset(java.time.ZoneOffset.UTC).format(timestampFormatter)}\",")
             appendLine("  \"directiveId\": ${if (session.directiveId != null) "\"${escapeJson(session.directiveId)}\"" else "null"},")
             appendLine("  \"messages\": [")
         }
@@ -321,7 +322,7 @@ class ChatSessionExporterService(
      * @param sessionId The ID of the session
      */
     private fun streamMessagesToJsonFile(writer: BufferedWriter, sessionId: String) {
-        var cursor: LocalDateTime? = null
+        var cursor: Instant? = null
         val pageSize = 100
         var messageCounter = 0
         var isFirstMessage = true
@@ -363,7 +364,7 @@ class ChatSessionExporterService(
             appendLine("      \"index\": $index,")
             appendLine("      \"role\": \"${message.role.value.uppercase()}\",")
             appendLine("      \"content\": \"${escapeJson(message.content)}\",")
-            appendLine("      \"timestamp\": \"${message.createdAt.format(timestampFormatter)}\"")
+            appendLine("      \"timestamp\": \"${message.createdAt.atOffset(java.time.ZoneOffset.UTC).format(timestampFormatter)}\"")
             append("    }")
         }
     }
@@ -374,7 +375,7 @@ class ChatSessionExporterService(
      * @param writer The buffered writer to write to
      */
     private fun writeJsonFooter(writer: BufferedWriter) {
-        val exportTime = LocalDateTime.now().format(timestampFormatter)
+        val exportTime = Instant.now().atOffset(ZoneOffset.UTC).format(timestampFormatter)
         writer.apply {
             appendLine()
             appendLine("  ],")
@@ -408,8 +409,8 @@ class ChatSessionExporterService(
         writer.appendLine("# Chat Session: ${session.title}")
         writer.appendLine()
         writer.appendLine("**Session ID**: ${session.id}")
-        writer.appendLine("**Created**: ${session.createdAt.format(timestampFormatter)}")
-        writer.appendLine("**Last Updated**: ${session.updatedAt.format(timestampFormatter)}")
+        writer.appendLine("**Created**: ${session.createdAt.atOffset(ZoneOffset.UTC).format(timestampFormatter)}")
+        writer.appendLine("**Last Updated**: ${session.updatedAt.atOffset(java.time.ZoneOffset.UTC).format(timestampFormatter)}")
         if (session.directiveId != null) {
             writer.appendLine("**Directive**: ${session.directiveId}")
         }
@@ -426,7 +427,7 @@ class ChatSessionExporterService(
      * @param sessionId The ID of the session
      */
     private fun streamMessagesToMarkdownFile(writer: BufferedWriter, sessionId: String) {
-        var cursor: LocalDateTime? = null
+        var cursor: Instant? = null
         val pageSize = 100
         var messageCounter = 0
 
@@ -459,7 +460,7 @@ class ChatSessionExporterService(
     private fun writeMarkdownMessage(writer: BufferedWriter, message: ChatMessage, index: Int) {
         writer.appendLine("## Message $index")
         writer.appendLine("**Role**: ${message.role.value.uppercase()}")
-        writer.appendLine("**Timestamp**: ${message.createdAt.format(timestampFormatter)}")
+        writer.appendLine("**Timestamp**: ${message.createdAt.atOffset(java.time.ZoneOffset.UTC).format(timestampFormatter)}")
         writer.appendLine()
         writer.appendLine(message.content)
         writer.appendLine()
@@ -473,7 +474,7 @@ class ChatSessionExporterService(
      * @param writer The buffered writer to write to
      */
     private fun writeMarkdownFooter(writer: BufferedWriter) {
-        val exportTime = LocalDateTime.now().format(timestampFormatter)
+        val exportTime = Instant.now().atOffset(ZoneOffset.UTC).format(timestampFormatter)
         writer.appendLine("[End of chat session - Total messages: $totalMessageCount]")
         writer.appendLine()
         writer.appendLine("*Exported on: $exportTime*")
@@ -529,8 +530,8 @@ class ChatSessionExporterService(
         appendLine("        <h1>${escapeHtml(session.title)}</h1>")
         appendLine("        <div class=\"metadata\">")
         appendLine("            <p><strong>Session ID:</strong> ${session.id}</p>")
-        appendLine("            <p><strong>Created:</strong> ${session.createdAt.format(timestampFormatter)}</p>")
-        appendLine("            <p><strong>Last Updated:</strong> ${session.updatedAt.format(timestampFormatter)}</p>")
+        appendLine("            <p><strong>Created:</strong> ${session.createdAt.atOffset(ZoneOffset.UTC).format(timestampFormatter)}</p>")
+        appendLine("            <p><strong>Last Updated:</strong> ${session.updatedAt.atOffset(java.time.ZoneOffset.UTC).format(timestampFormatter)}</p>")
         if (session.directiveId != null) {
             appendLine("            <p><strong>Directive:</strong> ${escapeHtml(session.directiveId)}</p>")
         }
@@ -546,7 +547,7 @@ class ChatSessionExporterService(
      * @param sessionId The ID of the session
      */
     private fun streamMessagesToHtmlFile(writer: BufferedWriter, sessionId: String) {
-        var cursor: LocalDateTime? = null
+        var cursor: Instant? = null
         val pageSize = 100
         var messageCounter = 0
 
@@ -591,7 +592,7 @@ class ChatSessionExporterService(
         appendLine("    <div class=\"message\">")
         appendLine("        <div class=\"message-header\">")
         appendLine("            <span class=\"role $roleClass\">${message.role.value.uppercase()}</span>")
-        appendLine("            <span class=\"timestamp\">${message.createdAt.format(timestampFormatter)}</span>")
+        appendLine("            <span class=\"timestamp\">${message.createdAt.atOffset(java.time.ZoneOffset.UTC).format(timestampFormatter)}</span>")
         appendLine("        </div>")
 
         // Render markdown for assistant messages, keep plain text for user/system
@@ -643,7 +644,7 @@ class ChatSessionExporterService(
      * @return The HTML string for the footer section
      */
     private fun buildFooterDiv(): String = buildString {
-        val exportTime = LocalDateTime.now().format(timestampFormatter)
+        val exportTime = Instant.now().atOffset(ZoneOffset.UTC).format(timestampFormatter)
         appendLine("    <div class=\"footer\">")
         appendLine("        <p>End of chat session - Total messages: $totalMessageCount</p>")
         appendLine("        <p>Exported on: $exportTime</p>")

@@ -4,9 +4,9 @@
  */
 package io.askimo.core.skills.domain
 
-import io.askimo.core.db.sqliteDatetime
+import io.askimo.core.db.sqliteInstant
 import org.jetbrains.exposed.v1.core.Table
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.UUID
 
 /**
@@ -27,7 +27,7 @@ data class SkillRunRecord(
     val response: String,
     val error: String?,
     val activityLog: List<String>,
-    val createdAt: LocalDateTime = LocalDateTime.now(),
+    val createdAt: Instant = Instant.now(),
 )
 
 /**
@@ -45,7 +45,7 @@ object SkillRunHistoryTable : Table("skill_run_history") {
     /** Newline-delimited activity log entries. */
     val activityLog = text("activity_log").default("")
 
-    val createdAt = sqliteDatetime("created_at")
+    val createdAt = sqliteInstant("created_at")
 
     override val primaryKey = PrimaryKey(id)
 }

@@ -80,7 +80,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.LocalDateTime
+import java.time.Instant
 import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -93,7 +93,7 @@ fun messageList(
     isLoadingPrevious: Boolean = false,
     searchQuery: String = "",
     currentSearchResultIndex: Int = 0,
-    onMessageClick: ((String, LocalDateTime) -> Unit)? = null,
+    onMessageClick: ((String, Instant) -> Unit)? = null,
     onEditMessage: ((ChatMessageDTO) -> Unit)? = null,
     onDownloadAttachment: ((FileAttachmentDTO) -> Unit)? = null,
     userAvatarPainter: BitmapPainter? = null,
@@ -236,7 +236,7 @@ fun messageBubble(
     message: ChatMessageDTO,
     searchQuery: String = "",
     isActiveSearchResult: Boolean = false,
-    onMessageClick: ((String, LocalDateTime) -> Unit)? = null,
+    onMessageClick: ((String, Instant) -> Unit)? = null,
     onEditMessage: ((ChatMessageDTO) -> Unit)? = null,
     onDownloadAttachment: ((FileAttachmentDTO) -> Unit)? = null,
     userAvatarPainter: BitmapPainter? = null,
@@ -291,7 +291,7 @@ private fun userMessageBubble(
     message: ChatMessageDTO,
     searchQuery: String = "",
     isActiveSearchResult: Boolean = false,
-    onMessageClick: ((String, LocalDateTime) -> Unit)? = null,
+    onMessageClick: ((String, Instant) -> Unit)? = null,
     onEditMessage: ((ChatMessageDTO) -> Unit)? = null,
     onDownloadAttachment: ((FileAttachmentDTO) -> Unit)? = null,
     userAvatarPainter: BitmapPainter? = null,
@@ -512,7 +512,7 @@ private fun aiMessageBubble(
     message: ChatMessageDTO,
     searchQuery: String = "",
     isActiveSearchResult: Boolean = false,
-    onMessageClick: ((String, LocalDateTime) -> Unit)? = null,
+    onMessageClick: ((String, Instant) -> Unit)? = null,
     onEditMessage: ((ChatMessageDTO) -> Unit)? = null,
     onDownloadAttachment: ((FileAttachmentDTO) -> Unit)? = null,
     aiAvatarPainter: BitmapPainter? = null,

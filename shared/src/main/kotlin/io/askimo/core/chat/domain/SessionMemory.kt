@@ -4,10 +4,10 @@
  */
 package io.askimo.core.chat.domain
 
-import io.askimo.core.db.sqliteDatetime
+import io.askimo.core.db.sqliteInstant
 import org.jetbrains.exposed.v1.core.ReferenceOption
 import org.jetbrains.exposed.v1.core.Table
-import java.time.LocalDateTime
+import java.time.Instant
 
 /**
  * Domain model for session memory persistence.
@@ -23,8 +23,8 @@ data class SessionMemory(
     val sessionId: String,
     val memorySummary: String?,
     val memoryMessages: String,
-    val lastUpdated: LocalDateTime = LocalDateTime.now(),
-    val createdAt: LocalDateTime = LocalDateTime.now(),
+    val lastUpdated: Instant = Instant.now(),
+    val createdAt: Instant = Instant.now(),
 )
 
 /**
@@ -38,8 +38,8 @@ object SessionMemoryTable : Table("session_memory") {
     )
     val memorySummary = text("memory_summary").nullable()
     val memoryMessages = text("memory_messages")
-    val lastUpdated = sqliteDatetime("last_updated")
-    val createdAt = sqliteDatetime("created_at")
+    val lastUpdated = sqliteInstant("last_updated")
+    val createdAt = sqliteInstant("created_at")
 
     override val primaryKey = PrimaryKey(sessionId)
 }

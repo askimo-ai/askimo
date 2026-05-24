@@ -7,6 +7,7 @@ package io.askimo.core.memory
 import dev.langchain4j.data.message.AiMessage
 import dev.langchain4j.data.message.ChatMessage
 import dev.langchain4j.data.message.SystemMessage
+import dev.langchain4j.data.message.TextContent
 import dev.langchain4j.data.message.ToolExecutionResultMessage
 import dev.langchain4j.data.message.UserMessage
 import io.askimo.core.context.MessageRole
@@ -17,19 +18,20 @@ import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
-import java.time.LocalDateTime
+import java.time.Instant
 
 /**
- * Custom serializer for LocalDateTime to support Kotlinx Serialization
+ * Custom serializer for Instant to support Kotlinx Serialization.
+ * Serializes as ISO-8601 UTC string (e.g. "2026-05-24T10:15:30.123456Z").
  */
-object LocalDateTimeSerializer : KSerializer<LocalDateTime> {
-    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("LocalDateTime", PrimitiveKind.STRING)
+object InstantSerializer : KSerializer<Instant> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("Instant", PrimitiveKind.STRING)
 
-    override fun serialize(encoder: Encoder, value: LocalDateTime) {
+    override fun serialize(encoder: Encoder, value: Instant) {
         encoder.encodeString(value.toString())
     }
 
-    override fun deserialize(decoder: Decoder): LocalDateTime = LocalDateTime.parse(decoder.decodeString())
+    override fun deserialize(decoder: Decoder): Instant = Instant.parse(decoder.decodeString())
 }
 
 /**
@@ -44,8 +46,8 @@ object LocalDateTimeSerializer : KSerializer<LocalDateTime> {
 data class MemoryMessage(
     val content: String,
     val type: String,
-    @Serializable(with = LocalDateTimeSerializer::class)
-    val createdAt: LocalDateTime = LocalDateTime.now(),
+    @Serializable(with = InstantSerializer::class)
+    val createdAt: Instant = Instant.now(),
 ) {
     /**
      * Convert this MemoryMessage to a LangChain4j ChatMessage
@@ -105,7 +107,7 @@ data class MemoryMessage(
             return MemoryMessage(
                 content = content,
                 type = type,
-                createdAt = LocalDateTime.now(),
+                createdAt = Instant.now(),
             )
         }
     }
@@ -141,8 +143,8 @@ fun ChatMessage.stripImages(): ChatMessage = when (this) {
         }
         // Strip base64 image markdown from any TextContent parts
         val sanitisedContents = filteredContents.map { content ->
-            if (content is dev.langchain4j.data.message.TextContent) {
-                dev.langchain4j.data.message.TextContent.from(
+            if (content is TextContent) {
+                TextContent.from(
                     MemoryMessage.stripBase64Images(content.text()),
                 )
             } else {

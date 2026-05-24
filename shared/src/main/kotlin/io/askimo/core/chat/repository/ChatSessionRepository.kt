@@ -27,7 +27,7 @@ import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.UUID
 
 /**
@@ -203,7 +203,7 @@ class ChatSessionRepository internal constructor(
      */
     fun touchSession(sessionId: String): Boolean = transaction(database) {
         ChatSessionsTable.update({ ChatSessionsTable.id eq sessionId }) {
-            it[updatedAt] = LocalDateTime.now()
+            it[updatedAt] = Instant.now()
         } > 0
     }.also { if (it) EventBus.post(PushDataToServerEvent(reason = "session touched")) }
 
@@ -248,7 +248,7 @@ class ChatSessionRepository internal constructor(
         transaction(database) {
             ChatSessionsTable.update({ ChatSessionsTable.id eq sessionId }) {
                 it[ChatSessionsTable.title] = title
-                it[updatedAt] = LocalDateTime.now()
+                it[updatedAt] = Instant.now()
             }
         }
         EventBus.post(PushDataToServerEvent(reason = "session title generated"))
@@ -264,7 +264,7 @@ class ChatSessionRepository internal constructor(
     fun updateSessionDirective(sessionId: String, directiveId: String?): Boolean = transaction(database) {
         ChatSessionsTable.update({ ChatSessionsTable.id eq sessionId }) {
             it[ChatSessionsTable.directiveId] = directiveId
-            it[updatedAt] = LocalDateTime.now()
+            it[updatedAt] = Instant.now()
         } > 0
     }.also { if (it) EventBus.post(PushDataToServerEvent(reason = "session directive changed")) }
 
@@ -297,7 +297,7 @@ class ChatSessionRepository internal constructor(
     fun updateSessionStarred(sessionId: String, isStarred: Boolean): Boolean = transaction(database) {
         ChatSessionsTable.update({ ChatSessionsTable.id eq sessionId }) {
             it[ChatSessionsTable.isStarred] = if (isStarred) 1 else 0
-            it[updatedAt] = LocalDateTime.now()
+            it[updatedAt] = Instant.now()
         } > 0
     }.also { if (it) EventBus.post(PushDataToServerEvent(reason = "session starred")) }
 
@@ -307,7 +307,7 @@ class ChatSessionRepository internal constructor(
     fun updateSessionSortOrder(sessionId: String, sortOrder: Int): Boolean = transaction(database) {
         ChatSessionsTable.update({ ChatSessionsTable.id eq sessionId }) {
             it[ChatSessionsTable.sortOrder] = sortOrder
-            it[updatedAt] = LocalDateTime.now()
+            it[updatedAt] = Instant.now()
         } > 0
     }.also { if (it) EventBus.post(PushDataToServerEvent(reason = "session sort order changed")) }
 
@@ -323,7 +323,7 @@ class ChatSessionRepository internal constructor(
         return transaction(database) {
             ChatSessionsTable.update({ ChatSessionsTable.id eq sessionId }) {
                 it[ChatSessionsTable.title] = trimmedTitle
-                it[updatedAt] = LocalDateTime.now()
+                it[updatedAt] = Instant.now()
             } > 0
         }.also { if (it) EventBus.post(PushDataToServerEvent(reason = "session title updated")) }
     }
@@ -368,7 +368,7 @@ class ChatSessionRepository internal constructor(
     fun updateSessionProject(sessionId: String, projectId: String?): Boolean = transaction(database) {
         ChatSessionsTable.update({ ChatSessionsTable.id eq sessionId }) {
             it[ChatSessionsTable.projectId] = projectId
-            it[updatedAt] = LocalDateTime.now()
+            it[updatedAt] = Instant.now()
         } > 0
     }.also { if (it) EventBus.post(PushDataToServerEvent(reason = "session project changed")) }
 
@@ -398,7 +398,7 @@ class ChatSessionRepository internal constructor(
         if (sessions.isEmpty()) return
 
         transaction(database) {
-            val nowStr = LocalDateTime.now().toString()
+            val nowStr = Instant.now().toString()
             val ids = sessions.map { it.id }
 
             val existingById = ChatSessionsTable
@@ -452,7 +452,7 @@ class ChatSessionRepository internal constructor(
      */
     fun markSynced(sessionId: String): Boolean = transaction(database) {
         ChatSessionsTable.update({ ChatSessionsTable.id eq sessionId }) {
-            it[syncedAt] = LocalDateTime.now().toString()
+            it[syncedAt] = Instant.now().toString()
         } > 0
     }
 

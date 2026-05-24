@@ -27,7 +27,7 @@ import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.UUID
 
 /**
@@ -161,7 +161,7 @@ class ProjectRepository internal constructor(
             it[ProjectsTable.name] = name
             it[ProjectsTable.description] = description
             it[ProjectsTable.knowledgeSourcesConfig] = KnowledgeSourceSerializer.serialize(knowledgeSources)
-            it[updatedAt] = LocalDateTime.now()
+            it[updatedAt] = Instant.now()
         } > 0
 
         if (updated) {
@@ -252,7 +252,7 @@ class ProjectRepository internal constructor(
      */
     fun markSynced(projectId: String): Boolean = transaction(database) {
         ProjectsTable.update({ ProjectsTable.id eq projectId }) {
-            it[syncedAt] = LocalDateTime.now().toString()
+            it[syncedAt] = Instant.now().toString()
         } > 0
     }
 
@@ -262,7 +262,7 @@ class ProjectRepository internal constructor(
     fun upsertFromServer(projects: List<Project>) {
         if (projects.isEmpty()) return
         transaction(database) {
-            val nowStr = LocalDateTime.now().toString()
+            val nowStr = Instant.now().toString()
             val existingById = ProjectsTable
                 .selectAll()
                 .where { ProjectsTable.id inList projects.map { it.id } }
