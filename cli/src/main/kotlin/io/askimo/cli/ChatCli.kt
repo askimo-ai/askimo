@@ -67,7 +67,7 @@ import org.jline.terminal.Terminal
 import org.jline.terminal.TerminalBuilder
 import org.jline.utils.InfoCmp
 import java.io.IOException
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -359,7 +359,7 @@ private fun sendChatMessage(
     }
     val promptWithContext = chatSessionService.prepareContextAndGetPromptForChat(
         sessionId = currentSession.id,
-        userMessage = ChatMessageDTO(id = UUID.randomUUID().toString(), content = prompt, isUser = true, timestamp = LocalDateTime.now()),
+        userMessage = ChatMessageDTO(id = UUID.randomUUID().toString(), content = prompt, isUser = true, timestamp = Instant.now()),
         willSaveUserMessage = true,
     )
     val chatClient = chatSessionService.getOrCreateClientForSession(currentSession.id)
