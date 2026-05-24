@@ -465,9 +465,10 @@ class ChatSessionRepository internal constructor(
             .selectAll()
             .orderBy(ChatSessionsTable.updatedAt, SortOrder.ASC)
             .mapNotNull { row ->
-                val syncedAt = row[ChatSessionsTable.syncedAt]
-                val updatedAt = row[ChatSessionsTable.updatedAt].toString()
-                if (syncedAt == null || updatedAt > syncedAt) row.toChatSession() else null
+                val syncedAtStr = row[ChatSessionsTable.syncedAt]
+                val updatedAt = row[ChatSessionsTable.updatedAt]
+                val syncedAt = syncedAtStr?.let { runCatching { Instant.parse(it) }.getOrNull() }
+                if (syncedAt == null || updatedAt.isAfter(syncedAt)) row.toChatSession() else null
             }
             .take(limit)
     }

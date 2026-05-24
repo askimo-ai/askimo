@@ -27,7 +27,7 @@ import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.nio.file.Path
-import java.time.LocalDateTime
+import java.time.Instant
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.test.assertEquals
@@ -70,8 +70,8 @@ class HybridIndexerTest {
                 name = "Test Project",
                 description = null,
                 knowledgeSources = emptyList(),
-                createdAt = LocalDateTime.now(),
-                updatedAt = LocalDateTime.now(),
+                createdAt = Instant.now(),
+                updatedAt = Instant.now(),
             ),
         )
 

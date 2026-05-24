@@ -8,8 +8,10 @@ plugins {
 
 dependencies {
     compileOnly(libs.detekt.api)
+    testImplementation(libs.detekt.test)
     testImplementation(libs.junit.jupiter)
     testImplementation(platform(libs.junit.bom))
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 kotlin {

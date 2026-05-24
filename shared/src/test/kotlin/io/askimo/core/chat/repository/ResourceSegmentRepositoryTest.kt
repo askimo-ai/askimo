@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import java.time.LocalDateTime
+import java.time.Instant
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -41,8 +41,8 @@ class ResourceSegmentRepositoryTest {
                     name = id,
                     description = null,
                     knowledgeSources = emptyList(),
-                    createdAt = LocalDateTime.now(),
-                    updatedAt = LocalDateTime.now(),
+                    createdAt = Instant.now(),
+                    updatedAt = Instant.now(),
                 ),
             )
         }
