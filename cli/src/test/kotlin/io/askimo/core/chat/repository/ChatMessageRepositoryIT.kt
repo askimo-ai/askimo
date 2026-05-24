@@ -20,7 +20,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import java.time.LocalDateTime
+import java.time.Instant
 
 class ChatMessageRepositoryIT {
 
@@ -190,7 +190,7 @@ class ChatMessageRepositoryIT {
 
     @Test
     fun `should mark messages as outdated after specific message`() {
-        val baseTime = LocalDateTime.of(2024, 1, 1, 0, 0, 0)
+        val baseTime = Instant.parse("2024-01-01T00:00:00Z")
         val message1 = messageRepository.addMessage(
             ChatMessage(
                 id = "",
@@ -230,7 +230,7 @@ class ChatMessageRepositoryIT {
 
     @Test
     fun `should paginate messages forward from start`() {
-        val baseTime = LocalDateTime.of(2024, 1, 1, 0, 0, 0)
+        val baseTime = Instant.parse("2024-01-01T00:00:00Z")
         repeat(5) { i ->
             messageRepository.addMessage(
                 ChatMessage(
@@ -259,7 +259,7 @@ class ChatMessageRepositoryIT {
 
     @Test
     fun `should paginate messages backward from end`() {
-        val baseTime = LocalDateTime.of(2024, 1, 1, 0, 0, 0)
+        val baseTime = Instant.parse("2024-01-01T00:00:00Z")
         repeat(5) { i ->
             messageRepository.addMessage(
                 ChatMessage(
@@ -288,7 +288,7 @@ class ChatMessageRepositoryIT {
 
     @Test
     fun `should return null cursor when no more messages`() {
-        val baseTime = LocalDateTime.of(2024, 1, 1, 0, 0, 0)
+        val baseTime = Instant.parse("2024-01-01T00:00:00Z")
         repeat(3) { i ->
             messageRepository.addMessage(
                 ChatMessage(
@@ -340,7 +340,7 @@ class ChatMessageRepositoryIT {
 
     @Test
     fun `should paginate through entire message history forward`() {
-        val baseTime = LocalDateTime.of(2024, 1, 1, 0, 0, 0)
+        val baseTime = Instant.parse("2024-01-01T00:00:00Z")
         repeat(10) { i ->
             messageRepository.addMessage(
                 ChatMessage(
@@ -354,7 +354,7 @@ class ChatMessageRepositoryIT {
         }
 
         val allMessages = mutableListOf<ChatMessage>()
-        var cursor: LocalDateTime? = null
+        var cursor: Instant? = null
 
         do {
             val (messages, nextCursor) = messageRepository.getMessagesPaginated(
@@ -374,7 +374,7 @@ class ChatMessageRepositoryIT {
 
     @Test
     fun `should not duplicate messages across pages`() {
-        val baseTime = LocalDateTime.of(2024, 1, 1, 0, 0, 0)
+        val baseTime = Instant.parse("2024-01-01T00:00:00Z")
         repeat(10) { i ->
             messageRepository.addMessage(
                 ChatMessage(
@@ -416,7 +416,7 @@ class ChatMessageRepositoryIT {
             fileName = "document.pdf",
             mimeType = "pdf",
             size = 1024L,
-            createdAt = LocalDateTime.now(),
+            createdAt = Instant.now(),
             content = "PDF content here",
         )
         val attachment2 = FileAttachment(
@@ -426,7 +426,7 @@ class ChatMessageRepositoryIT {
             fileName = "image.png",
             mimeType = "png",
             size = 2048L,
-            createdAt = LocalDateTime.now(),
+            createdAt = Instant.now(),
             content = "PNG content here",
         )
 
@@ -452,7 +452,7 @@ class ChatMessageRepositoryIT {
 
     @Test
     fun `should retrieve message without attachments`() {
-        val message = messageRepository.addMessage(
+        messageRepository.addMessage(
             ChatMessage(
                 id = "",
                 sessionId = testSession.id,
@@ -469,7 +469,7 @@ class ChatMessageRepositoryIT {
 
     @Test
     fun `should handle multiple messages with different attachment counts`() {
-        val message1 = messageRepository.addMessage(
+        messageRepository.addMessage(
             ChatMessage(
                 id = "",
                 sessionId = testSession.id,
@@ -483,14 +483,14 @@ class ChatMessageRepositoryIT {
                         fileName = "file1.txt",
                         mimeType = "txt",
                         size = 100L,
-                        createdAt = LocalDateTime.now(),
+                        createdAt = Instant.now(),
                         content = "content1",
                     ),
                 ),
             ),
         )
 
-        val message2 = messageRepository.addMessage(
+        messageRepository.addMessage(
             ChatMessage(
                 id = "",
                 sessionId = testSession.id,
@@ -499,7 +499,7 @@ class ChatMessageRepositoryIT {
             ),
         )
 
-        val message3 = messageRepository.addMessage(
+        messageRepository.addMessage(
             ChatMessage(
                 id = "",
                 sessionId = testSession.id,
@@ -513,7 +513,7 @@ class ChatMessageRepositoryIT {
                         fileName = "file2.txt",
                         mimeType = "txt",
                         size = 200L,
-                        createdAt = LocalDateTime.now(),
+                        createdAt = Instant.now(),
                         content = "content2",
                     ),
                     FileAttachment(
@@ -523,7 +523,7 @@ class ChatMessageRepositoryIT {
                         fileName = "file3.txt",
                         mimeType = "txt",
                         size = 300L,
-                        createdAt = LocalDateTime.now(),
+                        createdAt = Instant.now(),
                         content = "content3",
                     ),
                 ),
@@ -554,7 +554,7 @@ class ChatMessageRepositoryIT {
                         fileName = "file.txt",
                         mimeType = "txt",
                         size = 100L,
-                        createdAt = LocalDateTime.now(),
+                        createdAt = Instant.now(),
                         content = "content",
                     ),
                 ),
@@ -579,7 +579,7 @@ class ChatMessageRepositoryIT {
 
     @Test
     fun `should load attachments with paginated messages`() {
-        val baseTime = LocalDateTime.of(2024, 1, 1, 0, 0, 0)
+        val baseTime = Instant.parse("2024-01-01T00:00:00Z")
         repeat(5) { i ->
             messageRepository.addMessage(
                 ChatMessage(
@@ -645,7 +645,7 @@ class ChatMessageRepositoryIT {
                         fileName = "important.pdf",
                         mimeType = "pdf",
                         size = 1024L,
-                        createdAt = LocalDateTime.now(),
+                        createdAt = Instant.now(),
                         content = "important content",
                     ),
                 ),
@@ -675,7 +675,7 @@ class ChatMessageRepositoryIT {
                         fileName = "note.txt",
                         mimeType = "txt",
                         size = 512L,
-                        createdAt = LocalDateTime.now(),
+                        createdAt = Instant.now(),
                         content = "note content",
                     ),
                 ),
@@ -700,7 +700,7 @@ class ChatMessageRepositoryIT {
             fileName = "test.txt",
             mimeType = "txt",
             size = 1024L,
-            createdAt = LocalDateTime.now(),
+            createdAt = Instant.now(),
             content = "This content should be stored",
         )
 
@@ -737,7 +737,7 @@ class ChatMessageRepositoryIT {
                 fileName = "file$i.txt",
                 mimeType = "txt",
                 size = (i * 100).toLong(),
-                createdAt = LocalDateTime.now(),
+                createdAt = Instant.now(),
                 content = "content$i",
             )
         }

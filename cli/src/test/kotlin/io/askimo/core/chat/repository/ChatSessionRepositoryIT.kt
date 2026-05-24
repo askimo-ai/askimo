@@ -20,7 +20,8 @@ import org.junit.jupiter.api.assertNotNull
 import org.junit.jupiter.api.assertNull
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import java.time.LocalDateTime
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 class ChatSessionRepositoryIT {
 
@@ -70,8 +71,8 @@ class ChatSessionRepositoryIT {
         assertNotNull(retrieved)
         assertEquals(session.id, retrieved.id)
         assertEquals(session.title, retrieved.title)
-        assertEquals(session.createdAt.withNano(0), retrieved.createdAt.withNano(0))
-        assertEquals(session.updatedAt.withNano(0), retrieved.updatedAt.withNano(0))
+        assertEquals(session.createdAt.truncatedTo(ChronoUnit.SECONDS), retrieved.createdAt.truncatedTo(ChronoUnit.SECONDS))
+        assertEquals(session.updatedAt.truncatedTo(ChronoUnit.SECONDS), retrieved.updatedAt.truncatedTo(ChronoUnit.SECONDS))
     }
 
     @Test
@@ -82,12 +83,12 @@ class ChatSessionRepositoryIT {
 
     @Test
     fun `should retrieve all sessions ordered by updated_at desc`() {
-        val baseTime = LocalDateTime.now().withNano(0)
+        val baseTime = Instant.now().truncatedTo(ChronoUnit.SECONDS)
         val session1 = sessionRepository.createSession(
             ChatSession(
                 id = "",
                 title = "First Session",
-                createdAt = baseTime.plusSeconds(1),
+                createdAt = baseTime.plusSeconds(1L),
                 updatedAt = baseTime.plusSeconds(1),
             ),
         )
@@ -343,13 +344,13 @@ class ChatSessionRepositoryIT {
     @Test
     fun `should touch session to update timestamp`() {
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Test"))
-        val originalUpdatedAt = session.updatedAt.withNano(0)
+        val originalUpdatedAt = session.updatedAt.truncatedTo(ChronoUnit.SECONDS)
 
         Thread.sleep(1001) // Sleep for just over 1 second to ensure timestamp difference
         sessionRepository.touchSession(session.id)
 
         val retrieved = sessionRepository.getSession(session.id)
-        val newUpdatedAt = retrieved!!.updatedAt.withNano(0)
+        val newUpdatedAt = retrieved!!.updatedAt.truncatedTo(ChronoUnit.SECONDS)
         assertTrue(newUpdatedAt.isAfter(originalUpdatedAt))
     }
 }

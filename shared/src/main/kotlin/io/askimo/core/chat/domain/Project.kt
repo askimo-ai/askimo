@@ -22,8 +22,8 @@ data class Project(
     val name: String,
     val description: String? = null,
     val knowledgeSources: List<KnowledgeSourceConfig>,
-    val createdAt: Instant,
-    val updatedAt: Instant,
+    val createdAt: Instant = Instant.now(),
+    val updatedAt: Instant = Instant.now(),
     val isStarred: Boolean = false,
 )
 

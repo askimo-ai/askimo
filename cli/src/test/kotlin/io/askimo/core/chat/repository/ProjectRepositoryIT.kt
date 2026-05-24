@@ -23,7 +23,8 @@ import org.junit.jupiter.api.assertNotNull
 import org.junit.jupiter.api.assertNull
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import java.time.LocalDateTime
+import java.time.Duration
+import java.time.Instant
 
 class ProjectRepositoryIT {
 
@@ -77,8 +78,8 @@ class ProjectRepositoryIT {
                 name = "Test Project",
                 description = "Test Description",
                 knowledgeSources = emptyList(),
-                createdAt = LocalDateTime.now(),
-                updatedAt = LocalDateTime.now(),
+                createdAt = Instant.now(),
+                updatedAt = Instant.now(),
             ),
         )
 
@@ -98,8 +99,8 @@ class ProjectRepositoryIT {
                 name = "Project 1",
                 description = null,
                 knowledgeSources = emptyList(),
-                createdAt = LocalDateTime.now(),
-                updatedAt = LocalDateTime.now(),
+                createdAt = Instant.now(),
+                updatedAt = Instant.now(),
             ),
         )
         val project2 = projectRepository.createProject(
@@ -108,8 +109,8 @@ class ProjectRepositoryIT {
                 name = "Project 2",
                 description = "Description 2",
                 knowledgeSources = listOf(LocalFoldersKnowledgeSourceConfig(resourceIdentifier = "/path/to/folder")),
-                createdAt = LocalDateTime.now(),
-                updatedAt = LocalDateTime.now(),
+                createdAt = Instant.now(),
+                updatedAt = Instant.now(),
             ),
         )
 
@@ -135,8 +136,8 @@ class ProjectRepositoryIT {
                 name = "Original Name",
                 description = "Original Description",
                 knowledgeSources = emptyList(),
-                createdAt = LocalDateTime.now(),
-                updatedAt = LocalDateTime.now(),
+                createdAt = Instant.now(),
+                updatedAt = Instant.now(),
             ),
         )
 
@@ -169,8 +170,8 @@ class ProjectRepositoryIT {
                 name = "Test Project",
                 description = "Some Description",
                 knowledgeSources = emptyList(),
-                createdAt = LocalDateTime.now(),
-                updatedAt = LocalDateTime.now(),
+                createdAt = Instant.now(),
+                updatedAt = Instant.now(),
             ),
         )
 
@@ -209,8 +210,8 @@ class ProjectRepositoryIT {
                 name = "Test Project",
                 description = "Test Description",
                 knowledgeSources = emptyList(),
-                createdAt = LocalDateTime.now(),
-                updatedAt = LocalDateTime.now(),
+                createdAt = Instant.now(),
+                updatedAt = Instant.now(),
             ),
         )
 
@@ -256,7 +257,7 @@ class ProjectRepositoryIT {
                 sessionId = session1.id,
                 memorySummary = "Summary for session 1",
                 memoryMessages = "[]",
-                lastUpdated = LocalDateTime.now(),
+                lastUpdated = Instant.now(),
             ),
         )
 
@@ -266,7 +267,7 @@ class ProjectRepositoryIT {
                 sessionId = session2.id,
                 memorySummary = "Summary for session 2",
                 memoryMessages = "[]",
-                lastUpdated = LocalDateTime.now(),
+                lastUpdated = Instant.now(),
             ),
         )
 
@@ -293,8 +294,8 @@ class ProjectRepositoryIT {
                 name = "Project with Paths",
                 description = null,
                 knowledgeSources = knowledgeSources,
-                createdAt = LocalDateTime.now(),
-                updatedAt = LocalDateTime.now(),
+                createdAt = Instant.now(),
+                updatedAt = Instant.now(),
             ),
         )
 
@@ -305,15 +306,15 @@ class ProjectRepositoryIT {
 
     @Test
     fun `should order projects by updated_at descending`() {
-        val now = LocalDateTime.now()
+        val now = Instant.now()
         val project1 = projectRepository.createProject(
             Project(
                 id = "",
                 name = "First",
                 description = null,
                 knowledgeSources = emptyList(),
-                createdAt = now.minusHours(2),
-                updatedAt = now.minusHours(2),
+                createdAt = now.minus(Duration.ofHours(2)),
+                updatedAt = now.minus(Duration.ofHours(2)),
             ),
         )
         Thread.sleep(10)
@@ -323,8 +324,8 @@ class ProjectRepositoryIT {
                 name = "Second",
                 description = null,
                 knowledgeSources = emptyList(),
-                createdAt = now.minusHours(1),
-                updatedAt = now.minusHours(1),
+                createdAt = now.minus(Duration.ofHours(1)),
+                updatedAt = now.minus(Duration.ofHours(1)),
             ),
         )
         Thread.sleep(10)
@@ -355,8 +356,8 @@ class ProjectRepositoryIT {
                 name = "Test Project: \"Special\" & <Characters>",
                 description = "Description with 'quotes' and \"escapes\"",
                 knowledgeSources = emptyList(),
-                createdAt = LocalDateTime.now(),
-                updatedAt = LocalDateTime.now(),
+                createdAt = Instant.now(),
+                updatedAt = Instant.now(),
             ),
         )
 
@@ -374,8 +375,8 @@ class ProjectRepositoryIT {
                 name = "Project 1",
                 description = null,
                 knowledgeSources = emptyList(),
-                createdAt = LocalDateTime.now(),
-                updatedAt = LocalDateTime.now(),
+                createdAt = Instant.now(),
+                updatedAt = Instant.now(),
             ),
         )
         val project2 = projectRepository.createProject(
@@ -384,8 +385,8 @@ class ProjectRepositoryIT {
                 name = "Project 2",
                 description = null,
                 knowledgeSources = emptyList(),
-                createdAt = LocalDateTime.now(),
-                updatedAt = LocalDateTime.now(),
+                createdAt = Instant.now(),
+                updatedAt = Instant.now(),
             ),
         )
 

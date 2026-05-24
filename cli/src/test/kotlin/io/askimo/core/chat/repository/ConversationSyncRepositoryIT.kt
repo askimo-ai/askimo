@@ -20,7 +20,9 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import java.time.LocalDateTime
+import java.time.Duration
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 class ConversationSyncRepositoryIT {
 
@@ -54,13 +56,13 @@ class ConversationSyncRepositoryIT {
         }
     }
 
-    private val now = LocalDateTime.now().withNano(0)
-    private val older = now.minusHours(2)
-    private val newer = now.plusHours(2)
+    private val now = Instant.now().truncatedTo(ChronoUnit.SECONDS)
+    private val older = now.minus(Duration.ofHours(2))
+    private val newer = now.plus(Duration.ofHours(2))
 
     private fun createSession(
         title: String = "Test session",
-        updatedAt: LocalDateTime = now,
+        updatedAt: Instant = now,
     ): ChatSession = sessionRepository.createSession(
         ChatSession(id = "", title = title, createdAt = older, updatedAt = updatedAt),
     )
@@ -68,7 +70,7 @@ class ConversationSyncRepositoryIT {
     private fun sessionFromServer(
         id: String,
         title: String = "Server session",
-        updatedAt: LocalDateTime = now,
+        updatedAt: Instant = now,
     ) = ChatSession(id = id, title = title, createdAt = older, updatedAt = updatedAt)
 
     private fun messageFromServer(

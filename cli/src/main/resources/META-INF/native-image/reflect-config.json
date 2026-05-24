@@ -1108,12 +1108,6 @@
     "parameterTypes": [ ]
   } ]
 }, {
-  "name": "com.sun.crypto.provider.AESKeyGenerator",
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  } ]
-}, {
   "name": "com.sun.crypto.provider.ARCFOURCipher",
   "methods": [ {
     "name": "<init>",
@@ -4976,7 +4970,7 @@
     "parameterTypes": [ "dev.langchain4j.data.message.UserMessage", "dev.langchain4j.model.chat.request.ChatRequestParameters" ]
   } ]
 }, {
-  "name": "io.askimo.core.providers.ChatClient$MockitoMock$S2BWGxvC",
+  "name": "io.askimo.core.providers.ChatClient$MockitoMock$3HUha1OF",
   "queryAllDeclaredConstructors": true,
   "methods": [ {
     "name": "<init>",
@@ -5303,9 +5297,6 @@
     "name": "canCreateChatServiceAndStream",
     "parameterTypes": [ ]
   }, {
-    "name": "defaultSettingsTest",
-    "parameterTypes": [ ]
-  }, {
     "name": "setUp",
     "parameterTypes": [ ]
   } ]
@@ -5313,27 +5304,9 @@
   "name": "io.askimo.core.providers.xai.XAiSettings"
 }, {
   "name": "io.askimo.core.recipes.DefaultRecipeInitializerTest",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "setUp",
-    "parameterTypes": [ ]
-  }, {
-    "name": "should create gitcommit template when it doesn't exist",
-    "parameterTypes": [ ]
-  }, {
-    "name": "should not overwrite existing template",
-    "parameterTypes": [ ]
-  }, {
-    "name": "tearDown",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.recipes.IRecipeRegistry",
   "allDeclaredClasses": true,
@@ -5354,21 +5327,9 @@
   "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.recipes.RecipeExecutorTest",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testExternalArgSubstitution",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testRecipeExecutorWithExternalArg",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.recipes.RecipeExecutorTest$testExternalArgSubstitution$TestRecipeExecutor",
   "allDeclaredClasses": true,
@@ -5388,103 +5349,12 @@
   "name": "io.askimo.core.recipes.TestTools",
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "methods": [ {
-    "name": "listParam",
-    "parameterTypes": [ "java.util.List" ]
-  }, {
-    "name": "multipleParams",
-    "parameterTypes": [ "java.lang.String", "int", "boolean" ]
-  }, {
-    "name": "noParams",
-    "parameterTypes": [ ]
-  }, {
-    "name": "numericParams",
-    "parameterTypes": [ "int", "long", "double", "float" ]
-  }, {
-    "name": "singleString",
-    "parameterTypes": [ "java.lang.String" ]
-  }, {
-    "name": "withDefaults",
-    "parameterTypes": [ "java.lang.String", "java.lang.String", "boolean" ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.recipes.ToolRegistryTest",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "allow filter restricts available tools",
-    "parameterTypes": [ ]
-  }, {
-    "name": "defaults include git and io tools with expected keys",
-    "parameterTypes": [ ]
-  }, {
-    "name": "invoke IoTools readFile returns error for missing file",
-    "parameterTypes": [ ]
-  }, {
-    "name": "invoke git commit with map args uses parameter names correctly",
-    "parameterTypes": [ ]
-  }, {
-    "name": "invoke on missing tool throws error with available list",
-    "parameterTypes": [ ]
-  }, {
-    "name": "invoke with list args for multiple parameters matches by position",
-    "parameterTypes": [ ]
-  }, {
-    "name": "invoke with list args for single list parameter",
-    "parameterTypes": [ ]
-  }, {
-    "name": "invoke with list args handles missing parameters as defaults",
-    "parameterTypes": [ ]
-  }, {
-    "name": "invoke with list args handles type coercion",
-    "parameterTypes": [ ]
-  }, {
-    "name": "invoke with map args for method with defaults",
-    "parameterTypes": [ ]
-  }, {
-    "name": "invoke with map args for numeric types",
-    "parameterTypes": [ ]
-  }, {
-    "name": "invoke with map args handles numeric type coercion from strings",
-    "parameterTypes": [ ]
-  }, {
-    "name": "invoke with map args handles partial parameters with nulls",
-    "parameterTypes": [ ]
-  }, {
-    "name": "invoke with map args handles type coercion from strings",
-    "parameterTypes": [ ]
-  }, {
-    "name": "invoke with map args handles wrong parameter names as null",
-    "parameterTypes": [ ]
-  }, {
-    "name": "invoke with map args overrides defaults",
-    "parameterTypes": [ ]
-  }, {
-    "name": "invoke with map args resolves parameter names correctly",
-    "parameterTypes": [ ]
-  }, {
-    "name": "invoke with null args calls no-parameter method",
-    "parameterTypes": [ ]
-  }, {
-    "name": "invoke works for IoTools readFile using array args",
-    "parameterTypes": [ ]
-  }, {
-    "name": "invoke works for IoTools writeFile using array args",
-    "parameterTypes": [ ]
-  }, {
-    "name": "multiple tool invocations work correctly",
-    "parameterTypes": [ ]
-  }, {
-    "name": "setUp",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.recipes.ToolRegistryTestKt",
   "allDeclaredClasses": true,
@@ -5492,72 +5362,9 @@
   "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.search.SessionSearchServiceIT",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "setUp",
-    "parameterTypes": [ ]
-  }, {
-    "name": "setUpClass",
-    "parameterTypes": [ "java.nio.file.Path" ]
-  }, {
-    "name": "should combine multiple filters",
-    "parameterTypes": [ ]
-  }, {
-    "name": "should distinguish between user and assistant messages",
-    "parameterTypes": [ ]
-  }, {
-    "name": "should filter by date range",
-    "parameterTypes": [ ]
-  }, {
-    "name": "should filter by project",
-    "parameterTypes": [ ]
-  }, {
-    "name": "should find messages matching search query",
-    "parameterTypes": [ ]
-  }, {
-    "name": "should find partial word matches",
-    "parameterTypes": [ ]
-  }, {
-    "name": "should handle empty database gracefully",
-    "parameterTypes": [ ]
-  }, {
-    "name": "should handle multiple sessions with same search term",
-    "parameterTypes": [ ]
-  }, {
-    "name": "should include session metadata in results",
-    "parameterTypes": [ ]
-  }, {
-    "name": "should respect limit parameter",
-    "parameterTypes": [ ]
-  }, {
-    "name": "should return empty results for blank query",
-    "parameterTypes": [ ]
-  }, {
-    "name": "should return empty results for non-matching query",
-    "parameterTypes": [ ]
-  }, {
-    "name": "should search case-insensitively",
-    "parameterTypes": [ ]
-  }, {
-    "name": "should sort by DATE_ASC - oldest first",
-    "parameterTypes": [ ]
-  }, {
-    "name": "should sort by DATE_DESC - newest first",
-    "parameterTypes": [ ]
-  }, {
-    "name": "tearDown",
-    "parameterTypes": [ ]
-  }, {
-    "name": "tearDownClass",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.search.SessionSearchServiceIT$Companion",
   "allDeclaredClasses": true,
@@ -5565,71 +5372,14 @@
   "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.security.EncryptionManagerTest",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "setUp",
-    "parameterTypes": [ ]
-  }, {
-    "name": "tearDown",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testBasicEncryptionDecryption",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testCorruptedKeyFileHandling",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testEmptyStringEncryption",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testInvalidCiphertextHandling",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testKeyDeletion",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testKeyDirectoryCreation",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testKeyPersistence",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testLongApiKeyEncryption",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testMultipleEncryptions",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testRandomIVGeneration",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testSpecialCharactersEncryption",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.security.KeychainManagerLinuxIntegrationTest",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "setUp",
-    "parameterTypes": [ ]
-  }, {
-    "name": "tearDown",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.security.KeychainManagerLinuxIntegrationTest$Companion",
   "allDeclaredClasses": true,
@@ -5637,48 +5387,9 @@
   "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.security.KeychainManagerMacOSIntegrationTest",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "setUp",
-    "parameterTypes": [ ]
-  }, {
-    "name": "tearDown",
-    "parameterTypes": [ ]
-  }, {
-    "name": "test edge case empty API key",
-    "parameterTypes": [ ]
-  }, {
-    "name": "test edge case very long API key",
-    "parameterTypes": [ ]
-  }, {
-    "name": "test multiple providers isolation",
-    "parameterTypes": [ ]
-  }, {
-    "name": "test remove API key",
-    "parameterTypes": [ ]
-  }, {
-    "name": "test retrieve non-existent API key",
-    "parameterTypes": [ ]
-  }, {
-    "name": "test store and retrieve API key with special characters",
-    "parameterTypes": [ ]
-  }, {
-    "name": "test store and retrieve long OpenAI API key",
-    "parameterTypes": [ ]
-  }, {
-    "name": "test store and retrieve simple API key",
-    "parameterTypes": [ ]
-  }, {
-    "name": "test update existing API key",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.security.KeychainManagerMacOSIntegrationTest$Companion",
   "allDeclaredClasses": true,
@@ -5686,21 +5397,9 @@
   "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.security.KeychainManagerWindowsIntegrationTest",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "setUp",
-    "parameterTypes": [ ]
-  }, {
-    "name": "tearDown",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.security.KeychainManagerWindowsIntegrationTest$Companion",
   "allDeclaredClasses": true,
@@ -5708,21 +5407,9 @@
   "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.security.SecureKeyManagerLinuxIntegrationTest",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "setUp",
-    "parameterTypes": [ ]
-  }, {
-    "name": "tearDown",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.security.SecureKeyManagerLinuxIntegrationTest$Companion",
   "allDeclaredClasses": true,
@@ -5730,33 +5417,9 @@
   "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.security.SecureKeyManagerMacOSIntegrationTest",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "setUp",
-    "parameterTypes": [ ]
-  }, {
-    "name": "tearDown",
-    "parameterTypes": [ ]
-  }, {
-    "name": "test SecureApiKeyManager end-to-end with long OpenAI API key",
-    "parameterTypes": [ ]
-  }, {
-    "name": "test remove API key through SecureApiKeyManager",
-    "parameterTypes": [ ]
-  }, {
-    "name": "test retrieve non-existent key through SecureApiKeyManager",
-    "parameterTypes": [ ]
-  }, {
-    "name": "test storage method detection",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.security.SecureKeyManagerMacOSIntegrationTest$Companion",
   "allDeclaredClasses": true,
@@ -5764,21 +5427,9 @@
   "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.security.SecureKeyManagerWindowsIntegrationTest",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "setUp",
-    "parameterTypes": [ ]
-  }, {
-    "name": "tearDown",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.security.SecureKeyManagerWindowsIntegrationTest$Companion",
   "allDeclaredClasses": true,
@@ -5786,60 +5437,9 @@
   "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.security.SecureSessionManagerTest",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "setUp",
-    "parameterTypes": [ ]
-  }, {
-    "name": "tearDown",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testCorruptedEncryptedApiKey",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testEncryptedApiKeyHandling",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testEncryptionFallback",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testKeychainOperationsDirectly",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testKeychainPlaceholderHandling",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testLoadSessionWithEmptyApiKeys",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testMultipleProvidersWithApiKeys",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testPreserveNonApiKeySettings",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testRoundTripSaveAndLoad",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testSaveSessionWithApiKeys",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testSecureSessionLoading",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testSessionParamsCopyBehavior",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testStorageSecurityDescriptions",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.security.SecureSessionManagerTest$Companion",
   "allDeclaredClasses": true,
@@ -5862,272 +5462,44 @@
   "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.skills.SkillRepositoryTest",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.skills.SkillRepositoryTest$CountSkills",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ "io.askimo.core.skills.SkillRepositoryTest" ]
-  }, {
-    "name": "category folder without skills returns 0",
-    "parameterTypes": [ ]
-  }, {
-    "name": "deeply nested category structure counts correctly",
-    "parameterTypes": [ ]
-  }, {
-    "name": "empty directory returns 0",
-    "parameterTypes": [ ]
-  }, {
-    "name": "git directory is excluded",
-    "parameterTypes": [ ]
-  }, {
-    "name": "hidden directories are skipped",
-    "parameterTypes": [ ]
-  }, {
-    "name": "multiple root-level skill folders count individually",
-    "parameterTypes": [ ]
-  }, {
-    "name": "multiple skills across categories",
-    "parameterTypes": [ ]
-  }, {
-    "name": "reserved files alone do not count as skills",
-    "parameterTypes": [ ]
-  }, {
-    "name": "single root-level skill folder counts as 1",
-    "parameterTypes": [ ]
-  }, {
-    "name": "skill nested inside category folder is counted",
-    "parameterTypes": [ ]
-  }, {
-    "name": "skill-md matching is case-insensitive",
-    "parameterTypes": [ ]
-  }, {
-    "name": "sub-folder inside a skill folder is NOT a separate skill",
-    "parameterTypes": [ ]
-  }, {
-    "name": "sub-folder with skill-md inside a skill folder is NOT counted separately",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.skills.SkillRepositoryTest$GetAll",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ "io.askimo.core.skills.SkillRepositoryTest" ]
-  }, {
-    "name": "reserved filenames and entry point are excluded",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.skills.SkillRepositoryTest$GetSkillsOnly",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ "io.askimo.core.skills.SkillRepositoryTest" ]
-  }, {
-    "name": "empty skills dir returns empty list",
-    "parameterTypes": [ ]
-  }, {
-    "name": "multiple skill folders across categories",
-    "parameterTypes": [ ]
-  }, {
-    "name": "plain category folder is transparent - skills inside are found",
-    "parameterTypes": [ ]
-  }, {
-    "name": "plain folder without skill dot md is NOT a skill",
-    "parameterTypes": [ ]
-  }, {
-    "name": "reserved files inside skill folder are NOT merged as context",
-    "parameterTypes": [ ]
-  }, {
-    "name": "root-level skill folder has empty category",
-    "parameterTypes": [ ]
-  }, {
-    "name": "skill folder category is the parent folder not the skill folder itself",
-    "parameterTypes": [ ]
-  }, {
-    "name": "skill folder entry point is case-insensitive",
-    "parameterTypes": [ ]
-  }, {
-    "name": "skill folder name comes from folder when frontmatter name is blank",
-    "parameterTypes": [ ]
-  }, {
-    "name": "skill folder sibling md files are NOT listed as separate skills",
-    "parameterTypes": [ ]
-  }, {
-    "name": "skill folder structure section lists all files",
-    "parameterTypes": [ ]
-  }, {
-    "name": "skill folder supplemental content is merged into skill content",
-    "parameterTypes": [ ]
-  }, {
-    "name": "skill folder with non-md supplemental files includes them in content",
-    "parameterTypes": [ ]
-  }, {
-    "name": "skill folder with skill dot md is returned as single skill",
-    "parameterTypes": [ ]
-  }, {
-    "name": "standalone md file is NOT a skill",
-    "parameterTypes": [ ]
-  }, {
-    "name": "sub-folder of skill folder is NOT a separate skill",
-    "parameterTypes": [ ]
-  }, {
-    "name": "supplemental md files have frontmatter stripped in content",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.skills.SkillRepositoryTest$GetTree",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ "io.askimo.core.skills.SkillRepositoryTest" ]
-  }, {
-    "name": "root-level skill folder has no category wrapper",
-    "parameterTypes": [ ]
-  }, {
-    "name": "skill deeply nested - only immediate parent shown as category",
-    "parameterTypes": [ ]
-  }, {
-    "name": "skill folder children include sibling md files as Leaf nodes",
-    "parameterTypes": [ ]
-  }, {
-    "name": "skill folder children include sub-directories",
-    "parameterTypes": [ ]
-  }, {
-    "name": "skill one level deep - direct parent shown as category",
-    "parameterTypes": [ ]
-  }, {
-    "name": "two skills under same immediate parent grouped under one category",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.skills.SkillRepositoryTest$HiddenDirectoryFiltering",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ "io.askimo.core.skills.SkillRepositoryTest" ]
-  }, {
-    "name": "getAll - files inside dot-git are excluded",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getAll - files inside dot-github are excluded",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getSkillsOnly - skills in dot-hidden dirs are excluded",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getTree - dot-git directory does not appear as Category node",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.skills.SkillRepositoryTest$ImportFromDirectory",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ "io.askimo.core.skills.SkillRepositoryTest" ]
-  }, {
-    "name": "case-insensitive entry point detection on import",
-    "parameterTypes": [ ]
-  }, {
-    "name": "directories with no skills are excluded",
-    "parameterTypes": [ ]
-  }, {
-    "name": "dot git directory is excluded",
-    "parameterTypes": [ ]
-  }, {
-    "name": "multiple skill folders all imported",
-    "parameterTypes": [ ]
-  }, {
-    "name": "reserved files at root are excluded (not skill folders)",
-    "parameterTypes": [ ]
-  }, {
-    "name": "returns correct skill count - only skill folders counted",
-    "parameterTypes": [ ]
-  }, {
-    "name": "skill folder sibling non-md files are imported",
-    "parameterTypes": [ ]
-  }, {
-    "name": "skill folder subdirectory files are imported",
-    "parameterTypes": [ ]
-  }, {
-    "name": "skill folder with skill dot md is imported",
-    "parameterTypes": [ ]
-  }, {
-    "name": "standalone md file is NOT imported (not a skill)",
-    "parameterTypes": [ ]
-  }, {
-    "name": "sub-skill-folder inside skill folder is NOT imported as separate skill",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.skills.SkillRepositoryTest$SaveAndDelete",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ "io.askimo.core.skills.SkillRepositoryTest" ]
-  }, {
-    "name": "delete does NOT prune category parent when sibling skill still exists",
-    "parameterTypes": [ ]
-  }, {
-    "name": "delete partially prunes deep category chain up to surviving sibling",
-    "parameterTypes": [ ]
-  }, {
-    "name": "delete prunes empty category parent after last skill removed",
-    "parameterTypes": [ ]
-  }, {
-    "name": "delete prunes skill folder together with supplemental files",
-    "parameterTypes": [ ]
-  }, {
-    "name": "delete prunes the skill folder itself",
-    "parameterTypes": [ ]
-  }, {
-    "name": "delete removes file",
-    "parameterTypes": [ ]
-  }, {
-    "name": "delete returns false for non-existent file and does not prune",
-    "parameterTypes": [ ]
-  }, {
-    "name": "save persists file and findByPath retrieves the skill",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.util.AskimoHome",
   "fields": [ {
@@ -6135,59 +5507,14 @@
   } ]
 }, {
   "name": "io.askimo.core.util.ProcessBuilderExtTest",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "ProcessBuilderExt should execute common system commands",
-    "parameterTypes": [ ]
-  }, {
-    "name": "ProcessBuilderExt should find executables in PATH",
-    "parameterTypes": [ ]
-  }, {
-    "name": "ProcessBuilderExt should handle List constructor",
-    "parameterTypes": [ ]
-  }, {
-    "name": "ProcessBuilderExt should work with redirectErrorStream",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.util.RetryUtilsTest",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "OLLAMA_TRANSIENT_ERRORS preset retries correct exceptions",
-    "parameterTypes": [ ]
-  }, {
-    "name": "STREAMING_ERRORS preset retries streaming-related exceptions",
-    "parameterTypes": [ ]
-  }, {
-    "name": "retry calls onRetry callback",
-    "parameterTypes": [ ]
-  }, {
-    "name": "retry fails after max attempts",
-    "parameterTypes": [ ]
-  }, {
-    "name": "retry succeeds on first attempt",
-    "parameterTypes": [ ]
-  }, {
-    "name": "retry succeeds on second attempt",
-    "parameterTypes": [ ]
-  }, {
-    "name": "retry with condition only retries matching exceptions",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.core.util.RetryUtilsTest$STREAMING_ERRORS preset retries streaming-related exceptions$StreamingException",
   "allDeclaredClasses": true,
@@ -6213,18 +5540,9 @@
   } ]
 }, {
   "name": "io.askimo.testcontainers.ModelCachingDemoTest",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "demonstrateModelCaching",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.testcontainers.SharedOllama",
   "allDeclaredClasses": true,
@@ -6247,63 +5565,12 @@
   "methods": [ {
     "name": "countEntries",
     "parameterTypes": [ "java.lang.String", "java.lang.Boolean", "java.lang.Boolean" ]
-  }, {
-    "name": "readFile",
-    "parameterTypes": [ "java.lang.String" ]
-  }, {
-    "name": "writeFile",
-    "parameterTypes": [ "java.lang.String", "java.lang.String" ]
   } ]
 }, {
   "name": "io.askimo.tools.fs.LocalFsToolsTest",
-  "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
-  "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "cleanup",
-    "parameterTypes": [ ]
-  }, {
-    "name": "testBackgroundProcessCleanup",
-    "parameterTypes": [ "java.nio.file.Path" ]
-  }, {
-    "name": "testCountEntries",
-    "parameterTypes": [ "java.nio.file.Path" ]
-  }, {
-    "name": "testErrorHandling",
-    "parameterTypes": [ "java.nio.file.Path" ]
-  }, {
-    "name": "testFilesByType",
-    "parameterTypes": [ "java.nio.file.Path" ]
-  }, {
-    "name": "testGetCommandOutput",
-    "parameterTypes": [ "java.nio.file.Path" ]
-  }, {
-    "name": "testListBackgroundProcesses",
-    "parameterTypes": [ "java.nio.file.Path" ]
-  }, {
-    "name": "testReadFile",
-    "parameterTypes": [ "java.nio.file.Path" ]
-  }, {
-    "name": "testRunCommand",
-    "parameterTypes": [ "java.nio.file.Path" ]
-  }, {
-    "name": "testSearchFileContent",
-    "parameterTypes": [ "java.nio.file.Path" ]
-  }, {
-    "name": "testSearchFilesByGlob",
-    "parameterTypes": [ "java.nio.file.Path" ]
-  }, {
-    "name": "testTotalSizeByType",
-    "parameterTypes": [ "java.nio.file.Path" ]
-  }, {
-    "name": "testWriteFile",
-    "parameterTypes": [ "java.nio.file.Path" ]
-  } ]
+  "queryAllPublicMethods": true
 }, {
   "name": "io.askimo.tools.git.GitTools",
   "queryAllDeclaredMethods": true
@@ -7029,6 +6296,11 @@
     "name": "cellsBusy"
   } ]
 }, {
+  "name": "java.util.concurrent.atomic.Striped64$Cell",
+  "fields": [ {
+    "name": "value"
+  } ]
+}, {
   "name": "java.util.concurrent.locks.AbstractOwnableSynchronizer"
 }, {
   "name": "java.util.concurrent.locks.AbstractQueuedSynchronizer"
@@ -7087,8 +6359,6 @@
   "name": "kotlin.Double"
 }, {
   "name": "kotlin.Enum"
-}, {
-  "name": "kotlin.Float"
 }, {
   "name": "kotlin.Function1"
 }, {
@@ -7721,15 +6991,28 @@
     "parameterTypes": [ ]
   } ]
 }, {
-  "name": "org.jline.reader.ParsedLine$MockitoMock$Q5vYgTj1",
+  "name": "org.jline.reader.ParsedLine$MockitoMock$fUisBYOK",
   "queryAllDeclaredConstructors": true,
   "methods": [ {
     "name": "<init>",
     "parameterTypes": [ ]
   } ]
 }, {
-  "name": "org.opentest4j.TestAbortedException",
-  "queryAllDeclaredMethods": true
+  "name": "org.opentest4j.AssertionFailedError",
+  "queryAllDeclaredMethods": true,
+  "methods": [ {
+    "name": "getActual",
+    "parameterTypes": [ ]
+  }, {
+    "name": "getExpected",
+    "parameterTypes": [ ]
+  } ]
+}, {
+  "name": "org.opentest4j.ValueWrapper",
+  "methods": [ {
+    "name": "getValue",
+    "parameterTypes": [ ]
+  } ]
 }, {
   "name": "org.osgi.framework.FrameworkUtil"
 }, {

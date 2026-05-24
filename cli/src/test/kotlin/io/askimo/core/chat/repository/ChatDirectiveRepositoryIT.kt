@@ -22,7 +22,7 @@ import org.junit.jupiter.api.assertNull
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import java.time.LocalDateTime
+import java.time.Instant
 
 class ChatDirectiveRepositoryIT {
 
@@ -65,7 +65,7 @@ class ChatDirectiveRepositoryIT {
         val directive = ChatDirective(
             name = "concise-code",
             content = "Provide concise code examples without verbose explanations.",
-            createdAt = LocalDateTime.now(),
+            createdAt = Instant.now(),
         )
 
         val saved = repository.save(directive)

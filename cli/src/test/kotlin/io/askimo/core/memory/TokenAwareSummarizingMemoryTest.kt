@@ -27,7 +27,7 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import java.time.LocalDateTime
+import java.time.Instant
 
 /**
  * Test suite for TokenAwareSummarizingMemory.
@@ -264,7 +264,7 @@ class TokenAwareSummarizingMemoryTest {
                     {"type": "assistant", "content": "Previous answer"}
                 ]
             """.trimIndent(),
-            lastUpdated = LocalDateTime.now(),
+            lastUpdated = Instant.now(),
         )
         whenever(mockRepository.getBySessionId(sessionId)).thenReturn(existingMemory)
 

@@ -2,13 +2,15 @@
   "types": [ {
     "name": "byte[]"
   }, {
+    "name": "java.lang.AssertionError"
+  }, {
+    "name": "java.lang.Boolean"
+  }, {
     "name": "java.lang.Enum"
   }, {
-    "name": "java.lang.Exception"
+    "name": "java.lang.Error"
   }, {
     "name": "java.lang.Object[]"
-  }, {
-    "name": "java.lang.RuntimeException"
   }, {
     "name": "java.lang.StackTraceElement"
   }, {
@@ -40,9 +42,9 @@
   }, {
     "name": "java.util.concurrent.locks.ReentrantLock$Sync"
   }, {
-    "name": "org.opentest4j.IncompleteExecutionException"
+    "name": "org.opentest4j.AssertionFailedError"
   }, {
-    "name": "org.opentest4j.TestAbortedException"
+    "name": "org.opentest4j.ValueWrapper"
   } ],
   "lambdaCapturingTypes": [ ],
   "proxies": [ ]

@@ -18,7 +18,9 @@ import org.junit.jupiter.api.assertNotNull
 import org.junit.jupiter.api.assertNull
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import java.time.LocalDateTime
+import java.time.Duration
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 class SessionMemoryRepositoryIT {
 
@@ -124,7 +126,7 @@ class SessionMemoryRepositoryIT {
             sessionId = session.id,
             memorySummary = """{"keyFacts":{"updated":"true"},"mainTopics":["new"],"recentContext":"Second save"}""",
             memoryMessages = """[{"role":"user","content":"Message 1"},{"role":"assistant","content":"Response"}]""",
-            lastUpdated = LocalDateTime.now(),
+            lastUpdated = Instant.now(),
         )
 
         memoryRepository.saveMemory(memory2)
@@ -155,14 +157,14 @@ class SessionMemoryRepositoryIT {
             sessionId = session.id,
             memorySummary = null,
             memoryMessages = """[{"role":"user","content":"Updated"}]""",
-            lastUpdated = LocalDateTime.now(),
+            lastUpdated = Instant.now(),
         )
 
         memoryRepository.saveMemory(memory2)
         val secondRetrieved = memoryRepository.getBySessionId(session.id)
         val secondTimestamp = secondRetrieved!!.lastUpdated
 
-        assertTrue(secondTimestamp.isAfter(firstTimestamp) || secondTimestamp.isEqual(firstTimestamp))
+        assertTrue(!secondTimestamp.isBefore(firstTimestamp))
     }
 
     @Test
@@ -215,8 +217,8 @@ class SessionMemoryRepositoryIT {
         val session1 = sessionRepository.createSession(ChatSession(id = "", title = "Old Session"))
         val session2 = sessionRepository.createSession(ChatSession(id = "", title = "Recent Session"))
 
-        val oldTime = LocalDateTime.now().minusDays(10)
-        val recentTime = LocalDateTime.now()
+        val oldTime = Instant.now().minus(Duration.ofDays(12))
+        val recentTime = Instant.now()
 
         val oldMemory = SessionMemory(
             sessionId = session1.id,
@@ -236,7 +238,7 @@ class SessionMemoryRepositoryIT {
         memoryRepository.saveMemory(oldMemory)
         memoryRepository.saveMemory(recentMemory)
 
-        val threshold = LocalDateTime.now().minusDays(5)
+        val threshold = Instant.now().minus(Duration.ofDays(5))
         val deletedCount = memoryRepository.cleanupOldMemories(threshold)
 
         assertEquals(1, deletedCount)
@@ -256,7 +258,7 @@ class SessionMemoryRepositoryIT {
 
         memoryRepository.saveMemory(memory)
 
-        val threshold = LocalDateTime.now().minusDays(1)
+        val threshold = Instant.now().minus(Duration.ofDays(1))
         val deletedCount = memoryRepository.cleanupOldMemories(threshold)
 
         assertEquals(0, deletedCount)
@@ -283,14 +285,17 @@ class SessionMemoryRepositoryIT {
             sessionId = session.id,
             memorySummary = null,
             memoryMessages = """[{"role":"user","content":"Updated"}]""",
-            lastUpdated = LocalDateTime.now(),
+            lastUpdated = Instant.now(),
             createdAt = originalCreatedAt, // Should preserve original createdAt
         )
 
         memoryRepository.saveMemory(memory2)
         val secondRetrieved = memoryRepository.getBySessionId(session.id)
 
-        assertEquals(originalCreatedAt.withNano(0), secondRetrieved!!.createdAt.withNano(0))
+        assertEquals(
+            originalCreatedAt.truncatedTo(ChronoUnit.SECONDS),
+            secondRetrieved!!.createdAt.truncatedTo(ChronoUnit.SECONDS),
+        )
     }
 
     @Test

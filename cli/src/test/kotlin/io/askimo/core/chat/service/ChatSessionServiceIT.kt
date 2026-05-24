@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertNotNull
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import java.time.LocalDateTime
+import java.time.Instant
 
 class ChatSessionServiceIT {
 
@@ -151,7 +151,7 @@ class ChatSessionServiceIT {
     fun `resumeSession should return all messages for a session`() {
         // Given
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Test Session"))
-        val baseTime = LocalDateTime.now()
+        val baseTime = Instant.now()
 
         service.addMessage(
             ChatMessage(
@@ -213,7 +213,7 @@ class ChatSessionServiceIT {
     fun `resumeSession should preserve message order`() {
         // Given
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Ordered Session"))
-        val baseTime = LocalDateTime.now()
+        val baseTime = Instant.now()
 
         service.addMessage(
             ChatMessage(
@@ -267,7 +267,7 @@ class ChatSessionServiceIT {
                     sessionId = session.id,
                     role = MessageRole.USER,
                     content = "Message $i",
-                    createdAt = LocalDateTime.now().plusSeconds(i.toLong()),
+                    createdAt = Instant.now().plusSeconds(i.toLong()),
                 ),
             )
         }
@@ -288,7 +288,7 @@ class ChatSessionServiceIT {
     fun `resumeSessionPaginated should return most recent messages first`() {
         // Given
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Recent First"))
-        val baseTime = LocalDateTime.now()
+        val baseTime = Instant.now()
 
         repeat(15) { i ->
             service.addMessage(
@@ -336,7 +336,7 @@ class ChatSessionServiceIT {
     fun `resumeSessionPaginated should handle session with fewer messages than limit`() {
         // Given
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Few Messages"))
-        val baseTime = LocalDateTime.now()
+        val baseTime = Instant.now()
 
         repeat(3) { i ->
             service.addMessage(
@@ -394,7 +394,7 @@ class ChatSessionServiceIT {
                 directiveId = directive.id,
             ),
         )
-        val baseTime = LocalDateTime.now()
+        val baseTime = Instant.now()
 
         service.addMessage(
             ChatMessage(
@@ -426,7 +426,7 @@ class ChatSessionServiceIT {
                     sessionId = session.id,
                     role = MessageRole.USER,
                     content = "Message $i",
-                    createdAt = LocalDateTime.now().plusSeconds(i.toLong()),
+                    createdAt = Instant.now().plusSeconds(i.toLong()),
                 ),
             )
         }
@@ -444,7 +444,7 @@ class ChatSessionServiceIT {
     fun `resumeSessionPaginated should handle large limit`() {
         // Given
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Large Limit"))
-        val baseTime = LocalDateTime.now()
+        val baseTime = Instant.now()
 
         repeat(10) { i ->
             service.addMessage(
@@ -471,7 +471,7 @@ class ChatSessionServiceIT {
     fun `resumeSession should handle session with attachments`() {
         // Given
         val session = sessionRepository.createSession(ChatSession(id = "", title = "With Attachments"))
-        val baseTime = LocalDateTime.now()
+        val baseTime = Instant.now()
 
         service.addMessage(
             ChatMessage(
@@ -504,7 +504,7 @@ class ChatSessionServiceIT {
                     sessionId = session.id,
                     role = MessageRole.USER,
                     content = "Message $i",
-                    createdAt = LocalDateTime.now().plusSeconds(i.toLong()),
+                    createdAt = Instant.now().plusSeconds(i.toLong()),
                 ),
             )
         }
