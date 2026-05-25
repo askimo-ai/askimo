@@ -63,10 +63,11 @@ import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.TooltipPlacement
 import io.askimo.ui.common.ui.themedTooltip
 import java.awt.Cursor
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 internal val RUN_TIME_FMT: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("MMM d, HH:mm:ss")
+    DateTimeFormatter.ofPattern("MMM d, HH:mm:ss").withZone(ZoneId.systemDefault())
 
 @Composable
 private fun skillRunHistoryPanelRow(

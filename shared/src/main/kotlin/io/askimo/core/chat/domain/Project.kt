@@ -25,6 +25,13 @@ data class Project(
     val createdAt: Instant = Instant.now(),
     val updatedAt: Instant = Instant.now(),
     val isStarred: Boolean = false,
+    /**
+     * Non-null when this project belongs to a team Space (team edition only).
+     * Null for personal projects.
+     */
+    val spaceId: String? = null,
+    /** Display name of the Space, denormalised for offline access. Null for personal projects. */
+    val spaceName: String? = null,
 )
 
 /**
@@ -40,6 +47,8 @@ object ProjectsTable : Table("projects") {
     val updatedAt = sqliteInstant("updated_at")
     val syncedAt = varchar("synced_at", 32).nullable()
     val isStarred = integer("is_starred").default(0)
+    val spaceId = varchar("space_id", 36).nullable()
+    val spaceName = varchar("space_name", 255).nullable()
 
     override val primaryKey = PrimaryKey(id)
 }

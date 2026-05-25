@@ -83,8 +83,14 @@ import io.askimo.core.user.domain.UserProfile
 import io.askimo.core.util.AskimoHome
 import io.askimo.core.util.AskimoHomeMigration
 import io.askimo.core.util.PersonalAskimoHome
+import io.askimo.desktop.chat.communityProjectSidePanel
 import io.askimo.desktop.di.allDesktopModules
 import io.askimo.desktop.plan.planEditorView
+import io.askimo.desktop.project.ProjectsViewModel
+import io.askimo.desktop.project.editProjectDialog
+import io.askimo.desktop.project.newProjectDialog
+import io.askimo.desktop.project.projectView
+import io.askimo.desktop.project.projectsView
 import io.askimo.desktop.settings.SettingsSection
 import io.askimo.desktop.settings.SettingsViewModel
 import io.askimo.desktop.settings.aboutDialog
@@ -131,11 +137,6 @@ import io.askimo.ui.onboarding.onboardingWizardDialog
 import io.askimo.ui.plan.PlansViewModel
 import io.askimo.ui.plan.planDetailView
 import io.askimo.ui.plan.plansGalleryView
-import io.askimo.ui.project.ProjectsViewModel
-import io.askimo.ui.project.editProjectDialog
-import io.askimo.ui.project.newProjectDialog
-import io.askimo.ui.project.projectView
-import io.askimo.ui.project.projectsView
 import io.askimo.ui.session.SessionManager
 import io.askimo.ui.session.SessionsViewModel
 import io.askimo.ui.session.command.DeleteSessionFromProjectCommand
@@ -1839,7 +1840,19 @@ fun mainContent(
                     },
                     onNavigateToProject = onSelectProject,
                     onNavigateToMcpSettings = onNavigateToMcpSettings,
+                    onMoveSessionToNewProject = { _ -> onNewProject() },
                     userAvatarPath = userAvatarPath,
+                    projectSidePanelSlot = { proj, ragStatus, ragPct, expanded, onExpandedChange, onAddToChat ->
+                        communityProjectSidePanel(
+                            project = proj,
+                            ragIndexingStatus = ragStatus,
+                            ragIndexingPercentage = ragPct,
+                            isExpanded = expanded,
+                            onExpandedChange = onExpandedChange,
+                            onAddToChat = onAddToChat,
+                            modifier = Modifier.fillMaxHeight(),
+                        )
+                    },
                 )
             }
 

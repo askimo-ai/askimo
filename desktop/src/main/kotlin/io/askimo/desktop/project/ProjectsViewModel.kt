@@ -2,7 +2,7 @@
  *
  * Copyright (c) 2026 Askimo
  */
-package io.askimo.ui.project
+package io.askimo.desktop.project
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -16,6 +16,7 @@ import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.ProjectsRefreshEvent
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
+import io.askimo.ui.shell.ProjectsSidebarState
 import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,14 +31,14 @@ import org.koin.core.context.GlobalContext
 class ProjectsViewModel(
     private val scope: CoroutineScope,
     private val projectService: ProjectService = GlobalContext.get().get(),
-) {
+) : ProjectsSidebarState {
     private val log = logger<ProjectsViewModel>()
     private val projectRepository = DatabaseManager.getInstance().getProjectRepository()
 
-    var projects by mutableStateOf<List<Project>>(emptyList())
+    override var projects by mutableStateOf<List<Project>>(emptyList())
         private set
 
-    val starredProjects: List<Project> get() = projects.filter { it.isStarred }
+    override val starredProjects: List<Project> get() = projects.filter { it.isStarred }
 
     var pagedProjects by mutableStateOf<Pageable<Project>?>(null)
         private set

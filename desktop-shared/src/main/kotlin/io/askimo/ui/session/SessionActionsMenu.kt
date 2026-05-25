@@ -32,7 +32,6 @@ import io.askimo.core.event.internal.ProjectsRefreshEvent
 import io.askimo.core.event.internal.SessionsRefreshEvent
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
-import io.askimo.ui.project.newProjectDialog
 import io.askimo.ui.shell.DeveloperModePreferences
 
 /**
@@ -44,6 +43,7 @@ import io.askimo.ui.shell.DeveloperModePreferences
  * @param onExportSession Callback invoked when the export action is triggered
  * @param onDeleteSession Callback invoked when the delete action is triggered
  * @param onShowSessionSummary Callback invoked when the show session summary action is triggered (developer mode only)
+ * @param onMoveSessionToNewProject Callback invoked when the session is moved to a new project
  * @param modifier Optional modifier for the IconButton
  */
 @Composable
@@ -54,11 +54,10 @@ fun sessionActionsMenu(
     onDeleteSession: (String) -> Unit,
     onStarSession: (String, Boolean) -> Unit = { _, _ -> },
     onShowSessionSummary: (String) -> Unit = {},
+    onMoveSessionToNewProject: (sessionId: String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    var showNewProjectDialog by remember { mutableStateOf(false) }
-    var sessionIdToMove by remember { mutableStateOf<String?>(null) }
 
     val sessionRepository = remember { DatabaseManager.getInstance().getChatSessionRepository() }
     val projectRepository = remember { DatabaseManager.getInstance().getProjectRepository() }
@@ -167,8 +166,8 @@ fun sessionActionsMenu(
             moveToProjectMenuItem(
                 projects = availableProjects,
                 onNewProject = {
-                    sessionIdToMove = sessionId
-                    showNewProjectDialog = true
+                    expanded = false
+                    onMoveSessionToNewProject(sessionId)
                 },
                 onSelectProject = { selectedProject ->
                     // Associate session with existing project
@@ -258,37 +257,5 @@ fun sessionActionsMenu(
                 modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
             )
         }
-    }
-
-    // New Project Dialog
-    if (showNewProjectDialog && sessionIdToMove != null) {
-        newProjectDialog(
-            onDismiss = {
-                showNewProjectDialog = false
-                sessionIdToMove = null
-            },
-            onCreateProject = { name, description ->
-                // Project is already created in the dialog with all knowledge sources
-                val createdProject = projectRepository.findProjectByName(name)
-
-                if (createdProject != null) {
-                    sessionRepository.updateSessionProject(sessionIdToMove!!, createdProject.id)
-                    // Publish events to refresh both projects and sessions
-                    EventBus.post(
-                        ProjectsRefreshEvent(
-                            reason = "Session $sessionIdToMove moved to new project ${createdProject.id}",
-                        ),
-                    )
-                    EventBus.post(
-                        SessionsRefreshEvent(
-                            reason = "Session $sessionIdToMove moved to new project ${createdProject.id}",
-                        ),
-                    )
-                }
-
-                showNewProjectDialog = false
-                sessionIdToMove = null
-            },
-        )
     }
 }

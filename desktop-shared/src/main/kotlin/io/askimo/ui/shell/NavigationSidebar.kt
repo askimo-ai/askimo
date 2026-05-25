@@ -82,9 +82,6 @@ import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.LocalFontScale
 import io.askimo.ui.common.ui.themedTooltip
-import io.askimo.ui.project.ProjectsViewModel
-import io.askimo.ui.project.deleteProjectDialog
-import io.askimo.ui.project.newProjectDialog
 import io.askimo.ui.session.SessionActionMenu
 import io.askimo.ui.session.SessionsViewModel
 import io.askimo.ui.session.deleteSessionDialog
@@ -96,6 +93,16 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse.BodyHandlers
 import java.time.Duration
 import org.jetbrains.skia.Image as SkiaImage
+
+/**
+ * Read-only state contract needed by the sidebar's projects section.
+ *
+ * The sidebar never mutates projects — it only reads state through this interface.
+ */
+interface ProjectsSidebarState {
+    val projects: List<Project>
+    val starredProjects: List<Project> get() = projects.filter { it.isStarred }
+}
 
 /**
  * Shared navigation sidebar component with collapsible/expandable functionality.
@@ -122,13 +129,13 @@ fun navigationSidebar(
     showProjectsInSidebar: Boolean = true,
     // Session/project state
     isSessionsExpanded: Boolean,
-    projectsViewModel: ProjectsViewModel,
+    projectsState: ProjectsSidebarState,
     sessionsViewModel: SessionsViewModel,
     currentSessionId: String?,
     // Actions
     onToggleExpand: () -> Unit,
     onNewChat: () -> Unit,
-    onToggleProjects: () -> Unit,
+    onNavigateToProjects: () -> Unit = {},
     onToggleSessions: () -> Unit,
     onNavigateToSessions: () -> Unit,
     onNavigateToPlans: () -> Unit = {},
@@ -144,6 +151,7 @@ fun navigationSidebar(
     onShowSessionSummary: (String) -> Unit = {},
     onEditProject: (String) -> Unit = {},
     onDeleteProject: (String) -> Unit = {},
+    onMoveSessionToNewProject: (sessionId: String) -> Unit = {},
     // Slot: the caller renders the bottom user-profile row (avatar + menu)
     userProfileContent: @Composable () -> Unit,
 ) {
@@ -164,12 +172,12 @@ fun navigationSidebar(
             showSkillsInSidebar = showSkillsInSidebar,
             showProjectsInSidebar = showProjectsInSidebar,
             isSessionsExpanded = isSessionsExpanded,
-            projectsViewModel = projectsViewModel,
+            projectsState = projectsState,
             sessionsViewModel = sessionsViewModel,
             currentSessionId = currentSessionId,
             onToggleExpand = onToggleExpand,
             onNewChat = onNewChat,
-            onToggleProjects = onToggleProjects,
+            onNavigateToProjects = onNavigateToProjects,
             onToggleSessions = onToggleSessions,
             onNavigateToSessions = onNavigateToSessions,
             onNavigateToPlans = onNavigateToPlans,
@@ -185,6 +193,7 @@ fun navigationSidebar(
             onShowSessionSummary = onShowSessionSummary,
             onEditProject = onEditProject,
             onDeleteProject = onDeleteProject,
+            onMoveSessionToNewProject = onMoveSessionToNewProject,
             userProfileContent = userProfileContent,
         )
     } else {
@@ -199,7 +208,7 @@ fun navigationSidebar(
             showProjectsInSidebar = showProjectsInSidebar,
             onToggleExpand = onToggleExpand,
             onNewChat = onNewChat,
-            onToggleProjects = onToggleProjects,
+            onNavigateToProjects = onNavigateToProjects,
             onNavigateToSessions = onNavigateToSessions,
             onNavigateToPlans = onNavigateToPlans,
             onNavigateToSkills = onNavigateToSkills,
@@ -223,12 +232,12 @@ private fun expandedNavigationSidebar(
     showSkillsInSidebar: Boolean,
     showProjectsInSidebar: Boolean,
     isSessionsExpanded: Boolean,
-    projectsViewModel: ProjectsViewModel,
+    projectsState: ProjectsSidebarState,
     sessionsViewModel: SessionsViewModel,
     currentSessionId: String?,
     onToggleExpand: () -> Unit,
     onNewChat: () -> Unit,
-    onToggleProjects: () -> Unit,
+    onNavigateToProjects: () -> Unit,
     onToggleSessions: () -> Unit,
     onNavigateToSessions: () -> Unit,
     onNavigateToPlans: () -> Unit,
@@ -244,13 +253,11 @@ private fun expandedNavigationSidebar(
     onShowSessionSummary: (String) -> Unit,
     onEditProject: (String) -> Unit,
     onDeleteProject: (String) -> Unit,
+    onMoveSessionToNewProject: (sessionId: String) -> Unit,
     userProfileContent: @Composable () -> Unit,
 ) {
     val fontScale = LocalFontScale.current
 
-    // Collect chat-in-progress events at the sidebar level so newly composed session
-    // items (e.g. a brand-new session that didn't exist yet when the event fired) can
-    // read the correct state immediately on their first composition.
     val inProgressSessionIds = remember { mutableStateSetOf<String>() }
     LaunchedEffect(Unit) {
         EventBus.internalEvents.collect { event ->
@@ -328,7 +335,7 @@ private fun expandedNavigationSidebar(
                         icon = { Icon(Icons.Default.FolderOpen, contentDescription = null) },
                         label = { Text(stringResource("project.title"), style = MaterialTheme.typography.labelLarge) },
                         selected = isProjectsSelected,
-                        onClick = onToggleProjects,
+                        onClick = onNavigateToProjects,
                         badge = {
                             if (isProjectsHovered) {
                                 themedTooltip(text = stringResource("project.new.dialog.title")) {
@@ -384,7 +391,7 @@ private fun expandedNavigationSidebar(
 
             // Pinned section (starred projects + starred sessions)
             pinnedSection(
-                starredProjects = projectsViewModel.starredProjects,
+                starredProjects = projectsState.starredProjects,
                 starredSessions = sessionsViewModel.recentSessions.filter { it.isStarred },
                 currentSessionId = currentSessionId,
                 inProgressSessionIds = inProgressSessionIds,
@@ -448,7 +455,8 @@ private fun expandedNavigationSidebar(
                     onRenameSession = onRenameSession,
                     onExportSession = onExportSession,
                     onShowSessionSummary = onShowSessionSummary,
-                    projectsViewModel = projectsViewModel,
+                    availableProjects = projectsState.projects,
+                    onMoveSessionToNewProject = onMoveSessionToNewProject,
                 )
             }
         }
@@ -481,7 +489,7 @@ private fun collapsedNavigationSidebar(
     showProjectsInSidebar: Boolean,
     onToggleExpand: () -> Unit,
     onNewChat: () -> Unit,
-    onToggleProjects: () -> Unit,
+    onNavigateToProjects: () -> Unit,
     onNavigateToSessions: () -> Unit,
     onNavigateToPlans: () -> Unit,
     onNavigateToSkills: () -> Unit,
@@ -496,7 +504,6 @@ private fun collapsedNavigationSidebar(
             .background(AppComponents.sidebarSurfaceColor()),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // Header — logo swaps to expand icon on hover
         val headerInteractionSource = remember { MutableInteractionSource() }
         val isHeaderHovered by headerInteractionSource.collectIsHoveredAsState()
         val appLogo = rememberAppLogo()
@@ -553,6 +560,19 @@ private fun collapsedNavigationSidebar(
                 )
             }
 
+            themedTooltip(text = stringResource("project.title")) {
+                if (showProjectsInSidebar) {
+                    NavigationRailItem(
+                        icon = { Icon(Icons.Default.FolderOpen, contentDescription = stringResource("project.title")) },
+                        label = null,
+                        selected = isProjectsSelected,
+                        onClick = onNavigateToProjects,
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                        colors = AppComponents.navigationRailItemColors(),
+                    )
+                }
+            }
+
             themedTooltip(text = stringResource("plans.nav.title")) {
                 if (showPlansInSidebar) {
                     NavigationRailItem(
@@ -579,19 +599,6 @@ private fun collapsedNavigationSidebar(
                 }
             }
 
-            themedTooltip(text = stringResource("project.title")) {
-                if (showProjectsInSidebar) {
-                    NavigationRailItem(
-                        icon = { Icon(Icons.Default.FolderOpen, contentDescription = stringResource("project.title")) },
-                        label = null,
-                        selected = isProjectsSelected,
-                        onClick = onToggleProjects,
-                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                        colors = AppComponents.navigationRailItemColors(),
-                    )
-                }
-            }
-
             themedTooltip(text = stringResource("chat.sessions.tooltip")) {
                 NavigationRailItem(
                     icon = { Icon(Icons.Default.History, contentDescription = stringResource("chat.sessions")) },
@@ -604,7 +611,6 @@ private fun collapsedNavigationSidebar(
             }
         }
 
-        // Bottom: user profile slot (collapsed — callers typically show just the avatar icon)
         HorizontalDivider()
         userProfileContent()
     }
@@ -689,12 +695,7 @@ private fun pinnedSection(
         ),
     ) {
         NavigationDrawerItem(
-            icon = {
-                Icon(
-                    Icons.Default.Star,
-                    contentDescription = null,
-                )
-            },
+            icon = { Icon(Icons.Default.Star, contentDescription = null) },
             label = {
                 Text(
                     stringResource("sidebar.pinned"),
@@ -754,21 +755,9 @@ private fun pinnedProjectItem(
     onDelete: () -> Unit = {},
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    var showDeleteDialog by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
     val fontScale = LocalFontScale.current
-
-    if (showDeleteDialog) {
-        deleteProjectDialog(
-            projectName = project.name,
-            onConfirm = {
-                showDeleteDialog = false
-                onDelete()
-            },
-            onDismiss = { showDeleteDialog = false },
-        )
-    }
 
     Box(
         modifier = Modifier
@@ -830,7 +819,7 @@ private fun pinnedProjectItem(
                     leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                     onClick = {
                         showMenu = false
-                        showDeleteDialog = true
+                        onDelete()
                     },
                     modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                 )
@@ -965,7 +954,8 @@ private fun sessionsList(
     onRenameSession: (String, String) -> Unit,
     onExportSession: (String) -> Unit,
     onShowSessionSummary: (String) -> Unit = {},
-    projectsViewModel: ProjectsViewModel,
+    availableProjects: List<Project>,
+    onMoveSessionToNewProject: (sessionId: String) -> Unit,
 ) {
     val fontScale = LocalFontScale.current
 
@@ -988,7 +978,6 @@ private fun sessionsList(
                 ),
             )
         } else {
-            // Only unstarred sessions here — starred ones appear in the Pinned section
             val unstarredSessions = sessionsViewModel.recentSessions.filter { !it.isStarred }
 
             unstarredSessions.forEach { session ->
@@ -1002,7 +991,8 @@ private fun sessionsList(
                     onRenameSession = onRenameSession,
                     onExportSession = onExportSession,
                     onShowSessionSummary = onShowSessionSummary,
-                    availableProjects = projectsViewModel.projects,
+                    availableProjects = availableProjects,
+                    onMoveSessionToNewProject = onMoveSessionToNewProject,
                 )
             }
 
@@ -1046,11 +1036,10 @@ private fun sessionItemWithMenu(
     onExportSession: (String) -> Unit,
     onShowSessionSummary: (String) -> Unit = {},
     availableProjects: List<Project>,
+    onMoveSessionToNewProject: (sessionId: String) -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    var showNewProjectDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var sessionIdToMove by remember { mutableStateOf<String?>(null) }
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
     val sessionRepository = remember { DatabaseManager.getInstance().getChatSessionRepository() }
@@ -1117,8 +1106,8 @@ private fun sessionItemWithMenu(
                         showDeleteDialog = true
                     },
                     onMoveToNewProject = {
-                        sessionIdToMove = session.id
-                        showNewProjectDialog = true
+                        showMenu = false
+                        onMoveSessionToNewProject(session.id)
                     },
                     onMoveToExistingProject = { selectedProject ->
                         sessionRepository.updateSessionProject(session.id, selectedProject.id)
@@ -1130,26 +1119,6 @@ private fun sessionItemWithMenu(
                 )
             }
         }
-    }
-
-    if (showNewProjectDialog && sessionIdToMove != null) {
-        newProjectDialog(
-            onDismiss = {
-                showNewProjectDialog = false
-                sessionIdToMove = null
-            },
-            onCreateProject = { name, _ ->
-                val projectRepository = DatabaseManager.getInstance().getProjectRepository()
-                val createdProject = projectRepository.findProjectByName(name)
-                if (createdProject != null) {
-                    sessionRepository.updateSessionProject(sessionIdToMove!!, createdProject.id)
-                    EventBus.post(ProjectsRefreshEvent(reason = "Session $sessionIdToMove moved to new project ${createdProject.id}"))
-                    EventBus.post(SessionsRefreshEvent(reason = "Session $sessionIdToMove moved to new project ${createdProject.id}"))
-                }
-                showNewProjectDialog = false
-                sessionIdToMove = null
-            },
-        )
     }
 }
 

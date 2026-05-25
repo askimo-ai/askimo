@@ -38,11 +38,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.askimo.core.user.domain.UserProfile
 import io.askimo.desktop.View
+import io.askimo.desktop.project.ProjectsViewModel
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.LocalFontScale
 import io.askimo.ui.common.ui.themedTooltip
-import io.askimo.ui.project.ProjectsViewModel
 import io.askimo.ui.session.SessionsViewModel
 import io.askimo.ui.shell.rememberAvatarImage
 import io.askimo.ui.shell.sidebarUserAvatar
@@ -97,12 +97,12 @@ fun navigationSidebar(
         showSkillsInSidebar = showSkillsInSidebar,
         showProjectsInSidebar = showProjectsInSidebar,
         isSessionsExpanded = isSessionsExpanded,
-        projectsViewModel = projectsViewModel,
+        projectsState = projectsViewModel,
         sessionsViewModel = sessionsViewModel,
         currentSessionId = currentSessionId,
         onToggleExpand = onToggleExpand,
         onNewChat = onNewChat,
-        onToggleProjects = onToggleProjects,
+        onNavigateToProjects = onToggleProjects,
         onToggleSessions = onToggleSessions,
         onNavigateToSessions = onNavigateToSessions,
         onNavigateToPlans = onNavigateToPlans,

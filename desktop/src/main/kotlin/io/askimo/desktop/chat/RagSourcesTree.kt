@@ -2,7 +2,7 @@
  *
  * Copyright (c) 2026 Askimo
  */
-package io.askimo.ui.chat
+package io.askimo.desktop.chat
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.PointerMatcher
@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.onClick
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -420,7 +421,7 @@ private fun searchResultItem(
                 val fileName = file.name
                 val matchStart = fileName.indexOf(query, ignoreCase = true)
                 if (matchStart >= 0) {
-                    androidx.compose.foundation.text.BasicText(
+                    BasicText(
                         text = buildAnnotatedString {
                             append(fileName.substring(0, matchStart))
                             withStyle(SpanStyle(background = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f), fontWeight = FontWeight.SemiBold)) {

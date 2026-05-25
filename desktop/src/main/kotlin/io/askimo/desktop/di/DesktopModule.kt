@@ -14,11 +14,11 @@ import io.askimo.core.mcp.McpInstanceService
 import io.askimo.core.plan.PlanService
 import io.askimo.core.plan.repository.PlanDefRepository
 import io.askimo.core.tools.ToolProviderImpl
+import io.askimo.desktop.project.ProjectViewModel
+import io.askimo.desktop.project.ProjectsViewModel
 import io.askimo.desktop.settings.SettingsViewModel
 import io.askimo.ui.common.monitoring.SystemResourceMonitor
 import io.askimo.ui.plan.PlansViewModel
-import io.askimo.ui.project.ProjectViewModel
-import io.askimo.ui.project.ProjectsViewModel
 import io.askimo.ui.service.AvatarService
 import io.askimo.ui.service.UpdateService
 import io.askimo.ui.session.SessionManager

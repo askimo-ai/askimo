@@ -19,6 +19,8 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 
 /**
  * Custom serializer for Instant to support Kotlinx Serialization.
@@ -31,7 +33,14 @@ object InstantSerializer : KSerializer<Instant> {
         encoder.encodeString(value.toString())
     }
 
-    override fun deserialize(decoder: Decoder): Instant = Instant.parse(decoder.decodeString())
+    override fun deserialize(decoder: Decoder): Instant {
+        val raw = decoder.decodeString()
+        return runCatching { Instant.parse(raw) }
+            .getOrElse {
+                // Fallback: legacy values stored without 'Z' suffix (LocalDateTime format)
+                LocalDateTime.parse(raw).toInstant(ZoneOffset.UTC)
+            }
+    }
 }
 
 /**

@@ -41,6 +41,8 @@ private fun ResultRow.toProject(): Project = Project(
     createdAt = this[ProjectsTable.createdAt],
     updatedAt = this[ProjectsTable.updatedAt],
     isStarred = this[ProjectsTable.isStarred] == 1,
+    spaceId = this[ProjectsTable.spaceId],
+    spaceName = this[ProjectsTable.spaceName],
 )
 
 /**
@@ -279,6 +281,8 @@ class ProjectRepository internal constructor(
                         it[createdAt] = project.createdAt
                         it[updatedAt] = project.updatedAt
                         it[syncedAt] = nowStr
+                        it[spaceId] = project.spaceId
+                        it[spaceName] = project.spaceName
                     }
                     log.debug("upsertFromServer: inserted project {}", project.id)
                 } else if (project.updatedAt.isAfter(storedUpdatedAt)) {
@@ -288,6 +292,8 @@ class ProjectRepository internal constructor(
                         it[knowledgeSourcesConfig] = KnowledgeSourceSerializer.serialize(project.knowledgeSources)
                         it[updatedAt] = project.updatedAt
                         it[syncedAt] = nowStr
+                        it[spaceId] = project.spaceId
+                        it[spaceName] = project.spaceName
                     }
                     log.debug("upsertFromServer: updated project {} (server newer)", project.id)
                 } else {

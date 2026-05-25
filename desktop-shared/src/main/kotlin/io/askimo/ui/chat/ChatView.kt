@@ -73,6 +73,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.chat.domain.ChatDirective
+import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
 import io.askimo.core.chat.service.ChatDirectiveService
@@ -131,8 +132,17 @@ fun chatView(
     onStarSession: (String, Boolean) -> Unit = { _, _ -> },
     onNavigateToProject: ((String) -> Unit)? = null,
     onNavigateToMcpSettings: (() -> Unit)? = null,
+    onMoveSessionToNewProject: (sessionId: String) -> Unit = {},
     userAvatarPath: String? = null,
     serverBaseUrl: String? = null,
+    projectSidePanelSlot: @Composable (
+        project: Project?,
+        ragIndexingStatus: String?,
+        ragIndexingPercentage: Int?,
+        isExpanded: Boolean,
+        onExpandedChange: (Boolean) -> Unit,
+        onAddToChat: (List<String>) -> Unit,
+    ) -> Unit = { _, _, _, _, _, _ -> },
 ) {
     // Unpack state for internal use
     val messages = state.messages
@@ -786,6 +796,7 @@ fun chatView(
                                     onExportSession = onExportSession,
                                     onDeleteSession = onDeleteSession,
                                     onStarSession = onStarSession,
+                                    onMoveSessionToNewProject = onMoveSessionToNewProject,
                                     onShowSessionSummary = { sid ->
                                         sessionMemorySessionId = sid
                                         showSessionMemoryDialog = true
@@ -1136,39 +1147,33 @@ fun chatView(
             } // end centered Box
         } // End of main chat Column
 
-        // Project Side Panel (right side) - Tabbed panel with RAG sources, MCP, etc.
-        if (project != null) {
-            projectSidePanel(
-                project = project,
-                ragIndexingStatus = ragIndexingStatus,
-                ragIndexingPercentage = ragIndexingPercentage,
-                isExpanded = sidePanelExpanded,
-                onExpandedChange = { sidePanelExpanded = it },
-                onAddToChat = { filePaths ->
-                    val newAttachments = filePaths.map { path ->
-                        val file = File(path)
-                        FileAttachmentDTO(
-                            id = randomUUID().toString(),
-                            messageId = "",
-                            sessionId = sessionId ?: "",
-                            fileName = file.name,
-                            mimeType = file.extension,
-                            size = file.length(),
-                            createdAt = Instant.now(),
-                            content = null,
-                            filePath = file.absolutePath,
-                        )
-                    }
-                    // Merge, avoiding duplicates by path
-                    val existingPaths = attachments.mapNotNull { it.filePath }.toSet()
-                    val toAdd = newAttachments.filter { it.filePath !in existingPaths }
-                    if (toAdd.isNotEmpty()) {
-                        attachments = attachments + toAdd
-                    }
-                },
-                modifier = Modifier.fillMaxHeight(),
-            )
-        }
+        // Project Side Panel (right side)
+        projectSidePanelSlot(
+            project,
+            ragIndexingStatus,
+            ragIndexingPercentage,
+            sidePanelExpanded,
+            { sidePanelExpanded = it },
+            { filePaths ->
+                val newAttachments = filePaths.map { path ->
+                    val file = File(path)
+                    FileAttachmentDTO(
+                        id = randomUUID().toString(),
+                        messageId = "",
+                        sessionId = sessionId ?: "",
+                        fileName = file.name,
+                        mimeType = file.extension,
+                        size = file.length(),
+                        createdAt = Instant.now(),
+                        content = null,
+                        filePath = file.absolutePath,
+                    )
+                }
+                val existingPaths = attachments.mapNotNull { it.filePath }.toSet()
+                val toAdd = newAttachments.filter { it.filePath !in existingPaths }
+                if (toAdd.isNotEmpty()) attachments = attachments + toAdd
+            },
+        )
     } // End of Row
 
     // AI Message Edit Dialog

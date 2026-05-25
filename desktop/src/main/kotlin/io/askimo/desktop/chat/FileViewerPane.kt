@@ -2,7 +2,7 @@
  *
  * Copyright (c) 2026 Askimo
  */
-package io.askimo.ui.chat
+package io.askimo.desktop.chat
 
 import androidx.compose.foundation.HorizontalScrollbar
 import androidx.compose.foundation.ScrollbarStyle
@@ -87,11 +87,11 @@ private sealed interface ViewerState {
 /**
  * In-panel file viewer pane.
  *
- * Shows the raw text content of a [FileTreeNode] in a scrollable, selectable
+ * Shows the raw text content of a [io.askimo.desktop.chat.FileTreeNode] in a scrollable, selectable
  * monospace view. Gracefully handles binary files, oversized files, and read
  * errors with an "Open externally" fallback action.
  *
- * @param node     The [FileTreeNode] whose content to preview.
+ * @param node     The [io.askimo.desktop.chat.FileTreeNode] whose content to preview.
  * @param onClose  Called when the user dismisses the viewer.
  * @param modifier Optional modifier applied to the outer column.
  */
