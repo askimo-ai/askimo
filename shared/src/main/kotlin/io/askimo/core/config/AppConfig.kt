@@ -20,6 +20,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import com.fasterxml.jackson.module.kotlin.KotlinFeature
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.fasterxml.jackson.module.kotlin.readValue
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.context.AppContextParams
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.LanguageDirectiveChangedEvent
@@ -349,7 +350,7 @@ data class ModelsConfig(
 data class AnalyticsConfig(
     /** True only when the user has explicitly opted in via the consent dialog. Default false. */
     val optedIn: Boolean = false,
-    val endpoint: String = "https://analytics.askimo.chat/ingest",
+    val endpoint: String = "https://analytics.$DOMAIN/ingest",
 )
 
 data class AppConfigData(

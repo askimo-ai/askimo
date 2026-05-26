@@ -4,6 +4,7 @@
  */
 package io.askimo.core.chat.util
 
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.util.ProxyUtil
 import org.apache.tika.metadata.Metadata
@@ -69,7 +70,7 @@ object UrlContentExtractor {
 
         val request = HttpRequest.newBuilder()
             .uri(URI(normalizedUrl))
-            .header("User-Agent", "Mozilla/5.0 (compatible; Askimo/1.0; +https://askimo.chat)")
+            .header("User-Agent", "Mozilla/5.0 (compatible; Askimo/1.0; +https://$DOMAIN)")
             .timeout(Duration.ofSeconds(30))
             .GET()
             .build()

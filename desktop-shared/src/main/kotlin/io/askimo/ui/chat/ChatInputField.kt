@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -70,6 +71,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
@@ -101,6 +103,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.java.KoinJavaComponent
 import java.awt.Cursor
+import java.io.File
 import java.time.Instant
 import java.util.UUID
 import kotlin.collections.minus
@@ -240,7 +243,7 @@ fun chatInputField(
             if (paths.isNotEmpty()) {
                 try {
                     val maxFileSizeBytes = AppConfig.indexing.maxFileBytes
-                    val files = paths.map { java.io.File(it) }
+                    val files = paths.map { File(it) }
                     val invalidFiles = files.filter { it.length() > maxFileSizeBytes }
 
                     if (invalidFiles.isNotEmpty()) {
@@ -1105,7 +1108,7 @@ private fun fileAttachmentItem(
             isLoadingPreview = true
             previewContent = withContext(Dispatchers.IO) {
                 try {
-                    val file = attachment.filePath?.let { java.io.File(it) }
+                    val file = attachment.filePath?.let { File(it) }
                     if (file != null && file.exists() && file.length() < 512 * 1024) {
                         // Read up to 200 lines for preview
                         file.bufferedReader().use { reader ->
@@ -1233,15 +1236,18 @@ private fun fileAttachmentItem(
 
                         previewContent != null -> {
                             val scrollState = rememberScrollState()
-                            androidx.compose.foundation.text.selection.SelectionContainer {
-                                Text(
-                                    text = previewContent!!,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                    ),
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.verticalScroll(scrollState),
-                                )
+                            Box(
+                                modifier = Modifier.verticalScroll(scrollState),
+                            ) {
+                                SelectionContainer {
+                                    Text(
+                                        text = previewContent!!,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontFamily = FontFamily.Monospace,
+                                        ),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
                             }
                         }
                     }

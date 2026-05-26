@@ -41,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
 import io.askimo.core.providers.ChatModelFactory
@@ -261,7 +262,7 @@ private fun providerModelConfigCard(provider: ModelProvider) {
                     onClick = {
                         try {
                             if (Desktop.isDesktopSupported()) {
-                                Desktop.getDesktop().browse(URI("https://askimo.chat/docs/desktop/ai-model-configuration/"))
+                                Desktop.getDesktop().browse(URI("https://$DOMAIN/docs/desktop/ai-model-configuration/"))
                             }
                         } catch (_: Exception) {}
                     },

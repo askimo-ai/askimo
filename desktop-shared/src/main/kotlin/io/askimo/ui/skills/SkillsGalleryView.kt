@@ -55,6 +55,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.skills.agent.ExternalAgentLoader
 import io.askimo.core.skills.domain.SkillDefinition
 import io.askimo.ui.common.i18n.stringResource
@@ -142,7 +143,7 @@ internal fun skillsListContent(
                     ) {
                         themedTooltip(text = stringResource("skills.view.docs.tooltip")) {
                             IconButton(
-                                onClick = { runCatching { Desktop.getDesktop().browse(URI("https://askimo.chat/docs/desktop/skills/")) } },
+                                onClick = { runCatching { Desktop.getDesktop().browse(URI("https://$DOMAIN/docs/desktop/skills/")) } },
                                 modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                             ) {
                                 Icon(

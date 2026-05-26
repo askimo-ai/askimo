@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
@@ -282,7 +283,7 @@ fun planEditorView(
                         linkButton(
                             onClick = {
                                 runCatching {
-                                    Desktop.getDesktop().browse(URI("https://askimo.chat/docs/desktop/plans/"))
+                                    Desktop.getDesktop().browse(URI("https://$DOMAIN/docs/desktop/plans/"))
                                 }
                             },
                         ) {

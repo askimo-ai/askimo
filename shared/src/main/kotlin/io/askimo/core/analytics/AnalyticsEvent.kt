@@ -238,12 +238,6 @@ enum class AnalyticsEvent(
         "Directive applied to a message.",
     ),
 
-    /** An image was generated via the image model. */
-    IMAGE_GENERATED(
-        "image_generated",
-        "Image generated via image model.",
-    ),
-
     // ── Skills ───────────────────────────────────────────────────────────────
 
     /**
@@ -260,12 +254,12 @@ enum class AnalyticsEvent(
 
     /**
      * A categorised error occurred.
-     * Properties: `error_type=provider_timeout|rate_limit|auth_error|context_length|…`,
-     * `provider` (when relevant), `error_message` (sanitised, no PII).
+     * Properties: `error_type=provider_timeout|rate_limit|auth_error|context_length|connection_refused|model_not_found|server_error|network_error|provider_error`,
+     * `provider` (when relevant), `error_message` (sanitised, no PII, up to 4000 chars).
      */
     ERROR_OCCURRED(
         "error_occurred",
-        "Categorised error. Properties: error_type, provider (optional), error_message (sanitised).",
+        "Categorised error. Properties: error_type, provider (optional), error_message (sanitised, up to 4000 chars).",
     ),
 
     // ── Retention ────────────────────────────────────────────────────────────
@@ -335,12 +329,4 @@ enum class AnalyticsEvent(
     ;
 
     override fun toString(): String = eventName
-
-    companion object {
-        /** All wire names — use this to keep the ingest worker allow-list in sync. */
-        val allEventNames: Set<String> = entries.map { it.eventName }.toSet()
-
-        /** Look up by wire name, or null if unknown. */
-        fun fromEventName(name: String): AnalyticsEvent? = entries.firstOrNull { it.eventName == name }
-    }
 }

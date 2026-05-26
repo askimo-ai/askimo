@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.VersionInfo
 import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.i18n.stringResource
@@ -126,7 +127,7 @@ fun aboutSettingsSection() {
                         // Website Link
                         linkButton(
                             onClick = {
-                                openUrl("https://askimo.chat")
+                                openUrl("https://$DOMAIN")
                             },
                         ) {
                             Icon(
@@ -136,7 +137,7 @@ fun aboutSettingsSection() {
                             )
                             Spacer(modifier = Modifier.size(8.dp))
                             Text(
-                                text = "askimo.chat",
+                                text = DOMAIN,
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         }

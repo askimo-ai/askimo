@@ -6,6 +6,7 @@ package io.askimo.tools.web
 
 import dev.langchain4j.agent.tool.P
 import dev.langchain4j.agent.tool.Tool
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.tools.ToolResponseBuilder
 import org.jsoup.HttpStatusException
 import org.jsoup.Jsoup
@@ -22,7 +23,7 @@ object WebSearchTools {
     private const val CLASS_NAME = "io.askimo.tools.web.WebSearchTools"
     private const val PAGE_TIMEOUT_MS = 15_000
     private const val USER_AGENT =
-        "Mozilla/5.0 (compatible; Askimo/1.0; +https://askimo.chat)"
+        "Mozilla/5.0 (compatible; Askimo/1.0; +https://$DOMAIN)"
 
     /**
      * Fetch and extract the readable text content of a web page.

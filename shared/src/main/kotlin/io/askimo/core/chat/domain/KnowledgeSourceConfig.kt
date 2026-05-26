@@ -78,5 +78,5 @@ data class UrlKnowledgeSourceConfig(
 @Serializable
 data class IndexedPathsData(
     val version: Int = 1,
-    val sources: List<KnowledgeSourceConfig>,
+    val sources: List<KnowledgeSourceConfig> = emptyList(),
 )

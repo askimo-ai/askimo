@@ -4,6 +4,7 @@
  */
 package io.askimo.core.service
 
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.VersionInfo
 import io.askimo.core.logging.logger
 import io.askimo.core.util.JsonUtils.json
@@ -49,7 +50,7 @@ class UpdateChecker(
 ) {
     private val log = logger<UpdateChecker>()
 
-    private val releasesUrl = "https://api.askimo.chat/releases?per_page=1"
+    private val releasesUrl = "https://api.$DOMAIN/releases?per_page=1"
 
     private val httpClient = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(10))
@@ -99,7 +100,7 @@ class UpdateChecker(
             latestVersion = latestVersion,
             releaseName = latest.name,
             releaseDate = formatReleaseDate(latest.published_at),
-            downloadUrl = "https://askimo.chat/download/",
+            downloadUrl = "https://$DOMAIN/download/",
             releaseNotes = htmlToMarkdown(latest.body_html.orEmpty()),
             isNewVersion = isNewVersion,
             versionsBehind = if (isNewVersion) 1 else 0,

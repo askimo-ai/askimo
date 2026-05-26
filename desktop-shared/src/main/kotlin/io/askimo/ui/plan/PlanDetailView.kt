@@ -795,12 +795,10 @@ private fun agenticStepRow(
                 when (event) {
                     is PlanStepEvent.Completed -> {
                         if (!suppressOutput && !copyableOutput.isNullOrBlank() && outputExpanded) {
-                            SelectionContainer {
-                                markdownText(
-                                    markdown = copyableOutput,
-                                    modifier = Modifier.padding(top = 2.dp).fillMaxWidth(),
-                                )
-                            }
+                            markdownText(
+                                markdown = copyableOutput,
+                                modifier = Modifier.padding(top = 2.dp).fillMaxWidth(),
+                            )
                         }
                     }
 
@@ -1171,13 +1169,11 @@ private fun resultPanel(
                 }
             }
             HorizontalDivider(modifier = Modifier.padding(bottom = Spacing.medium))
-            SelectionContainer {
-                markdownText(
-                    markdown = if (isStreaming) "$displayedOutput▍" else displayedOutput,
-                    modifier = Modifier.fillMaxWidth(),
-                    messageId = executionId,
-                )
-            }
+            markdownText(
+                markdown = if (isStreaming) "$displayedOutput▍" else displayedOutput,
+                modifier = Modifier.fillMaxWidth(),
+                messageId = executionId,
+            )
         }
     }
 }

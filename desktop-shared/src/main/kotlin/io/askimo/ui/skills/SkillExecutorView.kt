@@ -67,6 +67,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.skills.agent.AgentCommand
 import io.askimo.core.skills.agent.ExternalAgent
@@ -514,7 +515,7 @@ internal fun skillExecutionArea(
                         Spacer(modifier = Modifier.weight(1f))
 
                         TextButton(
-                            onClick = { uriHandler.openUri("https://askimo.chat/docs/desktop/skills/#supported-runtimes-today") },
+                            onClick = { uriHandler.openUri("https://$DOMAIN/docs/desktop/skills/#supported-runtimes-today") },
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         ) {
                             Text(

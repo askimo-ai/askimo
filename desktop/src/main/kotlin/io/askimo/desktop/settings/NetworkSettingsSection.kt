@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.config.AppConfig
 import io.askimo.core.config.ProxyType
 import io.askimo.ui.common.components.linkButton
@@ -137,7 +138,7 @@ private fun proxyConfigurationCard() {
                     onClick = {
                         try {
                             if (Desktop.isDesktopSupported()) {
-                                Desktop.getDesktop().browse(URI("https://askimo.chat/docs/desktop/proxy-configuration/"))
+                                Desktop.getDesktop().browse(URI("https://$DOMAIN/docs/desktop/proxy-configuration/"))
                             }
                         } catch (_: Exception) {}
                     },

@@ -54,6 +54,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.context.AppContext
 import io.askimo.core.context.getConfigInfo
 import io.askimo.core.event.EventBus
@@ -508,7 +509,7 @@ fun footerBar(
                     TextButton(
                         onClick = {
                             runCatching {
-                                Desktop.getDesktop().browse(URI("https://askimo.chat/contact/"))
+                                Desktop.getDesktop().browse(URI("https://$DOMAIN/contact/"))
                             }
                         },
                         modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),

@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.VersionInfo
 import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.secondaryButton
@@ -73,14 +74,14 @@ fun aboutDialog(
                         linkButton(
                             onClick = {
                                 try {
-                                    Desktop.getDesktop().browse(URI("https://askimo.chat"))
+                                    Desktop.getDesktop().browse(URI("https://$DOMAIN"))
                                 } catch (_: Exception) {
                                     // Silently fail if browser cannot be opened
                                 }
                             },
                         ) {
                             Text(
-                                text = "https://askimo.chat",
+                                text = "https://$DOMAIN",
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         }

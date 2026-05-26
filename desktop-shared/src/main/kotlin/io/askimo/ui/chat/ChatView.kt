@@ -72,6 +72,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.chat.domain.ChatDirective
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.dto.ChatMessageDTO
@@ -755,7 +756,7 @@ fun chatView(
                                             }
                                         },
                                         onClick = {
-                                            uriHandler.openUri("https://askimo.chat/docs/desktop/directives/")
+                                            uriHandler.openUri("https://$DOMAIN/docs/desktop/directives/")
                                             directiveDropdownExpanded = false
                                         },
                                         modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
@@ -1147,33 +1148,35 @@ fun chatView(
             } // end centered Box
         } // End of main chat Column
 
-        // Project Side Panel (right side)
-        projectSidePanelSlot(
-            project,
-            ragIndexingStatus,
-            ragIndexingPercentage,
-            sidePanelExpanded,
-            { sidePanelExpanded = it },
-            { filePaths ->
-                val newAttachments = filePaths.map { path ->
-                    val file = File(path)
-                    FileAttachmentDTO(
-                        id = randomUUID().toString(),
-                        messageId = "",
-                        sessionId = sessionId ?: "",
-                        fileName = file.name,
-                        mimeType = file.extension,
-                        size = file.length(),
-                        createdAt = Instant.now(),
-                        content = null,
-                        filePath = file.absolutePath,
-                    )
-                }
-                val existingPaths = attachments.mapNotNull { it.filePath }.toSet()
-                val toAdd = newAttachments.filter { it.filePath !in existingPaths }
-                if (toAdd.isNotEmpty()) attachments = attachments + toAdd
-            },
-        )
+        // Project Side Panel (right side) — only shown when session belongs to a project
+        if (project != null) {
+            projectSidePanelSlot(
+                project,
+                ragIndexingStatus,
+                ragIndexingPercentage,
+                sidePanelExpanded,
+                { sidePanelExpanded = it },
+                { filePaths ->
+                    val newAttachments = filePaths.map { path ->
+                        val file = File(path)
+                        FileAttachmentDTO(
+                            id = randomUUID().toString(),
+                            messageId = "",
+                            sessionId = sessionId ?: "",
+                            fileName = file.name,
+                            mimeType = file.extension,
+                            size = file.length(),
+                            createdAt = Instant.now(),
+                            content = null,
+                            filePath = file.absolutePath,
+                        )
+                    }
+                    val existingPaths = attachments.mapNotNull { it.filePath }.toSet()
+                    val toAdd = newAttachments.filter { it.filePath !in existingPaths }
+                    if (toAdd.isNotEmpty()) attachments = attachments + toAdd
+                },
+            )
+        }
     } // End of Row
 
     // AI Message Edit Dialog

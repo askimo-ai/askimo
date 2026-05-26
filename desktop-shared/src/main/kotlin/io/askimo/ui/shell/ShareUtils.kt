@@ -4,6 +4,7 @@
  */
 package io.askimo.ui.shell
 
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.i18n.LocalizationManager
 import java.awt.Desktop
 import java.net.URI
@@ -32,7 +33,7 @@ object ShareUtils {
             if (!Desktop.isDesktopSupported()) return
             val desktop = Desktop.getDesktop()
             val encoded = URLEncoder.encode(shareText(), "UTF-8")
-            val url = URLEncoder.encode("https://askimo.chat", "UTF-8")
+            val url = URLEncoder.encode("https://$DOMAIN", "UTF-8")
             val uri = when (target) {
                 ShareTarget.X -> "https://x.com/intent/tweet?text=$encoded"
                 ShareTarget.LINKEDIN -> "https://www.linkedin.com/sharing/share-offsite/?url=$url"

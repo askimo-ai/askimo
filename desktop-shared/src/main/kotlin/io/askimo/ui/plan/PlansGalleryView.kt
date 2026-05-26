@@ -55,6 +55,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.plan.domain.PlanDef
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
@@ -112,7 +113,7 @@ fun plansGalleryView(
                             IconButton(
                                 onClick = {
                                     runCatching {
-                                        Desktop.getDesktop().browse(URI("https://askimo.chat/docs/desktop/plans/"))
+                                        Desktop.getDesktop().browse(URI("https://$DOMAIN/docs/desktop/plans/"))
                                     }
                                 },
                                 modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),

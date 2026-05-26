@@ -7,6 +7,7 @@ package io.askimo.ui.shell
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.logging.logger
 import io.askimo.core.service.UpdateInfo
 import io.askimo.ui.common.preferences.AccountPreferences
@@ -107,7 +108,7 @@ class UpdateViewModel(
     }
 
     fun openHowToUpdatePage() {
-        runCatching { Desktop.getDesktop().browse(URI("https://askimo.chat/docs/desktop/updating/")) }
+        runCatching { Desktop.getDesktop().browse(URI("https://$DOMAIN/docs/desktop/updating/")) }
             .onFailure { log.error("Failed to open how-to-update page", it) }
     }
 

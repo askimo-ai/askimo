@@ -591,29 +591,29 @@ private fun aiMessageBubble(
                                 }
                             }
 
-                            SelectionContainer {
-                                if (searchQuery.isNotBlank()) {
+                            if (searchQuery.isNotBlank()) {
+                                SelectionContainer {
                                     Text(
                                         text = highlightSearchText(
                                             text = markdownToPlainText(message.content),
                                             query = searchQuery,
-                                            highlightColor = Color(0xFFFFD54F), // amber-300 — visible on any bg
+                                            highlightColor = Color(0xFFFFD54F),
                                             isActiveResult = isActiveSearchResult,
-                                            activeHighlightColor = Color(0xFFFF8F00), // amber-800 — bold active match
+                                            activeHighlightColor = Color(0xFFFF8F00),
                                         ),
                                         modifier = Modifier.padding(start = 12.dp, end = 48.dp, top = 12.dp, bottom = 12.dp),
                                         style = MaterialTheme.typography.bodyMedium,
                                     )
-                                } else {
-                                    markdownText(
-                                        markdown = message.content,
-                                        modifier = Modifier.padding(start = 12.dp, end = 48.dp, top = 12.dp, bottom = 12.dp),
-                                        viewportTopY = viewportTopY,
-                                        isStreaming = isStreaming,
-                                        onRunRequest = { cmd, lang -> pendingRunRequest = Pair(cmd, lang) },
-                                        messageId = message.id,
-                                    )
                                 }
+                            } else {
+                                markdownText(
+                                    markdown = message.content,
+                                    modifier = Modifier.padding(start = 12.dp, end = 48.dp, top = 12.dp, bottom = 12.dp),
+                                    viewportTopY = viewportTopY,
+                                    isStreaming = isStreaming,
+                                    onRunRequest = { cmd, lang -> pendingRunRequest = Pair(cmd, lang) },
+                                    messageId = message.id,
+                                )
                             }
 
                             if (isOutdatedMessage) {

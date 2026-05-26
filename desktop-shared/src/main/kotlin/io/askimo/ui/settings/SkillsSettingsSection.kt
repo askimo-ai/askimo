@@ -84,6 +84,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.skills.SkillImporter
 import io.askimo.core.skills.SkillRepository
 import io.askimo.core.skills.agent.ExternalAgentLoader
@@ -442,7 +443,7 @@ private fun skillsMainContent(
                     }
                     themedTooltip(text = stringResource("skills.view.docs.tooltip")) {
                         IconButton(
-                            onClick = { runCatching { Desktop.getDesktop().browse(URI("https://askimo.chat/docs/desktop/skills/")) } },
+                            onClick = { runCatching { Desktop.getDesktop().browse(URI("https://$DOMAIN/docs/desktop/skills/")) } },
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         ) {
                             Icon(

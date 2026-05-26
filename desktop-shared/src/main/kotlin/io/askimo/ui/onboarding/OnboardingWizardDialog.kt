@@ -59,6 +59,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
@@ -490,7 +491,7 @@ private fun onboardingStepAnalytics(
         }
 
         TextButton(
-            onClick = { uriHandler.openUri("https://askimo.chat/security/") },
+            onClick = { uriHandler.openUri("https://$DOMAIN/security/") },
             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
         ) {
             Text(
@@ -650,7 +651,7 @@ private fun onboardingStepDirectives() {
 
         onboardingDocLink(
             label = stringResource("onboarding.step.directives.link"),
-            url = "https://askimo.chat/docs/desktop/directives/",
+            url = "https://$DOMAIN/docs/desktop/directives/",
         )
     }
 }
@@ -836,12 +837,12 @@ private fun onboardingStepReady() {
             ) {
                 onboardingLinkItem(
                     title = stringResource("onboarding.step.ready.link.docs"),
-                    onClick = { uriHandler.openUri("https://askimo.chat/docs/") },
+                    onClick = { uriHandler.openUri("https://$DOMAIN/docs/") },
                 )
                 HorizontalDivider()
                 onboardingLinkItem(
                     title = stringResource("onboarding.step.ready.link.providers"),
-                    onClick = { uriHandler.openUri("https://askimo.chat/docs/desktop/ai-providers/") },
+                    onClick = { uriHandler.openUri("https://$DOMAIN/docs/desktop/ai-providers/") },
                 )
                 HorizontalDivider()
                 onboardingLinkItem(

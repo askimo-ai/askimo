@@ -54,6 +54,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.analytics.Analytics
 import io.askimo.core.analytics.AnalyticsEvent
 import io.askimo.core.backup.BackupManager
@@ -1623,7 +1624,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                 runCatching {
                                     if (Desktop.isDesktopSupported()) {
                                         Desktop.getDesktop().browse(
-                                            URI("https://askimo.chat/feedback/?sentiment=$feedbackSentiment"),
+                                            URI("https://$DOMAIN/feedback/?sentiment=$feedbackSentiment"),
                                         )
                                     }
                                 }.onFailure { log.error("Cannot open browser for feedback", it) }

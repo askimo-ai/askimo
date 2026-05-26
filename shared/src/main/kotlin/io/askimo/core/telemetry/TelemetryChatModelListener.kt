@@ -144,21 +144,47 @@ class TelemetryChatModelListener(
         telemetry.recordLLMError(provider, model, error)
 
         // Categorise the error type without including the message (may contain PII/keys)
+        val msg = error.message ?: error.cause?.message ?: ""
         val errorType = when {
-            error.message?.contains("timeout", ignoreCase = true) == true -> "provider_timeout"
+            msg.contains("timeout", ignoreCase = true) ||
+                msg.contains("timed out", ignoreCase = true) -> "provider_timeout"
 
-            error.message?.contains("rate limit", ignoreCase = true) == true ||
-                error.message?.contains("429", ignoreCase = true) == true -> "rate_limit"
+            msg.contains("rate limit", ignoreCase = true) ||
+                msg.contains("429") -> "rate_limit"
 
-            error.message?.contains("401", ignoreCase = true) == true ||
-                error.message?.contains("403", ignoreCase = true) == true -> "auth_error"
+            msg.contains("401") ||
+                msg.contains("403") ||
+                msg.contains("unauthorized", ignoreCase = true) ||
+                msg.contains("forbidden", ignoreCase = true) -> "auth_error"
 
-            error.message?.contains("context length", ignoreCase = true) == true ||
-                error.message?.contains("too long", ignoreCase = true) == true -> "context_length"
+            msg.contains("context length", ignoreCase = true) ||
+                msg.contains("context window", ignoreCase = true) ||
+                msg.contains("too long", ignoreCase = true) ||
+                msg.contains("maximum context", ignoreCase = true) -> "context_length"
+
+            msg.contains("connection refused", ignoreCase = true) ||
+                error is java.net.ConnectException ||
+                error.cause is java.net.ConnectException -> "connection_refused"
+
+            msg.contains("unknown host", ignoreCase = true) ||
+                error is java.net.UnknownHostException ||
+                error.cause is java.net.UnknownHostException -> "connection_refused"
+
+            (msg.contains("model", ignoreCase = true) && msg.contains("not found", ignoreCase = true)) ||
+                msg.contains("no such file", ignoreCase = true) -> "model_not_found"
+
+            msg.contains("500") ||
+                msg.contains("internal server error", ignoreCase = true) -> "server_error"
+
+            error is java.io.IOException ||
+                error.cause is java.io.IOException -> "network_error"
 
             else -> "provider_error"
         }
-        val sanitisedMessage = error.message?.take(200)?.replace(Regex("[\\r\\n]+"), " ") ?: "unknown"
+        val sanitisedMessage = (error.message ?: error.cause?.message)
+            ?.take(4000)
+            ?.replace(Regex("[\\r\\n]+"), " ")
+            ?: "unknown"
         Analytics.track(
             AnalyticsEvent.ERROR_OCCURRED,
             mapOf("error_type" to errorType, "provider" to provider, "error_message" to sanitisedMessage),

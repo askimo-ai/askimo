@@ -44,6 +44,7 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ProviderConfigField
 import io.askimo.ui.common.components.linkButton
@@ -315,7 +316,7 @@ fun providerSelectionDialog(
                                     try {
                                         val providerName = viewModel.selectedProvider?.name?.lowercase() ?: return@linkButton
                                         Desktop.getDesktop().browse(
-                                            URI("https://askimo.chat/docs/desktop/providers/$providerName/"),
+                                            URI("https://$DOMAIN/docs/desktop/providers/$providerName/"),
                                         )
                                     } catch (_: Exception) {
                                         // Silently fail if browser cannot be opened
@@ -448,7 +449,7 @@ fun providerSelectionDialog(
                                                                 onClick = {
                                                                     try {
                                                                         Desktop.getDesktop().browse(
-                                                                            URI("https://askimo.chat/security/"),
+                                                                            URI("https://$DOMAIN/security/"),
                                                                         )
                                                                     } catch (_: Exception) {
                                                                         // Silently fail if browser cannot be opened

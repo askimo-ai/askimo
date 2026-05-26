@@ -64,6 +64,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
 import io.askimo.core.chat.domain.LocalFilesKnowledgeSourceConfig
@@ -690,7 +691,7 @@ private fun knowledgeSourcesPanel(
                         onClick = {
                             try {
                                 if (Desktop.isDesktopSupported()) {
-                                    Desktop.getDesktop().browse(URI("https://askimo.chat/docs/desktop/rag/"))
+                                    Desktop.getDesktop().browse(URI("https://$DOMAIN/docs/desktop/rag/"))
                                 }
                             } catch (_: Exception) {}
                         },

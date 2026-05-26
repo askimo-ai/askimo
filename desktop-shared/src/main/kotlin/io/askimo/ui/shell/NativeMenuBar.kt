@@ -5,6 +5,7 @@
 package io.askimo.ui.shell
 
 import androidx.compose.ui.window.FrameWindowScope
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.config.AppConfig
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.ui.common.theme.ThemeMode
@@ -448,7 +449,7 @@ object NativeMenuBar {
             val docsItem = MenuItem(LocalizationManager.getString("menu.documentation"))
             docsItem.addActionListener(
                 ActionListener {
-                    runCatching { if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI("https://askimo.chat/docs/")) }
+                    runCatching { if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI("https://$DOMAIN/docs/")) }
                 },
             )
             helpMenu.add(docsItem)
@@ -468,7 +469,7 @@ object NativeMenuBar {
             val releaseNotesItem = MenuItem(LocalizationManager.getString("menu.help.release.notes"))
             releaseNotesItem.addActionListener(
                 ActionListener {
-                    runCatching { if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI("https://askimo.chat/docs/changelogs/")) }
+                    runCatching { if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI("https://$DOMAIN/docs/changelogs/")) }
                 },
             )
             helpMenu.add(releaseNotesItem)

@@ -46,6 +46,7 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.mcp.McpInstance
 import io.askimo.core.mcp.McpInstanceService
 import io.askimo.core.mcp.McpServerDefinition
@@ -117,7 +118,7 @@ fun mcpServerTemplatesSection() {
                             onClick = {
                                 try {
                                     if (Desktop.isDesktopSupported()) {
-                                        Desktop.getDesktop().browse(URI("https://askimo.chat/docs/desktop/mcp-integration/"))
+                                        Desktop.getDesktop().browse(URI("https://$DOMAIN/docs/desktop/mcp-integration/"))
                                     }
                                 } catch (_: Exception) {}
                             },
