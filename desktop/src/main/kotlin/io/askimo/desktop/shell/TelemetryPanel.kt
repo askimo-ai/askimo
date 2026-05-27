@@ -5,6 +5,7 @@
 package io.askimo.desktop.shell
 
 import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,8 @@ import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -28,12 +31,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -86,11 +93,8 @@ internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
                         fontWeight = FontWeight.SemiBold,
                     )
 
-                    // Only show reset button if there's data
                     if (metrics.ragClassificationTotal > 0 || metrics.llmCallsByProvider.isNotEmpty()) {
-                        themedTooltip(
-                            text = stringResource("telemetry.reset"),
-                        ) {
+                        themedTooltip(text = stringResource("telemetry.reset")) {
                             IconButton(
                                 onClick = { appContext.telemetry.reset() },
                                 modifier = Modifier.size(24.dp),
@@ -116,7 +120,38 @@ internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
                     return@Column
                 }
 
+                // ── RAG section ──────────────────────────────────────────
                 if (metrics.ragClassificationTotal > 0) {
+                    Text(
+                        text = stringResource("telemetry.tab.rag"),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+
+                    // Summary stats
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        telemetryStat(
+                            label = stringResource("telemetry.rag.total.queries"),
+                            value = metrics.ragClassificationTotal.toString(),
+                            modifier = Modifier.weight(1f),
+                        )
+                        telemetryStat(
+                            label = stringResource("telemetry.rag.triggered.label"),
+                            value = "${metrics.ragTriggered} (${String.format("%.0f", metrics.ragTriggeredPercent)}%)",
+                            modifier = Modifier.weight(1f),
+                        )
+                        telemetryStat(
+                            label = stringResource("telemetry.rag.skipped.label"),
+                            value = metrics.ragSkipped.toString(),
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+
+                    // Detail cards
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -146,47 +181,88 @@ internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
                     }
                 }
 
+                // ── LLM section ───────────────────────────────────────────
                 if (metrics.llmCallsByProvider.isNotEmpty()) {
-                    HorizontalDivider()
+                    if (metrics.ragClassificationTotal > 0) {
+                        HorizontalDivider()
+                    }
 
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(
-                            text = stringResource("telemetry.llm.calls"),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
+                    Text(
+                        text = stringResource("telemetry.tab.llm"),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.SemiBold,
+                    )
 
-                        metrics.llmCallsByProvider.forEach { (providerModel, calls) ->
-                            val tokens = metrics.llmTokensByProvider[providerModel] ?: 0L
-                            val avgDuration = metrics.llmAvgDurationMsByProvider[providerModel] ?: 0L
-                            val errors = metrics.llmErrorsByProvider[providerModel] ?: 0
+                    var sortColumn by remember { mutableStateOf(LlmSortColumn.PROVIDER) }
+                    var sortAscending by remember { mutableStateOf(true) }
 
-                            telemetryProviderRow(
-                                providerModel = providerModel,
-                                calls = calls,
-                                tokens = tokens,
-                                avgDurationMs = avgDuration,
-                                errors = errors,
-                            )
+                    fun toggleSort(column: LlmSortColumn) {
+                        if (sortColumn == column) {
+                            sortAscending = !sortAscending
+                        } else {
+                            sortColumn = column
+                            sortAscending = true
                         }
                     }
 
-                    // Total Summary
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            text = stringResource("telemetry.total.tokens", metrics.totalTokensUsed),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontWeight = FontWeight.Medium,
-                        )
+                    // Table header
+                    llmTableHeader(
+                        sortColumn = sortColumn,
+                        sortAscending = sortAscending,
+                        onSort = ::toggleSort,
+                    )
+
+                    HorizontalDivider()
+
+                    var totalCalls = 0
+                    var totalTokens = 0L
+                    var totalErrors = 0
+
+                    val rows = metrics.llmCallsByProvider.map { (providerModel, calls) ->
+                        val parts = providerModel.split(":", limit = 2)
+                        val provider = parts.getOrElse(0) { providerModel }
+                            .replaceFirstChar { if (it.isLowerCase()) it.titlecase(getDefault()) else it.toString() }
+                        val model = parts.getOrElse(1) { "" }
+                        val tokens = metrics.llmTokensByProvider[providerModel] ?: 0L
+                        val avgDuration = metrics.llmAvgDurationMsByProvider[providerModel] ?: 0L
+                        val errors = metrics.llmErrorsByProvider[providerModel] ?: 0
+                        LlmRow(provider, model, calls, tokens, avgDuration, errors)
                     }
+
+                    val sorted = when (sortColumn) {
+                        LlmSortColumn.PROVIDER -> rows.sortedBy { it.provider }
+                        LlmSortColumn.MODEL -> rows.sortedBy { it.model }
+                        LlmSortColumn.CALLS -> rows.sortedBy { it.calls }
+                        LlmSortColumn.TOKENS -> rows.sortedBy { it.tokens }
+                        LlmSortColumn.AVG_DURATION -> rows.sortedBy { it.avgDurationMs }
+                        LlmSortColumn.ERRORS -> rows.sortedBy { it.errors }
+                    }.let { if (sortAscending) it else it.reversed() }
+
+                    sorted.forEach { row ->
+                        totalCalls += row.calls
+                        totalTokens += row.tokens
+                        totalErrors += row.errors
+
+                        llmTableDataRow(row)
+                    }
+
+                    HorizontalDivider()
+
+                    // Totals row
+                    llmTableRow(
+                        provider = stringResource("telemetry.llm.col.total"),
+                        model = "",
+                        calls = totalCalls.toString(),
+                        tokens = totalTokens.toString(),
+                        avgDuration = "",
+                        errors = if (totalErrors > 0) totalErrors.toString() else "—",
+                        isHeader = true,
+                        errorsIsError = totalErrors > 0,
+                    )
                 }
             }
 
-            // Vertical scrollbar
             VerticalScrollbar(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
@@ -195,6 +271,167 @@ internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
                 adapter = rememberScrollbarAdapter(scrollState),
             )
         }
+    }
+}
+
+private enum class LlmSortColumn { PROVIDER, MODEL, CALLS, TOKENS, AVG_DURATION, ERRORS }
+
+private data class LlmRow(
+    val provider: String,
+    val model: String,
+    val calls: Int,
+    val tokens: Long,
+    val avgDurationMs: Long,
+    val errors: Int,
+)
+
+// Column weights — single source of truth so header and data rows always align
+private val COL_PROVIDER = 1.4f
+private val COL_MODEL = 1.8f
+private val COL_CALLS = 0.8f
+private val COL_TOKENS = 1.1f
+private val COL_DURATION = 1.1f
+private val COL_ERRORS = 0.7f
+
+@Composable
+private fun llmTableHeader(
+    sortColumn: LlmSortColumn,
+    sortAscending: Boolean,
+    onSort: (LlmSortColumn) -> Unit,
+) {
+    val headerStyle = MaterialTheme.typography.labelSmall
+    val activeColor = MaterialTheme.colorScheme.onSurface
+    val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant
+
+    val cols = listOf(
+        Triple(stringResource("telemetry.llm.col.provider"), LlmSortColumn.PROVIDER, COL_PROVIDER),
+        Triple(stringResource("telemetry.llm.col.model"), LlmSortColumn.MODEL, COL_MODEL),
+        Triple(stringResource("telemetry.llm.col.calls"), LlmSortColumn.CALLS, COL_CALLS),
+        Triple(stringResource("telemetry.llm.col.tokens"), LlmSortColumn.TOKENS, COL_TOKENS),
+        Triple(stringResource("telemetry.llm.col.avg.duration"), LlmSortColumn.AVG_DURATION, COL_DURATION),
+        Triple(stringResource("telemetry.llm.col.errors"), LlmSortColumn.ERRORS, COL_ERRORS),
+    )
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        cols.forEach { (label, column, weight) ->
+            val isActive = sortColumn == column
+            Row(
+                modifier = Modifier
+                    .weight(weight)
+                    .clickable { onSort(column) }
+                    .pointerHoverIcon(PointerIcon.Hand),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = label,
+                    style = headerStyle,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isActive) activeColor else inactiveColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (isActive) {
+                    Icon(
+                        imageVector = if (sortAscending) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        modifier = Modifier.size(12.dp),
+                        tint = activeColor,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun llmTableDataRow(row: LlmRow) {
+    val style = MaterialTheme.typography.bodySmall
+    val secondary = MaterialTheme.colorScheme.onSurfaceVariant
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = row.provider, style = style, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(COL_PROVIDER), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(text = row.model, style = style, color = secondary, modifier = Modifier.weight(COL_MODEL), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(text = row.calls.toString(), style = style, color = secondary, modifier = Modifier.weight(COL_CALLS), maxLines = 1)
+        Text(text = row.tokens.toString(), style = style, color = secondary, modifier = Modifier.weight(COL_TOKENS), maxLines = 1)
+        Box(modifier = Modifier.weight(COL_DURATION)) {
+            themedTooltip(text = formatDurationDetailed(row.avgDurationMs)) {
+                Text(text = formatDuration(row.avgDurationMs), style = style, color = secondary, maxLines = 1)
+            }
+        }
+        Text(
+            text = if (row.errors > 0) row.errors.toString() else "—",
+            style = style,
+            color = if (row.errors > 0) MaterialTheme.colorScheme.error else secondary,
+            modifier = Modifier.weight(COL_ERRORS),
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun llmTableRow(
+    provider: String,
+    model: String,
+    calls: String,
+    tokens: String,
+    avgDuration: String,
+    errors: String,
+    isHeader: Boolean = false,
+    errorsIsError: Boolean = false,
+) {
+    val style = if (isHeader) MaterialTheme.typography.labelSmall else MaterialTheme.typography.bodySmall
+    val fontWeight = if (isHeader) FontWeight.SemiBold else FontWeight.Normal
+    val defaultColor = MaterialTheme.colorScheme.onSurface
+    val secondaryColor = if (isHeader) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = provider, style = style, fontWeight = fontWeight, color = defaultColor, modifier = Modifier.weight(COL_PROVIDER), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(text = model, style = style, fontWeight = fontWeight, color = secondaryColor, modifier = Modifier.weight(COL_MODEL), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(text = calls, style = style, fontWeight = fontWeight, color = secondaryColor, modifier = Modifier.weight(COL_CALLS), maxLines = 1)
+        Text(text = tokens, style = style, fontWeight = fontWeight, color = secondaryColor, modifier = Modifier.weight(COL_TOKENS), maxLines = 1)
+        Text(text = avgDuration, style = style, fontWeight = fontWeight, color = secondaryColor, modifier = Modifier.weight(COL_DURATION), maxLines = 1)
+        Text(
+            text = errors,
+            style = style,
+            fontWeight = fontWeight,
+            color = if (errorsIsError) MaterialTheme.colorScheme.error else secondaryColor,
+            modifier = Modifier.weight(COL_ERRORS),
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun telemetryStat(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -244,64 +481,6 @@ private fun telemetryMetricCard(
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
-        }
-    }
-}
-
-@Composable
-private fun telemetryProviderRow(
-    providerModel: String,
-    calls: Int,
-    tokens: Long,
-    avgDurationMs: Long,
-    errors: Int,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = providerModel.split(":").joinToString(" • ") {
-                it.replaceFirstChar { c ->
-                    if (c.isLowerCase()) c.titlecase(getDefault()) else c.toString()
-                }
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(
-                text = stringResource("telemetry.llm.calls.count", calls),
-                style = MaterialTheme.typography.bodySmall,
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = stringResource("telemetry.llm.tokens", tokens),
-                style = MaterialTheme.typography.bodySmall,
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            themedTooltip(
-                text = formatDurationDetailed(avgDurationMs),
-            ) {
-                Text(
-                    text = formatDuration(avgDurationMs),
-                    style = MaterialTheme.typography.bodySmall,
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (errors > 0) {
-                Text(
-                    text = stringResource("telemetry.llm.errors", errors),
-                    style = MaterialTheme.typography.bodySmall,
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
         }
     }
 }

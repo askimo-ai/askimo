@@ -214,11 +214,9 @@ Translations are managed on Crowdin. Contributions welcome - no coding required.
 
 ---
 
-## Getting Help
+## License
 
-- [Documentation](https://askimo.chat/docs/)
-- [GitHub Discussions](https://github.com/askimo-ai/askimo/discussions)
-- [Issue Tracker](https://github.com/askimo-ai/askimo/issues)
+AGPLv3. See [LICENSE](./LICENSE).
 
 ---
 
@@ -228,9 +226,11 @@ Bug reports, feature requests, and pull requests are welcome. See [CONTRIBUTING.
 
 ---
 
-## License
+### Contributors
 
-AGPLv3. See [LICENSE](./LICENSE).
+<a href="https://github.com/askimo-ai/askimo/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=askimo-ai/askimo" />
+</a>
 
 ---
 
