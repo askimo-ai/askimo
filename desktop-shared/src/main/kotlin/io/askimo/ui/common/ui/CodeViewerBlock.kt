@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -111,21 +110,18 @@ fun codeViewerBlock(
                 .background(dividerColor),
         )
 
-        // ── Code / text (no wrap, horizontal scroll) ──────────────────────────
         Box(modifier = Modifier.weight(1f)) {
-            SelectionContainer {
-                Text(
-                    text = highlightedCode,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontFamily = FontFamily.Monospace,
-                    color = contentColor,
-                    softWrap = false,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(hScrollState)
-                        .padding(top = 12.dp, bottom = 20.dp, start = 12.dp, end = 12.dp),
-                )
-            }
+            Text(
+                text = highlightedCode,
+                style = MaterialTheme.typography.bodyMedium,
+                fontFamily = FontFamily.Monospace,
+                color = contentColor,
+                softWrap = false,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(hScrollState)
+                    .padding(top = 12.dp, bottom = 20.dp, start = 12.dp, end = 12.dp),
+            )
         }
     }
 }

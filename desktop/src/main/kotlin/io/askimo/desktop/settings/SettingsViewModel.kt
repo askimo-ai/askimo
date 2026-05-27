@@ -27,9 +27,12 @@ import io.askimo.core.providers.SettingField
 import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.text.isNotBlank
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * ViewModel for managing settings state and configuration information.
@@ -103,6 +106,15 @@ class SettingsViewModel(
 
     var isTestingConnection by mutableStateOf(false)
         private set
+
+    /**
+     * True while the config screen is auto-fetching models in the background.
+     * Used to show a loading indicator on the config screen instead of an explicit "Test Connection" button.
+     */
+    var isFetchingModelsForConfig by mutableStateOf(false)
+        private set
+
+    private var autoFetchJob: Job? = null
 
     var connectionError by mutableStateOf<String?>(null)
         private set
@@ -244,45 +256,55 @@ class SettingsViewModel(
                 is ProviderConfigField.InfoField -> null
             }
         }.toMap()
+
+        // Auto-fetch models if pre-existing fields already satisfy all requirements
+        scheduleAutoModelFetch()
     }
 
     /**
-     * Update a provider configuration field value.
+     * Update a provider configuration field value and reschedule the auto model fetch.
      */
     fun updateProviderField(fieldName: String, value: String) {
         providerFieldValues = providerFieldValues.toMutableMap().apply {
             put(fieldName, value)
         }
+        scheduleAutoModelFetch()
     }
 
     /**
-     * Test connection to the provider with current configuration.
+     * Schedule a debounced model fetch when all required fields are filled.
+     * Cancels any in-flight fetch and waits 600ms after the last field change before
+     * attempting to load models. On success, automatically advances to model selection.
      */
-    fun testConnection() {
-        val provider = selectedProvider ?: return
+    private fun scheduleAutoModelFetch() {
+        autoFetchJob?.cancel()
 
-        // Validate all required fields are filled
+        // Only attempt if all required config fields are satisfied
         if (!validateConfigFields(providerFieldValues, providerConfigFields)) {
-            connectionError = "Please fill in all required fields"
+            // Fields not complete yet — reset any previous error so the UI stays clean
+            connectionError = null
+            connectionErrorHelp = null
+            isFetchingModelsForConfig = false
             return
         }
 
-        isTestingConnection = true
+        val provider = selectedProvider ?: return
+
         connectionError = null
         connectionErrorHelp = null
+        isFetchingModelsForConfig = true
 
-        scope.launch {
+        autoFetchJob = scope.launch {
+            delay(1000.milliseconds)
+
             val result = withContext(Dispatchers.IO) {
                 try {
-                    // Get existing settings if available
                     val existingSettings = appContext.params.providerSettings[provider]
                         ?: ProviderRegistry.getFactory(provider)?.defaultSettings()
 
-                    // Create updated settings
                     val newSettings = existingSettings?.applyConfigFields(providerFieldValues)
                         ?: return@withContext ProviderTestResult.Failure("Failed to create settings")
 
-                    // First validate the settings format
                     if (!newSettings.validate()) {
                         return@withContext ProviderTestResult.Failure(
                             message = "Cannot connect to ${provider.name.lowercase()} provider",
@@ -290,46 +312,43 @@ class SettingsViewModel(
                         )
                     }
 
-                    // Actually test the connection by trying to fetch models
                     val factory = ProviderRegistry.getFactory(provider)
                         ?: return@withContext ProviderTestResult.Failure("No factory found for provider")
 
                     @Suppress("UNCHECKED_CAST")
                     val models = (factory as ChatModelFactory<ProviderSettings>).availableModels(newSettings)
 
-                    // If we got models, the connection works
                     if (models.isNotEmpty()) {
                         ProviderTestResult.Success
                     } else {
                         ProviderTestResult.Failure(
-                            message = "No models available for ${provider.name.lowercase()}",
-                            helpText = factory.getNoModelsHelpText(),
+                            message = LocalizationManager.getString("provider.connection.failed"),
+                            helpText = null,
                         )
                     }
                 } catch (e: Exception) {
-                    log.error("Error testing provider connection", e)
-                    val errorMsg = ErrorHandler.getUserFriendlyError(
-                        e,
-                        "testing provider connection",
-                        "Failed to test connection. Please check your settings.",
+                    log.error("Error auto-fetching models for provider config", e)
+                    ProviderTestResult.Failure(
+                        ErrorHandler.getUserFriendlyError(
+                            e,
+                            "fetching models",
+                            "Could not reach the provider. Please check your settings.",
+                        ),
                     )
-                    ProviderTestResult.Failure(errorMsg)
                 }
             }
 
-            isTestingConnection = false
+            isFetchingModelsForConfig = false
 
             when (result) {
                 is ProviderTestResult.Success -> {
                     connectionError = null
                     connectionErrorHelp = null
                     connectionTestSuccess = true
-                    // Automatically load models for provider selection flow
                     showModelSelectionInProviderDialog = true
                     loadModelsForSelectedProvider()
 
-                    // Check embedding model availability for local providers
-                    val baseUrl = providerFieldValues["baseUrl"]
+                    val baseUrl = providerFieldValues[SettingField.BASE_URL]
                     if (baseUrl != null && baseUrl.isNotBlank()) {
                         checkEmbeddingModelAvailability(provider, baseUrl)
                     }
@@ -420,8 +439,12 @@ class SettingsViewModel(
      * Go back from model selection to provider configuration.
      */
     fun backToProviderConfiguration() {
+        autoFetchJob?.cancel()
+        isFetchingModelsForConfig = false
         showModelSelectionInProviderDialog = false
         connectionTestSuccess = false
+        connectionError = null
+        connectionErrorHelp = null
         pendingModelForNewProvider = null
     }
 
@@ -516,6 +539,8 @@ class SettingsViewModel(
      * Close the provider selection dialog.
      */
     fun closeProviderDialog() {
+        autoFetchJob?.cancel()
+        isFetchingModelsForConfig = false
         showProviderDialog = false
         selectedProvider = null
         providerConfigFields = emptyList()
