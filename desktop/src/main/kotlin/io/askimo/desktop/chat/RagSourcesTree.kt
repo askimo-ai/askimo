@@ -567,7 +567,7 @@ private fun folderNodeItem(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(backgroundColor, androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                        .background(backgroundColor, RoundedCornerShape(4.dp))
                         .onClick(matcher = PointerMatcher.mouse(PointerButton.Primary), onClick = {
                             expandedPaths[node.path] = !isExpanded
                             onNodeSelected(node)
@@ -644,7 +644,7 @@ private fun fileNodeItem(
             Row(
                 modifier = modifier
                     .fillMaxWidth()
-                    .background(backgroundColor, androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                    .background(backgroundColor, RoundedCornerShape(4.dp))
                     .onClick(matcher = PointerMatcher.mouse(PointerButton.Primary), onClick = { onNodeSelected(node) }, onDoubleClick = { openInFileBrowser(node.path) })
                     .onClick(matcher = PointerMatcher.mouse(PointerButton.Secondary), onClick = { showContextMenu = true })
                     .padding(start = (level * 16 + 16).dp, top = 4.dp, bottom = 4.dp, end = 4.dp)
@@ -725,7 +725,7 @@ private fun urlNodeItem(
             Row(
                 modifier = modifier
                     .fillMaxWidth()
-                    .background(backgroundColor, androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                    .background(backgroundColor, RoundedCornerShape(4.dp))
                     .onClick(matcher = PointerMatcher.mouse(PointerButton.Primary), onClick = { onNodeSelected(node) }, onDoubleClick = { openInBrowser(node.url) })
                     .onClick(matcher = PointerMatcher.mouse(PointerButton.Secondary), onClick = { showContextMenu = true })
                     .padding(start = (level * 16).dp, top = 4.dp, bottom = 4.dp, end = 4.dp)

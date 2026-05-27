@@ -61,6 +61,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
 import io.askimo.core.event.EventBus
@@ -945,10 +946,15 @@ fun aiMessageEditDialog(
 ) {
     var editedContent by remember { mutableStateOf(message.content) }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+        ),
+    ) {
         Surface(
             modifier = Modifier
-                .width(700.dp)
+                .width(900.dp)
                 .padding(16.dp),
             shape = MaterialTheme.shapes.large,
             tonalElevation = 8.dp,
@@ -970,7 +976,7 @@ fun aiMessageEditDialog(
                     onValueChange = { editedContent = it },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(400.dp),
+                        .height(600.dp),
                     textStyle = MaterialTheme.typography.bodyMedium,
                     colors = AppComponents.outlinedTextFieldColors(),
                     label = { Text(stringResource("message.ai.edit.content.label")) },

@@ -78,6 +78,7 @@ import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.ui.themedTooltip
 import kotlinx.coroutines.flow.filterIsInstance
 import java.awt.Cursor
+import java.io.File
 
 /**
  * Tab types for the community project side panel.
@@ -339,7 +340,7 @@ private fun ragSourcesTabContent(
         EventBus.internalEvents
             .filterIsInstance<FilePreviewRequestEvent>()
             .collect { event ->
-                val file = java.io.File(event.filePath)
+                val file = File(event.filePath)
                 if (file.exists() && file.isFile) {
                     selectedNode = FileTreeNode(
                         path = event.filePath,

@@ -42,6 +42,7 @@ import io.askimo.ui.shell.DeveloperModePreferences
  * @param onRenameSession Callback invoked when the rename action is triggered
  * @param onExportSession Callback invoked when the export action is triggered
  * @param onDeleteSession Callback invoked when the delete action is triggered
+ * @param onStarSession Callback invoked when the star action is triggered
  * @param onShowSessionSummary Callback invoked when the show session summary action is triggered (developer mode only)
  * @param onMoveSessionToNewProject Callback invoked when the session is moved to a new project
  * @param modifier Optional modifier for the IconButton
@@ -58,6 +59,7 @@ fun sessionActionsMenu(
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     val sessionRepository = remember { DatabaseManager.getInstance().getChatSessionRepository() }
     val projectRepository = remember { DatabaseManager.getInstance().getProjectRepository() }
@@ -244,8 +246,8 @@ fun sessionActionsMenu(
                     )
                 },
                 onClick = {
-                    onDeleteSession(sessionId)
                     expanded = false
+                    showDeleteDialog = true
                 },
                 leadingIcon = {
                     Icon(
@@ -257,5 +259,16 @@ fun sessionActionsMenu(
                 modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
             )
         }
+    }
+
+    if (showDeleteDialog) {
+        deleteSessionDialog(
+            sessionTitle = currentSession?.title ?: sessionId,
+            onConfirm = {
+                showDeleteDialog = false
+                onDeleteSession(sessionId)
+            },
+            onDismiss = { showDeleteDialog = false },
+        )
     }
 }

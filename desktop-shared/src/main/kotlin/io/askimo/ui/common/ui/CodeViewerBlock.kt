@@ -4,7 +4,9 @@
  */
 package io.askimo.ui.common.ui
 
+import androidx.compose.foundation.HorizontalScrollbar
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.ScrollbarStyle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -76,41 +79,41 @@ fun codeViewerBlock(
     }
     val dividerColor = Color(lineNumberColor.red, lineNumberColor.green, lineNumberColor.blue, 0.15f)
 
-    // Row height is driven by content (IntrinsicSize.Min).
-    // Vertical scrolling is handled by the caller — this composable only manages horizontal scrolling.
-    Row(
-        modifier = modifier
-            .background(backgroundColor)
-            .height(IntrinsicSize.Min),
-    ) {
-        // ── Gutter: line numbers ──────────────────────────────────────────────
-        Column(
+    // Outer Column: code row + scrollbar below
+    Column(modifier = modifier.background(backgroundColor)) {
+        // ── Code row (gutter + content) ───────────────────────────────────────
+        Row(
             modifier = Modifier
-                .width(lineNumberWidth)
-                .fillMaxHeight()
-                .background(gutterBackground)
-                .padding(vertical = 12.dp),
-            horizontalAlignment = Alignment.End,
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
         ) {
-            lines.forEachIndexed { index, _ ->
-                Text(
-                    text = "${index + 1}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontFamily = FontFamily.Monospace,
-                    color = lineNumberColor,
-                    modifier = Modifier.padding(end = 8.dp),
-                )
+            // ── Gutter: line numbers ──────────────────────────────────────────
+            Column(
+                modifier = Modifier
+                    .width(lineNumberWidth)
+                    .fillMaxHeight()
+                    .background(gutterBackground)
+                    .padding(vertical = 12.dp),
+                horizontalAlignment = Alignment.End,
+            ) {
+                lines.forEachIndexed { index, _ ->
+                    Text(
+                        text = "${index + 1}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontFamily = FontFamily.Monospace,
+                        color = lineNumberColor,
+                        modifier = Modifier.padding(end = 8.dp),
+                    )
+                }
             }
-        }
 
-        Box(
-            modifier = Modifier
-                .width(1.dp)
-                .fillMaxHeight()
-                .background(dividerColor),
-        )
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .fillMaxHeight()
+                    .background(dividerColor),
+            )
 
-        Box(modifier = Modifier.weight(1f)) {
             Text(
                 text = highlightedCode,
                 style = MaterialTheme.typography.bodyMedium,
@@ -118,10 +121,25 @@ fun codeViewerBlock(
                 color = contentColor,
                 softWrap = false,
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .weight(1f)
                     .horizontalScroll(hScrollState)
-                    .padding(top = 12.dp, bottom = 20.dp, start = 12.dp, end = 12.dp),
+                    .padding(top = 12.dp, bottom = 12.dp, start = 12.dp, end = 12.dp),
             )
         }
+
+        HorizontalScrollbar(
+            adapter = rememberScrollbarAdapter(hScrollState),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 2.dp),
+            style = ScrollbarStyle(
+                minimalHeight = 16.dp,
+                thickness = 6.dp,
+                shape = MaterialTheme.shapes.small,
+                hoverDurationMillis = 150,
+                unhoverColor = contentColor.copy(alpha = 0.20f),
+                hoverColor = contentColor.copy(alpha = 0.50f),
+            ),
+        )
     }
 }

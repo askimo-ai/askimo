@@ -9,9 +9,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,7 +28,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,6 +47,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import io.askimo.core.chat.domain.ChatDirective
 import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.components.primaryButton
@@ -68,12 +68,7 @@ fun manageDirectivesDialog(
     var editContent by remember { mutableStateOf("") }
     var editError by remember { mutableStateOf<String?>(null) }
 
-    var isAdding by remember { mutableStateOf(false) }
-    var newName by remember { mutableStateOf("") }
-    var newContent by remember { mutableStateOf("") }
-    var newApplyToCurrent by remember { mutableStateOf(false) }
-    var newNameError by remember { mutableStateOf<String?>(null) }
-    var newContentError by remember { mutableStateOf<String?>(null) }
+    var showNewDirectiveDialog by remember { mutableStateOf(false) }
 
     // Track which directives have expanded content
     var expandedDirectives by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -82,16 +77,32 @@ fun manageDirectivesDialog(
     val nameRequiredError = stringResource("directive.edit.name.required")
     val contentRequiredError = stringResource("directive.edit.content.required")
 
-    Dialog(onDismissRequest = onDismiss) {
+    if (showNewDirectiveDialog) {
+        newDirectiveDialog(
+            onDismiss = { showNewDirectiveDialog = false },
+            onConfirm = { name, content, applyToCurrent ->
+                onAdd(name, content, applyToCurrent)
+                showNewDirectiveDialog = false
+            },
+        )
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
         Surface(
             modifier = Modifier
-                .width(700.dp)
+                .width(900.dp)
+                .height(700.dp)
                 .padding(16.dp),
             shape = MaterialTheme.shapes.large,
             tonalElevation = 8.dp,
         ) {
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 // Title
@@ -109,30 +120,28 @@ fun manageDirectivesDialog(
                         onClick = onDismiss,
                         modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                     ) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = stringResource("action.close"),
-                        )
+                        Icon(Icons.Default.Close, contentDescription = stringResource("action.close"))
                     }
                 }
 
                 HorizontalDivider()
 
                 // Directives list
-                if (directives.isEmpty() && !isAdding) {
+                if (directives.isEmpty()) {
                     Text(
                         text = stringResource("directive.manage.empty"),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .weight(1f)
                             .padding(vertical = 32.dp),
                     )
                 } else {
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 400.dp),
+                            .weight(1f),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         items(directives, key = { it.id }) { directive ->
@@ -150,13 +159,11 @@ fun manageDirectivesDialog(
                                         .animateContentSize(),
                                     verticalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
-                                    // Directive name row with icon badge and action buttons
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
-                                        // Icon badge + name
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -182,43 +189,30 @@ fun manageDirectivesDialog(
                                         }
 
                                         if (editingDirective != directive.id) {
-                                            Row(
-                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                            ) {
+                                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                                 IconButton(
                                                     onClick = {
                                                         editingDirective = directive.id
                                                         editName = directive.name
                                                         editContent = directive.content
                                                         editError = null
-                                                        isAdding = false
                                                     },
                                                     modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                                                 ) {
-                                                    Icon(
-                                                        Icons.Default.Edit,
-                                                        contentDescription = stringResource("action.edit"),
-                                                        tint = MaterialTheme.colorScheme.onSurface,
-                                                    )
+                                                    Icon(Icons.Default.Edit, contentDescription = stringResource("action.edit"), tint = MaterialTheme.colorScheme.onSurface)
                                                 }
                                                 IconButton(
                                                     onClick = { onDelete(directive.id) },
                                                     modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                                                 ) {
-                                                    Icon(
-                                                        Icons.Default.Delete,
-                                                        contentDescription = stringResource("action.delete"),
-                                                        tint = MaterialTheme.colorScheme.error,
-                                                    )
+                                                    Icon(Icons.Default.Delete, contentDescription = stringResource("action.delete"), tint = MaterialTheme.colorScheme.error)
                                                 }
                                             }
                                         }
                                     }
 
                                     if (editingDirective == directive.id) {
-                                        Column(
-                                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                                        ) {
+                                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                             OutlinedTextField(
                                                 value = editName,
                                                 onValueChange = {
@@ -238,9 +232,7 @@ fun manageDirectivesDialog(
                                                     editContent = it
                                                     editError = null
                                                 },
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .height(200.dp),
+                                                modifier = Modifier.fillMaxWidth().height(200.dp),
                                                 label = { Text(stringResource("directive.edit.content.label")) },
                                                 placeholder = { Text(stringResource("directive.edit.content.placeholder")) },
                                                 maxLines = 10,
@@ -248,48 +240,35 @@ fun manageDirectivesDialog(
                                                 supportingText = editError?.let { { Text(it) } },
                                                 colors = AppComponents.outlinedTextFieldColors(),
                                             )
-
-                                            // Action buttons for edit mode
                                             Row(
                                                 modifier = Modifier.fillMaxWidth(),
                                                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                                                 verticalAlignment = Alignment.CenterVertically,
                                             ) {
-                                                secondaryButton(
-                                                    onClick = {
+                                                secondaryButton(onClick = {
+                                                    editingDirective = null
+                                                    editName = ""
+                                                    editContent = ""
+                                                    editError = null
+                                                }) { Text(stringResource("settings.cancel")) }
+
+                                                primaryButton(onClick = {
+                                                    if (editName.isBlank()) {
+                                                        editError = nameRequiredError
+                                                    } else if (editContent.isBlank()) {
+                                                        editError = contentRequiredError
+                                                    } else {
+                                                        onUpdate(directive.id, editName.trim(), editContent.trim())
                                                         editingDirective = null
                                                         editName = ""
                                                         editContent = ""
                                                         editError = null
-                                                    },
-                                                ) {
-                                                    Text(stringResource("settings.cancel"))
-                                                }
-
-                                                primaryButton(
-                                                    onClick = {
-                                                        if (editName.isBlank()) {
-                                                            editError = nameRequiredError
-                                                        } else if (editContent.isBlank()) {
-                                                            editError = contentRequiredError
-                                                        } else {
-                                                            onUpdate(directive.id, editName.trim(), editContent.trim())
-                                                            editingDirective = null
-                                                            editName = ""
-                                                            editContent = ""
-                                                            editError = null
-                                                        }
-                                                    },
-                                                ) {
-                                                    Text(stringResource("settings.save"))
-                                                }
+                                                    }
+                                                }) { Text(stringResource("settings.save")) }
                                             }
                                         }
                                     } else {
-                                        // Display mode: expandable content
-                                        Column(
-                                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                                        ) {
+                                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                             Text(
                                                 text = directive.content,
                                                 style = MaterialTheme.typography.bodyMedium,
@@ -297,7 +276,6 @@ fun manageDirectivesDialog(
                                                 maxLines = if (isExpanded) Int.MAX_VALUE else 3,
                                                 overflow = if (isExpanded) TextOverflow.Clip else TextOverflow.Ellipsis,
                                             )
-                                            // Show more / Show less toggle (only if content is long enough)
                                             if (directive.content.length > 120 || directive.content.lines().size > 3) {
                                                 Text(
                                                     text = if (isExpanded) stringResource("action.show.less") else stringResource("action.show.more"),
@@ -314,8 +292,6 @@ fun manageDirectivesDialog(
                                                         },
                                                 )
                                             }
-
-                                            // Created date as chip
                                             AssistChip(
                                                 onClick = {},
                                                 label = {
@@ -325,11 +301,7 @@ fun manageDirectivesDialog(
                                                     )
                                                 },
                                                 leadingIcon = {
-                                                    Icon(
-                                                        Icons.Outlined.Schedule,
-                                                        contentDescription = null,
-                                                        modifier = Modifier.size(14.dp),
-                                                    )
+                                                    Icon(Icons.Outlined.Schedule, contentDescription = null, modifier = Modifier.size(14.dp))
                                                 },
                                                 modifier = Modifier.height(28.dp),
                                                 colors = AssistChipDefaults.assistChipColors(
@@ -352,133 +324,18 @@ fun manageDirectivesDialog(
 
                 HorizontalDivider()
 
-                // Add directive section
-                if (isAdding) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Text(
-                            text = stringResource("directive.new.title"),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            text = stringResource("directive.new.guidelines"),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        OutlinedTextField(
-                            value = newName,
-                            onValueChange = {
-                                newName = it
-                                newNameError = null
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text(stringResource("directive.edit.name.label")) },
-                            placeholder = { Text(stringResource("directive.new.name.placeholder")) },
-                            singleLine = true,
-                            isError = newNameError != null,
-                            supportingText = newNameError?.let { { Text(it) } },
-                            colors = AppComponents.outlinedTextFieldColors(),
-                        )
-                        OutlinedTextField(
-                            value = newContent,
-                            onValueChange = {
-                                newContent = it
-                                newContentError = null
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(150.dp),
-                            label = { Text(stringResource("directive.edit.content.label")) },
-                            placeholder = { Text(stringResource("directive.new.content.placeholder")) },
-                            maxLines = 8,
-                            isError = newContentError != null,
-                            supportingText = newContentError?.let { { Text(it) } },
-                            colors = AppComponents.outlinedTextFieldColors(),
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Checkbox(
-                                checked = newApplyToCurrent,
-                                onCheckedChange = { newApplyToCurrent = it },
-                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                            )
-                            Text(
-                                text = stringResource("directive.new.apply.current"),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            secondaryButton(
-                                onClick = {
-                                    isAdding = false
-                                    newName = ""
-                                    newContent = ""
-                                    newApplyToCurrent = false
-                                    newNameError = null
-                                    newContentError = null
-                                },
-                            ) {
-                                Text(stringResource("settings.cancel"))
-                            }
-                            primaryButton(
-                                onClick = {
-                                    var hasError = false
-                                    if (newName.isBlank()) {
-                                        newNameError = nameRequiredError
-                                        hasError = true
-                                    }
-                                    if (newContent.isBlank()) {
-                                        newContentError = contentRequiredError
-                                        hasError = true
-                                    }
-                                    if (!hasError) {
-                                        onAdd(newName.trim(), newContent.trim(), newApplyToCurrent)
-                                        isAdding = false
-                                        newName = ""
-                                        newContent = ""
-                                        newApplyToCurrent = false
-                                        newNameError = null
-                                        newContentError = null
-                                    }
-                                },
-                            ) {
-                                Text(stringResource("directive.new.create"))
-                            }
-                        }
+                // Bottom bar
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    primaryButton(onClick = { showNewDirectiveDialog = true }) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Text(stringResource("directive.new.title"))
                     }
-                } else {
-                    // Bottom bar: Add button + Close
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        primaryButton(
-                            onClick = {
-                                isAdding = true
-                                editingDirective = null
-                            },
-                        ) {
-                            Icon(
-                                Icons.Default.Add,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                            )
-                            Text(stringResource("directive.new.title"))
-                        }
-                        secondaryButton(onClick = onDismiss) {
-                            Text(stringResource("action.close"))
-                        }
+                    secondaryButton(onClick = onDismiss) {
+                        Text(stringResource("action.close"))
                     }
                 }
             }

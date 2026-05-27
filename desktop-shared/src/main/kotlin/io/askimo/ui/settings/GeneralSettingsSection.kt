@@ -199,7 +199,7 @@ private fun languageSelectionCard() {
                         url = crowdinUrl,
                         styles = TextLinkStyles(
                             style = SpanStyle(
-                                color = MaterialTheme.colorScheme.primary,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 textDecoration = TextDecoration.Underline,
                             ),
                         ),

@@ -27,6 +27,7 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
@@ -47,7 +48,12 @@ fun newDirectiveDialog(
     val nameRequiredError = stringResource("directive.edit.name.required")
     val contentRequiredError = stringResource("directive.edit.content.required")
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+        ),
+    ) {
         Surface(
             modifier = Modifier
                 .width(800.dp)
@@ -99,7 +105,7 @@ fun newDirectiveDialog(
                     placeholder = { Text(stringResource("directive.new.content.placeholder")) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(150.dp),
+                        .height(250.dp),
                     maxLines = 8,
                     isError = contentError != null,
                     supportingText = contentError?.let { { Text(it) } },

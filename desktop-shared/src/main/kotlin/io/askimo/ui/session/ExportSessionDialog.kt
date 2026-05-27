@@ -51,6 +51,7 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.export.ExportFormat
@@ -113,10 +114,13 @@ fun exportSessionDialog(
             showFileBrowser = false
         }
     }
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
         Surface(
             modifier = Modifier
-                .width(550.dp)
+                .width(600.dp)
                 .padding(16.dp),
             shape = MaterialTheme.shapes.large,
             tonalElevation = 8.dp,

@@ -80,6 +80,7 @@ import io.askimo.core.event.internal.SessionsRefreshEvent
 import io.askimo.core.user.domain.UserProfile
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.LocalFontScale
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.session.SessionActionMenu
@@ -785,7 +786,7 @@ private fun pinnedProjectItem(
         }
 
         Box(modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)) {
-            AppComponents.dropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+            dropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                 DropdownMenuItem(
                     text = { Text(stringResource("action.unpin")) },
                     leadingIcon = { Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
@@ -892,7 +893,7 @@ private fun pinnedSessionItem(
         }
 
         Box(modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)) {
-            AppComponents.dropdownMenu(
+            dropdownMenu(
                 expanded = showMenu,
                 onDismissRequest = { showMenu = false },
             ) {
@@ -1091,7 +1092,7 @@ private fun sessionItemWithMenu(
         }
 
         Box(modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)) {
-            AppComponents.dropdownMenu(
+            dropdownMenu(
                 expanded = showMenu,
                 onDismissRequest = { showMenu = false },
             ) {

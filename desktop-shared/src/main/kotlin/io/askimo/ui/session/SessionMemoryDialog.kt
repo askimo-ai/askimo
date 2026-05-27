@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import io.askimo.core.chat.domain.SessionMemory
 import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.util.JsonUtils
@@ -79,7 +80,10 @@ fun sessionMemoryDialog(
         isLoading = false
     }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
         Surface(
             modifier = Modifier
                 .width(800.dp)
