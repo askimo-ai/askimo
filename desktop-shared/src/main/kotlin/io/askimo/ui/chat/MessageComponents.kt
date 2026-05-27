@@ -65,6 +65,7 @@ import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.RunCodeEvent
+import io.askimo.core.event.internal.parseFilePreviewRequestEvent
 import io.askimo.core.util.formatFileSize
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
@@ -80,6 +81,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.awt.Desktop
+import java.io.File
 import java.time.Instant
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -100,6 +103,7 @@ fun messageList(
     aiAvatarPainter: BitmapPainter? = null,
     onRetryMessage: ((String) -> Unit)? = null,
     viewportTopY: Float? = null,
+    projectId: String? = null,
 ) {
     // Retry confirmation dialog state
     var showRetryConfirmDialog by remember { mutableStateOf(false) }
@@ -155,6 +159,7 @@ fun messageList(
                             showRetryConfirmDialog = true
                         },
                         isStreaming = isStreamingMessage,
+                        projectId = projectId,
                     )
                     isFirstMessage = false
                     messageIndex++
@@ -248,6 +253,7 @@ fun messageBubble(
     onShowRetryConfirmDialog: ((String) -> Unit)? = null,
     isOutdatedMessage: Boolean = false,
     isStreaming: Boolean = false,
+    projectId: String? = null,
 ) {
     Box(
         modifier = Modifier
@@ -280,6 +286,7 @@ fun messageBubble(
                 onShowRetryConfirmDialog = onShowRetryConfirmDialog,
                 isOutdatedMessage = isOutdatedMessage,
                 isStreaming = isStreaming,
+                projectId = projectId,
             )
         }
     }
@@ -522,6 +529,7 @@ private fun aiMessageBubble(
     onShowRetryConfirmDialog: ((String) -> Unit)? = null,
     isOutdatedMessage: Boolean = false,
     isStreaming: Boolean = false,
+    projectId: String? = null,
 ) {
     val clipboardManager = LocalClipboardManager.current
     var showCopyFeedback by remember { mutableStateOf(false) }
@@ -613,6 +621,23 @@ private fun aiMessageBubble(
                                     isStreaming = isStreaming,
                                     onRunRequest = { cmd, lang -> pendingRunRequest = Pair(cmd, lang) },
                                     messageId = message.id,
+                                    onLinkClick = { url ->
+                                        if (url.startsWith("file://")) {
+                                            if (projectId != null) {
+                                                // Project chat — let the side panel handle it in the file viewer
+                                                EventBus.post(parseFilePreviewRequestEvent(url))
+                                            } else {
+                                                // Non-project chat — fall back to OS file browser
+                                                try {
+                                                    val filePath = parseFilePreviewRequestEvent(url).filePath
+                                                    val file = File(filePath)
+                                                    if (file.exists() && Desktop.isDesktopSupported()) {
+                                                        Desktop.getDesktop().open(file)
+                                                    }
+                                                } catch (_: Exception) {}
+                                            }
+                                        }
+                                    },
                                 )
                             }
 

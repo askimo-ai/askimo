@@ -1049,6 +1049,7 @@ fun chatView(
                                     aiAvatarPainter = aiAvatarPainter,
                                     onRetryMessage = { messageId -> actions.retryMessage(messageId, currentEnabledServerIds) },
                                     viewportTopY = viewportBounds?.top,
+                                    projectId = project?.id,
                                 )
                             }
 
@@ -1082,6 +1083,7 @@ fun chatView(
                                     aiAvatarPainter = aiAvatarPainter,
                                     onRetryMessage = { messageId -> actions.retryMessage(messageId, currentEnabledServerIds) },
                                     viewportTopY = viewportBounds?.top,
+                                    projectId = project?.id,
                                 )
                             }
                         }

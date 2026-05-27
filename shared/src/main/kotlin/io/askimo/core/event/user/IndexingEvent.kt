@@ -48,6 +48,7 @@ data class IndexingInProgressEvent(
     val projectName: String,
     val filesIndexed: Int,
     val totalFiles: Int,
+    val resourceId: String,
     override val timestamp: Instant = Instant.now(),
     override val source: EventSource = EventSource.SYSTEM,
 ) : Event {
@@ -55,7 +56,7 @@ data class IndexingInProgressEvent(
 
     override fun getDetails(): String {
         val percentage = if (totalFiles > 0) (filesIndexed * 100 / totalFiles) else 0
-        return "Indexing project '$projectName': $filesIndexed/$totalFiles files ($percentage%)"
+        return "Indexing project '$projectName': $filesIndexed/$totalFiles files ($percentage%) [resource: $resourceId]"
     }
 }
 

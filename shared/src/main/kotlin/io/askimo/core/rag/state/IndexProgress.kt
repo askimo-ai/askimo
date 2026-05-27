@@ -23,6 +23,7 @@ data class IndexProgress(
     val status: IndexStatus = IndexStatus.NOT_STARTED,
     val totalFiles: Int = 0,
     val processedFiles: Int = 0,
+    val resourceIdentifier: String? = null,
     val error: String? = null,
 ) {
     val progressPercent: Int

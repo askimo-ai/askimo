@@ -71,6 +71,7 @@ abstract class BaseLocalIndexingCoordinator<T : KnowledgeSourceConfig>(
                     projectName = projectName,
                     filesIndexed = processedFiles,
                     totalFiles = totalFiles,
+                    resourceId = stateManager.resourceId,
                 ),
             )
         }

@@ -5,6 +5,8 @@
 package io.askimo.core.util
 
 import java.net.URL
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 import java.nio.file.FileSystem
 import java.nio.file.FileSystemNotFoundException
 import java.nio.file.FileSystems
@@ -65,4 +67,60 @@ fun walkResourceDirectory(
             .sorted()
             .forEach(action)
     }
+}
+
+/**
+ * Parsed representation of a file URL used by RAG citations and markdown links.
+ */
+data class ParsedFileUrl(
+    val filePath: String,
+    val lineRange: IntRange? = null,
+)
+
+/**
+ * Parse a file URL and extract normalized path + optional line range fragment.
+ *
+ * Supported formats:
+ * - `file:///Users/a/b.txt#L1-L20`
+ * - `file://Users/a/b.txt#L10` (non-standard but observed)
+ * - `file:///C:/Users/dev/a.txt#L3-L9`
+ */
+fun parseFileUrl(rawUrl: String): ParsedFileUrl {
+    val (pathPart, fragment) = rawUrl.split('#', limit = 2).let {
+        it[0] to it.getOrElse(1) { "" }
+    }
+
+    var filePath = pathPart
+        .removePrefix("file://")
+        .let { URLDecoder.decode(it, StandardCharsets.UTF_8) }
+
+    // Handle non-standard but observed forms such as file://Users/... (missing 3rd slash)
+    val looksLikeUnixPathMissingLeadingSlash =
+        !filePath.startsWith("/") && !Regex("""^[A-Za-z]:[/\\].*""").matches(filePath)
+    if (looksLikeUnixPathMissingLeadingSlash) {
+        filePath = "/$filePath"
+    }
+
+    // Normalize Windows style URLs like /C:/Users/... to C:/Users/...
+    if (Regex("""^/[A-Za-z]:[/\\].*""").matches(filePath)) {
+        filePath = filePath.removePrefix("/")
+    }
+
+    val lineRange = when {
+        fragment.isBlank() -> null
+
+        Regex("""^L(\d+)-L(\d+)$""").matches(fragment) -> {
+            val m = Regex("""^L(\d+)-L(\d+)$""").find(fragment)!!
+            m.groupValues[1].toInt()..m.groupValues[2].toInt()
+        }
+
+        Regex("""^L(\d+)$""").matches(fragment) -> {
+            val line = Regex("""^L(\d+)$""").find(fragment)!!.groupValues[1].toInt()
+            line..line
+        }
+
+        else -> null
+    }
+
+    return ParsedFileUrl(filePath = filePath, lineRange = lineRange)
 }

@@ -125,6 +125,9 @@ private val log = currentFileLogger()
  * @param onRunRequest Called when the user clicks the Run button on a code block.
  *   The host is responsible for showing the confirmation dialog outside any
  *   SelectionContainer to avoid "layouts are not part of the same hierarchy" crashes.
+ * @param onLinkClick Called when any link is clicked. When null the default
+ *   [LocalUriHandler] is used. Use this to intercept `file://` links and open
+ *   them in the in-app viewer instead of the OS file browser.
  */
 @Composable
 fun markdownText(
@@ -134,6 +137,7 @@ fun markdownText(
     isStreaming: Boolean = false,
     onRunRequest: ((code: String, language: String) -> Unit)? = null,
     messageId: String? = null,
+    onLinkClick: ((url: String) -> Unit)? = null,
 ) {
     val parser = Parser.builder()
         .extensions(listOf(TablesExtension.create(), AutolinkExtension.create()))
@@ -149,7 +153,7 @@ fun markdownText(
     CompositionLocalProvider(LocalContentColor provides contentColor) {
         SelectionContainer(modifier = modifier) {
             Column {
-                renderNode(document, viewportTopY, isStreaming, onRunRequest, messageId)
+                renderNode(document, viewportTopY, isStreaming, onRunRequest, messageId, onLinkClick)
             }
         }
     }
@@ -245,7 +249,7 @@ private fun closeUnclosedFences(markdown: String): String {
 }
 
 @Composable
-private fun renderNode(node: Node, viewportTopY: Float? = null, isStreaming: Boolean = false, onRunRequest: ((String, String) -> Unit)? = null, messageId: String? = null) {
+private fun renderNode(node: Node, viewportTopY: Float? = null, isStreaming: Boolean = false, onRunRequest: ((String, String) -> Unit)? = null, messageId: String? = null, onLinkClick: ((url: String) -> Unit)? = null) {
     var child = node.firstChild
     while (child != null) {
         when (child) {
@@ -254,15 +258,15 @@ private fun renderNode(node: Node, viewportTopY: Float? = null, isStreaming: Boo
                 if (videoUrl != null) {
                     renderVideo(videoUrl)
                 } else {
-                    renderParagraph(child)
+                    renderParagraph(child, onLinkClick)
                 }
             }
 
-            is Heading -> renderHeading(child)
+            is Heading -> renderHeading(child, onLinkClick)
 
-            is BulletList -> renderBulletList(child)
+            is BulletList -> renderBulletList(child, onLinkClick)
 
-            is OrderedList -> renderOrderedList(child)
+            is OrderedList -> renderOrderedList(child, onLinkClick)
 
             is FencedCodeBlock -> renderCodeBlock(
                 child,
@@ -276,6 +280,7 @@ private fun renderNode(node: Node, viewportTopY: Float? = null, isStreaming: Boo
                 child,
                 viewportTopY,
                 onRunRequest,
+                onLinkClick,
             )
 
             is TableBlock -> renderTable(child)
@@ -289,14 +294,14 @@ private fun renderNode(node: Node, viewportTopY: Float? = null, isStreaming: Boo
                 }
             }
 
-            else -> renderNode(child, viewportTopY, isStreaming, onRunRequest, messageId)
+            else -> renderNode(child, viewportTopY, isStreaming, onRunRequest, messageId, onLinkClick)
         }
         child = child.next
     }
 }
 
 @Composable
-private fun renderParagraph(paragraph: Paragraph) {
+private fun renderParagraph(paragraph: Paragraph, onLinkClick: ((url: String) -> Unit)? = null) {
     // Check if this paragraph contains only an image
     val firstChild = paragraph.firstChild
     if (firstChild is Image && firstChild.next == null) {
@@ -497,7 +502,7 @@ private fun renderParagraph(paragraph: Paragraph) {
 
         // No LaTeX at all, render normally with full markdown support
         val annotatedText =
-            buildInlineContent(paragraph, inlineCodeBg, linkColor)
+            buildInlineContent(paragraph, inlineCodeBg, linkColor, onLinkClick)
         Text(
             text = annotatedText,
             style = MaterialTheme.typography.bodyMedium,
@@ -548,7 +553,7 @@ private fun fixMarkdownMangledLatex(latex: String): String {
 }
 
 @Composable
-private fun renderHeading(heading: Heading) {
+private fun renderHeading(heading: Heading, onLinkClick: ((url: String) -> Unit)? = null) {
     val inlineCodeBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
     val linkColor = MaterialTheme.colorScheme.tertiary
 
@@ -562,7 +567,7 @@ private fun renderHeading(heading: Heading) {
     }
 
     Text(
-        text = buildInlineContent(heading, inlineCodeBg, linkColor),
+        text = buildInlineContent(heading, inlineCodeBg, linkColor, onLinkClick),
         style = style,
         fontWeight = FontWeight.Bold,
         modifier = Modifier
@@ -572,14 +577,14 @@ private fun renderHeading(heading: Heading) {
 }
 
 @Composable
-private fun renderBulletList(list: BulletList) {
+private fun renderBulletList(list: BulletList, onLinkClick: ((url: String) -> Unit)? = null) {
     val inlineCodeBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
 
     Column(modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 4.dp)) {
         var item = list.firstChild
         while (item != null) {
             if (item is ListItem) {
-                renderListItem(item, "• ", inlineCodeBg)
+                renderListItem(item, "• ", inlineCodeBg, onLinkClick)
             }
             item = item.next
         }
@@ -587,7 +592,7 @@ private fun renderBulletList(list: BulletList) {
 }
 
 @Composable
-private fun renderOrderedList(list: OrderedList) {
+private fun renderOrderedList(list: OrderedList, onLinkClick: ((url: String) -> Unit)? = null) {
     val inlineCodeBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
 
     Column(modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 4.dp)) {
@@ -596,7 +601,7 @@ private fun renderOrderedList(list: OrderedList) {
         var index = list.markerStartNumber
         while (item != null) {
             if (item is ListItem) {
-                renderListItem(item, "$index. ", inlineCodeBg)
+                renderListItem(item, "$index. ", inlineCodeBg, onLinkClick)
                 index++
             }
             item = item.next
@@ -609,6 +614,7 @@ private fun renderListItem(
     item: ListItem,
     marker: String,
     inlineCodeBg: Color,
+    onLinkClick: ((url: String) -> Unit)? = null,
 ) {
     val linkColor = MaterialTheme.colorScheme.tertiary
 
@@ -636,6 +642,7 @@ private fun renderListItem(
                             node,
                             inlineCodeBg,
                             linkColor,
+                            onLinkClick,
                         ),
                     )
                 }
@@ -650,8 +657,8 @@ private fun renderListItem(
         // Render nested lists
         nestedBlocks.forEach { block ->
             when (block) {
-                is BulletList -> renderBulletList(block)
-                is OrderedList -> renderOrderedList(block)
+                is BulletList -> renderBulletList(block, onLinkClick)
+                is OrderedList -> renderOrderedList(block, onLinkClick)
             }
         }
     }
@@ -911,7 +918,7 @@ private fun renderCodeBlock(codeBlock: FencedCodeBlock, viewportTopY: Float? = n
 }
 
 @Composable
-private fun renderBlockQuote(blockQuote: BlockQuote, viewportTopY: Float? = null, onRunRequest: ((String, String) -> Unit)? = null) {
+private fun renderBlockQuote(blockQuote: BlockQuote, viewportTopY: Float? = null, onRunRequest: ((String, String) -> Unit)? = null, onLinkClick: ((url: String) -> Unit)? = null) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -919,7 +926,7 @@ private fun renderBlockQuote(blockQuote: BlockQuote, viewportTopY: Float? = null
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
             .padding(8.dp),
     ) {
-        renderNode(blockQuote, viewportTopY, false, onRunRequest)
+        renderNode(blockQuote, viewportTopY, false, onRunRequest, null, onLinkClick)
     }
 }
 
@@ -1240,6 +1247,7 @@ private fun buildInlineContent(
     node: Node,
     inlineCodeBg: Color,
     linkColor: Color,
+    onLinkClick: ((url: String) -> Unit)? = null,
 ): AnnotatedString = buildAnnotatedString {
     var child = node.firstChild
     while (child != null) {
@@ -1389,13 +1397,13 @@ private fun buildInlineContent(
 
             is StrongEmphasis -> {
                 withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                    append(buildInlineContent(child, inlineCodeBg, linkColor))
+                    append(buildInlineContent(child, inlineCodeBg, linkColor, onLinkClick))
                 }
             }
 
             is Emphasis -> {
                 withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
-                    append(buildInlineContent(child, inlineCodeBg, linkColor))
+                    append(buildInlineContent(child, inlineCodeBg, linkColor, onLinkClick))
                 }
             }
 
@@ -1425,23 +1433,39 @@ private fun buildInlineContent(
             is Link -> {
                 // Add link annotation for clickable links using the new LinkAnnotation API
                 // Build styled content for link children (e.g., inline code with backticks)
-                val linkContent = buildInlineContent(child, inlineCodeBg, linkColor)
+                val linkContent = buildInlineContent(child, inlineCodeBg, linkColor, onLinkClick)
                 val displayContent = linkContent.ifEmpty {
                     AnnotatedString(child.destination)
                 }
 
-                withLink(
-                    LinkAnnotation.Url(
-                        url = child.destination,
-                        styles = TextLinkStyles(
-                            style = SpanStyle(
-                                color = linkColor,
-                                textDecoration = TextDecoration.Underline,
-                            ),
-                        ),
+                val destination = child.destination
+                val linkStyles = TextLinkStyles(
+                    style = SpanStyle(
+                        color = linkColor,
+                        textDecoration = TextDecoration.Underline,
                     ),
-                ) {
-                    append(displayContent)
+                )
+
+                if (destination.startsWith("file://") && onLinkClick != null) {
+                    // Intercept file:// links — fire callback instead of opening OS browser
+                    withLink(
+                        LinkAnnotation.Clickable(
+                            tag = destination,
+                            styles = linkStyles,
+                            linkInteractionListener = { onLinkClick(destination) },
+                        ),
+                    ) {
+                        append(displayContent)
+                    }
+                } else {
+                    withLink(
+                        LinkAnnotation.Url(
+                            url = destination,
+                            styles = linkStyles,
+                        ),
+                    ) {
+                        append(displayContent)
+                    }
                 }
             }
 
@@ -1467,9 +1491,9 @@ private fun buildInlineContent(
 
             is HardLineBreak, is SoftLineBreak -> append("\n")
 
-            is Paragraph -> append(buildInlineContent(child, inlineCodeBg, linkColor))
+            is Paragraph -> append(buildInlineContent(child, inlineCodeBg, linkColor, onLinkClick))
 
-            else -> append(buildInlineContent(child, inlineCodeBg, linkColor))
+            else -> append(buildInlineContent(child, inlineCodeBg, linkColor, onLinkClick))
         }
         child = child.next
     }
@@ -1482,8 +1506,9 @@ private fun buildInlineContentForNode(
     node: Node,
     inlineCodeBg: Color,
     linkColor: Color,
+    onLinkClick: ((url: String) -> Unit)? = null,
 ): AnnotatedString = buildAnnotatedString {
-    append(buildInlineContent(node, inlineCodeBg, linkColor))
+    append(buildInlineContent(node, inlineCodeBg, linkColor, onLinkClick))
 }
 
 /**

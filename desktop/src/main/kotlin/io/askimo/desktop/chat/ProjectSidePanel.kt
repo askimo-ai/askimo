@@ -42,6 +42,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,9 +60,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
+import io.askimo.core.chat.domain.LocalFilesKnowledgeSourceConfig
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
+import io.askimo.core.event.internal.FilePreviewRequestEvent
 import io.askimo.core.event.internal.ProjectIndexRemovalEvent
 import io.askimo.core.event.internal.ProjectIndexingRequestedEvent
 import io.askimo.core.event.internal.ProjectReIndexEvent
@@ -73,6 +76,7 @@ import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.ui.themedTooltip
+import kotlinx.coroutines.flow.filterIsInstance
 import java.awt.Cursor
 
 /**
@@ -326,6 +330,24 @@ private fun ragSourcesTabContent(
 ) {
     var selectedNode by remember { mutableStateOf<TreeNode?>(null) }
     var viewerHeightRatio by remember { mutableStateOf(ApplicationPreferences.getFileViewerHeightRatio()) }
+
+    // ── Intercept file:// link clicks from markdown messages ──────────────────
+    // When the user clicks a file:// link inside a chat message while a project
+    // is open, the file should open directly in the in-app file viewer (bottom
+    // pane) rather than the OS file browser.
+    LaunchedEffect(Unit) {
+        EventBus.internalEvents
+            .filterIsInstance<FilePreviewRequestEvent>()
+            .collect { event ->
+                val file = java.io.File(event.filePath)
+                if (file.exists() && file.isFile) {
+                    selectedNode = FileTreeNode(
+                        path = event.filePath,
+                        source = LocalFilesKnowledgeSourceConfig(resourceIdentifier = event.filePath),
+                    )
+                }
+            }
+    }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val totalHeightPx = constraints.maxHeight.toFloat()

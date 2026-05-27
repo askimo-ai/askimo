@@ -876,6 +876,8 @@ private fun indexProgressIndicator(
         }
 
         IndexStatus.INDEXING -> {
+            val resourceIdentifier = indexProgress.resourceIdentifier
+                ?: stringResource("project.indexing.resource.unknown")
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -888,7 +890,7 @@ private fun indexProgressIndicator(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = stringResource("project.indexing.label"),
+                        text = stringResource("project.indexing.label", resourceIdentifier),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
