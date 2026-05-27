@@ -206,7 +206,11 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for development guidelines and DCO requ
 
 English · 中文 (简体/繁體) · 日本語 · 한국어 · Français · Español · Deutsch · Português · Tiếng Việt
 
-Want to add a language? [Open a discussion](https://github.com/askimo-ai/askimo/discussions).
+Translations are managed on Crowdin. Contributions welcome - no coding required.
+
+[![Crowdin](https://badges.crowdin.net/askimo/localized.svg)](https://crowdin.com/project/askimo)
+
+[Help translate Askimo →](https://askimo.chat/docs/contributing/contributing-localization/)
 
 ---
 

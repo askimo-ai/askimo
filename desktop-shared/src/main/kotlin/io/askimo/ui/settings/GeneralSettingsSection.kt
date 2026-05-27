@@ -38,8 +38,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.config.AppConfig
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.ui.common.i18n.stringResource
@@ -106,7 +113,6 @@ fun generalSettingsSection() {
 private fun languageSelectionCard() {
     val currentLocale by ThemePreferences.locale.collectAsState()
     var languageDropdownExpanded by remember { mutableStateOf(false) }
-
     val availableLanguages = remember { LocalizationManager.availableLocales }
 
     Card(
@@ -184,6 +190,30 @@ private fun languageSelectionCard() {
                     }
                 }
             }
+
+            val crowdinUrl = "https://$DOMAIN/docs/contributing/contributing-localization/"
+            val annotatedString = buildAnnotatedString {
+                append(stringResource("settings.app.language.translation.help") + " ")
+                withLink(
+                    LinkAnnotation.Url(
+                        url = crowdinUrl,
+                        styles = TextLinkStyles(
+                            style = SpanStyle(
+                                color = MaterialTheme.colorScheme.primary,
+                                textDecoration = TextDecoration.Underline,
+                            ),
+                        ),
+                    ),
+                ) {
+                    append(stringResource("settings.app.language.translation.contribute"))
+                }
+            }
+            Text(
+                text = annotatedString,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
+                ),
+            )
 
             HorizontalDivider()
 

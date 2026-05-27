@@ -1,3 +1,24 @@
+# Crowdin configuration for Askimo i18n
+# Docs: https://developer.crowdin.com/configuration-file/
+#
+# CLI usage:
+#   crowdin upload sources       # push updated messages.properties to Crowdin
+#   crowdin upload translations  # push existing translations (one-time catch-up)
+#   crowdin download             # pull translations from Crowdin into this repo
+
 files:
   - source: /desktop-shared/src/main/resources/i18n/messages.properties
-    translation: /desktop-shared/src/main/resources/i18n/%original_file_name%_%two_letters_code%.properties
+    translation: /desktop-shared/src/main/resources/i18n/messages_%two_letters_code%.properties
+    languages_mapping:
+      two_letters_code:
+        # Crowdin uses IETF tags (hyphen); Java locale file names use underscore
+        zh-CN: zh_CN
+        zh-TW: zh_TW
+        ja: ja_JP
+        ko: ko_KR
+        pt-BR: pt_BR
+        vi: vi_VN
+        # These map directly (language-only files)
+        de: de
+        es: es
+        fr: fr
