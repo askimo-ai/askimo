@@ -13,7 +13,7 @@ import java.net.URLEncoder
 /**
  * Share targets supported by Askimo.
  */
-enum class ShareTarget { X, LINKEDIN, FACEBOOK }
+enum class ShareTarget { X, LINKEDIN, FACEBOOK, HACKER_NEWS }
 
 /**
  * Common share utilities
@@ -25,6 +25,7 @@ object ShareUtils {
         ShareTarget.X -> LocalizationManager.getString("menu.help.share.x")
         ShareTarget.LINKEDIN -> LocalizationManager.getString("menu.help.share.linkedin")
         ShareTarget.FACEBOOK -> LocalizationManager.getString("menu.help.share.facebook")
+        ShareTarget.HACKER_NEWS -> LocalizationManager.getString("menu.help.share.hackernews")
     }
 
     /** Opens the browser to share on the given target. Silently ignores failures. */
@@ -38,6 +39,7 @@ object ShareUtils {
                 ShareTarget.X -> "https://x.com/intent/tweet?text=$encoded"
                 ShareTarget.LINKEDIN -> "https://www.linkedin.com/sharing/share-offsite/?url=$url"
                 ShareTarget.FACEBOOK -> "https://www.facebook.com/sharer/sharer.php?u=$url"
+                ShareTarget.HACKER_NEWS -> "https://news.ycombinator.com/submitlink?u=$url"
             }
             desktop.browse(URI(uri))
         }

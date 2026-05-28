@@ -1577,12 +1577,12 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                         starPromptDialog(
                             onDismiss = {
                                 Analytics.track(AnalyticsEvent.STAR_PROMPT_DISMISSED)
-                                AccountPreferences.device().markAsPrompted()
+                                AccountPreferences.device().snoozeStarPrompt()
                                 showStarPromptDialog = false
                             },
                             onStar = {
                                 Analytics.track(AnalyticsEvent.STAR_PROMPT_ACCEPTED)
-                                AccountPreferences.device().markAsPrompted()
+                                AccountPreferences.device().dismissStarPromptPermanently()
                                 showStarPromptDialog = false
                                 runCatching {
                                     if (Desktop.isDesktopSupported()) {
@@ -1591,6 +1591,10 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                         )
                                     }
                                 }.onFailure { log.error("Can not open the browser", it) }
+                            },
+                            onAlreadyStarred = {
+                                AccountPreferences.device().dismissStarPromptPermanently()
+                                showStarPromptDialog = false
                             },
                         )
                     }
@@ -1619,7 +1623,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                     if (showFeedbackPromptDialog) {
                         feedbackPromptDialog(
                             onConfirm = {
-                                AccountPreferences.device().markAsPrompted()
+                                AccountPreferences.device().dismissStarPromptPermanently()
                                 showFeedbackPromptDialog = false
                                 runCatching {
                                     if (Desktop.isDesktopSupported()) {
@@ -1630,7 +1634,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                 }.onFailure { log.error("Cannot open browser for feedback", it) }
                             },
                             onDecline = {
-                                AccountPreferences.device().markAsPrompted()
+                                AccountPreferences.device().dismissStarPromptPermanently()
                                 showFeedbackPromptDialog = false
                             },
                         )

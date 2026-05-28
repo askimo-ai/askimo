@@ -191,10 +191,17 @@ class SessionManager(
             }
         }
 
-        // Check if this session already has an active stream
-        if (activeThreads.containsKey(sessionId)) {
+        // Check if this session already has an active (not yet complete) stream
+        val existingThread = activeThreads[sessionId]
+        if (existingThread != null && !existingThread.isComplete.value) {
             log.warn("Session $sessionId already has an active stream")
             return null
+        }
+        // If the thread is complete but not yet cleaned up by the ViewModel, remove it now
+        // so a new stream can start (e.g. user retries before the completion handler fires)
+        if (existingThread != null) {
+            activeThreads.remove(sessionId)
+            log.debug("Removed stale completed thread for session $sessionId before starting new stream")
         }
 
         // Check global stream limit
@@ -317,8 +324,14 @@ class SessionManager(
                 // and replaces the temporary message with the saved one from database
                 thread.markComplete()
             } finally {
-                activeThreads.remove(sessionId)
-                log.debug("Thread $threadId cleaned up. Active streams: ${activeThreads.size}")
+                // Do NOT remove from activeThreads here.
+                // subscribeToThread() in ChatViewModel reads this thread to get the savedMessage
+                // and replace the temp UI message with the persisted one (real ID, isFailed flag).
+                // If a fast failure (e.g. JsonParseException on first token) completes and removes
+                // the thread before subscribeToThread runs, the temp message is stuck with id=null
+                // and the retry button silently does nothing.
+                // The thread is removed by ChatViewModel after the completion handler fires.
+                log.debug("Thread $threadId completed. Active streams: ${activeThreads.size}")
             }
         }
 
@@ -329,6 +342,11 @@ class SessionManager(
      * Get an active streaming thread for a session.
      */
     fun getActiveThread(sessionId: String): StreamingThread? = activeThreads[sessionId]
+
+    fun removeThread(sessionId: String) {
+        activeThreads.remove(sessionId)
+        log.debug("Thread removed for session $sessionId. Active streams: ${activeThreads.size}")
+    }
 
     /**
      * Stop an active stream for a session.

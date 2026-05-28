@@ -405,6 +405,11 @@ class ChatViewModel(
                         // Refresh session title (in case it was auto-generated from first message)
                         refreshSessionTitle()
 
+                        // Remove the thread now that we've read the savedMessage.
+                        // This must happen AFTER reading savedMessage — the thread is kept alive
+                        // past its coroutine completion specifically for this read.
+                        sessionManager.removeThread(sessionId)
+
                         // Cancel and clean up subscription when thread completes
                         activeSubscriptions[sessionId]?.cancel()
                         activeSubscriptions.remove(sessionId)

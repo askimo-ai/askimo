@@ -26,6 +26,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,8 +44,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import io.askimo.core.analytics.Analytics
 import io.askimo.core.analytics.AnalyticsEvent
+import io.askimo.core.service.StatsService
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Happiness gate shown before [starPromptDialog].
@@ -220,12 +224,26 @@ fun feedbackPromptDialog(
 
 /**
  * Dialog prompting users to support the project.
+ * Fetches the current star count from the public API and shows social proof when loaded.
+ *
+ * @param onDismiss       User clicked "Maybe later" — caller should call [snoozeStarPrompt].
+ * @param onStar          User clicked "Star on GitHub" — caller should call [dismissStarPromptPermanently].
+ * @param onAlreadyStarred User clicked "Already starred ✓" — caller should call [dismissStarPromptPermanently].
  */
 @Composable
 fun starPromptDialog(
     onDismiss: () -> Unit,
     onStar: () -> Unit,
+    onAlreadyStarred: () -> Unit,
 ) {
+    var starCount by remember { mutableStateOf<Int?>(null) }
+
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            starCount = StatsService.getInstance().getStats()?.stars
+        }
+    }
+
     Dialog(onDismissRequest = {}) {
         Surface(
             modifier = Modifier.width(520.dp),
@@ -249,9 +267,18 @@ fun starPromptDialog(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+
+                    val count = starCount
+                    if (count != null) {
+                        Text(
+                            text = stringResource("star.prompt.social.proof", count),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.secondary,
+                        )
+                    }
                 }
 
-                // Action cards
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -264,17 +291,24 @@ fun starPromptDialog(
                         onClick = onStar,
                         modifier = Modifier.weight(1f),
                     )
-                    // Share card with dropdown
-                    shareActionCard(
-                        modifier = Modifier.weight(1f),
-                    )
+                    shareActionCard(modifier = Modifier.weight(1f))
                 }
 
-                // Maybe Later link
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    TextButton(
+                        onClick = onAlreadyStarred,
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                    ) {
+                        Text(
+                            text = stringResource("star.prompt.already.starred"),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     TextButton(
                         onClick = onDismiss,
                         modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
@@ -318,7 +352,7 @@ private fun shareActionCard(modifier: Modifier = Modifier) {
                     imageVector = Icons.Default.Share,
                     contentDescription = null,
                     modifier = Modifier.size(28.dp),
-                    tint = Color(0xFF1DA1F2), // Twitter/share blue
+                    tint = Color(0xFF1DA1F2),
                 )
                 Text(
                     text = stringResource("star.prompt.share.button"),

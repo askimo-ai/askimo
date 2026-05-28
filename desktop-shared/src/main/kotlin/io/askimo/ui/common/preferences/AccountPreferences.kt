@@ -6,6 +6,7 @@ package io.askimo.ui.common.preferences
 
 import io.askimo.core.logging.logger
 import java.time.Duration
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.prefs.Preferences
@@ -28,6 +29,8 @@ class AccountPreferences private constructor(private val prefs: Preferences) {
         private const val ROOT_NODE = "io/askimo/app/accounts"
 
         private const val MINIMUM_DAYS_BEFORE_PROMPT = 7L
+        private const val MINIMUM_MESSAGES_BEFORE_PROMPT = 20
+        private const val SNOOZE_DAYS = 30L
 
         /**
          * Returns [AccountPreferences] scoped to [accountId] (typically the user's email,
@@ -153,19 +156,67 @@ class AccountPreferences private constructor(private val prefs: Preferences) {
         return Duration.between(firstUse, LocalDateTime.now()).toDays()
     }
 
-    /** True if the user has already been shown the "star us on GitHub" prompt. */
-    fun hasBeenPrompted(): Boolean = safeGetBoolean("star.has_been_prompted", false)
-
-    /** Marks that the star prompt has been shown — never show again. */
-    fun markAsPrompted() = safePutBoolean("star.has_been_prompted", true)
+    // ── Star prompt state machine ─────────────────────────────────────────────
 
     /**
-     * True when the star prompt should be displayed.
-     * Requires [MINIMUM_DAYS_BEFORE_PROMPT] days of use and not yet prompted.
+     * Possible states for the star/share prompt.
+     *
+     * - [NEVER_SHOWN]      Initial state — prompt not yet shown.
+     * - [SNOOZED]          User clicked "Maybe later" — re-show after [SNOOZE_DAYS] days.
+     * - [PERMANENTLY_DONE] User starred, shared, or clicked "Already starred" — never show again.
      */
-    fun shouldShowStarPrompt(): Boolean {
-        if (hasBeenPrompted()) return false
-        return getDaysSinceFirstUse() >= MINIMUM_DAYS_BEFORE_PROMPT
+    enum class StarPromptState { NEVER_SHOWN, SNOOZED, PERMANENTLY_DONE }
+
+    private fun getStarPromptState(): StarPromptState = when (safeGet("star.prompt_state", null)) {
+        StarPromptState.SNOOZED.name -> StarPromptState.SNOOZED
+
+        StarPromptState.PERMANENTLY_DONE.name -> StarPromptState.PERMANENTLY_DONE
+
+        // Backward compat: old "has_been_prompted=true" key maps to PERMANENTLY_DONE
+        else -> if (safeGetBoolean("star.has_been_prompted", false)) {
+            StarPromptState.PERMANENTLY_DONE
+        } else {
+            StarPromptState.NEVER_SHOWN
+        }
+    }
+
+    private fun setStarPromptState(state: StarPromptState) = safePut("star.prompt_state", state.name)
+
+    private fun getSnoozeDate(): LocalDate? = safeGet("star.snoozed_at", null)
+        ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+
+    private fun setSnoozeDate(date: LocalDate = LocalDate.now()) = safePut("star.snoozed_at", date.toString())
+
+    /** User clicked "Maybe later" — snooze for [SNOOZE_DAYS] days. */
+    fun snoozeStarPrompt() {
+        setStarPromptState(StarPromptState.SNOOZED)
+        setSnoozeDate()
+    }
+
+    /** User starred, shared, or clicked "Already starred ✓" — never show again. */
+    fun dismissStarPromptPermanently() = setStarPromptState(StarPromptState.PERMANENTLY_DONE)
+
+    /**
+     * Returns true when the star prompt should be shown.
+     *
+     * Conditions:
+     * - [NEVER_SHOWN]: [MINIMUM_DAYS_BEFORE_PROMPT] days elapsed AND [sentMessageCount] >= [MINIMUM_MESSAGES_BEFORE_PROMPT]
+     * - [SNOOZED]: [SNOOZE_DAYS] days have passed since snooze date
+     * - [PERMANENTLY_DONE]: always false
+     *
+     * Pass [sentMessageCount] = total user messages sent across all sessions.
+     */
+    fun shouldShowStarPrompt(sentMessageCount: Int = Int.MAX_VALUE): Boolean = when (getStarPromptState()) {
+        StarPromptState.PERMANENTLY_DONE -> false
+
+        StarPromptState.NEVER_SHOWN ->
+            getDaysSinceFirstUse() >= MINIMUM_DAYS_BEFORE_PROMPT &&
+                sentMessageCount >= MINIMUM_MESSAGES_BEFORE_PROMPT
+
+        StarPromptState.SNOOZED -> {
+            val snoozeDate = getSnoozeDate() ?: return false
+            LocalDate.now().isAfter(snoozeDate.plusDays(SNOOZE_DAYS))
+        }
     }
 
     // ── Launch count — retention milestones ───────────────────────────────────
@@ -179,17 +230,6 @@ class AccountPreferences private constructor(private val prefs: Preferences) {
         safePutInt("launch_count", next)
         return next
     }
-
-    /** Total number of times the app has been launched on this device/account. */
-    fun getLaunchCount(): Int = safeGetInt("launch_count", 0)
-
-    // ── Analytics consent ─────────────────────────────────────────────────────
-
-    /** True once the analytics consent dialog has been shown (regardless of answer). */
-    fun isAnalyticsConsentAsked(): Boolean = safeGetBoolean("analytics.consent_asked", false)
-
-    /** Marks that the consent dialog has been shown so it is never shown again. */
-    fun markAnalyticsConsentAsked() = safePutBoolean("analytics.consent_asked", true)
 
     // ── Update notifications ──────────────────────────────────────────────────
 
