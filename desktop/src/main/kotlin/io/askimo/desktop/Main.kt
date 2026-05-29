@@ -840,12 +840,10 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                         isExpanded = isSidebarExpanded,
                                                         width = calculatedWidth,
                                                         currentView = currentView,
-                                                        isProjectsExpanded = isProjectsExpanded,
                                                         isSessionsExpanded = isSessionsExpanded,
                                                         projectsViewModel = projectsViewModel,
                                                         sessionsViewModel = sessionsViewModel,
                                                         currentSessionId = activeSessionId,
-                                                        currentProjectId = selectedProjectId,
                                                         userProfile = userProfile,
                                                         showPlansInSidebar = showPlansInSidebar,
                                                         showSkillsInSidebar = showSkillsInSidebar,
@@ -911,9 +909,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                         },
                                                         onNavigateToSkills = {
                                                             currentView = View.SKILLS
-                                                        },
-                                                        onNavigateToDiscover = {
-                                                            currentView = View.DISCOVER
                                                         },
                                                     )
                                                 } // End BoxWithConstraints

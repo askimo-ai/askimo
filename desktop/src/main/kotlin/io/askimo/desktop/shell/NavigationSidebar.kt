@@ -53,12 +53,10 @@ fun navigationSidebar(
     isExpanded: Boolean,
     width: Dp,
     currentView: View,
-    isProjectsExpanded: Boolean,
     isSessionsExpanded: Boolean,
     projectsViewModel: ProjectsViewModel,
     sessionsViewModel: SessionsViewModel,
     currentSessionId: String?,
-    currentProjectId: String?,
     userProfile: UserProfile?,
     showPlansInSidebar: Boolean = true,
     showSkillsInSidebar: Boolean = true,
@@ -84,7 +82,6 @@ fun navigationSidebar(
     onNavigateToAbout: () -> Unit,
     onNavigateToPlans: () -> Unit = {},
     onNavigateToSkills: () -> Unit = {},
-    onNavigateToDiscover: () -> Unit = {},
 ) {
     sharedNavigationSidebar(
         isExpanded = isExpanded,
