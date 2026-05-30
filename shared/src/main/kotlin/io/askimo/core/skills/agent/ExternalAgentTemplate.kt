@@ -244,4 +244,3 @@ abstract class ExternalAgentTemplate : ExternalAgent {
         log.error("{} run failed: {}", name, e.message, e)
     }
 }
-

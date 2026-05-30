@@ -194,7 +194,10 @@ fun revealingMarkdownText(
     val topNodes = remember(document) {
         buildList {
             var child = document.firstChild
-            while (child != null) { add(child); child = child.next }
+            while (child != null) {
+                add(child)
+                child = child.next
+            }
         }
     }
 

@@ -223,6 +223,7 @@ class GeminiAgent : ExternalAgentTemplate() {
 
             "result" -> {
                 val status = event.fields["status"] as? String ?: "done"
+
                 @Suppress("UNCHECKED_CAST")
                 val stats = event.fields["stats"] as? Map<String, Any>
                 val totalTokens = stats?.get("total_tokens")

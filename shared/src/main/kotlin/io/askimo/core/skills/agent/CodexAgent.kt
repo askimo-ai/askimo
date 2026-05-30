@@ -106,15 +106,15 @@ class CodexAgent : ExternalAgentTemplate() {
         userInput: String,
         effectiveWorkDir: File,
     ): List<String> = buildList {
-            add(agentPath)
-            add("exec")
-            add("--dangerously-bypass-approvals-and-sandbox")
-            add("--skip-git-repo-check")
-            add("--ephemeral")
-            add("-C")
-            add(effectiveWorkDir.absolutePath)
-            add("-") // read prompt from stdin
-        }
+        add(agentPath)
+        add("exec")
+        add("--dangerously-bypass-approvals-and-sandbox")
+        add("--skip-git-repo-check")
+        add("--ephemeral")
+        add("-C")
+        add(effectiveWorkDir.absolutePath)
+        add("-") // read prompt from stdin
+    }
 
     override fun configureProcess(
         builder: ProcessBuilderExt,
@@ -157,4 +157,3 @@ class CodexAgent : ExternalAgentTemplate() {
         onToken(line + "\n")
     }
 }
-

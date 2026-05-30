@@ -90,6 +90,7 @@ private enum class AgentState {
     NEEDS_EXTERNAL_AUTH,
     READY,
 }
+
 /**
  * Renders the skill execution UI inline — no scroll container of its own.
  * The parent (skillsMainContent) owns the scroll.
@@ -458,6 +459,7 @@ internal fun skillExecutionArea(
                     )
                 }
             }
+
             AgentState.NEEDS_KEY -> {
                 Spacer(modifier = Modifier.height(Spacing.small))
                 Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f), shape = MaterialTheme.shapes.small) {
@@ -505,6 +507,7 @@ internal fun skillExecutionArea(
                     }
                 }
             }
+
             AgentState.NEEDS_EXTERNAL_AUTH -> {
                 Spacer(modifier = Modifier.height(Spacing.small))
                 Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f), shape = MaterialTheme.shapes.small) {
@@ -516,6 +519,7 @@ internal fun skillExecutionArea(
                     )
                 }
             }
+
             AgentState.READY -> Unit
         }
         Spacer(modifier = Modifier.height(Spacing.extraLarge))
