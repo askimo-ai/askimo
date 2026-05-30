@@ -168,174 +168,58 @@ private fun skillRunHistoryPanelRow(
     }
 }
 
+/**
+ * The scrollable history list content without any outer panel chrome.
+ * Embedded directly inside the right-rail History tab.
+ */
 @Composable
-internal fun skillsHistoryPanel(
-    isExpanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
-    runHistory: List<SkillRunRecord> = emptyList(),
+internal fun skillsHistoryContent(
+    runHistory: List<SkillRunRecord>,
     filterSkillName: String? = null,
     onSelectRecord: (SkillRunRecord) -> Unit = {},
     onDeleteRecord: (SkillRunRecord) -> Unit = {},
 ) {
-    var panelWidth by remember {
-        mutableStateOf(ApplicationPreferences.getSkillsSidePanelWidth().dp)
-    }
-
-    val animatedWidth by animateDpAsState(
-        targetValue = if (isExpanded) panelWidth else 56.dp,
-        animationSpec = tween(durationMillis = 300),
-    )
-
-    Card(
-        modifier = Modifier.width(animatedWidth).fillMaxHeight(),
-        shape = RectangleShape,
-        colors = CardDefaults.cardColors(
-            containerColor = AppComponents.sidebarSurfaceColor(),
-            contentColor = MaterialTheme.colorScheme.onSurface,
-        ),
-    ) {
-        Row(modifier = Modifier.fillMaxSize()) {
-            // ── Drag-to-resize handle ─────────────────────────────────────────
-            if (isExpanded) {
-                Box(
-                    modifier = Modifier
-                        .width(4.dp)
-                        .fillMaxHeight()
-                        .background(MaterialTheme.colorScheme.outlineVariant)
-                        .pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.W_RESIZE_CURSOR)))
-                        .pointerInput(Unit) {
-                            detectDragGestures(
-                                onDrag = { change, dragAmount ->
-                                    change.consume()
-                                    val newWidth = panelWidth - dragAmount.x.toDp()
-                                    panelWidth = newWidth.coerceIn(220.dp, 560.dp)
-                                },
-                                onDragEnd = {
-                                    ApplicationPreferences.setSkillsSidePanelWidth(panelWidth.value.toInt())
-                                },
-                            )
-                        },
-                )
+    if (runHistory.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(Spacing.small),
+            ) {
+                Icon(Icons.Default.History, null, modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+                Text(stringResource("skills.view.history.empty"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
             }
-
-            // ── Expanded content ──────────────────────────────────────────────
-            if (isExpanded) {
-                Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {
-                            Icon(Icons.Default.History, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(
-                                filterSkillName ?: stringResource("skills.view.history.title"),
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            if (runHistory.isNotEmpty()) {
-                                Box(
-                                    modifier = Modifier
-                                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), shape = MaterialTheme.shapes.extraSmall)
-                                        .padding(horizontal = 6.dp, vertical = 1.dp),
-                                ) {
-                                    Text("${runHistory.size}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
-                        }
-                        IconButton(onClick = { onExpandedChange(false) }, modifier = Modifier.size(32.dp).pointerHoverIcon(PointerIcon.Hand)) {
-                            Icon(Icons.Default.Remove, contentDescription = stringResource("skills.view.history.collapse"), tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
-                        }
-                    }
-                    HorizontalDivider()
-
-                    if (runHistory.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(Spacing.small),
-                            ) {
-                                Icon(Icons.Default.History, null, modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
-                                Text(stringResource("skills.view.history.empty"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
-                            }
-                        }
-                    } else {
-                        val panelScrollState = rememberScrollState()
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .verticalScroll(panelScrollState)
-                                    .padding(vertical = 4.dp),
-                            ) {
-                                runHistory.forEach { record ->
-                                    skillRunHistoryPanelRow(
-                                        record = record,
-                                        showSkillName = filterSkillName == null,
-                                        onClick = { onSelectRecord(record) },
-                                        onDelete = { onDeleteRecord(record) },
-                                    )
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.08f))
-                                }
-                            }
-                            VerticalScrollbar(
-                                adapter = rememberScrollbarAdapter(panelScrollState),
-                                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 2.dp),
-                                style = ScrollbarStyle(
-                                    minimalHeight = 16.dp,
-                                    thickness = 6.dp,
-                                    shape = MaterialTheme.shapes.small,
-                                    hoverDurationMillis = 300,
-                                    unhoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                                    hoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.50f),
-                                ),
-                            )
-                        }
-                    }
-                }
-            }
-
-            // ── Icon bar (always visible) ─────────────────────────────────────
+        }
+    } else {
+        val panelScrollState = rememberScrollState()
+        Box(modifier = Modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier
-                    .width(56.dp)
-                    .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                    .padding(vertical = 16.dp, horizontal = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(Spacing.medium),
+                    .fillMaxSize()
+                    .verticalScroll(panelScrollState)
+                    .padding(vertical = 4.dp),
             ) {
-                themedTooltip(text = stringResource("skills.view.history.title")) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .background(
-                                if (isExpanded) {
-                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                                } else {
-                                    androidx.compose.ui.graphics.Color.Transparent
-                                },
-                            )
-                            .clickable(
-                                indication = null,
-                                interactionSource = remember { MutableInteractionSource() },
-                                onClick = { onExpandedChange(!isExpanded) },
-                            )
-                            .pointerHoverIcon(PointerIcon.Hand),
-                    ) {
-                        Icon(
-                            Icons.Default.History,
-                            contentDescription = stringResource("skills.view.history.title"),
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(22.dp),
-                        )
-                    }
+                runHistory.forEach { record ->
+                    skillRunHistoryPanelRow(
+                        record = record,
+                        showSkillName = filterSkillName == null,
+                        onClick = { onSelectRecord(record) },
+                        onDelete = { onDeleteRecord(record) },
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.08f))
                 }
             }
+            VerticalScrollbar(
+                adapter = rememberScrollbarAdapter(panelScrollState),
+                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 2.dp),
+                style = ScrollbarStyle(
+                    minimalHeight = 16.dp,
+                    thickness = 6.dp,
+                    shape = MaterialTheme.shapes.small,
+                    hoverDurationMillis = 300,
+                    unhoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                    hoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.50f),
+                ),
+            )
         }
     }
 }

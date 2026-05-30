@@ -10,6 +10,7 @@ import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.gemini.GeminiSettings
 import io.askimo.core.security.SecureKeyManager
 import io.askimo.core.util.ProcessBuilderExt
+import java.io.BufferedWriter
 import java.io.File
 
 /**
@@ -39,9 +40,9 @@ import java.io.File
  * ```
  * Then `-p` carries the `userInput` (or a single space when blank so `-p` is always present).
  */
-class GeminiAgent : ExternalAgent {
+class GeminiAgent : ExternalAgentTemplate() {
 
-    private val log = logger<GeminiAgent>()
+    override val log = logger<GeminiAgent>()
 
     override val id = "gemini"
     override val name = "Gemini CLI"
@@ -113,7 +114,7 @@ class GeminiAgent : ExternalAgent {
      * Resolves the absolute path to the `gemini` executable via `which gemini`.
      * Returns null if not found on PATH.
      */
-    private fun resolveGeminiPath(): String? = runCatching {
+    override fun resolveAgentPath(): String? = runCatching {
         val proc = ProcessBuilderExt("which", "gemini")
             .redirectErrorStream(true)
             .start()
@@ -123,14 +124,8 @@ class GeminiAgent : ExternalAgent {
 
     override val requiresApiKey = true
 
-    override fun isBinaryAvailable(): Boolean {
-        val found = resolveGeminiPath() != null
-        if (!found) log.debug("gemini CLI not found on PATH")
-        return found
-    }
-
     override fun isConfigured(): Boolean {
-        if (!isBinaryAvailable()) return false
+        if (!super.isBinaryAvailable()) return false
         val hasKey = resolveApiKey()?.isNotBlank() == true
         if (!hasKey) log.debug("gemini CLI found but no GEMINI_API_KEY configured")
         return hasKey
@@ -154,21 +149,15 @@ class GeminiAgent : ExternalAgent {
         log.debug("Gemini API key saved and synced to provider settings")
     }
 
-    override fun run(
+    override fun buildCommand(
+        agentPath: String,
         systemPrompt: String,
         userInput: String,
-        workDir: File?,
-        onToken: (String) -> Unit,
-        onStatus: (String) -> Unit,
-    ): Result<String> = runCatching {
-        val stdinContent = buildStdin(systemPrompt)
+        effectiveWorkDir: File,
+    ): List<String> {
         val promptArg = userInput.ifBlank { " " }
-        val geminiPath = resolveGeminiPath() ?: error("gemini CLI not found on PATH")
-
-        log.debug("Starting gemini -p for skill execution ({} chars stdin, workDir={})", stdinContent.length, workDir)
-
-        val process = ProcessBuilderExt(
-            geminiPath,
+        return listOf(
+            agentPath,
             "-p",
             promptArg,
             "--output-format",
@@ -176,108 +165,83 @@ class GeminiAgent : ExternalAgent {
             "--yolo",
             "--skip-trust",
         )
-            .apply {
-                if (workDir != null) {
-                    workDir.mkdirs()
-                    ensureGeminiTrusted(workDir)
-                    directory(workDir)
-                }
-                val env = environment()
-                // Ensure HOME is set so Gemini CLI finds ~/.gemini config
-                env["HOME"] = System.getProperty("user.home")
-                // Merge any .env file found in workDir or user home (done first so
-                // Askimo's stored key always wins and cannot be overridden by .env)
-                loadDotEnv(workDir)?.forEach { (k, v) -> env[k] = v }
-                // Inject API key from Askimo's configured Gemini provider settings —
-                // injected last so it takes priority over any .env value
-                resolveApiKey()?.takeIf { it.isNotBlank() }?.let { key ->
-                    log.debug("Injecting GEMINI_API_KEY from Askimo provider settings")
-                    env["GEMINI_API_KEY"] = key
-                }
-            }
-            .start()
+    }
 
-        // Feed stdin then close so gemini sees EOF
-        process.outputStream.bufferedWriter().use { it.write(stdinContent) }
-
-        // Drain stderr in background — used only for error reporting, never surfaced as response
-        val stderrLines = mutableListOf<String>()
-        val stderrThread = Thread {
-            process.errorStream.bufferedReader().forEachLine { line ->
-                log.debug("gemini stderr: {}", line)
-                synchronized(stderrLines) { stderrLines.add(line) }
-            }
-        }.also {
-            it.isDaemon = true
-            it.start()
+    override fun configureProcess(
+        builder: ProcessBuilderExt,
+        requestedWorkDir: File?,
+        effectiveWorkDir: File,
+        systemPrompt: String,
+        userInput: String,
+    ) {
+        if (requestedWorkDir != null) {
+            ensureGeminiTrusted(effectiveWorkDir)
         }
+        loadDotEnv(requestedWorkDir)?.forEach { (k, v) -> builder.environment()[k] = v }
+        resolveApiKey()?.takeIf { it.isNotBlank() }?.let { key ->
+            log.debug("Injecting GEMINI_API_KEY from Askimo provider settings")
+            builder.environment()["GEMINI_API_KEY"] = key
+        }
+    }
 
-        // Parse stream-json events and stream content tokens to caller in real-time.
-        // Each line is a JSON object emitted by the Gemini CLI.
-        val output = StringBuilder()
-        process.inputStream.bufferedReader().forEachLine { line ->
-            if (line.isBlank()) return@forEachLine
-            val event = GeminiStreamJsonEventParser.parse(line)
-            if (event == null) {
-                log.debug("gemini unparseable line: {}", line)
-                return@forEachLine
+    override fun writeStdin(
+        writer: BufferedWriter,
+        systemPrompt: String,
+        userInput: String,
+    ) {
+        writer.write(buildStdin(systemPrompt))
+    }
+
+    override fun filterErrorStderr(stderr: String): String = stderr
+        .lines()
+        .filter { line -> STDERR_NOISE_PATTERNS.none { line.contains(it) } }
+        .joinToString("\n")
+        .trim()
+
+    override fun parseStdoutLine(
+        line: String,
+        onToken: (String) -> Unit,
+        onStatus: (String) -> Unit,
+        output: StringBuilder,
+    ) {
+        val event = GeminiStreamJsonEventParser.parse(line)
+        if (event == null) {
+            log.debug("gemini unparseable line: {}", line)
+            return
+        }
+        log.debug("gemini event: type={}, line {}", event.type, line)
+        when (event.type) {
+            "message" -> {
+                val isDelta = event.fields["delta"] as? Boolean ?: false
+                if (!isDelta) return
+                val content = event.fields["content"] as? String ?: return
+                if (content.isNotBlank()) {
+                    output.append(content)
+                    onToken(content)
+                }
             }
-            log.debug("gemini event: type={}, line {}", event.type, line)
-            when (event.type) {
-                "message" -> {
-                    val isDelta = event.fields["delta"] as? Boolean ?: false
-                    if (!isDelta) return@forEachLine
-                    val content = event.fields["content"] as? String ?: return@forEachLine
-                    if (content.isNotBlank()) {
-                        output.append(content)
-                        onToken(content)
+
+            "result" -> {
+                val status = event.fields["status"] as? String ?: "done"
+                @Suppress("UNCHECKED_CAST")
+                val stats = event.fields["stats"] as? Map<String, Any>
+                val totalTokens = stats?.get("total_tokens")
+                val durationMs = stats?.get("duration_ms")
+                val toolCalls = stats?.get("tool_calls")
+                val summary = buildString {
+                    append("result: $status")
+                    if (totalTokens != null) append(" | tokens: $totalTokens")
+                    if (toolCalls != null) append(" | tool calls: $toolCalls")
+                    if (durationMs != null) {
+                        val secs = (durationMs.toString().toDoubleOrNull() ?: 0.0) / 1000.0
+                        append(" | duration: ${"%.1f".format(secs)}s")
                     }
                 }
-
-                "result" -> {
-                    val status = event.fields["status"] as? String ?: "done"
-
-                    @Suppress("UNCHECKED_CAST")
-                    val stats = event.fields["stats"] as? Map<String, Any>
-                    val totalTokens = stats?.get("total_tokens")
-                    val durationMs = stats?.get("duration_ms")
-                    val toolCalls = stats?.get("tool_calls")
-                    val summary = buildString {
-                        append("result: $status")
-                        if (totalTokens != null) append(" | tokens: $totalTokens")
-                        if (toolCalls != null) append(" | tool calls: $toolCalls")
-                        if (durationMs != null) {
-                            val secs = (durationMs.toString().toDoubleOrNull() ?: 0.0) / 1000.0
-                            append(" | duration: ${"%.1f".format(secs)}s")
-                        }
-                    }
-                    onStatus(summary)
-                }
-
-                else -> {
-                    // Render any other event (tool_use, tool_result, etc.) as status log
-                    onStatus(GeminiStreamJsonEventParser.render(event))
-                }
+                onStatus(summary)
             }
+
+            else -> onStatus(GeminiStreamJsonEventParser.render(event))
         }
-
-        val exitCode = process.waitFor()
-        stderrThread.join(2_000)
-
-        if (exitCode != 0) {
-            val errMsg = synchronized(stderrLines) {
-                stderrLines
-                    .filter { line -> STDERR_NOISE_PATTERNS.none { line.contains(it) } }
-                    .joinToString("\n")
-                    .trim()
-            }
-            log.warn("gemini exited with code {} — stderr: {}", exitCode, errMsg)
-            error("gemini exited with code $exitCode${if (errMsg.isNotBlank()) ": $errMsg" else ""}")
-        }
-
-        output.toString().trimEnd()
-    }.onFailure { e ->
-        log.error("GeminiAgent run failed: {}", e.message, e)
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -292,7 +256,7 @@ class GeminiAgent : ExternalAgent {
      */
     private fun ensureGeminiTrusted(workDir: File) {
         runCatching {
-            val geminiPath = resolveGeminiPath() ?: return
+            val geminiPath = resolveAgentPath() ?: return
             val canonicalPath = workDir.canonicalPath
             log.debug("Trusting '{}' via gemini /permissions trust", canonicalPath)
             val proc = ProcessBuilderExt(geminiPath, "/permissions", "trust", canonicalPath)

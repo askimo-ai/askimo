@@ -92,10 +92,12 @@ private const val MAX_AI_RETRIES = 3
 
 /**
  * Cache for rendered Mermaid diagrams.
- * Uses memory cache for fast access and temp directory for persistence across renders.
+ * Uses a thread-safe memory cache for concurrent chart renders and a temp-dir
+ * disk cache for persistence across app sessions.
  */
 private object DiagramCache {
-    private val memoryCache = mutableMapOf<String, ByteArray>()
+    // ConcurrentHashMap so multiple LaunchedEffect coroutines can read/write safely in parallel
+    private val memoryCache = java.util.concurrent.ConcurrentHashMap<String, ByteArray>()
 
     private val cacheDir = File(
         System.getProperty("java.io.tmpdir"),

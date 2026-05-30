@@ -136,9 +136,16 @@ object ApplicationPreferences {
     fun setSkillsSidePanelExpanded(expanded: Boolean) = safePutBoolean(SKILLS_SIDE_PANEL_EXPANDED_KEY, expanded)
 
     private const val SKILLS_SELECTED_AGENT_KEY = "ui.skills_selected_agent"
+    private const val SKILLS_RIGHT_RAIL_TAB_KEY = "ui.skills_right_rail_tab"
 
     fun getSkillsSelectedAgentId(): String? = safeGet(SKILLS_SELECTED_AGENT_KEY, null)?.takeIf { it.isNotBlank() }
     fun setSkillsSelectedAgentId(agentId: String) = safePut(SKILLS_SELECTED_AGENT_KEY, agentId)
+
+    /** Returns the last-active tab index in the skills right rail (0 = Skills, 1 = History). */
+    fun getSkillsRightRailTab(): Int = safeGetInt(SKILLS_RIGHT_RAIL_TAB_KEY, 0)
+
+    /** Persists the active tab index in the skills right rail. */
+    fun setSkillsRightRailTab(index: Int) = safePutInt(SKILLS_RIGHT_RAIL_TAB_KEY, index)
 
     fun getShowPlansInSidebar(): Boolean = safeGetBoolean(SHOW_PLANS_IN_SIDEBAR_KEY, true)
     fun setShowPlansInSidebar(show: Boolean) = safePutBoolean(SHOW_PLANS_IN_SIDEBAR_KEY, show)

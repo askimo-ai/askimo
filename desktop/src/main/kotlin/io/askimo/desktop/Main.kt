@@ -1983,9 +1983,7 @@ fun mainContent(
                 modifier = Modifier.fillMaxSize(),
             )
 
-            View.SKILLS -> skillsView(
-                onNavigateToSkillsSettings = onNavigateToSkillsSettings,
-            )
+            View.SKILLS -> skillsView()
         }
     }
 }

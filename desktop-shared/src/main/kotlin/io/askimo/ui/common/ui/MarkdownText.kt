@@ -37,7 +37,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -139,21 +141,79 @@ fun markdownText(
     messageId: String? = null,
     onLinkClick: ((url: String) -> Unit)? = null,
 ) {
-    val parser = Parser.builder()
-        .extensions(listOf(TablesExtension.create(), AutolinkExtension.create()))
-        .build()
-    val preparedMarkdown = if (isStreaming) {
-        closeUnclosedFences(preprocessMarkdown(markdown))
-    } else {
-        preprocessMarkdown(markdown)
+    // Re-parse only when content or streaming mode actually changes.
+    val document = remember(markdown, isStreaming) {
+        val parser = Parser.builder()
+            .extensions(listOf(TablesExtension.create(), AutolinkExtension.create()))
+            .build()
+        val preparedMarkdown = if (isStreaming) {
+            closeUnclosedFences(preprocessMarkdown(markdown))
+        } else {
+            preprocessMarkdown(markdown)
+        }
+        parser.parse(preparedMarkdown)
     }
-    val document = parser.parse(preparedMarkdown)
 
     val contentColor = MaterialTheme.colorScheme.onSurface
     CompositionLocalProvider(LocalContentColor provides contentColor) {
         SelectionContainer(modifier = modifier) {
             Column {
                 renderNode(document, viewportTopY, isStreaming, onRunRequest, messageId, onLinkClick)
+            }
+        }
+    }
+}
+
+/**
+ * A markdown renderer that reveals content progressively — a few top-level nodes per frame —
+ * instead of laying out the entire document in one blocking composition pass.
+ *
+ * Use this for large static documents (system prompts, long responses) where the full render
+ * would cause a visible freeze. Content appears smoothly rather than all at once.
+ *
+ * @param chunkSize Number of top-level AST nodes revealed per tick (default 2).
+ * @param tickMs    Delay between reveal ticks in milliseconds (default 8 ≈ 1 frame).
+ */
+@Composable
+fun revealingMarkdownText(
+    markdown: String,
+    modifier: Modifier = Modifier,
+    chunkSize: Int = 2,
+    tickMs: Long = 8L,
+    onRunRequest: ((code: String, language: String) -> Unit)? = null,
+    messageId: String? = null,
+    onLinkClick: ((url: String) -> Unit)? = null,
+) {
+    val document = remember(markdown) {
+        val parser = Parser.builder()
+            .extensions(listOf(TablesExtension.create(), AutolinkExtension.create()))
+            .build()
+        parser.parse(preprocessMarkdown(markdown))
+    }
+
+    val topNodes = remember(document) {
+        buildList {
+            var child = document.firstChild
+            while (child != null) { add(child); child = child.next }
+        }
+    }
+
+    var visibleCount by remember(markdown) { mutableIntStateOf(chunkSize) }
+
+    LaunchedEffect(markdown) {
+        while (visibleCount < topNodes.size) {
+            delay(tickMs.milliseconds)
+            visibleCount = (visibleCount + chunkSize).coerceAtMost(topNodes.size)
+        }
+    }
+
+    val contentColor = MaterialTheme.colorScheme.onSurface
+    CompositionLocalProvider(LocalContentColor provides contentColor) {
+        SelectionContainer(modifier = modifier) {
+            Column {
+                topNodes.take(visibleCount).forEach { node ->
+                    renderSingleNode(node, viewportTopY = null, isStreaming = false, onRunRequest, messageId, onLinkClick)
+                }
             }
         }
     }
@@ -252,51 +312,56 @@ private fun closeUnclosedFences(markdown: String): String {
 private fun renderNode(node: Node, viewportTopY: Float? = null, isStreaming: Boolean = false, onRunRequest: ((String, String) -> Unit)? = null, messageId: String? = null, onLinkClick: ((url: String) -> Unit)? = null) {
     var child = node.firstChild
     while (child != null) {
-        when (child) {
-            is Paragraph -> {
-                val videoUrl = extractVideoUrl(child)
-                if (videoUrl != null) {
-                    renderVideo(videoUrl)
-                } else {
-                    renderParagraph(child, onLinkClick)
-                }
-            }
-
-            is Heading -> renderHeading(child, onLinkClick)
-
-            is BulletList -> renderBulletList(child, onLinkClick)
-
-            is OrderedList -> renderOrderedList(child, onLinkClick)
-
-            is FencedCodeBlock -> renderCodeBlock(
-                child,
-                viewportTopY,
-                isStreaming,
-                onRunRequest,
-                messageId,
-            )
-
-            is BlockQuote -> renderBlockQuote(
-                child,
-                viewportTopY,
-                onRunRequest,
-                onLinkClick,
-            )
-
-            is TableBlock -> renderTable(child)
-
-            is Image -> {
-                val destination = child.destination
-                if (isVideoUrl(destination)) {
-                    renderVideo(destination)
-                } else {
-                    renderImage(child)
-                }
-            }
-
-            else -> renderNode(child, viewportTopY, isStreaming, onRunRequest, messageId, onLinkClick)
-        }
+        renderSingleNode(child, viewportTopY, isStreaming, onRunRequest, messageId, onLinkClick)
         child = child.next
+    }
+}
+
+@Composable
+private fun renderSingleNode(node: Node, viewportTopY: Float? = null, isStreaming: Boolean = false, onRunRequest: ((String, String) -> Unit)? = null, messageId: String? = null, onLinkClick: ((url: String) -> Unit)? = null) {
+    when (node) {
+        is Paragraph -> {
+            val videoUrl = extractVideoUrl(node)
+            if (videoUrl != null) {
+                renderVideo(videoUrl)
+            } else {
+                renderParagraph(node, onLinkClick)
+            }
+        }
+
+        is Heading -> renderHeading(node, onLinkClick)
+
+        is BulletList -> renderBulletList(node, onLinkClick)
+
+        is OrderedList -> renderOrderedList(node, onLinkClick)
+
+        is FencedCodeBlock -> renderCodeBlock(
+            node,
+            viewportTopY,
+            isStreaming,
+            onRunRequest,
+            messageId,
+        )
+
+        is BlockQuote -> renderBlockQuote(
+            node,
+            viewportTopY,
+            onRunRequest,
+            onLinkClick,
+        )
+
+        is TableBlock -> renderTable(node)
+
+        is Image -> {
+            val destination = node.destination
+            if (isVideoUrl(destination)) {
+                renderVideo(destination)
+            } else {
+                renderImage(node)
+            }
+        }
+
+        else -> renderNode(node, viewportTopY, isStreaming, onRunRequest, messageId, onLinkClick)
     }
 }
 

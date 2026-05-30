@@ -49,8 +49,6 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -68,6 +66,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,6 +75,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
@@ -92,13 +92,14 @@ import io.askimo.core.skills.domain.SkillDefinition
 import io.askimo.core.skills.domain.SkillTreeNode
 import io.askimo.core.util.AskimoHome
 import io.askimo.ui.common.components.dangerButton
-import io.askimo.ui.common.components.linkButton
+import io.askimo.ui.common.components.primaryButton
+import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.appOutlinedTextField
 import io.askimo.ui.common.theme.ThemePreferences
-import io.askimo.ui.common.ui.markdownText
+import io.askimo.ui.common.ui.revealingMarkdownText
 import io.askimo.ui.common.ui.themedTooltip
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -811,7 +812,7 @@ private fun skillEditorContent(
             ) {
                 Box(modifier = Modifier.padding(16.dp)) {
                     if (isPreviewMode) {
-                        markdownText(
+                        revealingMarkdownText(
                             markdown = body.ifBlank { "*${stringResource("settings.skills.editor.system.prompt.placeholder")}*" },
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -998,7 +999,7 @@ private fun fileEditorContent(
         ) {
             Box(modifier = Modifier.padding(16.dp).fillMaxSize()) {
                 if (isMarkdown && isPreviewMode) {
-                    markdownText(
+                    revealingMarkdownText(
                         markdown = body.ifBlank { "*${stringResource("settings.skills.editor.empty.file")}*" },
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -1452,7 +1453,7 @@ private fun readEditToggle(
 private fun previewEditSegmentButton(
     isPreview: Boolean,
     label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     isActive: Boolean,
     hasBorderStart: Boolean,
     onToggle: (Boolean) -> Unit,
@@ -1519,7 +1520,7 @@ private fun newSkillInFolderDialog(
     onConfirm: (skillFileName: String) -> Unit,
 ) {
     var fileName by remember { mutableStateOf("") }
-    AlertDialog(
+    AppComponents.alertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource("settings.skills.new.skill")) },
         text = {
@@ -1540,14 +1541,13 @@ private fun newSkillInFolderDialog(
             }
         },
         confirmButton = {
-            Button(
+            primaryButton(
                 onClick = { onConfirm(fileName.trim()) },
                 enabled = fileName.isNotBlank(),
-                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
             ) { Text(stringResource("action.create")) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+            secondaryButton(onClick = onDismiss) {
                 Text(stringResource("action.cancel"))
             }
         },
@@ -1559,12 +1559,12 @@ private fun importFromGitHubDialog(
     onDismiss: () -> Unit,
     onImported: (message: String) -> Unit,
 ) {
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
     var repoUrl by remember { mutableStateOf("") }
     var isImporting by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    AlertDialog(
+    AppComponents.alertDialog(
         onDismissRequest = { if (!isImporting) onDismiss() },
         title = { Text(stringResource("settings.skills.import.github")) },
         text = {
@@ -1603,7 +1603,7 @@ private fun importFromGitHubDialog(
             }
         },
         confirmButton = {
-            Button(
+            primaryButton(
                 onClick = {
                     scope.launch {
                         isImporting = true
@@ -1624,13 +1624,12 @@ private fun importFromGitHubDialog(
                     }
                 },
                 enabled = repoUrl.isNotBlank() && !isImporting,
-                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
             ) {
                 Text(if (isImporting) stringResource("settings.skills.import.github.importing") else stringResource("settings.skills.import.github.button"))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !isImporting, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+            secondaryButton(onClick = onDismiss, enabled = !isImporting) {
                 Text(stringResource("action.cancel"))
             }
         },
@@ -1644,7 +1643,7 @@ private fun addFileInFolderDialog(
     onConfirm: (fileName: String) -> Unit,
 ) {
     var fileName by remember { mutableStateOf("") }
-    AlertDialog(
+    AppComponents.alertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource("settings.skills.add.file")) },
         text = {
@@ -1665,14 +1664,13 @@ private fun addFileInFolderDialog(
             }
         },
         confirmButton = {
-            Button(
+            primaryButton(
                 onClick = { onConfirm(fileName.trim()) },
                 enabled = fileName.isNotBlank(),
-                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
             ) { Text(stringResource("action.create")) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+            secondaryButton(onClick = onDismiss) {
                 Text(stringResource("action.cancel"))
             }
         },
@@ -1686,7 +1684,7 @@ private fun addFolderInFolderDialog(
     onConfirm: (folderName: String) -> Unit,
 ) {
     var folderName by remember { mutableStateOf("") }
-    AlertDialog(
+    AppComponents.alertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource("settings.skills.add.folder")) },
         text = {
@@ -1707,14 +1705,13 @@ private fun addFolderInFolderDialog(
             }
         },
         confirmButton = {
-            Button(
+            primaryButton(
                 onClick = { onConfirm(folderName.trim()) },
                 enabled = folderName.isNotBlank(),
-                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
             ) { Text(stringResource("action.create")) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+            secondaryButton(onClick = onDismiss) {
                 Text(stringResource("action.cancel"))
             }
         },
@@ -1727,7 +1724,7 @@ private fun deleteFileConfirmDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
-    AlertDialog(
+    AppComponents.alertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource("settings.skills.delete.file.title")) },
         text = {
@@ -1740,7 +1737,7 @@ private fun deleteFileConfirmDialog(
             dangerButton(onClick = onConfirm) { Text(stringResource("action.delete")) }
         },
         dismissButton = {
-            linkButton(onClick = onDismiss) { Text(stringResource("action.cancel")) }
+            secondaryButton(onClick = onDismiss) { Text(stringResource("action.cancel")) }
         },
     )
 }
@@ -1751,7 +1748,7 @@ private fun deleteFolderConfirmDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
-    AlertDialog(
+    AppComponents.alertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource("settings.skills.delete.folder.title")) },
         text = {
@@ -1761,19 +1758,10 @@ private fun deleteFolderConfirmDialog(
             )
         },
         confirmButton = {
-            Button(
-                onClick = onConfirm,
-                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error,
-                    contentColor = MaterialTheme.colorScheme.onError,
-                ),
-                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-            ) { Text(stringResource("action.delete")) }
+            dangerButton(onClick = onConfirm) { Text(stringResource("action.delete")) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
-                Text(stringResource("action.cancel"))
-            }
+            secondaryButton(onClick = onDismiss) { Text(stringResource("action.cancel")) }
         },
     )
 }
@@ -1783,7 +1771,7 @@ private fun deleteAllSkillsDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
-    AlertDialog(
+    AppComponents.alertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource("settings.skills.delete.all.title")) },
         text = {
@@ -1796,7 +1784,7 @@ private fun deleteAllSkillsDialog(
             dangerButton(onClick = onConfirm) { Text(stringResource("action.delete")) }
         },
         dismissButton = {
-            linkButton(onClick = onDismiss) { Text(stringResource("action.cancel")) }
+            secondaryButton(onClick = onDismiss) { Text(stringResource("action.cancel")) }
         },
     )
 }
@@ -1806,7 +1794,7 @@ private fun importSuccessDialog(
     message: String,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    AppComponents.alertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource("settings.skills.import.success.title")) },
         text = {
@@ -1817,9 +1805,8 @@ private fun importSuccessDialog(
             )
         },
         confirmButton = {
-            Button(
+            primaryButton(
                 onClick = onDismiss,
-                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
             ) { Text(stringResource("action.ok")) }
         },
     )

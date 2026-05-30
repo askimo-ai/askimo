@@ -10,6 +10,7 @@ import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.openai.OpenAiSettings
 import io.askimo.core.security.SecureKeyManager
 import io.askimo.core.util.ProcessBuilderExt
+import java.io.BufferedWriter
 import java.io.File
 
 /**
@@ -31,9 +32,9 @@ import java.io.File
  * - `-C <workDir>`                                 Set the agent working directory.
  * - `-`                                            Read prompt from stdin.
  */
-class CodexAgent : ExternalAgent {
+class CodexAgent : ExternalAgentTemplate() {
 
-    private val log = logger<CodexAgent>()
+    override val log = logger<CodexAgent>()
 
     override val id = "codex"
     override val name = "Codex (OpenAI)"
@@ -67,7 +68,7 @@ class CodexAgent : ExternalAgent {
         return SecureKeyManager.retrieveSecretKey(ModelProvider.OPENAI.providerKey())
     }
 
-    private fun resolveCodexPath(): String? = runCatching {
+    override fun resolveAgentPath(): String? = runCatching {
         val proc = ProcessBuilderExt("which", "codex")
             .redirectErrorStream(true)
             .start()
@@ -75,14 +76,8 @@ class CodexAgent : ExternalAgent {
         if (proc.waitFor() == 0 && path.isNotBlank()) path else null
     }.getOrNull()
 
-    override fun isBinaryAvailable(): Boolean {
-        val found = resolveCodexPath() != null
-        if (!found) log.debug("codex CLI not found on PATH")
-        return found
-    }
-
     override fun isConfigured(): Boolean {
-        if (!isBinaryAvailable()) return false
+        if (!super.isBinaryAvailable()) return false
         val hasKey = resolveApiKey()?.isNotBlank() == true
         if (!hasKey) log.debug("codex CLI found but no OPENAI_API_KEY configured")
         return hasKey
@@ -105,20 +100,13 @@ class CodexAgent : ExternalAgent {
         log.debug("OpenAI API key saved and synced to provider settings")
     }
 
-    override fun run(
+    override fun buildCommand(
+        agentPath: String,
         systemPrompt: String,
         userInput: String,
-        workDir: File?,
-        onToken: (String) -> Unit,
-        onStatus: (String) -> Unit,
-    ): Result<String> = runCatching {
-        val codexPath = resolveCodexPath() ?: error("codex CLI not found on PATH")
-        val effectiveWorkDir = workDir ?: File(System.getProperty("user.home"))
-
-        log.debug("Starting codex exec for skill execution (workDir={})", effectiveWorkDir)
-
-        val cmd = buildList {
-            add(codexPath)
+        effectiveWorkDir: File,
+    ): List<String> = buildList {
+            add(agentPath)
             add("exec")
             add("--dangerously-bypass-approvals-and-sandbox")
             add("--skip-git-repo-check")
@@ -128,61 +116,45 @@ class CodexAgent : ExternalAgent {
             add("-") // read prompt from stdin
         }
 
-        val process = ProcessBuilderExt(*cmd.toTypedArray())
-            .apply {
-                effectiveWorkDir.mkdirs()
-                directory(effectiveWorkDir)
-                val env = environment()
-                env["HOME"] = System.getProperty("user.home")
-                resolveApiKey()?.takeIf { it.isNotBlank() }?.let { key ->
-                    log.debug("Injecting OPENAI_API_KEY from Askimo provider settings")
-                    env["OPENAI_API_KEY"] = key
-                }
-            }
-            .start()
-
-        // Write combined system prompt + user input to stdin, then close
-        process.outputStream.bufferedWriter().use { writer ->
-            if (systemPrompt.isNotBlank()) {
-                writer.write(systemPrompt.trim())
-                writer.write("\n\n---\n\n")
-            }
-            if (userInput.isNotBlank()) {
-                writer.write(userInput.trim())
-            }
+    override fun configureProcess(
+        builder: ProcessBuilderExt,
+        requestedWorkDir: File?,
+        effectiveWorkDir: File,
+        systemPrompt: String,
+        userInput: String,
+    ) {
+        resolveApiKey()?.takeIf { it.isNotBlank() }?.let { key ->
+            log.debug("Injecting OPENAI_API_KEY from Askimo provider settings")
+            builder.environment()["OPENAI_API_KEY"] = key
         }
+    }
 
-        val stderrLines = mutableListOf<String>()
-        val stderrThread = Thread {
-            process.errorStream.bufferedReader().forEachLine { line ->
-                log.debug("codex stderr: {}", line)
-                synchronized(stderrLines) { stderrLines.add(line) }
-                if (line.isNotBlank()) onStatus(line)
-            }
-        }.also {
-            it.isDaemon = true
-            it.start()
+    override fun writeStdin(
+        writer: BufferedWriter,
+        systemPrompt: String,
+        userInput: String,
+    ) {
+        if (systemPrompt.isNotBlank()) {
+            writer.write(systemPrompt.trim())
+            writer.write("\n\n---\n\n")
         }
-
-        val output = StringBuilder()
-        process.inputStream.bufferedReader().forEachLine { line ->
-            if (line.isNotBlank()) {
-                output.appendLine(line)
-                onToken(line + "\n")
-            }
+        if (userInput.isNotBlank()) {
+            writer.write(userInput.trim())
         }
+    }
 
-        val exitCode = process.waitFor()
-        stderrThread.join(2_000)
+    override fun onStderrLine(line: String, onStatus: (String) -> Unit) {
+        if (line.isNotBlank()) onStatus(line)
+    }
 
-        if (exitCode != 0) {
-            val errMsg = synchronized(stderrLines) { stderrLines.joinToString("\n").trim() }
-            log.warn("codex exited with code {} — stderr: {}", exitCode, errMsg)
-            error("codex exited with code $exitCode${if (errMsg.isNotBlank()) ": $errMsg" else ""}")
-        }
-
-        output.toString().trimEnd()
-    }.onFailure { e ->
-        log.error("CodexAgent run failed: {}", e.message, e)
+    override fun parseStdoutLine(
+        line: String,
+        onToken: (String) -> Unit,
+        onStatus: (String) -> Unit,
+        output: StringBuilder,
+    ) {
+        output.appendLine(line)
+        onToken(line + "\n")
     }
 }
+

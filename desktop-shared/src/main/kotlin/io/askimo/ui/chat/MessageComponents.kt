@@ -73,6 +73,7 @@ import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.ui.markdownText
+import io.askimo.ui.common.ui.revealingMarkdownText
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.common.ui.util.FileDialogUtils
 import io.askimo.ui.common.ui.util.highlightSearchText
@@ -615,31 +616,42 @@ private fun aiMessageBubble(
                                     )
                                 }
                             } else {
-                                markdownText(
-                                    markdown = message.content,
-                                    modifier = Modifier.padding(start = 12.dp, end = 48.dp, top = 12.dp, bottom = 12.dp),
-                                    viewportTopY = viewportTopY,
-                                    isStreaming = isStreaming,
-                                    onRunRequest = { cmd, lang -> pendingRunRequest = Pair(cmd, lang) },
-                                    messageId = message.id,
-                                    onLinkClick = { url ->
-                                        if (url.startsWith("file://")) {
-                                            if (projectId != null) {
-                                                // Project chat — let the side panel handle it in the file viewer
-                                                EventBus.post(parseFilePreviewRequestEvent(url))
-                                            } else {
-                                                // Non-project chat — fall back to OS file browser
-                                                try {
-                                                    val filePath = parseFilePreviewRequestEvent(url).filePath
-                                                    val file = File(filePath)
-                                                    if (file.exists() && Desktop.isDesktopSupported()) {
-                                                        Desktop.getDesktop().open(file)
-                                                    }
-                                                } catch (_: Exception) {}
-                                            }
+                                val onLinkClickHandler: (String) -> Unit = { url ->
+                                    if (url.startsWith("file://")) {
+                                        if (projectId != null) {
+                                            // Project chat — let the side panel handle it in the file viewer
+                                            EventBus.post(parseFilePreviewRequestEvent(url))
+                                        } else {
+                                            // Non-project chat — fall back to OS file browser
+                                            try {
+                                                val filePath = parseFilePreviewRequestEvent(url).filePath
+                                                val file = File(filePath)
+                                                if (file.exists() && Desktop.isDesktopSupported()) {
+                                                    Desktop.getDesktop().open(file)
+                                                }
+                                            } catch (_: Exception) {}
                                         }
-                                    },
-                                )
+                                    }
+                                }
+                                if (isStreaming) {
+                                    markdownText(
+                                        markdown = message.content,
+                                        modifier = Modifier.padding(start = 12.dp, end = 48.dp, top = 12.dp, bottom = 12.dp),
+                                        viewportTopY = viewportTopY,
+                                        isStreaming = true,
+                                        onRunRequest = { cmd, lang -> pendingRunRequest = Pair(cmd, lang) },
+                                        messageId = message.id,
+                                        onLinkClick = onLinkClickHandler,
+                                    )
+                                } else {
+                                    revealingMarkdownText(
+                                        markdown = message.content,
+                                        modifier = Modifier.padding(start = 12.dp, end = 48.dp, top = 12.dp, bottom = 12.dp),
+                                        onRunRequest = { cmd, lang -> pendingRunRequest = Pair(cmd, lang) },
+                                        messageId = message.id,
+                                        onLinkClick = onLinkClickHandler,
+                                    )
+                                }
                             }
 
                             if (isOutdatedMessage) {

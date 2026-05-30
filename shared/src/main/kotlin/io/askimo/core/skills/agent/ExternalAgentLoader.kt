@@ -23,6 +23,7 @@ object ExternalAgentLoader {
         ClaudeAgent(),
         GeminiAgent(),
         CodexAgent(),
+        CursorAgent(),
     )
 
     /**
