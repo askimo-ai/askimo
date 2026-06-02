@@ -157,7 +157,9 @@ object CursorStreamJsonEventParser {
             } else {
                 when (ch) {
                     '"' -> inString = true
+
                     '{' -> depth++
+
                     '}' -> {
                         depth--
                         if (depth == 0) return i
@@ -168,7 +170,6 @@ object CursorStreamJsonEventParser {
         }
         return null
     }
-
 
     /**
      * Renders [event] as a human-readable status string for non-content events.
@@ -221,4 +222,3 @@ object CursorStreamJsonEventParser {
         }
     }
 }
-

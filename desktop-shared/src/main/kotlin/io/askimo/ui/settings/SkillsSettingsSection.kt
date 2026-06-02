@@ -1504,34 +1504,31 @@ private fun filterSkillTree(
     val normalizedQuery = query.trim().lowercase()
     if (normalizedQuery.isBlank()) return tree
 
-    fun SkillTreeNode.matchesSelf(): Boolean {
-        return when (this) {
-            is SkillTreeNode.Category -> {
-                name.lowercase().contains(normalizedQuery) ||
-                    path.lowercase().contains(normalizedQuery) ||
-                    (skill?.name?.lowercase()?.contains(normalizedQuery) == true) ||
-                    (skill?.description?.lowercase()?.contains(normalizedQuery) == true)
-            }
+    fun SkillTreeNode.matchesSelf(): Boolean = when (this) {
+        is SkillTreeNode.Category -> {
+            name.lowercase().contains(normalizedQuery) ||
+                path.lowercase().contains(normalizedQuery) ||
+                (skill?.name?.lowercase()?.contains(normalizedQuery) == true) ||
+                (skill?.description?.lowercase()?.contains(normalizedQuery) == true)
+        }
 
-            is SkillTreeNode.Leaf -> {
-                name.lowercase().contains(normalizedQuery) ||
-                    path.lowercase().contains(normalizedQuery) ||
-                    (skill?.name?.lowercase()?.contains(normalizedQuery) == true) ||
-                    (skill?.description?.lowercase()?.contains(normalizedQuery) == true)
-            }
+        is SkillTreeNode.Leaf -> {
+            name.lowercase().contains(normalizedQuery) ||
+                path.lowercase().contains(normalizedQuery) ||
+                (skill?.name?.lowercase()?.contains(normalizedQuery) == true) ||
+                (skill?.description?.lowercase()?.contains(normalizedQuery) == true)
         }
     }
 
-    fun filterNode(node: SkillTreeNode): SkillTreeNode? {
-        return when (node) {
-            is SkillTreeNode.Leaf -> if (node.matchesSelf()) node else null
-            is SkillTreeNode.Category -> {
-                val filteredChildren = node.children.mapNotNull(::filterNode)
-                if (node.matchesSelf() || filteredChildren.isNotEmpty()) {
-                    node.copy(children = filteredChildren)
-                } else {
-                    null
-                }
+    fun filterNode(node: SkillTreeNode): SkillTreeNode? = when (node) {
+        is SkillTreeNode.Leaf -> if (node.matchesSelf()) node else null
+
+        is SkillTreeNode.Category -> {
+            val filteredChildren = node.children.mapNotNull(::filterNode)
+            if (node.matchesSelf() || filteredChildren.isNotEmpty()) {
+                node.copy(children = filteredChildren)
+            } else {
+                null
             }
         }
     }

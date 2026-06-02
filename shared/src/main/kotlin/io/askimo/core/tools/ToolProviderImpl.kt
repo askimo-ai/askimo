@@ -10,12 +10,8 @@ import dev.langchain4j.service.tool.DefaultToolExecutor
 import dev.langchain4j.service.tool.ToolProvider
 import dev.langchain4j.service.tool.ToolProviderRequest
 import dev.langchain4j.service.tool.ToolProviderResult
-import io.askimo.core.analytics.Analytics
-import io.askimo.core.analytics.AnalyticsEvent
 import io.askimo.core.context.ChatContext
-import io.askimo.core.intent.DetectUserIntentCommand
 import io.askimo.core.intent.ToolConfig
-import io.askimo.core.intent.ToolRegistry
 import io.askimo.core.intent.ToolSource
 import io.askimo.core.logging.logger
 import io.askimo.core.mcp.McpInstanceService

@@ -652,4 +652,3 @@ internal fun skillExecutionArea(
         }
     }
 }
-

@@ -56,8 +56,8 @@ import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import io.askimo.ui.common.i18n.stringResource
@@ -167,6 +167,7 @@ internal fun workspaceFilesPanel(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                     )
                 }
+
                 rootChildren.isEmpty() -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         stringResource("skills.view.workspace.empty"),
@@ -175,6 +176,7 @@ internal fun workspaceFilesPanel(
                         modifier = Modifier.padding(16.dp),
                     )
                 }
+
                 else -> {
                     val renderItems = remember(rootChildren, expandedPaths.keys.toSet(), expandedPaths.values.toList()) {
                         buildWorkspaceRenderList(rootChildren, depth = 0, expandedPaths = expandedPaths)
@@ -247,8 +249,11 @@ private fun workspaceNodeRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
-                        if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                        else Color.Transparent,
+                        if (isSelected) {
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                        } else {
+                            Color.Transparent
+                        },
                         RoundedCornerShape(4.dp),
                     )
                     .then(
@@ -257,6 +262,7 @@ private fun workspaceNodeRow(
                                 matcher = PointerMatcher.mouse(PointerButton.Primary),
                                 onClick = { onToggleExpand(node.file.absolutePath) },
                             )
+
                             is WorkspaceFileNode -> Modifier.onClick(
                                 matcher = PointerMatcher.mouse(PointerButton.Primary),
                                 onClick = { onSelectFile(node) },
@@ -296,6 +302,7 @@ private fun workspaceNodeRow(
                             modifier = Modifier.weight(1f),
                         )
                     }
+
                     is WorkspaceFileNode -> {
                         Icon(
                             Icons.AutoMirrored.Filled.InsertDriveFile,
@@ -344,6 +351,7 @@ private fun workspaceNodeRow(
                             },
                         )
                     }
+
                     is WorkspaceFileNode -> {
                         DropdownMenuItem(
                             text = { Text(stringResource("skills.view.workspace.open.file")) },
@@ -657,11 +665,15 @@ private fun loadWorkspaceChildren(dir: File): List<WorkspaceNode> {
 @Composable
 private fun workspaceFileIconTint(name: String) = when {
     name.endsWith(".sh") || name.endsWith(".bash") -> MaterialTheme.colorScheme.error.copy(alpha = 0.75f)
+
     name.endsWith(".md") -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+
     name.endsWith(".kt") || name.endsWith(".java") || name.endsWith(".py") ||
         name.endsWith(".js") || name.endsWith(".ts") -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+
     name.endsWith(".json") || name.endsWith(".xml") || name.endsWith(".yaml") || name.endsWith(".yml") ->
         MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+
     else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
 }
 
@@ -674,4 +686,3 @@ private fun Long.toWorkspaceHumanSize(): String = when {
 private fun workspaceCopyToClipboard(text: String) {
     runCatching { Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(text), null) }
 }
-
