@@ -24,6 +24,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import java.time.Instant
 import java.util.Collections
+import java.util.IdentityHashMap
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -227,7 +228,11 @@ class TokenAwareSummarizingMemory(
 
         // Strip base64 image data before sending to the AI so images are never
         // re-uploaded on every subsequent request (cost + latency).
-        addAll(messages.map { it.stripImages() })
+        // Synchronize to prevent ConcurrentModificationException if the summarizer
+        // prunes messages on its background thread while LangChain4j reads here.
+        synchronized(messages) {
+            addAll(messages.map { it.stripImages() })
+        }
     }
 
     override fun clear() {
@@ -302,19 +307,15 @@ class TokenAwareSummarizingMemory(
     }
 
     /**
-     * Removes the oldest [count] non-system messages from the list and persists to database.
+     * Removes exactly the given message instances (by reference/identity) from the list
+     * and persists to database. Using identity comparison ensures that messages added
+     * *after* the AI summarization call started are never accidentally pruned.
      */
-    private fun pruneMessages(count: Int) {
+    private fun pruneMessages(messagesToRemove: List<ChatMessage>) {
+        val identitySet = IdentityHashMap<ChatMessage, Unit>(messagesToRemove.size)
+        messagesToRemove.forEach { identitySet[it] = Unit }
         synchronized(messages) {
-            var removed = 0
-            val iterator = messages.iterator()
-            while (iterator.hasNext() && removed < count) {
-                val msg = iterator.next()
-                if (msg.type() != ChatMessageType.SYSTEM) {
-                    iterator.remove()
-                    removed++
-                }
-            }
+            messages.removeIf { it in identitySet }
         }
         persistToDatabase()
     }
@@ -361,7 +362,7 @@ class TokenAwareSummarizingMemory(
                         val messagesToSummarizeCount = (conversationMessages.size * 0.45).toInt().coerceAtLeast(1)
                         val messagesToSummarize = conversationMessages.take(messagesToSummarizeCount)
                         generateBasicSummary(messagesToSummarize)
-                        pruneMessages(messagesToSummarizeCount)
+                        pruneMessages(messagesToSummarize)
                         log.info("Fallback basic summarization complete. Remaining: ${messages.size}")
                     }
                 } catch (fallbackError: Exception) {
@@ -408,8 +409,9 @@ class TokenAwareSummarizingMemory(
             generateBasicSummary(messagesToSummarize)
         }
 
-        // Remove the oldest conversation messages — system messages are never pruned
-        pruneMessages(messagesToSummarizeCount)
+        // Remove exactly the messages that were summarized — not by count, to avoid
+        // pruning messages that arrived during the async AI call.
+        pruneMessages(messagesToSummarize)
 
         log.info("Summarization complete. Remaining: ${messages.size}, Tokens: ${estimateTotalTokens()}")
     }
@@ -656,7 +658,7 @@ class TokenAwareSummarizingMemory(
     }
 
     companion object {
-        private const val MAX_SUMMARY_LENGTH = 500
+        private const val MAX_SUMMARY_LENGTH = 2000
 
         /**
          * Default token estimator that approximates token count as word count * 1.3
