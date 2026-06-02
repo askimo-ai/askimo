@@ -194,9 +194,7 @@ object SkillImporter {
                 val entry = input.nextEntry ?: break
                 val destination = targetDir.resolve(entry.name).normalize()
 
-                if (!destination.startsWith(targetDir)) {
-                    throw IllegalArgumentException("Unsafe ZIP entry path: ${entry.name}")
-                }
+                require(destination.startsWith(targetDir)) { "Unsafe ZIP entry path: ${entry.name}" }
 
                 if (entry.isDirectory) {
                     Files.createDirectories(destination)

@@ -4,8 +4,11 @@
  */
 package io.askimo.ui.skills
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.ScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
@@ -14,6 +17,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,15 +33,24 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,16 +60,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.skills.SkillRepository
+import io.askimo.core.skills.agent.ExternalAgentLoader
 import io.askimo.core.skills.domain.SkillDefinition
 import io.askimo.core.skills.domain.SkillRunRecord
 import io.askimo.ui.common.i18n.stringResource
@@ -71,10 +86,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.awt.Cursor
+import java.awt.Desktop
 import java.io.File
+import java.net.URI
+import java.time.Duration
+import java.time.Instant
 
 @Composable
-fun skillsView() {
+fun skillsView(
+    onNavigateToSkillsSettings: () -> Unit = {},
+) {
     val skillRepository = remember { SkillRepository() }
     val historyRepo = remember { DatabaseManager.getInstance().getSkillRunHistoryRepository() }
     var refreshKey by remember { mutableStateOf(0) }
@@ -95,49 +116,118 @@ fun skillsView() {
     var workDirRefreshKey by remember { mutableStateOf(0) }
     val coroutineScope = rememberCoroutineScope()
 
-    Row(modifier = Modifier.fillMaxSize()) {
-        // ── Left: main content area ────────────────────────────────────────
-        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-            skillsMainContent(
+    // Filtered history for the selected skill
+    val selectedSkillHistory = remember(selectedSkill, allRunHistory) {
+        if (selectedSkill != null) {
+            allRunHistory.filter { it.skillPath == selectedSkill!!.relativePath }
+        } else {
+            allRunHistory
+        }
+    }
+    val lastRunRecord = remember(selectedSkillHistory) {
+        selectedSkillHistory.maxByOrNull { it.createdAt }
+    }
+
+    var showOverlayPanel by remember { mutableStateOf(false) }
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val isWide = maxWidth >= 1100.dp
+
+        // When resizing to wide, always show the inline panel; reset overlay state
+        LaunchedEffect(isWide) {
+            if (isWide) showOverlayPanel = false
+        }
+
+        val panelContent: @Composable () -> Unit = {
+            skillsUnifiedPanel(
                 skills = skills,
                 selectedSkill = selectedSkill,
-                pendingHistoryRecord = pendingHistoryRecord,
-                onPreloadConsumed = { pendingHistoryRecord = null },
-                onRunCompleted = { allHistoryRefreshKey++ },
-                onWorkDirChanged = { newWorkDir ->
-                    workDir = newWorkDir
-                    workDirRefreshKey++
+                runHistory = selectedSkillHistory,
+                filterSkillName = selectedSkill?.name,
+                workDir = workDir,
+                workDirRefreshKey = workDirRefreshKey,
+                onSelectSkill = { selectedSkill = it },
+                onSelectRecord = { record ->
+                    val skill = skills.firstOrNull { it.relativePath == record.skillPath }
+                    if (skill != null) {
+                        selectedSkill = skill
+                        pendingHistoryRecord = record
+                    }
+                },
+                onDeleteRecord = { record ->
+                    coroutineScope.launch(Dispatchers.IO) {
+                        historyRepo.deleteById(record.id)
+                        allRunHistory = historyRepo.findAll()
+                    }
                 },
             )
         }
 
-        // ── Right: tabbed rail ─────────────────────────────────────────────
-        skillsRightRail(
-            skills = skills,
-            selectedSkill = selectedSkill,
-            runHistory = if (selectedSkill != null) {
-                allRunHistory.filter { it.skillPath == selectedSkill!!.relativePath }
-            } else {
-                allRunHistory
-            },
-            filterSkillName = selectedSkill?.name,
-            workDir = workDir,
-            workDirRefreshKey = workDirRefreshKey,
-            onSelectSkill = { selectedSkill = it },
-            onSelectRecord = { record ->
-                val skill = skills.firstOrNull { it.relativePath == record.skillPath }
-                if (skill != null) {
-                    selectedSkill = skill
-                    pendingHistoryRecord = record
+        if (isWide) {
+            // ── Wide: side-by-side layout ──────────────────────────────────
+            Row(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                    skillsMainContent(
+                        skills = skills,
+                        selectedSkill = selectedSkill,
+                        lastRunRecord = lastRunRecord,
+                        pendingHistoryRecord = pendingHistoryRecord,
+                        onPreloadConsumed = { pendingHistoryRecord = null },
+                        onRunCompleted = { allHistoryRefreshKey++ },
+                        onWorkDirChanged = {
+                            workDir = it
+                            workDirRefreshKey++
+                        },
+                        onNavigateToSkillsSettings = onNavigateToSkillsSettings,
+                    )
                 }
-            },
-            onDeleteRecord = { record ->
-                coroutineScope.launch(Dispatchers.IO) {
-                    historyRepo.deleteById(record.id)
-                    allRunHistory = historyRepo.findAll()
+                panelContent()
+            }
+        } else {
+            // ── Narrow: main content fills width, panel overlays from right ─
+            Box(modifier = Modifier.fillMaxSize()) {
+                skillsMainContent(
+                    skills = skills,
+                    selectedSkill = selectedSkill,
+                    lastRunRecord = lastRunRecord,
+                    pendingHistoryRecord = pendingHistoryRecord,
+                    onPreloadConsumed = { pendingHistoryRecord = null },
+                    onRunCompleted = { allHistoryRefreshKey++ },
+                    onWorkDirChanged = {
+                        workDir = it
+                        workDirRefreshKey++
+                    },
+                    onNavigateToSkillsSettings = onNavigateToSkillsSettings,
+                    showPanelToggle = true,
+                    panelVisible = showOverlayPanel,
+                    onTogglePanel = { showOverlayPanel = !showOverlayPanel },
+                )
+
+                // Scrim — tapping outside dismisses panel
+                if (showOverlayPanel) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.3f))
+                            .clickable(
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() },
+                                onClick = { showOverlayPanel = false },
+                            ),
+                    )
                 }
-            },
-        )
+
+                // Overlay panel slides in from the right
+                AnimatedVisibility(
+                    visible = showOverlayPanel,
+                    enter = slideInHorizontally(initialOffsetX = { it }),
+                    exit = slideOutHorizontally(targetOffsetX = { it }),
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                ) {
+                    panelContent()
+                }
+            }
+        }
     }
 }
 
@@ -147,10 +237,15 @@ fun skillsView() {
 private fun skillsMainContent(
     skills: List<SkillDefinition>,
     selectedSkill: SkillDefinition?,
+    lastRunRecord: SkillRunRecord?,
     pendingHistoryRecord: SkillRunRecord?,
     onPreloadConsumed: () -> Unit,
     onRunCompleted: () -> Unit,
     onWorkDirChanged: (File) -> Unit = {},
+    onNavigateToSkillsSettings: () -> Unit = {},
+    showPanelToggle: Boolean = false,
+    panelVisible: Boolean = false,
+    onTogglePanel: () -> Unit = {},
 ) {
     val scrollState = rememberScrollState()
     Box(modifier = Modifier.fillMaxSize()) {
@@ -166,18 +261,95 @@ private fun skillsMainContent(
                     .fillMaxWidth()
                     .padding(start = 24.dp, end = 36.dp, top = 24.dp, bottom = 24.dp),
             ) {
-                Text(
-                    text = stringResource("skills.view.title"),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-                Text(
-                    text = stringResource("skills.view.description"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource("skills.view.title"),
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                        val runtimes = ExternalAgentLoader.displayNames()
+                        val runtimesLabel = runtimes.mapIndexed { i, r ->
+                            if (i == runtimes.lastIndex) "or $r" else r
+                        }.joinToString(", ")
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = stringResource("settings.skills.description", runtimesLabel),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = stringResource("settings.skills.runtimes"),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            runtimes.forEach { runtime ->
+                                Surface(
+                                    shape = MaterialTheme.shapes.small,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                ) {
+                                    Text(
+                                        text = runtime,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        themedTooltip(text = stringResource("skills.view.docs.tooltip")) {
+                            IconButton(
+                                onClick = { runCatching { Desktop.getDesktop().browse(URI("https://$DOMAIN/docs/desktop/skills/")) } },
+                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                            ) {
+                                Icon(
+                                    Icons.Default.Info,
+                                    contentDescription = stringResource("skills.view.docs.tooltip"),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        TextButton(
+                            onClick = onNavigateToSkillsSettings,
+                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                        ) {
+                            Text(
+                                text = stringResource("skills.view.manage"),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        if (showPanelToggle) {
+                            val panelTooltip = stringResource(
+                                if (panelVisible) "skills.view.panel.collapse" else "skills.view.panel.expand",
+                            )
+                            themedTooltip(text = panelTooltip) {
+                                IconButton(
+                                    onClick = onTogglePanel,
+                                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                ) {
+                                    Icon(
+                                        if (panelVisible) Icons.Default.ChevronRight else Icons.Default.ChevronLeft,
+                                        contentDescription = panelTooltip,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
 
                 if (selectedSkill != null) {
                     HorizontalDivider(
@@ -204,6 +376,30 @@ private fun skillsMainContent(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
+                            // ── Last run status chip ───────────────────────
+                            if (lastRunRecord != null) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    Icon(
+                                        if (lastRunRecord.error != null) Icons.Default.Close else Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(11.dp),
+                                        tint = if (lastRunRecord.error != null) {
+                                            MaterialTheme.colorScheme.error
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurface
+                                        },
+                                    )
+                                    Text(
+                                        text = stringResource("skills.view.last.run", formatRelativeTime(lastRunRecord.createdAt)),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
                         }
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
@@ -225,6 +421,29 @@ private fun skillsMainContent(
                         Spacer(modifier = Modifier.height(Spacing.small))
                         Text(
                             text = stringResource("skills.view.empty.hint"),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        )
+                        Spacer(modifier = Modifier.height(Spacing.medium))
+                    }
+                } else {
+                    Spacer(modifier = Modifier.height(64.dp))
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                        Icon(
+                            Icons.Default.Extension,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f),
+                        )
+                        Spacer(modifier = Modifier.height(Spacing.medium))
+                        Text(
+                            text = stringResource("skills.view.select.prompt"),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.height(Spacing.small))
+                        Text(
+                            text = stringResource("skills.view.select.hint"),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         )
@@ -258,16 +477,10 @@ private fun skillsMainContent(
     }
 }
 
-// ── Right rail ─────────────────────────────────────────────────────────────
-
-private enum class RailTab(val index: Int, val icon: ImageVector) {
-    SKILLS(0, Icons.Default.Extension),
-    HISTORY(1, Icons.Default.History),
-    WORKSPACE(2, Icons.Default.FolderOpen),
-}
+// ── Unified right panel ────────────────────────────────────────────────────
 
 @Composable
-private fun skillsRightRail(
+private fun skillsUnifiedPanel(
     skills: List<SkillDefinition>,
     selectedSkill: SkillDefinition?,
     runHistory: List<SkillRunRecord>,
@@ -278,17 +491,23 @@ private fun skillsRightRail(
     onSelectRecord: (SkillRunRecord) -> Unit,
     onDeleteRecord: (SkillRunRecord) -> Unit,
 ) {
-    var activeTab by remember {
-        mutableStateOf(
-            RailTab.entries.firstOrNull { it.index == ApplicationPreferences.getSkillsRightRailTab() }
-                ?: RailTab.SKILLS,
-        )
-    }
     var isExpanded by remember { mutableStateOf(ApplicationPreferences.getSkillsSidePanelExpanded()) }
     var panelWidth by remember { mutableStateOf(ApplicationPreferences.getSkillsSidePanelWidth().dp) }
+    var skillsSectionExpanded by remember { mutableStateOf(true) }
+    var historySectionExpanded by remember { mutableStateOf(true) }
+    var workspaceSectionExpanded by remember { mutableStateOf(false) }
+
+    // Auto-expand history section when a new run is added
+    var prevHistorySize by remember { mutableStateOf(runHistory.size) }
+    LaunchedEffect(runHistory.size) {
+        if (runHistory.size > prevHistorySize) {
+            historySectionExpanded = true
+        }
+        prevHistorySize = runHistory.size
+    }
 
     val animatedWidth by animateDpAsState(
-        targetValue = if (isExpanded) panelWidth else 56.dp,
+        targetValue = if (isExpanded) panelWidth else 48.dp,
         animationSpec = tween(durationMillis = 300),
     )
 
@@ -324,126 +543,194 @@ private fun skillsRightRail(
                 )
             }
 
-            // ── Expanded content ───────────────────────────────────────────
             if (isExpanded) {
+                // ── Expanded: three stacked sections ──────────────────────
                 Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                    Box(modifier = Modifier.weight(1f).fillMaxSize()) {
-                        when (activeTab) {
-                            RailTab.SKILLS -> skillsCompactList(
+                    // ── SKILLS section ─────────────────────────────────────
+                    railSectionHeader(
+                        title = stringResource("skills.view.title"),
+                        count = skills.size.takeIf { it > 0 },
+                        isExpanded = skillsSectionExpanded,
+                        onToggle = { skillsSectionExpanded = !skillsSectionExpanded },
+                        trailingContent = {
+                            // Collapse whole panel button
+                            themedTooltip(
+                                text = stringResource("skills.view.panel.collapse"),
+                                placement = TooltipPlacement.LEFT,
+                            ) {
+                                IconButton(
+                                    onClick = {
+                                        isExpanded = false
+                                        ApplicationPreferences.setSkillsSidePanelExpanded(false)
+                                    },
+                                    modifier = Modifier.size(28.dp).pointerHoverIcon(PointerIcon.Hand),
+                                ) {
+                                    Icon(
+                                        Icons.Default.ChevronRight,
+                                        contentDescription = stringResource("skills.view.panel.collapse"),
+                                        modifier = Modifier.size(16.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        },
+                    )
+                    if (skillsSectionExpanded) {
+                        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                            skillsCompactList(
                                 skills = skills,
                                 selectedSkill = selectedSkill,
                                 onSelectSkill = onSelectSkill,
                             )
+                        }
+                    }
 
-                            RailTab.HISTORY -> Column(modifier = Modifier.fillMaxSize()) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                                ) {
-                                    Icon(Icons.Default.History, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(
-                                        filterSkillName ?: "All runs",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    if (runHistory.isNotEmpty()) {
-                                        Box(
-                                            modifier = Modifier
-                                                .background(
-                                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
-                                                    shape = MaterialTheme.shapes.extraSmall,
-                                                )
-                                                .padding(horizontal = 6.dp, vertical = 1.dp),
-                                        ) {
-                                            Text("${runHistory.size}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        }
-                                    }
-                                }
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
-                                skillsHistoryContent(
-                                    runHistory = runHistory,
-                                    filterSkillName = filterSkillName,
-                                    onSelectRecord = onSelectRecord,
-                                    onDeleteRecord = onDeleteRecord,
-                                )
-                            }
+                    // ── RECENT RUNS section ────────────────────────────────
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                    railSectionHeader(
+                        title = filterSkillName ?: stringResource("skills.view.history.all"),
+                        icon = Icons.Default.History,
+                        count = runHistory.size.takeIf { it > 0 },
+                        isExpanded = historySectionExpanded,
+                        onToggle = { historySectionExpanded = !historySectionExpanded },
+                    )
+                    if (historySectionExpanded) {
+                        Box(modifier = Modifier.weight(0.6f).fillMaxWidth()) {
+                            skillsHistoryContent(
+                                runHistory = runHistory,
+                                filterSkillName = filterSkillName,
+                                onSelectRecord = onSelectRecord,
+                                onDeleteRecord = onDeleteRecord,
+                            )
+                        }
+                    }
 
-                            RailTab.WORKSPACE -> workspaceFilesPanel(
+                    // ── WORKSPACE section ──────────────────────────────────
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                    railSectionHeader(
+                        title = stringResource("skills.view.workspace"),
+                        icon = Icons.Default.FolderOpen,
+                        isExpanded = workspaceSectionExpanded,
+                        onToggle = { workspaceSectionExpanded = !workspaceSectionExpanded },
+                    )
+                    if (workspaceSectionExpanded) {
+                        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                            workspaceFilesPanel(
                                 workDir = workDir,
                                 refreshKey = workDirRefreshKey,
                             )
                         }
                     }
                 }
-            }
-
-            // ── Icon bar (always visible) ──────────────────────────────────
-            Column(
-                modifier = Modifier
-                    .width(56.dp)
-                    .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                    .padding(vertical = 16.dp, horizontal = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(Spacing.medium),
-            ) {
-                RailTab.entries.forEach { tab ->
-                    val isActive = isExpanded && tab == activeTab
+            } else {
+                // ── Collapsed: single expand button ───────────────────────
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                        .padding(vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
                     themedTooltip(
-                        text = when (tab) {
-                            RailTab.SKILLS -> "Skills"
-                            RailTab.HISTORY -> "History"
-                            RailTab.WORKSPACE -> "Workspace"
-                        },
+                        text = stringResource("skills.view.panel.expand"),
                         placement = TooltipPlacement.LEFT,
                     ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(40.dp)
-                                .background(
-                                    if (isActive) {
-                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                                    } else {
-                                        androidx.compose.ui.graphics.Color.Transparent
-                                    },
-                                )
-                                .clickable(
-                                    indication = null,
-                                    interactionSource = remember { MutableInteractionSource() },
-                                ) {
-                                    if (isExpanded && tab == activeTab) {
-                                        // collapse if clicking the already-active tab icon
-                                        isExpanded = false
-                                        ApplicationPreferences.setSkillsSidePanelExpanded(false)
-                                    } else {
-                                        activeTab = tab
-                                        ApplicationPreferences.setSkillsRightRailTab(tab.index)
-                                        isExpanded = true
-                                        ApplicationPreferences.setSkillsSidePanelExpanded(true)
-                                    }
-                                }
-                                .pointerHoverIcon(PointerIcon.Hand),
+                        IconButton(
+                            onClick = {
+                                isExpanded = true
+                                ApplicationPreferences.setSkillsSidePanelExpanded(true)
+                            },
+                            modifier = Modifier.size(32.dp).pointerHoverIcon(PointerIcon.Hand),
                         ) {
                             Icon(
-                                tab.icon,
-                                contentDescription = when (tab) {
-                                    RailTab.SKILLS -> "Skills"
-                                    RailTab.HISTORY -> "History"
-                                    RailTab.WORKSPACE -> "Workspace"
-                                },
-                                tint = if (isActive) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(22.dp).alpha(if (isActive) 1f else 0.6f),
+                                Icons.Default.ChevronLeft,
+                                contentDescription = stringResource("skills.view.panel.expand"),
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.onSurface,
                             )
                         }
                     }
                 }
             }
         }
+    }
+}
+
+// ── Section header helper ──────────────────────────────────────────────────
+
+@Composable
+private fun railSectionHeader(
+    title: String,
+    icon: ImageVector? = null,
+    count: Int? = null,
+    isExpanded: Boolean,
+    onToggle: () -> Unit,
+    trailingContent: (@Composable () -> Unit)? = null,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() },
+                onClick = onToggle,
+            )
+            .pointerHoverIcon(PointerIcon.Hand)
+            .padding(start = 8.dp, end = 4.dp, top = 5.dp, bottom = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(
+            if (isExpanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
+            contentDescription = null,
+            modifier = Modifier.size(14.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (icon != null) {
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier.size(13.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (count != null) {
+            Box(
+                modifier = Modifier
+                    .background(
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                        shape = MaterialTheme.shapes.extraSmall,
+                    )
+                    .padding(horizontal = 5.dp, vertical = 1.dp),
+            ) {
+                Text(
+                    "$count",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        trailingContent?.invoke()
+    }
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+private fun formatRelativeTime(instant: Instant): String {
+    val seconds = Duration.between(instant, Instant.now()).seconds.coerceAtLeast(0)
+    return when {
+        seconds < 60 -> "just now"
+        seconds < 3600 -> "${seconds / 60}m ago"
+        seconds < 86400 -> "${seconds / 3600}h ago"
+        else -> "${seconds / 86400}d ago"
     }
 }
