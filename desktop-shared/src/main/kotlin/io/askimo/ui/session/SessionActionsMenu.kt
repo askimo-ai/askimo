@@ -91,7 +91,7 @@ fun sessionActionsMenu(
         ) {
             Icon(
                 imageVector = Icons.Default.MoreVert,
-                contentDescription = stringResource("action.more"),
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurface,
             )
         }

@@ -35,3 +35,6 @@ jobs:
       - name: Check i18n keys
         run: ./gradlew --no-daemon desktop:checkI18nKeys
 
+      - name: Check missing i18n keys
+        run: ./gradlew --no-daemon desktop:detectMissingLocalizations
+

@@ -673,6 +673,168 @@ tasks.register("detectUnusedLocalizations") {
     }
 }
 
+// Task to detect localization keys used in source but missing from properties files
+tasks.register("detectMissingLocalizations") {
+    group = "verification"
+    description =
+        "Detect i18n keys used in source code that are missing from messages.properties. Use -Padd=true to add stubs."
+
+    doLast {
+        val i18nDir = file("../desktop-shared/src/main/resources/i18n")
+        val desktopSrcDir = file("src/main/kotlin")
+        val desktopSharedSrcDir = file("../desktop-shared/src/main/kotlin")
+        val sharedSrcDir = file("../shared/src/main/kotlin")
+        val cliSrcDir = file("../cli/src/main/kotlin")
+        val reportFile = file("${layout.buildDirectory.get()}/reports/missing-localizations.txt")
+
+        val addMode = project.findProperty("add")?.toString()?.toBoolean() ?: false
+        if (addMode) {
+            println("✏️  ADD MODE ENABLED - Missing keys will be appended to messages.properties as stubs")
+        }
+
+        // Read all existing keys from messages.properties
+        val basePropertiesFile = file("$i18nDir/messages.properties")
+        if (!basePropertiesFile.exists()) {
+            throw GradleException("Base properties file not found: ${basePropertiesFile.path}")
+        }
+
+        val existingKeys = mutableSetOf<String>()
+        basePropertiesFile.forEachLine { line ->
+            val trimmed = line.trim()
+            if (trimmed.isNotEmpty() && !trimmed.startsWith("#") && "=" in trimmed) {
+                existingKeys.add(trimmed.substringBefore("=").trim())
+            }
+        }
+        println("📋 Found ${existingKeys.size} existing keys in messages.properties")
+
+        // Collect every key explicitly referenced in source (stringResource / LocalizationManager.getString)
+        val referencedKeys = mutableSetOf<String>()
+        val keyUsageMap = mutableMapOf<String, MutableList<String>>()
+
+        // Keys found via interpolation patterns — we store the prefix so we can warn
+        val interpolatedPrefixes = mutableSetOf<String>()
+
+        fun scanDirectory(srcDir: File, moduleName: String) {
+            if (!srcDir.exists()) {
+                println("⚠️  Directory not found (skipping): ${srcDir.path}")
+                return
+            }
+            println("🔍 Scanning $moduleName: ${srcDir.path}")
+            var fileCount = 0
+
+            srcDir.walkTopDown().filter { it.isFile && it.extension == "kt" }.forEach { file ->
+                fileCount++
+                val content = file.readText()
+                val relativePath = "$moduleName/${file.relativeTo(srcDir).path}"
+
+                // Pattern 1: stringResource("key")
+                Regex("""stringResource\s*\(\s*"([^"${'$'}]+)"""").findAll(content).forEach { match ->
+                    val key = match.groupValues[1]
+                    if (key.contains(".")) {
+                        referencedKeys.add(key)
+                        keyUsageMap.getOrPut(key) { mutableListOf() }.add(relativePath)
+                    }
+                }
+
+                // Pattern 2: LocalizationManager.getString("key")
+                Regex("""LocalizationManager\.getString\s*\(\s*"([^"${'$'}]+)"""").findAll(content).forEach { match ->
+                    val key = match.groupValues[1]
+                    if (key.contains(".")) {
+                        referencedKeys.add(key)
+                        keyUsageMap.getOrPut(key) { mutableListOf() }.add(relativePath)
+                    }
+                }
+
+                // Pattern 3: interpolated keys — record the prefix for informational output only
+                Regex("""(?:stringResource|LocalizationManager\.getString)\s*\(\s*"([a-z][a-z0-9._-]*)\$\{""")
+                    .findAll(content).forEach { match ->
+                        interpolatedPrefixes.add(match.groupValues[1])
+                    }
+            }
+            println("   Scanned $fileCount Kotlin files")
+        }
+
+        scanDirectory(desktopSrcDir, "desktop")
+        scanDirectory(desktopSharedSrcDir, "desktop-shared")
+        scanDirectory(sharedSrcDir, "shared")
+        scanDirectory(cliSrcDir, "cli")
+
+        println("✅ Found ${referencedKeys.size} distinct key references in source code")
+
+        // Keys that are referenced in source but absent from the properties file
+        val missingKeys = (referencedKeys - existingKeys).toSortedSet()
+
+        // Add stubs to messages.properties if requested
+        if (addMode && missingKeys.isNotEmpty()) {
+            println("\n✏️  Appending ${missingKeys.size} missing key stub(s) to messages.properties...")
+            val sb = StringBuilder("\n# --- Missing keys detected by detectMissingLocalizations ---\n")
+            missingKeys.forEach { key ->
+                sb.appendLine("$key=TODO")
+            }
+            basePropertiesFile.appendText(sb.toString())
+            println("✅ Stubs appended. Search for 'TODO' in messages.properties to fill them in.")
+        }
+
+        // Build report
+        reportFile.parentFile.mkdirs()
+        reportFile.writeText(
+            buildString {
+                appendLine("=".repeat(80))
+                appendLine("MISSING LOCALIZATION KEYS REPORT")
+                appendLine("=".repeat(80))
+                appendLine("Generated: ${Instant.now()}")
+                appendLine("Existing keys in messages.properties : ${existingKeys.size}")
+                appendLine("Distinct key references in source    : ${referencedKeys.size}")
+                appendLine("Missing keys (in source, not in file): ${missingKeys.size}")
+                if (addMode) appendLine("Add mode: ENABLED (stubs were appended)")
+                appendLine("=".repeat(80))
+                appendLine()
+
+                if (missingKeys.isNotEmpty()) {
+                    appendLine("MISSING KEYS:")
+                    appendLine("-".repeat(80))
+                    missingKeys.forEach { key ->
+                        appendLine("Key  : $key")
+                        val usages = keyUsageMap[key] ?: emptyList()
+                        appendLine("Used in ${usages.distinct().size} file(s):")
+                        usages.distinct().forEach { f -> appendLine("  - $f") }
+                        appendLine()
+                    }
+                } else {
+                    appendLine("✅ No missing localization keys found!")
+                }
+
+                if (interpolatedPrefixes.isNotEmpty()) {
+                    appendLine()
+                    appendLine("NOTE: The following interpolated key prefixes were found but cannot be")
+                    appendLine("statically resolved. Verify them manually:")
+                    appendLine("-".repeat(80))
+                    interpolatedPrefixes.sorted().forEach { appendLine("  - $it*") }
+                }
+            },
+        )
+
+        println("\n📊 Report: ${reportFile.absolutePath}")
+
+        if (missingKeys.isEmpty()) {
+            println("🎉 No missing localization keys found!")
+        } else {
+            println("❌ Found ${missingKeys.size} key(s) used in source but missing from messages.properties:\n")
+            missingKeys.forEach { key ->
+                val usages = keyUsageMap[key]?.distinct() ?: emptyList()
+                println("  - $key  (${usages.size} file(s): ${usages.take(2).joinToString()}${if (usages.size > 2) " …" else ""})")
+            }
+            if (!addMode) {
+                println("\n💡 To append TODO stubs for all missing keys, run:")
+                println("   ./gradlew :desktop:detectMissingLocalizations -Padd=true")
+            }
+            throw GradleException(
+                "${missingKeys.size} i18n key(s) are referenced in source but missing from messages.properties. See output above.",
+            )
+        }
+    }
+}
+
 // =============================================================================
 // macOS Code Signing and Notarization Tasks
 //

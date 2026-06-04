@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -88,22 +89,24 @@ fun codeViewerBlock(
                 .height(IntrinsicSize.Min),
         ) {
             // ── Gutter: line numbers ──────────────────────────────────────────
-            Column(
-                modifier = Modifier
-                    .width(lineNumberWidth)
-                    .fillMaxHeight()
-                    .background(gutterBackground)
-                    .padding(vertical = 12.dp),
-                horizontalAlignment = Alignment.End,
-            ) {
-                lines.forEachIndexed { index, _ ->
-                    Text(
-                        text = "${index + 1}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontFamily = FontFamily.Monospace,
-                        color = lineNumberColor,
-                        modifier = Modifier.padding(end = 8.dp),
-                    )
+            DisableSelection {
+                Column(
+                    modifier = Modifier
+                        .width(lineNumberWidth)
+                        .fillMaxHeight()
+                        .background(gutterBackground)
+                        .padding(vertical = 12.dp),
+                    horizontalAlignment = Alignment.End,
+                ) {
+                    lines.forEachIndexed { index, _ ->
+                        Text(
+                            text = "${index + 1}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontFamily = FontFamily.Monospace,
+                            color = lineNumberColor,
+                            modifier = Modifier.padding(end = 8.dp),
+                        )
+                    }
                 }
             }
 
