@@ -326,6 +326,13 @@ enum class AnalyticsEvent(
         "analytics_opt_out",
         "User opted out of analytics.",
     ),
+
+    // ── Install ping ──────────────────────────────────────────────────────────
+
+    INSTALL_PING(
+        "install_ping",
+        "Anonymous one-time install count ping. Only appVersion and os are sent — no device identity.",
+    ),
     ;
 
     override fun toString(): String = eventName

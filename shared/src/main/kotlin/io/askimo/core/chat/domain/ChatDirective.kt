@@ -36,7 +36,7 @@ data class ChatDirective(
 )
 
 const val DIRECTIVE_NAME_MAX_LENGTH = 128
-const val DIRECTIVE_CONTENT_MAX_LENGTH = 8192
+const val DIRECTIVE_CONTENT_MAX_LENGTH = 32768
 
 /**
  * Exposed table definition for chat_directives.
@@ -45,7 +45,9 @@ const val DIRECTIVE_CONTENT_MAX_LENGTH = 8192
 object ChatDirectivesTable : Table("chat_directives") {
     val id = varchar("id", 36)
     val name = varchar("name", DIRECTIVE_NAME_MAX_LENGTH)
-    val content = varchar("content", DIRECTIVE_CONTENT_MAX_LENGTH)
+
+    // Keep DB column unbounded TEXT; enforce max length at application layer.
+    val content = text("content")
 
     /** PERSONAL (default) or TEAM — stored as plain string for SQLite compatibility. */
     val scope = varchar("scope", 16).default(DirectiveScope.PERSONAL.name)

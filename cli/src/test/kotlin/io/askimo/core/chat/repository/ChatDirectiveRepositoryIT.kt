@@ -292,4 +292,19 @@ class ChatDirectiveRepositoryIT {
             assertEquals(maxContent, retrieved.content)
         }
     }
+
+    @Test
+    fun `should reject oversized content from server upsert`() {
+        val oversized = ChatDirective(
+            name = "from-server",
+            content = "a".repeat(DIRECTIVE_CONTENT_MAX_LENGTH + 1),
+        )
+
+        val exception = assertThrows<IllegalArgumentException> {
+            repository.upsertFromServer(listOf(oversized))
+        }
+
+        assertTrue(exception.message!!.contains("cannot exceed ${DIRECTIVE_CONTENT_MAX_LENGTH} characters"))
+        assertNull(repository.get(oversized.id))
+    }
 }

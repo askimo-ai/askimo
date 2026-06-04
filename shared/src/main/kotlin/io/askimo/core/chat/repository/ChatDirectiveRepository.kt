@@ -54,6 +54,15 @@ private fun ResultRow.toChatDirective(): ChatDirective = ChatDirective(
     deletedAt = this[ChatDirectivesTable.deletedAt],
 )
 
+private fun validateDirectiveLengths(directive: ChatDirective) {
+    require(directive.name.length <= DIRECTIVE_NAME_MAX_LENGTH) {
+        "Directive name cannot exceed $DIRECTIVE_NAME_MAX_LENGTH characters"
+    }
+    require(directive.content.length <= DIRECTIVE_CONTENT_MAX_LENGTH) {
+        "Directive content cannot exceed $DIRECTIVE_CONTENT_MAX_LENGTH characters"
+    }
+}
+
 /**
  * Repository for managing chat directives stored in SQLite database.
  */
@@ -66,12 +75,7 @@ class ChatDirectiveRepository internal constructor(
      * @throws IllegalArgumentException if name or content exceed max length
      */
     fun save(directive: ChatDirective): ChatDirective {
-        require(directive.name.length <= DIRECTIVE_NAME_MAX_LENGTH) {
-            "Directive name cannot exceed $DIRECTIVE_NAME_MAX_LENGTH characters"
-        }
-        require(directive.content.length <= DIRECTIVE_CONTENT_MAX_LENGTH) {
-            "Directive content cannot exceed $DIRECTIVE_CONTENT_MAX_LENGTH characters"
-        }
+        validateDirectiveLengths(directive)
 
         transaction(database) {
             ChatDirectivesTable.upsert {
@@ -113,12 +117,7 @@ class ChatDirectiveRepository internal constructor(
      * @return true if updated, false if directive doesn't exist
      */
     fun update(directive: ChatDirective): Boolean {
-        require(directive.name.length <= DIRECTIVE_NAME_MAX_LENGTH) {
-            "Directive name cannot exceed $DIRECTIVE_NAME_MAX_LENGTH characters"
-        }
-        require(directive.content.length <= DIRECTIVE_CONTENT_MAX_LENGTH) {
-            "Directive content cannot exceed $DIRECTIVE_CONTENT_MAX_LENGTH characters"
-        }
+        validateDirectiveLengths(directive)
 
         return transaction(database) {
             ChatDirectivesTable.update({ ChatDirectivesTable.id eq directive.id }) {
@@ -232,13 +231,14 @@ class ChatDirectiveRepository internal constructor(
                 }
 
             for (directive in directives) {
+                validateDirectiveLengths(directive)
                 val storedUpdatedAt = existingById[directive.id]
 
                 if (storedUpdatedAt == null) {
                     ChatDirectivesTable.insert {
                         it[id] = directive.id
-                        it[name] = directive.name.take(DIRECTIVE_NAME_MAX_LENGTH)
-                        it[content] = directive.content.take(DIRECTIVE_CONTENT_MAX_LENGTH)
+                        it[name] = directive.name
+                        it[content] = directive.content
                         it[scope] = directive.scope.name
                         it[createdBy] = directive.createdBy
                         it[createdAt] = directive.createdAt
@@ -248,8 +248,8 @@ class ChatDirectiveRepository internal constructor(
                     }
                 } else if (directive.updatedAt.isAfter(storedUpdatedAt)) {
                     ChatDirectivesTable.update({ ChatDirectivesTable.id eq directive.id }) {
-                        it[name] = directive.name.take(DIRECTIVE_NAME_MAX_LENGTH)
-                        it[content] = directive.content.take(DIRECTIVE_CONTENT_MAX_LENGTH)
+                        it[name] = directive.name
+                        it[content] = directive.content
                         it[scope] = directive.scope.name
                         it[createdBy] = directive.createdBy
                         it[updatedAt] = directive.updatedAt

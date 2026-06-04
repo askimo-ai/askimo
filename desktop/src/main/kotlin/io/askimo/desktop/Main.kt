@@ -468,6 +468,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     // Initialize analytics first, then track retention and show star prompt
     LaunchedEffect(Unit) {
         Analytics.initialize()
+        Analytics.sendInstallPingIfNeeded()
         val hasRag = withContext(Dispatchers.IO) {
             AskimoHome.projectsDir().toFile().let { it.exists() && it.listFiles()?.isNotEmpty() == true }
         }

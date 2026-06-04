@@ -4,8 +4,13 @@
  */
 package io.askimo.core.analytics
 
+import io.askimo.core.VersionInfo
 import io.askimo.core.config.AppConfig
 import io.askimo.core.logging.logger
+import io.askimo.core.util.AskimoHome
+import io.askimo.core.util.httpPost
+import java.net.http.HttpClient
+import java.nio.file.Files
 
 /**
  * Business analytics singleton — tracks anonymous feature usage for Askimo.t.
@@ -34,6 +39,9 @@ object Analytics {
 
     private lateinit var queue: AnalyticsQueue
     private lateinit var reporter: AnalyticsReporter
+
+    /** Flag file name written after a successful install ping. */
+    private const val INSTALL_PING_FILE = ".install_ping_sent"
 
     /** Epoch-ms at [initialize] time, used to bucket session duration in [trackSessionEnd]. */
     @Volatile private var sessionStartMs: Long = 0L
@@ -94,6 +102,44 @@ object Analytics {
             else -> return
         }
         track(AnalyticsEvent.RETURNING_USER, mapOf("launch_count_bucket" to bucket))
+    }
+
+    fun sendInstallPingIfNeeded() {
+        val flagPath = AskimoHome.base().resolve(INSTALL_PING_FILE)
+        val currentVersion = VersionInfo.version
+        // Re-send if the flag file is absent OR contains a different (older) version
+        if (Files.exists(flagPath) && runCatching { Files.readString(flagPath).trim() }.getOrNull() == currentVersion) return
+        val endpoint = AppConfig.analytics.endpoint
+        val payload = buildInstallPingPayload()
+        Thread({
+            runCatching {
+                val (status, _) = httpPost(
+                    url = endpoint,
+                    body = payload,
+                    connectTimeoutMs = 10_000,
+                    readTimeoutMs = 15_000,
+                    httpVersion = HttpClient.Version.HTTP_2,
+                )
+                if (status in 200..299) {
+                    runCatching {
+                        Files.createDirectories(flagPath.parent)
+                        // Write the current version so upgrades trigger a new ping
+                        Files.writeString(flagPath, currentVersion)
+                    }
+                    log.debug("Install ping sent for version $currentVersion (HTTP $status)")
+                } else {
+                    log.trace("Install ping HTTP $status — will retry on next launch")
+                }
+            }.onFailure { log.trace("Install ping failed: ${it.message} — will retry on next launch") }
+        }, "askimo-install-ping").also { it.isDaemon = true }.start()
+    }
+
+    private fun buildInstallPingPayload(): String {
+        val os = System.getProperty("os.name", "unknown")
+            .replace("\\", "\\\\").replace("\"", "\\\"")
+        val version = VersionInfo.version
+            .replace("\\", "\\\\").replace("\"", "\\\"")
+        return """[{"event":"${AnalyticsEvent.INSTALL_PING.eventName}","appVersion":"$version","os":"$os"}]"""
     }
 
     /**

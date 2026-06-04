@@ -89,6 +89,7 @@ fun main(args: Array<String>) {
     val appContext = AppContext.initialize(mode)
 
     Analytics.initialize()
+    Analytics.sendInstallPingIfNeeded()
     val hasRag = AskimoHome.projectsDir().toFile().let { it.exists() && (it.listFiles()?.isNotEmpty() == true) }
     Analytics.track(
         AnalyticsEvent.APP_STARTED,
