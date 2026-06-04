@@ -714,7 +714,10 @@ tasks.register("detectMissingLocalizations") {
         // Keys found via interpolation patterns — we store the prefix so we can warn
         val interpolatedPrefixes = mutableSetOf<String>()
 
-        fun scanDirectory(srcDir: File, moduleName: String) {
+        fun scanDirectory(
+            srcDir: File,
+            moduleName: String,
+        ) {
             if (!srcDir.exists()) {
                 println("⚠️  Directory not found (skipping): ${srcDir.path}")
                 return
@@ -747,7 +750,8 @@ tasks.register("detectMissingLocalizations") {
 
                 // Pattern 3: interpolated keys — record the prefix for informational output only
                 Regex("""(?:stringResource|LocalizationManager\.getString)\s*\(\s*"([a-z][a-z0-9._-]*)\$\{""")
-                    .findAll(content).forEach { match ->
+                    .findAll(content)
+                    .forEach { match ->
                         interpolatedPrefixes.add(match.groupValues[1])
                     }
             }
