@@ -61,8 +61,6 @@ import io.askimo.core.backup.BackupManager
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
-import io.askimo.core.chat.repository.ChatSessionRepository
-import io.askimo.core.chat.repository.ProjectRepository
 import io.askimo.core.chat.service.ChatSessionService
 import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
@@ -78,7 +76,6 @@ import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.LogbackConfigurator
 import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.mcp.McpInstanceService
-import io.askimo.core.plan.repository.PlanDefRepository
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.user.domain.UserProfile
 import io.askimo.core.util.AskimoHome
@@ -133,6 +130,7 @@ import io.askimo.ui.common.theme.appBackground
 import io.askimo.ui.common.theme.createCustomTypography
 import io.askimo.ui.common.ui.util.CustomUriHandler
 import io.askimo.ui.common.ui.util.FileDialogUtils
+import io.askimo.ui.discover.DiscoverViewModel
 import io.askimo.ui.discover.discoverView
 import io.askimo.ui.onboarding.onboardingWizardDialog
 import io.askimo.ui.plan.PlansViewModel
@@ -426,6 +424,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     }
     val projectsViewModel = remember { koin.get<ProjectsViewModel> { parametersOf(scope) } }
     val plansViewModel = remember { koin.get<PlansViewModel> { parametersOf(scope) } }
+    val discoverViewModel = remember { koin.get<DiscoverViewModel> { parametersOf(scope) } }
     val settingsViewModel = remember { koin.get<SettingsViewModel> { parametersOf(scope) } }
     val updateViewModel = remember { koin.get<UpdateViewModel> { parametersOf(scope) } }
 
@@ -1031,10 +1030,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                         selectedProjectId = selectedProjectId,
                                                         userAvatarPath = userProfile?.preferences?.get("avatarPath"),
                                                         userProfile = userProfile,
-                                                        totalMcpServers = remember { runCatching { koin.get<McpInstanceService>().getInstances().size }.getOrDefault(0) },
-                                                        chatSessionRepository = koin.get(),
-                                                        projectRepository = koin.get(),
-                                                        planDefRepository = koin.get(),
+                                                        discoverViewModel = discoverViewModel,
                                                         onNavigateToMcpSettings = {
                                                             settingsSection = SettingsSection.MCP_SERVERS
                                                             previousView = currentView
@@ -1783,10 +1779,7 @@ fun mainContent(
     selectedProjectId: String?,
     userAvatarPath: String? = null,
     userProfile: UserProfile? = null,
-    totalMcpServers: Int = 0,
-    chatSessionRepository: ChatSessionRepository,
-    projectRepository: ProjectRepository,
-    planDefRepository: PlanDefRepository,
+    discoverViewModel: DiscoverViewModel,
 ) {
     Box(
         modifier = Modifier
@@ -1803,10 +1796,7 @@ fun mainContent(
             View.DISCOVER -> discoverView(
                 userProfile = userProfile,
                 recentSessions = sessionsViewModel.recentSessions.take(10),
-                totalMcpServers = totalMcpServers,
-                chatSessionRepository = chatSessionRepository,
-                projectRepository = projectRepository,
-                planDefRepository = planDefRepository,
+                viewModel = discoverViewModel,
                 onNewChat = onNavigateToChat,
                 onResumeSession = onResumeSession,
                 onNavigateToSessions = onNavigateToSessions,

@@ -67,7 +67,6 @@ import io.askimo.ui.common.components.tablePagination
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.ThemePreferences
-import io.askimo.ui.common.ui.themedTooltip
 
 private enum class SessionSortColumn { UPDATED, CREATED }
 private enum class SortDirection { ASC, DESC }
@@ -433,7 +432,7 @@ private fun sessionRow(
         }
 
         // Title
-        themedTooltip(text = session.title, modifier = Modifier.weight(1f)) {
+        sessionTooltip(session = session, modifier = Modifier.weight(1f)) {
             Text(
                 text = session.title,
                 style = MaterialTheme.typography.bodyMedium,

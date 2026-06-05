@@ -86,6 +86,7 @@ import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.session.SessionActionMenu
 import io.askimo.ui.session.SessionsViewModel
 import io.askimo.ui.session.deleteSessionDialog
+import io.askimo.ui.session.sessionTooltip
 import io.askimo.ui.util.Platform
 import java.io.File
 import java.net.URI
@@ -862,7 +863,7 @@ private fun pinnedSessionItem(
             .padding(vertical = 2.dp)
             .hoverable(interactionSource),
     ) {
-        themedTooltip(text = session.title) {
+        sessionTooltip(session = session) {
             NavigationDrawerItem(
                 icon = if (isChatInProgress) {
                     {
@@ -1061,7 +1062,7 @@ private fun sessionItemWithMenu(
             .padding(vertical = 2.dp)
             .hoverable(interactionSource),
     ) {
-        themedTooltip(text = session.title) {
+        sessionTooltip(session = session) {
             NavigationDrawerItem(
                 icon = if (isChatInProgress) {
                     {

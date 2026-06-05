@@ -249,17 +249,6 @@ class ChatSessionRepositoryIT {
     }
 
     @Test
-    fun `should update session sort order`() {
-        val session = sessionRepository.createSession(ChatSession(id = "", title = "Session"))
-
-        val updated = sessionRepository.updateSessionSortOrder(session.id, 10)
-
-        assertTrue(updated)
-        val retrieved = sessionRepository.getSession(session.id)
-        assertEquals(10, retrieved!!.sortOrder)
-    }
-
-    @Test
     fun `should update session title`() {
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Old Title"))
 

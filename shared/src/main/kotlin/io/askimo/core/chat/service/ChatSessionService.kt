@@ -45,6 +45,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
+import org.jetbrains.exposed.v1.core.SortOrder
 import java.io.File
 import java.time.Instant
 import kotlin.time.Duration.Companion.minutes
@@ -263,7 +264,7 @@ class ChatSessionService(
      */
     fun getSessions(limit: Int): List<ChatSession> = sessionRepository.getSessions(limit)
 
-    fun getSessionsWithoutProject(limit: Int): List<ChatSession> = sessionRepository.getSessionsWithoutProject(limit)
+    fun getSessionsWithoutProject(limit: Int, sortOrder: SortOrder = SortOrder.DESC): List<ChatSession> = sessionRepository.getSessionsWithoutProject(limit, sortOrder)
 
     /**
      * Get sessions with pagination support.
@@ -274,7 +275,7 @@ class ChatSessionService(
      * @param pageSize The number of sessions per page
      * @return PagedSessions containing the sessions for the requested page and pagination info
      */
-    fun getSessionsPagedWithoutProject(page: Int, pageSize: Int): Pageable<ChatSession> = sessionRepository.getSessionsPaged(page, pageSize, projectFilter = false)
+    fun getSessionsPagedWithoutProject(page: Int, pageSize: Int, sortOrder: SortOrder = SortOrder.DESC): Pageable<ChatSession> = sessionRepository.getSessionsPaged(page, pageSize, projectFilter = false, sortOrder = sortOrder)
 
     /**
      * Get a session by ID.

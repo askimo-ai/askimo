@@ -152,6 +152,71 @@ fun themedTooltip(
 }
 
 /**
+ * A tooltip variant that accepts arbitrary composable content in the popup instead of a plain string.
+ * Use this for rich tooltips (multi-line, structured content, etc.).
+ *
+ * @param placement Controls where the tooltip appears relative to the anchor
+ * @param modifier Optional modifier for the TooltipBox
+ * @param tooltipContent The composable to render inside the tooltip popup
+ * @param content The anchor composable the tooltip wraps
+ */
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
+@Composable
+fun themedRichTooltip(
+    placement: TooltipPlacement = TooltipPlacement.AUTO,
+    modifier: Modifier = Modifier,
+    tooltipContent: @Composable () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val tooltipState = rememberTooltipState(isPersistent = true)
+    var isHovered by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isHovered) {
+        if (isHovered) {
+            delay(TOOLTIP_SHOW_DELAY)
+            tooltipState.show()
+        } else {
+            delay(TOOLTIP_HIDE_DELAY)
+            tooltipState.dismiss()
+        }
+    }
+
+    val windowInfo = LocalWindowInfo.current
+    val containerHeight = windowInfo.containerSize.height.toFloat()
+
+    Box(modifier = modifier) {
+        TooltipBox(
+            positionProvider = remember(containerHeight, placement) {
+                SmartTooltipPositionProvider(maxHeightPx = containerHeight, placement = placement)
+            },
+            tooltip = {
+                Surface(
+                    modifier = Modifier.padding(4.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = MaterialTheme.shapes.small,
+                    shadowElevation = 4.dp,
+                ) {
+                    tooltipContent()
+                }
+            },
+            state = tooltipState,
+        ) {
+            Box(
+                modifier = Modifier
+                    .hoverable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        enabled = true,
+                    )
+                    .onPointerEvent(PointerEventType.Enter) { isHovered = true }
+                    .onPointerEvent(PointerEventType.Exit) { isHovered = false },
+            ) {
+                content()
+            }
+        }
+    }
+}
+
+/**
  * Smart tooltip position provider that automatically positions the tooltip
  * to avoid overlapping with the component and screen edges.
  */

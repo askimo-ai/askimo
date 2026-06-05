@@ -43,31 +43,23 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.chat.domain.ChatSession
-import io.askimo.core.chat.repository.ChatSessionRepository
-import io.askimo.core.chat.repository.ProjectRepository
-import io.askimo.core.plan.repository.PlanDefRepository
-import io.askimo.core.skills.SkillRepository
 import io.askimo.core.user.domain.UserProfile
 import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.components.clickableCard
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.ThemePreferences
-import io.askimo.ui.common.ui.themedTooltip
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import io.askimo.ui.session.sessionTooltip
 import java.awt.Desktop
 import java.net.URI
 import java.time.LocalTime
@@ -76,10 +68,7 @@ import java.time.LocalTime
 fun discoverView(
     userProfile: UserProfile?,
     recentSessions: List<ChatSession>,
-    totalMcpServers: Int,
-    chatSessionRepository: ChatSessionRepository,
-    projectRepository: ProjectRepository,
-    planDefRepository: PlanDefRepository,
+    viewModel: DiscoverViewModel,
     onNewChat: () -> Unit,
     onResumeSession: (String) -> Unit,
     onNavigateToSessions: () -> Unit,
@@ -89,20 +78,6 @@ fun discoverView(
     onNavigateToMcpSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var totalChats by remember { mutableStateOf<Int?>(null) }
-    var totalProjects by remember { mutableStateOf<Int?>(null) }
-    var totalPlans by remember { mutableStateOf<Int?>(null) }
-    var totalSkills by remember { mutableStateOf<Int?>(null) }
-
-    LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
-            totalChats = chatSessionRepository.countAll()
-            totalProjects = projectRepository.countAll()
-            totalPlans = planDefRepository.count()
-            totalSkills = SkillRepository.countSkills(io.askimo.core.util.AskimoHome.skillsDir())
-        }
-    }
-
     val scrollState = rememberScrollState()
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -125,11 +100,11 @@ fun discoverView(
                 )
 
                 statCardsSection(
-                    totalChats = totalChats,
-                    totalProjects = totalProjects,
-                    totalMcpServers = totalMcpServers,
-                    totalPlans = totalPlans,
-                    totalSkills = totalSkills,
+                    totalChats = viewModel.totalChats,
+                    totalProjects = viewModel.totalProjects,
+                    totalMcpServers = viewModel.totalMcpServers,
+                    totalPlans = viewModel.totalPlans,
+                    totalSkills = viewModel.totalSkills,
                     onNavigateToSessions = onNavigateToSessions,
                     onNavigateToProjects = onNavigateToProjects,
                     onNavigateToPlans = onNavigateToPlans,
@@ -481,13 +456,13 @@ private fun recentSessionRow(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(16.dp),
             )
-            themedTooltip(text = session.title) {
+            sessionTooltip(session = session) {
                 Text(
                     text = session.title,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }

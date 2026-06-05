@@ -18,6 +18,7 @@ import io.askimo.desktop.project.ProjectViewModel
 import io.askimo.desktop.project.ProjectsViewModel
 import io.askimo.desktop.settings.SettingsViewModel
 import io.askimo.ui.common.monitoring.SystemResourceMonitor
+import io.askimo.ui.discover.DiscoverViewModel
 import io.askimo.ui.plan.PlansViewModel
 import io.askimo.ui.service.AvatarService
 import io.askimo.ui.service.UpdateService
@@ -102,6 +103,16 @@ val desktopModule = module {
 
     factory { (scope: CoroutineScope) ->
         PlansViewModel(scope = scope, planService = get())
+    }
+
+    factory { (scope: CoroutineScope) ->
+        DiscoverViewModel(
+            scope = scope,
+            chatSessionRepository = get(),
+            projectRepository = get(),
+            planDefRepository = get(),
+            mcpInstanceService = get(),
+        )
     }
 
     factory { (scope: CoroutineScope, projectId: String) ->

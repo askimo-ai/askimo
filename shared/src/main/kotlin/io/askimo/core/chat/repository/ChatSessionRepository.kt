@@ -42,7 +42,6 @@ private fun ResultRow.toChatSession(): ChatSession = ChatSession(
     projectId = this[ChatSessionsTable.projectId],
     directiveId = this[ChatSessionsTable.directiveId],
     isStarred = this[ChatSessionsTable.isStarred] == 1,
-    sortOrder = this[ChatSessionsTable.sortOrder],
 )
 
 /**
@@ -70,7 +69,6 @@ class ChatSessionRepository internal constructor(
                 it[ChatSessionsTable.projectId] = sessionWithInjectedFields.projectId
                 it[ChatSessionsTable.directiveId] = sessionWithInjectedFields.directiveId
                 it[ChatSessionsTable.isStarred] = if (sessionWithInjectedFields.isStarred) 1 else 0
-                it[ChatSessionsTable.sortOrder] = sessionWithInjectedFields.sortOrder
             }
         }
 
@@ -98,7 +96,6 @@ class ChatSessionRepository internal constructor(
             .selectAll()
             .orderBy(
                 Pair(ChatSessionsTable.isStarred, SortOrder.DESC),
-                Pair(ChatSessionsTable.sortOrder, SortOrder.ASC),
                 Pair(ChatSessionsTable.updatedAt, SortOrder.DESC),
             )
             .limit(limit)
@@ -121,6 +118,7 @@ class ChatSessionRepository internal constructor(
         page: Int = 1,
         pageSize: Int = 10,
         projectFilter: Boolean? = null,
+        sortOrder: SortOrder = SortOrder.DESC,
     ): Pageable<ChatSession> = transaction(database) {
         // Build base query with optional filter
         val baseQuery = ChatSessionsTable.selectAll().apply {
@@ -158,8 +156,7 @@ class ChatSessionRepository internal constructor(
         }
             .orderBy(
                 Pair(ChatSessionsTable.isStarred, SortOrder.DESC),
-                Pair(ChatSessionsTable.sortOrder, SortOrder.ASC),
-                Pair(ChatSessionsTable.updatedAt, SortOrder.DESC),
+                Pair(ChatSessionsTable.updatedAt, sortOrder),
             )
             .limit(pageSize)
             .offset(offset)
@@ -302,16 +299,6 @@ class ChatSessionRepository internal constructor(
     }.also { if (it) EventBus.post(PushDataToServerEvent(reason = "session starred")) }
 
     /**
-     * Update the sort order of a session
-     */
-    fun updateSessionSortOrder(sessionId: String, sortOrder: Int): Boolean = transaction(database) {
-        ChatSessionsTable.update({ ChatSessionsTable.id eq sessionId }) {
-            it[ChatSessionsTable.sortOrder] = sortOrder
-            it[updatedAt] = Instant.now()
-        } > 0
-    }.also { if (it) EventBus.post(PushDataToServerEvent(reason = "session sort order changed")) }
-
-    /**
      * Update the title of a session
      */
     fun updateSessionTitle(sessionId: String, title: String): Boolean {
@@ -335,10 +322,7 @@ class ChatSessionRepository internal constructor(
         ChatSessionsTable
             .selectAll()
             .where { ChatSessionsTable.isStarred eq 1 }
-            .orderBy(
-                Pair(ChatSessionsTable.sortOrder, SortOrder.ASC),
-                Pair(ChatSessionsTable.updatedAt, SortOrder.DESC),
-            )
+            .orderBy(ChatSessionsTable.updatedAt, SortOrder.DESC)
             .map { it.toChatSession() }
     }
 
@@ -349,14 +333,12 @@ class ChatSessionRepository internal constructor(
      * @param limit Maximum number of sessions to return
      * @return List of sessions up to the specified limit
      */
-    fun getSessionsWithoutProject(limit: Int): List<ChatSession> = transaction(database) {
+    fun getSessionsWithoutProject(limit: Int, sortOrder: SortOrder = SortOrder.DESC): List<ChatSession> = transaction(database) {
         ChatSessionsTable
             .selectAll()
             .where { ChatSessionsTable.projectId.isNull() }
             .orderBy(
-                Pair(ChatSessionsTable.isStarred, SortOrder.DESC),
-                Pair(ChatSessionsTable.sortOrder, SortOrder.ASC),
-                Pair(ChatSessionsTable.updatedAt, SortOrder.DESC),
+                Pair(ChatSessionsTable.updatedAt, sortOrder),
             )
             .limit(limit)
             .map { it.toChatSession() }
@@ -421,7 +403,6 @@ class ChatSessionRepository internal constructor(
                         it[projectId] = session.projectId
                         it[directiveId] = session.directiveId
                         it[isStarred] = if (session.isStarred) 1 else 0
-                        it[sortOrder] = session.sortOrder
                         it[syncedAt] = nowStr
                     }
                     log.debug("upsertFromServer: inserted session {}", session.id)
@@ -433,7 +414,6 @@ class ChatSessionRepository internal constructor(
                         it[projectId] = session.projectId
                         it[directiveId] = session.directiveId
                         it[isStarred] = if (session.isStarred) 1 else 0
-                        it[sortOrder] = session.sortOrder
                         it[syncedAt] = nowStr
                     }
                     log.debug("upsertFromServer: updated session {} (server newer)", session.id)

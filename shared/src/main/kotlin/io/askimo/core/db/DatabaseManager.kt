@@ -234,7 +234,6 @@ class DatabaseManager private constructor(
                     directive_id TEXT,
                     folder_id TEXT,
                     is_starred INTEGER DEFAULT 0,
-                    sort_order INTEGER DEFAULT 0,
                     synced_at TEXT
                 )
                 """,
@@ -261,6 +260,14 @@ class DatabaseManager private constructor(
                 )
             } catch (_: Exception) {
                 // Column already exists — safe to ignore.
+            }
+
+            try {
+                stmt.executeUpdate(
+                    "ALTER TABLE chat_sessions DROP COLUMN sort_order",
+                )
+            } catch (_: Exception) {
+                // Column doesn't exist or SQLite version too old — safe to ignore.
             }
         }
     }
