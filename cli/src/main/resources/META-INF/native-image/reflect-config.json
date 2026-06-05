@@ -919,11 +919,7 @@
   "name": "com.github.dockerjava.api.model.PeerNode",
   "allDeclaredFields": true,
   "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllDeclaredConstructors": true
 }, {
   "name": "com.github.dockerjava.api.model.Ports",
   "allDeclaredFields": true,
@@ -2551,6 +2547,9 @@
     "name": "should list all directives ordered by name",
     "parameterTypes": [ ]
   }, {
+    "name": "should reject oversized content from server upsert",
+    "parameterTypes": [ ]
+  }, {
     "name": "should return empty list when getting directives with empty ids list",
     "parameterTypes": [ ]
   }, {
@@ -2691,12 +2690,6 @@
     "name": "should create and retrieve a chat session",
     "parameterTypes": [ ]
   }, {
-    "name": "should create session with default sort order",
-    "parameterTypes": [ ]
-  }, {
-    "name": "should create session with sort order",
-    "parameterTypes": [ ]
-  }, {
     "name": "should create session with starred flag",
     "parameterTypes": [ ]
   }, {
@@ -2709,13 +2702,7 @@
     "name": "should get all starred sessions",
     "parameterTypes": [ ]
   }, {
-    "name": "should get starred sessions ordered by sort order and updated time",
-    "parameterTypes": [ ]
-  }, {
     "name": "should not affect other sessions when deleting one",
-    "parameterTypes": [ ]
-  }, {
-    "name": "should order sessions by starred, sort order, and updated time",
     "parameterTypes": [ ]
   }, {
     "name": "should retrieve all sessions ordered by updated_at desc",
@@ -2749,9 +2736,6 @@
     "parameterTypes": [ ]
   }, {
     "name": "should unstar a session",
-    "parameterTypes": [ ]
-  }, {
-    "name": "should update session sort order",
     "parameterTypes": [ ]
   }, {
     "name": "should update session title",
@@ -4976,7 +4960,7 @@
     "parameterTypes": [ "dev.langchain4j.data.message.UserMessage", "dev.langchain4j.model.chat.request.ChatRequestParameters" ]
   } ]
 }, {
-  "name": "io.askimo.core.providers.ChatClient$MockitoMock$rwAGQwgY",
+  "name": "io.askimo.core.providers.ChatClient$MockitoMock$uLGJSYTf",
   "queryAllDeclaredConstructors": true,
   "methods": [ {
     "name": "<init>",
@@ -7721,7 +7705,7 @@
     "parameterTypes": [ ]
   } ]
 }, {
-  "name": "org.jline.reader.ParsedLine$MockitoMock$y5BF5YDP",
+  "name": "org.jline.reader.ParsedLine$MockitoMock$Qz4J2M8C",
   "queryAllDeclaredConstructors": true,
   "methods": [ {
     "name": "<init>",
