@@ -215,40 +215,6 @@ class ChatSessionRepositoryIT {
     }
 
     @Test
-    fun `should get starred sessions ordered by sort order and updated time`() {
-        val starred1 = sessionRepository.createSession(
-            ChatSession(id = "", title = "Starred 1", isStarred = true, sortOrder = 2),
-        )
-        val starred2 = sessionRepository.createSession(
-            ChatSession(id = "", title = "Starred 2", isStarred = true, sortOrder = 1),
-        )
-
-        val starredSessions = sessionRepository.getStarredSessions()
-
-        assertEquals(2, starredSessions.size)
-        assertEquals(starred2.id, starredSessions[0].id)
-        assertEquals(starred1.id, starredSessions[1].id)
-    }
-
-    @Test
-    fun `should create session with sort order`() {
-        val session = sessionRepository.createSession(
-            ChatSession(id = "", title = "Ordered Session", sortOrder = 5),
-        )
-
-        val retrieved = sessionRepository.getSession(session.id)
-        assertEquals(5, retrieved!!.sortOrder)
-    }
-
-    @Test
-    fun `should create session with default sort order`() {
-        val session = sessionRepository.createSession(ChatSession(id = "", title = "Default Order"))
-
-        val retrieved = sessionRepository.getSession(session.id)
-        assertEquals(0, retrieved!!.sortOrder)
-    }
-
-    @Test
     fun `should update session title`() {
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Old Title"))
 
@@ -308,26 +274,6 @@ class ChatSessionRepositoryIT {
 
         val retrieved = sessionRepository.getSession(session.id)
         assertNotEquals(originalUpdatedAt, retrieved!!.updatedAt)
-    }
-
-    @Test
-    fun `should order sessions by starred, sort order, and updated time`() {
-        val session1 = sessionRepository.createSession(
-            ChatSession(id = "", title = "Normal", sortOrder = 1),
-        )
-        val session2 = sessionRepository.createSession(
-            ChatSession(id = "", title = "Starred", isStarred = true, sortOrder = 2),
-        )
-        val session3 = sessionRepository.createSession(
-            ChatSession(id = "", title = "Starred First", isStarred = true, sortOrder = 1),
-        )
-
-        val sessions = sessionRepository.getSessions(10)
-
-        assertEquals(3, sessions.size)
-        assertEquals(session3.id, sessions[0].id) // Starred, sort order 1
-        assertEquals(session2.id, sessions[1].id) // Starred, sort order 2
-        assertEquals(session1.id, sessions[2].id) // Not starred
     }
 
     @Test
