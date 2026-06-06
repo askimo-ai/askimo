@@ -919,7 +919,11 @@
   "name": "com.github.dockerjava.api.model.PeerNode",
   "allDeclaredFields": true,
   "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
+  "queryAllDeclaredConstructors": true,
+  "methods": [ {
+    "name": "<init>",
+    "parameterTypes": [ ]
+  } ]
 }, {
   "name": "com.github.dockerjava.api.model.Ports",
   "allDeclaredFields": true,
@@ -4960,7 +4964,7 @@
     "parameterTypes": [ "dev.langchain4j.data.message.UserMessage", "dev.langchain4j.model.chat.request.ChatRequestParameters" ]
   } ]
 }, {
-  "name": "io.askimo.core.providers.ChatClient$MockitoMock$uLGJSYTf",
+  "name": "io.askimo.core.providers.ChatClient$MockitoMock$wLZJ0Hoy",
   "queryAllDeclaredConstructors": true,
   "methods": [ {
     "name": "<init>",
@@ -6232,6 +6236,9 @@
     "name": "countEntries",
     "parameterTypes": [ "java.lang.String", "java.lang.Boolean", "java.lang.Boolean" ]
   }, {
+    "name": "print",
+    "parameterTypes": [ "java.lang.String" ]
+  }, {
     "name": "readFile",
     "parameterTypes": [ "java.lang.String" ]
   }, {
@@ -7013,6 +7020,11 @@
     "name": "cellsBusy"
   } ]
 }, {
+  "name": "java.util.concurrent.atomic.Striped64$Cell",
+  "fields": [ {
+    "name": "value"
+  } ]
+}, {
   "name": "java.util.concurrent.locks.AbstractOwnableSynchronizer"
 }, {
   "name": "java.util.concurrent.locks.AbstractQueuedSynchronizer"
@@ -7705,7 +7717,7 @@
     "parameterTypes": [ ]
   } ]
 }, {
-  "name": "org.jline.reader.ParsedLine$MockitoMock$Qz4J2M8C",
+  "name": "org.jline.reader.ParsedLine$MockitoMock$orXQXFKw",
   "queryAllDeclaredConstructors": true,
   "methods": [ {
     "name": "<init>",

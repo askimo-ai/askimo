@@ -4,156 +4,18 @@
  */
 package io.askimo.core.providers.localai
 
-import dev.langchain4j.http.client.jdk.JdkHttpClient
-import dev.langchain4j.memory.ChatMemory
-import dev.langchain4j.model.chat.ChatModel
-import dev.langchain4j.model.chat.StreamingChatModel
-import dev.langchain4j.model.embedding.EmbeddingModel
-import dev.langchain4j.model.image.ImageModel
-import dev.langchain4j.model.openai.OpenAiChatModel
-import dev.langchain4j.model.openai.OpenAiEmbeddingModel.OpenAiEmbeddingModelBuilder
-import dev.langchain4j.model.openai.OpenAiImageModel
-import dev.langchain4j.model.openai.OpenAiStreamingChatModel
-import dev.langchain4j.rag.content.retriever.ContentRetriever
-import dev.langchain4j.service.AiServices
-import dev.langchain4j.service.tool.ToolProvider
-import io.askimo.core.config.AppConfig
-import io.askimo.core.context.AppContext
-import io.askimo.core.context.ExecutionMode
-import io.askimo.core.logging.display
-import io.askimo.core.logging.logger
-import io.askimo.core.providers.AiServiceBuilder
-import io.askimo.core.providers.ChatClient
-import io.askimo.core.providers.ChatModelFactory
-import io.askimo.core.providers.LocalEmbeddingTokenLimits
-import io.askimo.core.providers.ModelDTO
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ModelProvider.LOCALAI
-import io.askimo.core.providers.ProviderModelUtils.fetchModels
+import io.askimo.core.providers.OpenAiCompatibleChatModelFactory
 import io.askimo.core.providers.ensureLocalEmbeddingModelAvailable
-import io.askimo.core.telemetry.TelemetryChatModelListener
-import io.askimo.core.util.ProxyUtil
-import java.net.http.HttpClient
-import java.time.Duration
 
-class LocalAiModelFactory : ChatModelFactory<LocalAiSettings> {
-
-    private val log = logger<LocalAiModelFactory>()
+class LocalAiModelFactory : OpenAiCompatibleChatModelFactory<LocalAiSettings>() {
 
     override fun getProvider(): ModelProvider = LOCALAI
 
-    override fun availableModels(settings: LocalAiSettings): List<ModelDTO> {
-        val baseUrl = settings.baseUrl.takeIf { it.isNotBlank() } ?: return emptyList()
-        return fetchModels(apiKey = "not-needed", url = "$baseUrl/models", providerName = LOCALAI)
-            .map { ModelDTO.of(LOCALAI, it) }
-    }
-
     override fun defaultSettings(): LocalAiSettings = LocalAiSettings()
 
-    override fun create(
-        sessionId: String?,
-        settings: LocalAiSettings,
-        toolProvider: ToolProvider?,
-        retriever: ContentRetriever?,
-        executionMode: ExecutionMode,
-        chatMemory: ChatMemory?,
-    ): ChatClient = AiServiceBuilder.buildChatClient(
-        sessionId = sessionId,
-        settings = settings,
-        provider = LOCALAI,
-        chatModel = createStreamingModel(settings),
-        secondaryChatModel = createSecondaryModel(settings),
-        chatMemory = chatMemory,
-        toolProvider = toolProvider,
-        retriever = retriever,
-        executionMode = executionMode,
-    )
+    override fun canFetchModels(settings: LocalAiSettings): Boolean = settings.baseUrl.isNotBlank()
 
-    override fun createImageModel(
-        settings: LocalAiSettings,
-    ): ImageModel = OpenAiImageModel.builder()
-        .apiKey("localai")
-        .baseUrl(settings.baseUrl)
-        .modelName(AppConfig.models[LOCALAI].imageModel)
-        .logger(log)
-        .logRequests(log.isDebugEnabled)
-        .logResponses(log.isTraceEnabled)
-        .build()
-
-    override fun createStreamingModel(settings: LocalAiSettings): StreamingChatModel {
-        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder(), settings.baseUrl)
-        val jdkHttpClientBuilder = JdkHttpClient.builder().httpClientBuilder(httpClientBuilder)
-        val telemetry = AppContext.getInstance().telemetry
-
-        return OpenAiStreamingChatModel.builder()
-            .httpClientBuilder(jdkHttpClientBuilder)
-            .baseUrl(settings.baseUrl)
-            .apiKey("localai")
-            .modelName(settings.defaultModel)
-            .timeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
-            .logger(log)
-            .logRequests(log.isDebugEnabled)
-            .logResponses(log.isTraceEnabled)
-            .listeners(listOf(TelemetryChatModelListener(telemetry, LOCALAI.name.lowercase())))
-            .build()
-    }
-
-    override fun createSecondaryModel(settings: LocalAiSettings): ChatModel {
-        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder(), settings.baseUrl)
-        val jdkHttpClientBuilder = JdkHttpClient.builder().httpClientBuilder(httpClientBuilder)
-        return OpenAiChatModel.builder()
-            .httpClientBuilder(jdkHttpClientBuilder)
-            .baseUrl(settings.baseUrl)
-            .apiKey("localai")
-            .modelName(AppConfig.models[LOCALAI].utilityModel.ifBlank { settings.defaultModel })
-            .timeout(Duration.ofSeconds(AppConfig.models.timeouts.utilityModelTimeoutSeconds))
-            .build()
-    }
-
-    override fun createModel(settings: LocalAiSettings): ChatModel {
-        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder(), settings.baseUrl)
-        val jdkHttpClientBuilder = JdkHttpClient.builder().httpClientBuilder(httpClientBuilder)
-        val telemetry = AppContext.getInstance().telemetry
-
-        return OpenAiChatModel.builder()
-            .httpClientBuilder(jdkHttpClientBuilder)
-            .baseUrl(settings.baseUrl)
-            .apiKey("localai")
-            .modelName(settings.defaultModel)
-            .timeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
-            .listeners(listOf(TelemetryChatModelListener(telemetry, LOCALAI.name.lowercase())))
-            .build()
-    }
-
-    override fun createUtilityClient(
-        settings: LocalAiSettings,
-    ): ChatClient = AiServices.builder(ChatClient::class.java)
-        .chatModel(createSecondaryModel(settings))
-        .build()
-
-    override fun supportsEmbedding(): Boolean = true
-
-    override fun createEmbeddingModel(settings: LocalAiSettings): EmbeddingModel {
-        val baseUrl = settings.baseUrl.removeSuffix("/")
-        val modelName = AppConfig.models[LOCALAI].embeddingModel
-
-        log.display(
-            """
-            ℹ️  Using LocalAI for embeddings
-               • LocalAI URL: $baseUrl
-               • Embedding model: $modelName
-               • Configure in askimo.yml: models.localai.embedding_model
-            """.trimIndent(),
-        )
-
-        ensureLocalEmbeddingModelAvailable(LOCALAI, baseUrl, modelName)
-
-        return OpenAiEmbeddingModelBuilder()
-            .apiKey("not-needed")
-            .baseUrl(baseUrl)
-            .modelName(modelName)
-            .build()
-    }
-
-    override fun getEmbeddingTokenLimit(settings: LocalAiSettings): Int = LocalEmbeddingTokenLimits.resolve(AppConfig.models[LOCALAI].embeddingModel)
+    override fun checkEmbeddingAvailability(baseUrl: String, modelName: String) = ensureLocalEmbeddingModelAvailable(getProvider(), baseUrl, modelName)
 }

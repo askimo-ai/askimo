@@ -4,48 +4,19 @@
  */
 package io.askimo.core.providers.ollama
 
-import dev.langchain4j.http.client.jdk.JdkHttpClient
-import dev.langchain4j.memory.ChatMemory
-import dev.langchain4j.model.chat.ChatModel
-import dev.langchain4j.model.chat.StreamingChatModel
-import dev.langchain4j.model.embedding.EmbeddingModel
-import dev.langchain4j.model.image.ImageModel
-import dev.langchain4j.model.openai.OpenAiChatModel
-import dev.langchain4j.model.openai.OpenAiEmbeddingModel.OpenAiEmbeddingModelBuilder
-import dev.langchain4j.model.openai.OpenAiImageModel
-import dev.langchain4j.model.openai.OpenAiStreamingChatModel
-import dev.langchain4j.rag.content.retriever.ContentRetriever
-import dev.langchain4j.service.AiServices
-import dev.langchain4j.service.tool.ToolProvider
-import io.askimo.core.config.AppConfig
-import io.askimo.core.context.AppContext
-import io.askimo.core.context.ExecutionMode
-import io.askimo.core.logging.logger
-import io.askimo.core.providers.AiServiceBuilder
-import io.askimo.core.providers.ChatClient
-import io.askimo.core.providers.ChatModelFactory
-import io.askimo.core.providers.LocalEmbeddingTokenLimits
-import io.askimo.core.providers.ModelDTO
 import io.askimo.core.providers.ModelProvider
-import io.askimo.core.providers.ProviderModelUtils.fetchModels
+import io.askimo.core.providers.OpenAiCompatibleChatModelFactory
 import io.askimo.core.providers.ensureLocalEmbeddingModelAvailable
-import io.askimo.core.telemetry.TelemetryChatModelListener
-import io.askimo.core.util.ProxyUtil
-import java.net.http.HttpClient
-import java.time.Duration
 
-class OllamaModelFactory : ChatModelFactory<OllamaSettings> {
-    private val log = logger<OllamaModelFactory>()
+class OllamaModelFactory : OpenAiCompatibleChatModelFactory<OllamaSettings>() {
 
     override fun getProvider(): ModelProvider = ModelProvider.OLLAMA
 
-    override fun availableModels(settings: OllamaSettings): List<ModelDTO> {
-        val baseUrl = settings.baseUrl.takeIf { it.isNotBlank() } ?: return emptyList()
-        return fetchModels(apiKey = "not-needed", url = "$baseUrl/models", providerName = ModelProvider.OLLAMA)
-            .map { ModelDTO.of(ModelProvider.OLLAMA, it) }
-    }
-
     override fun defaultSettings(): OllamaSettings = OllamaSettings()
+
+    override fun canFetchModels(settings: OllamaSettings): Boolean = settings.baseUrl.isNotBlank()
+
+    override fun checkEmbeddingAvailability(baseUrl: String, modelName: String) = ensureLocalEmbeddingModelAvailable(getProvider(), baseUrl, modelName)
 
     override fun getNoModelsHelpText(): String = """
         You may not have any models installed yet.
@@ -55,104 +26,4 @@ class OllamaModelFactory : ChatModelFactory<OllamaSettings> {
 
         Example: ollama pull llama3
     """.trimIndent()
-
-    override fun create(
-        sessionId: String?,
-        settings: OllamaSettings,
-        toolProvider: ToolProvider?,
-        retriever: ContentRetriever?,
-        executionMode: ExecutionMode,
-        chatMemory: ChatMemory?,
-    ): ChatClient = AiServiceBuilder.buildChatClient(
-        sessionId = sessionId,
-        settings = settings,
-        provider = ModelProvider.OLLAMA,
-        chatModel = createStreamingModel(settings),
-        secondaryChatModel = createSecondaryModel(settings),
-        chatMemory = chatMemory,
-        toolProvider = toolProvider,
-        retriever = retriever,
-        executionMode = executionMode,
-    )
-
-    override fun createImageModel(
-        settings: OllamaSettings,
-    ): ImageModel = OpenAiImageModel.builder()
-        .apiKey("ollama")
-        .baseUrl(settings.baseUrl)
-        .modelName(AppConfig.models[ModelProvider.OLLAMA].imageModel)
-        .logger(log)
-        .logRequests(log.isDebugEnabled)
-        .logResponses(log.isTraceEnabled)
-        .build()
-
-    override fun createStreamingModel(settings: OllamaSettings): StreamingChatModel {
-        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder(), settings.baseUrl)
-        val jdkHttpClientBuilder = JdkHttpClient.builder().httpClientBuilder(httpClientBuilder)
-        val telemetry = AppContext.getInstance().telemetry
-
-        return OpenAiStreamingChatModel.builder()
-            .httpClientBuilder(jdkHttpClientBuilder)
-            .baseUrl(settings.baseUrl)
-            .modelName(settings.defaultModel)
-            .timeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
-            .logger(log)
-            .logRequests(log.isDebugEnabled)
-            .logResponses(log.isTraceEnabled)
-            .listeners(listOf(TelemetryChatModelListener(telemetry, ModelProvider.OLLAMA.name.lowercase())))
-            .build()
-    }
-
-    override fun createSecondaryModel(settings: OllamaSettings): ChatModel {
-        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder(), settings.baseUrl)
-        val jdkHttpClientBuilder = JdkHttpClient.builder().httpClientBuilder(httpClientBuilder)
-        return OpenAiChatModel.builder()
-            .httpClientBuilder(jdkHttpClientBuilder)
-            .baseUrl(settings.baseUrl)
-            .apiKey("ollama")
-            .modelName(AppConfig.models[ModelProvider.OLLAMA].utilityModel.ifBlank { settings.defaultModel })
-            .timeout(Duration.ofSeconds(AppConfig.models.timeouts.utilityModelTimeoutSeconds))
-            .logger(log)
-            .logRequests(log.isDebugEnabled)
-            .build()
-    }
-
-    override fun createModel(settings: OllamaSettings): ChatModel {
-        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder(), settings.baseUrl)
-        val jdkHttpClientBuilder = JdkHttpClient.builder().httpClientBuilder(httpClientBuilder)
-        val telemetry = AppContext.getInstance().telemetry
-
-        return OpenAiChatModel.builder()
-            .httpClientBuilder(jdkHttpClientBuilder)
-            .baseUrl(settings.baseUrl)
-            .apiKey("ollama")
-            .modelName(settings.defaultModel)
-            .timeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
-            .logger(log)
-            .logRequests(log.isDebugEnabled)
-            .logResponses(log.isTraceEnabled)
-            .listeners(listOf(TelemetryChatModelListener(telemetry, ModelProvider.OLLAMA.name.lowercase())))
-            .build()
-    }
-
-    override fun createUtilityClient(
-        settings: OllamaSettings,
-    ): ChatClient = AiServices.builder(ChatClient::class.java)
-        .chatModel(createSecondaryModel(settings))
-        .build()
-
-    override fun supportsEmbedding(): Boolean = true
-
-    override fun createEmbeddingModel(settings: OllamaSettings): EmbeddingModel {
-        val baseUrl = settings.baseUrl.removeSuffix("/")
-        val modelName = AppConfig.models[ModelProvider.OLLAMA].embeddingModel
-        ensureLocalEmbeddingModelAvailable(ModelProvider.OLLAMA, baseUrl, modelName)
-        return OpenAiEmbeddingModelBuilder()
-            .apiKey("not-needed")
-            .baseUrl(baseUrl)
-            .modelName(modelName)
-            .build()
-    }
-
-    override fun getEmbeddingTokenLimit(settings: OllamaSettings): Int = LocalEmbeddingTokenLimits.resolve(AppConfig.models[ModelProvider.OLLAMA].embeddingModel)
 }
