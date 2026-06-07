@@ -69,6 +69,7 @@ import io.askimo.ui.util.Platform
 import kotlinx.coroutines.delay
 import java.awt.Desktop
 import java.io.File
+import kotlin.time.Duration.Companion.milliseconds
 
 private val log = currentFileLogger()
 
@@ -406,7 +407,7 @@ private fun hardwareAccelerationSection() {
                 Text(
                     text = stringResource("settings.hardware.acceleration.restart.notice"),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.error,
                 )
             }
         }
@@ -698,7 +699,7 @@ private fun ragIntField(
 
     LaunchedEffect(showSavedIndicator) {
         if (showSavedIndicator) {
-            delay(2000)
+            delay(2000.milliseconds)
             showSavedIndicator = false
         }
     }
@@ -858,7 +859,7 @@ private fun ragOptionalIntField(
 
     LaunchedEffect(showSavedIndicator) {
         if (showSavedIndicator) {
-            delay(2000)
+            delay(2000.milliseconds)
             showSavedIndicator = false
         }
     }
