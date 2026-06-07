@@ -4,7 +4,10 @@
  */
 package io.askimo.ui.chat
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ScrollbarStyle
+import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,13 +17,17 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachFile
@@ -950,13 +957,15 @@ private fun fileAttachmentChip(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun aiMessageEditDialog(
     message: ChatMessageDTO,
     onDismiss: () -> Unit,
     onSave: (String) -> Unit,
 ) {
-    var editedContent by remember { mutableStateOf(message.content) }
+    val textFieldState = rememberTextFieldState(message.content)
+    val textScrollState = rememberScrollState()
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -982,17 +991,39 @@ fun aiMessageEditDialog(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
 
-                // Scrollable content field with consistent styling
-                OutlinedTextField(
-                    value = editedContent,
-                    onValueChange = { editedContent = it },
+                // Scrollable content field with visible scrollbar
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(600.dp),
-                    textStyle = MaterialTheme.typography.bodyMedium,
-                    colors = AppComponents.outlinedTextFieldColors(),
-                    label = { Text(stringResource("message.ai.edit.content.label")) },
-                )
+                ) {
+                    OutlinedTextField(
+                        state = textFieldState,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight()
+                            .padding(end = 12.dp), // room for the scrollbar
+                        textStyle = MaterialTheme.typography.bodyMedium,
+                        colors = AppComponents.outlinedTextFieldColors(),
+                        label = { Text(stringResource("message.ai.edit.content.label")) },
+                        scrollState = textScrollState,
+                    )
+
+                    VerticalScrollbar(
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .fillMaxHeight(),
+                        adapter = rememberScrollbarAdapter(textScrollState),
+                        style = ScrollbarStyle(
+                            minimalHeight = 16.dp,
+                            thickness = 8.dp,
+                            shape = MaterialTheme.shapes.small,
+                            hoverDurationMillis = 300,
+                            unhoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                            hoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        ),
+                    )
+                }
 
                 // Action buttons
                 Row(
@@ -1010,7 +1041,7 @@ fun aiMessageEditDialog(
 
                     primaryButton(
                         onClick = {
-                            onSave(editedContent)
+                            onSave(textFieldState.text.toString())
                             onDismiss()
                         },
                     ) {
