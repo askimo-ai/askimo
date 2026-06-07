@@ -112,7 +112,7 @@ import io.askimo.ui.common.keymap.KeyMapManager
 import io.askimo.ui.common.keymap.KeyMapManager.AppShortcut
 import io.askimo.ui.common.preferences.AccountPreferences
 import io.askimo.ui.common.preferences.ApplicationPreferences
-import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppComponents.alertDialog
 import io.askimo.ui.common.theme.BackgroundImage
 import io.askimo.ui.common.theme.DarkColorScheme
 import io.askimo.ui.common.theme.IndigoColorScheme
@@ -161,6 +161,7 @@ import io.askimo.ui.shell.starPromptDialog
 import io.askimo.ui.skills.skillsView
 import io.askimo.ui.terminal.PendingTerminalCommand
 import io.askimo.ui.terminal.terminalPanel
+import io.askimo.ui.util.Platform
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
@@ -173,6 +174,7 @@ import org.koin.core.context.startKoin
 import org.koin.core.parameter.parametersOf
 import java.awt.Cursor
 import java.awt.Desktop
+import java.awt.GraphicsEnvironment
 import java.net.URI
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -186,6 +188,18 @@ import kotlin.time.Duration.Companion.milliseconds
 private val log = currentFileLogger()
 
 fun main() {
+    // Apply software rendering flags BEFORE any Compose/Skia initialisation.
+    // These properties have no effect once the JVM has started, so they must be
+    // set here. When hardware acceleration is disabled (user opted out, e.g. to
+    // fix VRR/G-Sync frame-rate conflicts on Windows) we force Skiko's software
+    // rasteriser and disable Java2D hardware pipelines.
+    if (!ApplicationPreferences.getHardwareAccelerationEnabled()) {
+        System.setProperty("skiko.renderApi", "SOFTWARE")
+        System.setProperty("sun.java2d.d3d", "false")
+        System.setProperty("sun.java2d.opengl", "false")
+        log.info("Hardware acceleration disabled — running in software rendering mode")
+    }
+
     AskimoHome.register(PersonalAskimoHome)
 
     AskimoHomeMigration.migrate(AskimoHome.rootBase().toFile())
@@ -279,6 +293,9 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     var fileViewerTitle by remember { mutableStateOf("File Viewer") }
     var showImportBackupConfirm by remember { mutableStateOf(false) }
     var pendingImportBackupPath by remember { mutableStateOf<Path?>(null) }
+
+    // VRR / G-Sync hint (Windows only, shown once for users with high-refresh displays)
+    var showVrrHintDialog by remember { mutableStateOf(false) }
 
     // User Profile
     var userProfile by remember { mutableStateOf<UserProfile?>(null) }
@@ -461,6 +478,28 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     LaunchedEffect(Unit) {
         if (appContext.getActiveProvider() == ModelProvider.UNKNOWN) {
             showProviderSetupDialog = true
+        }
+    }
+
+    // Detect VRR/high-refresh display on Windows and show a one-time hint to
+    // consider disabling hardware acceleration if the user experiences flickering.
+    LaunchedEffect(Unit) {
+        if (Platform.isWindows &&
+            ApplicationPreferences.getHardwareAccelerationEnabled() &&
+            !ApplicationPreferences.isVrrHintDismissed()
+        ) {
+            val refreshRate = withContext(Dispatchers.IO) {
+                runCatching {
+                    GraphicsEnvironment
+                        .getLocalGraphicsEnvironment()
+                        .defaultScreenDevice
+                        .displayMode
+                        .refreshRate
+                }.getOrDefault(60)
+            }
+            if (refreshRate > 60) {
+                showVrrHintDialog = true
+            }
         }
     }
 
@@ -1128,7 +1167,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
 
                     // Quit confirmation dialog
                     if (showQuitDialog) {
-                        AppComponents.alertDialog(
+                        alertDialog(
                             onDismissRequest = { showQuitDialog = false },
                             title = { Text(stringResource("menu.quit") + "?") },
                             text = { Text(stringResource("session.delete.confirm")) },
@@ -1154,7 +1193,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
 
                     // Invalidate cache confirmation dialog
                     if (showInvalidateCacheDialog) {
-                        AppComponents.alertDialog(
+                        alertDialog(
                             onDismissRequest = { showInvalidateCacheDialog = false },
                             title = { Text(stringResource("menu.invalidate.caches.title")) },
                             text = { Text(stringResource("menu.invalidate.caches.message")) },
@@ -1183,7 +1222,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
 
                     // Cache deleted success dialog
                     if (showCacheDeletedDialog) {
-                        AppComponents.alertDialog(
+                        alertDialog(
                             onDismissRequest = { showCacheDeletedDialog = false },
                             title = { Text(stringResource("menu.invalidate.caches.success.title")) },
                             text = { Text(stringResource("menu.invalidate.caches.success.message")) },
@@ -1199,7 +1238,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
 
                     // Clear preferences confirmation dialog
                     if (showClearPreferencesDialog) {
-                        AppComponents.alertDialog(
+                        alertDialog(
                             onDismissRequest = { showClearPreferencesDialog = false },
                             title = { Text(stringResource("menu.clear.preferences.title")) },
                             text = { Text(stringResource("menu.clear.preferences.message")) },
@@ -1226,7 +1265,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
 
                     // Preferences cleared success dialog
                     if (showPreferencesClearedDialog) {
-                        AppComponents.alertDialog(
+                        alertDialog(
                             onDismissRequest = { showPreferencesClearedDialog = false },
                             title = { Text(stringResource("menu.clear.preferences.success.title")) },
                             text = { Text(stringResource("menu.clear.preferences.success.message")) },
@@ -1242,7 +1281,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
 
                     // Import backup confirmation dialog
                     if (showImportBackupConfirm) {
-                        AppComponents.alertDialog(
+                        alertDialog(
                             onDismissRequest = {
                                 showImportBackupConfirm = false
                                 pendingImportBackupPath = null
@@ -1297,7 +1336,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
 
                     // Provider setup required dialog
                     if (showProviderSetupDialog) {
-                        AppComponents.alertDialog(
+                        alertDialog(
                             onDismissRequest = { },
                             title = {
                                 Text(
@@ -1633,6 +1672,44 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                             onDecline = {
                                 AccountPreferences.device().dismissStarPromptPermanently()
                                 showFeedbackPromptDialog = false
+                            },
+                        )
+                    }
+
+                    // VRR / G-Sync hint dialog (Windows, one-time, high-refresh displays)
+                    if (showVrrHintDialog) {
+                        alertDialog(
+                            onDismissRequest = {
+                                ApplicationPreferences.dismissVrrHint()
+                                showVrrHintDialog = false
+                            },
+                            title = { Text(stringResource("settings.hardware.acceleration.vrr.hint.title")) },
+                            text = { Text(stringResource("settings.hardware.acceleration.vrr.hint.message")) },
+                            confirmButton = {
+                                primaryButton(
+                                    onClick = {
+                                        ApplicationPreferences.setHardwareAccelerationEnabled(false)
+                                        ApplicationPreferences.dismissVrrHint()
+                                        showVrrHintDialog = false
+                                        errorDialogState = ErrorDialogState(
+                                            show = true,
+                                            title = LocalizationManager.getString("settings.hardware.acceleration.restart.title"),
+                                            message = LocalizationManager.getString("settings.hardware.acceleration.restart.message"),
+                                        )
+                                    },
+                                ) {
+                                    Text(stringResource("settings.hardware.acceleration.vrr.hint.disable"))
+                                }
+                            },
+                            dismissButton = {
+                                secondaryButton(
+                                    onClick = {
+                                        ApplicationPreferences.dismissVrrHint()
+                                        showVrrHintDialog = false
+                                    },
+                                ) {
+                                    Text(stringResource("settings.hardware.acceleration.vrr.hint.keep"))
+                                }
                             },
                         )
                     }
