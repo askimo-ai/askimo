@@ -740,7 +740,10 @@ private fun renderCodeBlock(codeBlock: FencedCodeBlock, viewportTopY: Float? = n
     val blockIsStreaming = rawInfo.endsWith("|streaming")
     // Strip the sentinel before any downstream use
     val cleanInfo = if (blockIsStreaming) rawInfo.removeSuffix("|streaming") else rawInfo
-    val language = cleanInfo.takeIf { it.isNotBlank() }
+    val language = cleanInfo
+        .substringBefore(':') // strip ":filename" suffix if present (e.g. "xml:pom.xml" → "xml")
+        .trim()
+        .takeIf { it.isNotBlank() }
     val code = codeBlock.literal
 
     // Show partial code while the code block is still being received
