@@ -193,7 +193,7 @@ fun main() {
     // set here. When hardware acceleration is disabled (user opted out, e.g. to
     // fix VRR/G-Sync frame-rate conflicts on Windows) we force Skiko's software
     // rasteriser and disable Java2D hardware pipelines.
-    if (!ApplicationPreferences.getHardwareAccelerationEnabled()) {
+    if (!AccountPreferences.device().getHardwareAccelerationEnabled()) {
         System.setProperty("skiko.renderApi", "SOFTWARE")
         System.setProperty("sun.java2d.d3d", "false")
         System.setProperty("sun.java2d.opengl", "false")
@@ -485,8 +485,8 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     // consider disabling hardware acceleration if the user experiences flickering.
     LaunchedEffect(Unit) {
         if (Platform.isWindows &&
-            ApplicationPreferences.getHardwareAccelerationEnabled() &&
-            !ApplicationPreferences.isVrrHintDismissed()
+            AccountPreferences.device().getHardwareAccelerationEnabled() &&
+            !AccountPreferences.device().isVrrHintDismissed()
         ) {
             val refreshRate = withContext(Dispatchers.IO) {
                 runCatching {
@@ -1680,7 +1680,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                     if (showVrrHintDialog) {
                         alertDialog(
                             onDismissRequest = {
-                                ApplicationPreferences.dismissVrrHint()
+                                AccountPreferences.device().dismissVrrHint()
                                 showVrrHintDialog = false
                             },
                             title = { Text(stringResource("settings.hardware.acceleration.vrr.hint.title")) },
@@ -1688,8 +1688,8 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                             confirmButton = {
                                 primaryButton(
                                     onClick = {
-                                        ApplicationPreferences.setHardwareAccelerationEnabled(false)
-                                        ApplicationPreferences.dismissVrrHint()
+                                        AccountPreferences.device().setHardwareAccelerationEnabled(false)
+                                        AccountPreferences.device().dismissVrrHint()
                                         showVrrHintDialog = false
                                         errorDialogState = ErrorDialogState(
                                             show = true,
@@ -1704,7 +1704,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                             dismissButton = {
                                 secondaryButton(
                                     onClick = {
-                                        ApplicationPreferences.dismissVrrHint()
+                                        AccountPreferences.device().dismissVrrHint()
                                         showVrrHintDialog = false
                                     },
                                 ) {

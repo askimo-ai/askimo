@@ -109,8 +109,6 @@ object ApplicationPreferences {
     private const val SHOW_PLANS_IN_SIDEBAR_KEY = "ui.show_plans_in_sidebar"
     private const val SHOW_SKILLS_IN_SIDEBAR_KEY = "ui.show_skills_in_sidebar"
     private const val SHOW_PROJECTS_IN_SIDEBAR_KEY = "ui.show_projects_in_sidebar"
-    private const val HARDWARE_ACCELERATION_ENABLED_KEY = "perf.hardware_acceleration_enabled"
-    private const val VRR_HINT_DISMISSED_KEY = "perf.vrr_hint_dismissed"
 
     fun getProjectSidePanelWidth(): Int = safeGetInt(PROJECT_SIDE_PANEL_WIDTH_KEY, DEFAULT_PROJECT_SIDE_PANEL_WIDTH)
     fun setProjectSidePanelWidth(width: Int) = safePutInt(PROJECT_SIDE_PANEL_WIDTH_KEY, width)
@@ -157,19 +155,6 @@ object ApplicationPreferences {
 
     fun getShowProjectsInSidebar(): Boolean = safeGetBoolean(SHOW_PROJECTS_IN_SIDEBAR_KEY, true)
     fun setShowProjectsInSidebar(show: Boolean) = safePutBoolean(SHOW_PROJECTS_IN_SIDEBAR_KEY, show)
-
-    /**
-     * Whether hardware-accelerated rendering (Skiko/Direct3D/OpenGL) is enabled.
-     * Defaults to true. When set to false, software rendering flags are applied on
-     * the next launch to resolve VRR/G-Sync frame-rate conflicts on Windows.
-     * The flags are: -Dskiko.renderApi=SOFTWARE, -Dsun.java2d.d3d=false, -Dsun.java2d.opengl=false
-     */
-    fun getHardwareAccelerationEnabled(): Boolean = safeGetBoolean(HARDWARE_ACCELERATION_ENABLED_KEY, true)
-    fun setHardwareAccelerationEnabled(enabled: Boolean) = safePutBoolean(HARDWARE_ACCELERATION_ENABLED_KEY, enabled)
-
-    /** Returns true if the user has already dismissed the VRR/G-Sync hint banner. */
-    fun isVrrHintDismissed(): Boolean = safeGetBoolean(VRR_HINT_DISMISSED_KEY, false)
-    fun dismissVrrHint() = safePutBoolean(VRR_HINT_DISMISSED_KEY, true)
 
     // ============================================================
     // LIFECYCLE

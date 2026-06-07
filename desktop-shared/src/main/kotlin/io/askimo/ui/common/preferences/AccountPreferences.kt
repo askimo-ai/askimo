@@ -231,6 +231,22 @@ class AccountPreferences private constructor(private val prefs: Preferences) {
         return next
     }
 
+    /**
+     * Whether hardware-accelerated rendering (Skiko/Direct3D/OpenGL) is enabled.
+     * Defaults to true. When set to false, software rendering flags are applied on
+     * the next launch to resolve VRR/G-Sync frame-rate conflicts on Windows.
+     */
+    fun getHardwareAccelerationEnabled(): Boolean = safeGetBoolean("perf.hardware_acceleration_enabled", true)
+    fun setHardwareAccelerationEnabled(enabled: Boolean) = safePutBoolean("perf.hardware_acceleration_enabled", enabled)
+
+    /**
+     * Returns true if the user has already seen and dismissed the one-time
+     * VRR/G-Sync hint dialog. Stored at device level — the hint should never
+     * reappear after a settings reset.
+     */
+    fun isVrrHintDismissed(): Boolean = safeGetBoolean("perf.vrr_hint_dismissed", false)
+    fun dismissVrrHint() = safePutBoolean("perf.vrr_hint_dismissed", true)
+
     // ── Update notifications ──────────────────────────────────────────────────
 
     /**

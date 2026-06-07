@@ -58,7 +58,7 @@ import io.askimo.core.logging.currentFileLogger
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
-import io.askimo.ui.common.preferences.ApplicationPreferences
+import io.askimo.ui.common.preferences.AccountPreferences
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
@@ -355,7 +355,7 @@ private fun openInFileManager(file: File) {
 
 @Composable
 private fun hardwareAccelerationSection() {
-    var isEnabled by remember { mutableStateOf(ApplicationPreferences.getHardwareAccelerationEnabled()) }
+    var isEnabled by remember { mutableStateOf(AccountPreferences.device().getHardwareAccelerationEnabled()) }
     var showRestartNotice by remember { mutableStateOf(false) }
 
     Card(
@@ -396,7 +396,7 @@ private fun hardwareAccelerationSection() {
                     checked = isEnabled,
                     onCheckedChange = { checked ->
                         isEnabled = checked
-                        ApplicationPreferences.setHardwareAccelerationEnabled(checked)
+                        AccountPreferences.device().setHardwareAccelerationEnabled(checked)
                         showRestartNotice = true
                     },
                 )
