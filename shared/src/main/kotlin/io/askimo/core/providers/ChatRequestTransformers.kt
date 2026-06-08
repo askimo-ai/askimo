@@ -69,8 +69,13 @@ object ChatRequestTransformers {
     ): ChatRequest {
         val existingMessages = chatRequest.messages()
 
-        val existingSystemMessages = existingMessages.filterIsInstance<SystemMessage>()
-        val existingSystemMessageTexts = existingSystemMessages.map { it.text() }.toSet()
+        // Deduplicate existing system messages — LangChain4j can inject the systemMessageProvider
+        // message on top of one already stored in chatMemory, producing identical duplicates.
+        val seenTexts = mutableSetOf<String>()
+        val existingSystemMessages = existingMessages
+            .filterIsInstance<SystemMessage>()
+            .filter { seenTexts.add(it.text()) }
+        val existingSystemMessageTexts: Set<String> = seenTexts
 
         val nonSystemMessages = existingMessages.filterNot { it is SystemMessage }
 

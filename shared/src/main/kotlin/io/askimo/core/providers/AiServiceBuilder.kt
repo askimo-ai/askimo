@@ -39,7 +39,6 @@ object AiServiceBuilder {
      * @param chatMemory Optional chat memory for conversation context
      * @param retriever Optional content retriever for RAG (Retrieval-Augmented Generation)
      * @param executionMode The execution mode (determines if tools are enabled)
-     * @param toolInstructions Custom tool response format instructions (defaults to standard format)
      * @return Configured ChatClient instance
      */
     fun buildChatClient(
@@ -52,7 +51,6 @@ object AiServiceBuilder {
         toolProvider: ToolProvider?,
         retriever: ContentRetriever?,
         executionMode: ExecutionMode,
-        toolInstructions: String = defaultToolResponseFormatInstructions(),
     ): ChatClient {
         val toolsRequested = executionMode.isToolEnabled()
 
@@ -75,7 +73,6 @@ object AiServiceBuilder {
             chatMemory = chatMemory,
             toolProvider = toolProvider,
             retriever = retriever,
-            toolInstructions = toolInstructions,
         )
     }
 
@@ -154,7 +151,6 @@ object AiServiceBuilder {
         chatMemory: ChatMemory?,
         toolProvider: ToolProvider?,
         retriever: ContentRetriever?,
-        toolInstructions: String,
     ): ChatClient {
         val builder = AiServices
             .builder(ChatClient::class.java)
@@ -166,11 +162,7 @@ object AiServiceBuilder {
             }
             .hallucinatedToolNameStrategy(ProviderModelUtils::hallucinatedToolHandler)
             .systemMessageProvider {
-                if (toolInstructions.isNotBlank()) {
-                    systemMessage(toolInstructions)
-                } else {
-                    systemMessage()
-                }
+                systemMessage()
             }
             .chatRequestTransformer { chatRequest, memoryId ->
                 ChatRequestTransformers.addCustomSystemMessagesAndRemoveDuplicates(
@@ -204,27 +196,4 @@ object AiServiceBuilder {
 
         return builder.build()
     }
-
-    /**
-     * Default tool response format instructions used across all providers.
-     * Can be overridden by passing custom instructions to buildChatClient.
-     */
-    fun defaultToolResponseFormatInstructions(): String = """
-    Tool response format:
-    • All tools return: { "success": boolean, "output": string, "error": string, "metadata": object }
-    • success=true: Tool executed successfully, check "output" for results and "metadata" for structured data
-    • success=false: Tool failed, check "error" for reason
-    • Always check the "success" field before using "output"
-    • If success=false, inform the user about the error from the "error" field
-    • When success=true, extract data from "metadata" field for detailed information
-
-    Tool execution guidelines:
-    • Parse the tool response JSON before responding to user
-    • If success=true: Use the output and metadata to answer the user IMMEDIATELY — do NOT call the same tool again
-    • If success=false: Explain what went wrong using the error message
-    • Never assume tool success without checking the response
-    • STOP calling tools as soon as you have enough information to answer the user
-    • Do NOT call the same tool twice with the same or similar arguments
-    • If a tool returns success=true with data, synthesise the answer and respond directly — do not retry
-    """.trimIndent()
 }
