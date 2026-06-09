@@ -5,7 +5,6 @@
 package io.askimo.ui.onboarding
 
 import androidx.compose.foundation.VerticalScrollbar
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.defaultScrollbarStyle
 import androidx.compose.foundation.hoverable
@@ -391,8 +390,9 @@ private fun onboardingStepAnalytics(
     onAnalyticsAcceptedChange: (Boolean) -> Unit,
 ) {
     val uriHandler = LocalUriHandler.current
+
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
-        // Header with icon
+        // ── Header ────────────────────────────────────────────────────────────
         Row(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.Top,
@@ -402,7 +402,7 @@ private fun onboardingStepAnalytics(
                 imageVector = Icons.Default.BarChart,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(top = 2.dp),
+                modifier = Modifier.size(28.dp).padding(top = 2.dp),
             )
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
@@ -412,41 +412,7 @@ private fun onboardingStepAnalytics(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = stringResource("onboarding.step.analytics.description"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        // Privacy summary box
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    MaterialTheme.shapes.small,
-                )
-                .padding(12.dp),
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = stringResource("onboarding.step.analytics.collected.yes.features"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = stringResource("onboarding.step.analytics.collected.yes.version"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = stringResource("onboarding.step.analytics.collected.no.conversations"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = stringResource("onboarding.step.analytics.collected.no.personal"),
+                    text = stringResource("onboarding.step.analytics.tagline"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -454,45 +420,112 @@ private fun onboardingStepAnalytics(
         }
 
         Text(
-            text = stringResource("onboarding.step.analytics.detail"),
-            style = MaterialTheme.typography.bodySmall,
+            text = stringResource("onboarding.step.analytics.description"),
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        // Toggle row
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                    MaterialTheme.shapes.small,
-                )
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+        // ── Privacy breakdown — two visually distinct sections ────────────────
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+            ),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(Spacing.large)) {
+                // ✅ Collected section
                 Text(
-                    text = if (analyticsAccepted) {
-                        stringResource("onboarding.step.analytics.toggle.on")
-                    } else {
-                        stringResource("onboarding.step.analytics.toggle.off")
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = stringResource("onboarding.step.analytics.section.collected"),
+                    style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Spacer(modifier = Modifier.height(6.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    analyticsPrivacyRow(
+                        text = stringResource("onboarding.step.analytics.collected.yes.features"),
+                        positive = true,
+                    )
+                    analyticsPrivacyRow(
+                        text = stringResource("onboarding.step.analytics.collected.yes.version"),
+                        positive = true,
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(Spacing.medium))
+
+                // ❌ Never collected section
+                Text(
+                    text = stringResource("onboarding.step.analytics.section.never"),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    analyticsPrivacyRow(
+                        text = stringResource("onboarding.step.analytics.collected.no.conversations"),
+                        positive = false,
+                    )
+                    analyticsPrivacyRow(
+                        text = stringResource("onboarding.step.analytics.collected.no.personal"),
+                        positive = false,
+                    )
+                }
             }
-            Switch(
-                checked = analyticsAccepted,
-                onCheckedChange = onAnalyticsAcceptedChange,
-                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-            )
         }
 
+        // ── Toggle card ───────────────────────────────────────────────────────
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = if (analyticsAccepted) {
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                },
+            ),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f).padding(end = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        text = if (analyticsAccepted) {
+                            stringResource("onboarding.step.analytics.toggle.on")
+                        } else {
+                            stringResource("onboarding.step.analytics.toggle.off")
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = stringResource("onboarding.step.analytics.toggle.subtitle"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = analyticsAccepted,
+                    onCheckedChange = onAnalyticsAcceptedChange,
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                )
+            }
+        }
+
+        // ── Learn more link ───────────────────────────────────────────────────
         TextButton(
             onClick = { uriHandler.openUri("https://$DOMAIN/security/") },
             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
         ) {
             Text(
                 text = stringResource("onboarding.step.analytics.learn_more"),
@@ -501,6 +534,24 @@ private fun onboardingStepAnalytics(
             )
         }
     }
+}
+
+/**
+ * Single privacy row with a coloured leading indicator dot.
+ * [positive] = true → green-tinted text (collected); false → muted (never collected).
+ */
+@Composable
+private fun analyticsPrivacyRow(text: String, positive: Boolean) {
+    val textColor = if (positive) {
+        MaterialTheme.colorScheme.onSurface
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = textColor,
+    )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -779,7 +830,7 @@ private fun personaCard(
                         Icon(
                             Icons.Default.Check,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.size(18.dp),
                         )
                     }
@@ -792,7 +843,7 @@ private fun personaCard(
                 Text(
                     text = features,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -895,7 +946,7 @@ private fun onboardingDocLink(label: String, url: String) {
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
