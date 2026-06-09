@@ -77,11 +77,11 @@ private const val TOTAL_STEPS = 7
  *
  * Steps:
  *  0 — Language selection  (required — no skip)
- *  1 — Analytics consent   (required — user must choose Yes or No)
- *  2 — Welcome
- *  3 — Profile (name + occupation, skippable)
- *  4 — Directives (intro)
- *  5 — Persona (intro)
+ *  1 — Welcome
+ *  2 — Profile (name + occupation, skippable)
+ *  3 — Directives (intro)
+ *  4 — Persona (intro)
+ *  5 — Analytics consent   (required — user must choose Yes or No)
  *  6 — Ready
  *
  * @param initialName        Pre-filled name (from existing profile, if any).
@@ -161,23 +161,18 @@ fun onboardingWizardDialog(
                                 onLocaleChange = { selectedLocale = it },
                             )
 
-                            1 -> onboardingStepAnalytics(
-                                analyticsAccepted = analyticsAccepted,
-                                onAnalyticsAcceptedChange = { analyticsAccepted = it },
-                            )
+                            1 -> onboardingStepWelcome()
 
-                            2 -> onboardingStepWelcome()
-
-                            3 -> onboardingStepProfile(
+                            2 -> onboardingStepProfile(
                                 name = name,
                                 occupation = occupation,
                                 onNameChange = { name = it },
                                 onOccupationChange = { occupation = it },
                             )
 
-                            4 -> onboardingStepDirectives()
+                            3 -> onboardingStepDirectives()
 
-                            5 -> onboardingStepPersona(
+                            4 -> onboardingStepPersona(
                                 selectedPersona = selectedPersona,
                                 onPersonaSelected = { persona ->
                                     selectedPersona = persona
@@ -192,6 +187,11 @@ fun onboardingWizardDialog(
                                     ApplicationPreferences.setShowProjectsInSidebar(projects)
                                     onPersonaSelected?.invoke(plans, skills, projects)
                                 },
+                            )
+
+                            5 -> onboardingStepAnalytics(
+                                analyticsAccepted = analyticsAccepted,
+                                onAnalyticsAcceptedChange = { analyticsAccepted = it },
                             )
 
                             6 -> onboardingStepReady()
@@ -381,7 +381,303 @@ private fun onboardingStepLanguage(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Step 1: Analytics
+// Step 1: Welcome
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun onboardingStepWelcome() {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
+        Text(
+            text = stringResource("onboarding.step.welcome.title"),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Text(
+            text = stringResource("onboarding.step.welcome.description"),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Spacer(modifier = Modifier.height(Spacing.small))
+
+        onboardingFeatureCard(
+            title = stringResource("onboarding.step.welcome.feature1.title"),
+            description = stringResource("onboarding.step.welcome.feature1.description"),
+        )
+        onboardingFeatureCard(
+            title = stringResource("onboarding.step.welcome.feature2.title"),
+            description = stringResource("onboarding.step.welcome.feature2.description"),
+        )
+        onboardingFeatureCard(
+            title = stringResource("onboarding.step.welcome.feature3.title"),
+            description = stringResource("onboarding.step.welcome.feature3.description"),
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Step 2: Profile
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun onboardingStepProfile(
+    name: String,
+    occupation: String,
+    onNameChange: (String) -> Unit,
+    onOccupationChange: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
+        Text(
+            text = stringResource("onboarding.step.profile.title"),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+        )
+
+        Text(
+            text = stringResource("onboarding.step.profile.description"),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Spacer(modifier = Modifier.height(Spacing.small))
+
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+            Text(
+                text = stringResource("onboarding.step.profile.name.label"),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            OutlinedTextField(
+                value = name,
+                onValueChange = onNameChange,
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = {
+                    Text(
+                        stringResource("onboarding.step.profile.name.placeholder"),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    )
+                },
+                singleLine = true,
+                shape = MaterialTheme.shapes.medium,
+            )
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+            Text(
+                text = stringResource("onboarding.step.profile.occupation.label"),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            OutlinedTextField(
+                value = occupation,
+                onValueChange = onOccupationChange,
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = {
+                    Text(
+                        stringResource("onboarding.step.profile.occupation.placeholder"),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    )
+                },
+                singleLine = true,
+                shape = MaterialTheme.shapes.medium,
+            )
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Step 3: Directives
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun onboardingStepDirectives() {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
+        Text(
+            text = stringResource("onboarding.step.directives.title"),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+        )
+
+        Text(
+            text = stringResource("onboarding.step.directives.description"),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Spacer(modifier = Modifier.height(Spacing.small))
+
+        onboardingFeatureCard(
+            title = stringResource("onboarding.step.directives.feature1.title"),
+            description = stringResource("onboarding.step.directives.feature1.description"),
+        )
+        onboardingFeatureCard(
+            title = stringResource("onboarding.step.directives.feature2.title"),
+            description = stringResource("onboarding.step.directives.feature2.description"),
+        )
+        onboardingFeatureCard(
+            title = stringResource("onboarding.step.directives.feature3.title"),
+            description = stringResource("onboarding.step.directives.feature3.description"),
+        )
+
+        Spacer(modifier = Modifier.height(Spacing.small))
+
+        onboardingDocLink(
+            label = stringResource("onboarding.step.directives.link"),
+            url = "https://$DOMAIN/docs/desktop/directives/",
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Step 4: Persona
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun onboardingStepPersona(
+    selectedPersona: String,
+    onPersonaSelected: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
+        Text(
+            text = stringResource("onboarding.step.persona.title"),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+        )
+
+        Text(
+            text = stringResource("onboarding.step.persona.description"),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Spacer(modifier = Modifier.height(Spacing.small))
+
+        personaCard(
+            emoji = "💻",
+            title = stringResource("persona.developer"),
+            description = stringResource("onboarding.step.persona.developer.description"),
+            features = stringResource("onboarding.step.persona.developer.features"),
+            isSelected = selectedPersona == "developer",
+            onClick = { onPersonaSelected("developer") },
+        )
+        personaCard(
+            emoji = "🔬",
+            title = stringResource("persona.researcher"),
+            description = stringResource("onboarding.step.persona.researcher.description"),
+            features = stringResource("onboarding.step.persona.researcher.features"),
+            isSelected = selectedPersona == "researcher",
+            onClick = { onPersonaSelected("researcher") },
+        )
+        personaCard(
+            emoji = "📋",
+            title = stringResource("persona.manager"),
+            description = stringResource("onboarding.step.persona.manager.description"),
+            features = stringResource("onboarding.step.persona.manager.features"),
+            isSelected = selectedPersona == "manager",
+            onClick = { onPersonaSelected("manager") },
+        )
+        personaCard(
+            emoji = "⚡",
+            title = stringResource("persona.everything"),
+            description = stringResource("onboarding.step.persona.everything.description"),
+            features = stringResource("onboarding.step.persona.everything.features"),
+            isSelected = selectedPersona == "everything",
+            onClick = { onPersonaSelected("everything") },
+        )
+    }
+}
+
+@Composable
+private fun personaCard(
+    emoji: String,
+    title: String,
+    description: String,
+    features: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+    val highlighted = isSelected || isHovered
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .hoverable(interactionSource)
+            .clickableCard { onClick() }
+            .then(
+                if (isSelected) {
+                    Modifier.border(
+                        width = 2.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = MaterialTheme.shapes.medium,
+                    )
+                } else {
+                    Modifier
+                },
+            ),
+        colors = CardDefaults.cardColors(
+            containerColor = if (highlighted) {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            },
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.large),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = emoji,
+                style = MaterialTheme.typography.headlineMedium,
+            )
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    if (isSelected) {
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = features,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Step 5: Analytics
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -552,302 +848,6 @@ private fun analyticsPrivacyRow(text: String, positive: Boolean) {
         style = MaterialTheme.typography.bodySmall,
         color = textColor,
     )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 2: Welcome
-// ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun onboardingStepWelcome() {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
-        Text(
-            text = stringResource("onboarding.step.welcome.title"),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        Text(
-            text = stringResource("onboarding.step.welcome.description"),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        Spacer(modifier = Modifier.height(Spacing.small))
-
-        onboardingFeatureCard(
-            title = stringResource("onboarding.step.welcome.feature1.title"),
-            description = stringResource("onboarding.step.welcome.feature1.description"),
-        )
-        onboardingFeatureCard(
-            title = stringResource("onboarding.step.welcome.feature2.title"),
-            description = stringResource("onboarding.step.welcome.feature2.description"),
-        )
-        onboardingFeatureCard(
-            title = stringResource("onboarding.step.welcome.feature3.title"),
-            description = stringResource("onboarding.step.welcome.feature3.description"),
-        )
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 3: Profile
-// ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun onboardingStepProfile(
-    name: String,
-    occupation: String,
-    onNameChange: (String) -> Unit,
-    onOccupationChange: (String) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
-        Text(
-            text = stringResource("onboarding.step.profile.title"),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-        )
-
-        Text(
-            text = stringResource("onboarding.step.profile.description"),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        Spacer(modifier = Modifier.height(Spacing.small))
-
-        Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
-            Text(
-                text = stringResource("onboarding.step.profile.name.label"),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            OutlinedTextField(
-                value = name,
-                onValueChange = onNameChange,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = {
-                    Text(
-                        stringResource("onboarding.step.profile.name.placeholder"),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                    )
-                },
-                singleLine = true,
-                shape = MaterialTheme.shapes.medium,
-            )
-        }
-
-        Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
-            Text(
-                text = stringResource("onboarding.step.profile.occupation.label"),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            OutlinedTextField(
-                value = occupation,
-                onValueChange = onOccupationChange,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = {
-                    Text(
-                        stringResource("onboarding.step.profile.occupation.placeholder"),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                    )
-                },
-                singleLine = true,
-                shape = MaterialTheme.shapes.medium,
-            )
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 4: Directives
-// ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun onboardingStepDirectives() {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
-        Text(
-            text = stringResource("onboarding.step.directives.title"),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-        )
-
-        Text(
-            text = stringResource("onboarding.step.directives.description"),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        Spacer(modifier = Modifier.height(Spacing.small))
-
-        onboardingFeatureCard(
-            title = stringResource("onboarding.step.directives.feature1.title"),
-            description = stringResource("onboarding.step.directives.feature1.description"),
-        )
-        onboardingFeatureCard(
-            title = stringResource("onboarding.step.directives.feature2.title"),
-            description = stringResource("onboarding.step.directives.feature2.description"),
-        )
-        onboardingFeatureCard(
-            title = stringResource("onboarding.step.directives.feature3.title"),
-            description = stringResource("onboarding.step.directives.feature3.description"),
-        )
-
-        Spacer(modifier = Modifier.height(Spacing.small))
-
-        onboardingDocLink(
-            label = stringResource("onboarding.step.directives.link"),
-            url = "https://$DOMAIN/docs/desktop/directives/",
-        )
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 5: Persona
-// ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun onboardingStepPersona(
-    selectedPersona: String,
-    onPersonaSelected: (String) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
-        Text(
-            text = stringResource("onboarding.step.persona.title"),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-        )
-
-        Text(
-            text = stringResource("onboarding.step.persona.description"),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        Spacer(modifier = Modifier.height(Spacing.small))
-
-        personaCard(
-            emoji = "💻",
-            title = stringResource("persona.developer"),
-            description = stringResource("onboarding.step.persona.developer.description"),
-            features = stringResource("onboarding.step.persona.developer.features"),
-            isSelected = selectedPersona == "developer",
-            onClick = { onPersonaSelected("developer") },
-        )
-        personaCard(
-            emoji = "🔬",
-            title = stringResource("persona.researcher"),
-            description = stringResource("onboarding.step.persona.researcher.description"),
-            features = stringResource("onboarding.step.persona.researcher.features"),
-            isSelected = selectedPersona == "researcher",
-            onClick = { onPersonaSelected("researcher") },
-        )
-        personaCard(
-            emoji = "📋",
-            title = stringResource("persona.manager"),
-            description = stringResource("onboarding.step.persona.manager.description"),
-            features = stringResource("onboarding.step.persona.manager.features"),
-            isSelected = selectedPersona == "manager",
-            onClick = { onPersonaSelected("manager") },
-        )
-        personaCard(
-            emoji = "⚡",
-            title = stringResource("persona.everything"),
-            description = stringResource("onboarding.step.persona.everything.description"),
-            features = stringResource("onboarding.step.persona.everything.features"),
-            isSelected = selectedPersona == "everything",
-            onClick = { onPersonaSelected("everything") },
-        )
-    }
-}
-
-@Composable
-private fun personaCard(
-    emoji: String,
-    title: String,
-    description: String,
-    features: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isHovered by interactionSource.collectIsHoveredAsState()
-    val highlighted = isSelected || isHovered
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .hoverable(interactionSource)
-            .clickableCard { onClick() }
-            .then(
-                if (isSelected) {
-                    Modifier.border(
-                        width = 2.dp,
-                        color = MaterialTheme.colorScheme.primary,
-                        shape = MaterialTheme.shapes.medium,
-                    )
-                } else {
-                    Modifier
-                },
-            ),
-        colors = CardDefaults.cardColors(
-            containerColor = if (highlighted) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            },
-        ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(Spacing.large),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = emoji,
-                style = MaterialTheme.typography.headlineMedium,
-            )
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    if (isSelected) {
-                        Icon(
-                            Icons.Default.Check,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-                }
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = features,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
