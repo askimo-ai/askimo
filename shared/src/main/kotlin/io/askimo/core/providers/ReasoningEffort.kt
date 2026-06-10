@@ -12,10 +12,12 @@ package io.askimo.core.providers
  * - HIGH: Thorough reasoning, higher cost, suitable for complex problem-solving
  */
 enum class ReasoningEffort {
-    LOW, MEDIUM, HIGH;
+    LOW,
+    MEDIUM,
+    HIGH,
+    ;
 
     companion object {
         val DEFAULT = MEDIUM
     }
 }
-
