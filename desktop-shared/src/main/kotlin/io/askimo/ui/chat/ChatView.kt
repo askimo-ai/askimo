@@ -27,9 +27,9 @@ import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
@@ -60,8 +60,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.draganddrop.DragAndDropEvent
 import androidx.compose.ui.draganddrop.DragAndDropTarget
 import androidx.compose.ui.draganddrop.DragData
@@ -192,7 +192,11 @@ fun chatView(
     // Stable holder for the "process dropped files" logic.
     // Updated via SideEffect so it always captures the latest attachments/sessionId/scope
     // without triggering recomposition itself, and without dropTarget needing to be recreated.
-    val dropFilesHandler = remember { object { var handle: (List<File>) -> Unit = {} } }
+    val dropFilesHandler = remember {
+        object {
+            var handle: (List<File>) -> Unit = {}
+        }
+    }
     SideEffect {
         dropFilesHandler.handle = { files ->
             scope.launch {
@@ -448,837 +452,837 @@ fun chatView(
                 target = dropTarget,
             ),
     ) {
-    Row(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                if (LocalBackgroundActive.current) {
-                    Color.Transparent
-                } else {
-                    MaterialTheme.colorScheme.surface
-                },
-            )
-            .focusRequester(chatViewFocusRequester)
-            .focusable()
-            .onPreviewKeyEvent { keyEvent ->
-                val shortcut = KeyMapManager.handleKeyEvent(keyEvent)
-
-                when (shortcut) {
-                    AppShortcut.SEARCH_IN_CHAT -> {
-                        if (!isSearchMode) {
-                            actions.searchMessages("")
-                            true
-                        } else {
-                            false
-                        }
-                    }
-
-                    AppShortcut.CLOSE_SEARCH -> {
-                        if (isSearchMode) {
-                            actions.clearSearch()
-                            true
-                        } else {
-                            false
-                        }
-                    }
-
-                    AppShortcut.NEXT_SEARCH_RESULT -> {
-                        if (isSearchMode && searchResults.isNotEmpty()) {
-                            actions.nextSearchResult()
-                            true
-                        } else {
-                            false
-                        }
-                    }
-
-                    AppShortcut.PREVIOUS_SEARCH_RESULT -> {
-                        if (isSearchMode && searchResults.isNotEmpty()) {
-                            actions.previousSearchResult()
-                            true
-                        } else {
-                            false
-                        }
-                    }
-
-                    else -> false
-                }
-            },
-    ) {
-        // Main chat area (left side)
-        Column(
+        Row(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight(),
+                .fillMaxSize()
+                .background(
+                    if (LocalBackgroundActive.current) {
+                        Color.Transparent
+                    } else {
+                        MaterialTheme.colorScheme.surface
+                    },
+                )
+                .focusRequester(chatViewFocusRequester)
+                .focusable()
+                .onPreviewKeyEvent { keyEvent ->
+                    val shortcut = KeyMapManager.handleKeyEvent(keyEvent)
+
+                    when (shortcut) {
+                        AppShortcut.SEARCH_IN_CHAT -> {
+                            if (!isSearchMode) {
+                                actions.searchMessages("")
+                                true
+                            } else {
+                                false
+                            }
+                        }
+
+                        AppShortcut.CLOSE_SEARCH -> {
+                            if (isSearchMode) {
+                                actions.clearSearch()
+                                true
+                            } else {
+                                false
+                            }
+                        }
+
+                        AppShortcut.NEXT_SEARCH_RESULT -> {
+                            if (isSearchMode && searchResults.isNotEmpty()) {
+                                actions.nextSearchResult()
+                                true
+                            } else {
+                                false
+                            }
+                        }
+
+                        AppShortcut.PREVIOUS_SEARCH_RESULT -> {
+                            if (isSearchMode && searchResults.isNotEmpty()) {
+                                actions.previousSearchResult()
+                                true
+                            } else {
+                                false
+                            }
+                        }
+
+                        else -> false
+                    }
+                },
         ) {
-            // Session header with title and directive selector
-            if (provider != null && model != null) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = AppComponents.sidebarSurfaceColor(),
-                        contentColor = MaterialTheme.colorScheme.onSurface,
-                    ),
-                ) {
-                    Row(
+            // Main chat area (left side)
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+            ) {
+                // Session header with title and directive selector
+                if (provider != null && model != null) {
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = AppComponents.sidebarSurfaceColor(),
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                        ),
                     ) {
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f, fill = false),
                         ) {
-                            // Breadcrumb navigation for project
-                            if (project != null) {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    // Clickable project name as breadcrumb
-                                    themedTooltip(
-                                        text = buildString {
-                                            append(project.name)
-                                            project.description?.takeIf { it.isNotBlank() }?.let {
-                                                append("\n").append(it)
-                                            }
-                                            if (project.knowledgeSources.isNotEmpty()) {
-                                                append("\n").append(project.knowledgeSources.joinToString("\n") { "• ${it.resourceIdentifier}" })
-                                            }
-                                            append("\nCreated: ${formatDisplay(project.createdAt)}")
-                                            append("\nUpdated: ${formatDisplay(project.updatedAt)}")
-                                        },
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f, fill = false),
+                            ) {
+                                // Breadcrumb navigation for project
+                                if (project != null) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
                                     ) {
-                                        TextButton(
-                                            onClick = {
-                                                onNavigateToProject?.invoke(project.id)
+                                        // Clickable project name as breadcrumb
+                                        themedTooltip(
+                                            text = buildString {
+                                                append(project.name)
+                                                project.description?.takeIf { it.isNotBlank() }?.let {
+                                                    append("\n").append(it)
+                                                }
+                                                if (project.knowledgeSources.isNotEmpty()) {
+                                                    append("\n").append(project.knowledgeSources.joinToString("\n") { "• ${it.resourceIdentifier}" })
+                                                }
+                                                append("\nCreated: ${formatDisplay(project.createdAt)}")
+                                                append("\nUpdated: ${formatDisplay(project.updatedAt)}")
                                             },
-                                            colors = ButtonDefaults.textButtonColors(
-                                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            ),
-                                            shape = RoundedCornerShape(4.dp),
-                                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                                         ) {
-                                            Text(
-                                                text = project.name.take(3).uppercase(),
-                                                style = MaterialTheme.typography.labelMedium,
-                                                fontWeight = FontWeight.Bold,
-                                            )
-                                        }
-                                    }
-
-                                    // Chevron separator
-                                    Icon(
-                                        imageVector = Icons.Default.ChevronRight,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.size(20.dp),
-                                    )
-                                }
-                            }
-
-                            // RAG indexing status indicator
-                            if (project != null && project.knowledgeSources.isNotEmpty()) {
-                                val statusText = when (ragIndexingStatus) {
-                                    "started" -> "RAG (Started)"
-                                    "inprogress" -> ragIndexingPercentage?.let { "RAG (In Progress - $it%)" } ?: "RAG (In Progress)"
-                                    "completed" -> "RAG"
-                                    "failed" -> "RAG (Failed)"
-                                    else -> null
-                                }
-
-                                val statusColor = when (ragIndexingStatus) {
-                                    "failed" -> MaterialTheme.colorScheme.error
-                                    "completed" -> MaterialTheme.colorScheme.onSurface
-                                    "inprogress" -> MaterialTheme.colorScheme.tertiary
-                                    "started" -> MaterialTheme.colorScheme.onSurfaceVariant
-                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                }
-
-                                if (statusText != null) {
-                                    themedTooltip(text = statusText) {
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.AutoAwesome,
-                                                contentDescription = "RAG Status",
-                                                tint = statusColor,
-                                                modifier = Modifier.size(18.dp),
-                                            )
-                                            if (ragIndexingStatus == "inprogress") {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(14.dp),
-                                                    color = statusColor,
-                                                    strokeWidth = 2.dp,
+                                            TextButton(
+                                                onClick = {
+                                                    onNavigateToProject?.invoke(project.id)
+                                                },
+                                                colors = ButtonDefaults.textButtonColors(
+                                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                ),
+                                                shape = RoundedCornerShape(4.dp),
+                                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                            ) {
+                                                Text(
+                                                    text = project.name.take(3).uppercase(),
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    fontWeight = FontWeight.Bold,
                                                 )
                                             }
                                         }
-                                    }
-                                }
-                            }
 
-                            // Session title
-                            themedTooltip(
-                                text = sessionTitle,
-                            ) {
-                                Text(
-                                    text = sessionTitle,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier
-                                        .weight(1f, fill = false)
-                                        .padding(end = 8.dp),
-                                )
-                            }
-                        }
-
-                        // Right side: Directive selector and session actions
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            var showManageDirectivesDialog by remember { mutableStateOf(false) }
-                            var directiveDropdownExpanded by remember { mutableStateOf(false) }
-
-                            // Get the selected directive details
-                            val selectedDirectiveObj = remember(selectedDirective, availableDirectives) {
-                                selectedDirective?.let { id ->
-                                    availableDirectives.find { it.id == id }
-                                }
-                            }
-
-                            Box {
-                                themedTooltip(
-                                    text = if (selectedDirectiveObj != null) {
-                                        "${stringResource("chat.directive")}: ${selectedDirectiveObj.name}\n${selectedDirectiveObj.content}"
-                                    } else {
-                                        "${stringResource("chat.directive")}: ${stringResource("chat.directive.none")}"
-                                    },
-                                ) {
-                                    TextButton(
-                                        onClick = { directiveDropdownExpanded = true },
-                                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                        colors = ButtonDefaults.textButtonColors(
-                                            contentColor = if (selectedDirectiveObj != null) {
-                                                MaterialTheme.colorScheme.onSurface
-                                            } else {
-                                                MaterialTheme.colorScheme.onSurfaceVariant
-                                            },
-                                        ),
-                                    ) {
+                                        // Chevron separator
                                         Icon(
-                                            imageVector = Icons.Default.AutoAwesome,
-                                            contentDescription = stringResource("chat.directive"),
-                                            modifier = Modifier.size(16.dp),
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = selectedDirectiveObj?.name?.take(30)?.let {
-                                                if (selectedDirectiveObj.name.length > 30) "$it..." else it
-                                            } ?: stringResource("chat.directive.none"),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                        )
-                                        Icon(
-                                            imageVector = Icons.Default.ArrowDropDown,
-                                            contentDescription = "Select directive",
+                                            imageVector = Icons.Default.ChevronRight,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurface,
                                             modifier = Modifier.size(20.dp),
                                         )
                                     }
                                 }
 
-                                dropdownMenu(
-                                    expanded = directiveDropdownExpanded,
-                                    onDismissRequest = { directiveDropdownExpanded = false },
-                                    modifier = Modifier.fillMaxWidth(0.3f),
-                                ) {
-                                    // "None" option to clear directive
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                text = stringResource("chat.directive.none"),
-                                                style = MaterialTheme.typography.bodyMedium,
-                                            )
-                                        },
-                                        onClick = {
-                                            actions.setDirective(null)
-                                            directiveDropdownExpanded = false
-                                        },
-                                        leadingIcon = if (selectedDirective == null) {
-                                            {
-                                                Icon(
-                                                    Icons.Default.Check,
-                                                    contentDescription = "Selected",
-                                                    tint = MaterialTheme.colorScheme.onSurface,
-                                                )
-                                            }
-                                        } else {
-                                            null
-                                        },
-                                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                    )
+                                // RAG indexing status indicator
+                                if (project != null && project.knowledgeSources.isNotEmpty()) {
+                                    val statusText = when (ragIndexingStatus) {
+                                        "started" -> "RAG (Started)"
+                                        "inprogress" -> ragIndexingPercentage?.let { "RAG (In Progress - $it%)" } ?: "RAG (In Progress)"
+                                        "completed" -> "RAG"
+                                        "failed" -> "RAG (Failed)"
+                                        else -> null
+                                    }
 
-                                    // Show available directives in a scrollable section
-                                    if (availableDirectives.isNotEmpty()) {
-                                        HorizontalDivider()
+                                    val statusColor = when (ragIndexingStatus) {
+                                        "failed" -> MaterialTheme.colorScheme.error
+                                        "completed" -> MaterialTheme.colorScheme.onSurface
+                                        "inprogress" -> MaterialTheme.colorScheme.tertiary
+                                        "started" -> MaterialTheme.colorScheme.onSurfaceVariant
+                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
 
-                                        availableDirectives.forEach { directive ->
-                                            themedTooltip(
-                                                text = "${directive.name}\n${directive.content}",
-                                                placement = TooltipPlacement.LEFT,
+                                    if (statusText != null) {
+                                        themedTooltip(text = statusText) {
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
                                             ) {
-                                                DropdownMenuItem(
-                                                    text = {
-                                                        Text(
-                                                            text = directive.name,
-                                                            style = MaterialTheme.typography.bodyMedium,
-                                                        )
-                                                    },
-                                                    onClick = {
-                                                        actions.setDirective(directive.id)
-                                                        directiveDropdownExpanded = false
-                                                    },
-                                                    leadingIcon = if (selectedDirective == directive.id) {
-                                                        {
-                                                            Icon(
-                                                                Icons.Default.Check,
-                                                                contentDescription = "Selected",
-                                                                tint = MaterialTheme.colorScheme.onSurface,
-                                                            )
-                                                        }
-                                                    } else {
-                                                        null
-                                                    },
-                                                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                                Icon(
+                                                    imageVector = Icons.Default.AutoAwesome,
+                                                    contentDescription = "RAG Status",
+                                                    tint = statusColor,
+                                                    modifier = Modifier.size(18.dp),
                                                 )
+                                                if (ragIndexingStatus == "inprogress") {
+                                                    CircularProgressIndicator(
+                                                        modifier = Modifier.size(14.dp),
+                                                        color = statusColor,
+                                                        strokeWidth = 2.dp,
+                                                    )
+                                                }
                                             }
                                         }
                                     }
-
-                                    // Action items section
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(vertical = 4.dp),
-                                    )
-
-                                    // New Directive action
-                                    DropdownMenuItem(
-                                        text = {
-                                            Row(
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                            ) {
-                                                Icon(
-                                                    Icons.Default.Add,
-                                                    contentDescription = "New directive",
-                                                    tint = MaterialTheme.colorScheme.onSurface,
-                                                    modifier = Modifier.size(20.dp),
-                                                )
-                                                Text(
-                                                    text = stringResource("chat.directive.new"),
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    color = MaterialTheme.colorScheme.onSurface,
-                                                )
-                                            }
-                                        },
-                                        onClick = {
-                                            showNewDirectiveDialog = true
-                                            directiveDropdownExpanded = false
-                                        },
-                                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                    )
-
-                                    // Manage Directives action
-                                    DropdownMenuItem(
-                                        text = {
-                                            Row(
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                            ) {
-                                                Icon(
-                                                    Icons.Default.Edit,
-                                                    contentDescription = "Manage directives",
-                                                    tint = MaterialTheme.colorScheme.onSurface,
-                                                    modifier = Modifier.size(20.dp),
-                                                )
-                                                Text(
-                                                    text = stringResource("chat.directive.manage"),
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    color = MaterialTheme.colorScheme.onSurface,
-                                                )
-                                            }
-                                        },
-                                        onClick = {
-                                            showManageDirectivesDialog = true
-                                            directiveDropdownExpanded = false
-                                        },
-                                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                    )
-
-                                    // Learn more link
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(vertical = 4.dp),
-                                    )
-                                    val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
-                                    DropdownMenuItem(
-                                        text = {
-                                            Row(
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                            ) {
-                                                Icon(
-                                                    Icons.Default.ChevronRight,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    modifier = Modifier.size(16.dp),
-                                                )
-                                                Text(
-                                                    text = stringResource("chat.directive.learn.more"),
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                )
-                                            }
-                                        },
-                                        onClick = {
-                                            uriHandler.openUri("https://$DOMAIN/docs/desktop/directives/")
-                                            directiveDropdownExpanded = false
-                                        },
-                                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                    )
                                 }
 
-                                // Show manage directives dialog
-                                if (showManageDirectivesDialog) {
-                                    manageDirectivesDialog(
-                                        directives = availableDirectives,
-                                        onDismiss = { showManageDirectivesDialog = false },
-                                        onAdd = { name, content, applyToCurrent ->
-                                            val newDirective = directiveService.createDirective(name, content)
-                                            availableDirectives = directiveService.listAllDirectives()
-                                            if (applyToCurrent) {
-                                                actions.setDirective(newDirective.id)
-                                            }
-                                        },
-                                        onUpdate = { id, newName, newContent ->
-                                            directiveService.updateDirective(id, newName, newContent)
-                                            availableDirectives = directiveService.listAllDirectives()
-                                        },
-                                        onDelete = { id ->
-                                            directiveService.deleteDirective(id)
-                                            if (selectedDirective == id) {
-                                                actions.setDirective(null)
-                                            }
-                                            availableDirectives = directiveService.listAllDirectives()
-                                        },
-                                        onExport = {
-                                            directiveService.exportToJson()
-                                        },
-                                        onImport = { json ->
-                                            val result = directiveService.importFromJson(json)
-                                            availableDirectives = directiveService.listAllDirectives()
-                                            result
-                                        },
+                                // Session title
+                                themedTooltip(
+                                    text = sessionTitle,
+                                ) {
+                                    Text(
+                                        text = sessionTitle,
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier
+                                            .weight(1f, fill = false)
+                                            .padding(end = 8.dp),
                                     )
                                 }
                             }
 
-                            if (sessionId != null && messages.isNotEmpty()) {
-                                sessionActionsMenu(
-                                    sessionId = sessionId,
-                                    onRenameSession = onRenameSession,
-                                    onExportSession = onExportSession,
-                                    onDeleteSession = onDeleteSession,
-                                    onStarSession = onStarSession,
-                                    onMoveSessionToNewProject = onMoveSessionToNewProject,
-                                    onShowSessionSummary = { sid ->
-                                        sessionMemorySessionId = sid
-                                        showSessionMemoryDialog = true
-                                    },
-                                )
+                            // Right side: Directive selector and session actions
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                var showManageDirectivesDialog by remember { mutableStateOf(false) }
+                                var directiveDropdownExpanded by remember { mutableStateOf(false) }
+
+                                // Get the selected directive details
+                                val selectedDirectiveObj = remember(selectedDirective, availableDirectives) {
+                                    selectedDirective?.let { id ->
+                                        availableDirectives.find { it.id == id }
+                                    }
+                                }
+
+                                Box {
+                                    themedTooltip(
+                                        text = if (selectedDirectiveObj != null) {
+                                            "${stringResource("chat.directive")}: ${selectedDirectiveObj.name}\n${selectedDirectiveObj.content}"
+                                        } else {
+                                            "${stringResource("chat.directive")}: ${stringResource("chat.directive.none")}"
+                                        },
+                                    ) {
+                                        TextButton(
+                                            onClick = { directiveDropdownExpanded = true },
+                                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                            colors = ButtonDefaults.textButtonColors(
+                                                contentColor = if (selectedDirectiveObj != null) {
+                                                    MaterialTheme.colorScheme.onSurface
+                                                } else {
+                                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                                },
+                                            ),
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.AutoAwesome,
+                                                contentDescription = stringResource("chat.directive"),
+                                                modifier = Modifier.size(16.dp),
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = selectedDirectiveObj?.name?.take(30)?.let {
+                                                    if (selectedDirectiveObj.name.length > 30) "$it..." else it
+                                                } ?: stringResource("chat.directive.none"),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                            )
+                                            Icon(
+                                                imageVector = Icons.Default.ArrowDropDown,
+                                                contentDescription = "Select directive",
+                                                modifier = Modifier.size(20.dp),
+                                            )
+                                        }
+                                    }
+
+                                    dropdownMenu(
+                                        expanded = directiveDropdownExpanded,
+                                        onDismissRequest = { directiveDropdownExpanded = false },
+                                        modifier = Modifier.fillMaxWidth(0.3f),
+                                    ) {
+                                        // "None" option to clear directive
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    text = stringResource("chat.directive.none"),
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                )
+                                            },
+                                            onClick = {
+                                                actions.setDirective(null)
+                                                directiveDropdownExpanded = false
+                                            },
+                                            leadingIcon = if (selectedDirective == null) {
+                                                {
+                                                    Icon(
+                                                        Icons.Default.Check,
+                                                        contentDescription = "Selected",
+                                                        tint = MaterialTheme.colorScheme.onSurface,
+                                                    )
+                                                }
+                                            } else {
+                                                null
+                                            },
+                                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                        )
+
+                                        // Show available directives in a scrollable section
+                                        if (availableDirectives.isNotEmpty()) {
+                                            HorizontalDivider()
+
+                                            availableDirectives.forEach { directive ->
+                                                themedTooltip(
+                                                    text = "${directive.name}\n${directive.content}",
+                                                    placement = TooltipPlacement.LEFT,
+                                                ) {
+                                                    DropdownMenuItem(
+                                                        text = {
+                                                            Text(
+                                                                text = directive.name,
+                                                                style = MaterialTheme.typography.bodyMedium,
+                                                            )
+                                                        },
+                                                        onClick = {
+                                                            actions.setDirective(directive.id)
+                                                            directiveDropdownExpanded = false
+                                                        },
+                                                        leadingIcon = if (selectedDirective == directive.id) {
+                                                            {
+                                                                Icon(
+                                                                    Icons.Default.Check,
+                                                                    contentDescription = "Selected",
+                                                                    tint = MaterialTheme.colorScheme.onSurface,
+                                                                )
+                                                            }
+                                                        } else {
+                                                            null
+                                                        },
+                                                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        // Action items section
+                                        HorizontalDivider(
+                                            modifier = Modifier.padding(vertical = 4.dp),
+                                        )
+
+                                        // New Directive action
+                                        DropdownMenuItem(
+                                            text = {
+                                                Row(
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Add,
+                                                        contentDescription = "New directive",
+                                                        tint = MaterialTheme.colorScheme.onSurface,
+                                                        modifier = Modifier.size(20.dp),
+                                                    )
+                                                    Text(
+                                                        text = stringResource("chat.directive.new"),
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                    )
+                                                }
+                                            },
+                                            onClick = {
+                                                showNewDirectiveDialog = true
+                                                directiveDropdownExpanded = false
+                                            },
+                                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                        )
+
+                                        // Manage Directives action
+                                        DropdownMenuItem(
+                                            text = {
+                                                Row(
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Edit,
+                                                        contentDescription = "Manage directives",
+                                                        tint = MaterialTheme.colorScheme.onSurface,
+                                                        modifier = Modifier.size(20.dp),
+                                                    )
+                                                    Text(
+                                                        text = stringResource("chat.directive.manage"),
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                    )
+                                                }
+                                            },
+                                            onClick = {
+                                                showManageDirectivesDialog = true
+                                                directiveDropdownExpanded = false
+                                            },
+                                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                        )
+
+                                        // Learn more link
+                                        HorizontalDivider(
+                                            modifier = Modifier.padding(vertical = 4.dp),
+                                        )
+                                        val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+                                        DropdownMenuItem(
+                                            text = {
+                                                Row(
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.ChevronRight,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        modifier = Modifier.size(16.dp),
+                                                    )
+                                                    Text(
+                                                        text = stringResource("chat.directive.learn.more"),
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    )
+                                                }
+                                            },
+                                            onClick = {
+                                                uriHandler.openUri("https://$DOMAIN/docs/desktop/directives/")
+                                                directiveDropdownExpanded = false
+                                            },
+                                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                        )
+                                    }
+
+                                    // Show manage directives dialog
+                                    if (showManageDirectivesDialog) {
+                                        manageDirectivesDialog(
+                                            directives = availableDirectives,
+                                            onDismiss = { showManageDirectivesDialog = false },
+                                            onAdd = { name, content, applyToCurrent ->
+                                                val newDirective = directiveService.createDirective(name, content)
+                                                availableDirectives = directiveService.listAllDirectives()
+                                                if (applyToCurrent) {
+                                                    actions.setDirective(newDirective.id)
+                                                }
+                                            },
+                                            onUpdate = { id, newName, newContent ->
+                                                directiveService.updateDirective(id, newName, newContent)
+                                                availableDirectives = directiveService.listAllDirectives()
+                                            },
+                                            onDelete = { id ->
+                                                directiveService.deleteDirective(id)
+                                                if (selectedDirective == id) {
+                                                    actions.setDirective(null)
+                                                }
+                                                availableDirectives = directiveService.listAllDirectives()
+                                            },
+                                            onExport = {
+                                                directiveService.exportToJson()
+                                            },
+                                            onImport = { json ->
+                                                val result = directiveService.importFromJson(json)
+                                                availableDirectives = directiveService.listAllDirectives()
+                                                result
+                                            },
+                                        )
+                                    }
+                                }
+
+                                if (sessionId != null && messages.isNotEmpty()) {
+                                    sessionActionsMenu(
+                                        sessionId = sessionId,
+                                        onRenameSession = onRenameSession,
+                                        onExportSession = onExportSession,
+                                        onDeleteSession = onDeleteSession,
+                                        onStarSession = onStarSession,
+                                        onMoveSessionToNewProject = onMoveSessionToNewProject,
+                                        onShowSessionSummary = { sid ->
+                                            sessionMemorySessionId = sid
+                                            showSessionMemoryDialog = true
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            // Search bar - fixed at top, always visible when search mode is active
-            if (isSearchMode) {
-                HorizontalDivider()
+                // Search bar - fixed at top, always visible when search mode is active
+                if (isSearchMode) {
+                    HorizontalDivider()
 
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    colors = AppComponents.bannerCardColors(),
-                ) {
-                    Row(
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        colors = AppComponents.bannerCardColors(),
                     ) {
-                        // Search icon
-                        Icon(
-                            Icons.Default.Search,
-                            contentDescription = "Search",
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
-
-                        // Search input field
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = actions::searchMessages,
+                        Row(
                             modifier = Modifier
-                                .weight(1f)
-                                .focusRequester(searchFocusRequester),
-                            placeholder = { Text(stringResource("chat.search.placeholder")) },
-                            singleLine = true,
-                            colors = AppComponents.outlinedTextFieldColors(),
-                        )
-
-                        // Result count
-                        if (!isSearching && searchQuery.isNotEmpty()) {
-                            Text(
-                                text = if (searchResults.isEmpty()) {
-                                    stringResource("chat.search.no.results")
-                                } else {
-                                    "${currentSearchResultIndex + 1}/${searchResults.size}"
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.padding(horizontal = 8.dp),
-                            )
-                        }
-
-                        // Navigation buttons (Previous)
-                        IconButton(
-                            onClick = actions::previousSearchResult,
-                            enabled = searchResults.isNotEmpty(),
-                            modifier = Modifier
-                                .size(36.dp)
-                                .pointerHoverIcon(PointerIcon.Hand),
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
+                            // Search icon
                             Icon(
-                                Icons.Default.KeyboardArrowUp,
-                                contentDescription = "Previous result (${AppShortcut.PREVIOUS_SEARCH_RESULT.getDisplayString()})",
-                                modifier = Modifier.size(20.dp),
+                                Icons.Default.Search,
+                                contentDescription = "Search",
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
                             )
-                        }
 
-                        // Navigation buttons (Next)
-                        IconButton(
-                            onClick = actions::nextSearchResult,
-                            enabled = searchResults.isNotEmpty(),
-                            modifier = Modifier
-                                .size(36.dp)
-                                .pointerHoverIcon(PointerIcon.Hand),
-                        ) {
-                            Icon(
-                                Icons.Default.KeyboardArrowDown,
-                                contentDescription = "Next result (${AppShortcut.NEXT_SEARCH_RESULT.getDisplayString()})",
-                                modifier = Modifier.size(20.dp),
+                            // Search input field
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = actions::searchMessages,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .focusRequester(searchFocusRequester),
+                                placeholder = { Text(stringResource("chat.search.placeholder")) },
+                                singleLine = true,
+                                colors = AppComponents.outlinedTextFieldColors(),
                             )
-                        }
 
-                        // Close button
-                        IconButton(
-                            onClick = actions::clearSearch,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .pointerHoverIcon(PointerIcon.Hand),
-                        ) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Close search",
-                                modifier = Modifier.size(20.dp),
-                            )
+                            // Result count
+                            if (!isSearching && searchQuery.isNotEmpty()) {
+                                Text(
+                                    text = if (searchResults.isEmpty()) {
+                                        stringResource("chat.search.no.results")
+                                    } else {
+                                        "${currentSearchResultIndex + 1}/${searchResults.size}"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.padding(horizontal = 8.dp),
+                                )
+                            }
+
+                            // Navigation buttons (Previous)
+                            IconButton(
+                                onClick = actions::previousSearchResult,
+                                enabled = searchResults.isNotEmpty(),
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .pointerHoverIcon(PointerIcon.Hand),
+                            ) {
+                                Icon(
+                                    Icons.Default.KeyboardArrowUp,
+                                    contentDescription = "Previous result (${AppShortcut.PREVIOUS_SEARCH_RESULT.getDisplayString()})",
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+
+                            // Navigation buttons (Next)
+                            IconButton(
+                                onClick = actions::nextSearchResult,
+                                enabled = searchResults.isNotEmpty(),
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .pointerHoverIcon(PointerIcon.Hand),
+                            ) {
+                                Icon(
+                                    Icons.Default.KeyboardArrowDown,
+                                    contentDescription = "Next result (${AppShortcut.NEXT_SEARCH_RESULT.getDisplayString()})",
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+
+                            // Close button
+                            IconButton(
+                                onClick = actions::clearSearch,
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .pointerHoverIcon(PointerIcon.Hand),
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Close search",
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            // Download attachment handler
-            val saveDialogTitle = stringResource("attachment.save.file")
-            val downloadAttachment: (FileAttachmentDTO) -> Unit = { attachment ->
-                scope.launch {
-                    val nameWithoutExt = attachment.fileName.substringBeforeLast('.', attachment.fileName)
-                    val ext = attachment.fileName.substringAfterLast('.', "")
-                    val targetFile = FileDialogUtils.pickSavePath(
-                        suggestedName = nameWithoutExt,
-                        extension = ext,
-                        title = saveDialogTitle,
-                    ) ?: return@launch
-                    attachment.filePath?.let { filePath ->
-                        val sourceFile = File(filePath)
-                        if (sourceFile.exists()) {
-                            try {
-                                sourceFile.copyTo(targetFile, overwrite = true)
-                                log.debug("Downloaded attachment: ${attachment.fileName} to ${targetFile.absolutePath}")
-                            } catch (e: Exception) {
-                                log.error("Error copying attachment file: ${e.message}", e)
+                // Download attachment handler
+                val saveDialogTitle = stringResource("attachment.save.file")
+                val downloadAttachment: (FileAttachmentDTO) -> Unit = { attachment ->
+                    scope.launch {
+                        val nameWithoutExt = attachment.fileName.substringBeforeLast('.', attachment.fileName)
+                        val ext = attachment.fileName.substringAfterLast('.', "")
+                        val targetFile = FileDialogUtils.pickSavePath(
+                            suggestedName = nameWithoutExt,
+                            extension = ext,
+                            title = saveDialogTitle,
+                        ) ?: return@launch
+                        attachment.filePath?.let { filePath ->
+                            val sourceFile = File(filePath)
+                            if (sourceFile.exists()) {
+                                try {
+                                    sourceFile.copyTo(targetFile, overwrite = true)
+                                    log.debug("Downloaded attachment: ${attachment.fileName} to ${targetFile.absolutePath}")
+                                } catch (e: Exception) {
+                                    log.error("Error copying attachment file: ${e.message}", e)
+                                }
+                            } else {
+                                log.error("Source file not found: $filePath")
                             }
-                        } else {
-                            log.error("Source file not found: $filePath")
-                        }
-                    } ?: log.error("Attachment file path is null: ${attachment.fileName}")
+                        } ?: log.error("Attachment file path is null: ${attachment.fileName}")
+                    }
                 }
-            }
 
-            // ── Auto-scroll logic ────────────────────────────────────────────
-            val currentUserMessageCount = messages.count { it.isUser }
-            var lastUserMessageCount by remember { mutableStateOf(0) }
-            var userScrolledUp by remember { mutableStateOf(false) }
-            var lastSeenPrependGeneration by remember { mutableStateOf(prependGeneration) }
-            var savedScrollValue by remember { mutableStateOf(-1) }
-            var savedScrollMax by remember { mutableStateOf(-1) }
+                // ── Auto-scroll logic ────────────────────────────────────────────
+                val currentUserMessageCount = messages.count { it.isUser }
+                var lastUserMessageCount by remember { mutableStateOf(0) }
+                var userScrolledUp by remember { mutableStateOf(false) }
+                var lastSeenPrependGeneration by remember { mutableStateOf(prependGeneration) }
+                var savedScrollValue by remember { mutableStateOf(-1) }
+                var savedScrollMax by remember { mutableStateOf(-1) }
 
-            if (prependGeneration != lastSeenPrependGeneration) {
-                savedScrollValue = messagesScrollState.value
-                savedScrollMax = messagesScrollState.maxValue
-                lastSeenPrependGeneration = prependGeneration
-            }
-
-            LaunchedEffect(currentUserMessageCount) {
-                if (currentUserMessageCount > lastUserMessageCount) {
-                    lastUserMessageCount = currentUserMessageCount
-                    userScrolledUp = false
-                    messagesScrollState.scrollTo(messagesScrollState.maxValue)
+                if (prependGeneration != lastSeenPrependGeneration) {
+                    savedScrollValue = messagesScrollState.value
+                    savedScrollMax = messagesScrollState.maxValue
+                    lastSeenPrependGeneration = prependGeneration
                 }
-            }
 
-            // Only update userScrolledUp when the user is physically dragging/scrolling,
-            // not when maxValue grows underneath a stationary scroll position.
-            LaunchedEffect(messagesScrollState.value) {
-                if (messagesScrollState.isScrollInProgress) {
-                    val distanceFromBottom = messagesScrollState.maxValue - messagesScrollState.value
-                    userScrolledUp = distanceFromBottom > 100
+                LaunchedEffect(currentUserMessageCount) {
+                    if (currentUserMessageCount > lastUserMessageCount) {
+                        lastUserMessageCount = currentUserMessageCount
+                        userScrolledUp = false
+                        messagesScrollState.scrollTo(messagesScrollState.maxValue)
+                    }
                 }
-                if (messagesScrollState.value < 100 && hasMoreMessages && !isLoadingPrevious) {
-                    actions.loadPrevious()
+
+                // Only update userScrolledUp when the user is physically dragging/scrolling,
+                // not when maxValue grows underneath a stationary scroll position.
+                LaunchedEffect(messagesScrollState.value) {
+                    if (messagesScrollState.isScrollInProgress) {
+                        val distanceFromBottom = messagesScrollState.maxValue - messagesScrollState.value
+                        userScrolledUp = distanceFromBottom > 100
+                    }
+                    if (messagesScrollState.value < 100 && hasMoreMessages && !isLoadingPrevious) {
+                        actions.loadPrevious()
+                    }
                 }
-            }
 
-            LaunchedEffect(messagesScrollState.maxValue) {
-                val sv = savedScrollValue
-                val sm = savedScrollMax
-                if (sv >= 0 && sm >= 0 && messagesScrollState.maxValue > sm) {
-                    val addedHeight = messagesScrollState.maxValue - sm
-                    messagesScrollState.scrollTo((sv + addedHeight).coerceIn(0, messagesScrollState.maxValue))
-                    savedScrollValue = -1
-                    savedScrollMax = -1
-                } else if (!userScrolledUp && sv < 0) {
-                    messagesScrollState.scrollTo(messagesScrollState.maxValue)
+                LaunchedEffect(messagesScrollState.maxValue) {
+                    val sv = savedScrollValue
+                    val sm = savedScrollMax
+                    if (sv >= 0 && sm >= 0 && messagesScrollState.maxValue > sm) {
+                        val addedHeight = messagesScrollState.maxValue - sm
+                        messagesScrollState.scrollTo((sv + addedHeight).coerceIn(0, messagesScrollState.maxValue))
+                        savedScrollValue = -1
+                        savedScrollMax = -1
+                    } else if (!userScrolledUp && sv < 0) {
+                        messagesScrollState.scrollTo(messagesScrollState.maxValue)
+                    }
                 }
-            }
 
-            LaunchedEffect(currentSearchResultIndex, searchQuery) {
-                if (searchQuery.isNotBlank() && messages.isNotEmpty()) {
-                    val estimatedItemHeight = 150f
-                    val targetPosition = (
-                        currentSearchResultIndex * estimatedItemHeight *
-                            messagesScrollState.maxValue / (messages.size * estimatedItemHeight)
-                        ).toInt()
-                    messagesScrollState.animateScrollTo(targetPosition)
+                LaunchedEffect(currentSearchResultIndex, searchQuery) {
+                    if (searchQuery.isNotBlank() && messages.isNotEmpty()) {
+                        val estimatedItemHeight = 150f
+                        val targetPosition = (
+                            currentSearchResultIndex * estimatedItemHeight *
+                                messagesScrollState.maxValue / (messages.size * estimatedItemHeight)
+                            ).toInt()
+                        messagesScrollState.animateScrollTo(targetPosition)
+                    }
                 }
-            }
 
-            // ── Messages area ────────────────────────────────────────────────
-            // The outer Box is the scroll container — the full chat area scrolls,
-            // not just the inner column. This means scroll works regardless of
-            // where the mouse is within the chat panel.
-            var viewportBounds by remember { mutableStateOf<Rect?>(null) }
+                // ── Messages area ────────────────────────────────────────────────
+                // The outer Box is the scroll container — the full chat area scrolls,
+                // not just the inner column. This means scroll works regardless of
+                // where the mouse is within the chat panel.
+                var viewportBounds by remember { mutableStateOf<Rect?>(null) }
 
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-            ) {
-                Column(
+                Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .padding(end = 8.dp) // room for scrollbar
-                        .verticalScroll(messagesScrollState)
-                        .onGloballyPositioned { coords ->
-                            if (coords.isAttached) viewportBounds = coords.boundsInWindow()
-                        },
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                        .weight(1f)
+                        .fillMaxWidth(),
                 ) {
-                    // Constrain content width while allowing scroll to fill the whole area
-                    Box(modifier = Modifier.widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH).fillMaxWidth()) {
-                        when {
-                            isSearchMode && searchResults.isEmpty() && !isSearching -> {
-                                Text(
-                                    stringResource("chat.search.not.found", searchQuery),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.align(Alignment.Center).padding(top = 32.dp),
-                                )
-                            }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .padding(end = 8.dp) // room for scrollbar
+                            .verticalScroll(messagesScrollState)
+                            .onGloballyPositioned { coords ->
+                                if (coords.isAttached) viewportBounds = coords.boundsInWindow()
+                            },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        // Constrain content width while allowing scroll to fill the whole area
+                        Box(modifier = Modifier.widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH).fillMaxWidth()) {
+                            when {
+                                isSearchMode && searchResults.isEmpty() && !isSearching -> {
+                                    Text(
+                                        stringResource("chat.search.not.found", searchQuery),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.align(Alignment.Center).padding(top = 32.dp),
+                                    )
+                                }
 
-                            isSearchMode -> {
-                                messageList(
-                                    messages = searchResults,
-                                    isThinking = false,
-                                    thinkingElapsedSeconds = 0,
-                                    spinnerFrame = spinnerFrame.toString(),
-                                    isLoadingPrevious = false,
-                                    searchQuery = searchQuery,
-                                    currentSearchResultIndex = currentSearchResultIndex,
-                                    onMessageClick = onJumpToMessage,
-                                    onEditMessage = { message ->
-                                        if (message.isUser) {
-                                            editingMessage = message
-                                            inputText = TextFieldValue(text = message.content, selection = TextRange(0))
-                                            attachments = message.attachments
-                                        } else {
-                                            editingAIMessage = message
-                                        }
-                                    },
-                                    onDownloadAttachment = downloadAttachment,
-                                    userAvatarPainter = userAvatarPainter,
-                                    aiAvatarPainter = aiAvatarPainter,
-                                    onRetryMessage = { messageId -> actions.retryMessage(messageId, currentEnabledServerIds) },
-                                    viewportTopY = viewportBounds?.top,
-                                    projectId = project?.id,
-                                )
-                            }
+                                isSearchMode -> {
+                                    messageList(
+                                        messages = searchResults,
+                                        isThinking = false,
+                                        thinkingElapsedSeconds = 0,
+                                        spinnerFrame = spinnerFrame.toString(),
+                                        isLoadingPrevious = false,
+                                        searchQuery = searchQuery,
+                                        currentSearchResultIndex = currentSearchResultIndex,
+                                        onMessageClick = onJumpToMessage,
+                                        onEditMessage = { message ->
+                                            if (message.isUser) {
+                                                editingMessage = message
+                                                inputText = TextFieldValue(text = message.content, selection = TextRange(0))
+                                                attachments = message.attachments
+                                            } else {
+                                                editingAIMessage = message
+                                            }
+                                        },
+                                        onDownloadAttachment = downloadAttachment,
+                                        userAvatarPainter = userAvatarPainter,
+                                        aiAvatarPainter = aiAvatarPainter,
+                                        onRetryMessage = { messageId -> actions.retryMessage(messageId, currentEnabledServerIds) },
+                                        viewportTopY = viewportBounds?.top,
+                                        projectId = project?.id,
+                                    )
+                                }
 
-                            messages.isEmpty() -> {
-                                Text(
-                                    stringResource("chat.welcome"),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.align(Alignment.Center).padding(top = 32.dp),
-                                )
-                            }
+                                messages.isEmpty() -> {
+                                    Text(
+                                        stringResource("chat.welcome"),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.align(Alignment.Center).padding(top = 32.dp),
+                                    )
+                                }
 
-                            else -> {
-                                messageList(
-                                    messages = messages,
-                                    isThinking = isThinking,
-                                    thinkingElapsedSeconds = thinkingElapsedSeconds,
-                                    spinnerFrame = spinnerFrame.toString(),
-                                    isLoadingPrevious = isLoadingPrevious,
-                                    onEditMessage = { message ->
-                                        if (message.isUser) {
-                                            editingMessage = message
-                                            inputText = TextFieldValue(text = message.content, selection = TextRange(0))
-                                            attachments = message.attachments
-                                        } else {
-                                            editingAIMessage = message
-                                        }
-                                    },
-                                    onDownloadAttachment = downloadAttachment,
-                                    userAvatarPainter = userAvatarPainter,
-                                    aiAvatarPainter = aiAvatarPainter,
-                                    onRetryMessage = { messageId -> actions.retryMessage(messageId, currentEnabledServerIds) },
-                                    viewportTopY = viewportBounds?.top,
-                                    projectId = project?.id,
-                                )
+                                else -> {
+                                    messageList(
+                                        messages = messages,
+                                        isThinking = isThinking,
+                                        thinkingElapsedSeconds = thinkingElapsedSeconds,
+                                        spinnerFrame = spinnerFrame.toString(),
+                                        isLoadingPrevious = isLoadingPrevious,
+                                        onEditMessage = { message ->
+                                            if (message.isUser) {
+                                                editingMessage = message
+                                                inputText = TextFieldValue(text = message.content, selection = TextRange(0))
+                                                attachments = message.attachments
+                                            } else {
+                                                editingAIMessage = message
+                                            }
+                                        },
+                                        onDownloadAttachment = downloadAttachment,
+                                        userAvatarPainter = userAvatarPainter,
+                                        aiAvatarPainter = aiAvatarPainter,
+                                        onRetryMessage = { messageId -> actions.retryMessage(messageId, currentEnabledServerIds) },
+                                        viewportTopY = viewportBounds?.top,
+                                        projectId = project?.id,
+                                    )
+                                }
                             }
                         }
                     }
+
+                    // Scrollbar — belongs to ChatView, spans the full messages area
+                    VerticalScrollbar(
+                        modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                        adapter = rememberScrollbarAdapter(messagesScrollState),
+                        style = ScrollbarStyle(
+                            minimalHeight = 16.dp,
+                            thickness = 8.dp,
+                            shape = MaterialTheme.shapes.small,
+                            hoverDurationMillis = 300,
+                            unhoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                            hoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        ),
+                    )
                 }
 
-                // Scrollbar — belongs to ChatView, spans the full messages area
-                VerticalScrollbar(
-                    modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
-                    adapter = rememberScrollbarAdapter(messagesScrollState),
-                    style = ScrollbarStyle(
-                        minimalHeight = 16.dp,
-                        thickness = 8.dp,
-                        shape = MaterialTheme.shapes.small,
-                        hoverDurationMillis = 300,
-                        unhoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                        hoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    ),
-                )
-            }
-
-            // Input area
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center,
-            ) {
-                chatInputField(
-                    inputText = inputText,
-                    onInputTextChange = { inputText = it },
-                    attachments = attachments,
-                    onAttachmentsChange = { attachments = it },
-                    onSendMessage = { mode ->
-                        if (inputText.text.isNotBlank() && !isLoading && !isThinking) {
-                            actions.sendOrEditMessage(
-                                mode,
-                                inputText.text,
-                                attachments,
-                                editingMessage,
-                                currentEnabledServerIds,
-                            )
+                // Input area
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    chatInputField(
+                        inputText = inputText,
+                        onInputTextChange = { inputText = it },
+                        attachments = attachments,
+                        onAttachmentsChange = { attachments = it },
+                        onSendMessage = { mode ->
+                            if (inputText.text.isNotBlank() && !isLoading && !isThinking) {
+                                actions.sendOrEditMessage(
+                                    mode,
+                                    inputText.text,
+                                    attachments,
+                                    editingMessage,
+                                    currentEnabledServerIds,
+                                )
+                                inputText = TextFieldValue("")
+                                attachments = emptyList()
+                                editingMessage = null
+                            }
+                        },
+                        isLoading = isLoading,
+                        isThinking = isThinking,
+                        onStopResponse = actions::cancelResponse,
+                        errorMessage = errorMessage,
+                        editingMessage = editingMessage,
+                        onCancelEdit = {
+                            editingMessage = null
                             inputText = TextFieldValue("")
                             attachments = emptyList()
-                            editingMessage = null
-                        }
-                    },
-                    isLoading = isLoading,
-                    isThinking = isThinking,
-                    onStopResponse = actions::cancelResponse,
-                    errorMessage = errorMessage,
-                    editingMessage = editingMessage,
-                    onCancelEdit = {
-                        editingMessage = null
-                        inputText = TextFieldValue("")
-                        attachments = emptyList()
-                    },
-                    sessionId = sessionId,
-                    onEnabledServerIdsChange = { currentEnabledServerIds = it },
-                    onNavigateToMcpSettings = onNavigateToMcpSettings,
-                    modifier = Modifier
-                        .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                )
-            } // end centered Box
-        } // End of main chat Column
+                        },
+                        sessionId = sessionId,
+                        onEnabledServerIdsChange = { currentEnabledServerIds = it },
+                        onNavigateToMcpSettings = onNavigateToMcpSettings,
+                        modifier = Modifier
+                            .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                    )
+                } // end centered Box
+            } // End of main chat Column
 
-        // Project Side Panel (right side) — only shown when session belongs to a project
-        if (project != null) {
-            projectSidePanelSlot(
-                project,
-                ragIndexingStatus,
-                ragIndexingPercentage,
-                sidePanelExpanded,
-                { sidePanelExpanded = it },
-                { filePaths ->
-                    val newAttachments = filePaths.map { path ->
-                        val file = File(path)
-                        FileAttachmentDTO(
-                            id = randomUUID().toString(),
-                            messageId = "",
-                            sessionId = sessionId ?: "",
-                            fileName = file.name,
-                            mimeType = file.extension,
-                            size = file.length(),
-                            createdAt = Instant.now(),
-                            content = null,
-                            filePath = file.absolutePath,
-                        )
-                    }
-                    val existingPaths = attachments.mapNotNull { it.filePath }.toSet()
-                    val toAdd = newAttachments.filter { it.filePath !in existingPaths }
-                    if (toAdd.isNotEmpty()) attachments = attachments + toAdd
-                },
-            )
-        }
-    } // End of Row
+            // Project Side Panel (right side) — only shown when session belongs to a project
+            if (project != null) {
+                projectSidePanelSlot(
+                    project,
+                    ragIndexingStatus,
+                    ragIndexingPercentage,
+                    sidePanelExpanded,
+                    { sidePanelExpanded = it },
+                    { filePaths ->
+                        val newAttachments = filePaths.map { path ->
+                            val file = File(path)
+                            FileAttachmentDTO(
+                                id = randomUUID().toString(),
+                                messageId = "",
+                                sessionId = sessionId ?: "",
+                                fileName = file.name,
+                                mimeType = file.extension,
+                                size = file.length(),
+                                createdAt = Instant.now(),
+                                content = null,
+                                filePath = file.absolutePath,
+                            )
+                        }
+                        val existingPaths = attachments.mapNotNull { it.filePath }.toSet()
+                        val toAdd = newAttachments.filter { it.filePath !in existingPaths }
+                        if (toAdd.isNotEmpty()) attachments = attachments + toAdd
+                    },
+                )
+            }
+        } // End of Row
 
         // Drag-and-drop overlay — shown while files are being dragged over the chat area
         if (isDragging) {
