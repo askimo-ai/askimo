@@ -5,9 +5,11 @@
 package io.askimo.core.analytics
 
 import io.askimo.core.VersionInfo
-import io.askimo.core.util.MachineId
+import io.askimo.core.util.AskimoHome
 import kotlinx.serialization.Serializable
+import java.nio.file.Files
 import java.util.Locale
+import java.util.UUID
 
 /**
  * Wire payload sent to the Askimo ingest endpoint.
@@ -44,9 +46,11 @@ data class AnalyticsEventPayload(
      */
     val timestampMs: Long = System.currentTimeMillis(),
     /**
-     * Stable anonymous device identifier derived from hardware via [MachineId].
-     * Used by the ingest endpoint to deduplicate feature-first-use events across
-     * sessions — no local tracking file is needed.
+     * Anonymous install-scoped identifier — a random UUID v4 persisted in
+     * [AnalyticsDeviceInfo.INSTALL_ID_FILE] (`~/.askimo/personal/.install_id`).
+     * Generated once on first access, stable across sessions for the same installation,
+     * regenerated on reinstall. No hardware signal, no PII.
+     * Used by the ingest endpoint to deduplicate events across sessions.
      */
     val installId: String = AnalyticsDeviceInfo.installId,
 )
@@ -54,13 +58,30 @@ data class AnalyticsEventPayload(
 /** Cached device-level facts resolved once at class-load time. */
 internal object AnalyticsDeviceInfo {
     /**
-     * Stable anonymous device identifier derived from hardware via [MachineId].
-     * The raw hardware value is SHA-256 hashed inside [MachineId] — nothing
-     * identifiable is ever stored or transmitted. Falls back to `"unknown"` only
-     * when every platform strategy fails (extremely unlikely).
+     * File name (relative to [AskimoHome.base()]) storing the anonymous install-scoped UUID.
+     * Generated once as a random UUID v4 on first access and reused for all subsequent sessions.
+     * No hardware data is ever read or stored — no MAC address, no CPU serial, nothing.
+     */
+    internal const val INSTALL_ID_FILE = ".install_id"
+
+    /**
+     * Anonymous install-scoped identifier — a random UUID v4 persisted in [INSTALL_ID_FILE].
+     * Stable across app sessions for the same installation; regenerated on reinstall.
+     * Falls back to `"unknown"` only when the home directory is completely inaccessible.
      */
     val installId: String by lazy {
-        MachineId.resolve() ?: "unknown"
+        val path = runCatching { AskimoHome.base().resolve(INSTALL_ID_FILE) }.getOrNull()
+            ?: return@lazy "unknown"
+        if (Files.exists(path)) {
+            val existing = runCatching { Files.readString(path).trim() }.getOrNull()
+            if (!existing.isNullOrBlank()) return@lazy existing
+        }
+        val id = UUID.randomUUID().toString()
+        runCatching {
+            Files.createDirectories(path.parent)
+            Files.writeString(path, id)
+        }
+        id
     }
 
     /** `"native"` when running under GraalVM substrate, otherwise the JVM major version. */

@@ -15,12 +15,6 @@ import java.nio.file.Files
 /**
  * Business analytics singleton — tracks anonymous feature usage for Askimo.t.
  *
- * ## Privacy contract
- * - Default: **disabled**. Zero data leaves the device until the user explicitly opts in.
- * - Opt-in is presented once via [io.askimo.ui.shell.analyticsConsentDialog].
- * - Opt-out immediately stops collection, clears the queue, and deletes the disk file.
- * - No conversation content, prompts, responses, file paths, or API keys — ever.
- *
  * ## Usage
  * ```kotlin
  * Analytics.initialize(AppConfig.analytics)
@@ -90,7 +84,7 @@ object Analytics {
 
     /**
      * Fires [AnalyticsEvent.RETURNING_USER] when [launchCount] hits a retention milestone
-     * (2nd, 7th, or 30th launch). No-op for other counts or when analytics is disabled.
+     * (2nd, 7th, or 30th launch). No-op for other counts.
      *
      * @param launchCount The current launch count returned by `ApplicationPreferences.incrementLaunchCount()`.
      */
@@ -101,7 +95,11 @@ object Analytics {
             30 -> "30"
             else -> return
         }
-        track(AnalyticsEvent.RETURNING_USER, mapOf("launch_count_bucket" to bucket))
+        if (enabled && initialized) {
+            track(AnalyticsEvent.RETURNING_USER, mapOf("launch_count_bucket" to bucket))
+        } else {
+            sendRetentionPingDirect(bucket)
+        }
     }
 
     fun sendInstallPingIfNeeded() {
@@ -135,11 +133,41 @@ object Analytics {
     }
 
     private fun buildInstallPingPayload(): String {
-        val os = System.getProperty("os.name", "unknown")
-            .replace("\\", "\\\\").replace("\"", "\\\"")
-        val version = VersionInfo.version
-            .replace("\\", "\\\\").replace("\"", "\\\"")
+        val (os, version) = osAndVersion()
         return """[{"event":"${AnalyticsEvent.INSTALL_PING.eventName}","appVersion":"$version","os":"$os"}]"""
+    }
+
+    private fun sendRetentionPingDirect(bucket: String) {
+        val endpoint = runCatching { AppConfig.analytics.endpoint }.getOrNull() ?: return
+        val payload = buildRetentionPingPayload(bucket)
+        Thread({
+            runCatching {
+                val (status, _) = httpPost(
+                    url = endpoint,
+                    body = payload,
+                    connectTimeoutMs = 10_000,
+                    readTimeoutMs = 15_000,
+                    httpVersion = HttpClient.Version.HTTP_2,
+                )
+                if (status in 200..299) {
+                    log.debug("Retention ping sent (bucket=$bucket, HTTP $status)")
+                } else {
+                    log.trace("Retention ping HTTP $status — will retry on next matching launch")
+                }
+            }.onFailure { log.trace("Retention ping failed: ${it.message} — will retry on next matching launch") }
+        }, "askimo-retention-ping").also { it.isDaemon = true }.start()
+    }
+
+    private fun buildRetentionPingPayload(bucket: String): String {
+        val (os, version) = osAndVersion()
+        val installId = AnalyticsDeviceInfo.installId
+            .replace("\\", "\\\\").replace("\"", "\\\"")
+        return """[{"event":"${AnalyticsEvent.RETURNING_USER.eventName}","appVersion":"$version","os":"$os","installId":"$installId","properties":{"launch_count_bucket":"$bucket"}}]"""
+    }
+
+    private fun osAndVersion(): Pair<String, String> {
+        fun String.jsonSafe() = replace("\\", "\\\\").replace("\"", "\\\"")
+        return System.getProperty("os.name", "unknown").jsonSafe() to VersionInfo.version.jsonSafe()
     }
 
     /**

@@ -297,7 +297,7 @@ data class ProviderModelConfig(
  *   accommodate slow local models and cloud reasoning models with extended thinking.
  */
 data class ModelTimeoutsConfig(
-    @field:JsonAlias("utilityModelTimeoutSeconds") val utilityModelTimeoutSeconds: Long = 45,
+    @field:JsonAlias("utilityModelTimeoutSeconds") val utilityModelTimeoutSeconds: Long = 300,
     @field:JsonAlias("defaultModelTimeoutSeconds") val defaultModelTimeoutSeconds: Long = 300,
 )
 
