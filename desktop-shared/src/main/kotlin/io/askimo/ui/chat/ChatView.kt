@@ -8,6 +8,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.ScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
+import androidx.compose.foundation.draganddrop.dragAndDropTarget
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +27,7 @@ import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -46,10 +48,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,6 +61,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.draganddrop.DragAndDropEvent
+import androidx.compose.ui.draganddrop.DragAndDropTarget
+import androidx.compose.ui.draganddrop.DragData
+import androidx.compose.ui.draganddrop.dragData
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Rect
@@ -70,6 +79,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.AppConstants.DOMAIN
@@ -78,8 +88,10 @@ import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
 import io.askimo.core.chat.service.ChatDirectiveService
+import io.askimo.core.config.AppConfig
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
+import io.askimo.core.event.error.AppErrorEvent
 import io.askimo.core.event.user.IndexingCompletedEvent
 import io.askimo.core.event.user.IndexingFailedEvent
 import io.askimo.core.event.user.IndexingInProgressEvent
@@ -88,6 +100,7 @@ import io.askimo.core.event.user.IndexingStartedEvent
 import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.rag.ProjectIndexer
 import io.askimo.core.util.TimeUtil.formatDisplay
+import io.askimo.core.util.formatFileSize
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.keymap.KeyMapManager
 import io.askimo.ui.common.keymap.KeyMapManager.AppShortcut
@@ -114,7 +127,7 @@ import java.util.UUID.randomUUID
 
 private val log = currentFileLogger()
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 @Composable
 fun chatView(
     state: ChatState,
@@ -172,6 +185,76 @@ fun chatView(
     var editingAIMessage by remember(sessionId) { mutableStateOf<ChatMessageDTO?>(null) }
     // Always-current disabled server IDs from ChatInputField
     var currentEnabledServerIds by remember(sessionId) { mutableStateOf(emptySet<String>()) }
+
+    // Whether the user is currently dragging files over the chat view
+    var isDragging by remember { mutableStateOf(false) }
+
+    // Stable holder for the "process dropped files" logic.
+    // Updated via SideEffect so it always captures the latest attachments/sessionId/scope
+    // without triggering recomposition itself, and without dropTarget needing to be recreated.
+    val dropFilesHandler = remember { object { var handle: (List<File>) -> Unit = {} } }
+    SideEffect {
+        dropFilesHandler.handle = { files ->
+            scope.launch {
+                val maxFileSizeBytes = AppConfig.indexing.maxFileBytes
+                val invalidFiles = files.filter { it.length() > maxFileSizeBytes }
+                if (invalidFiles.isNotEmpty()) {
+                    EventBus.post(
+                        AppErrorEvent(
+                            title = "File Too Large",
+                            message = "File '${invalidFiles.first().name}' is too large (${formatFileSize(invalidFiles.first().length())}). Maximum allowed size is ${formatFileSize(maxFileSizeBytes)}.",
+                        ),
+                    )
+                } else {
+                    val newAttachments = files.map { file ->
+                        FileAttachmentDTO(
+                            id = randomUUID().toString(),
+                            messageId = "",
+                            sessionId = sessionId ?: "",
+                            fileName = file.name,
+                            mimeType = file.extension,
+                            size = file.length(),
+                            createdAt = Instant.now(),
+                            content = null,
+                            filePath = file.absolutePath,
+                        )
+                    }
+                    attachments = attachments + newAttachments
+                }
+            }
+        }
+    }
+
+    // Drop target for drag-and-drop file attachments.
+    // Stable across recompositions — delegates file processing to dropFilesHandler
+    val dropTarget = remember {
+        object : DragAndDropTarget {
+            override fun onStarted(event: DragAndDropEvent) {
+                isDragging = event.dragData() is DragData.FilesList
+            }
+
+            override fun onExited(event: DragAndDropEvent) {
+                isDragging = false
+            }
+
+            override fun onEnded(event: DragAndDropEvent) {
+                isDragging = false
+            }
+
+            override fun onDrop(event: DragAndDropEvent): Boolean {
+                isDragging = false
+                val dragData = event.dragData()
+                if (dragData is DragData.FilesList) {
+                    val files = dragData.readFiles()
+                        .mapNotNull { uri -> runCatching { File(java.net.URI(uri)) }.getOrNull() }
+                        .filter { it.isFile }
+                    if (files.isNotEmpty()) dropFilesHandler.handle(files)
+                    return true
+                }
+                return false
+            }
+        }
+    }
 
     // When there is no project (e.g. user clicked "New Chat"), drop any pending
     // attachments that were added from the project side panel.
@@ -357,6 +440,14 @@ fun chatView(
         )
     }
 
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .dragAndDropTarget(
+                shouldStartDragAndDrop = { event -> event.dragData() is DragData.FilesList },
+                target = dropTarget,
+            ),
+    ) {
     Row(
         modifier = Modifier
             .fillMaxSize()
@@ -1188,6 +1279,44 @@ fun chatView(
             )
         }
     } // End of Row
+
+        // Drag-and-drop overlay — shown while files are being dragged over the chat area
+        if (isDragging) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    tonalElevation = 8.dp,
+                    shadowElevation = 8.dp,
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 48.dp, vertical = 36.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AttachFile,
+                            contentDescription = null,
+                            modifier = Modifier.size(52.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        Text(
+                            text = stringResource("chat.drop.files"),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+            }
+        }
+    } // End of outer drag Box
 
     // AI Message Edit Dialog
     editingAIMessage?.let { message ->
