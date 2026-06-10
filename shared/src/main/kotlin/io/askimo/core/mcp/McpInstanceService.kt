@@ -14,9 +14,6 @@ import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import dev.langchain4j.agent.tool.ToolSpecification
 import dev.langchain4j.mcp.client.DefaultMcpClient
-import io.askimo.core.context.AppContext
-import io.askimo.core.event.EventBus
-import io.askimo.core.event.error.AppErrorEvent
 import io.askimo.core.intent.ToolCategory
 import io.askimo.core.intent.ToolConfig
 import io.askimo.core.intent.ToolSource
@@ -25,10 +22,6 @@ import io.askimo.core.logging.logger
 import io.askimo.core.mcp.config.McpInstancesConfig
 import io.askimo.core.mcp.config.McpServersConfig
 import io.askimo.core.util.AskimoHome
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.nio.file.Files
 import java.time.LocalDateTime
 import java.util.UUID
@@ -147,9 +140,6 @@ class McpInstanceService(
     fun getInstances(): List<McpInstance> = instancesConfig.load() + ephemeralInstances
 
     fun getInstance(instanceId: String): McpInstance? = instancesConfig.get(instanceId) ?: ephemeralInstances.find { it.id == instanceId }
-
-    /** Returns true if the given instance is org-managed (ephemeral, not user-owned). */
-    fun isEphemeral(instanceId: String): Boolean = ephemeralInstances.any { it.id == instanceId }
 
     fun createInstance(
         serverId: String,
@@ -351,35 +341,7 @@ class McpInstanceService(
         globalToolsCache.put(GLOBAL_MCP_SCOPE_ID, allTools)
         log.debug("Cached {} global tools", allTools.size)
 
-        coroutineScope {
-            launch(Dispatchers.IO) { buildAndCacheVectorIndex(allTools) }
-        }
-
         allTools
-    }
-
-    fun getToolVectorIndex(): ToolVectorIndex? = toolVectorIndexCache.getIfPresent(GLOBAL_MCP_SCOPE_ID)
-
-    private suspend fun buildAndCacheVectorIndex(tools: List<ToolConfig>) {
-        if (tools.isEmpty()) return
-        try {
-            val embeddingModel = AppContext.getInstance().getEmbeddingModel()
-            val index = withContext(Dispatchers.IO) {
-                ToolVectorIndex(embeddingModel).also { it.index(tools) }
-            }
-            toolVectorIndexCache.put(GLOBAL_MCP_SCOPE_ID, index)
-            log.debug("Built and cached global ToolVectorIndex ({} tools)", tools.size)
-        } catch (e: Exception) {
-            log.warn("Could not build global ToolVectorIndex (embedding model unavailable?): {}", e.message, e)
-            EventBus.emit(
-                AppErrorEvent(
-                    title = "Global MCP Tool Index Unavailable",
-                    message = "Could not build the tool search index for global MCP instances. " +
-                        "MCP tool detection may be less accurate. Check your embedding model configuration.",
-                    cause = e,
-                ),
-            )
-        }
     }
 
     suspend fun listTools(instanceId: String): Result<List<ToolConfig>> {

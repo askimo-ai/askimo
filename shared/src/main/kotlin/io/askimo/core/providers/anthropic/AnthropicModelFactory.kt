@@ -145,6 +145,8 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
             .modelName(settings.defaultModel)
             .baseUrl(settings.baseUrl)
             .timeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
+            .cacheSystemMessages(true)
+            .cacheTools(true)
             .logger(log)
             .logRequests(log.isDebugEnabled)
             .logResponses(log.isTraceEnabled)
