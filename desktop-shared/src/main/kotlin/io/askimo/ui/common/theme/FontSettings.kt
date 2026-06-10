@@ -64,13 +64,16 @@ private fun classifyGenericFontFamily(fontName: String): FontFamily = when (font
 
 fun loadUiFontFamily(fontName: String): FontFamily = when (fontName) {
     FontSettings.SYSTEM_DEFAULT -> FontFamily.Default
+
     else -> resolveInstalledFontFamily(fontName)
         ?: classifyGenericFontFamily(fontName)
 }
 
 fun loadCodeFontFamily(fontName: String): FontFamily = when (fontName) {
     FontSettings.SYSTEM_MONOSPACE -> FontFamily.Monospace
+
     FontSettings.SYSTEM_DEFAULT -> FontFamily.Default
+
     else -> resolveInstalledFontFamily(fontName)
         ?: classifyGenericFontFamily(fontName)
 }

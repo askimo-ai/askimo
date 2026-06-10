@@ -404,7 +404,7 @@ object CodeHighlighter {
 
         // Append remaining text
         if (currentIndex < line.length) {
-                withStyle(SpanStyle(fontFamily = codeFontFamily)) {
+            withStyle(SpanStyle(fontFamily = codeFontFamily)) {
                 append(line.substring(currentIndex))
             }
         }
