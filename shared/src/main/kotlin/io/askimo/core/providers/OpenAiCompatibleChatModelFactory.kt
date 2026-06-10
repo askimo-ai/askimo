@@ -107,6 +107,14 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
         builder: OpenAiEmbeddingModelBuilder,
     ): OpenAiEmbeddingModelBuilder = builder
 
+    /**
+     * Probe whether the current model supports thinking/reasoning capabilities.
+     *
+     * Default implementation is intentionally conservative and returns false.
+     * Providers can override this with a real probe request.
+     */
+    protected open fun probeThinkingSupport(settings: T): Boolean = false
+
     // ── Shared helpers ─────────────────────────────────────────────────────────
 
     /**
@@ -139,17 +147,24 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
         retriever: ContentRetriever?,
         executionMode: ExecutionMode,
         chatMemory: ChatMemory?,
-    ): ChatClient = AiServiceBuilder.buildChatClient(
-        sessionId = sessionId,
-        settings = settings,
-        provider = getProvider(),
-        chatModel = createStreamingModel(settings),
-        secondaryChatModel = createSecondaryModel(settings),
-        chatMemory = chatMemory,
-        toolProvider = toolProvider,
-        retriever = retriever,
-        executionMode = executionMode,
-    )
+    ): ChatClient {
+        if (!ModelCapabilitiesCache.hasTestedThinkingSupport(getProvider(), settings.defaultModel)) {
+            val supportsThinking = probeThinkingSupport(settings)
+            ModelCapabilitiesCache.setThinkingSupport(getProvider(), settings.defaultModel, supportsThinking)
+        }
+
+        return AiServiceBuilder.buildChatClient(
+            sessionId = sessionId,
+            settings = settings,
+            provider = getProvider(),
+            chatModel = createStreamingModel(settings),
+            secondaryChatModel = createSecondaryModel(settings),
+            chatMemory = chatMemory,
+            toolProvider = toolProvider,
+            retriever = retriever,
+            executionMode = executionMode,
+        )
+    }
 
     override fun createStreamingModel(settings: T): StreamingChatModel {
         val telemetry = AppContext.getInstance().telemetry

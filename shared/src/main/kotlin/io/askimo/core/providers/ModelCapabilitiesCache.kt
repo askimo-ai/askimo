@@ -42,48 +42,56 @@ object ModelCapabilitiesCache {
             supportsTools = null, // Not tested yet
             supportsVision = null,
             supportsStreaming = true,
+            reasoningLevel = ReasoningEffort.MEDIUM,
         ),
         ModelProvider.GEMINI to ModelCapabilities(
             contextSize = 1_048_576,
             supportsTools = null,
             supportsVision = null,
             supportsStreaming = true,
+            reasoningLevel = ReasoningEffort.MEDIUM,
         ),
         ModelProvider.OPENAI to ModelCapabilities(
             contextSize = 262_144,
             supportsTools = null,
             supportsVision = null,
             supportsStreaming = true,
+            reasoningLevel = ReasoningEffort.MEDIUM,
         ),
         ModelProvider.XAI to ModelCapabilities(
             contextSize = 262_144,
             supportsTools = null,
             supportsVision = null,
             supportsStreaming = true,
+            reasoningLevel = ReasoningEffort.MEDIUM,
         ),
         ModelProvider.OLLAMA to ModelCapabilities(
             contextSize = 262_144,
             supportsTools = null,
             supportsVision = null,
             supportsStreaming = true,
+            reasoningLevel = ReasoningEffort.MEDIUM,
         ),
         ModelProvider.DOCKER to ModelCapabilities(
             contextSize = 262_144,
             supportsTools = null,
             supportsVision = null,
             supportsStreaming = true,
+            reasoningLevel = ReasoningEffort.MEDIUM,
         ),
         ModelProvider.LOCALAI to ModelCapabilities(
             contextSize = 262_144,
             supportsTools = null,
             supportsVision = null,
             supportsStreaming = true,
+            reasoningLevel = ReasoningEffort.MEDIUM,
         ),
         ModelProvider.LMSTUDIO to ModelCapabilities(
             contextSize = 262_144,
             supportsTools = null,
             supportsVision = null,
             supportsStreaming = true,
+            reasoningLevel = ReasoningEffort.MEDIUM,
         ),
     )
 
@@ -93,6 +101,7 @@ object ModelCapabilitiesCache {
         supportsTools = null,
         supportsVision = null,
         supportsStreaming = true,
+        reasoningLevel = ReasoningEffort.MEDIUM,
     )
 
     private val log = logger<ModelCapabilitiesCache>()
@@ -189,6 +198,13 @@ object ModelCapabilitiesCache {
     }
 
     /**
+     * Check if a model supports reasoning (alias for thinking support).
+     *
+     * Reasoning effort applies only when the model supports thinking/reasoning capabilities.
+     */
+    fun supportsReasoning(provider: ModelProvider, model: String): Boolean = supportsThinking(provider, model)
+
+    /**
      * Check if tool support has been tested for a model.
      *
      * @param provider The model provider
@@ -199,6 +215,11 @@ object ModelCapabilitiesCache {
         val modelKey = modelKey(provider, model)
         return get(modelKey).supportsTools != null
     }
+
+    /**
+     * Check if reasoning support has been tested (alias for thinking support test state).
+     */
+    fun hasTestedReasoningSupport(provider: ModelProvider, model: String): Boolean = hasTestedThinkingSupport(provider, model)
 
     /**
      * Check if a model supports sampling parameters (temperature, topP).
@@ -298,6 +319,37 @@ object ModelCapabilitiesCache {
     }
 
     /**
+     * Get the reasoning effort level for a model.
+     * Returns the cached reasoning level, or MEDIUM if not yet set.
+     *
+     * @param provider The model provider
+     * @param model The model name/identifier
+     * @return The reasoning effort level
+     */
+    fun getReasoningLevel(provider: ModelProvider, model: String): ReasoningEffort {
+        val modelKey = modelKey(provider, model)
+        return get(modelKey).reasoningLevel
+    }
+
+    /**
+     * Set the reasoning effort level for a model.
+     * Typically called after user configuration or model capability detection.
+     *
+     * @param provider The model provider
+     * @param model The model name/identifier
+     * @param level The reasoning effort level to set
+     */
+    fun setReasoningLevel(provider: ModelProvider, model: String, level: ReasoningEffort) {
+        if (model.isBlank()) {
+            log.warn("Cannot set reasoning level for empty model name (provider: ${provider.providerKey()})")
+            return
+        }
+        val modelKey = modelKey(provider, model)
+        update(modelKey) { it.copy(reasoningLevel = level) }
+        log.debug("Updated reasoning level for {}: {}", modelKey, level)
+    }
+
+    /**
      * Create a model key from provider and model name.
      *
      * @param provider The ModelProvider enum value
@@ -379,6 +431,7 @@ data class ModelCapabilities(
     val supportsStreaming: Boolean = true, // Non-nullable - always known
     val supportsSampling: Boolean = true, // Non-nullable - always known
     val supportsThinking: Boolean? = null, // null = not tested yet
+    val reasoningLevel: ReasoningEffort = ReasoningEffort.MEDIUM, // Default reasoning effort
     // For future extensibility
     val customAttributes: Map<String, String> = emptyMap(),
 )

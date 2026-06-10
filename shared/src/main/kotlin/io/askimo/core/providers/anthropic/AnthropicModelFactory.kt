@@ -27,6 +27,7 @@ import io.askimo.core.providers.ChatModelFactory
 import io.askimo.core.providers.ModelCapabilitiesCache
 import io.askimo.core.providers.ModelDTO
 import io.askimo.core.providers.ModelProvider
+import io.askimo.core.providers.ModelProvider.ANTHROPIC
 import io.askimo.core.providers.sendStreamingMessageWithCallback
 import io.askimo.core.telemetry.TelemetryChatModelListener
 import io.askimo.core.util.ApiKeyUtils.safeApiKey
@@ -46,13 +47,13 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
 
     private val log = logger<AnthropicModelFactory>()
 
-    override fun getProvider(): ModelProvider = ModelProvider.ANTHROPIC
+    override fun getProvider(): ModelProvider = ANTHROPIC
 
     override fun availableModels(settings: AnthropicSettings): List<ModelDTO> {
         val apiKey = settings.apiKey.takeIf { it.isNotBlank() } ?: return emptyList()
         val url = "${settings.baseUrl.trimEnd('/')}/models"
         return fetchAnthropicModels(apiKey = apiKey, url = url)
-            .map { ModelDTO.of(ModelProvider.ANTHROPIC, it) }
+            .map { ModelDTO.of(ANTHROPIC, it) }
     }
 
     override fun defaultSettings(): AnthropicSettings = AnthropicSettings()
@@ -70,15 +71,15 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
         val jdkHttpClientBuilder = JdkHttpClient.builder().httpClientBuilder(httpClientBuilder)
 
         // Probe thinking support once — result is persisted in ModelCapabilitiesCache
-        if (!ModelCapabilitiesCache.hasTestedThinkingSupport(ModelProvider.ANTHROPIC, settings.defaultModel)) {
+        if (!ModelCapabilitiesCache.hasTestedThinkingSupport(ANTHROPIC, settings.defaultModel)) {
             val supportsThinking = probeThinkingSupport(settings, jdkHttpClientBuilder)
-            ModelCapabilitiesCache.setThinkingSupport(ModelProvider.ANTHROPIC, settings.defaultModel, supportsThinking)
+            ModelCapabilitiesCache.setThinkingSupport(ANTHROPIC, settings.defaultModel, supportsThinking)
         }
 
         return AiServiceBuilder.buildChatClient(
             sessionId = sessionId,
             settings = settings,
-            provider = ModelProvider.ANTHROPIC,
+            provider = ANTHROPIC,
             chatModel = createStreamingModel(settings),
             secondaryChatModel = createSecondaryModel(settings),
             chatMemory = chatMemory,
@@ -137,7 +138,7 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
         val jdkHttpClientBuilder = JdkHttpClient.builder().httpClientBuilder(httpClientBuilder)
         val telemetry = AppContext.getInstance().telemetry
 
-        val supportsThinking = ModelCapabilitiesCache.supportsThinking(ModelProvider.ANTHROPIC, settings.defaultModel)
+        val supportsThinking = ModelCapabilitiesCache.supportsThinking(ANTHROPIC, settings.defaultModel)
 
         return AnthropicStreamingChatModel.builder()
             .httpClientBuilder(jdkHttpClientBuilder)
@@ -150,10 +151,10 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
             .logger(log)
             .logRequests(log.isDebugEnabled)
             .logResponses(log.isTraceEnabled)
-            .listeners(listOf(TelemetryChatModelListener(telemetry, ModelProvider.ANTHROPIC.name.lowercase())))
+            .listeners(listOf(TelemetryChatModelListener(telemetry, ANTHROPIC.name.lowercase())))
             .apply {
                 if (supportsThinking) {
-                    val thinkingConfig = AppConfig.models[ModelProvider.ANTHROPIC]
+                    val thinkingConfig = AppConfig.models[ANTHROPIC]
                     thinkingType("enabled")
                     thinkingBudgetTokens(thinkingConfig.thinkingBudgetTokens)
                     maxTokens(thinkingConfig.thinkingMaxTokens)
@@ -170,7 +171,7 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
         return AnthropicChatModel.builder()
             .httpClientBuilder(jdkHttpClientBuilder)
             .apiKey(safeApiKey(settings.apiKey))
-            .modelName(AppConfig.models[ModelProvider.ANTHROPIC].utilityModel.ifBlank { settings.defaultModel })
+            .modelName(AppConfig.models[ANTHROPIC].utilityModel.ifBlank { settings.defaultModel })
             .baseUrl(settings.baseUrl)
             .timeout(Duration.ofSeconds(AppConfig.models.timeouts.utilityModelTimeoutSeconds))
             .build()
