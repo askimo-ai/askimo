@@ -5,9 +5,11 @@
 package io.askimo.ui.chat
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -50,6 +52,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -62,8 +65,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -166,9 +171,12 @@ fun chatInputField(
         onEnabledServerIdsChange?.invoke(enabledServerIds)
     }
 
-    // State for resizable text field (min 60dp, will calculate max based on available space)
-    val defaultTextFieldHeight = 60.dp
+    // State for resizable text field.
+    // Minimum height accounts for: controls row (44dp) + 1 line of text (24dp) + OutlinedTextField vertical padding (36dp) = 104dp.
+    // This value is used as the initial/reset height so the container is always correctly sized
+    // even before any LaunchedEffect has had a chance to run (e.g. immediately after a session switch).
     val inlineControlsBottomPadding = 44.dp
+    val defaultTextFieldHeight = 104.dp
     var textFieldHeight by remember(sessionId) { mutableStateOf(defaultTextFieldHeight) }
     var manuallyResized by remember(sessionId) { mutableStateOf(false) }
 
@@ -220,7 +228,7 @@ fun chatInputField(
     val padding = 36.dp // Top and bottom padding for the text field
     // Reserve extra vertical room so bottom-left inline controls do not overlap typed text.
     val calculatedHeight = (lineHeight * estimatedLineCount) + padding + inlineControlsBottomPadding
-    val maxVisibleInputLines = ((textFieldHeight - inlineControlsBottomPadding) / lineHeight)
+    val maxVisibleInputLines = ((textFieldHeight - inlineControlsBottomPadding - 1.dp - 32.dp) / lineHeight)
         .toInt()
         .coerceAtLeast(1)
 
@@ -378,7 +386,7 @@ fun chatInputField(
             val maxTextFieldHeight = (maxAvailableHeight * 0.5f).coerceAtLeast(defaultTextFieldHeight)
 
             // Auto-calculate height if not manually resized
-            LaunchedEffect(calculatedHeight, manuallyResized) {
+            LaunchedEffect(sessionId, calculatedHeight, manuallyResized) {
                 if (!manuallyResized) {
                     textFieldHeight = calculatedHeight.coerceIn(defaultTextFieldHeight, maxTextFieldHeight)
                 }
@@ -424,17 +432,38 @@ fun chatInputField(
                             )
                         }
 
-                        // Text field with bottom-left inline actions
-                        Box(modifier = Modifier.fillMaxWidth()) {
+                        // Custom two-section input container:
+                        // ┌─────────────────────────────────────────┐
+                        // │  Text area  (weight 1f, scrollable)     │
+                        // ├─────────────────────────────────────────┤
+                        // │  Controls row  (fixed height)           │
+                        // └─────────────────────────────────────────┘
+                        // Text can never overlap the controls because they are structurally separate.
+                        val interactionSource = remember { MutableInteractionSource() }
+                        val isFocused by interactionSource.collectIsFocusedAsState()
+                        val containerBorderColor = when {
+                            errorMessage != null -> MaterialTheme.colorScheme.error
+                            isFocused -> MaterialTheme.colorScheme.onSurface
+                            else -> MaterialTheme.colorScheme.outlineVariant
+                        }
+                        val containerBorderWidth = if (isFocused || errorMessage != null) 2.dp else 1.dp
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(textFieldHeight)
+                                .border(containerBorderWidth, containerBorderColor, RoundedCornerShape(4.dp))
+                                .clip(RoundedCornerShape(4.dp)),
+                        ) {
+                            // ── Text area ──────────────────────────────────────────────────
                             OutlinedTextField(
                                 value = inputText,
                                 onValueChange = onInputTextChange,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(textFieldHeight)
+                                    .weight(1f)
                                     .focusRequester(inputFocusRequester)
                                     .onGloballyPositioned { coordinates ->
-                                        // Capture the actual width of the text field for wrapping calculation
                                         textFieldWidthPx = coordinates.size.width.toFloat()
                                     }
                                     .onPreviewKeyEvent { keyEvent ->
@@ -467,19 +496,31 @@ fun chatInputField(
                                     },
                                 placeholder = { Text(placeholder) },
                                 maxLines = maxVisibleInputLines,
-                                isError = errorMessage != null,
-                                supportingText = if (errorMessage != null) {
-                                    { Text(errorMessage, color = MaterialTheme.colorScheme.error) }
-                                } else {
-                                    null
-                                },
-                                colors = AppComponents.outlinedTextFieldColors(),
+                                interactionSource = interactionSource,
+                                // Border is provided by the outer container; keep OutlinedTextField's own border transparent.
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent,
+                                    errorBorderColor = Color.Transparent,
+                                    focusedLabelColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    cursorColor = MaterialTheme.colorScheme.onSurface,
+                                ),
                             )
 
+                            // ── Separator ──────────────────────────────────────────────────
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.surface,
+                                thickness = 0.5.dp,
+                            )
+
+                            // ── Controls row ───────────────────────────────────────────────
+                            // Fixed height so it is always fully visible below the text area.
                             Row(
                                 modifier = Modifier
-                                    .align(Alignment.BottomStart)
-                                    .padding(start = 10.dp, bottom = 10.dp),
+                                    .fillMaxWidth()
+                                    .height(inlineControlsBottomPadding)
+                                    .padding(start = 10.dp),
                                 horizontalArrangement = Arrangement.spacedBy(2.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
@@ -578,6 +619,16 @@ fun chatInputField(
                                     }
                                 }
                             }
+                        }
+
+                        // Error text shown below the container
+                        if (errorMessage != null) {
+                            Text(
+                                text = errorMessage,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(start = 16.dp, top = 4.dp),
+                            )
                         }
                     }
 

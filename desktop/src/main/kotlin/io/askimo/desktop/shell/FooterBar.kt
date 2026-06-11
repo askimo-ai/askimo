@@ -22,12 +22,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -433,43 +434,16 @@ fun footerBar(
         ) {
             Row(
                 modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .widthIn(max = 220.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    .align(Alignment.CenterStart),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource("system.memory") + ":",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = "$memoryUsage MB",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource("system.cpu") + ":",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = "%.1f%%".format(cpuUsage),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
+                systemResourcesDropdown(
+                    memoryUsage = memoryUsage,
+                    cpuUsage = cpuUsage,
+                    telemetryExpanded = telemetryExpanded,
+                    onToggleTelemetry = { telemetryExpanded = !telemetryExpanded },
+                )
             }
 
             Box(modifier = Modifier.align(Alignment.Center)) {
@@ -481,30 +455,6 @@ fun footerBar(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                themedTooltip(
-                    text = if (telemetryExpanded) {
-                        stringResource("telemetry.hide")
-                    } else {
-                        stringResource("telemetry.show")
-                    },
-                ) {
-                    IconButton(
-                        onClick = { telemetryExpanded = !telemetryExpanded },
-                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ShowChart,
-                            contentDescription = if (telemetryExpanded) {
-                                stringResource("telemetry.hide")
-                            } else {
-                                stringResource("telemetry.show")
-                            },
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                }
-
                 themedTooltip(text = stringResource("system.share.feedback")) {
                     TextButton(
                         onClick = {
@@ -529,6 +479,116 @@ fun footerBar(
         if (telemetryExpanded) {
             HorizontalDivider()
             telemetryPanel(metrics, 250.dp)
+        }
+    }
+}
+
+@Composable
+private fun systemResourcesDropdown(
+    memoryUsage: Long,
+    cpuUsage: Double,
+    telemetryExpanded: Boolean,
+    onToggleTelemetry: () -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box {
+        themedTooltip(
+            text = stringResource("system.metrics.tooltip"),
+        ) {
+            IconButton(
+                onClick = { expanded = !expanded },
+                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Speed,
+                    contentDescription = stringResource("system.metrics.tooltip"),
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+
+        AppComponents.dropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            Column {
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    // Memory usage
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Memory,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = stringResource("system.memory") + ":",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "$memoryUsage MB",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+
+                    // CPU usage
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Speed,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = stringResource("system.cpu") + ":",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "%.1f%%".format(cpuUsage),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
+
+                HorizontalDivider()
+
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = if (telemetryExpanded) {
+                                stringResource("system.telemetry.hide")
+                            } else {
+                                stringResource("system.telemetry.show")
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    },
+                    onClick = {
+                        onToggleTelemetry()
+                        expanded = false
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .pointerHoverIcon(PointerIcon.Hand),
+                )
+            }
         }
     }
 }
