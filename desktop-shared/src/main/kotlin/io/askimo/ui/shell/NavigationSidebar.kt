@@ -82,6 +82,7 @@ import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.LocalFontScale
+import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.session.SessionActionMenu
 import io.askimo.ui.session.SessionsViewModel
@@ -282,7 +283,7 @@ private fun expandedNavigationSidebar(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(AppComponents.sidebarHeaderColor())
-                .padding((16 * fontScale).dp),
+                .padding(Spacing.large),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -307,7 +308,7 @@ private fun expandedNavigationSidebar(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(vertical = (8 * fontScale).dp),
+                .padding(vertical = Spacing.small),
         ) {
             // New Chat
             themedTooltip(text = stringResource("chat.new.tooltip", Platform.modifierKey)) {
@@ -317,7 +318,7 @@ private fun expandedNavigationSidebar(
                     selected = false,
                     onClick = onNewChat,
                     modifier = Modifier
-                        .padding(horizontal = (12 * fontScale).dp)
+                        .padding(horizontal = Spacing.medium)
                         .pointerHoverIcon(PointerIcon.Hand),
                     colors = AppComponents.navigationDrawerItemColors(),
                 )
@@ -330,7 +331,7 @@ private fun expandedNavigationSidebar(
 
                 Box(
                     modifier = Modifier
-                        .padding(horizontal = (12 * fontScale).dp)
+                        .padding(horizontal = Spacing.medium)
                         .hoverable(projectsInteractionSource),
                 ) {
                     NavigationDrawerItem(
@@ -371,7 +372,7 @@ private fun expandedNavigationSidebar(
                     selected = isPlansSelected,
                     onClick = onNavigateToPlans,
                     modifier = Modifier
-                        .padding(horizontal = (12 * fontScale).dp)
+                        .padding(horizontal = Spacing.medium)
                         .pointerHoverIcon(PointerIcon.Hand),
                     colors = AppComponents.navigationDrawerItemColors(),
                 )
@@ -385,7 +386,7 @@ private fun expandedNavigationSidebar(
                     selected = isSkillsSelected,
                     onClick = onNavigateToSkills,
                     modifier = Modifier
-                        .padding(horizontal = (12 * fontScale).dp)
+                        .padding(horizontal = Spacing.medium)
                         .pointerHoverIcon(PointerIcon.Hand),
                     colors = AppComponents.navigationDrawerItemColors(),
                 )
@@ -422,7 +423,7 @@ private fun expandedNavigationSidebar(
                     }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy((4 * fontScale).dp),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                     ) {
                         if (!isSessionsExpanded && sessionsViewModel.totalSessionCount > 0) {
                             val count = sessionsViewModel.totalSessionCount
@@ -440,7 +441,7 @@ private fun expandedNavigationSidebar(
                     }
                 },
                 modifier = Modifier
-                    .padding(horizontal = (12 * fontScale).dp)
+                    .padding(horizontal = Spacing.medium)
                     .pointerHoverIcon(PointerIcon.Hand),
                 colors = AppComponents.navigationDrawerItemColors(),
             )
@@ -468,7 +469,7 @@ private fun expandedNavigationSidebar(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = (12 * fontScale).dp, vertical = (8 * fontScale).dp),
+                .padding(horizontal = Spacing.medium, vertical = Spacing.small),
         ) {
             userProfileContent()
         }
@@ -515,7 +516,7 @@ private fun collapsedNavigationSidebar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(AppComponents.sidebarHeaderColor())
-                    .padding(vertical = (16 * fontScale).dp)
+                    .padding(vertical = Spacing.large)
                     .hoverable(headerInteractionSource)
                     .clickable(
                         interactionSource = headerInteractionSource,
@@ -547,7 +548,7 @@ private fun collapsedNavigationSidebar(
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(vertical = (8 * fontScale).dp)
+                .padding(vertical = Spacing.small)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -644,7 +645,7 @@ fun sidebarLogoRow(
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy((12 * fontScale).dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
     ) {
         Box {
             Icon(
@@ -686,14 +687,13 @@ private fun pinnedSection(
 ) {
     if (starredProjects.isEmpty() && starredSessions.isEmpty()) return
 
-    val fontScale = LocalFontScale.current
     var isExpanded by remember { mutableStateOf(true) }
 
     Column(
         modifier = Modifier.padding(
-            start = (12 * fontScale).dp,
-            end = (12 * fontScale).dp,
-            top = (4 * fontScale).dp,
+            start = Spacing.medium,
+            end = Spacing.medium,
+            top = Spacing.extraSmall,
         ),
     ) {
         NavigationDrawerItem(
@@ -719,7 +719,7 @@ private fun pinnedSection(
         )
 
         if (isExpanded) {
-            Column(modifier = Modifier.padding(start = (16 * fontScale).dp)) {
+            Column(modifier = Modifier.padding(start = Spacing.large)) {
                 starredProjects.forEach { project ->
                     pinnedProjectItem(
                         project = project,
@@ -763,7 +763,7 @@ private fun pinnedProjectItem(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = (2 * fontScale).dp)
+            .padding(vertical = Spacing.extraSmall / 2f)
             .hoverable(interactionSource),
     ) {
         themedTooltip(text = project.name) {
@@ -779,13 +779,13 @@ private fun pinnedProjectItem(
                 selected = false,
                 onClick = { onSelectProject(project.id) },
                 modifier = Modifier
-                    .padding(vertical = (2 * fontScale).dp)
+                    .padding(vertical = Spacing.extraSmall / 2f)
                     .pointerHoverIcon(PointerIcon.Hand),
                 colors = AppComponents.navigationDrawerItemColors(),
             )
         }
 
-        Box(modifier = Modifier.align(Alignment.CenterEnd).padding(end = (8 * fontScale).dp)) {
+        Box(modifier = Modifier.align(Alignment.CenterEnd).padding(end = Spacing.small)) {
             dropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                 DropdownMenuItem(
                     text = { Text(stringResource("action.unpin")) },
@@ -861,7 +861,7 @@ private fun pinnedSessionItem(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = (2 * fontScale).dp)
+            .padding(vertical = Spacing.extraSmall / 2f)
             .hoverable(interactionSource),
     ) {
         sessionTooltip(session = session) {
@@ -893,7 +893,7 @@ private fun pinnedSessionItem(
             )
         }
 
-        Box(modifier = Modifier.align(Alignment.CenterEnd).padding(end = (8 * fontScale).dp)) {
+        Box(modifier = Modifier.align(Alignment.CenterEnd).padding(end = Spacing.small)) {
             dropdownMenu(
                 expanded = showMenu,
                 onDismissRequest = { showMenu = false },
@@ -959,14 +959,12 @@ private fun sessionsList(
     availableProjects: List<Project>,
     onMoveSessionToNewProject: (sessionId: String) -> Unit,
 ) {
-    val fontScale = LocalFontScale.current
-
     Column(
         modifier = Modifier.padding(
-            start = (32 * fontScale).dp,
-            end = (12 * fontScale).dp,
-            top = (4 * fontScale).dp,
-            bottom = (4 * fontScale).dp,
+            start = Spacing.large * 2f,
+            end = Spacing.medium,
+            top = Spacing.extraSmall,
+            bottom = Spacing.extraSmall,
         ),
     ) {
         if (sessionsViewModel.recentSessions.isEmpty()) {
@@ -975,8 +973,8 @@ private fun sessionsList(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(
-                    horizontal = (16 * fontScale).dp,
-                    vertical = (8 * fontScale).dp,
+                    horizontal = Spacing.large,
+                    vertical = Spacing.small,
                 ),
             )
         } else {
@@ -1012,7 +1010,7 @@ private fun sessionsList(
                     selected = false,
                     onClick = onNavigateToSessions,
                     modifier = Modifier
-                        .padding(vertical = (2 * fontScale).dp)
+                        .padding(vertical = Spacing.extraSmall / 2f)
                         .pointerHoverIcon(PointerIcon.Hand),
                     colors = AppComponents.navigationDrawerItemColors(),
                 )
@@ -1061,7 +1059,7 @@ private fun sessionItemWithMenu(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = (2 * fontScale).dp)
+            .padding(vertical = Spacing.extraSmall / 2f)
             .hoverable(interactionSource),
     ) {
         sessionTooltip(session = session) {
@@ -1093,7 +1091,7 @@ private fun sessionItemWithMenu(
             )
         }
 
-        Box(modifier = Modifier.align(Alignment.CenterEnd).padding(end = (8 * fontScale).dp)) {
+        Box(modifier = Modifier.align(Alignment.CenterEnd).padding(end = Spacing.small)) {
             dropdownMenu(
                 expanded = showMenu,
                 onDismissRequest = { showMenu = false },
@@ -1149,7 +1147,7 @@ private fun navigationItemLabelWithMenu(
             modifier = Modifier.weight(1f),
         )
         if (isHovered) {
-            Box(modifier = Modifier.padding(start = (4 * fontScale).dp)) {
+            Box(modifier = Modifier.padding(start = Spacing.extraSmall)) {
                 IconButton(
                     onClick = onMenuClick,
                     modifier = Modifier
