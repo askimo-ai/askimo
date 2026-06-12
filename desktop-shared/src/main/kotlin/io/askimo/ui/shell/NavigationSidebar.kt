@@ -845,7 +845,6 @@ private fun pinnedSessionItem(
     var showDeleteDialog by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
-    val fontScale = LocalFontScale.current
 
     if (showDeleteDialog) {
         deleteSessionDialog(
@@ -864,34 +863,14 @@ private fun pinnedSessionItem(
             .padding(vertical = Spacing.extraSmall / 2f)
             .hoverable(interactionSource),
     ) {
-        sessionTooltip(session = session) {
-            NavigationDrawerItem(
-                icon = if (isChatInProgress) {
-                    {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size((14 * fontScale).dp),
-                            strokeWidth = (2 * fontScale).dp,
-                            color = LocalContentColor.current,
-                        )
-                    }
-                } else {
-                    null
-                },
-                label = {
-                    navigationItemLabelWithMenu(
-                        text = session.title,
-                        onMenuClick = { showMenu = true },
-                        isHovered = isHovered || showMenu,
-                    )
-                },
-                selected = isSelected,
-                onClick = { onResumeSession(session.id) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .pointerHoverIcon(PointerIcon.Hand),
-                colors = AppComponents.navigationDrawerItemColors(),
-            )
-        }
+        sessionDrawerItemContent(
+            session = session,
+            isSelected = isSelected,
+            isChatInProgress = isChatInProgress,
+            isHovered = isHovered || showMenu,
+            onResumeSession = onResumeSession,
+            onMenuClick = { showMenu = true },
+        )
 
         Box(modifier = Modifier.align(Alignment.CenterEnd).padding(end = Spacing.small)) {
             dropdownMenu(
@@ -1042,7 +1021,6 @@ private fun sessionItemWithMenu(
     var showDeleteDialog by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
-    val fontScale = LocalFontScale.current
     val sessionRepository = remember { DatabaseManager.getInstance().getChatSessionRepository() }
 
     if (showDeleteDialog) {
@@ -1062,34 +1040,14 @@ private fun sessionItemWithMenu(
             .padding(vertical = Spacing.extraSmall / 2f)
             .hoverable(interactionSource),
     ) {
-        sessionTooltip(session = session) {
-            NavigationDrawerItem(
-                icon = if (isChatInProgress) {
-                    {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size((14 * fontScale).dp),
-                            strokeWidth = (2 * fontScale).dp,
-                            color = LocalContentColor.current,
-                        )
-                    }
-                } else {
-                    null
-                },
-                label = {
-                    navigationItemLabelWithMenu(
-                        text = session.title,
-                        onMenuClick = { showMenu = true },
-                        isHovered = isHovered || showMenu,
-                    )
-                },
-                selected = isSelected,
-                onClick = { onResumeSession(session.id) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .pointerHoverIcon(PointerIcon.Hand),
-                colors = AppComponents.navigationDrawerItemColors(),
-            )
-        }
+        sessionDrawerItemContent(
+            session = session,
+            isSelected = isSelected,
+            isChatInProgress = isChatInProgress,
+            isHovered = isHovered || showMenu,
+            onResumeSession = onResumeSession,
+            onMenuClick = { showMenu = true },
+        )
 
         Box(modifier = Modifier.align(Alignment.CenterEnd).padding(end = Spacing.small)) {
             dropdownMenu(
@@ -1126,6 +1084,47 @@ private fun sessionItemWithMenu(
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared sub-components
 // ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun sessionDrawerItemContent(
+    session: ChatSession,
+    isSelected: Boolean,
+    isChatInProgress: Boolean,
+    isHovered: Boolean,
+    onResumeSession: (String) -> Unit,
+    onMenuClick: () -> Unit,
+) {
+    val fontScale = LocalFontScale.current
+
+    sessionTooltip(session = session) {
+        NavigationDrawerItem(
+            icon = if (isChatInProgress) {
+                {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size((14 * fontScale).dp),
+                        strokeWidth = (2 * fontScale).dp,
+                        color = LocalContentColor.current,
+                    )
+                }
+            } else {
+                null
+            },
+            label = {
+                navigationItemLabelWithMenu(
+                    text = session.title,
+                    onMenuClick = onMenuClick,
+                    isHovered = isHovered,
+                )
+            },
+            selected = isSelected,
+            onClick = { onResumeSession(session.id) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .pointerHoverIcon(PointerIcon.Hand),
+            colors = AppComponents.navigationDrawerItemColors(),
+        )
+    }
+}
 
 @Composable
 private fun navigationItemLabelWithMenu(
