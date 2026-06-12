@@ -3,6 +3,7 @@
  * Copyright (c) 2026 Askimo
  */
 package io.askimo.ui.skills
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -54,7 +55,6 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.db.DatabaseManager
@@ -63,7 +63,6 @@ import io.askimo.core.skills.agent.ExternalAgent
 import io.askimo.core.skills.agent.ExternalAgentLoader
 import io.askimo.core.skills.domain.SkillDefinition
 import io.askimo.core.skills.domain.SkillRunRecord
-import io.askimo.core.util.AskimoHome
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.sendTextField
 import io.askimo.ui.common.i18n.stringResource
@@ -79,49 +78,41 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.awt.Desktop
 import java.io.File
-import javax.swing.JFileChooser
 import kotlin.time.Duration.Companion.milliseconds
-private enum class AgentState {
-    NOT_INSTALLED,
-    NEEDS_KEY,
-    NEEDS_EXTERNAL_AUTH,
-    READY,
-}
+
+private enum class AgentState { NOT_INSTALLED, NEEDS_KEY, NEEDS_EXTERNAL_AUTH, READY }
 
 /**
  * Renders the skill execution UI inline — no scroll container of its own.
  * The parent (skillsMainContent) owns the scroll.
+ * The working directory is provided by the caller (user-chosen, persisted via [ApplicationPreferences]).
  */
 @Composable
 internal fun skillExecutionArea(
     skill: SkillDefinition,
+    workDir: File,
     onRunCompleted: () -> Unit = {},
     preloadRecord: SkillRunRecord? = null,
     onPreloadConsumed: () -> Unit = {},
-    onWorkDirChanged: (File) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val clipboardManager = LocalClipboardManager.current
     val uriHandler = LocalUriHandler.current
     val historyRepo = remember { DatabaseManager.getInstance().getSkillRunHistoryRepository() }
+
     var contextInput by remember(skill.relativePath) { mutableStateOf("") }
     var followUpInput by remember(skill.relativePath) { mutableStateOf("") }
     var systemPromptExpanded by remember(skill.relativePath) { mutableStateOf(false) }
     var isRunning by remember(skill.relativePath) { mutableStateOf(false) }
     var responseText by remember(skill.relativePath) { mutableStateOf("") }
     var runError by remember(skill.relativePath) { mutableStateOf<String?>(null) }
-    // Single live status line — replaced (not appended) on each non-thinking status event.
     var currentStatusLine by remember(skill.relativePath) { mutableStateOf<String?>(null) }
-    // displayText drives the response panel while running:
-    //   • thinking phase  → blockquote "> …" accumulation
-    //   • non-thinking event → cleared (thinking wiped)
-    //   • result tokens   → replaced with final answer text
     var displayText by remember(skill.relativePath) { mutableStateOf("") }
     var isInThinkingPhase by remember(skill.relativePath) { mutableStateOf(false) }
     val hasResponse = responseText.isNotBlank()
     var elapsedSeconds by remember(skill.relativePath) { mutableStateOf(0) }
+
     LaunchedEffect(isRunning) {
         if (isRunning) {
             elapsedSeconds = 0
@@ -131,29 +122,27 @@ internal fun skillExecutionArea(
             }
         }
     }
-    var workDir by remember(skill.relativePath) {
-        mutableStateOf(AskimoHome.skillsWorkspaceDir().toFile())
-    }
+
+    // workDir is now passed in by the caller (user-chosen, persisted via ApplicationPreferences)
+
     val allAgents by remember { mutableStateOf(ExternalAgentLoader.all()) }
     var agentStateVersion by remember { mutableStateOf(0) }
     var agentAvailabilityMap by remember { mutableStateOf(mapOf<String, AgentState>()) }
     LaunchedEffect(agentStateVersion) {
         val map = withContext(Dispatchers.IO) {
             allAgents.associate { agent ->
-                val state = when {
+                agent.id to when {
                     !agent.isBinaryAvailable() -> AgentState.NOT_INSTALLED
                     !agent.isConfigured() -> if (agent.requiresApiKey) AgentState.NEEDS_KEY else AgentState.NEEDS_EXTERNAL_AUTH
                     else -> AgentState.READY
                 }
-                agent.id to state
             }
         }
         agentAvailabilityMap = map
     }
     var selectedAgent by remember(allAgents) {
         val savedId = ApplicationPreferences.getSkillsSelectedAgentId()
-        val initial = allAgents.firstOrNull { it.id == savedId } ?: allAgents.firstOrNull()
-        mutableStateOf(initial)
+        mutableStateOf(allAgents.firstOrNull { it.id == savedId } ?: allAgents.firstOrNull())
     }
     var agentDropdownExpanded by remember { mutableStateOf(false) }
     val agentState: AgentState = agentAvailabilityMap[selectedAgent?.id] ?: AgentState.NOT_INSTALLED
@@ -166,11 +155,10 @@ internal fun skillExecutionArea(
         val agent = selectedAgent ?: return@remember emptyList()
         if (!contextInput.startsWith("/")) return@remember emptyList()
         val query = contextInput.trimStart('/')
-        agent.commands.filter { cmd ->
-            query.isBlank() || cmd.name.contains(query, ignoreCase = true) || cmd.description.contains(query, ignoreCase = true)
-        }
+        agent.commands.filter { cmd -> query.isBlank() || cmd.name.contains(query, ignoreCase = true) || cmd.description.contains(query, ignoreCase = true) }
     }
     val isCommandMode = contextInput.trimStart().startsWith("/")
+
     fun execute(agent: ExternalAgent, systemPrompt: String, userInput: String) {
         isRunning = true
         responseText = ""
@@ -186,7 +174,6 @@ internal fun skillExecutionArea(
                     workDir = workDir,
                     onToken = { token ->
                         scope.launch {
-                            // First token: wipe any leftover thinking display
                             if (isInThinkingPhase) {
                                 displayText = ""
                                 isInThinkingPhase = false
@@ -197,28 +184,23 @@ internal fun skillExecutionArea(
                     },
                     onStatus = { status ->
                         scope.launch {
-                            // Non-thinking event → clear accumulated thinking from display
                             if (isInThinkingPhase) {
                                 displayText = ""
                                 isInThinkingPhase = false
                             }
-                            // Replace in place — not appended
                             currentStatusLine = status
                         }
                     },
                     onThinking = { chunk ->
                         scope.launch {
                             if (!isInThinkingPhase) {
-                                // Start fresh blockquote paragraph
                                 displayText = ""
                                 isInThinkingPhase = true
                             }
                             displayText += chunk
                         }
                     },
-                ).onFailure { e ->
-                    scope.launch { runError = e.message ?: "Execution failed" }
-                }
+                ).onFailure { e -> scope.launch { runError = e.message ?: "Execution failed" } }
             }
             currentStatusLine = null
             isRunning = false
@@ -236,43 +218,29 @@ internal fun skillExecutionArea(
             onRunCompleted()
         }
     }
+
     LaunchedEffect(preloadRecord) {
         if (preloadRecord != null) {
             contextInput = preloadRecord.userInput
             responseText = preloadRecord.response
             runError = preloadRecord.error
-            preloadRecord.workspaceDir?.takeIf { it.isNotBlank() }?.let { persistedDir ->
-                workDir = File(persistedDir)
-                onWorkDirChanged(workDir)
-            }
             isRunning = false
             onPreloadConsumed()
         }
     }
-    // ── Content — no scroll wrapper, parent owns the scroll ──────────────────
+
+    // ── Content ──────────────────────────────────────────────────────────────
     Column(
-        modifier = Modifier
-            .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
-            .fillMaxWidth()
+        modifier = Modifier.widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH).fillMaxWidth()
             .padding(start = 24.dp, end = 36.dp, top = 16.dp, bottom = 32.dp),
     ) {
         // Collapsible system prompt
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-            shape = MaterialTheme.shapes.medium,
-        ) {
-            val systemPromptTooltip = remember(skill.systemPrompt) {
-                skill.systemPrompt.trim().take(600).let {
-                    if (skill.systemPrompt.trim().length > 600) "$it…" else it
-                }
-            }
+        Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), shape = MaterialTheme.shapes.medium) {
+            val systemPromptTooltip = remember(skill.systemPrompt) { skill.systemPrompt.trim().take(600).let { if (skill.systemPrompt.trim().length > 600) "$it…" else it } }
             Column {
                 themedTooltip(text = if (systemPromptExpanded) "" else systemPromptTooltip) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .pointerHoverIcon(PointerIcon.Hand)
+                        modifier = Modifier.fillMaxWidth().pointerHoverIcon(PointerIcon.Hand)
                             .toggleable(value = systemPromptExpanded, role = Role.Button, onValueChange = { systemPromptExpanded = it })
                             .padding(horizontal = Spacing.large, vertical = Spacing.medium),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -281,16 +249,8 @@ internal fun skillExecutionArea(
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {
                             Text(stringResource("skills.view.system.prompt.preview"), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             if (skill.supplementalFileNames.isNotEmpty()) {
-                                Box(
-                                    modifier = Modifier
-                                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), shape = MaterialTheme.shapes.extraSmall)
-                                        .padding(horizontal = 6.dp, vertical = 1.dp),
-                                ) {
-                                    Text(
-                                        "+${skill.supplementalFileNames.size} ${if (skill.supplementalFileNames.size == 1) stringResource("skills.view.system.prompt.file") else stringResource("skills.view.system.prompt.files")}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
+                                Box(modifier = Modifier.background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), shape = MaterialTheme.shapes.extraSmall).padding(horizontal = 6.dp, vertical = 1.dp)) {
+                                    Text("+${skill.supplementalFileNames.size} ${if (skill.supplementalFileNames.size == 1) stringResource("skills.view.system.prompt.file") else stringResource("skills.view.system.prompt.files")}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
@@ -317,61 +277,15 @@ internal fun skillExecutionArea(
                 }
             }
         }
+
         Spacer(modifier = Modifier.height(Spacing.extraLarge))
-        // Working directory picker
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-            shape = MaterialTheme.shapes.small,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.medium, vertical = Spacing.small),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-            ) {
-                Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(text = stringResource("skills.view.workdir.label"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(text = workDir.absolutePath, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                val workdirDialogTitle = stringResource("skills.view.workdir.dialog.title")
-                TextButton(onClick = { runCatching { Desktop.getDesktop().open(workDir) } }, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
-                    Text(stringResource("skills.view.workdir.open"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                TextButton(
-                    onClick = {
-                        val chooser = JFileChooser().apply {
-                            fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
-                            currentDirectory = workDir
-                            dialogTitle = workdirDialogTitle
-                        }
-                        if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
-                            workDir = chooser.selectedFile
-                            onWorkDirChanged(workDir)
-                        }
-                    },
-                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                ) {
-                    Text(stringResource("skills.view.workdir.change"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
-        Spacer(modifier = Modifier.height(Spacing.medium))
-        // Context input with slash-command picker
+
+        // Context input + slash-command picker
         Box {
-            OutlinedTextField(
-                value = contextInput,
-                onValueChange = { v ->
-                    contextInput = v
-                    commandPickerExpanded = v.startsWith("/") && (selectedAgent?.commands?.isNotEmpty() == true)
-                },
-                placeholder = { Text(stringResource("skills.view.context.placeholder")) },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 3,
-                maxLines = 8,
-                colors = AppComponents.outlinedTextFieldColors(),
-            )
+            OutlinedTextField(value = contextInput, onValueChange = { v ->
+                contextInput = v
+                commandPickerExpanded = v.startsWith("/") && (selectedAgent?.commands?.isNotEmpty() == true)
+            }, placeholder = { Text(stringResource("skills.view.context.placeholder")) }, modifier = Modifier.fillMaxWidth(), minLines = 3, maxLines = 8, colors = AppComponents.outlinedTextFieldColors())
             if (commandPickerExpanded && commandSuggestions.isNotEmpty()) {
                 dropdownMenu(expanded = true, onDismissRequest = { commandPickerExpanded = false }) {
                     commandSuggestions.forEach { cmd ->
@@ -395,31 +309,15 @@ internal fun skillExecutionArea(
                 }
             }
         }
-        if (isCommandMode) {
-            Text(
-                text = stringResource("skills.view.command.mode.hint"),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.tertiary,
-                modifier = Modifier.padding(top = 4.dp, start = 4.dp),
-            )
-        }
+        if (isCommandMode) Text(text = stringResource("skills.view.command.mode.hint"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.padding(top = 4.dp, start = 4.dp))
+
         Spacer(modifier = Modifier.height(Spacing.medium))
-        // Agent picker + Execute button
+
+        // Agent picker + run button
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.medium), verticalAlignment = Alignment.CenterVertically) {
             Box {
-                Surface(
-                    shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
-                    modifier = Modifier
-                        .clickable(enabled = allAgents.isNotEmpty(), onClick = { agentDropdownExpanded = true })
-                        .pointerHoverIcon(PointerIcon.Hand),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = Spacing.medium, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                    ) {
+                Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceVariant, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)), modifier = Modifier.clickable(enabled = allAgents.isNotEmpty(), onClick = { agentDropdownExpanded = true }).pointerHoverIcon(PointerIcon.Hand)) {
+                    Row(modifier = Modifier.padding(horizontal = Spacing.medium, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {
                         Icon(Icons.Default.Extension, contentDescription = null, modifier = Modifier.size(16.dp), tint = if (selectedAgentAvailable) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
                         Text(text = selectedAgent?.name ?: stringResource("skills.view.no.agent"), style = MaterialTheme.typography.bodyMedium, color = if (selectedAgentAvailable) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                         if (allAgents.size > 1) Icon(Icons.Default.ExpandMore, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -433,13 +331,7 @@ internal fun skillExecutionArea(
                                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small), verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.Extension, contentDescription = null, modifier = Modifier.size(16.dp), tint = if (agent == selectedAgent) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                                     Text(agent.name, style = MaterialTheme.typography.bodyMedium, fontWeight = if (agent == selectedAgent) FontWeight.SemiBold else FontWeight.Normal)
-                                    if (!agentAvailable) {
-                                        Text(
-                                            stringResource("skills.view.agent.not.installed"),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                        )
-                                    }
+                                    if (!agentAvailable) Text(stringResource("skills.view.agent.not.installed"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                                 }
                             },
                             onClick = {
@@ -452,17 +344,10 @@ internal fun skillExecutionArea(
                     }
                 }
             }
-            primaryButton(
-                onClick = {
-                    val agent = selectedAgent ?: return@primaryButton
-                    if (isCommandMode) {
-                        execute(agent, systemPrompt = "", userInput = contextInput.trim())
-                    } else {
-                        execute(agent, skill.content, contextInput)
-                    }
-                },
-                enabled = selectedAgentAvailable && !isRunning,
-            ) {
+            primaryButton(onClick = {
+                val agent = selectedAgent ?: return@primaryButton
+                if (isCommandMode) execute(agent, systemPrompt = "", userInput = contextInput.trim()) else execute(agent, skill.content, contextInput)
+            }, enabled = selectedAgentAvailable && !isRunning) {
                 Icon(if (isRunning) Icons.Default.Refresh else Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.size(Spacing.small))
                 Text(
@@ -474,73 +359,40 @@ internal fun skillExecutionArea(
                 )
             }
             Spacer(modifier = Modifier.weight(1f))
-            TextButton(
-                onClick = { uriHandler.openUri("https://$DOMAIN/docs/desktop/skills/#supported-runtimes-today") },
-                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-            ) {
-                Text(
-                    text = stringResource("skills.view.agent.configure"),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            TextButton(onClick = { uriHandler.openUri("https://$DOMAIN/docs/desktop/skills/#supported-runtimes-today") }, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+                Text(text = stringResource("skills.view.agent.configure"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+
+        // Agent setup hints
         when (agentState) {
             AgentState.NOT_INSTALLED -> {
                 Spacer(modifier = Modifier.height(Spacing.small))
-                Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f), shape = MaterialTheme.shapes.small) {
-                    Text(
-                        text = stringResource("skills.view.agent.install.hint", selectedAgent?.name ?: ""),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.padding(horizontal = Spacing.medium, vertical = Spacing.small),
-                    )
-                }
+                Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f), shape = MaterialTheme.shapes.small) { Text(text = stringResource("skills.view.agent.install.hint", selectedAgent?.name ?: ""), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(horizontal = Spacing.medium, vertical = Spacing.small)) }
             }
 
             AgentState.NEEDS_KEY -> {
                 Spacer(modifier = Modifier.height(Spacing.small))
                 Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f), shape = MaterialTheme.shapes.small) {
                     Column(modifier = Modifier.padding(Spacing.medium), verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
-                        Text(
-                            text = stringResource("skills.view.agent.needs.key", selectedAgent?.name ?: ""),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
+                        Text(text = stringResource("skills.view.agent.needs.key", selectedAgent?.name ?: ""), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.small), verticalAlignment = Alignment.CenterVertically) {
-                            OutlinedTextField(
-                                value = apiKeyInput,
-                                onValueChange = {
-                                    apiKeyInput = it
-                                    apiKeySaved = false
-                                },
-                                placeholder = { Text(stringResource("skills.view.agent.key.placeholder")) },
-                                modifier = Modifier.weight(1f),
-                                singleLine = true,
-                                visualTransformation = PasswordVisualTransformation(),
-                                colors = AppComponents.outlinedTextFieldColors(),
-                            )
-                            primaryButton(
-                                onClick = {
-                                    val agent = selectedAgent ?: return@primaryButton
-                                    val key = apiKeyInput.trim()
-                                    if (key.isBlank()) return@primaryButton
-                                    apiKeySaving = true
-                                    scope.launch {
-                                        withContext(Dispatchers.IO) { agent.saveApiKey(key) }
-                                        apiKeySaved = true
-                                        apiKeySaving = false
-                                        agentStateVersion++
-                                    }
-                                },
-                                enabled = apiKeyInput.isNotBlank() && !apiKeySaving,
-                            ) {
-                                if (apiKeySaved) {
-                                    Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
-                                } else {
-                                    Text(stringResource("action.save"))
+                            OutlinedTextField(value = apiKeyInput, onValueChange = {
+                                apiKeyInput = it
+                                apiKeySaved = false
+                            }, placeholder = { Text(stringResource("skills.view.agent.key.placeholder")) }, modifier = Modifier.weight(1f), singleLine = true, visualTransformation = PasswordVisualTransformation(), colors = AppComponents.outlinedTextFieldColors())
+                            primaryButton(onClick = {
+                                val agent = selectedAgent ?: return@primaryButton
+                                val key = apiKeyInput.trim()
+                                if (key.isBlank()) return@primaryButton
+                                apiKeySaving = true
+                                scope.launch {
+                                    withContext(Dispatchers.IO) { agent.saveApiKey(key) }
+                                    apiKeySaved = true
+                                    apiKeySaving = false
+                                    agentStateVersion++
                                 }
-                            }
+                            }, enabled = apiKeyInput.isNotBlank() && !apiKeySaving) { if (apiKeySaved) Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp)) else Text(stringResource("action.save")) }
                         }
                     }
                 }
@@ -548,35 +400,21 @@ internal fun skillExecutionArea(
 
             AgentState.NEEDS_EXTERNAL_AUTH -> {
                 Spacer(modifier = Modifier.height(Spacing.small))
-                Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f), shape = MaterialTheme.shapes.small) {
-                    Text(
-                        text = selectedAgent?.configurationHint ?: "",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.padding(horizontal = Spacing.medium, vertical = Spacing.small),
-                    )
-                }
+                Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f), shape = MaterialTheme.shapes.small) { Text(text = selectedAgent?.configurationHint ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(horizontal = Spacing.medium, vertical = Spacing.small)) }
             }
 
             AgentState.READY -> Unit
         }
+
         Spacer(modifier = Modifier.height(Spacing.extraLarge))
+
         // Response panel
         if (isRunning || hasResponse || runError != null) {
             Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface, shape = MaterialTheme.shapes.medium, shadowElevation = 1.dp, tonalElevation = 1.dp) {
                 Column(modifier = Modifier.padding(Spacing.large)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.medium),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.medium), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                if (isRunning) Icons.Default.Refresh else Icons.Default.CheckCircle,
-                                null,
-                                tint = if (runError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(18.dp),
-                            )
+                            Icon(if (isRunning) Icons.Default.Refresh else Icons.Default.CheckCircle, null, tint = if (runError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
                             Text(
                                 text = when {
                                     isRunning -> stringResource("skills.view.running")
@@ -590,62 +428,32 @@ internal fun skillExecutionArea(
                             if (isRunning) Text(text = "${elapsedSeconds}s", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
                         }
                         if (hasResponse) {
-                            IconButton(onClick = { clipboardManager.setText(AnnotatedString(responseText)) }, modifier = Modifier.size(28.dp).pointerHoverIcon(PointerIcon.Hand)) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = stringResource("skills.view.copy"), modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
+                            IconButton(onClick = { clipboardManager.setText(AnnotatedString(responseText)) }, modifier = Modifier.size(28.dp).pointerHoverIcon(PointerIcon.Hand)) { Icon(Icons.Default.ContentCopy, contentDescription = stringResource("skills.view.copy"), modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                         }
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
-                    if (runError != null) {
-                        Text(text = runError!!, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = Spacing.medium))
-                    } else if (isRunning && isInThinkingPhase && displayText.isNotBlank()) {
-                        // Thinking phase — render accumulated text as a markdown blockquote
-                        val blockquote = displayText.lines()
-                            .joinToString("\n") { "> $it" }
-                        markdownText(
-                            markdown = blockquote,
-                            isStreaming = true,
-                            modifier = Modifier.fillMaxWidth().padding(top = Spacing.medium),
-                        )
-                    } else if (responseText.isNotBlank()) {
-                        markdownText(markdown = responseText, isStreaming = isRunning, modifier = Modifier.fillMaxWidth().padding(top = Spacing.medium))
-                    } else {
-                        Box(modifier = Modifier.fillMaxWidth().height(48.dp).padding(top = Spacing.medium), contentAlignment = Alignment.CenterStart) {
-                            Text(text = "▌", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-                        }
+                    when {
+                        runError != null -> Text(text = runError!!, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = Spacing.medium))
+                        isRunning && isInThinkingPhase && displayText.isNotBlank() -> markdownText(markdown = displayText.lines().joinToString("\n") { "> $it" }, isStreaming = true, modifier = Modifier.fillMaxWidth().padding(top = Spacing.medium))
+                        responseText.isNotBlank() -> markdownText(markdown = responseText, isStreaming = isRunning, modifier = Modifier.fillMaxWidth().padding(top = Spacing.medium))
+                        else -> Box(modifier = Modifier.fillMaxWidth().height(48.dp).padding(top = Spacing.medium), contentAlignment = Alignment.CenterStart) { Text("▌", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)) }
                     }
-                    // Single live status line — updates in place
-                    if (isRunning && currentStatusLine != null) {
-                        Text(
-                            text = currentStatusLine!!,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
-                            modifier = Modifier.padding(top = Spacing.small),
-                        )
-                    }
+                    if (isRunning && currentStatusLine != null) Text(text = currentStatusLine!!, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f), modifier = Modifier.padding(top = Spacing.small))
                 }
             }
             Spacer(modifier = Modifier.height(Spacing.medium))
-            // Follow-up
             Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f), shape = MaterialTheme.shapes.medium) {
                 Column(modifier = Modifier.padding(Spacing.large)) {
                     Text(stringResource("skills.view.followup.label"), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = Spacing.small))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.small), verticalAlignment = Alignment.Bottom) {
-                        sendTextField(
-                            value = followUpInput,
-                            onValueChange = { followUpInput = it },
-                            placeholder = stringResource("skills.view.followup.placeholder"),
-                            enabled = hasResponse && !isRunning,
-                            onSend = {
-                                val agent = selectedAgent ?: return@sendTextField
-                                if (followUpInput.isNotBlank()) {
-                                    val followUpContext = "$responseText\n\n---\n\n${followUpInput.trim()}"
-                                    followUpInput = ""
-                                    execute(agent, skill.content, followUpContext)
-                                }
-                            },
-                            sendContentDescription = stringResource("skills.view.followup.send"),
-                        )
+                        sendTextField(value = followUpInput, onValueChange = { followUpInput = it }, placeholder = stringResource("skills.view.followup.placeholder"), enabled = hasResponse && !isRunning, onSend = {
+                            val agent = selectedAgent ?: return@sendTextField
+                            if (followUpInput.isNotBlank()) {
+                                val ctx = "$responseText\n\n---\n\n${followUpInput.trim()}"
+                                followUpInput = ""
+                                execute(agent, skill.content, ctx)
+                            }
+                        }, sendContentDescription = stringResource("skills.view.followup.send"))
                     }
                 }
             }

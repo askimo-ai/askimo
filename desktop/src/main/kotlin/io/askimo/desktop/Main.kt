@@ -888,8 +888,10 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                         maxSidebarWidth,
                                                     )
 
+                                                    val effectiveSidebarExpanded = isSidebarExpanded
+
                                                     navigationSidebar(
-                                                        isExpanded = isSidebarExpanded,
+                                                        isExpanded = effectiveSidebarExpanded,
                                                         width = calculatedWidth,
                                                         currentView = currentView,
                                                         isProjectsExpanded = isProjectsExpanded,

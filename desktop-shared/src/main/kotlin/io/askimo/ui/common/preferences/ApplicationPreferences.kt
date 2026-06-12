@@ -106,6 +106,9 @@ object ApplicationPreferences {
     private const val SKILLS_SIDE_PANEL_WIDTH_KEY = "ui.skills_side_panel_width"
     private const val DEFAULT_SKILLS_SIDE_PANEL_WIDTH = 300
     private const val SKILLS_SIDE_PANEL_EXPANDED_KEY = "ui.skills_side_panel_expanded"
+    private const val SKILLS_LIST_PANEL_WIDTH_KEY = "ui.skills_list_panel_width"
+    private const val DEFAULT_SKILLS_LIST_PANEL_WIDTH = 240
+    private const val SKILLS_LIST_PANEL_EXPANDED_KEY = "ui.skills_list_panel_expanded"
     private const val SHOW_PLANS_IN_SIDEBAR_KEY = "ui.show_plans_in_sidebar"
     private const val SHOW_SKILLS_IN_SIDEBAR_KEY = "ui.show_skills_in_sidebar"
     private const val SHOW_PROJECTS_IN_SIDEBAR_KEY = "ui.show_projects_in_sidebar"
@@ -134,6 +137,17 @@ object ApplicationPreferences {
 
     fun getSkillsSidePanelExpanded(): Boolean = safeGetBoolean(SKILLS_SIDE_PANEL_EXPANDED_KEY, true)
     fun setSkillsSidePanelExpanded(expanded: Boolean) = safePutBoolean(SKILLS_SIDE_PANEL_EXPANDED_KEY, expanded)
+
+    fun getSkillsListPanelWidth(): Int = safeGetInt(SKILLS_LIST_PANEL_WIDTH_KEY, DEFAULT_SKILLS_LIST_PANEL_WIDTH)
+    fun setSkillsListPanelWidth(width: Int) = safePutInt(SKILLS_LIST_PANEL_WIDTH_KEY, width)
+
+    fun getSkillsListPanelExpanded(): Boolean = safeGetBoolean(SKILLS_LIST_PANEL_EXPANDED_KEY, true)
+    fun setSkillsListPanelExpanded(expanded: Boolean) = safePutBoolean(SKILLS_LIST_PANEL_EXPANDED_KEY, expanded)
+
+    private const val SKILLS_WORKSPACE_DIR_KEY = "ui.skills_workspace_dir"
+
+    fun getSkillsWorkspaceDir(): String? = safeGet(SKILLS_WORKSPACE_DIR_KEY, null)?.takeIf { it.isNotBlank() }
+    fun setSkillsWorkspaceDir(path: String) = safePut(SKILLS_WORKSPACE_DIR_KEY, path)
 
     private const val SKILLS_SELECTED_AGENT_KEY = "ui.skills_selected_agent"
     private const val SKILLS_RIGHT_RAIL_TAB_KEY = "ui.skills_right_rail_tab"

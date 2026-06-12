@@ -29,6 +29,7 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import org.jetbrains.exposed.v1.jdbc.upsert
+import java.nio.file.Files
 import java.time.Instant
 
 /** Simple DTO for deserializing the bundled directive YAML files. */
@@ -285,7 +286,7 @@ class ChatDirectiveRepository internal constructor(
         var seeded = 0
         walkResourceDirectory(resourceUrl, "/directives/", "yml") { path ->
             runCatching {
-                val yaml = java.nio.file.Files.readString(path)
+                val yaml = Files.readString(path)
                 val dto = directiveYamlMapper.readValue(yaml, DirectiveYaml::class.java)
                 if (dto.name.isBlank() || dto.content.isBlank()) return@runCatching
                 save(ChatDirective(name = dto.name.trim(), content = dto.content.trim()))
