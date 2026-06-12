@@ -8,6 +8,7 @@ import androidx.compose.ui.window.FrameWindowScope
 import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.config.AppConfig
 import io.askimo.core.i18n.LocalizationManager
+import io.askimo.core.util.AskimoHome
 import io.askimo.ui.common.theme.ThemeMode
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.util.Platform
@@ -60,8 +61,6 @@ object NativeMenuBar {
         onShowEventLog: () -> Unit,
         onCheckForUpdates: () -> Unit,
         onEnterFullScreen: () -> Unit,
-        onNavigateToSessions: () -> Unit,
-        onNavigateToProjects: () -> Unit,
         onNavigateToDiscover: () -> Unit,
         onToggleSidebar: () -> Unit,
         onInvalidateCaches: () -> Unit,
@@ -81,7 +80,7 @@ object NativeMenuBar {
         val window = frameWindowScope.window
 
         // Setup AWT menu bar for all platforms (includes Documentation)
-        setupAWTMenuBar(window, onShowAbout, onNewChat, onNewProject, onSearchInSessions, onShowSettings, onShowEventLog, onCheckForUpdates, onEnterFullScreen, onNavigateToSessions, onNavigateToProjects, onNavigateToDiscover, onToggleSidebar, onInvalidateCaches, onExportBackup, onImportBackup, onShowGettingStarted, onOpenTerminal, onClearPreferences, onClearAccountPreferences, onTogglePlans, onToggleSkills, onToggleProjects, isPlansVisible, isSkillsVisible, isProjectsVisible)
+        setupAWTMenuBar(window, onShowAbout, onNewChat, onNewProject, onSearchInSessions, onShowSettings, onShowEventLog, onCheckForUpdates, onEnterFullScreen, onNavigateToDiscover, onToggleSidebar, onInvalidateCaches, onExportBackup, onImportBackup, onShowGettingStarted, onOpenTerminal, onClearPreferences, onClearAccountPreferences, onTogglePlans, onToggleSkills, onToggleProjects, isPlansVisible, isSkillsVisible, isProjectsVisible)
 
         // On macOS, also register the About handler for the app menu
         if (Platform.isMac) {
@@ -113,8 +112,6 @@ object NativeMenuBar {
         onShowEventLog: () -> Unit,
         onCheckForUpdates: () -> Unit,
         onEnterFullScreen: () -> Unit,
-        onNavigateToSessions: () -> Unit,
-        onNavigateToProjects: () -> Unit,
         onNavigateToDiscover: () -> Unit,
         onToggleSidebar: () -> Unit,
         onInvalidateCaches: () -> Unit,
@@ -520,6 +517,20 @@ object NativeMenuBar {
                 },
             )
             helpMenu.add(eventLogItem)
+
+            // Open Model Capabilities Cache file
+            val modelCacheItem = MenuItem(LocalizationManager.getString("menu.help.model.capabilities.cache"))
+            modelCacheItem.addActionListener(
+                ActionListener {
+                    runCatching {
+                        val cacheFile = AskimoHome.base().resolve("model-capabilities-cache.json").toFile()
+                        if (cacheFile.exists() && Desktop.isDesktopSupported()) {
+                            Desktop.getDesktop().open(cacheFile)
+                        }
+                    }
+                },
+            )
+            helpMenu.add(modelCacheItem)
 
             // Clear Account Preferences (Developer Tools — only shown when developer mode is active)
             val devConfig = AppConfig.developer

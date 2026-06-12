@@ -103,7 +103,11 @@ fun ChatClient.sendStreamingMessageWithCallback(
                         .onPartialResponse { chunk ->
                             sb.append(chunk)
                             onToken(chunk)
-                        }.onCompleteResponse { response ->
+                        }
+                        .onPartialThinkingWithContext { thinking, context ->
+                            log.debug("Thinking $thinking")
+                        }
+                        .onCompleteResponse { response ->
                             val aiMessage = response.aiMessage()
                             if (GeneratedImageHelper.hasGeneratedImages(aiMessage)) {
                                 val generatedImages = GeneratedImageHelper.getGeneratedImages(aiMessage)

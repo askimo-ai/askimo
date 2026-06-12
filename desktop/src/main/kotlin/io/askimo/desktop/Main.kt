@@ -620,13 +620,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                         }
                     }
                 },
-                onNavigateToSessions = {
-                    currentView = View.SESSIONS
-                },
-                onNavigateToProjects = {
-                    currentView = View.PROJECTS
-                    Analytics.track(AnalyticsEvent.RAG_PANEL_OPENED)
-                },
                 onNavigateToDiscover = {
                     currentView = View.DISCOVER
                 },

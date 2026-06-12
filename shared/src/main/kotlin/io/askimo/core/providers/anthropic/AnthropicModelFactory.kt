@@ -108,9 +108,7 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
             .baseUrl(settings.baseUrl)
             .logger(log)
             .logRequests(log.isInfoEnabled)
-            .thinkingType("enabled") // adaptive, enable, disabled
-            .thinkingBudgetTokens(1024)
-            .maxTokens(1025) // must be > thinkingBudgetTokens to properly test
+            .thinkingType("adaptive")
             .sendThinking(true)
             .returnThinking(true)
             .build()
@@ -154,10 +152,7 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
             .listeners(listOf(TelemetryChatModelListener(telemetry, ANTHROPIC.name.lowercase())))
             .apply {
                 if (supportsThinking) {
-                    val thinkingConfig = AppConfig.models[ANTHROPIC]
-                    thinkingType("enabled")
-                    thinkingBudgetTokens(thinkingConfig.thinkingBudgetTokens)
-                    maxTokens(thinkingConfig.thinkingMaxTokens)
+                    thinkingType("adaptive")
                     sendThinking(true)
                     returnThinking(true)
                 }
