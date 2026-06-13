@@ -14,9 +14,6 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/askimo-ai/askimo/actions/workflows/cli-release.yml">
-    <img src="https://github.com/askimo-ai/askimo/actions/workflows/cli-release.yml/badge.svg" alt="CLI Build">
-  </a>
   <a href="https://github.com/askimo-ai/askimo/actions/workflows/desktop-release.yml">
     <img src="https://github.com/askimo-ai/askimo/actions/workflows/desktop-release.yml/badge.svg" alt="Desktop Build">
   </a>
@@ -136,7 +133,6 @@ You shouldn't have to choose between the best AI model, your privacy, and gettin
 - **MCP tool integration** - Connect MCP-compatible servers via stdio or HTTP, scoped globally or per project
 - **Persistent sessions** - Conversations stored in a local SQLite database, restored on restart
 - **Vision** - Attach images to conversations; works with any multimodal model
-- **CLI** - Native binary (GraalVM). Scriptable, automatable, headless-friendly.
 - **Local telemetry** - Token usage, cost estimates, RAG performance per provider. Nothing uploaded.
 - **i18n** - English, Chinese (Simplified & Traditional), Japanese, Korean, French, Spanish, German, Portuguese, Vietnamese
 
@@ -185,17 +181,12 @@ cd askimo
 # Build native installers
 ./gradlew :desktop:package
 
-# Build CLI native binary (requires GraalVM)
-./gradlew :cli:nativeCompile
-```
-
 ### Project Structure
 
 | Module | Description |
 |---|---|
 | `desktop/` | Compose Multiplatform desktop application |
 | `desktop-shared/` | Shared UI components |
-| `cli/` | JLine3 REPL + GraalVM native image |
 | `shared/` | Core: providers, RAG, MCP, memory, tools, database, plans engine, skills & agent runtimes |
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for development guidelines and DCO requirements, or the [Development Getting Started Guide](https://askimo.chat/docs/development/getting-started/).

@@ -6,7 +6,6 @@ package io.askimo.ui.mcp
 
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
-import androidx.compose.foundation.defaultScrollbarStyle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -396,10 +395,7 @@ fun mcpToolsDialog(
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
                         .fillMaxHeight(),
-                    style = defaultScrollbarStyle().copy(
-                        unhoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                        hoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                    ),
+                    style = AppComponents.scrollbarStyle(),
                 )
             }
         },

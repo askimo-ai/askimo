@@ -7,7 +7,6 @@ package io.askimo.ui.skills
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.HorizontalScrollbar
 import androidx.compose.foundation.PointerMatcher
-import androidx.compose.foundation.ScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -451,14 +450,7 @@ internal fun workspaceFilesPanel(
                         VerticalScrollbar(
                             adapter = rememberScrollbarAdapter(listState),
                             modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 2.dp),
-                            style = ScrollbarStyle(
-                                minimalHeight = 16.dp,
-                                thickness = 4.dp,
-                                shape = MaterialTheme.shapes.small,
-                                hoverDurationMillis = 300,
-                                unhoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                                hoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                            ),
+                            style = AppComponents.scrollbarStyle(),
                         )
                     }
                 }
@@ -933,26 +925,12 @@ private fun workspaceFileViewer(
                     VerticalScrollbar(
                         modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 2.dp, bottom = 10.dp),
                         adapter = rememberScrollbarAdapter(vScrollState),
-                        style = ScrollbarStyle(
-                            minimalHeight = 16.dp,
-                            thickness = 4.dp,
-                            shape = MaterialTheme.shapes.small,
-                            hoverDurationMillis = 300,
-                            unhoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                            hoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                        ),
+                        style = AppComponents.scrollbarStyle(),
                     )
                     HorizontalScrollbar(
                         modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(end = 6.dp),
                         adapter = rememberScrollbarAdapter(hScrollState),
-                        style = ScrollbarStyle(
-                            minimalHeight = 16.dp,
-                            thickness = 4.dp,
-                            shape = MaterialTheme.shapes.small,
-                            hoverDurationMillis = 300,
-                            unhoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                            hoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                        ),
+                        style = AppComponents.scrollbarStyle(),
                     )
                 }
             }

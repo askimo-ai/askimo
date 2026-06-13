@@ -57,6 +57,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppComponents.alertDialog
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.clickableCard
 import java.awt.Desktop
@@ -68,7 +69,7 @@ fun providerSelectionDialog(
     onDismiss: () -> Unit,
     onSave: () -> Unit,
 ) {
-    AppComponents.alertDialog(
+    alertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(

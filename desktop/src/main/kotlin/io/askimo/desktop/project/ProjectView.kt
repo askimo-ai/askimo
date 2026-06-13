@@ -9,7 +9,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
@@ -358,14 +357,7 @@ fun projectView(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .fillMaxHeight(),
-            style = ScrollbarStyle(
-                minimalHeight = 16.dp,
-                thickness = 8.dp,
-                shape = MaterialTheme.shapes.small,
-                hoverDurationMillis = 300,
-                unhoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
-                hoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-            ),
+            style = AppComponents.scrollbarStyle(),
         )
     } // end outer Box
 

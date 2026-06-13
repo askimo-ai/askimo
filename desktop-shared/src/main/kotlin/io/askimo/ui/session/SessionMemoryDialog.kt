@@ -182,6 +182,7 @@ fun sessionMemoryDialog(
                                         .align(Alignment.CenterEnd)
                                         .padding(end = Spacing.extraSmall),
                                     adapter = rememberScrollbarAdapter(scrollState),
+                                    style = AppComponents.scrollbarStyle(),
                                 )
                             }
                         }
@@ -327,6 +328,7 @@ fun sessionMemoryDialog(
                                         .align(Alignment.CenterEnd)
                                         .padding(end = Spacing.extraSmall),
                                     adapter = rememberScrollbarAdapter(scrollState),
+                                    style = AppComponents.scrollbarStyle(),
                                 )
                             }
                         }

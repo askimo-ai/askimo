@@ -5,7 +5,6 @@
 package io.askimo.desktop.chat
 
 import androidx.compose.foundation.HorizontalScrollbar
-import androidx.compose.foundation.ScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -245,14 +244,7 @@ fun fileViewerPane(
                             .fillMaxHeight()
                             .padding(bottom = 10.dp),
                         adapter = rememberScrollbarAdapter(vScrollState),
-                        style = ScrollbarStyle(
-                            minimalHeight = 16.dp,
-                            thickness = 6.dp,
-                            shape = MaterialTheme.shapes.small,
-                            hoverDurationMillis = 300,
-                            unhoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                            hoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        ),
+                        style = AppComponents.scrollbarStyle(),
                     )
                     // Horizontal scrollbar — always visible at the bottom, never scrolls away
                     HorizontalScrollbar(
@@ -261,14 +253,7 @@ fun fileViewerPane(
                             .fillMaxWidth()
                             .padding(end = 10.dp), // room for vertical scrollbar
                         adapter = rememberScrollbarAdapter(hScrollState),
-                        style = ScrollbarStyle(
-                            minimalHeight = 16.dp,
-                            thickness = 6.dp,
-                            shape = MaterialTheme.shapes.small,
-                            hoverDurationMillis = 300,
-                            unhoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                            hoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        ),
+                        style = AppComponents.scrollbarStyle(),
                     )
                 }
             }

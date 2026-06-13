@@ -4,7 +4,6 @@
  */
 package io.askimo.desktop.settings
 
-import androidx.compose.foundation.ScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -197,14 +196,7 @@ fun mcpServerTemplatesSection() {
         VerticalScrollbar(
             adapter = rememberScrollbarAdapter(scrollState),
             modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
-            style = ScrollbarStyle(
-                minimalHeight = 16.dp,
-                thickness = 8.dp,
-                shape = MaterialTheme.shapes.small,
-                hoverDurationMillis = 300,
-                unhoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
-                hoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-            ),
+            style = AppComponents.scrollbarStyle(),
         )
     }
 

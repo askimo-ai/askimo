@@ -35,6 +35,7 @@ import io.askimo.core.event.Event
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.components.linkButton
+import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.Spacing
 
 /**
@@ -128,6 +129,7 @@ fun eventLogWindow(
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
                             .fillMaxHeight(),
+                        style = AppComponents.scrollbarStyle(),
                     )
                 }
             }

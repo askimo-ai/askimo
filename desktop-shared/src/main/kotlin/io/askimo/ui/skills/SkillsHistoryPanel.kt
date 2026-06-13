@@ -4,7 +4,6 @@
  */
 package io.askimo.ui.skills
 
-import androidx.compose.foundation.ScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -45,6 +44,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.skills.domain.SkillRunRecord
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.TooltipPlacement
 import io.askimo.ui.common.ui.themedTooltip
@@ -196,14 +196,7 @@ internal fun skillsHistoryContent(
             VerticalScrollbar(
                 adapter = rememberScrollbarAdapter(panelScrollState),
                 modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 2.dp),
-                style = ScrollbarStyle(
-                    minimalHeight = 16.dp,
-                    thickness = 6.dp,
-                    shape = MaterialTheme.shapes.small,
-                    hoverDurationMillis = 300,
-                    unhoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                    hoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.50f),
-                ),
+                style = AppComponents.scrollbarStyle(),
             )
         }
     }

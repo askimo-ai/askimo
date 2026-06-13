@@ -6,7 +6,6 @@ package io.askimo.ui.onboarding
 
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.border
-import androidx.compose.foundation.defaultScrollbarStyle
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -201,10 +200,7 @@ fun onboardingWizardDialog(
                     VerticalScrollbar(
                         adapter = rememberScrollbarAdapter(scrollState),
                         modifier = Modifier.align(Alignment.CenterEnd),
-                        style = defaultScrollbarStyle().copy(
-                            unhoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                            hoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        ),
+                        style = AppComponents.scrollbarStyle(),
                     )
                 }
 

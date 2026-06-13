@@ -68,6 +68,7 @@ import io.askimo.core.providers.ProviderSettings
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.monitoring.SystemResourceMonitor
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.clickableCard
 import io.askimo.ui.common.ui.themedTooltip
@@ -236,7 +237,7 @@ private fun modelDropdown(
             }
         }
 
-        AppComponents.dropdownMenu(
+        dropdownMenu(
             expanded = expanded,
             onDismissRequest = {
                 expanded = false
@@ -391,6 +392,7 @@ private fun modelDropdown(
                                     .align(Alignment.CenterEnd)
                                     .fillMaxHeight()
                                     .padding(end = 2.dp),
+                                style = AppComponents.scrollbarStyle(),
                             )
                         }
                     }
@@ -510,7 +512,7 @@ private fun systemResourcesDropdown(
             }
         }
 
-        AppComponents.dropdownMenu(
+        dropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {

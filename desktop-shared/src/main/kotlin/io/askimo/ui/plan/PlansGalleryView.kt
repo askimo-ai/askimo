@@ -4,7 +4,6 @@
  */
 package io.askimo.ui.plan
 
-import androidx.compose.foundation.ScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -276,14 +275,7 @@ fun plansGalleryView(
         VerticalScrollbar(
             adapter = rememberScrollbarAdapter(scrollState),
             modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = Spacing.extraSmall),
-            style = ScrollbarStyle(
-                minimalHeight = 16.dp,
-                thickness = 8.dp,
-                shape = MaterialTheme.shapes.small,
-                hoverDurationMillis = 300,
-                unhoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                hoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.50f),
-            ),
+            style = AppComponents.scrollbarStyle(),
         )
     }
 }

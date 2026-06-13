@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppComponents
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.awt.Toolkit
@@ -139,6 +140,7 @@ fun fileViewerDialog(
                             .align(Alignment.CenterEnd)
                             .fillMaxHeight()
                             .padding(end = 4.dp),
+                        style = AppComponents.scrollbarStyle(),
                     )
                 }
 

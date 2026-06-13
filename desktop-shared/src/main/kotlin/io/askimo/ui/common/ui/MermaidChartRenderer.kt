@@ -6,7 +6,6 @@ package io.askimo.ui.common.ui
 
 import androidx.compose.foundation.HorizontalScrollbar
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.ScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -68,6 +67,7 @@ import io.askimo.core.event.internal.DiagramFixedEvent
 import io.askimo.core.logging.currentFileLogger
 import io.askimo.tools.chart.MermaidChartData
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.util.FileDialogUtils
 import io.askimo.ui.service.MermaidCliNotAvailableException
@@ -863,28 +863,14 @@ private fun diagramImage(
             VerticalScrollbar(
                 modifier = Modifier.align(Alignment.CenterEnd),
                 adapter = rememberScrollbarAdapter(verticalScrollState),
-                style = ScrollbarStyle(
-                    minimalHeight = 16.dp,
-                    thickness = 8.dp,
-                    shape = MaterialTheme.shapes.small,
-                    hoverDurationMillis = 300,
-                    unhoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                    hoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                ),
+                style = AppComponents.scrollbarStyle(),
             )
 
             // Horizontal scrollbar
             HorizontalScrollbar(
                 modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth(),
                 adapter = rememberScrollbarAdapter(horizontalScrollState),
-                style = ScrollbarStyle(
-                    minimalHeight = 16.dp,
-                    thickness = 8.dp,
-                    shape = MaterialTheme.shapes.small,
-                    hoverDurationMillis = 300,
-                    unhoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                    hoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                ),
+                style = AppComponents.scrollbarStyle(),
             )
         }
     } else {

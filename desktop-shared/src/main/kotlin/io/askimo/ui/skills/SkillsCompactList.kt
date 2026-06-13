@@ -4,7 +4,6 @@
  */
 package io.askimo.ui.skills
 
-import androidx.compose.foundation.ScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -257,14 +256,7 @@ internal fun skillsCompactList(
                 VerticalScrollbar(
                     adapter = rememberScrollbarAdapter(scrollState),
                     modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 2.dp),
-                    style = ScrollbarStyle(
-                        minimalHeight = 16.dp,
-                        thickness = 6.dp,
-                        shape = MaterialTheme.shapes.small,
-                        hoverDurationMillis = 300,
-                        unhoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                        hoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.50f),
-                    ),
+                    style = AppComponents.scrollbarStyle(),
                 )
             }
         }

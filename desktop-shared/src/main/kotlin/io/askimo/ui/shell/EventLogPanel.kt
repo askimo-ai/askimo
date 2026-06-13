@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import io.askimo.core.event.Event
 import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.Spacing
 import java.awt.Cursor
 
@@ -414,6 +415,7 @@ private fun eventLogPanelContent(
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
                         .fillMaxHeight(),
+                    style = AppComponents.scrollbarStyle(),
                 )
             }
         }

@@ -1,8 +1,9 @@
 [versions]
 graalvm-plugin = "0.11.5"
 jline = "3.30.6"
-langchain4j = "1.15.0"
-langchain4j-extra = "1.15.0-beta25"
+langchain4j = "1.16.2"
+langchain4j-extra = "1.16.2-beta26"
+langchain4j-jvector = "1.16.0-beta26"
 commonmark = "0.28.0"
 kotlinxSerializationJson = "1.10.0"
 kotlinxCoroutines = "1.10.2"
@@ -15,7 +16,6 @@ kotlin = "2.3.20"
 jackson = "2.19.2"
 spotless = "8.4.0"
 detekt = "1.23.8"
-shadow = "9.0.1"
 graalvmSvm = "25.0.2"
 sqlite = "3.51.3.0"
 hikaricp = "7.0.2"
@@ -51,7 +51,7 @@ langchain4j-open-ai = { module = "dev.langchain4j:langchain4j-open-ai", version.
 langchain4j-google-ai-gemini = { module = "dev.langchain4j:langchain4j-google-ai-gemini", version.ref = "langchain4j" }
 langchain4j-anthropic = { module = "dev.langchain4j:langchain4j-anthropic", version.ref = "langchain4j" }
 langchain4j-http-client = { module = "dev.langchain4j:langchain4j-http-client-jdk", version.ref = "langchain4j" }
-langchain4j-jvector = { module = "dev.langchain4j:langchain4j-community-jvector", version.ref = "langchain4j-extra" }
+langchain4j-jvector = { module = "dev.langchain4j:langchain4j-community-jvector", version.ref = "langchain4j-jvector" }
 langchain4j-agentic = { module = "dev.langchain4j:langchain4j-agentic", version.ref = "langchain4j-extra" }
 langchain4j-mcp = { module = "dev.langchain4j:langchain4j-mcp", version.ref = "langchain4j-extra" }
 langchain4j-mcp-docker = { module = "dev.langchain4j:langchain4j-mcp-docker", version.ref = "langchain4j-extra" }
@@ -227,7 +227,6 @@ kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 graalvm-native = { id = "org.graalvm.buildtools.native", version.ref = "graalvm-plugin" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
-shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }

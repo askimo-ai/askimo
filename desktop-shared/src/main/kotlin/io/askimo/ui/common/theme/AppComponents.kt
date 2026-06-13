@@ -5,6 +5,7 @@
 package io.askimo.ui.common.theme
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ScrollbarStyle
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
@@ -393,4 +394,14 @@ object AppComponents {
             )
         }
     }
+
+    @Composable
+    fun scrollbarStyle(): ScrollbarStyle = ScrollbarStyle(
+        minimalHeight = 16.dp,
+        thickness = 6.dp,
+        shape = MaterialTheme.shapes.small,
+        hoverDurationMillis = 300,
+        unhoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+        hoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.50f),
+    )
 }

@@ -337,6 +337,7 @@ fun notificationPopup(
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
                             .fillMaxHeight(),
+                        style = AppComponents.scrollbarStyle(),
                     )
                 }
             }

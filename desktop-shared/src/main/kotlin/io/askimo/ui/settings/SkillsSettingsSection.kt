@@ -7,7 +7,6 @@ package io.askimo.ui.settings
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -548,14 +547,7 @@ private fun skillsMainContent(
         VerticalScrollbar(
             modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
             adapter = rememberScrollbarAdapter(scrollState),
-            style = ScrollbarStyle(
-                minimalHeight = 16.dp,
-                thickness = 6.dp,
-                shape = MaterialTheme.shapes.small,
-                hoverDurationMillis = 300,
-                unhoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
-                hoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-            ),
+            style = AppComponents.scrollbarStyle(),
         )
     }
 }
@@ -1242,14 +1234,7 @@ private fun skillsTreePanel(
             VerticalScrollbar(
                 modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
                 adapter = rememberScrollbarAdapter(scrollState),
-                style = ScrollbarStyle(
-                    minimalHeight = 16.dp,
-                    thickness = 4.dp,
-                    shape = MaterialTheme.shapes.small,
-                    hoverDurationMillis = 300,
-                    unhoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
-                    hoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                ),
+                style = AppComponents.scrollbarStyle(),
             )
         }
     }
