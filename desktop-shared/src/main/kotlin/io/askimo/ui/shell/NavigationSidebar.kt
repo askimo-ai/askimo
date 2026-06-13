@@ -84,7 +84,7 @@ import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.LocalFontScale
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.themedTooltip
-import io.askimo.ui.session.SessionActionMenu
+import io.askimo.ui.session.SessionActionMenu.sidebarMenu
 import io.askimo.ui.session.SessionsViewModel
 import io.askimo.ui.session.deleteSessionDialog
 import io.askimo.ui.session.sessionTooltip
@@ -1054,7 +1054,7 @@ private fun sessionItemWithMenu(
                 expanded = showMenu,
                 onDismissRequest = { showMenu = false },
             ) {
-                SessionActionMenu.sidebarMenu(
+                sidebarMenu(
                     isStarred = session.isStarred,
                     projects = availableProjects,
                     onExport = { onExportSession(session.id) },

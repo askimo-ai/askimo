@@ -174,6 +174,7 @@ Most AI apps stop at a chat box. Askimo goes further with two automation primiti
 ```bash
 git clone https://github.com/askimo-ai/askimo.git
 cd askimo
+```
 
 # Run the desktop app
 ./gradlew :desktop:run

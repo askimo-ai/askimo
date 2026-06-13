@@ -4,6 +4,7 @@
  */
 package io.askimo.core.providers
 
+import dev.langchain4j.data.message.UserMessage
 import dev.langchain4j.http.client.jdk.JdkHttpClient
 import dev.langchain4j.memory.ChatMemory
 import dev.langchain4j.model.chat.ChatModel
@@ -26,6 +27,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.net.http.HttpClient
 import java.time.Duration
+import kotlin.Boolean
 
 /**
  * Abstract base factory for all OpenAI-compatible API providers.
@@ -109,11 +111,29 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
 
     /**
      * Probe whether the current model supports thinking/reasoning capabilities.
-     *
-     * Default implementation is intentionally conservative and returns false.
-     * Providers can override this with a real probe request.
      */
-    protected open fun probeThinkingSupport(settings: T): Boolean = false
+    protected open fun probeThinkingSupport(settings: T): Boolean = try {
+        val testModel = OpenAiStreamingChatModel
+            .builder()
+            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl))
+            .apiKey(resolveApiKey(settings))
+            .modelName(settings.defaultModel)
+            .reasoningEffort(ReasoningEffort.LOW.value)
+            .sendThinking(true)
+            .returnThinking(true)
+            .build()
+
+        val testClient = AiServices.builder(ChatClient::class.java)
+            .streamingChatModel(testModel)
+            .build()
+
+        testClient.sendStreamingMessageWithCallback(null, UserMessage("ok"))
+        log.info("Model '${settings.defaultModel}' supports thinking — thinking enabled")
+        true
+    } catch (e: Exception) {
+        log.info("Model '${settings.defaultModel}' does not support thinking: ${e.message} — thinking disabled")
+        false
+    }
 
     // ── Shared helpers ─────────────────────────────────────────────────────────
 
@@ -168,12 +188,20 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
 
     override fun createStreamingModel(settings: T): StreamingChatModel {
         val telemetry = AppContext.getInstance().telemetry
+        val supportsThinking = ModelCapabilitiesCache.supportsThinking(getProvider(), settings.defaultModel)
         return OpenAiStreamingChatModel.builder()
             .httpClientBuilder(createHttpClientBuilder(settings.baseUrl))
             .baseUrl(settings.baseUrl)
             .apiKey(resolveApiKey(settings))
             .modelName(settings.defaultModel)
             .timeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
+            .apply {
+                if (supportsThinking) {
+                    sendThinking(true)
+                    returnThinking(true)
+                    reasoningEffort(ModelCapabilitiesCache.getReasoningLevel(getProvider(), settings.defaultModel).value)
+                }
+            }
             .logger(log)
             .logRequests(log.isDebugEnabled)
             .logResponses(log.isTraceEnabled)

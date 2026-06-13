@@ -38,7 +38,7 @@ object ModelCapabilitiesCache {
     // Provider-specific defaults
     private val PROVIDER_DEFAULTS: Map<ModelProvider, ModelCapabilities> = mapOf(
         ModelProvider.ANTHROPIC to ModelCapabilities(
-            contextSize = 262_144,
+            contextSize = 1_048_576,
             supportsTools = null, // Not tested yet
             supportsVision = null,
             supportsStreaming = true,
@@ -52,14 +52,14 @@ object ModelCapabilitiesCache {
             reasoningLevel = ReasoningEffort.MEDIUM,
         ),
         ModelProvider.OPENAI to ModelCapabilities(
-            contextSize = 262_144,
+            contextSize = 1_048_576,
             supportsTools = null,
             supportsVision = null,
             supportsStreaming = true,
             reasoningLevel = ReasoningEffort.MEDIUM,
         ),
         ModelProvider.XAI to ModelCapabilities(
-            contextSize = 262_144,
+            contextSize = 1_048_576,
             supportsTools = null,
             supportsVision = null,
             supportsStreaming = true,
@@ -196,13 +196,6 @@ object ModelCapabilitiesCache {
         val modelKey = modelKey(provider, model)
         return get(modelKey).supportsTools ?: false // null means not tested yet, return false
     }
-
-    /**
-     * Check if a model supports reasoning (alias for thinking support).
-     *
-     * Reasoning effort applies only when the model supports thinking/reasoning capabilities.
-     */
-    fun supportsReasoning(provider: ModelProvider, model: String): Boolean = supportsThinking(provider, model)
 
     /**
      * Check if tool support has been tested for a model.

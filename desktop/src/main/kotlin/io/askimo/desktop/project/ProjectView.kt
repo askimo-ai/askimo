@@ -92,6 +92,7 @@ import io.askimo.ui.common.ui.clickableCard
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.session.SessionActionMenu
 import io.askimo.ui.session.SessionActionMenu.projectViewMenu
+import io.askimo.ui.session.sessionTooltip
 import org.koin.core.context.GlobalContext
 import org.koin.core.parameter.parametersOf
 import java.awt.Desktop
@@ -459,7 +460,7 @@ private fun sessionCard(
             Column(
                 modifier = Modifier.weight(1f).padding(horizontal = Spacing.medium),
             ) {
-                themedTooltip(text = session.title) {
+                sessionTooltip(session = session) {
                     Text(
                         text = session.title,
                         style = MaterialTheme.typography.bodyMedium,

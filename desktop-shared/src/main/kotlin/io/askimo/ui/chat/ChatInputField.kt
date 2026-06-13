@@ -89,6 +89,7 @@ import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
 import io.askimo.core.chat.util.FileContentExtractor
 import io.askimo.core.config.AppConfig
+import io.askimo.core.context.AppContext
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.error.AppErrorEvent
 import io.askimo.core.i18n.LocalizationManager
@@ -96,11 +97,15 @@ import io.askimo.core.intent.ToolConfig
 import io.askimo.core.intent.ToolRegistry
 import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.mcp.McpInstanceService
+import io.askimo.core.providers.ModelCapabilitiesCache
+import io.askimo.core.providers.ModelProvider
+import io.askimo.core.providers.ReasoningEffort
 import io.askimo.core.util.TimeUtil
 import io.askimo.core.util.formatFileSize
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.keymap.KeyMapManager
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.common.ui.util.FileDialogUtils
@@ -162,6 +167,41 @@ fun chatInputField(
     // State for creation mode (Chat, Image, etc.)
     // Reset to Chat mode when switching to a different session
     var creationMode by remember(sessionId) { mutableStateOf<CreationMode>(CreationMode.Chat) }
+
+    // Read current provider + model from AppContext — reactive to provider/model switches
+    val appParams = AppContext.getInstance().params
+    val resolvedProvider: ModelProvider? = appParams.currentProvider.takeIf { it != ModelProvider.UNKNOWN }
+    val currentModel: String = appParams.model
+
+    // Whether the current model supports extended reasoning — read from capabilities cache
+    val supportsReasoning = remember(resolvedProvider, currentModel) {
+        if (resolvedProvider != null && currentModel.isNotBlank()) {
+            ModelCapabilitiesCache.supportsThinking(resolvedProvider, currentModel)
+        } else {
+            false
+        }
+    }
+
+    // Reasoning effort — state created once; synced from cache via LaunchedEffect when
+    // provider/model changes so the remember block itself never re-runs on dropdown clicks.
+    var reasoningEffort by remember { mutableStateOf(ReasoningEffort.DEFAULT) }
+    var showReasoningDropdown by remember { mutableStateOf(false) }
+
+    // Sync from cache whenever the active provider/model changes (not on every recomposition).
+    LaunchedEffect(resolvedProvider, currentModel) {
+        reasoningEffort = if (resolvedProvider != null && currentModel.isNotBlank()) {
+            ModelCapabilitiesCache.getReasoningLevel(resolvedProvider, currentModel)
+        } else {
+            ReasoningEffort.DEFAULT
+        }
+    }
+
+    // Persist user-selected effort back to cache (only fires when the value actually changes).
+    LaunchedEffect(reasoningEffort) {
+        if (supportsReasoning && resolvedProvider != null && currentModel.isNotBlank()) {
+            ModelCapabilitiesCache.setReasoningLevel(resolvedProvider, currentModel, reasoningEffort)
+        }
+    }
 
     // Session-scoped set of server IDs enabled by the user via the tools popup.
     // Empty by default — all tools are off until the user opts in.
@@ -516,15 +556,15 @@ fun chatInputField(
                             )
 
                             // ── Controls row ───────────────────────────────────────────────
-                            // Fixed height so it is always fully visible below the text area.
+                            // Layout: [attach | image | tools | image-mode-chip] <spacer> [reasoning chip]
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(inlineControlsBottomPadding)
-                                    .padding(start = 10.dp),
-                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                    .padding(horizontal = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
+                                // ── Left: action controls ──────────────────────────────────
                                 themedTooltip(
                                     text = stringResource("chat.attach.file", Platform.modifierKey),
                                 ) {
@@ -543,6 +583,8 @@ fun chatInputField(
                                         )
                                     }
                                 }
+
+                                Spacer(modifier = Modifier.width(2.dp))
 
                                 themedTooltip(
                                     text = stringResource("chat.create.image.menu"),
@@ -578,6 +620,8 @@ fun chatInputField(
                                     }
                                 }
 
+                                Spacer(modifier = Modifier.width(2.dp))
+
                                 toolsIndicatorButton(
                                     sessionId = sessionId,
                                     isLoading = isLoading,
@@ -589,7 +633,7 @@ fun chatInputField(
                                     iconSize = 28.dp,
                                 )
 
-                                // Active image mode chip — shown inline next to the action icons
+                                // Image mode chip — contextually tied to the image toggle above
                                 if (creationMode is CreationMode.Image) {
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Surface(
@@ -616,6 +660,96 @@ fun chatInputField(
                                                     .pointerHoverIcon(PointerIcon.Hand),
                                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                             )
+                                        }
+                                    }
+                                }
+
+                                // ── Push reasoning chip to the far right ───────────────────
+                                Spacer(modifier = Modifier.weight(1f))
+
+                                // Reasoning effort chip — only shown for models that support it;
+                                // positioned far right as a model-setting indicator.
+                                if (supportsReasoning) {
+                                    Box {
+                                        themedTooltip(text = stringResource("chat.reasoning.effort.tooltip")) {
+                                            Surface(
+                                                shape = RoundedCornerShape(12.dp),
+                                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                                tonalElevation = 2.dp,
+                                                modifier = Modifier
+                                                    .clickable(
+                                                        enabled = !isLoading,
+                                                        interactionSource = remember { MutableInteractionSource() },
+                                                        indication = null,
+                                                        onClick = { showReasoningDropdown = true },
+                                                    )
+                                                    .pointerHoverIcon(PointerIcon.Hand),
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(
+                                                        start = Spacing.small,
+                                                        end = Spacing.small,
+                                                        top = 3.dp,
+                                                        bottom = 3.dp,
+                                                    ),
+                                                    horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                ) {
+                                                    Text(
+                                                        text = stringResource("chat.reasoning.effort.label") + ":",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                                                    )
+                                                    Text(
+                                                        text = reasoningEffort.value.replaceFirstChar { it.uppercase() },
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                    )
+                                                    Icon(
+                                                        imageVector = Icons.Default.KeyboardArrowDown,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(12.dp),
+                                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        dropdownMenu(
+                                            expanded = showReasoningDropdown,
+                                            onDismissRequest = { showReasoningDropdown = false },
+                                        ) {
+                                            ReasoningEffort.entries.forEach { effort ->
+                                                val label = when (effort) {
+                                                    ReasoningEffort.LOW -> stringResource("chat.reasoning.effort.low")
+                                                    ReasoningEffort.MEDIUM -> stringResource("chat.reasoning.effort.medium")
+                                                    ReasoningEffort.HIGH -> stringResource("chat.reasoning.effort.high")
+                                                }
+                                                val description = when (effort) {
+                                                    ReasoningEffort.LOW -> stringResource("chat.reasoning.effort.low.description")
+                                                    ReasoningEffort.MEDIUM -> stringResource("chat.reasoning.effort.medium.description")
+                                                    ReasoningEffort.HIGH -> stringResource("chat.reasoning.effort.high.description")
+                                                }
+                                                themedTooltip(text = description) {
+                                                    DropdownMenuItem(
+                                                        text = {
+                                                            Text(
+                                                                text = label,
+                                                                style = MaterialTheme.typography.bodyMedium,
+                                                                fontWeight = if (effort == reasoningEffort) FontWeight.Bold else FontWeight.Normal,
+                                                            )
+                                                        },
+                                                        trailingIcon = null,
+                                                        onClick = {
+                                                            reasoningEffort = effort
+                                                            showReasoningDropdown = false
+                                                        },
+                                                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                                        colors = AppComponents.menuItemColors(),
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -1061,7 +1195,7 @@ private fun mcpServerItem(
         }
 
         // Submenu dropdown with tools
-        AppComponents.dropdownMenu(
+        dropdownMenu(
             expanded = showToolsSubmenu,
             onDismissRequest = {
                 showToolsSubmenu = false

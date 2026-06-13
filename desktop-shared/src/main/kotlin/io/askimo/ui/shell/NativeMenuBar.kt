@@ -8,6 +8,7 @@ import androidx.compose.ui.window.FrameWindowScope
 import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.config.AppConfig
 import io.askimo.core.i18n.LocalizationManager
+import io.askimo.core.util.AskimoHome
 import io.askimo.ui.common.theme.ThemeMode
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.util.Platform
@@ -520,6 +521,20 @@ object NativeMenuBar {
                 },
             )
             helpMenu.add(eventLogItem)
+
+            // Open Model Capabilities File
+            val modelCapabilitiesItem = MenuItem(LocalizationManager.getString("menu.help.model.capabilities"))
+            modelCapabilitiesItem.addActionListener(
+                ActionListener {
+                    runCatching {
+                        val file = AskimoHome.base().resolve("model-capabilities-cache.json").toFile()
+                        if (file.exists() && Desktop.isDesktopSupported()) {
+                            Desktop.getDesktop().open(file)
+                        }
+                    }
+                },
+            )
+            helpMenu.add(modelCapabilitiesItem)
 
             // Clear Account Preferences (Developer Tools — only shown when developer mode is active)
             val devConfig = AppConfig.developer

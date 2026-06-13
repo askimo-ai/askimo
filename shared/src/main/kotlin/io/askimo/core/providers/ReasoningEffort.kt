@@ -11,13 +11,15 @@ package io.askimo.core.providers
  * - MEDIUM: Balanced approach, moderate reasoning depth (default)
  * - HIGH: Thorough reasoning, higher cost, suitable for complex problem-solving
  */
-enum class ReasoningEffort {
-    LOW,
-    MEDIUM,
-    HIGH,
+enum class ReasoningEffort(val value: String) {
+    LOW("low"),
+    MEDIUM("medium"),
+    HIGH("high"),
     ;
 
     companion object {
         val DEFAULT = MEDIUM
+
+        fun fromValue(value: String): ReasoningEffort = entries.firstOrNull { it.value.equals(value, ignoreCase = true) } ?: DEFAULT
     }
 }
