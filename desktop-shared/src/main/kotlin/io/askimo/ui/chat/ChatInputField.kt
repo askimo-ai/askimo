@@ -92,6 +92,8 @@ import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.error.AppErrorEvent
+import io.askimo.core.event.internal.ReasoningEffortChangedEvent
+import io.askimo.core.event.internal.ThinkingSupportDetectedEvent
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.intent.ToolConfig
 import io.askimo.core.intent.ToolRegistry
@@ -173,12 +175,26 @@ fun chatInputField(
     val resolvedProvider: ModelProvider? = appParams.currentProvider.takeIf { it != ModelProvider.UNKNOWN }
     val currentModel: String = appParams.model
 
-    // Whether the current model supports extended reasoning — read from capabilities cache
-    val supportsReasoning = remember(resolvedProvider, currentModel) {
-        if (resolvedProvider != null && currentModel.isNotBlank()) {
-            ModelCapabilitiesCache.supportsThinking(resolvedProvider, currentModel)
-        } else {
-            false
+    // Whether the current model supports extended reasoning.
+    var supportsReasoning by remember(resolvedProvider, currentModel) {
+        mutableStateOf(
+            if (resolvedProvider != null && currentModel.isNotBlank()) {
+                ModelCapabilitiesCache.supportsThinking(resolvedProvider, currentModel)
+            } else {
+                false
+            },
+        )
+    }
+
+    // Listen for the probe result and update when it arrives for the active model.
+    LaunchedEffect(resolvedProvider, currentModel) {
+        EventBus.internalEvents.collect { event ->
+            if (event is ThinkingSupportDetectedEvent &&
+                event.provider == resolvedProvider &&
+                event.model == currentModel
+            ) {
+                supportsReasoning = event.supportsThinking
+            }
         }
     }
 
@@ -200,6 +216,13 @@ fun chatInputField(
     LaunchedEffect(reasoningEffort) {
         if (supportsReasoning && resolvedProvider != null && currentModel.isNotBlank()) {
             ModelCapabilitiesCache.setReasoningLevel(resolvedProvider, currentModel, reasoningEffort)
+            EventBus.emit(
+                ReasoningEffortChangedEvent(
+                    provider = resolvedProvider,
+                    model = currentModel,
+                    newEffort = reasoningEffort,
+                ),
+            )
         }
     }
 
@@ -722,11 +745,13 @@ fun chatInputField(
                                         ) {
                                             ReasoningEffort.entries.forEach { effort ->
                                                 val label = when (effort) {
+                                                    ReasoningEffort.OFF -> stringResource("chat.reasoning.effort.off")
                                                     ReasoningEffort.LOW -> stringResource("chat.reasoning.effort.low")
                                                     ReasoningEffort.MEDIUM -> stringResource("chat.reasoning.effort.medium")
                                                     ReasoningEffort.HIGH -> stringResource("chat.reasoning.effort.high")
                                                 }
                                                 val description = when (effort) {
+                                                    ReasoningEffort.OFF -> stringResource("chat.reasoning.effort.off.description")
                                                     ReasoningEffort.LOW -> stringResource("chat.reasoning.effort.low.description")
                                                     ReasoningEffort.MEDIUM -> stringResource("chat.reasoning.effort.medium.description")
                                                     ReasoningEffort.HIGH -> stringResource("chat.reasoning.effort.high.description")

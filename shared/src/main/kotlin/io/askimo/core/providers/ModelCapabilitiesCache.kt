@@ -5,6 +5,7 @@
 package io.askimo.core.providers
 
 import io.askimo.core.event.EventBus
+import io.askimo.core.event.internal.ThinkingSupportDetectedEvent
 import io.askimo.core.event.system.InvalidateCacheEvent
 import io.askimo.core.logging.logger
 import io.askimo.core.util.AskimoHome
@@ -309,6 +310,8 @@ object ModelCapabilitiesCache {
         val modelKey = modelKey(provider, model)
         update(modelKey) { it.copy(supportsThinking = supported) }
         log.debug("Updated thinking support for $modelKey: $supported")
+        // Broadcast so UI components (e.g. ChatInputField) can reactively update
+        EventBus.post(ThinkingSupportDetectedEvent(provider = provider, model = model, supportsThinking = supported))
     }
 
     /**

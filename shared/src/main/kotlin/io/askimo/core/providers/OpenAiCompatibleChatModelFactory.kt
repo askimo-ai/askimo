@@ -116,22 +116,24 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
         val testModel = OpenAiStreamingChatModel
             .builder()
             .httpClientBuilder(createHttpClientBuilder(settings.baseUrl))
+            .baseUrl(settings.baseUrl)
             .apiKey(resolveApiKey(settings))
             .modelName(settings.defaultModel)
             .reasoningEffort(ReasoningEffort.LOW.value)
-            .sendThinking(true)
-            .returnThinking(true)
+            .logger(log)
+            .logRequests(log.isDebugEnabled)
+            .logResponses(log.isDebugEnabled)
             .build()
 
         val testClient = AiServices.builder(ChatClient::class.java)
             .streamingChatModel(testModel)
             .build()
 
-        testClient.sendStreamingMessageWithCallback(null, UserMessage("ok"))
+        testClient.sendStreamingMessageWithCallback(null, UserMessage("Capability probe — reply with 'ok'."))
         log.info("Model '${settings.defaultModel}' supports thinking — thinking enabled")
         true
     } catch (e: Exception) {
-        log.info("Model '${settings.defaultModel}' does not support thinking: ${e.message} — thinking disabled")
+        log.info("Model '${settings.defaultModel}' does not support thinking: ${e.message} — thinking disabled", e)
         false
     }
 
@@ -168,21 +170,32 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
         executionMode: ExecutionMode,
         chatMemory: ChatMemory?,
     ): ChatClient {
+        // Probe thinking support once — result is persisted in ModelCapabilitiesCache
         if (!ModelCapabilitiesCache.hasTestedThinkingSupport(getProvider(), settings.defaultModel)) {
             val supportsThinking = probeThinkingSupport(settings)
             ModelCapabilitiesCache.setThinkingSupport(getProvider(), settings.defaultModel, supportsThinking)
+        }
+
+        // Create streaming model once — reused for both the tool probe and the real client
+        val streamingModel = createStreamingModel(settings)
+
+        // Probe tool support once — result is persisted in ModelCapabilitiesCache
+        if (executionMode.isToolEnabled() &&
+            !ModelCapabilitiesCache.hasTestedToolSupport(getProvider(), settings.defaultModel)
+        ) {
+            val supportsTools = probeToolSupport(settings.defaultModel, streamingModel, executionMode)
+            ModelCapabilitiesCache.setToolSupport(getProvider(), settings.defaultModel, supportsTools)
         }
 
         return AiServiceBuilder.buildChatClient(
             sessionId = sessionId,
             settings = settings,
             provider = getProvider(),
-            chatModel = createStreamingModel(settings),
+            chatModel = streamingModel,
             secondaryChatModel = createSecondaryModel(settings),
             chatMemory = chatMemory,
             toolProvider = toolProvider,
             retriever = retriever,
-            executionMode = executionMode,
         )
     }
 
@@ -196,15 +209,16 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
             .modelName(settings.defaultModel)
             .timeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
             .apply {
-                if (supportsThinking) {
+                val reasoningLevel = ModelCapabilitiesCache.getReasoningLevel(getProvider(), settings.defaultModel)
+                if (supportsThinking && reasoningLevel.isEnabled) {
                     sendThinking(true)
                     returnThinking(true)
-                    reasoningEffort(ModelCapabilitiesCache.getReasoningLevel(getProvider(), settings.defaultModel).value)
+                    reasoningEffort(reasoningLevel.value)
                 }
             }
             .logger(log)
             .logRequests(log.isDebugEnabled)
-            .logResponses(log.isTraceEnabled)
+            .logResponses(log.isDebugEnabled)
             .listeners(listOf(TelemetryChatModelListener(telemetry, getProvider().providerKey())))
             .build()
     }

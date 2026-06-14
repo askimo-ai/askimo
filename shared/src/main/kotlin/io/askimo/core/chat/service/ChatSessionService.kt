@@ -30,6 +30,7 @@ import io.askimo.core.db.Pageable
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.ModelChangedEvent
 import io.askimo.core.event.internal.PushDataToServerEvent
+import io.askimo.core.event.internal.ReasoningEffortChangedEvent
 import io.askimo.core.event.internal.SessionCreatedEvent
 import io.askimo.core.event.internal.SessionDeletedEvent
 import io.askimo.core.event.internal.SessionTitleUpdatedEvent
@@ -149,6 +150,13 @@ class ChatSessionService(
                     handleModelChanged(event)
                 }
         }
+        eventScope.launch {
+            EventBus.internalEvents
+                .filterIsInstance<ReasoningEffortChangedEvent>()
+                .collect { event ->
+                    handleReasoningEffortChanged(event)
+                }
+        }
     }
 
     /**
@@ -156,6 +164,15 @@ class ChatSessionService(
      */
     private fun handleModelChanged(event: ModelChangedEvent) {
         log.info("Model changed to ${event.newModel} for provider ${event.provider}, clearing cached contexts")
+        sessionContextCache.invalidateAll()
+    }
+
+    /**
+     * Handle reasoning effort change event - clear all cached contexts so the next send
+     * recreates the ChatClient with the updated reasoning level from ModelCapabilitiesCache.
+     */
+    private fun handleReasoningEffortChanged(event: ReasoningEffortChangedEvent) {
+        log.info("Reasoning effort changed to ${event.newEffort} for ${event.model} (${event.provider}), clearing cached contexts")
         sessionContextCache.invalidateAll()
     }
 

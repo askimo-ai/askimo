@@ -4,14 +4,19 @@
  */
 package io.askimo.core.providers
 
+import dev.langchain4j.data.message.UserMessage
+import dev.langchain4j.exception.InvalidRequestException
 import dev.langchain4j.memory.ChatMemory
 import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.StreamingChatModel
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.model.image.ImageModel
 import dev.langchain4j.rag.content.retriever.ContentRetriever
+import dev.langchain4j.service.AiServices
 import dev.langchain4j.service.tool.ToolProvider
 import io.askimo.core.context.ExecutionMode
+import io.askimo.tools.fs.LocalFsTools
+import org.slf4j.LoggerFactory
 
 /**
  * Factory interface for creating chat model instances for a specific AI provider.
@@ -157,4 +162,67 @@ interface ChatModelFactory<T : ProviderSettings> {
      * @return Maximum number of tokens the embedding model can handle
      */
     fun getEmbeddingTokenLimit(settings: T): Int = 2048
+
+    /**
+     * Probes whether the model supports tool calling by sending a minimal test request
+     * with tools attached. Called once per model — result should be cached in
+     * [ModelCapabilitiesCache] by the calling [create] implementation.
+     *
+     * Default implementation is generic and works for any [StreamingChatModel].
+     * Override in provider-specific factories if the probe needs special handling.
+     *
+     * @param modelName Model name used for log messages
+     * @param streamingChatModel The streaming model instance to probe
+     * @param executionMode Determines which tools to attach during the probe
+     * @return true if the model accepted the tool-enabled request, false otherwise
+     */
+    fun probeToolSupport(
+        modelName: String,
+        streamingChatModel: StreamingChatModel,
+        executionMode: ExecutionMode,
+    ): Boolean {
+        val log = LoggerFactory.getLogger(this::class.java)
+        return try {
+            val testClientBuilder = AiServices.builder(ChatClient::class.java)
+                .streamingChatModel(streamingChatModel)
+
+            if (executionMode.isToolEnabled()) {
+                testClientBuilder.tools(LocalFsTools)
+            }
+
+            val testClient = testClientBuilder.build()
+            testClient.sendStreamingMessageWithCallback(null, UserMessage("Capability probe — reply with 'ok'."))
+            true
+        } catch (e: Exception) {
+            val errorMessage = e.message?.lowercase() ?: ""
+            val causeMessage = e.cause?.message?.lowercase() ?: ""
+
+            val isToolUnsupportedError =
+                errorMessage.contains("does not support tool") ||
+                    (
+                        errorMessage.contains("tool") && (
+                            errorMessage.contains("not supported") ||
+                                errorMessage.contains("unsupported") ||
+                                errorMessage.contains("not available") ||
+                                errorMessage.contains("unavailable")
+                            )
+                        ) ||
+                    causeMessage.contains("does not support tool") ||
+                    (
+                        causeMessage.contains("tool") && (
+                            causeMessage.contains("not supported") ||
+                                causeMessage.contains("unsupported")
+                            )
+                        ) ||
+                    e is InvalidRequestException ||
+                    e.cause is InvalidRequestException
+
+            if (isToolUnsupportedError) {
+                log.warn("Model '$modelName' does not support tool calling: ${e.message}. Tools will be disabled")
+            } else {
+                log.warn("Error testing tool support for model '$modelName': ${e.message}. Assuming tools are NOT supported", e)
+            }
+            false
+        }
+    }
 }

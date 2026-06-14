@@ -76,16 +76,26 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
             ModelCapabilitiesCache.setThinkingSupport(ANTHROPIC, settings.defaultModel, supportsThinking)
         }
 
+        // Create streaming model once — reused for both the tool probe and the real client
+        val streamingModel = createStreamingModel(settings)
+
+        // Probe tool support once — result is persisted in ModelCapabilitiesCache
+        if (executionMode.isToolEnabled() &&
+            !ModelCapabilitiesCache.hasTestedToolSupport(ANTHROPIC, settings.defaultModel)
+        ) {
+            val supportsTools = probeToolSupport(settings.defaultModel, streamingModel, executionMode)
+            ModelCapabilitiesCache.setToolSupport(ANTHROPIC, settings.defaultModel, supportsTools)
+        }
+
         return AiServiceBuilder.buildChatClient(
             sessionId = sessionId,
             settings = settings,
             provider = ANTHROPIC,
-            chatModel = createStreamingModel(settings),
+            chatModel = streamingModel,
             secondaryChatModel = createSecondaryModel(settings),
             chatMemory = chatMemory,
             toolProvider = toolProvider,
             retriever = retriever,
-            executionMode = executionMode,
         )
     }
 
@@ -119,7 +129,7 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
             .streamingChatModel(testModel)
             .build()
 
-        testClient.sendStreamingMessageWithCallback(null, UserMessage("ok"))
+        testClient.sendStreamingMessageWithCallback(null, UserMessage("Capability probe — reply with 'ok'."))
         log.info("Model '${settings.defaultModel}' supports thinking — thinking enabled")
         true
     } catch (e: Exception) {
@@ -139,6 +149,7 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
         val telemetry = AppContext.getInstance().telemetry
 
         val supportsThinking = ModelCapabilitiesCache.supportsThinking(ANTHROPIC, settings.defaultModel)
+        val reasoningLevel = ModelCapabilitiesCache.getReasoningLevel(ANTHROPIC, settings.defaultModel)
 
         return AnthropicStreamingChatModel.builder()
             .httpClientBuilder(jdkHttpClientBuilder)
@@ -154,12 +165,14 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
             .listeners(listOf(TelemetryChatModelListener(telemetry, ANTHROPIC.name.lowercase())))
             .apply {
                 if (supportsThinking) {
-                    val thinkingConfig = AppConfig.models[ANTHROPIC]
-                    thinkingType("enabled")
-                    thinkingBudgetTokens(thinkingConfig.thinkingBudgetTokens)
-                    maxTokens(thinkingConfig.thinkingMaxTokens)
-                    sendThinking(true)
-                    returnThinking(true)
+                    if (reasoningLevel.isEnabled) {
+                        thinkingType("adaptive")
+                        sendThinking(true)
+                        returnThinking(true)
+                    } else {
+                        // OFF — explicitly disable extended thinking
+                        thinkingType("disabled")
+                    }
                 }
             }
             .build()

@@ -13,6 +13,7 @@ import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.StreamingChatModel
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.model.googleai.GeminiThinkingConfig
+import dev.langchain4j.model.googleai.GeminiThinkingConfig.GeminiThinkingLevel
 import dev.langchain4j.model.googleai.GoogleAiEmbeddingModel
 import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel
 import dev.langchain4j.model.googleai.GoogleAiGeminiImageModel
@@ -33,6 +34,7 @@ import io.askimo.core.providers.ModelDTO
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ModelProvider.GEMINI
 import io.askimo.core.providers.ProviderModelUtils.fetchModels
+import io.askimo.core.providers.ReasoningEffort
 import io.askimo.core.providers.sendStreamingMessageWithCallback
 import io.askimo.core.telemetry.TelemetryChatModelListener
 import io.askimo.core.util.ApiKeyUtils.safeApiKey
@@ -73,16 +75,26 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
             ModelCapabilitiesCache.setThinkingSupport(GEMINI, settings.defaultModel, supportsThinking)
         }
 
+        // Create streaming model once — reused for both the tool probe and the real client
+        val streamingModel = createStreamingModel(settings)
+
+        // Probe tool support once — result is persisted in ModelCapabilitiesCache
+        if (executionMode.isToolEnabled() &&
+            !ModelCapabilitiesCache.hasTestedToolSupport(GEMINI, settings.defaultModel)
+        ) {
+            val supportsTools = probeToolSupport(settings.defaultModel, streamingModel, executionMode)
+            ModelCapabilitiesCache.setToolSupport(GEMINI, settings.defaultModel, supportsTools)
+        }
+
         return AiServiceBuilder.buildChatClient(
             sessionId = sessionId,
             settings = settings,
             provider = GEMINI,
-            chatModel = createStreamingModel(settings),
+            chatModel = streamingModel,
             secondaryChatModel = createSecondaryModel(settings),
             chatMemory = chatMemory,
             toolProvider = toolProvider,
             retriever = retriever,
-            executionMode = executionMode,
         )
     }
 
@@ -104,7 +116,7 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
             .modelName(settings.defaultModel)
             .thinkingConfig(
                 GeminiThinkingConfig.builder()
-                    .thinkingLevel(GeminiThinkingConfig.GeminiThinkingLevel.LOW)
+                    .thinkingLevel(GeminiThinkingLevel.LOW)
                     .build(),
             )
             .sendThinking(true)
@@ -115,7 +127,7 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
             .streamingChatModel(testModel)
             .build()
 
-        testClient.sendStreamingMessageWithCallback(null, UserMessage("ok"))
+        testClient.sendStreamingMessageWithCallback(null, UserMessage("Capability probe — reply with 'ok'."))
         log.info("Model '${settings.defaultModel}' supports thinking — thinking enabled")
         true
     } catch (e: Exception) {
@@ -140,6 +152,7 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
         val telemetry = AppContext.getInstance().telemetry
 
         val supportsThinking = ModelCapabilitiesCache.supportsThinking(GEMINI, settings.defaultModel)
+        val reasoningLevel = ModelCapabilitiesCache.getReasoningLevel(GEMINI, settings.defaultModel)
 
         return GoogleAiGeminiStreamingChatModel.builder()
             .httpClientBuilder(jdkHttpClientBuilder)
@@ -148,13 +161,18 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
             .timeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
             .logger(log)
             .logRequests(log.isDebugEnabled)
-            .logResponses(log.isTraceEnabled)
+            .logResponses(log.isDebugEnabled)
             .listeners(listOf(TelemetryChatModelListener(telemetry, GEMINI.name.lowercase())))
             .apply {
-                if (supportsThinking) {
+                if (supportsThinking && reasoningLevel.isEnabled) {
+                    val geminiLevel = when (reasoningLevel) {
+                        ReasoningEffort.LOW -> GeminiThinkingLevel.LOW
+                        ReasoningEffort.HIGH -> GeminiThinkingLevel.HIGH
+                        else -> GeminiThinkingLevel.MEDIUM
+                    }
                     thinkingConfig(
                         GeminiThinkingConfig.builder()
-                            .thinkingLevel(GeminiThinkingConfig.GeminiThinkingLevel.LOW)
+                            .thinkingLevel(geminiLevel)
                             .build(),
                     )
                     sendThinking(true)
