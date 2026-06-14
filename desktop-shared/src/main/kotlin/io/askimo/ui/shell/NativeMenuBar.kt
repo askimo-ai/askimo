@@ -78,11 +78,12 @@ object NativeMenuBar {
         isPlansVisible: Boolean = true,
         isSkillsVisible: Boolean = true,
         isProjectsVisible: Boolean = true,
+        onShowSystemDiagnostics: () -> Unit = {},
     ) {
         val window = frameWindowScope.window
 
         // Setup AWT menu bar for all platforms (includes Documentation)
-        setupAWTMenuBar(window, onShowAbout, onNewChat, onNewProject, onSearchInSessions, onShowSettings, onShowEventLog, onCheckForUpdates, onEnterFullScreen, onNavigateToSessions, onNavigateToProjects, onNavigateToDiscover, onToggleSidebar, onInvalidateCaches, onExportBackup, onImportBackup, onShowGettingStarted, onOpenTerminal, onClearPreferences, onClearAccountPreferences, onTogglePlans, onToggleSkills, onToggleProjects, isPlansVisible, isSkillsVisible, isProjectsVisible)
+        setupAWTMenuBar(window, onShowAbout, onNewChat, onNewProject, onSearchInSessions, onShowSettings, onShowEventLog, onCheckForUpdates, onEnterFullScreen, onNavigateToSessions, onNavigateToProjects, onNavigateToDiscover, onToggleSidebar, onInvalidateCaches, onExportBackup, onImportBackup, onShowGettingStarted, onOpenTerminal, onClearPreferences, onClearAccountPreferences, onTogglePlans, onToggleSkills, onToggleProjects, isPlansVisible, isSkillsVisible, isProjectsVisible, onShowSystemDiagnostics)
 
         // On macOS, also register the About handler for the app menu
         if (Platform.isMac) {
@@ -131,6 +132,7 @@ object NativeMenuBar {
         isPlansVisible: Boolean,
         isSkillsVisible: Boolean,
         isProjectsVisible: Boolean,
+        onShowSystemDiagnostics: () -> Unit,
     ) {
         if (window is Frame) {
             val menuBar = MenuBar()
@@ -464,6 +466,19 @@ object NativeMenuBar {
             )
             helpMenu.add(gettingStartedItem)
 
+            // Share Feedback — moved here from the footer status bar for better discoverability
+            val shareFeedbackItem = MenuItem(LocalizationManager.getString("system.share.feedback"))
+            shareFeedbackItem.addActionListener(
+                ActionListener {
+                    runCatching {
+                        if (Desktop.isDesktopSupported()) {
+                            Desktop.getDesktop().browse(URI("https://$DOMAIN/contact/"))
+                        }
+                    }
+                },
+            )
+            helpMenu.add(shareFeedbackItem)
+
             helpMenu.addSeparator()
 
             // Release Notes
@@ -535,6 +550,15 @@ object NativeMenuBar {
                 },
             )
             helpMenu.add(modelCapabilitiesItem)
+
+            // System Diagnostics — live CPU/memory and session telemetry
+            val systemDiagnosticsItem = MenuItem(LocalizationManager.getString("menu.help.diagnostics"))
+            systemDiagnosticsItem.addActionListener(
+                ActionListener {
+                    onShowSystemDiagnostics()
+                },
+            )
+            helpMenu.add(systemDiagnosticsItem)
 
             // Clear Account Preferences (Developer Tools — only shown when developer mode is active)
             val devConfig = AppConfig.developer

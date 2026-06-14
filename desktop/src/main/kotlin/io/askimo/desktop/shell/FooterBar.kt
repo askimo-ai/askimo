@@ -26,23 +26,18 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,7 +50,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.askimo.core.AppConstants.DOMAIN
+import io.askimo.core.VersionInfo
 import io.askimo.core.context.AppContext
 import io.askimo.core.context.getConfigInfo
 import io.askimo.core.event.EventBus
@@ -66,7 +61,6 @@ import io.askimo.core.providers.ModelDTO
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ProviderSettings
 import io.askimo.ui.common.i18n.stringResource
-import io.askimo.ui.common.monitoring.SystemResourceMonitor
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.Spacing
@@ -77,8 +71,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.koin.java.KoinJavaComponent.get
-import java.awt.Desktop
-import java.net.URI
 
 private val log = currentFileLogger()
 
@@ -402,32 +394,17 @@ private fun modelDropdown(
     }
 }
 
-/**
- * Footer bar component showing system resources, notifications, and version info.
- */
 @Composable
 fun footerBar(
     onShowUpdateDetails: () -> Unit = {},
     onConfigureAiProvider: () -> Unit = {},
+    onShowAbout: () -> Unit = {},
 ) {
-    val resourceMonitor = remember { get<SystemResourceMonitor>(SystemResourceMonitor::class.java) }
-    val appContext = remember { get<AppContext>(AppContext::class.java) }
-
-    val memoryUsage by resourceMonitor.memoryUsageMB.collectAsState()
-    val cpuUsage by resourceMonitor.cpuUsagePercent.collectAsState()
-    val metrics by appContext.telemetry.metricsFlow.collectAsState()
-    var telemetryExpanded by remember { mutableStateOf(false) }
-
-    LaunchedEffect(resourceMonitor) {
-        resourceMonitor.startMonitoring(intervalMillis = 2000)
-    }
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(AppComponents.sidebarSurfaceColor()),
     ) {
-        // Top border
         HorizontalDivider()
 
         Box(
@@ -435,162 +412,27 @@ fun footerBar(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
-            Row(
-                modifier = Modifier
-                    .align(Alignment.CenterStart),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                systemResourcesDropdown(
-                    memoryUsage = memoryUsage,
-                    cpuUsage = cpuUsage,
-                    telemetryExpanded = telemetryExpanded,
-                    onToggleTelemetry = { telemetryExpanded = !telemetryExpanded },
+            themedTooltip(text = stringResource("menu.about")) {
+                Text(
+                    text = "v${VersionInfo.version}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .pointerHoverIcon(PointerIcon.Hand)
+                        .clickableCard { onShowAbout() }
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
                 )
             }
 
+            // Centre — provider + model selector
             Box(modifier = Modifier.align(Alignment.Center)) {
                 aiConfigInfo(onConfigureAiProvider = onConfigureAiProvider)
             }
 
-            Row(
-                modifier = Modifier.align(Alignment.CenterEnd),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                themedTooltip(text = stringResource("system.share.feedback")) {
-                    TextButton(
-                        onClick = {
-                            runCatching {
-                                Desktop.getDesktop().browse(URI("https://$DOMAIN/contact/"))
-                            }
-                        },
-                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                    ) {
-                        Text(
-                            text = stringResource("system.share.feedback"),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                }
-
+            // Right — notification bell
+            Box(modifier = Modifier.align(Alignment.CenterEnd)) {
                 notificationIcon(onShowUpdateDetails = onShowUpdateDetails)
-            }
-        }
-
-        if (telemetryExpanded) {
-            HorizontalDivider()
-            telemetryPanel(metrics, 250.dp)
-        }
-    }
-}
-
-@Composable
-private fun systemResourcesDropdown(
-    memoryUsage: Long,
-    cpuUsage: Double,
-    telemetryExpanded: Boolean,
-    onToggleTelemetry: () -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Box {
-        themedTooltip(
-            text = stringResource("system.metrics.tooltip"),
-        ) {
-            IconButton(
-                onClick = { expanded = !expanded },
-                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Speed,
-                    contentDescription = stringResource("system.metrics.tooltip"),
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSurface,
-                )
-            }
-        }
-
-        dropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            Column {
-                Column(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.small),
-                ) {
-                    // Memory usage
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Memory,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = stringResource("system.memory") + ":",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            text = "$memoryUsage MB",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-
-                    // CPU usage
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Speed,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = stringResource("system.cpu") + ":",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            text = "%.1f%%".format(cpuUsage),
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                }
-
-                HorizontalDivider()
-
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = if (telemetryExpanded) {
-                                stringResource("system.telemetry.hide")
-                            } else {
-                                stringResource("system.telemetry.show")
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    },
-                    onClick = {
-                        onToggleTelemetry()
-                        expanded = false
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .pointerHoverIcon(PointerIcon.Hand),
-                )
             }
         }
     }

@@ -97,6 +97,7 @@ import io.askimo.desktop.settings.providerSelectionDialog
 import io.askimo.desktop.settings.settingsViewWithSidebar
 import io.askimo.desktop.shell.footerBar
 import io.askimo.desktop.shell.navigationSidebar
+import io.askimo.desktop.shell.systemResourcesDialog
 import io.askimo.desktop.user.userProfileDialog
 import io.askimo.ui.chat.ChatViewModel
 import io.askimo.ui.chat.chatView
@@ -279,6 +280,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     var showAboutDialog by remember { mutableStateOf(false) }
     var showEventLogWindow by remember { mutableStateOf(false) }
     var showEventLogPanel by remember { mutableStateOf(false) }
+    var showSystemDiagnosticsDialog by remember { mutableStateOf(false) }
     var eventLogDockPosition by remember { mutableStateOf(EventLogDockPosition.BOTTOM) }
     var eventLogPanelSize by remember { mutableStateOf(300.dp) } // Default size
     var showTerminalPanel by remember { mutableStateOf(false) }
@@ -672,6 +674,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                 isPlansVisible = showPlansInSidebar,
                 isSkillsVisible = showSkillsInSidebar,
                 isProjectsVisible = showProjectsInSidebar,
+                onShowSystemDiagnostics = { showSystemDiagnosticsDialog = true },
             )
         }
     }
@@ -1141,6 +1144,9 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                 onConfigureAiProvider = {
                                     settingsViewModel.onChangeProvider()
                                 },
+                                onShowAbout = {
+                                    showAboutDialog = true
+                                },
                             )
 
                             // Event Log Panel - BOTTOM position
@@ -1389,6 +1395,11 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                     // About Dialog
                     if (showAboutDialog) {
                         aboutDialog(onDismiss = { showAboutDialog = false })
+                    }
+
+                    // System Diagnostics Dialog
+                    if (showSystemDiagnosticsDialog) {
+                        systemResourcesDialog(onDismiss = { showSystemDiagnosticsDialog = false })
                     }
 
                     // User Profile Dialog
