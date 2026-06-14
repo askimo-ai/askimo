@@ -25,7 +25,6 @@ compose-material3 = "1.9.0"
 compose-material-icons = "1.7.3"
 coil = "3.4.0"
 koin = "4.2.0"
-jlatexmath = "1.0.7"
 tika = "3.3.0"
 lucene = "10.4.0"
 caffeine = "3.2.3"
@@ -61,8 +60,7 @@ commonmark = { module = "org.commonmark:commonmark", version.ref = "commonmark" 
 commonmark-ext-gfm-tables = { module = "org.commonmark:commonmark-ext-gfm-tables", version.ref = "commonmark" }
 commonmark-ext-autolink = { module = "org.commonmark:commonmark-ext-autolink", version.ref = "commonmark" }
 
-# LaTeX Rendering
-jlatexmath = { module = "org.scilab.forge:jlatexmath", version.ref = "jlatexmath" }
+
 
 # Terminal (JediTerm & PTY4J)
 pty4j = { module = "org.jetbrains.pty4j:pty4j", version.ref = "pty4j" }

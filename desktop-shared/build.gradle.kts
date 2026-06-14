@@ -34,7 +34,6 @@ dependencies {
     implementation(libs.konform)
     implementation(libs.bundles.commonmark)
     implementation(libs.commonmark.ext.autolink)
-    implementation(libs.jlatexmath)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     // Terminal support
