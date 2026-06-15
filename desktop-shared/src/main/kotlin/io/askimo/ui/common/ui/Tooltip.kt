@@ -51,16 +51,86 @@ private val TOOLTIP_SHOW_DELAY = 400.milliseconds
  */
 private val TOOLTIP_HIDE_DELAY = 150.milliseconds
 
+/** Spacing between the tooltip and its anchor element. */
+private const val TOOLTIP_ANCHOR_SPACING = 8
+
 /** Controls which side the tooltip appears on relative to its anchor. */
 enum class TooltipPlacement {
     /** Default: above when in bottom half of screen, below otherwise. */
     AUTO,
+
+    /** Always above the anchor. */
+    TOP,
+
+    /** Always below the anchor. */
+    BOTTOM,
 
     /** Always to the left of the anchor. */
     LEFT,
 
     /** Always to the right of the anchor. */
     RIGHT,
+}
+
+/**
+ * Shared tooltip container that handles hover state and delayed show/hide animations.
+ * Reduces code duplication between tooltip variants.
+ *
+ * @param placement Controls where the tooltip appears
+ * @param modifier Optional modifier for the TooltipBox
+ * @param tooltip The tooltip popup content
+ * @param content The anchor content
+ */
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
+@Composable
+private fun tooltipContainer(
+    placement: TooltipPlacement = TooltipPlacement.AUTO,
+    modifier: Modifier = Modifier,
+    tooltip: @Composable () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val tooltipState = rememberTooltipState(isPersistent = true)
+    var isHovered by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isHovered) {
+        if (isHovered) {
+            delay(TOOLTIP_SHOW_DELAY)
+            tooltipState.show()
+        } else {
+            delay(TOOLTIP_HIDE_DELAY)
+            tooltipState.dismiss()
+        }
+    }
+
+    val windowInfo = LocalWindowInfo.current
+    val containerHeight = windowInfo.containerSize.height.toFloat()
+    val containerWidth = windowInfo.containerSize.width.toFloat()
+
+    Box(modifier = modifier) {
+        TooltipBox(
+            positionProvider = remember(containerHeight, containerWidth, placement) {
+                SmartTooltipPositionProvider(
+                    maxHeightPx = containerHeight,
+                    maxWidthPx = containerWidth,
+                    placement = placement,
+                )
+            },
+            tooltip = { tooltip() },
+            state = tooltipState,
+        ) {
+            Box(
+                modifier = Modifier
+                    .hoverable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        enabled = true,
+                    )
+                    .onPointerEvent(PointerEventType.Enter) { isHovered = true }
+                    .onPointerEvent(PointerEventType.Exit) { isHovered = false },
+            ) {
+                content()
+            }
+        }
+    }
 }
 
 /**
@@ -95,67 +165,36 @@ fun themedTooltip(
         if (text.length > maxChars) text.take(maxChars) + "…" else text
     }
 
-    val tooltipState = rememberTooltipState(isPersistent = true)
-    var isHovered by remember { mutableStateOf(false) }
-
-    LaunchedEffect(isHovered) {
-        if (isHovered) {
-            delay(TOOLTIP_SHOW_DELAY)
-            tooltipState.show()
-        } else {
-            delay(TOOLTIP_HIDE_DELAY)
-            tooltipState.dismiss()
-        }
-    }
-
-    val windowInfo = LocalWindowInfo.current
-    val containerHeight = windowInfo.containerSize.height.toFloat()
-
-    Box(modifier = modifier) {
-        TooltipBox(
-            positionProvider = remember(containerHeight, placement) {
-                SmartTooltipPositionProvider(maxHeightPx = containerHeight, placement = placement)
-            },
-            tooltip = {
-                Surface(
-                    modifier = Modifier.padding(4.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = MaterialTheme.shapes.small,
-                    shadowElevation = 4.dp,
-                ) {
-                    Text(
-                        text = displayText,
-                        modifier = Modifier
-                            .widthIn(max = TOOLTIP_MAX_WIDTH)
-                            .padding(horizontal = 10.dp, vertical = 8.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        softWrap = true,
-                    )
-                }
-            },
-            state = tooltipState,
-        ) {
-            Box(
-                modifier = Modifier
-                    .hoverable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        enabled = true,
-                    )
-                    .onPointerEvent(PointerEventType.Enter) { isHovered = true }
-                    .onPointerEvent(PointerEventType.Exit) { isHovered = false },
+    tooltipContainer(
+        placement = placement,
+        modifier = modifier,
+        tooltip = {
+            Surface(
+                modifier = Modifier.padding(4.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = MaterialTheme.shapes.small,
+                shadowElevation = 4.dp,
             ) {
-                content()
+                Text(
+                    text = displayText,
+                    modifier = Modifier
+                        .widthIn(max = TOOLTIP_MAX_WIDTH)
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    softWrap = true,
+                )
             }
-        }
-    }
+        },
+        content = content,
+    )
 }
 
 /**
  * A tooltip variant that accepts arbitrary composable content in the popup instead of a plain string.
  * Use this for rich tooltips (multi-line, structured content, etc.).
  *
- * @param placement Controls where the tooltip appears relative to the anchor
+ * @param placement Controls where the tooltip appears relative to the anchor (default [TooltipPlacement.AUTO])
  * @param modifier Optional modifier for the TooltipBox
  * @param tooltipContent The composable to render inside the tooltip popup
  * @param content The anchor composable the tooltip wraps
@@ -168,52 +207,21 @@ fun themedRichTooltip(
     tooltipContent: @Composable () -> Unit,
     content: @Composable () -> Unit,
 ) {
-    val tooltipState = rememberTooltipState(isPersistent = true)
-    var isHovered by remember { mutableStateOf(false) }
-
-    LaunchedEffect(isHovered) {
-        if (isHovered) {
-            delay(TOOLTIP_SHOW_DELAY)
-            tooltipState.show()
-        } else {
-            delay(TOOLTIP_HIDE_DELAY)
-            tooltipState.dismiss()
-        }
-    }
-
-    val windowInfo = LocalWindowInfo.current
-    val containerHeight = windowInfo.containerSize.height.toFloat()
-
-    Box(modifier = modifier) {
-        TooltipBox(
-            positionProvider = remember(containerHeight, placement) {
-                SmartTooltipPositionProvider(maxHeightPx = containerHeight, placement = placement)
-            },
-            tooltip = {
-                Surface(
-                    modifier = Modifier.padding(4.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = MaterialTheme.shapes.small,
-                    shadowElevation = 4.dp,
-                ) {
-                    tooltipContent()
-                }
-            },
-            state = tooltipState,
-        ) {
-            Box(
-                modifier = Modifier
-                    .hoverable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        enabled = true,
-                    )
-                    .onPointerEvent(PointerEventType.Enter) { isHovered = true }
-                    .onPointerEvent(PointerEventType.Exit) { isHovered = false },
+    tooltipContainer(
+        placement = placement,
+        modifier = modifier,
+        tooltip = {
+            Surface(
+                modifier = Modifier.padding(4.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = MaterialTheme.shapes.small,
+                shadowElevation = 4.dp,
             ) {
-                content()
+                tooltipContent()
             }
-        }
-    }
+        },
+        content = content,
+    )
 }
 
 /**
@@ -222,6 +230,7 @@ fun themedRichTooltip(
  */
 private class SmartTooltipPositionProvider(
     private val maxHeightPx: Float,
+    private val maxWidthPx: Float,
     private val placement: TooltipPlacement = TooltipPlacement.AUTO,
 ) : PopupPositionProvider {
     override fun calculatePosition(
@@ -229,33 +238,65 @@ private class SmartTooltipPositionProvider(
         windowSize: IntSize,
         layoutDirection: LayoutDirection,
         popupContentSize: IntSize,
-    ): IntOffset {
-        val spacing = 8
-
-        return when (placement) {
-            TooltipPlacement.LEFT -> IntOffset(
-                x = anchorBounds.left - popupContentSize.width - spacing,
+    ): IntOffset = when (placement) {
+        TooltipPlacement.LEFT -> {
+            val xPos = anchorBounds.left - popupContentSize.width - TOOLTIP_ANCHOR_SPACING
+            val constrainedX = maxOf(0, xPos) // Ensure not off-screen left
+            IntOffset(
+                x = constrainedX,
                 y = anchorBounds.top + (anchorBounds.height - popupContentSize.height) / 2,
             )
+        }
 
-            TooltipPlacement.RIGHT -> IntOffset(
-                x = anchorBounds.right + spacing,
+        TooltipPlacement.RIGHT -> {
+            val xPos = anchorBounds.right + TOOLTIP_ANCHOR_SPACING
+            val constrainedX = minOf(xPos, maxWidthPx.toInt() - popupContentSize.width) // Ensure not off-screen right
+            IntOffset(
+                x = constrainedX,
                 y = anchorBounds.top + (anchorBounds.height - popupContentSize.height) / 2,
             )
+        }
 
-            TooltipPlacement.AUTO -> {
-                val isInBottomHalf = anchorBounds.top > maxHeightPx / 2
-                if (isInBottomHalf) {
-                    IntOffset(
-                        x = anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2,
-                        y = anchorBounds.top - popupContentSize.height - spacing,
-                    )
-                } else {
-                    IntOffset(
-                        x = anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2,
-                        y = anchorBounds.bottom + spacing,
-                    )
-                }
+        TooltipPlacement.TOP -> {
+            val xPos = anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2
+            val constrainedX = xPos.coerceIn(0, (maxWidthPx - popupContentSize.width).toInt())
+            val yPos = anchorBounds.top - popupContentSize.height - TOOLTIP_ANCHOR_SPACING
+            val constrainedY = maxOf(0, yPos) // Ensure not off-screen top
+            IntOffset(
+                x = constrainedX,
+                y = constrainedY,
+            )
+        }
+
+        TooltipPlacement.BOTTOM -> {
+            val xPos = anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2
+            val constrainedX = xPos.coerceIn(0, (maxWidthPx - popupContentSize.width).toInt())
+            val yPos = anchorBounds.bottom + TOOLTIP_ANCHOR_SPACING
+            val constrainedY = minOf(yPos, maxHeightPx.toInt() - popupContentSize.height) // Ensure not off-screen bottom
+            IntOffset(
+                x = constrainedX,
+                y = constrainedY,
+            )
+        }
+
+        TooltipPlacement.AUTO -> {
+            val xPos = anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2
+            val constrainedX = xPos.coerceIn(0, (maxWidthPx - popupContentSize.width).toInt())
+            val isInBottomHalf = anchorBounds.top > maxHeightPx / 2
+            if (isInBottomHalf) {
+                val yPos = anchorBounds.top - popupContentSize.height - TOOLTIP_ANCHOR_SPACING
+                val constrainedY = maxOf(0, yPos) // Ensure not off-screen top
+                IntOffset(
+                    x = constrainedX,
+                    y = constrainedY,
+                )
+            } else {
+                val yPos = anchorBounds.bottom + TOOLTIP_ANCHOR_SPACING
+                val constrainedY = minOf(yPos, maxHeightPx.toInt() - popupContentSize.height) // Ensure not off-screen bottom
+                IntOffset(
+                    x = constrainedX,
+                    y = constrainedY,
+                )
             }
         }
     }
