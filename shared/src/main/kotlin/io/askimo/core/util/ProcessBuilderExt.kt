@@ -29,79 +29,7 @@ class ProcessBuilderExt(vararg command: String) {
     init {
         val resolvedCommand = resolveCommand(command.toList())
         processBuilder = ProcessBuilder(resolvedCommand)
-        enrichPath(processBuilder.environment())
-    }
-
-    // ── PATH enrichment ───────────────────────────────────────────────────────
-
-    private fun enrichPath(env: MutableMap<String, String>) {
-        val separator = File.pathSeparator
-        val extra = if (isWindows()) windowsExtraPaths() else unixExtraPaths()
-        val shellPath = if (!isWindows()) resolveShellPath() else null
-        val existing = (shellPath ?: env["PATH"] ?: "").split(separator)
-        val merged = (existing + extra)
-            .filter { it.isNotBlank() }
-            .distinct()
-            .joinToString(separator)
-        env["PATH"] = merged
-    }
-
-    /**
-     * Asks the user's login shell for its PATH.
-     * Covers nvm, Homebrew, pyenv, and any other shell-profile additions.
-     * Returns null on failure or timeout.
-     */
-    private fun resolveShellPath(): String? = runCatching {
-        val shell = System.getenv("SHELL") ?: "/bin/zsh"
-        val proc = ProcessBuilder(shell, "-l", "-c", "echo \$PATH")
-            .redirectErrorStream(true)
-            .start()
-        val path = proc.inputStream.bufferedReader().readText().trim()
-        val ok = proc.waitFor(5, TimeUnit.SECONDS)
-        path.takeIf { ok && it.isNotBlank() }
-    }.getOrNull()
-
-    /** Static extra paths on macOS / Linux. */
-    private fun unixExtraPaths(): List<String> {
-        val home = System.getProperty("user.home")
-        val nvmBase = File("$home/.nvm/versions/node")
-        val nvmBins = if (nvmBase.isDirectory) {
-            nvmBase.listFiles()
-                ?.sortedDescending() // newest version first
-                ?.map { "${it.absolutePath}/bin" }
-                ?: emptyList()
-        } else {
-            emptyList()
-        }
-
-        return nvmBins + listOf(
-            "/usr/local/bin",
-            "/opt/homebrew/bin", // Apple Silicon Homebrew
-            "/opt/homebrew/sbin",
-            "/usr/bin",
-            "/bin",
-            "/opt/local/bin", // MacPorts
-            "/usr/local/lib/node_modules/.bin",
-            "/usr/lib/node_modules/.bin",
-            "$home/.npm-global/bin",
-            "$home/.local/bin",
-            "$home/bin",
-        )
-    }
-
-    /** Static extra paths on Windows. */
-    private fun windowsExtraPaths(): List<String> {
-        val home = System.getProperty("user.home")
-        val appData = System.getenv("APPDATA") ?: "$home\\AppData\\Roaming"
-        val programFiles = System.getenv("ProgramFiles") ?: "C:\\Program Files"
-        val programFilesX86 = System.getenv("ProgramFiles(x86)") ?: "C:\\Program Files (x86)"
-        return listOf(
-            "$appData\\npm",
-            "$home\\AppData\\Local\\Programs\\node",
-            "$programFiles\\nodejs",
-            "$programFilesX86\\nodejs",
-            "C:\\Program Files\\nodejs",
-        )
+        processBuilder.environment()["PATH"] = enrichedPath(processBuilder.environment()["PATH"] ?: "")
     }
 
     /**
@@ -152,10 +80,31 @@ class ProcessBuilderExt(vararg command: String) {
     fun start(): Process = processBuilder.start()
 
     companion object {
+
         fun resolveCommand(command: List<String>): List<String> {
             if (command.isEmpty()) return command
             val resolved = findExecutable(command[0])
             return listOf(resolved) + command.drop(1)
+        }
+
+        /**
+         * Returns an enriched PATH string that includes the login shell's PATH (on Unix/macOS)
+         * plus well-known static fallback directories (nvm, Homebrew, user-local bin, etc.).
+         *
+         * Useful for injecting into child processes that would otherwise inherit the app's
+         * limited PATH (e.g. MCP stdio transports, script runners).
+         *
+         * @param currentPath  Baseline PATH to augment; defaults to the current process PATH.
+         */
+        fun enrichedPath(currentPath: String = System.getenv("PATH") ?: ""): String {
+            val separator = File.pathSeparator
+            val extra = if (isWindows()) windowsExtraPaths() else unixExtraPaths()
+            val shellPath = if (!isWindows()) resolveShellPath() else null
+            val existing = (shellPath ?: currentPath).split(separator)
+            return (existing + extra)
+                .filter { it.isNotBlank() }
+                .distinct()
+                .joinToString(separator)
         }
 
         private fun findExecutable(executableName: String): String {
@@ -241,6 +190,62 @@ class ProcessBuilderExt(vararg command: String) {
             null
         }
 
-        private fun isWindows(): Boolean = System.getProperty("os.name", "").lowercase().contains("windows")
+        /** Extra PATH entries on macOS / Linux (nvm bins + well-known install dirs). */
+        private fun unixExtraPaths(): List<String> {
+            val home = System.getProperty("user.home")
+            val nvmBase = File("$home/.nvm/versions/node")
+            val nvmBins = if (nvmBase.isDirectory) {
+                nvmBase.listFiles()
+                    ?.sortedDescending() // newest version first
+                    ?.map { "${it.absolutePath}/bin" }
+                    ?: emptyList()
+            } else {
+                emptyList()
+            }
+            return nvmBins + listOf(
+                "/usr/local/bin",
+                "/opt/homebrew/bin", // Apple Silicon Homebrew
+                "/opt/homebrew/sbin",
+                "/usr/bin",
+                "/bin",
+                "/opt/local/bin", // MacPorts
+                "/usr/local/lib/node_modules/.bin",
+                "/usr/lib/node_modules/.bin",
+                "$home/.npm-global/bin",
+                "$home/.local/bin",
+                "$home/bin",
+            )
+        }
+
+        /** Extra PATH entries on Windows (npm global, Node install dirs). */
+        private fun windowsExtraPaths(): List<String> {
+            val home = System.getProperty("user.home")
+            val appData = System.getenv("APPDATA") ?: "$home\\AppData\\Roaming"
+            val programFiles = System.getenv("ProgramFiles") ?: "C:\\Program Files"
+            val programFilesX86 = System.getenv("ProgramFiles(x86)") ?: "C:\\Program Files (x86)"
+            return listOf(
+                "$appData\\npm",
+                "$home\\AppData\\Local\\Programs\\node",
+                "$programFiles\\nodejs",
+                "$programFilesX86\\nodejs",
+                "C:\\Program Files\\nodejs",
+            )
+        }
+
+        /**
+         * Asks the user's login shell for its PATH so nvm, Homebrew, pyenv etc. are included.
+         * Returns null on failure or timeout.
+         */
+        private fun resolveShellPath(): String? = runCatching {
+            val shell = System.getenv("SHELL") ?: "/bin/zsh"
+            val proc = ProcessBuilder(shell, "-l", "-c", "echo \$PATH")
+                .redirectErrorStream(true)
+                .start()
+            val path = proc.inputStream.bufferedReader().readText().trim()
+            val ok = proc.waitFor(5, TimeUnit.SECONDS)
+            path.takeIf { ok && it.isNotBlank() }
+        }.getOrNull()
+
+        fun isWindows(): Boolean = System.getProperty("os.name", "").lowercase().contains("windows")
     }
 }

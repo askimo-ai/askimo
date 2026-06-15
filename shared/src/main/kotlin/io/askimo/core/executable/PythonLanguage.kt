@@ -5,7 +5,7 @@
 package io.askimo.core.executable
 
 import io.askimo.core.util.AskimoHome
-import io.askimo.core.util.ExecutableResolver
+import io.askimo.core.util.ProcessBuilderExt
 import java.io.File
 
 /**
@@ -70,7 +70,7 @@ object PythonLanguage : RunnableLanguage(setOf("python", "python3", "py"), "pyth
 
         // Bootstrap the venv on first use
         val bootstrapCmd = if (!ASKIMO_VENV_DIR.exists()) {
-            val systemPython = ExecutableResolver.findExecutable("python3")
+            val systemPython = ProcessBuilderExt.resolveCommand(listOf("python3")).first()
             "$systemPython -m venv ${ASKIMO_VENV_DIR.absolutePath} && "
         } else {
             ""

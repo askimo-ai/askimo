@@ -10,7 +10,7 @@ import io.askimo.core.logging.logger
 import io.askimo.core.mcp.McpConnector
 import io.askimo.core.mcp.StdioMcpTransportConfig
 import io.askimo.core.mcp.ValidationResult
-import io.askimo.core.util.ExecutableResolver
+import io.askimo.core.util.ProcessBuilderExt
 import java.io.File
 
 /**
@@ -23,32 +23,33 @@ class StdioMcpConnector(
     private val log = logger<StdioMcpConnector>()
 
     override suspend fun createTransport(): McpTransport {
-        // Resolve executable paths (handles Windows .cmd/.bat extensions, macOS PATH issues, etc.)
-        var command = ExecutableResolver.resolveCommand(config.command)
+        var command = ProcessBuilderExt.resolveCommand(config.command)
 
-        // If working directory is specified, wrap command to execute from that directory
         if (config.workingDirectory != null) {
             val workDir = config.workingDirectory
-            val isWindows = System.getProperty("os.name").lowercase().contains("win")
-
+            val isWindows = ProcessBuilderExt.isWindows()
             command = if (isWindows) {
-                // Windows: cmd /c "cd /d <dir> && <command>"
                 listOf("cmd", "/c", "cd /d \"$workDir\" && ${command.joinToString(" ")}")
             } else {
-                // Unix/Mac: bash -c "cd <dir> && <command>"
                 listOf("bash", "-c", "cd \"$workDir\" && ${command.joinToString(" ")}")
             }
         }
 
+        val env = System.getenv().toMutableMap()
+        config.env.forEach { (k, v) -> env[k] = v }
+        env["PATH"] = ProcessBuilderExt.enrichedPath(env["PATH"] ?: "")
+
+        log.debug("[MCP '${config.name}'] Launching stdio transport")
+        log.debug("[MCP '${config.name}']   command : {}", command)
+        log.debug("[MCP '${config.name}']   workDir : {}", config.workingDirectory ?: "<none>")
+        log.debug("[MCP '${config.name}']   env keys: {}", env.keys)
+        log.debug("[MCP '${config.name}']   PATH    : {}", env["PATH"])
+
         val builder = StdioMcpTransport.builder()
             .logger(log)
-            .logEvents(log.isTraceEnabled)
+            .logEvents(log.isDebugEnabled) // lowered from isTraceEnabled so DEBUG is enough
             .command(command)
-
-        // Add environment variables if any
-        if (config.env.isNotEmpty()) {
-            builder.environment(config.env.toMutableMap())
-        }
+            .environment(env)
 
         return builder.build()
     }
@@ -61,17 +62,11 @@ class StdioMcpConnector(
             errors.add("Command cannot be empty")
         }
 
-        // Check if command executable exists (basic check for first element)
         if (config.command.isNotEmpty()) {
             val executable = config.command[0]
-            // Skip validation for well-known commands that should be in PATH
-            val skipValidation = listOf("npx", "node", "python", "python3", "java", "sh", "bash")
-            if (!skipValidation.contains(executable)) {
-                val execFile = File(executable)
-                // Only check if it's an absolute path
-                if (execFile.isAbsolute && !execFile.exists()) {
-                    errors.add("Executable not found: $executable")
-                }
+            val execFile = File(executable)
+            if (execFile.isAbsolute && !execFile.exists()) {
+                errors.add("Executable not found: $executable")
             }
         }
 
