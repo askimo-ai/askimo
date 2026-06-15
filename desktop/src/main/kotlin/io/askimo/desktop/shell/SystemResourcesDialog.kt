@@ -63,7 +63,7 @@ fun systemResourcesDialog(onDismiss: () -> Unit) {
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Surface(
-            modifier = Modifier.width(720.dp),
+            modifier = Modifier.width(900.dp),
             shape = MaterialTheme.shapes.large,
             tonalElevation = 8.dp,
         ) {

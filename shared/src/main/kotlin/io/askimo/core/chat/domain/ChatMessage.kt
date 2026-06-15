@@ -21,6 +21,10 @@ data class ChatMessage(
     val isEdited: Boolean = false,
     val attachments: List<FileAttachment> = emptyList(),
     val isFailed: Boolean = false,
+    val inputTokens: Int? = null,
+    val outputTokens: Int? = null,
+    val totalTokens: Int? = null,
+    val durationMs: Long? = null,
 )
 
 /**
@@ -44,6 +48,10 @@ object ChatMessagesTable : Table("chat_messages") {
 
     val isEdited = integer("is_edited").default(0)
     val isFailed = integer("is_failed").default(0)
+    val inputTokens = integer("input_tokens").nullable()
+    val outputTokens = integer("output_tokens").nullable()
+    val totalTokens = integer("total_tokens").nullable()
+    val durationMs = long("duration_ms").nullable()
 
     val syncedAt = varchar("synced_at", 32).nullable()
 

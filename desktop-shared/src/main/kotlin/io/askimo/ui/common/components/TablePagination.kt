@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ExpandMore
@@ -32,7 +33,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.askimo.ui.common.i18n.stringResource
-import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.Spacing
 
 val TABLE_PAGE_SIZE_OPTIONS = listOf(10, 20, 50, 100)
@@ -135,19 +136,27 @@ fun tablePageSizeSelector(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            AppComponents.dropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+            dropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                 TABLE_PAGE_SIZE_OPTIONS.forEach { size ->
                     DropdownMenuItem(
                         text = {
                             Text(
                                 text = size.toString(),
-                                fontWeight = if (size == pageSize) FontWeight.Bold else FontWeight.Normal,
-                                color = if (size == pageSize) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface
-                                },
+                                fontWeight = if (size == pageSize) FontWeight.SemiBold else FontWeight.Normal,
+                                color = MaterialTheme.colorScheme.onSurface,
                             )
+                        },
+                        leadingIcon = if (size == pageSize) {
+                            {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                        } else {
+                            null
                         },
                         onClick = {
                             showMenu = false

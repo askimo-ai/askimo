@@ -11,10 +11,10 @@ import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.StreamingChatModel
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.model.image.ImageModel
-import dev.langchain4j.model.openai.OpenAiChatModel
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel.OpenAiEmbeddingModelBuilder
 import dev.langchain4j.model.openai.OpenAiImageModel
-import dev.langchain4j.model.openai.OpenAiStreamingChatModel
+import dev.langchain4j.model.openai.OpenAiResponsesChatModel
+import dev.langchain4j.model.openai.OpenAiResponsesStreamingChatModel
 import dev.langchain4j.rag.content.retriever.ContentRetriever
 import dev.langchain4j.service.AiServices
 import dev.langchain4j.service.tool.ToolProvider
@@ -26,7 +26,6 @@ import io.askimo.core.util.ProxyUtil
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.net.http.HttpClient
-import java.time.Duration
 import kotlin.Boolean
 
 /**
@@ -113,14 +112,13 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
      * Probe whether the current model supports thinking/reasoning capabilities.
      */
     protected open fun probeThinkingSupport(settings: T): Boolean = try {
-        val testModel = OpenAiStreamingChatModel
+        val testModel = OpenAiResponsesStreamingChatModel
             .builder()
             .httpClientBuilder(createHttpClientBuilder(settings.baseUrl))
             .baseUrl(settings.baseUrl)
             .apiKey(resolveApiKey(settings))
             .modelName(settings.defaultModel)
             .reasoningEffort(ReasoningEffort.LOW.value)
-            .logger(log)
             .logRequests(log.isDebugEnabled)
             .logResponses(log.isDebugEnabled)
             .build()
@@ -202,46 +200,38 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
     override fun createStreamingModel(settings: T): StreamingChatModel {
         val telemetry = AppContext.getInstance().telemetry
         val supportsThinking = ModelCapabilitiesCache.supportsThinking(getProvider(), settings.defaultModel)
-        return OpenAiStreamingChatModel.builder()
+        return OpenAiResponsesStreamingChatModel.builder()
             .httpClientBuilder(createHttpClientBuilder(settings.baseUrl))
             .baseUrl(settings.baseUrl)
             .apiKey(resolveApiKey(settings))
             .modelName(settings.defaultModel)
-            .timeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
             .apply {
                 val reasoningLevel = ModelCapabilitiesCache.getReasoningLevel(getProvider(), settings.defaultModel)
                 if (supportsThinking && reasoningLevel.isEnabled) {
-                    sendThinking(true)
-                    returnThinking(true)
                     reasoningEffort(reasoningLevel.value)
                 }
             }
-            .logger(log)
             .logRequests(log.isDebugEnabled)
             .logResponses(log.isDebugEnabled)
             .listeners(listOf(TelemetryChatModelListener(telemetry, getProvider().providerKey())))
             .build()
     }
 
-    override fun createSecondaryModel(settings: T): ChatModel = OpenAiChatModel.builder()
+    override fun createSecondaryModel(settings: T): ChatModel = OpenAiResponsesChatModel.builder()
         .httpClientBuilder(createHttpClientBuilder(settings.baseUrl))
         .baseUrl(settings.baseUrl)
         .apiKey(resolveApiKey(settings))
         .modelName(AppConfig.models[getProvider()].utilityModel.ifBlank { utilityModelFallback(settings) })
-        .timeout(Duration.ofSeconds(AppConfig.models.timeouts.utilityModelTimeoutSeconds))
-        .logger(log)
         .logRequests(log.isDebugEnabled)
         .build()
 
     override fun createModel(settings: T): ChatModel {
         val telemetry = AppContext.getInstance().telemetry
-        return OpenAiChatModel.builder()
+        return OpenAiResponsesChatModel.builder()
             .httpClientBuilder(createHttpClientBuilder(settings.baseUrl))
             .baseUrl(settings.baseUrl)
             .apiKey(resolveApiKey(settings))
             .modelName(settings.defaultModel)
-            .timeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
-            .logger(log)
             .logRequests(log.isDebugEnabled)
             .logResponses(log.isTraceEnabled)
             .listeners(listOf(TelemetryChatModelListener(telemetry, getProvider().providerKey())))

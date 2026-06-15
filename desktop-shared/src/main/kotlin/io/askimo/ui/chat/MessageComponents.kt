@@ -545,6 +545,7 @@ private fun aiMessageBubble(
     val coroutineScope = rememberCoroutineScope()
     var pendingRunRequest by remember { mutableStateOf<Pair<String, String>?>(null) }
     var isExporting by remember { mutableStateOf(false) }
+    var isHovered by remember { mutableStateOf(false) }
     val isClickable = onMessageClick != null && message.id != null && message.timestamp != null
     val aiContentColor = if (isOutdatedMessage) {
         MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
@@ -553,7 +554,10 @@ private fun aiMessageBubble(
     }
 
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .onPointerEvent(PointerEventType.Enter) { isHovered = true }
+            .onPointerEvent(PointerEventType.Exit) { isHovered = false },
         horizontalAlignment = Alignment.Start,
     ) {
         Row(
@@ -834,6 +838,36 @@ private fun aiMessageBubble(
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                     style = MaterialTheme.typography.labelLarge,
                 )
+            }
+
+            // Token usage — inline after action icons, visible on hover only
+            val total = message.totalTokens
+            val input = message.inputTokens
+            val output = message.outputTokens
+            val durationMs = message.durationMs
+            if (total != null && total > 0 && !isStreaming && isHovered) {
+                Spacer(modifier = Modifier.width(Spacing.small))
+                themedTooltip(text = stringResource("message.token.usage.tooltip")) {
+                    Text(
+                        text = buildString {
+                            if (input != null && output != null) {
+                                append(stringResource("message.token.usage", total, input, output))
+                            } else {
+                                append("$total tokens")
+                            }
+                            if (durationMs != null && durationMs >= 0) {
+                                val durationLabel = when {
+                                    durationMs < 1000L -> "${durationMs}ms"
+                                    else -> "${"%.1f".format(durationMs / 1000.0)}s"
+                                }
+                                append(" · ")
+                                append(durationLabel)
+                            }
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    )
+                }
             }
         }
 

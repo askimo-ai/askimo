@@ -284,6 +284,21 @@ class ChatSessionService(
     fun getSessionsWithoutProject(limit: Int, sortOrder: SortOrder = SortOrder.DESC): List<ChatSession> = sessionRepository.getSessionsWithoutProject(limit, sortOrder)
 
     /**
+     * Count all sessions not belonging to any project.
+     */
+    fun countSessionsWithoutProject(): Int = sessionRepository.countSessionsWithoutProject()
+
+    /**
+     * Search sessions by title (case-insensitive) that have no project, with pagination.
+     */
+    fun searchSessionsWithoutProject(
+        titleQuery: String,
+        page: Int = 1,
+        pageSize: Int = 10,
+        sortOrder: SortOrder = SortOrder.DESC,
+    ): Pageable<ChatSession> = sessionRepository.searchSessionsWithoutProject(titleQuery, page, pageSize, sortOrder)
+
+    /**
      * Get sessions with pagination support.
      * Only returns sessions without a project (projectId is null).
      * Sessions with projects are accessed through ProjectView.
@@ -418,7 +433,15 @@ class ChatSessionService(
         return createdMessage
     }
 
-    fun saveAiResponse(sessionId: String, response: String, isFailed: Boolean = false): ChatMessage {
+    fun saveAiResponse(
+        sessionId: String,
+        response: String,
+        isFailed: Boolean = false,
+        inputTokens: Int? = null,
+        outputTokens: Int? = null,
+        totalTokens: Int? = null,
+        durationMs: Long? = null,
+    ): ChatMessage {
         val message = addMessage(
             ChatMessage(
                 id = "",
@@ -426,6 +449,10 @@ class ChatSessionService(
                 role = MessageRole.ASSISTANT,
                 content = response,
                 isFailed = isFailed,
+                inputTokens = inputTokens,
+                outputTokens = outputTokens,
+                totalTokens = totalTokens,
+                durationMs = durationMs,
             ),
         )
 

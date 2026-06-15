@@ -20,6 +20,8 @@ import io.askimo.ui.shell.ProjectsSidebarState
 import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -51,6 +53,11 @@ class ProjectsViewModel(
 
     var deleteProjectSuccessfulBannerMessage by mutableStateOf<String?>(null)
         private set
+
+    var searchQuery by mutableStateOf("")
+        private set
+
+    private var searchDebounceJob: Job? = null
 
     private var projectsPerPage = 10
 
@@ -100,7 +107,7 @@ class ProjectsViewModel(
     }
 
     /**
-     * Load projects for a specific page.
+     * Load projects for a specific page, respecting any active [searchQuery].
      */
     fun loadProjectsPaged(page: Int = 1) {
         isLoading = true
@@ -109,7 +116,11 @@ class ProjectsViewModel(
         scope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
-                    projectRepository.getProjectsPaged(page, projectsPerPage)
+                    if (searchQuery.isBlank()) {
+                        projectRepository.getProjectsPaged(page, projectsPerPage)
+                    } else {
+                        projectRepository.searchProjectsPaged(searchQuery, page, projectsPerPage)
+                    }
                 }
                 pagedProjects = result
             } catch (e: Exception) {
@@ -122,6 +133,27 @@ class ProjectsViewModel(
                 isLoading = false
             }
         }
+    }
+
+    /**
+     * Update the search query and reload page 1 with a 300 ms debounce.
+     */
+    fun updateSearch(query: String) {
+        searchQuery = query
+        searchDebounceJob?.cancel()
+        searchDebounceJob = scope.launch {
+            delay(300)
+            loadProjectsPaged(1)
+        }
+    }
+
+    /**
+     * Clear the search query and reload.
+     */
+    fun clearSearch() {
+        searchQuery = ""
+        searchDebounceJob?.cancel()
+        loadProjectsPaged(1)
     }
 
     /**

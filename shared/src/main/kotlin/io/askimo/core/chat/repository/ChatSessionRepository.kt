@@ -15,11 +15,13 @@ import io.askimo.core.event.internal.PushDataToServerEvent
 import io.askimo.core.logging.logger
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.core.like
 import org.jetbrains.exposed.v1.jdbc.deleteAll
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -342,6 +344,82 @@ class ChatSessionRepository internal constructor(
             )
             .limit(limit)
             .map { it.toChatSession() }
+    }
+
+    /**
+     * Search sessions by title (case-insensitive LIKE) that have no project, with pagination.
+     *
+     * @param titleQuery Search term matched against session titles
+     * @param page The page number (1-based)
+     * @param pageSize Number of sessions per page
+     * @param sortOrder Sort direction for updatedAt
+     * @return Paginated results matching the query
+     */
+    fun searchSessionsWithoutProject(
+        titleQuery: String,
+        page: Int = 1,
+        pageSize: Int = 10,
+        sortOrder: SortOrder = SortOrder.DESC,
+    ): Pageable<ChatSession> = transaction(database) {
+        val pattern = "%${titleQuery.trim()}%"
+
+        val baseQuery = ChatSessionsTable
+            .selectAll()
+            .where {
+                (ChatSessionsTable.projectId.isNull()) and
+                    (ChatSessionsTable.title like pattern)
+            }
+
+        val totalItems = baseQuery.count().toInt()
+
+        if (totalItems == 0) {
+            return@transaction Pageable(
+                items = emptyList(),
+                currentPage = 1,
+                totalPages = 0,
+                totalItems = 0,
+                pageSize = pageSize,
+            )
+        }
+
+        val totalPages = (totalItems + pageSize - 1) / pageSize
+        val validPage = page.coerceIn(1, totalPages)
+        val offset = ((validPage - 1) * pageSize).toLong()
+
+        val pageSessions = ChatSessionsTable
+            .selectAll()
+            .where {
+                (ChatSessionsTable.projectId.isNull()) and
+                    (ChatSessionsTable.title like pattern)
+            }
+            .orderBy(
+                Pair(ChatSessionsTable.isStarred, SortOrder.DESC),
+                Pair(ChatSessionsTable.updatedAt, sortOrder),
+            )
+            .limit(pageSize)
+            .offset(offset)
+            .map { it.toChatSession() }
+
+        Pageable(
+            items = pageSessions,
+            currentPage = validPage,
+            totalPages = totalPages,
+            totalItems = totalItems,
+            pageSize = pageSize,
+        )
+    }
+
+    /**
+     * Count sessions not belonging to any project.
+     *
+     * @return Total number of sessions without a project
+     */
+    fun countSessionsWithoutProject(): Int = transaction(database) {
+        ChatSessionsTable
+            .selectAll()
+            .where { ChatSessionsTable.projectId.isNull() }
+            .count()
+            .toInt()
     }
 
     /**

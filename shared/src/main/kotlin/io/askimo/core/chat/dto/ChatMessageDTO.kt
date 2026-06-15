@@ -20,4 +20,8 @@ data class ChatMessageDTO(
     val isEdited: Boolean = false,
     val attachments: List<FileAttachmentDTO> = emptyList(),
     val isFailed: Boolean = false,
+    val inputTokens: Int? = null,
+    val outputTokens: Int? = null,
+    val totalTokens: Int? = null,
+    val durationMs: Long? = null,
 )

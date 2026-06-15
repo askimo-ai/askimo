@@ -21,6 +21,7 @@ import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.like
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
@@ -199,6 +200,55 @@ class ProjectRepository internal constructor(
 
         val pageProjects = ProjectsTable
             .selectAll()
+            .orderBy(ProjectsTable.updatedAt, SortOrder.DESC)
+            .limit(pageSize)
+            .offset(offset)
+            .map { it.toProject() }
+
+        Pageable(
+            items = pageProjects,
+            currentPage = validPage,
+            totalPages = totalPages,
+            totalItems = totalItems,
+            pageSize = pageSize,
+        )
+    }
+
+    /**
+     * Search projects by name (case-insensitive LIKE) with pagination.
+     *
+     * @param nameQuery Search term matched against project names
+     * @param page The page number (1-based)
+     * @param pageSize Number of projects per page
+     * @return Paginated results matching the query
+     */
+    fun searchProjectsPaged(nameQuery: String, page: Int = 1, pageSize: Int = 10): Pageable<Project> = transaction(database) {
+        val pattern = "%${nameQuery.trim()}%"
+
+        val countExpr = ProjectsTable.id.count()
+        val totalItems = ProjectsTable
+            .select(countExpr)
+            .where { ProjectsTable.name like pattern }
+            .first()[countExpr].toInt()
+
+        if (totalItems == 0) {
+            return@transaction Pageable(
+                items = emptyList(),
+                currentPage = 1,
+                totalPages = 0,
+                totalItems = 0,
+                pageSize = pageSize,
+            )
+        }
+
+        val totalPages = (totalItems + pageSize - 1) / pageSize
+        val validPage = page.coerceIn(1, totalPages)
+        val offset = ((validPage - 1) * pageSize).toLong()
+
+        val pageProjects = ProjectsTable
+            .selectAll()
+            .where { ProjectsTable.name like pattern }
+            .orderBy(ProjectsTable.isStarred, SortOrder.DESC)
             .orderBy(ProjectsTable.updatedAt, SortOrder.DESC)
             .limit(pageSize)
             .offset(offset)

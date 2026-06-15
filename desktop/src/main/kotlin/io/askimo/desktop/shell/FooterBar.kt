@@ -55,11 +55,7 @@ import io.askimo.core.context.AppContext
 import io.askimo.core.context.getConfigInfo
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.ModelChangedEvent
-import io.askimo.core.logging.currentFileLogger
-import io.askimo.core.providers.ChatModelFactory
-import io.askimo.core.providers.ModelDTO
 import io.askimo.core.providers.ModelProvider
-import io.askimo.core.providers.ProviderSettings
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
@@ -67,18 +63,15 @@ import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.clickableCard
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.shell.notificationIcon
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import org.koin.java.KoinJavaComponent.get
-
-private val log = currentFileLogger()
 
 @Composable
 private fun aiConfigInfo(onConfigureAiProvider: () -> Unit) {
     val appContext = remember { get<AppContext>(AppContext::class.java) }
+    val scope = rememberCoroutineScope()
     var configInfo by remember { mutableStateOf(appContext.getConfigInfo()) }
 
+    // Keep configInfo in sync with model-change events broadcast on the event bus.
     LaunchedEffect(Unit) {
         EventBus.internalEvents.collect { event ->
             if (event is ModelChangedEvent) {
@@ -86,6 +79,10 @@ private fun aiConfigInfo(onConfigureAiProvider: () -> Unit) {
             }
         }
     }
+
+    // State holder for the model dropdown — bound to the composable scope so that
+    // in-flight coroutines are cancelled automatically when this leaves the composition.
+    val dropdownState = remember(appContext) { ModelDropdownState(scope, appContext) }
 
     Row(
         horizontalArrangement = Arrangement.spacedBy(Spacing.small),
@@ -99,18 +96,7 @@ private fun aiConfigInfo(onConfigureAiProvider: () -> Unit) {
         modelDropdown(
             currentProvider = configInfo.provider,
             currentModel = configInfo.model,
-            onModelSelected = { newModel ->
-                val appContext = get<AppContext>(AppContext::class.java)
-                CoroutineScope(Dispatchers.IO).launch {
-                    try {
-                        appContext.params.model = newModel
-                        appContext.save()
-                        EventBus.emit(ModelChangedEvent(configInfo.provider, newModel))
-                    } catch (e: Exception) {
-                        log.error("Failed to change model to $newModel for provider ${configInfo.provider}", e)
-                    }
-                }
-            },
+            state = dropdownState,
         )
     }
 }
@@ -156,42 +142,19 @@ private fun providerButton(
 private fun modelDropdown(
     currentProvider: ModelProvider,
     currentModel: String,
-    onModelSelected: (String) -> Unit,
+    state: ModelDropdownState,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    var availableModels by remember { mutableStateOf<List<ModelDTO>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
-    val appContext = remember { get<AppContext>(AppContext::class.java) }
-    val scope = rememberCoroutineScope()
 
-    // Load models when provider changes or when dropdown is opened
     LaunchedEffect(currentProvider, expanded) {
-        if (expanded && availableModels.isEmpty()) {
-            isLoading = true
-            scope.launch {
-                try {
-                    val settings = appContext.getOrCreateProviderSettings(currentProvider)
-                    val factory = appContext.getModelFactory(currentProvider)
-                    if (factory != null) {
-                        @Suppress("UNCHECKED_CAST")
-                        val models = (factory as ChatModelFactory<ProviderSettings>)
-                            .availableModels(settings)
-                        availableModels = models
-                    }
-                } catch (e: Exception) {
-                    log.error("Can not get models", e)
-                    availableModels = emptyList()
-                } finally {
-                    isLoading = false
-                }
-            }
+        if (expanded) {
+            state.loadModels(currentProvider)
         }
     }
 
-    // Reset models and search when provider changes
     LaunchedEffect(currentProvider) {
-        availableModels = emptyList()
+        state.reset()
         searchQuery = ""
     }
 
@@ -237,7 +200,7 @@ private fun modelDropdown(
             },
         ) {
             when {
-                isLoading -> {
+                state.isLoading -> {
                     DropdownMenuItem(
                         text = {
                             Row(
@@ -246,6 +209,7 @@ private fun modelDropdown(
                             ) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(16.dp),
+                                    color = MaterialTheme.colorScheme.onSurface,
                                 )
                                 Text(
                                     text = stringResource("settings.model.loading"),
@@ -258,7 +222,7 @@ private fun modelDropdown(
                     )
                 }
 
-                availableModels.isEmpty() -> {
+                state.availableModels.isEmpty() -> {
                     DropdownMenuItem(
                         text = {
                             Text(
@@ -301,7 +265,7 @@ private fun modelDropdown(
                     HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.extraSmall))
 
                     // Filter models based on search
-                    val filteredModels = availableModels.filter {
+                    val filteredModels = state.availableModels.filter {
                         it.displayName.contains(searchQuery, ignoreCase = true) ||
                             it.modelId.contains(searchQuery, ignoreCase = true)
                     }
@@ -357,7 +321,7 @@ private fun modelDropdown(
                                                 )
                                             },
                                             onClick = {
-                                                onModelSelected(dto.modelId)
+                                                state.selectModel(currentProvider, dto.modelId)
                                                 expanded = false
                                                 searchQuery = ""
                                             },

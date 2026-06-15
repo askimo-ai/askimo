@@ -233,6 +233,11 @@ class SessionManager(
         thread.job = streamingScope.launch {
             try {
                 if (mode is CreationMode.Chat) {
+                    var capturedInputTokens: Int? = null
+                    var capturedOutputTokens: Int? = null
+                    var capturedTotalTokens: Int? = null
+                    var capturedDurationMs: Long? = null
+
                     val fullResponse = chatSessionService
                         .getOrCreateClientForSession(sessionId)
                         .sendStreamingMessageWithCallback(
@@ -246,12 +251,24 @@ class SessionManager(
                             },
                             onFollowUpSuggestion = { suggestion ->
                                 log.debug("Follow-up suggestion for session $sessionId: ${suggestion.question}")
-                                // TODO: Handle follow-up suggestions in the UI
-                                // This could be shown as a clickable suggestion button in the chat
+                            },
+                            onTokenUsage = { input, output, total, durationMs ->
+                                capturedInputTokens = input
+                                capturedOutputTokens = output
+                                capturedTotalTokens = total
+                                capturedDurationMs = durationMs
+                                log.debug("Token usage for session $sessionId: input=$input, output=$output, total=$total, duration=${durationMs}ms")
                             },
                         )
 
-                    val savedMessage = chatSessionService.saveAiResponse(sessionId, fullResponse)
+                    val savedMessage = chatSessionService.saveAiResponse(
+                        sessionId = sessionId,
+                        response = fullResponse,
+                        inputTokens = capturedInputTokens,
+                        outputTokens = capturedOutputTokens,
+                        totalTokens = capturedTotalTokens,
+                        durationMs = capturedDurationMs,
+                    )
                     thread.setSavedMessage(savedMessage)
                     log.debug("Streaming thread $threadId completed successfully. Saved response to session $sessionId.")
                 } else {

@@ -64,6 +64,10 @@ private fun ResultRow.toChatMessage(): ChatMessage = ChatMessage(
     editParentId = this[ChatMessagesTable.editParentId],
     isEdited = this[ChatMessagesTable.isEdited] == 1,
     isFailed = this[ChatMessagesTable.isFailed] == 1,
+    inputTokens = this[ChatMessagesTable.inputTokens],
+    outputTokens = this[ChatMessagesTable.outputTokens],
+    totalTokens = this[ChatMessagesTable.totalTokens],
+    durationMs = this[ChatMessagesTable.durationMs],
 )
 
 /**
@@ -103,6 +107,10 @@ class ChatMessageRepository internal constructor(
                 it[ChatMessagesTable.editParentId] = messageWithInjectedFields.editParentId
                 it[ChatMessagesTable.isEdited] = if (messageWithInjectedFields.isEdited) 1 else 0
                 it[ChatMessagesTable.isFailed] = if (messageWithInjectedFields.isFailed) 1 else 0
+                it[ChatMessagesTable.inputTokens] = messageWithInjectedFields.inputTokens
+                it[ChatMessagesTable.outputTokens] = messageWithInjectedFields.outputTokens
+                it[ChatMessagesTable.totalTokens] = messageWithInjectedFields.totalTokens
+                it[ChatMessagesTable.durationMs] = messageWithInjectedFields.durationMs
             }
 
             // Save attachments if any
@@ -494,6 +502,10 @@ class ChatMessageRepository internal constructor(
                     it[editParentId] = message.editParentId
                     it[isEdited] = if (message.isEdited) 1 else 0
                     it[isFailed] = if (message.isFailed) 1 else 0
+                    it[inputTokens] = message.inputTokens
+                    it[outputTokens] = message.outputTokens
+                    it[totalTokens] = message.totalTokens
+                    it[durationMs] = message.durationMs
                     it[syncedAt] = message.createdAt.toString()
                 }
             }

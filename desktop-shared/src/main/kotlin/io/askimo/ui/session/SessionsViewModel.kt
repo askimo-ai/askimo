@@ -21,6 +21,8 @@ import io.askimo.ui.common.export.ExportFormat
 import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -60,6 +62,11 @@ class SessionsViewModel(
 
     var totalSessionCount by mutableStateOf(0)
         private set
+
+    var searchQuery by mutableStateOf("")
+        private set
+
+    private var searchDebounceJob: Job? = null
 
     // Export dialog state
     var showExportDialog by mutableStateOf(false)
@@ -169,13 +176,15 @@ class SessionsViewModel(
     fun loadRecentSessions() {
         scope.launch {
             try {
-                val sessionsWithoutProject = withContext(Dispatchers.IO) {
-                    sessionService.getSessionsWithoutProject(MAX_SIDEBAR_SESSIONS)
+                val (sessions, total) = withContext(Dispatchers.IO) {
+                    val sessions = sessionService.getSessionsWithoutProject(MAX_SIDEBAR_SESSIONS)
+                    val total = sessionService.countSessionsWithoutProject()
+                    sessions to total
                 }
-                recentSessions = sessionsWithoutProject.take(MAX_SIDEBAR_SESSIONS)
-                totalSessionCount = sessionsWithoutProject.size
+                recentSessions = sessions
+                totalSessionCount = total
 
-                log.debug("Loaded ${sessionsWithoutProject.size} sessions without projects (showing ${recentSessions.size} in sidebar)")
+                log.debug("Loaded ${sessions.size} sessions without projects (showing ${sessions.size} in sidebar, total: $total)")
             } catch (e: Exception) {
                 log.error("Failed to load recent sessions: ${e.message}", e)
             }
@@ -183,7 +192,7 @@ class SessionsViewModel(
     }
 
     /**
-     * Load sessions for a specific page.
+     * Load sessions for a specific page, respecting any active [searchQuery].
      */
     fun loadSessions(page: Int = 1) {
         isLoading = true
@@ -192,7 +201,11 @@ class SessionsViewModel(
         scope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
-                    sessionService.getSessionsPagedWithoutProject(page, sessionsPerPage)
+                    if (searchQuery.isBlank()) {
+                        sessionService.getSessionsPagedWithoutProject(page, sessionsPerPage)
+                    } else {
+                        sessionService.searchSessionsWithoutProject(searchQuery, page, sessionsPerPage)
+                    }
                 }
                 pagedSessions = result
             } catch (e: Exception) {
@@ -205,6 +218,27 @@ class SessionsViewModel(
                 isLoading = false
             }
         }
+    }
+
+    /**
+     * Update the search query and reload page 1 with a 300 ms debounce.
+     */
+    fun updateSearch(query: String) {
+        searchQuery = query
+        searchDebounceJob?.cancel()
+        searchDebounceJob = scope.launch {
+            delay(300)
+            loadSessions(1)
+        }
+    }
+
+    /**
+     * Clear the search query and reload.
+     */
+    fun clearSearch() {
+        searchQuery = ""
+        searchDebounceJob?.cancel()
+        loadSessions(1)
     }
 
     /**

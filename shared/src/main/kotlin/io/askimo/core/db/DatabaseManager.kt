@@ -326,6 +326,21 @@ class DatabaseManager private constructor(
                 // Column already exists — safe to ignore.
             }
 
+            // Migration: Add per-message token usage columns.
+            // NULL = token data was not available (older messages / providers that don't report it).
+            try {
+                stmt.executeUpdate("ALTER TABLE chat_messages ADD COLUMN input_tokens INTEGER")
+            } catch (_: Exception) {}
+            try {
+                stmt.executeUpdate("ALTER TABLE chat_messages ADD COLUMN output_tokens INTEGER")
+            } catch (_: Exception) {}
+            try {
+                stmt.executeUpdate("ALTER TABLE chat_messages ADD COLUMN total_tokens INTEGER")
+            } catch (_: Exception) {}
+            try {
+                stmt.executeUpdate("ALTER TABLE chat_messages ADD COLUMN duration_ms INTEGER")
+            } catch (_: Exception) {}
+
             // Create composite index for efficient session-based queries with time ordering
             stmt.executeUpdate(
                 """

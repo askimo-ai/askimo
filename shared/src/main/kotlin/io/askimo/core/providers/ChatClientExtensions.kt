@@ -68,6 +68,7 @@ fun ChatClient.sendStreamingMessageWithCallback(
     enabledServerIds: Set<String> = emptySet(),
     onToken: (String) -> Unit = {},
     onFollowUpSuggestion: ((FollowUpSuggestion) -> Unit)? = null,
+    onTokenUsage: ((inputTokens: Int, outputTokens: Int, totalTokens: Int, durationMs: Long) -> Unit)? = null,
 ): String {
     val log = logger<ChatClient>()
 
@@ -98,6 +99,7 @@ fun ChatClient.sendStreamingMessageWithCallback(
                     var errorOccurred = false
                     var isConfigurationError = false
                     var capturedError: Throwable? = null
+                    val streamStartTime = System.currentTimeMillis()
 
                     sendMessageStreaming(userMessage)
                         .onPartialResponse { chunk ->
@@ -105,6 +107,19 @@ fun ChatClient.sendStreamingMessageWithCallback(
                             onToken(chunk)
                         }.onCompleteResponse { response ->
                             val aiMessage = response.aiMessage()
+                            val tokenUsage = response.tokenUsage()
+
+                            // Fire per-message token usage callback before counting down
+                            if (onTokenUsage != null && tokenUsage != null) {
+                                val duration = System.currentTimeMillis() - streamStartTime
+                                onTokenUsage(
+                                    tokenUsage.inputTokenCount() ?: 0,
+                                    tokenUsage.outputTokenCount() ?: 0,
+                                    tokenUsage.totalTokenCount() ?: 0,
+                                    duration,
+                                )
+                            }
+
                             if (GeneratedImageHelper.hasGeneratedImages(aiMessage)) {
                                 val generatedImages = GeneratedImageHelper.getGeneratedImages(aiMessage)
                                 generatedImages?.forEach { image ->

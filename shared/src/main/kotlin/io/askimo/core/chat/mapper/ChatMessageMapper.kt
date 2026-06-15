@@ -29,6 +29,10 @@ object ChatMessageMapper {
         isEdited = this.isEdited,
         attachments = this.attachments.map { it.toDTO() },
         isFailed = this.isFailed,
+        inputTokens = this.inputTokens,
+        outputTokens = this.outputTokens,
+        totalTokens = this.totalTokens,
+        durationMs = this.durationMs,
     )
 
     /**
