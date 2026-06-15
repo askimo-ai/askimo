@@ -115,26 +115,20 @@ import io.askimo.ui.common.preferences.AccountPreferences
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents.alertDialog
 import io.askimo.ui.common.theme.BackgroundImage
-import io.askimo.ui.common.theme.DarkColorScheme
-import io.askimo.ui.common.theme.IndigoColorScheme
-import io.askimo.ui.common.theme.LightColorScheme
 import io.askimo.ui.common.theme.LocalBackgroundActive
 import io.askimo.ui.common.theme.LocalCodeFontFamily
 import io.askimo.ui.common.theme.LocalFontScale
 import io.askimo.ui.common.theme.LocalLayoutDensity
 import io.askimo.ui.common.theme.LocalSpacing
-import io.askimo.ui.common.theme.NordColorScheme
-import io.askimo.ui.common.theme.OceanColorScheme
-import io.askimo.ui.common.theme.RoseColorScheme
-import io.askimo.ui.common.theme.SageColorScheme
-import io.askimo.ui.common.theme.SepiaColorScheme
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.SpacingValues
-import io.askimo.ui.common.theme.ThemeMode
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.theme.appBackground
+import io.askimo.ui.common.theme.applyAccentToColorScheme
 import io.askimo.ui.common.theme.createCustomTypography
+import io.askimo.ui.common.theme.generateAppColorScheme
 import io.askimo.ui.common.theme.loadCodeFontFamily
+import io.askimo.ui.common.theme.parseAccentColor
 import io.askimo.ui.common.ui.util.CustomUriHandler
 import io.askimo.ui.common.ui.util.FileDialogUtils
 import io.askimo.ui.discover.DiscoverViewModel
@@ -544,12 +538,13 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
 
     // Theme state
     val themeState = rememberThemeState()
-    val themeMode = themeState.themeMode
     val fontSettings = themeState.fontSettings
     val layoutDensity = themeState.layoutDensity
     val locale = themeState.locale
     val backgroundImage = themeState.backgroundImage
     val useDarkMode = themeState.useDarkMode
+    val themePaletteStyle = themeState.themePaletteStyle
+    val accentColor = remember(themeState.accentColorHex) { parseAccentColor(themeState.accentColorHex) }
 
     // Watch AI response language config and update directive
     var preferredResponseAILocale by remember { mutableStateOf(AppConfig.chat.defaultResponseAILocale) }
@@ -679,14 +674,18 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
         }
     }
 
-    val colorScheme = when (themeMode) {
-        ThemeMode.SEPIA -> SepiaColorScheme
-        ThemeMode.OCEAN -> OceanColorScheme
-        ThemeMode.NORD -> NordColorScheme
-        ThemeMode.SAGE -> SageColorScheme
-        ThemeMode.ROSE -> RoseColorScheme
-        ThemeMode.INDIGO -> IndigoColorScheme
-        else -> if (useDarkMode) DarkColorScheme else LightColorScheme
+    val baseColorScheme = generateAppColorScheme(
+        isDark = useDarkMode,
+        paletteStyle = themePaletteStyle,
+    )
+    val colorScheme = if (accentColor != null) {
+        applyAccentToColorScheme(
+            accent = accentColor,
+            isDark = useDarkMode,
+            paletteStyle = themePaletteStyle,
+        )
+    } else {
+        baseColorScheme
     }
 
     val customTypography = remember(fontSettings) {

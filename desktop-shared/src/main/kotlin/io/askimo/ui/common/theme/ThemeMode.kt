@@ -36,14 +36,9 @@ fun detectMacOSDarkMode(): Boolean {
     }
 }
 
+/** Controls whether the app uses a light, dark, or system-matched base surface. */
 enum class ThemeMode {
     LIGHT,
     DARK,
     SYSTEM,
-    SEPIA,
-    OCEAN,
-    NORD,
-    SAGE,
-    ROSE,
-    INDIGO,
 }

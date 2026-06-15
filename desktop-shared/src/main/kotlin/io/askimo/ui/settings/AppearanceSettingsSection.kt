@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.ViewCompact
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -61,13 +62,19 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import io.askimo.ui.common.components.dangerButton
 import io.askimo.ui.common.components.primaryButton
+import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.BackgroundImage
 import io.askimo.ui.common.theme.LayoutDensity
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemeMode
+import io.askimo.ui.common.theme.ThemePaletteStyle
 import io.askimo.ui.common.theme.ThemePreferences
+import io.askimo.ui.common.theme.applyAccentToColorScheme
+import io.askimo.ui.common.theme.detectMacOSDarkMode
+import io.askimo.ui.common.theme.parseAccentColor
+import io.askimo.ui.common.theme.toAccentHex
 import io.askimo.ui.common.ui.asyncImage
 import io.askimo.ui.common.ui.clickableCard
 import io.askimo.ui.common.ui.util.FileDialogUtils
@@ -75,7 +82,59 @@ import io.askimo.ui.service.AvatarService
 import io.askimo.ui.service.BackgroundImageService
 import kotlinx.coroutines.launch
 import java.io.File
+import javax.swing.JColorChooser
+import javax.swing.UIManager
+import kotlin.math.roundToInt
 import org.jetbrains.skia.Image as SkiaImage
+
+private data class AccentPreset(
+    val label: String,
+    val hex: String,
+    val color: Color,
+)
+
+private data class PaletteStyleOption(
+    val style: ThemePaletteStyle,
+    val titleKey: String,
+    val descriptionKey: String,
+)
+
+private val paletteStyleOptions = listOf(
+    PaletteStyleOption(
+        style = ThemePaletteStyle.BALANCED,
+        titleKey = "settings.appearance.palette.balanced",
+        descriptionKey = "settings.appearance.palette.balanced.description",
+    ),
+    PaletteStyleOption(
+        style = ThemePaletteStyle.VIBRANT,
+        titleKey = "settings.appearance.palette.vibrant",
+        descriptionKey = "settings.appearance.palette.vibrant.description",
+    ),
+    PaletteStyleOption(
+        style = ThemePaletteStyle.LITERAL,
+        titleKey = "settings.appearance.palette.literal",
+        descriptionKey = "settings.appearance.palette.literal.description",
+    ),
+    PaletteStyleOption(
+        style = ThemePaletteStyle.SOFT,
+        titleKey = "settings.appearance.palette.soft",
+        descriptionKey = "settings.appearance.palette.soft.description",
+    ),
+)
+
+private val accentPresets = listOf(
+    AccentPreset(label = "Blue", hex = "#0284C7", color = Color(0xFF0284C7)),
+    AccentPreset(label = "Emerald", hex = "#10B981", color = Color(0xFF10B981)),
+    AccentPreset(label = "Violet", hex = "#8B5CF6", color = Color(0xFF8B5CF6)),
+    AccentPreset(label = "Rose", hex = "#E11D48", color = Color(0xFFE11D48)),
+    AccentPreset(label = "Amber", hex = "#F59E0B", color = Color(0xFFF59E0B)),
+    // Legacy curated theme primaries (kept as quick accent presets)
+    AccentPreset(label = "Sepia", hex = "#6B4226", color = Color(0xFF6B4226)),
+    AccentPreset(label = "Ocean", hex = "#0284C7", color = Color(0xFF0284C7)),
+    AccentPreset(label = "Nord", hex = "#88C0D0", color = Color(0xFF88C0D0)),
+    AccentPreset(label = "Sage", hex = "#4A7C59", color = Color(0xFF4A7C59)),
+    AccentPreset(label = "Indigo", hex = "#818CF8", color = Color(0xFF818CF8)),
+)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -140,95 +199,9 @@ fun appearanceSettingsSection() {
                     onClick = { ThemePreferences.setThemeMode(ThemeMode.SYSTEM) },
                 )
 
-                // Sepia Mode
-                themeOption(
-                    title = stringResource("theme.sepia"),
-                    description = stringResource("theme.sepia.description"),
-                    icon = {
-                        Icon(
-                            Icons.Default.LightMode,
-                            contentDescription = null,
-                            tint = Color(0xFF6B4226),
-                        )
-                    },
-                    selected = currentThemeMode == ThemeMode.SEPIA,
-                    onClick = { ThemePreferences.setThemeMode(ThemeMode.SEPIA) },
-                )
-
-                // Ocean Mode
-                themeOption(
-                    title = stringResource("theme.ocean"),
-                    description = stringResource("theme.ocean.description"),
-                    icon = {
-                        Icon(
-                            Icons.Default.LightMode,
-                            contentDescription = null,
-                            tint = Color(0xFF0284C7),
-                        )
-                    },
-                    selected = currentThemeMode == ThemeMode.OCEAN,
-                    onClick = { ThemePreferences.setThemeMode(ThemeMode.OCEAN) },
-                )
-
-                // Nord Mode
-                themeOption(
-                    title = stringResource("theme.nord"),
-                    description = stringResource("theme.nord.description"),
-                    icon = {
-                        Icon(
-                            Icons.Default.DarkMode,
-                            contentDescription = null,
-                            tint = Color(0xFF88C0D0),
-                        )
-                    },
-                    selected = currentThemeMode == ThemeMode.NORD,
-                    onClick = { ThemePreferences.setThemeMode(ThemeMode.NORD) },
-                )
-
-                // Sage Mode
-                themeOption(
-                    title = stringResource("theme.sage"),
-                    description = stringResource("theme.sage.description"),
-                    icon = {
-                        Icon(
-                            Icons.Default.LightMode,
-                            contentDescription = null,
-                            tint = Color(0xFF4A7C59),
-                        )
-                    },
-                    selected = currentThemeMode == ThemeMode.SAGE,
-                    onClick = { ThemePreferences.setThemeMode(ThemeMode.SAGE) },
-                )
-
-                // Rose Mode
-                themeOption(
-                    title = stringResource("theme.rose"),
-                    description = stringResource("theme.rose.description"),
-                    icon = {
-                        Icon(
-                            Icons.Default.LightMode,
-                            contentDescription = null,
-                            tint = Color(0xFFE11D48),
-                        )
-                    },
-                    selected = currentThemeMode == ThemeMode.ROSE,
-                    onClick = { ThemePreferences.setThemeMode(ThemeMode.ROSE) },
-                )
-
-                // Indigo Mode
-                themeOption(
-                    title = stringResource("theme.indigo"),
-                    description = stringResource("theme.indigo.description"),
-                    icon = {
-                        Icon(
-                            Icons.Default.DarkMode,
-                            contentDescription = null,
-                            tint = Color(0xFF818CF8),
-                        )
-                    },
-                    selected = currentThemeMode == ThemeMode.INDIGO,
-                    onClick = { ThemePreferences.setThemeMode(ThemeMode.INDIGO) },
-                )
+                // Accent Color Section
+                Spacer(modifier = Modifier.height(Spacing.small))
+                accentColorSection()
 
                 // Layout Density Section
                 Spacer(modifier = Modifier.height(Spacing.small))
@@ -326,6 +299,254 @@ fun appearanceSettingsSection() {
             style = AppComponents.scrollbarStyle(),
         )
     }
+}
+
+@Composable
+private fun accentColorSection() {
+    val savedAccentHex by ThemePreferences.accentColorHex.collectAsState()
+    val selectedPaletteStyle by ThemePreferences.themePaletteStyle.collectAsState()
+    val currentThemeMode by ThemePreferences.themeMode.collectAsState()
+    var accentInput by remember(savedAccentHex) { mutableStateOf(savedAccentHex ?: "") }
+    val parsedAccent = remember(accentInput) { parseAccentColor(accentInput) }
+    val normalizedInput = remember(accentInput) { parseAccentColor(accentInput)?.let(::toAccentHex) }
+    val canApply = parsedAccent != null && normalizedInput != savedAccentHex
+    val pickerTitle = stringResource("settings.appearance.accent.pick.title")
+    val isDarkPreview = when (currentThemeMode) {
+        ThemeMode.DARK -> true
+        ThemeMode.LIGHT -> false
+        ThemeMode.SYSTEM -> detectMacOSDarkMode()
+    }
+
+    Text(
+        text = stringResource("settings.appearance.accent"),
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onBackground,
+    )
+    Text(
+        text = stringResource("settings.appearance.accent.description"),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+
+    Text(
+        text = stringResource("settings.appearance.palette"),
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onBackground,
+    )
+    Text(
+        text = stringResource("settings.appearance.palette.description"),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+        paletteStyleOptions.forEach { option ->
+            themeOption(
+                title = stringResource(option.titleKey),
+                description = stringResource(option.descriptionKey),
+                icon = { },
+                selected = selectedPaletteStyle == option.style,
+                onClick = { ThemePreferences.setThemePaletteStyle(option.style) },
+            )
+        }
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = AppComponents.secondaryCardColors(),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.large),
+            verticalArrangement = Arrangement.spacedBy(Spacing.medium),
+        ) {
+            OutlinedTextField(
+                value = accentInput,
+                onValueChange = { accentInput = it.trim() },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource("settings.appearance.accent.label")) },
+                placeholder = { Text("#0284C7") },
+                singleLine = true,
+                isError = accentInput.isNotBlank() && parsedAccent == null,
+                supportingText = {
+                    if (accentInput.isNotBlank() && parsedAccent == null) {
+                        Text(
+                            text = stringResource("settings.appearance.accent.invalid"),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                },
+                colors = AppComponents.outlinedTextFieldColors(),
+            )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {
+                secondaryButton(
+                    onClick = {
+                        val selected = pickAccentColor(
+                            initial = parsedAccent,
+                            title = pickerTitle,
+                        )
+                        if (selected != null) {
+                            accentInput = toAccentHex(selected)
+                        }
+                    },
+                ) {
+                    Text(stringResource("settings.appearance.accent.pick"))
+                }
+            }
+
+            Text(
+                text = stringResource("settings.appearance.accent.presets"),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f),
+            )
+
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                verticalArrangement = Arrangement.spacedBy(Spacing.small),
+            ) {
+                accentPresets.forEach { preset ->
+                    accentPresetTile(
+                        preset = preset,
+                        selected = normalizedInput == preset.hex,
+                        onClick = { accentInput = preset.hex },
+                    )
+                }
+            }
+
+            val previewScheme = if (parsedAccent != null) {
+                applyAccentToColorScheme(
+                    accent = parsedAccent,
+                    isDark = isDarkPreview,
+                    paletteStyle = selectedPaletteStyle,
+                )
+            } else {
+                MaterialTheme.colorScheme
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                accentColorSwatch(previewScheme.primary, stringResource("settings.appearance.accent.swatch.primary"))
+                accentColorSwatch(previewScheme.primaryContainer, stringResource("settings.appearance.accent.swatch.primary.container"))
+                accentColorSwatch(previewScheme.onPrimaryContainer, stringResource("settings.appearance.accent.swatch.on.primary.container"))
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {
+                primaryButton(
+                    enabled = canApply,
+                    onClick = { ThemePreferences.setAccentColorHex(normalizedInput) },
+                ) {
+                    Text(stringResource("settings.appearance.accent.apply"))
+                }
+                secondaryButton(
+                    enabled = savedAccentHex != null,
+                    onClick = {
+                        ThemePreferences.setAccentColorHex(null)
+                        accentInput = ""
+                    },
+                ) {
+                    Text(stringResource("settings.appearance.accent.reset"))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun accentColorSwatch(color: Color, label: String) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .background(color, RoundedCornerShape(6.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp)),
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f),
+        )
+    }
+}
+
+@Composable
+private fun accentPresetTile(
+    preset: AccentPreset,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val selectedTextColor = MaterialTheme.colorScheme.onSecondaryContainer
+    Card(
+        onClick = onClick,
+        modifier = Modifier
+            .size(width = 92.dp, height = 72.dp)
+            .pointerHoverIcon(PointerIcon.Hand),
+        colors = if (selected) AppComponents.secondaryCardColors() else AppComponents.surfaceVariantCardColors(),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(8.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.Start,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(18.dp)
+                    .background(preset.color, CircleShape)
+                    .border(
+                        width = if (selected) 2.dp else 1.dp,
+                        color = if (selected) selectedTextColor else MaterialTheme.colorScheme.outlineVariant,
+                        shape = CircleShape,
+                    ),
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = preset.label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (selected) selectedTextColor else MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = preset.hex,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (selected) {
+                        selectedTextColor.copy(alpha = 0.82f)
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+        }
+    }
+}
+
+private fun pickAccentColor(initial: Color?, title: String): Color? {
+    val initialAwt = initial?.toAwtColor() ?: UIManager.getColor("ColorChooser.swatchesDefaultRecentColor")
+    val picked = JColorChooser.showDialog(
+        null,
+        title,
+        initialAwt,
+    ) ?: return null
+    return Color(
+        red = picked.red / 255f,
+        green = picked.green / 255f,
+        blue = picked.blue / 255f,
+    )
+}
+
+private fun Color.toAwtColor(): java.awt.Color {
+    val r = (red * 255f).roundToInt().coerceIn(0, 255)
+    val g = (green * 255f).roundToInt().coerceIn(0, 255)
+    val b = (blue * 255f).roundToInt().coerceIn(0, 255)
+    return java.awt.Color(r, g, b)
 }
 
 @Composable

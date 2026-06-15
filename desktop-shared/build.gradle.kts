@@ -36,6 +36,7 @@ dependencies {
     implementation(libs.commonmark.ext.autolink)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.material.kolor)
     // Terminal support
     implementation(libs.bundles.jediterm)
     // PDF export (OpenPDF / LibrePDF)

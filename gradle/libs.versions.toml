@@ -35,6 +35,7 @@ jediterm = "3.64"
 openpdf = "2.2.2"
 poi = "5.4.0"
 filekit = "0.13.0"
+materialKolor = "4.1.1"
 
 [libraries]
 # JLine
@@ -100,6 +101,9 @@ poi-ooxml = { module = "org.apache.poi:poi-ooxml", version.ref = "poi" }
 
 # FileKit — native file/folder picker
 filekit-compose = { module = "io.github.vinceglb:filekit-dialogs-compose", version.ref = "filekit" }
+
+# MaterialKolor (HCT/tonal palette)
+material-kolor = { module = "com.materialkolor:material-kolor", version.ref = "materialKolor" }
 
 # Logging
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }

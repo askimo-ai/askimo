@@ -76,7 +76,7 @@ object AppComponents {
     // ── Cards ─────────────────────────────────────────────────────────────────
 
     /**
-     * A card with standardised hover behaviour across all themes.
+     * A card with standardized hover behavior across all themes.
      *
      * Bakes in:
      * - `.clip(shape)` **before** `hoverable`/`clickable` so the ripple and hover
@@ -179,12 +179,22 @@ object AppComponents {
     // ── Inputs ────────────────────────────────────────────────────────────────
 
     @Composable
-    fun outlinedTextFieldColors(): TextFieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = MaterialTheme.colorScheme.onSurface,
-        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-        focusedLabelColor = MaterialTheme.colorScheme.onSurface,
-        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        cursorColor = MaterialTheme.colorScheme.onSurface,
+    fun outlinedTextFieldColors(
+        focusedBorderColor: Color = MaterialTheme.colorScheme.onSurface,
+        unfocusedBorderColor: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.42f),
+        focusedLabelColor: Color = MaterialTheme.colorScheme.onSurface,
+        unfocusedLabelColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+        focusedTextColor: Color = MaterialTheme.colorScheme.onSurface,
+        unfocusedTextColor: Color = MaterialTheme.colorScheme.onSurface,
+        cursorColor: Color = MaterialTheme.colorScheme.onSurface,
+    ): TextFieldColors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = focusedBorderColor,
+        unfocusedBorderColor = unfocusedBorderColor,
+        focusedLabelColor = focusedLabelColor,
+        unfocusedLabelColor = unfocusedLabelColor,
+        focusedTextColor = focusedTextColor,
+        unfocusedTextColor = unfocusedTextColor,
+        cursorColor = cursorColor,
     )
 
     /**

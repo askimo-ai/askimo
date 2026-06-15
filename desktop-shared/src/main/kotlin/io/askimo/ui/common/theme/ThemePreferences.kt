@@ -41,6 +41,8 @@ object ThemePreferences {
     private const val MAIN_SIDEBAR_WIDTH_FRACTION_KEY = "main_sidebar_width_fraction"
     private const val SETTINGS_SIDEBAR_WIDTH_FRACTION_KEY = "settings_sidebar_width_fraction"
     private const val BACKGROUND_IMAGE_KEY = "background_image"
+    private const val ACCENT_COLOR_KEY = "accent_color"
+    private const val THEME_PALETTE_STYLE_KEY = "theme_palette_style"
     private val prefs = Preferences.userNodeForPackage(ThemePreferences::class.java)
 
     private val _themeMode = MutableStateFlow(loadThemeMode())
@@ -61,11 +63,18 @@ object ThemePreferences {
     private val _backgroundImage = MutableStateFlow(loadBackgroundImage())
     val backgroundImage: StateFlow<BackgroundImage> = _backgroundImage.asStateFlow()
 
+    private val _accentColorHex = MutableStateFlow(loadAccentColorHex())
+    val accentColorHex: StateFlow<String?> = _accentColorHex.asStateFlow()
+
+    private val _themePaletteStyle = MutableStateFlow(loadThemePaletteStyle())
+    val themePaletteStyle: StateFlow<ThemePaletteStyle> = _themePaletteStyle.asStateFlow()
+
     private fun loadThemeMode(): ThemeMode {
         val themeName = prefs.get(THEME_MODE_KEY, ThemeMode.SYSTEM.name)
         return try {
             ThemeMode.valueOf(themeName)
         } catch (_: IllegalArgumentException) {
+            // Migrate old palette-style values that used to be persisted in theme_mode
             ThemeMode.SYSTEM
         }
     }
@@ -222,5 +231,38 @@ object ThemePreferences {
     fun setBackgroundImage(image: BackgroundImage) {
         _backgroundImage.value = image
         prefs.put(BACKGROUND_IMAGE_KEY, image.toPrefsString())
+    }
+
+    private fun loadAccentColorHex(): String? = normalizeAccentColorHex(
+        prefs.get(ACCENT_COLOR_KEY, null),
+    )
+
+    private fun loadThemePaletteStyle(): ThemePaletteStyle = ThemePaletteStyle.fromPreference(
+        prefs.get(THEME_PALETTE_STYLE_KEY, null),
+    )
+
+    private fun normalizeAccentColorHex(value: String?): String? {
+        if (value.isNullOrBlank()) return null
+        val normalized = value.trim().removePrefix("#").uppercase()
+        return if (normalized.length == 6 && normalized.all { it in '0'..'9' || it in 'A'..'F' }) {
+            "#$normalized"
+        } else {
+            null
+        }
+    }
+
+    fun setAccentColorHex(colorHex: String?) {
+        val normalized = normalizeAccentColorHex(colorHex)
+        _accentColorHex.value = normalized
+        if (normalized == null) {
+            prefs.remove(ACCENT_COLOR_KEY)
+        } else {
+            prefs.put(ACCENT_COLOR_KEY, normalized)
+        }
+    }
+
+    fun setThemePaletteStyle(style: ThemePaletteStyle) {
+        _themePaletteStyle.value = style
+        prefs.put(THEME_PALETTE_STYLE_KEY, style.name)
     }
 }

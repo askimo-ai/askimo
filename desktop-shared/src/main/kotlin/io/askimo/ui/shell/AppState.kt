@@ -24,6 +24,7 @@ import io.askimo.ui.common.theme.BackgroundImage
 import io.askimo.ui.common.theme.FontSettings
 import io.askimo.ui.common.theme.LayoutDensity
 import io.askimo.ui.common.theme.ThemeMode
+import io.askimo.ui.common.theme.ThemePaletteStyle
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.theme.detectMacOSDarkMode
 import java.util.Locale
@@ -48,6 +49,8 @@ data class ThemeState(
     val layoutDensity: LayoutDensity,
     val locale: Locale,
     val backgroundImage: BackgroundImage,
+    val accentColorHex: String?,
+    val themePaletteStyle: ThemePaletteStyle,
 )
 
 @Composable
@@ -57,6 +60,8 @@ fun rememberThemeState(): ThemeState {
     val layoutDensity by ThemePreferences.layoutDensity.collectAsState()
     val locale by ThemePreferences.locale.collectAsState()
     val backgroundImage by ThemePreferences.backgroundImage.collectAsState()
+    val accentColorHex by ThemePreferences.accentColorHex.collectAsState()
+    val themePaletteStyle by ThemePreferences.themePaletteStyle.collectAsState()
     var isSystemInDarkMode by remember { mutableStateOf(detectMacOSDarkMode()) }
     LaunchedEffect(themeMode) {
         if (themeMode == ThemeMode.SYSTEM) isSystemInDarkMode = detectMacOSDarkMode()
@@ -65,12 +70,6 @@ fun rememberThemeState(): ThemeState {
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
         ThemeMode.SYSTEM -> isSystemInDarkMode
-        ThemeMode.SEPIA -> false
-        ThemeMode.OCEAN -> false
-        ThemeMode.NORD -> true
-        ThemeMode.SAGE -> false
-        ThemeMode.ROSE -> false
-        ThemeMode.INDIGO -> true
     }
     return ThemeState(
         themeMode = themeMode,
@@ -79,6 +78,8 @@ fun rememberThemeState(): ThemeState {
         layoutDensity = layoutDensity,
         locale = locale,
         backgroundImage = backgroundImage,
+        accentColorHex = accentColorHex,
+        themePaletteStyle = themePaletteStyle,
     )
 }
 
