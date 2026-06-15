@@ -5,6 +5,7 @@
 package io.askimo.core.i18n
 
 import java.text.MessageFormat
+import java.text.NumberFormat
 import java.util.Locale
 import java.util.Properties
 
@@ -178,6 +179,14 @@ object LocalizationManager {
      * ```
      */
     val messageResolver: (String) -> String = { key -> getString(key) }
+
+    /**
+     * Formats a number using locale-aware grouping separators.
+     * e.g. 10000 → "10,000" (en-US), "10.000" (de), "10 000" (fr)
+     */
+    fun formatNumber(value: Long): String = NumberFormat.getNumberInstance(currentLocale).format(value)
+
+    fun formatNumber(value: Int): String = NumberFormat.getNumberInstance(currentLocale).format(value)
 
     /**
      * Load properties file for the current locale with UTF-8 encoding.

@@ -26,6 +26,7 @@ import io.askimo.core.util.ProxyUtil
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.net.http.HttpClient
+import java.time.Duration
 import kotlin.Boolean
 
 /**
@@ -146,7 +147,8 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
             HttpClient.newBuilder().version(httpVersion()),
             baseUrl,
         ),
-    )
+    ).readTimeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
+        .connectTimeout((Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds)))
 
     // ── ChatModelFactory implementation ────────────────────────────────────────
 

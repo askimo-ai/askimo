@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
@@ -35,6 +36,7 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -57,6 +59,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
@@ -85,6 +89,7 @@ import java.awt.Desktop
 import java.io.File
 import java.net.URI
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
 import org.jetbrains.skia.Image as SkiaImage
 
 private val log = currentFileLogger()
@@ -174,6 +179,11 @@ fun mermaidChart(
     var retryCount by remember(data.diagram) { mutableStateOf(0) }
     // Holds an AI-fixed diagram to use on retry; null means use the original
     var fixedDiagram by remember(data.diagram) { mutableStateOf<String?>(null) }
+    // Incremented by the manual Retry button to re-trigger the LaunchedEffect
+    var manualRetryTrigger by remember(data.diagram) { mutableStateOf(0) }
+    // Accumulates every (diagramAttempted, errorMessage) pair so the AI prompt
+    // always carries the full failure history and cannot cycle back to a version it already tried
+    var previousAttempts by remember(data.diagram) { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
 
     // Detect if we're in dark mode based on background luminance
     val isDarkMode = MaterialTheme.colorScheme.background.luminance() < 0.5f
@@ -187,8 +197,13 @@ fun mermaidChart(
         "#%02x%02x%02x".format(red, green, blue)
     }
 
-    // Re-run when diagram changes or when a fixed diagram arrives from AI retry
-    LaunchedEffect(data.diagram, isDarkMode, backgroundColor, fixedDiagram) {
+    // Re-run when diagram changes, when a fixed diagram arrives from AI retry, or on manual retry
+    LaunchedEffect(data.diagram, isDarkMode, backgroundColor, fixedDiagram, manualRetryTrigger) {
+        // On manual retry reset the AI-fix counter so all three attempts are available again
+        if (manualRetryTrigger > 0 && fixedDiagram == null) {
+            retryCount = 0
+            previousAttempts = emptyList()
+        }
         isLoading = true
         error = null
         var pendingFixedDiagram: String? = null
@@ -254,18 +269,35 @@ fun mermaidChart(
                     val attemptNum = retryCount + 1
                     log.error("Failed to convert diagram (attempt {}/{}): {}", attemptNum, MAX_AI_RETRIES + 1, parseError)
 
+                    // Record this failure so the AI sees the full history and cannot repeat it
+                    previousAttempts = previousAttempts + (diagramSource to parseError)
+
                     // Only attempt AI fix up to MAX_AI_RETRIES times
                     if (retryCount < MAX_AI_RETRIES) {
                         retryCount++
                         log.debug("Asking AI to fix diagram (attempt {} of {})...", retryCount, MAX_AI_RETRIES)
                         try {
-                            val fixPrompt = """
-                                The following Mermaid diagram failed to render with this error:
+                            // Build a numbered history section so the AI knows every diagram version
+                            // it already tried and the corresponding error — preventing error cycles
+                            val historySection = previousAttempts.mapIndexed { index, (attemptedDiagram, attemptedError) ->
+                                """
+                                ATTEMPT ${index + 1}:
+                                DIAGRAM:
+                                $attemptedDiagram
 
                                 ERROR:
-                                $parseError
+                                $attemptedError
+                                """.trimIndent()
+                            }.joinToString("\n\n")
 
-                                ORIGINAL DIAGRAM:
+                            val fixPrompt = """
+                                The following Mermaid diagram has failed to render across ${previousAttempts.size} attempt(s).
+                                Here is the FULL history of every version tried and the error it produced.
+                                You MUST NOT produce a diagram identical or equivalent to any version below — doing so will result in the same error repeating.
+
+                                $historySection
+
+                                ORIGINAL DIAGRAM (for reference only — do not return this verbatim):
                                 ${data.diagram}
 
                                 Rules you MUST follow when fixing:
@@ -299,7 +331,7 @@ fun mermaidChart(
                                 Please fix the diagram syntax and return ONLY the corrected Mermaid diagram code, with no explanation, no markdown fences, and no extra text.
                             """.trimIndent()
                             val aiFixed: String = withContext(Dispatchers.IO) {
-                                withTimeout(30_000L.milliseconds) {
+                                withTimeout(10.minutes) {
                                     val model = AppContext.getInstance().createChatModel()
                                     model.chat(fixPrompt)
                                 }
@@ -384,33 +416,55 @@ fun mermaidChart(
 
             // Error rendering (CLI is available but conversion failed)
             error != null && error != "mermaid_cli_not_available" && isMermaidCliAvailable == true -> {
-                Box(modifier = Modifier.fillMaxSize().padding(Spacing.large), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = stringResource("mermaid.error.rendering.title"),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                        Spacer(modifier = Modifier.height(Spacing.small))
-                        Text(
-                            text = error!!,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Spacer(modifier = Modifier.height(Spacing.large))
-                        Text(
-                            text = stringResource("mermaid.error.rendering.raw.label"),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        Spacer(modifier = Modifier.height(Spacing.small))
-                        Text(
-                            text = data.diagram,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(Spacing.small).background(
-                                MaterialTheme.colorScheme.surfaceVariant,
-                                shape = MaterialTheme.shapes.small,
-                            ).padding(Spacing.small),
-                        )
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    // Scrim behind the card
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.35f)),
+                    )
+                    // Compact overlay card — always centered, never clipped
+                    ElevatedCard(
+                        modifier = Modifier
+                            .widthIn(max = 480.dp)
+                            .padding(Spacing.extraLarge),
+                        shape = MaterialTheme.shapes.large,
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(Spacing.extraLarge),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(Spacing.medium),
+                        ) {
+                            Text(
+                                text = stringResource("mermaid.error.rendering.title"),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.error,
+                                textAlign = TextAlign.Center,
+                            )
+                            Text(
+                                text = error!!,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                maxLines = 5,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Button(
+                                onClick = {
+                                    fixedDiagram = null
+                                    manualRetryTrigger++
+                                },
+                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(modifier = Modifier.width(Spacing.small))
+                                Text(stringResource("mermaid.button.retry"))
+                            }
+                        }
                     }
                 }
             }

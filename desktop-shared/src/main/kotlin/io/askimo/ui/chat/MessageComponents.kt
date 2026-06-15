@@ -73,6 +73,7 @@ import io.askimo.core.chat.dto.FileAttachmentDTO
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.RunCodeEvent
 import io.askimo.core.event.internal.parseFilePreviewRequestEvent
+import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.util.formatFileSize
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
@@ -851,9 +852,16 @@ private fun aiMessageBubble(
                     Text(
                         text = buildString {
                             if (input != null && output != null) {
-                                append(stringResource("message.token.usage", total, input, output))
+                                append(
+                                    stringResource(
+                                        "message.token.usage",
+                                        LocalizationManager.formatNumber(total),
+                                        LocalizationManager.formatNumber(input),
+                                        LocalizationManager.formatNumber(output),
+                                    ),
+                                )
                             } else {
-                                append("$total tokens")
+                                append("${LocalizationManager.formatNumber(total)} tokens")
                             }
                             if (durationMs != null && durationMs >= 0) {
                                 val durationLabel = when {
