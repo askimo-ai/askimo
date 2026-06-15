@@ -1,13 +1,21 @@
-name: Shared Tests
+name: Tests
 
 on:
   pull_request:
   workflow_dispatch:
 
 jobs:
-  shared-test:
-    name: shared-test
-    runs-on: ubuntu-latest
+  test:
+    name: test-${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux
+          - os: windows-latest
+            name: windows
 
     steps:
       - name: Checkout
@@ -24,14 +32,22 @@ jobs:
         with:
           cache-read-only: true
 
-      - name: Run shared tests
-        run: ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx2g" :shared:test
+      - name: Run tests (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx2g" test
 
-      - name: Upload test report
+      - name: Run tests (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          DISABLE_DOCKER_TESTS: 'true'
+        run: .\gradlew.bat --no-daemon "-Dorg.gradle.jvmargs=-Xmx2g" -PDISABLE_DOCKER_TESTS=true test
+
+      - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: shared-test-report-attempt${{ github.run_attempt }}
-          path: shared/build/reports/tests/test
+          name: test-reports-${{ matrix.name }}-attempt${{ github.run_attempt }}
+          path: "**/build/reports/tests/test"
           retention-days: 7
 
