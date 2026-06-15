@@ -58,7 +58,7 @@ class AnthropicModelFactoryTest {
             )
 
         val prompt = "Reply with a single short word."
-        val output = chatClient.sendStreamingMessageWithCallback(null, UserMessage(prompt)) { _ -> }.trim()
+        val output = chatClient.sendStreamingMessageWithCallback(null, UserMessage(prompt), onToken = { _ -> }).trim()
 
         assertTrue(output.isNotBlank(), "Expected a non-empty response from Anthropic, but got blank: '$output'")
     }

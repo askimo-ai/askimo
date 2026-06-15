@@ -51,9 +51,9 @@ class OpenAiModelFactoryTest {
     private fun sendPromptAndGetResponse(chatClient: ChatClient, prompt: String): String {
         println("Sending prompt: '$prompt'")
 
-        val output = chatClient.sendStreamingMessageWithCallback(null, UserMessage(prompt)) { _ ->
+        val output = chatClient.sendStreamingMessageWithCallback(null, UserMessage(prompt), onToken = { _ ->
             print(".")
-        }.trim()
+        }).trim()
 
         println("\nFinal output: '$output'")
         return output

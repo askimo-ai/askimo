@@ -94,9 +94,9 @@ class OpenAiModelFactoryProxyTest {
     private fun sendPromptAndGetResponse(chatClient: ChatClient, prompt: String): String {
         println("Sending prompt with proxy config: '$prompt'")
 
-        val output = chatClient.sendStreamingMessageWithCallback(null, UserMessage(prompt)) { _ ->
+        val output = chatClient.sendStreamingMessageWithCallback(null, UserMessage(prompt), onToken = { _ ->
             print(".")
-        }.trim()
+        }).trim()
 
         println("\nReceived response (length: ${output.length})")
         return output

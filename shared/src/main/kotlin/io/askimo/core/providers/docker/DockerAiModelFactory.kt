@@ -7,8 +7,6 @@ package io.askimo.core.providers.docker
 import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.StreamingChatModel
 import dev.langchain4j.model.openai.OpenAiChatModel
-import dev.langchain4j.model.openai.OpenAiResponsesChatModel
-import dev.langchain4j.model.openai.OpenAiResponsesStreamingChatModel
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel
 import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext

@@ -89,12 +89,12 @@ class RecipeExecutor(
         val output =
             appContext
                 .getStatelessChatClient()
-                .sendStreamingMessageWithCallback(null, UserMessage(prompt)) { _ ->
+                .sendStreamingMessageWithCallback(null, UserMessage(prompt), onToken = { _ ->
                     if (firstTokenSeen.compareAndSet(false, true)) {
                         indicator?.stopWithElapsed()
                         opts.terminal?.flush()
                     }
-                }.trim()
+                }).trim()
 
         // If no tokens ever arrived, still print a nice “done” line
         if (!firstTokenSeen.get()) {
