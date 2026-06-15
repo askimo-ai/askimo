@@ -35,16 +35,6 @@ fun generateAppColorScheme(
     style = paletteStyle.materialStyle,
 )
 
-val LightColorScheme: ColorScheme = generateAppColorScheme(
-    seedColor = DefaultThemeSeed,
-    isDark = false,
-)
-
-val DarkColorScheme: ColorScheme = generateAppColorScheme(
-    seedColor = DefaultThemeSeed,
-    isDark = true,
-)
-
 fun parseAccentColor(value: String?): Color? {
     if (value.isNullOrBlank()) return null
     val normalized = value.trim().removePrefix("#")
