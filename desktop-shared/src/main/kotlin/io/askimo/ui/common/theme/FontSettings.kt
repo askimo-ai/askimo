@@ -17,6 +17,7 @@ data class FontSettings(
     val uiFontFamily: String = "System Default",
     val codeFontFamily: String = "System Monospace",
     val fontSize: FontSize = FontSize.MEDIUM,
+    val lineSpacing: LineSpacing = LineSpacing.NORMAL,
 ) {
     companion object {
         const val SYSTEM_DEFAULT = "System Default"
@@ -29,6 +30,13 @@ enum class FontSize(val displayName: String, val scale: Float) {
     MEDIUM("Medium", 1.0f),
     LARGE("Large", 1.15f),
     EXTRA_LARGE("Extra Large", 1.35f),
+}
+
+enum class LineSpacing(val displayName: String, val multiplier: Float) {
+    COMPACT("Compact", 0.9f),
+    NORMAL("Normal", 1.0f),
+    RELAXED("Relaxed", 1.25f),
+    SPACIOUS("Spacious", 1.5f),
 }
 
 /**
@@ -84,22 +92,23 @@ fun loadCodeFontFamily(fontName: String): FontFamily = when (fontName) {
 fun createCustomTypography(fontSettings: FontSettings): Typography {
     val fontFamily = loadUiFontFamily(fontSettings.uiFontFamily)
     val scale = fontSettings.fontSize.scale
+    val lh = fontSettings.lineSpacing.multiplier
     val base = Typography()
     return Typography(
-        displayLarge = base.displayLarge.copy(fontFamily = fontFamily, fontSize = base.displayLarge.fontSize * scale),
-        displayMedium = base.displayMedium.copy(fontFamily = fontFamily, fontSize = base.displayMedium.fontSize * scale),
-        displaySmall = base.displaySmall.copy(fontFamily = fontFamily, fontSize = base.displaySmall.fontSize * scale),
-        headlineLarge = base.headlineLarge.copy(fontFamily = fontFamily, fontSize = base.headlineLarge.fontSize * scale),
-        headlineMedium = base.headlineMedium.copy(fontFamily = fontFamily, fontSize = base.headlineMedium.fontSize * scale),
-        headlineSmall = base.headlineSmall.copy(fontFamily = fontFamily, fontSize = base.headlineSmall.fontSize * scale),
-        titleLarge = base.titleLarge.copy(fontFamily = fontFamily, fontSize = base.titleLarge.fontSize * scale),
-        titleMedium = base.titleMedium.copy(fontFamily = fontFamily, fontSize = base.titleMedium.fontSize * scale),
-        titleSmall = base.titleSmall.copy(fontFamily = fontFamily, fontSize = base.titleSmall.fontSize * scale),
-        bodyLarge = base.bodyLarge.copy(fontFamily = fontFamily, fontSize = base.bodyLarge.fontSize * scale),
-        bodyMedium = base.bodyMedium.copy(fontFamily = fontFamily, fontSize = base.bodyMedium.fontSize * scale),
-        bodySmall = base.bodySmall.copy(fontFamily = fontFamily, fontSize = base.bodySmall.fontSize * scale),
-        labelLarge = base.labelLarge.copy(fontFamily = fontFamily, fontSize = base.labelLarge.fontSize * scale),
-        labelMedium = base.labelMedium.copy(fontFamily = fontFamily, fontSize = base.labelMedium.fontSize * scale),
-        labelSmall = base.labelSmall.copy(fontFamily = fontFamily, fontSize = base.labelSmall.fontSize * scale),
+        displayLarge = base.displayLarge.copy(fontFamily = fontFamily, fontSize = base.displayLarge.fontSize * scale, lineHeight = base.displayLarge.lineHeight * lh),
+        displayMedium = base.displayMedium.copy(fontFamily = fontFamily, fontSize = base.displayMedium.fontSize * scale, lineHeight = base.displayMedium.lineHeight * lh),
+        displaySmall = base.displaySmall.copy(fontFamily = fontFamily, fontSize = base.displaySmall.fontSize * scale, lineHeight = base.displaySmall.lineHeight * lh),
+        headlineLarge = base.headlineLarge.copy(fontFamily = fontFamily, fontSize = base.headlineLarge.fontSize * scale, lineHeight = base.headlineLarge.lineHeight * lh),
+        headlineMedium = base.headlineMedium.copy(fontFamily = fontFamily, fontSize = base.headlineMedium.fontSize * scale, lineHeight = base.headlineMedium.lineHeight * lh),
+        headlineSmall = base.headlineSmall.copy(fontFamily = fontFamily, fontSize = base.headlineSmall.fontSize * scale, lineHeight = base.headlineSmall.lineHeight * lh),
+        titleLarge = base.titleLarge.copy(fontFamily = fontFamily, fontSize = base.titleLarge.fontSize * scale, lineHeight = base.titleLarge.lineHeight * lh),
+        titleMedium = base.titleMedium.copy(fontFamily = fontFamily, fontSize = base.titleMedium.fontSize * scale, lineHeight = base.titleMedium.lineHeight * lh),
+        titleSmall = base.titleSmall.copy(fontFamily = fontFamily, fontSize = base.titleSmall.fontSize * scale, lineHeight = base.titleSmall.lineHeight * lh),
+        bodyLarge = base.bodyLarge.copy(fontFamily = fontFamily, fontSize = base.bodyLarge.fontSize * scale, lineHeight = base.bodyLarge.lineHeight * lh),
+        bodyMedium = base.bodyMedium.copy(fontFamily = fontFamily, fontSize = base.bodyMedium.fontSize * scale, lineHeight = base.bodyMedium.lineHeight * lh),
+        bodySmall = base.bodySmall.copy(fontFamily = fontFamily, fontSize = base.bodySmall.fontSize * scale, lineHeight = base.bodySmall.lineHeight * lh),
+        labelLarge = base.labelLarge.copy(fontFamily = fontFamily, fontSize = base.labelLarge.fontSize * scale, lineHeight = base.labelLarge.lineHeight * lh),
+        labelMedium = base.labelMedium.copy(fontFamily = fontFamily, fontSize = base.labelMedium.fontSize * scale, lineHeight = base.labelMedium.lineHeight * lh),
+        labelSmall = base.labelSmall.copy(fontFamily = fontFamily, fontSize = base.labelSmall.fontSize * scale, lineHeight = base.labelSmall.lineHeight * lh),
     )
 }

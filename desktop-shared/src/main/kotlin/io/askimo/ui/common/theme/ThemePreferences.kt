@@ -30,6 +30,7 @@ object ThemePreferences {
     private const val UI_FONT_FAMILY_KEY = "ui_font_family"
     private const val CODE_FONT_FAMILY_KEY = "code_font_family"
     private const val FONT_SIZE_KEY = "font_size"
+    private const val LINE_SPACING_KEY = "line_spacing"
     private const val LOCALE_KEY = "locale"
     private const val LOG_LEVEL_KEY = "log_level"
     private const val WINDOW_WIDTH_KEY = "window_width"
@@ -89,10 +90,18 @@ object ThemePreferences {
             log.debug("Unknown FontSize '{}', falling back to MEDIUM", fontSizeName, e)
             FontSize.MEDIUM
         }
+        val lineSpacingName = prefs.get(LINE_SPACING_KEY, LineSpacing.NORMAL.name)
+        val lineSpacing = try {
+            LineSpacing.valueOf(lineSpacingName)
+        } catch (e: IllegalArgumentException) {
+            log.debug("Unknown LineSpacing '{}', falling back to NORMAL", lineSpacingName, e)
+            LineSpacing.NORMAL
+        }
         return FontSettings(
             uiFontFamily = uiFontFamily,
             codeFontFamily = codeFontFamily,
             fontSize = fontSize,
+            lineSpacing = lineSpacing,
         )
     }
 
@@ -147,16 +156,17 @@ object ThemePreferences {
         return level
     }
 
-    fun setThemeMode(mode: io.askimo.ui.common.theme.ThemeMode) {
+    fun setThemeMode(mode: ThemeMode) {
         _themeMode.value = mode
         prefs.put(THEME_MODE_KEY, mode.name)
     }
 
-    fun setFontSettings(settings: io.askimo.ui.common.theme.FontSettings) {
+    fun setFontSettings(settings: FontSettings) {
         _fontSettings.value = settings
         prefs.put(UI_FONT_FAMILY_KEY, settings.uiFontFamily)
         prefs.put(CODE_FONT_FAMILY_KEY, settings.codeFontFamily)
         prefs.put(FONT_SIZE_KEY, settings.fontSize.name)
+        prefs.put(LINE_SPACING_KEY, settings.lineSpacing.name)
     }
 
     fun setLayoutDensity(density: LayoutDensity) {

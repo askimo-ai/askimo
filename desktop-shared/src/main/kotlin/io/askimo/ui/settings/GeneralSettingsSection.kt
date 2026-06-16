@@ -51,6 +51,7 @@ import io.askimo.core.i18n.LocalizationManager
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.FontSize
+import io.askimo.ui.common.theme.LineSpacing
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.theme.loadCodeFontFamily
@@ -347,6 +348,7 @@ private fun fontSettingsCard() {
     val currentFontSettings by ThemePreferences.fontSettings.collectAsState()
     val availableFonts = remember { ThemePreferences.getAvailableSystemFonts() }
     var fontSizeDropdownExpanded by remember { mutableStateOf(false) }
+    var lineSpacingDropdownExpanded by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -437,6 +439,79 @@ private fun fontSettingsCard() {
                                     fontSizeDropdownExpanded = false
                                 },
                                 leadingIcon = if (fontSize == currentFontSettings.fontSize) {
+                                    {
+                                        Icon(
+                                            Icons.Default.Check,
+                                            tint = MaterialTheme.colorScheme.onSurface,
+                                            contentDescription = "Selected",
+                                        )
+                                    }
+                                } else {
+                                    null
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider()
+
+            // Line Spacing
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+                Text(
+                    text = stringResource("settings.font.line.spacing"),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickableCard { lineSpacingDropdownExpanded = true },
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                        ),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(Spacing.medium),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = currentFontSettings.lineSpacing.displayName,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = "Change line spacing",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+
+                    AppComponents.dropdownMenu(
+                        expanded = lineSpacingDropdownExpanded,
+                        onDismissRequest = { lineSpacingDropdownExpanded = false },
+                    ) {
+                        LineSpacing.entries.forEach { spacing ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = spacing.displayName,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                },
+                                onClick = {
+                                    ThemePreferences.setFontSettings(
+                                        currentFontSettings.copy(lineSpacing = spacing),
+                                    )
+                                    lineSpacingDropdownExpanded = false
+                                },
+                                leadingIcon = if (spacing == currentFontSettings.lineSpacing) {
                                     {
                                         Icon(
                                             Icons.Default.Check,
