@@ -23,7 +23,7 @@ enum class ThemePaletteStyle(val materialStyle: PaletteStyle) {
 }
 
 val DefaultThemeSeed = Color(0xFF707070) // Modern Gray
-val DefaultThemePaletteStyle = ThemePaletteStyle.BALANCED
+val DefaultThemePaletteStyle = ThemePaletteStyle.SOFT
 
 fun generateAppColorScheme(
     seedColor: Color = DefaultThemeSeed,

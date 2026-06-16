@@ -18,7 +18,7 @@ object SharedOllama {
     val container: OllamaContainer by lazy {
         TestContainersConfig.ensureConfigured()
 
-        val image = DockerImageName.parse("ollama/ollama:0.12.5")
+        val image = DockerImageName.parse("ollama/ollama:0.30.8")
         OllamaContainer(image)
             .withReuse(true)
             .withCreateContainerCmdModifier { cmd ->

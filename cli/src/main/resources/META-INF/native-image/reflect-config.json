@@ -1195,6 +1195,15 @@
     "name": "state"
   } ]
 }, {
+  "name": "dev.langchain4j.model.anthropic.internal.api.AnthropicCacheControl",
+  "allDeclaredFields": true,
+  "queryAllDeclaredMethods": true,
+  "queryAllDeclaredConstructors": true,
+  "methods": [ {
+    "name": "getType",
+    "parameterTypes": [ ]
+  } ]
+}, {
   "name": "dev.langchain4j.model.anthropic.internal.api.AnthropicContent",
   "allDeclaredFields": true,
   "queryAllDeclaredMethods": true,
@@ -1425,9 +1434,12 @@
   "queryAllDeclaredConstructors": true,
   "methods": [ {
     "name": "<init>",
-    "parameterTypes": [ "java.lang.String", "java.util.Map" ]
+    "parameterTypes": [ "java.lang.String", "java.lang.String", "java.util.Map" ]
   }, {
     "name": "args",
+    "parameterTypes": [ ]
+  }, {
+    "name": "id",
     "parameterTypes": [ ]
   }, {
     "name": "name",
@@ -1439,6 +1451,9 @@
   "queryAllDeclaredMethods": true,
   "queryAllDeclaredConstructors": true,
   "methods": [ {
+    "name": "id",
+    "parameterTypes": [ ]
+  }, {
     "name": "name",
     "parameterTypes": [ ]
   }, {
@@ -1466,6 +1481,9 @@
   "queryAllDeclaredMethods": true,
   "queryAllDeclaredConstructors": true,
   "methods": [ {
+    "name": "cachedContent",
+    "parameterTypes": [ ]
+  }, {
     "name": "contents",
     "parameterTypes": [ ]
   }, {
@@ -1763,208 +1781,6 @@
   "queryAllDeclaredMethods": true,
   "queryAllDeclaredConstructors": true
 }, {
-  "name": "dev.langchain4j.model.openai.internal.chat.AssistantMessage",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "customParameters",
-    "parameterTypes": [ ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.openai.internal.chat.AssistantMessage$Builder",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.openai.internal.chat.ChatCompletionChoice$Builder",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "build",
-    "parameterTypes": [ ]
-  }, {
-    "name": "delta",
-    "parameterTypes": [ "dev.langchain4j.model.openai.internal.chat.Delta" ]
-  }, {
-    "name": "finishReason",
-    "parameterTypes": [ "java.lang.String" ]
-  }, {
-    "name": "index",
-    "parameterTypes": [ "java.lang.Integer" ]
-  }, {
-    "name": "logprobs",
-    "parameterTypes": [ "dev.langchain4j.model.openai.internal.chat.LogProbs" ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.openai.internal.chat.ChatCompletionRequest",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "customParameters",
-    "parameterTypes": [ ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.openai.internal.chat.ChatCompletionResponse$Builder",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "build",
-    "parameterTypes": [ ]
-  }, {
-    "name": "choices",
-    "parameterTypes": [ "java.util.List" ]
-  }, {
-    "name": "created",
-    "parameterTypes": [ "java.lang.Long" ]
-  }, {
-    "name": "id",
-    "parameterTypes": [ "java.lang.String" ]
-  }, {
-    "name": "model",
-    "parameterTypes": [ "java.lang.String" ]
-  }, {
-    "name": "serviceTier",
-    "parameterTypes": [ "java.lang.String" ]
-  }, {
-    "name": "systemFingerprint",
-    "parameterTypes": [ "java.lang.String" ]
-  }, {
-    "name": "usage",
-    "parameterTypes": [ "dev.langchain4j.model.openai.internal.shared.Usage" ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.openai.internal.chat.Delta$Builder",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "build",
-    "parameterTypes": [ ]
-  }, {
-    "name": "content",
-    "parameterTypes": [ "java.lang.String" ]
-  }, {
-    "name": "reasoningContent",
-    "parameterTypes": [ "java.lang.String" ]
-  }, {
-    "name": "role",
-    "parameterTypes": [ "java.lang.String" ]
-  }, {
-    "name": "toolCalls",
-    "parameterTypes": [ "java.util.List" ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.openai.internal.chat.Function",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.openai.internal.chat.FunctionCall",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.openai.internal.chat.FunctionCall$Builder",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "arguments",
-    "parameterTypes": [ "java.lang.String" ]
-  }, {
-    "name": "build",
-    "parameterTypes": [ ]
-  }, {
-    "name": "name",
-    "parameterTypes": [ "java.lang.String" ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.openai.internal.chat.LogProb$Builder",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.openai.internal.chat.LogProbs$Builder",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.openai.internal.chat.Message",
-  "queryAllDeclaredMethods": true
-}, {
-  "name": "dev.langchain4j.model.openai.internal.chat.Role",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true
-}, {
-  "name": "dev.langchain4j.model.openai.internal.chat.SystemMessage",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.openai.internal.chat.Tool",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.openai.internal.chat.ToolCall",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.openai.internal.chat.ToolCall$Builder",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "build",
-    "parameterTypes": [ ]
-  }, {
-    "name": "function",
-    "parameterTypes": [ "dev.langchain4j.model.openai.internal.chat.FunctionCall" ]
-  }, {
-    "name": "id",
-    "parameterTypes": [ "java.lang.String" ]
-  }, {
-    "name": "index",
-    "parameterTypes": [ "java.lang.Integer" ]
-  }, {
-    "name": "type",
-    "parameterTypes": [ "java.lang.String" ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.openai.internal.chat.ToolMessage",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.openai.internal.chat.ToolType",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true
-}, {
-  "name": "dev.langchain4j.model.openai.internal.chat.UserMessage",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
   "name": "dev.langchain4j.model.openai.internal.embedding.Embedding$Builder",
   "allDeclaredFields": true,
   "queryAllDeclaredMethods": true,
@@ -2022,34 +1838,9 @@
   "name": "dev.langchain4j.model.openai.internal.shared.CompletionTokensDetails$Builder",
   "allDeclaredFields": true,
   "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "build",
-    "parameterTypes": [ ]
-  }, {
-    "name": "reasoningTokens",
-    "parameterTypes": [ "java.lang.Integer" ]
-  } ]
+  "queryAllDeclaredConstructors": true
 }, {
   "name": "dev.langchain4j.model.openai.internal.shared.PromptTokensDetails$Builder",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "build",
-    "parameterTypes": [ ]
-  }, {
-    "name": "cachedTokens",
-    "parameterTypes": [ "java.lang.Integer" ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.openai.internal.shared.StreamOptions",
   "allDeclaredFields": true,
   "queryAllDeclaredMethods": true,
   "queryAllDeclaredConstructors": true
@@ -2065,17 +1856,8 @@
     "name": "build",
     "parameterTypes": [ ]
   }, {
-    "name": "completionTokens",
-    "parameterTypes": [ "java.lang.Integer" ]
-  }, {
-    "name": "completionTokensDetails",
-    "parameterTypes": [ "dev.langchain4j.model.openai.internal.shared.CompletionTokensDetails" ]
-  }, {
     "name": "promptTokens",
     "parameterTypes": [ "java.lang.Integer" ]
-  }, {
-    "name": "promptTokensDetails",
-    "parameterTypes": [ "dev.langchain4j.model.openai.internal.shared.PromptTokensDetails" ]
   }, {
     "name": "totalTokens",
     "parameterTypes": [ "java.lang.Integer" ]
@@ -3611,10 +3393,10 @@
   "queryAllDeclaredConstructors": true,
   "methods": [ {
     "name": "<init>",
-    "parameterTypes": [ "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "int", "int" ]
+    "parameterTypes": [ "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String" ]
   }, {
     "name": "<init>",
-    "parameterTypes": [ "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "int", "int", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
+    "parameterTypes": [ "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
   }, {
     "name": "getDefaultModel",
     "parameterTypes": [ ]
@@ -3623,12 +3405,6 @@
     "parameterTypes": [ ]
   }, {
     "name": "getImageModel",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getThinkingBudgetTokens",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getThinkingMaxTokens",
     "parameterTypes": [ ]
   }, {
     "name": "getUtilityModel",
@@ -4311,9 +4087,6 @@
   "queryAllDeclaredConstructors": true,
   "methods": [ {
     "name": "<init>",
-    "parameterTypes": [ "int", "java.lang.String", "java.util.Map", "long", "kotlinx.serialization.internal.SerializationConstructorMarker" ]
-  }, {
-    "name": "<init>",
     "parameterTypes": [ "java.lang.String", "java.util.Map", "long" ]
   }, {
     "name": "getHeadersTemplate",
@@ -4337,9 +4110,6 @@
   "queryAllDeclaredMethods": true,
   "queryAllDeclaredConstructors": true,
   "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ "int", "java.lang.String", "java.lang.String", "java.lang.String", "java.util.Map", "java.util.Set", "boolean", "java.lang.String", "java.lang.String", "kotlinx.serialization.internal.SerializationConstructorMarker" ]
-  }, {
     "name": "<init>",
     "parameterTypes": [ "java.lang.String", "java.lang.String", "java.lang.String", "java.util.Map", "java.util.Set", "boolean", "java.lang.String", "java.lang.String" ]
   }, {
@@ -4409,9 +4179,6 @@
   "queryAllDeclaredMethods": true,
   "queryAllDeclaredConstructors": true,
   "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ "int", "java.lang.String", "java.lang.String", "java.lang.String", "io.askimo.core.mcp.TransportType", "io.askimo.core.mcp.StdioConfig", "io.askimo.core.mcp.HttpConfig", "java.util.List", "java.lang.String", "java.lang.String", "java.util.List", "kotlinx.serialization.internal.SerializationConstructorMarker" ]
-  }, {
     "name": "<init>",
     "parameterTypes": [ "java.lang.String", "java.lang.String", "java.lang.String", "io.askimo.core.mcp.TransportType", "io.askimo.core.mcp.StdioConfig", "io.askimo.core.mcp.HttpConfig", "java.util.List", "java.lang.String", "java.lang.String", "java.util.List" ]
   }, {
@@ -4525,9 +4292,6 @@
   "queryAllDeclaredMethods": true,
   "queryAllDeclaredConstructors": true,
   "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ "int", "java.util.List", "java.util.Map", "java.lang.String", "kotlinx.serialization.internal.SerializationConstructorMarker" ]
-  }, {
     "name": "<init>",
     "parameterTypes": [ "java.util.List", "java.util.Map", "java.lang.String" ]
   }, {
@@ -4934,9 +4698,6 @@
     "name": "should preserve system messages during summarization",
     "parameterTypes": [ ]
   }, {
-    "name": "should respect synchronous summarization mode",
-    "parameterTypes": [ ]
-  }, {
     "name": "should serialize and deserialize memory state correctly",
     "parameterTypes": [ ]
   }, {
@@ -4964,7 +4725,7 @@
     "parameterTypes": [ "dev.langchain4j.data.message.UserMessage", "dev.langchain4j.model.chat.request.ChatRequestParameters" ]
   } ]
 }, {
-  "name": "io.askimo.core.providers.ChatClient$MockitoMock$wLZJ0Hoy",
+  "name": "io.askimo.core.providers.ChatClient$MockitoMock$aZzJ0eSM",
   "queryAllDeclaredConstructors": true,
   "methods": [ {
     "name": "<init>",
@@ -5067,6 +4828,9 @@
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
   "queryAllPublicMethods": true
+}, {
+  "name": "io.askimo.core.providers.HasBaseUrl",
+  "queryAllDeclaredMethods": true
 }, {
   "name": "io.askimo.core.providers.ModelProvider",
   "allDeclaredFields": true,
@@ -5255,9 +5019,12 @@
   "queryAllDeclaredConstructors": true,
   "methods": [ {
     "name": "<init>",
-    "parameterTypes": [ "java.lang.String", "java.lang.String" ]
+    "parameterTypes": [ "java.lang.String", "java.lang.String", "java.lang.String" ]
   }, {
     "name": "getApiKey",
+    "parameterTypes": [ ]
+  }, {
+    "name": "getBaseUrl",
     "parameterTypes": [ ]
   }, {
     "name": "getDefaultModel",
@@ -5265,7 +5032,12 @@
   }, {
     "name": "setApiKey",
     "parameterTypes": [ "java.lang.String" ]
+  }, {
+    "name": "setBaseUrl",
+    "parameterTypes": [ "java.lang.String" ]
   } ]
+}, {
+  "name": "io.askimo.core.providers.openai.OpenAiSettings$Companion"
 }, {
   "name": "io.askimo.core.providers.openaicompatible.OpenAiCompatibleSettings"
 }, {
@@ -6224,20 +5996,11 @@
   "queryAllDeclaredMethods": true,
   "queryAllPublicMethods": true
 }, {
-  "name": "io.askimo.tools.chart.ChartTools",
-  "queryAllDeclaredMethods": true
-}, {
-  "name": "io.askimo.tools.datetime.DateTimeTools",
-  "queryAllDeclaredMethods": true
-}, {
   "name": "io.askimo.tools.fs.LocalFsTools",
   "queryAllDeclaredMethods": true,
   "methods": [ {
     "name": "countEntries",
     "parameterTypes": [ "java.lang.String", "java.lang.Boolean", "java.lang.Boolean" ]
-  }, {
-    "name": "print",
-    "parameterTypes": [ "java.lang.String" ]
   }, {
     "name": "readFile",
     "parameterTypes": [ "java.lang.String" ]
@@ -6297,12 +6060,6 @@
   } ]
 }, {
   "name": "io.askimo.tools.git.GitTools",
-  "queryAllDeclaredMethods": true
-}, {
-  "name": "io.askimo.tools.weather.WeatherTools",
-  "queryAllDeclaredMethods": true
-}, {
-  "name": "io.askimo.tools.web.WebSearchTools",
   "queryAllDeclaredMethods": true
 }, {
   "name": "io.github.jbellis.jvector.util.BitSet",
@@ -6423,6 +6180,8 @@
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
   "queryAllPublicMethods": true
+}, {
+  "name": "java.lang.Float"
 }, {
   "name": "java.lang.FunctionalInterface"
 }, {
@@ -6910,11 +6669,6 @@
   "allDeclaredFields": true,
   "queryAllDeclaredMethods": true
 }, {
-  "name": "java.util.Collections$UnmodifiableMap",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
   "name": "java.util.Collections$UnmodifiableRandomAccessList",
   "allDeclaredFields": true,
   "queryAllDeclaredMethods": true,
@@ -6941,6 +6695,11 @@
   "name": "java.util.ImmutableCollections$AbstractImmutableMap",
   "allDeclaredFields": true,
   "queryAllDeclaredMethods": true
+}, {
+  "name": "java.util.ImmutableCollections$List12",
+  "allDeclaredFields": true,
+  "queryAllDeclaredMethods": true,
+  "queryAllDeclaredConstructors": true
 }, {
   "name": "java.util.ImmutableCollections$ListN",
   "allDeclaredFields": true,
@@ -7020,11 +6779,6 @@
     "name": "cellsBusy"
   } ]
 }, {
-  "name": "java.util.concurrent.atomic.Striped64$Cell",
-  "fields": [ {
-    "name": "value"
-  } ]
-}, {
   "name": "java.util.concurrent.locks.AbstractOwnableSynchronizer"
 }, {
   "name": "java.util.concurrent.locks.AbstractQueuedSynchronizer"
@@ -7075,6 +6829,8 @@
   "name": "kotlin.Array"
 }, {
   "name": "kotlin.Boolean"
+}, {
+  "name": "kotlin.Cloneable"
 }, {
   "name": "kotlin.Comparable"
 }, {
@@ -7358,8 +7114,6 @@
   "name": "kotlinx.serialization.internal.GeneratedSerializer",
   "allDeclaredClasses": true,
   "queryAllPublicMethods": true
-}, {
-  "name": "kotlinx.serialization.internal.SerializationConstructorMarker"
 }, {
   "name": "org.apache.tika.detect.microsoft.POIFSContainerDetector",
   "methods": [ {
@@ -7717,7 +7471,7 @@
     "parameterTypes": [ ]
   } ]
 }, {
-  "name": "org.jline.reader.ParsedLine$MockitoMock$orXQXFKw",
+  "name": "org.jline.reader.ParsedLine$MockitoMock$S3CVh7fr",
   "queryAllDeclaredConstructors": true,
   "methods": [ {
     "name": "<init>",

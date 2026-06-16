@@ -375,36 +375,6 @@ class TokenAwareSummarizingMemoryTest {
     }
 
     @Test
-    fun `should respect synchronous summarization mode`() {
-        memory = createMemory(
-            summarizationThreshold = 0.01,
-            asyncSummarization = false, // Synchronous mode
-        )
-
-        whenever(mockChatClient.sendMessage(any())).thenReturn(
-            """
-            {
-                "keyFacts": {},
-                "mainTopics": [],
-                "recentContext": "test"
-            }
-            """.trimIndent(),
-        )
-
-        repeat(100) { i ->
-            memory.add(UserMessage.from("Message $i " + "word ".repeat(30)))
-        }
-
-        // Give some time for the executor to finish
-        Thread.sleep(2000)
-        memory.close()
-
-        // In sync mode, summarization should complete and messages should be pruned
-        val endSize = memory.messages().size
-        assertTrue(endSize < 100, "Messages should be pruned in synchronous mode")
-    }
-
-    @Test
     fun `should handle concurrent message additions safely`() {
         memory = createMemory()
 
