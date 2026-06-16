@@ -34,8 +34,9 @@ class ResourceSegmentRepository(
     private val database: Database by lazy { Database.connect(databaseManager.dataSource) }
 
     /**
-     * Save multiple segment mappings in a batch
-     * @param resourceId String identifier for the resource (file path, URL, etc.)
+     * Save multiple segment mappings in a batch.
+     * @param resourceId String identifier for the resource (file path, URL, etc.).
+     *                   Backslashes are normalized to forward slashes for cross-platform consistency.
      */
     fun saveSegmentMappings(
         projectId: String,
@@ -44,13 +45,14 @@ class ResourceSegmentRepository(
     ) {
         if (segmentIds.isEmpty()) return
 
+        val normalizedId = resourceId.replace('\\', '/')
         transaction(database) {
             ResourceSegmentsTable.batchInsert(
                 data = segmentIds,
                 ignore = true,
             ) { (segmentId, chunkIndex) ->
                 this[ResourceSegmentsTable.projectId] = projectId
-                this[ResourceSegmentsTable.resourceId] = resourceId
+                this[ResourceSegmentsTable.resourceId] = normalizedId
                 this[ResourceSegmentsTable.segmentId] = segmentId
                 this[ResourceSegmentsTable.chunkIndex] = chunkIndex
                 this[ResourceSegmentsTable.createdAt] = Instant.now()
@@ -72,18 +74,19 @@ class ResourceSegmentRepository(
     }
 
     /**
-     * Get all segment IDs for a specific resource
-     * @param resourceId String identifier for the resource
+     * Get all segment IDs for a specific resource.
+     * @param resourceId String identifier for the resource; backslashes are normalized.
      */
     fun getSegmentIdsForResource(
         projectId: String,
         resourceId: String,
     ): List<String> = transaction(database) {
+        val normalizedId = resourceId.replace('\\', '/')
         ResourceSegmentsTable
             .selectAll()
             .where {
                 (ResourceSegmentsTable.projectId eq projectId) and
-                    (ResourceSegmentsTable.resourceId eq resourceId)
+                    (ResourceSegmentsTable.resourceId eq normalizedId)
             }
             .orderBy(ResourceSegmentsTable.chunkIndex)
             .map { it[ResourceSegmentsTable.segmentId] }
@@ -99,16 +102,17 @@ class ResourceSegmentRepository(
     ): List<String> = getSegmentIdsForResource(projectId, filePath.toNormalizedString())
 
     /**
-     * Remove all segment mappings for a specific resource
-     * @param resourceId String identifier for the resource
+     * Remove all segment mappings for a specific resource.
+     * @param resourceId String identifier for the resource; backslashes are normalized.
      */
     fun removeSegmentMappingsForResource(
         projectId: String,
         resourceId: String,
     ): Int = transaction(database) {
+        val normalizedId = resourceId.replace('\\', '/')
         ResourceSegmentsTable.deleteWhere {
             (ResourceSegmentsTable.projectId eq projectId) and
-                (ResourceSegmentsTable.resourceId eq resourceId)
+                (ResourceSegmentsTable.resourceId eq normalizedId)
         }
     }
 
