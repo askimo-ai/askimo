@@ -98,9 +98,11 @@ class LuceneIndexer private constructor(
                 add(TextField(FIELD_CONTENT, textSegment.text(), Field.Store.YES))
 
                 // Store metadata (stored-only fields). Prefix keys to avoid conflicts.
+                // Normalize file_path to forward slashes for cross-platform consistency.
                 textSegment.metadata().toMap().forEach { (key, value) ->
                     val safeKey = FIELD_META_PREFIX + key
-                    add(StoredField(safeKey, value.toString()))
+                    val safeValue = if (key == "file_path") value.toString().replace('\\', '/') else value.toString()
+                    add(StoredField(safeKey, safeValue))
                 }
             }
         }
@@ -125,11 +127,12 @@ class LuceneIndexer private constructor(
      */
     fun removeFile(filePath: String) {
         try {
+            val normalizedPath = filePath.replace('\\', '/')
             val queryParser = QueryParser(FIELD_META_PREFIX + "file_path", analyzer)
-            val query = queryParser.parse(QueryParser.escape(filePath))
+            val query = queryParser.parse(QueryParser.escape(normalizedPath))
             indexWriter.deleteDocuments(query)
             indexWriter.commit()
-            log.debug("Removed file from keyword index: $filePath")
+            log.debug("Removed file from keyword index: $normalizedPath")
         } catch (e: Exception) {
             log.debug("Failed to remove file from keyword index: $filePath", e)
         }
@@ -141,11 +144,12 @@ class LuceneIndexer private constructor(
      */
     fun removeDirectory(dirPrefix: String) {
         try {
-            val prefix = if (dirPrefix.endsWith("/")) dirPrefix else "$dirPrefix/"
+            val normalized = dirPrefix.replace('\\', '/')
+            val prefix = if (normalized.endsWith("/")) normalized else "$normalized/"
             val query = PrefixQuery(Term(FIELD_META_PREFIX + "file_path", prefix))
             indexWriter.deleteDocuments(query)
             indexWriter.commit()
-            log.debug("Removed directory from keyword index: $dirPrefix")
+            log.debug("Removed directory from keyword index: $normalized")
         } catch (e: Exception) {
             log.debug("Failed to remove directory from keyword index: $dirPrefix", e)
         }
