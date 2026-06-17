@@ -14,8 +14,12 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/askimo-ai/askimo/actions/workflows/desktop-release.yml">
-    <img src="https://github.com/askimo-ai/askimo/actions/workflows/desktop-release.yml/badge.svg" alt="Desktop Build">
+  ⭐ If Askimo saves you time, a star helps others find it - and keeps the project going. <a href="https://github.com/askimo-ai/askimo/stargazers"><strong>Star on GitHub →</strong></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/askimo-ai/askimo/actions/workflows/release.yml">
+    <img src="https://github.com/askimo-ai/askimo/actions/workflows/release.yml/badge.svg" alt="Build">
   </a>
   <a href="./LICENSE">
     <img src="https://img.shields.io/badge/License-AGPLv3-blue.svg" alt="License">
@@ -49,6 +53,7 @@
   <img src="https://img.shields.io/badge/LocalAI-Supported-00ADD8" alt="LocalAI">
   <img src="https://img.shields.io/badge/LMStudio-Supported-6B46C1" alt="LMStudio">
   <img src="https://img.shields.io/badge/DockerAI-Supported-2496ED" alt="DockerAI">
+  <img src="https://img.shields.io/badge/OpenAI--Compatible-Any_Endpoint-gray" alt="OpenAI-Compatible">
 </p>
 
 <p align="center">
@@ -59,8 +64,7 @@
 <p align="center">
   <a href="https://github.com/askimo-ai/askimo/releases/latest"><strong>📥 Download</strong></a> •
   <a href="https://askimo.chat/docs/"><strong>📖 Documentation</strong></a> •
-  <a href="https://github.com/askimo-ai/askimo/discussions"><strong>💬 Discussions</strong></a> •
-  <a href="https://github.com/askimo-ai/askimo/stargazers"><strong>⭐ Star on GitHub</strong></a>
+  <a href="https://github.com/askimo-ai/askimo/discussions"><strong>💬 Discussions</strong></a>
 </p>
 
 ---
@@ -86,10 +90,6 @@ You shouldn't have to choose between the best AI model, your privacy, and gettin
 **RAG** - search and chat with your local files:
 
 [![Askimo RAG Demo](public/askimo_rag_1280.gif)](public/askimo_rag_1920.gif)
-
-**Script runner** - execute Python, Bash, and JavaScript from chat:
-
-[![Askimo Run Script Demo](public/askimo_run_script_1280.gif)](public/askimo_run_script_1920.gif)
 
 **MCP tools** - connect any MCP-compatible server:
 

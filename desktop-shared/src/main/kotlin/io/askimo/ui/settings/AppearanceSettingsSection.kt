@@ -20,8 +20,10 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
@@ -485,16 +487,17 @@ private fun accentPresetTile(
     Card(
         onClick = onClick,
         modifier = Modifier
-            .size(width = 92.dp, height = 72.dp)
+            .width(92.dp)
+            .heightIn(min = 72.dp)
             .pointerHoverIcon(PointerIcon.Hand),
         colors = if (selected) AppComponents.secondaryCardColors() else AppComponents.surfaceVariantCardColors(),
         shape = RoundedCornerShape(12.dp),
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .padding(8.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
             horizontalAlignment = Alignment.Start,
         ) {
             Box(

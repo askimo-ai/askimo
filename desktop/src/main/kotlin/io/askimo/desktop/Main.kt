@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -97,7 +98,7 @@ import io.askimo.desktop.settings.providerSelectionDialog
 import io.askimo.desktop.settings.settingsViewWithSidebar
 import io.askimo.desktop.shell.footerBar
 import io.askimo.desktop.shell.navigationSidebar
-import io.askimo.desktop.shell.systemResourcesDialog
+import io.askimo.desktop.shell.telemetryPanel
 import io.askimo.desktop.user.userProfileDialog
 import io.askimo.ui.chat.ChatViewModel
 import io.askimo.ui.chat.chatView
@@ -159,6 +160,7 @@ import io.askimo.ui.shell.rememberPersistedWindowState
 import io.askimo.ui.shell.rememberThemeState
 import io.askimo.ui.shell.splashScreen
 import io.askimo.ui.shell.starPromptDialog
+import io.askimo.ui.shell.systemResourcesDialog
 import io.askimo.ui.skills.skillsView
 import io.askimo.ui.terminal.PendingTerminalCommand
 import io.askimo.ui.terminal.terminalPanel
@@ -1398,7 +1400,11 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
 
                     // System Diagnostics Dialog
                     if (showSystemDiagnosticsDialog) {
-                        systemResourcesDialog(onDismiss = { showSystemDiagnosticsDialog = false })
+                        val metrics by appContext.telemetry.metricsFlow.collectAsState()
+                        systemResourcesDialog(
+                            onDismiss = { showSystemDiagnosticsDialog = false },
+                            telemetryContent = { telemetryPanel(metrics = metrics, maxHeight = 480.dp) },
+                        )
                     }
 
                     // User Profile Dialog

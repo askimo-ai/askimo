@@ -2,7 +2,7 @@
  *
  * Copyright (c) 2026 Askimo
  */
-package io.askimo.desktop.shell
+package io.askimo.ui.shell
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -32,8 +32,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import io.askimo.core.context.AppContext
-import io.askimo.core.telemetry.TelemetryMetrics
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.monitoring.SystemResourceMonitor
@@ -41,17 +39,22 @@ import io.askimo.ui.common.theme.Spacing
 import org.koin.java.KoinJavaComponent.get
 
 /**
- * Dialog that surfaces live system-resource metrics (CPU, JVM memory) and the
- * session telemetry panel in one place.
+ * Dialog that surfaces live system-resource metrics (CPU, JVM memory) and a
+ * caller-supplied telemetry panel.
+ *
+ * The [telemetryContent] slot is intentionally left open so that each module
+ * can pass its own `telemetryPanel` composable (community vs. Pro flavours
+ * differ in implementation but share this outer shell).
  */
 @Composable
-fun systemResourcesDialog(onDismiss: () -> Unit) {
+fun systemResourcesDialog(
+    onDismiss: () -> Unit,
+    telemetryContent: @Composable () -> Unit,
+) {
     val monitor = remember { get<SystemResourceMonitor>(SystemResourceMonitor::class.java) }
-    val appContext = remember { get<AppContext>(AppContext::class.java) }
 
     val memoryUsage by monitor.memoryUsageMB.collectAsState()
     val cpuUsage by monitor.cpuUsagePercent.collectAsState()
-    val metrics: TelemetryMetrics by appContext.telemetry.metricsFlow.collectAsState()
 
     // Keep the monitor ticking while the dialog is open.
     LaunchedEffect(monitor) {
@@ -92,13 +95,27 @@ fun systemResourcesDialog(onDismiss: () -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(Spacing.large),
                 ) {
                     resourceMetricCard(
-                        icon = { Icon(Icons.Default.Memory, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        icon = {
+                            Icon(
+                                Icons.Default.Memory,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
                         label = stringResource("system.diagnostics.jvm.memory"),
                         value = "$memoryUsage MB",
                         modifier = Modifier.weight(1f),
                     )
                     resourceMetricCard(
-                        icon = { Icon(Icons.Default.Speed, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        icon = {
+                            Icon(
+                                Icons.Default.Speed,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
                         label = stringResource("system.diagnostics.cpu.usage"),
                         value = "%.1f%%".format(cpuUsage),
                         modifier = Modifier.weight(1f),
@@ -119,7 +136,7 @@ fun systemResourcesDialog(onDismiss: () -> Unit) {
 
                 Spacer(Modifier.height(Spacing.small))
 
-                telemetryPanel(metrics = metrics, maxHeight = 480.dp)
+                telemetryContent()
 
                 Spacer(Modifier.height(Spacing.large))
 
