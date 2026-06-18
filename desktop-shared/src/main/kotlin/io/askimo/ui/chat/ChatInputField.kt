@@ -108,6 +108,7 @@ import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.keymap.KeyMapManager
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
+import io.askimo.ui.common.theme.LocalFontScale
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.common.ui.util.FileDialogUtils
@@ -236,13 +237,15 @@ fun chatInputField(
     }
 
     // State for resizable text field.
-    // Minimum height accounts for: controls row (44dp) + 1 line of text (24dp) + OutlinedTextField vertical padding (36dp) = 104dp.
-    // This value is used as the initial/reset height so the container is always correctly sized
-    // even before any LaunchedEffect has had a chance to run (e.g. immediately after a session switch).
+    val fontScale = LocalFontScale.current
     val inlineControlsBottomPadding = 44.dp
-    val defaultTextFieldHeight = 104.dp
-    var textFieldHeight by remember(sessionId) { mutableStateOf(defaultTextFieldHeight) }
-    var manuallyResized by remember(sessionId) { mutableStateOf(false) }
+    val lineHeight = 24.dp * fontScale
+    val padding = 36.dp
+    val defaultTextFieldHeight = (padding + lineHeight + inlineControlsBottomPadding)
+        .coerceAtLeast(104.dp)
+    // Re-key on fontScale so the height resets when the user changes font size mid-session.
+    var textFieldHeight by remember(sessionId, fontScale) { mutableStateOf(defaultTextFieldHeight) }
+    var manuallyResized by remember(sessionId, fontScale) { mutableStateOf(false) }
 
     // Track the actual width of the text field for accurate wrapping calculation
     var textFieldWidthPx by remember { mutableStateOf(0f) }
@@ -288,9 +291,6 @@ fun chatInputField(
     }
 
     // Approximate height per line (can be adjusted based on your text style)
-    val lineHeight = 24.dp
-    val padding = 36.dp // Top and bottom padding for the text field
-    // Reserve extra vertical room so bottom-left inline controls do not overlap typed text.
     val calculatedHeight = (lineHeight * estimatedLineCount) + padding + inlineControlsBottomPadding
     val maxVisibleInputLines = ((textFieldHeight - inlineControlsBottomPadding - 1.dp - 32.dp) / lineHeight)
         .toInt()
@@ -1230,7 +1230,7 @@ private fun mcpServerItem(
         ) {
             Column(
                 modifier = Modifier
-                    .widthIn(min = 350.dp, max = 450.dp)
+                    .widthIn(min = 450.dp, max = 600.dp)
                     .heightIn(max = 400.dp)
                     .verticalScroll(rememberScrollState()),
             ) {
@@ -1256,7 +1256,8 @@ private fun mcpServerItem(
                                         text = "${index + 1}.",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.width(20.dp),
+                                        softWrap = false,
+                                        modifier = Modifier.widthIn(min = 32.dp),
                                     )
                                     Column(
                                         verticalArrangement = Arrangement.spacedBy(2.dp),

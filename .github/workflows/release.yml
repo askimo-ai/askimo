@@ -121,6 +121,22 @@ jobs:
         shell: pwsh
         run: .\gradlew.bat --no-daemon "-Dorg.gradle.jvmargs=-Xmx4g" desktop:${{ matrix.task }}
 
+      - name: Sign Windows MSI (Azure Trusted Signing)
+        if: runner.os == 'Windows'
+        uses: azure/artifact-signing-action@v2
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          trusted-signing-account-name: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.AZURE_TRUSTED_SIGNING_PROFILE }}
+          files-folder: desktop/build/compose/binaries/main/msi
+          files-folder-filter: msi
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
       # ── CHECKPOINT 1: verify DMG is properly signed + stapled before upload ──
       # If this fails the whole pipeline stops — no point uploading a broken artifact.
       - name: "[macOS] Verify DMG signature and staple ticket before upload"
@@ -476,116 +492,3 @@ jobs:
           draft: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
-
-  contributors:
-    name: Append contributors to release notes
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [ release ]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout (full history for git log)
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Build contributors section and append to release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          TAG="${{ github.ref_name }}"
-
-          # Fetch current release body first
-          CURRENT_BODY=$(gh release view "$TAG" --json body --jq '.body' 2>/dev/null || echo "")
-
-          # Skip if OUR contributors section already exists (idempotent re-runs).
-          # GitHub's auto-generated section uses "<!-- Release notes generated"
-          # as a marker; ours does not — so we key on our unique thank-you line.
-          if echo "$CURRENT_BODY" | grep -qF "Thank you to everyone who contributed"; then
-            echo "ℹ️  Contributors section already present — skipping to preserve manual edits."
-            exit 0
-          fi
-
-          # Skip if release notes are empty — don't add contributors to a blank body.
-          TRIMMED=$(echo "$CURRENT_BODY" | tr -d '[:space:]')
-          if [ -z "$TRIMMED" ]; then
-            echo "ℹ️  Release notes are empty — skipping contributors until notes are written."
-            exit 0
-          fi
-
-          # Find the previous tag
-          PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${TAG}$" | head -n1 || true)
-          RANGE="${PREV_TAG:+${PREV_TAG}..}${TAG}"
-          echo "Contributors range: $RANGE"
-
-          # Collect unique commit SHAs (exclude bots and GitHub noreply addresses)
-          mapfile -t COMMITS < <(
-            git log "$RANGE" --format='%H|%aE' \
-              | grep -viE '\[bot\]|noreply\.github\.com' \
-              | sort -u
-          )
-
-          # Resolve each commit to a GitHub login + avatar via the Commits API.
-          declare -A SEEN_LOGINS
-          CONTRIBUTOR_LINES=()
-
-          for ENTRY in "${COMMITS[@]}"; do
-            SHA="${ENTRY%%|*}"
-            JSON=$(gh api "/repos/${GITHUB_REPOSITORY}/commits/${SHA}" \
-              --jq '{login: .author.login, avatar: .author.avatar_url, name: .commit.author.name}' \
-              2>/dev/null || echo "{}")
-
-            LOGIN=$(echo "$JSON" | jq -r '.login // empty')
-            AVATAR=$(echo "$JSON" | jq -r '.avatar // empty')
-            NAME=$(echo "$JSON"   | jq -r '.name   // empty')
-
-            # Skip bots and unresolved entries
-            if [ -z "$LOGIN" ] || echo "$LOGIN" | grep -qiE '\[bot\]|bot$'; then
-              continue
-            fi
-
-            # Deduplicate
-            [ -n "${SEEN_LOGINS[$LOGIN]+x}" ] && continue
-            SEEN_LOGINS[$LOGIN]=1
-
-            if [ -n "$AVATAR" ]; then
-              LINE="- <img src=\"${AVATAR}&s=20\" width=\"20\" height=\"20\" style=\"border-radius:50%\"> [@${LOGIN}](https://github.com/${LOGIN})"
-            else
-              LINE="- [@${LOGIN}](https://github.com/${LOGIN})"
-            fi
-            [ -n "$NAME" ] && LINE="${LINE} — ${NAME}"
-            CONTRIBUTOR_LINES+=("$LINE")
-          done
-
-          if [ ${#CONTRIBUTOR_LINES[@]} -eq 0 ]; then
-            echo "No human contributors resolved — skipping append."
-            exit 0
-          fi
-
-          echo "Found ${#CONTRIBUTOR_LINES[@]} contributor(s)."
-
-          # Strip any existing GitHub-auto-generated "## Contributors" block from
-          # CURRENT_BODY so we replace it with our richer version (avatar + link).
-          # GitHub's block starts with "## Contributors" and ends at EOF or next "## ".
-          STRIPPED_BODY=$(echo "$CURRENT_BODY" | awk '
-            /^## Contributors/ { skip=1; next }
-            skip && /^## /     { skip=0 }
-            !skip              { print }
-          ')
-
-          # Build our contributors section
-          SECTION=$'\n\n## Contributors\n\nThank you to everyone who contributed to this release! 🎉\n\n'
-          for LINE in "${CONTRIBUTOR_LINES[@]}"; do
-            SECTION+="${LINE}"$'\n'
-          done
-
-          NEW_BODY="${STRIPPED_BODY}${SECTION}"
-
-          gh release edit "$TAG" --notes "$NEW_BODY"
-          echo "✅ Contributors section appended to release $TAG"
-

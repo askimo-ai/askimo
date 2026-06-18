@@ -46,6 +46,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -82,11 +83,13 @@ import io.askimo.ui.common.ui.clickableCard
 import io.askimo.ui.common.ui.util.FileDialogUtils
 import io.askimo.ui.service.AvatarService
 import io.askimo.ui.service.BackgroundImageService
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.swing.JColorChooser
 import javax.swing.UIManager
 import kotlin.math.roundToInt
+import kotlin.time.Duration.Companion.milliseconds
 import org.jetbrains.skia.Image as SkiaImage
 
 private data class AccentPreset(
@@ -311,12 +314,21 @@ private fun accentColorSection() {
     var accentInput by remember(savedAccentHex) { mutableStateOf(savedAccentHex ?: "") }
     val parsedAccent = remember(accentInput) { parseAccentColor(accentInput) }
     val normalizedInput = remember(accentInput) { parseAccentColor(accentInput)?.let(::toAccentHex) }
-    val canApply = parsedAccent != null && normalizedInput != savedAccentHex
     val pickerTitle = stringResource("settings.appearance.accent.pick.title")
+    val scope = rememberCoroutineScope()
     val isDarkPreview = when (currentThemeMode) {
         ThemeMode.DARK -> true
         ThemeMode.LIGHT -> false
         ThemeMode.SYSTEM -> detectMacOSDarkMode()
+    }
+
+    // Debounce: apply valid hex 300 ms after the user stops typing.
+    // Presets and the color picker bypass this and apply immediately via applyAccent().
+    LaunchedEffect(accentInput) {
+        if (parsedAccent != null && normalizedInput != savedAccentHex) {
+            delay(300.milliseconds)
+            ThemePreferences.setAccentColorHex(normalizedInput)
+        }
     }
 
     Text(
@@ -329,29 +341,6 @@ private fun accentColorSection() {
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-
-    Text(
-        text = stringResource("settings.appearance.palette"),
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onBackground,
-    )
-    Text(
-        text = stringResource("settings.appearance.palette.description"),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
-        paletteStyleOptions.forEach { option ->
-            themeOption(
-                title = stringResource(option.titleKey),
-                description = stringResource(option.descriptionKey),
-                icon = { },
-                selected = selectedPaletteStyle == option.style,
-                onClick = { ThemePreferences.setThemePaletteStyle(option.style) },
-            )
-        }
-    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -382,19 +371,39 @@ private fun accentColorSection() {
                 colors = AppComponents.outlinedTextFieldColors(),
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                // Color picker — applies immediately on dialog confirm
                 secondaryButton(
                     onClick = {
-                        val selected = pickAccentColor(
-                            initial = parsedAccent,
-                            title = pickerTitle,
-                        )
-                        if (selected != null) {
-                            accentInput = toAccentHex(selected)
+                        scope.launch {
+                            val selected = pickAccentColor(
+                                initial = parsedAccent,
+                                title = pickerTitle,
+                            )
+                            if (selected != null) {
+                                val hex = toAccentHex(selected)
+                                accentInput = hex
+                                ThemePreferences.setAccentColorHex(hex)
+                            }
                         }
                     },
                 ) {
                     Text(stringResource("settings.appearance.accent.pick"))
+                }
+
+                // Reset — always available when an accent is saved
+                secondaryButton(
+                    enabled = savedAccentHex != null,
+                    onClick = {
+                        ThemePreferences.setAccentColorHex(null)
+                        accentInput = ""
+                    },
+                ) {
+                    Text(stringResource("settings.appearance.accent.reset"))
                 }
             }
 
@@ -404,6 +413,7 @@ private fun accentColorSection() {
                 color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f),
             )
 
+            // Preset tiles — apply immediately on click
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                 verticalArrangement = Arrangement.spacedBy(Spacing.small),
@@ -412,11 +422,15 @@ private fun accentColorSection() {
                     accentPresetTile(
                         preset = preset,
                         selected = normalizedInput == preset.hex,
-                        onClick = { accentInput = preset.hex },
+                        onClick = {
+                            accentInput = preset.hex
+                            ThemePreferences.setAccentColorHex(preset.hex)
+                        },
                     )
                 }
             }
 
+            // Preview swatches — always reflect what would be applied
             val previewScheme = if (parsedAccent != null) {
                 applyAccentToColorScheme(
                     accent = parsedAccent,
@@ -435,24 +449,29 @@ private fun accentColorSection() {
                 accentColorSwatch(previewScheme.primaryContainer, stringResource("settings.appearance.accent.swatch.primary.container"))
                 accentColorSwatch(previewScheme.onPrimaryContainer, stringResource("settings.appearance.accent.swatch.on.primary.container"))
             }
+        }
+    }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {
-                primaryButton(
-                    enabled = canApply,
-                    onClick = { ThemePreferences.setAccentColorHex(normalizedInput) },
-                ) {
-                    Text(stringResource("settings.appearance.accent.apply"))
-                }
-                secondaryButton(
-                    enabled = savedAccentHex != null,
-                    onClick = {
-                        ThemePreferences.setAccentColorHex(null)
-                        accentInput = ""
-                    },
-                ) {
-                    Text(stringResource("settings.appearance.accent.reset"))
-                }
-            }
+    Text(
+        text = stringResource("settings.appearance.palette"),
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onBackground,
+    )
+    Text(
+        text = stringResource("settings.appearance.palette.description"),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+        paletteStyleOptions.forEach { option ->
+            themeOption(
+                title = stringResource(option.titleKey),
+                description = stringResource(option.descriptionKey),
+                icon = { },
+                selected = selectedPaletteStyle == option.style,
+                onClick = { ThemePreferences.setThemePaletteStyle(option.style) },
+            )
         }
     }
 }

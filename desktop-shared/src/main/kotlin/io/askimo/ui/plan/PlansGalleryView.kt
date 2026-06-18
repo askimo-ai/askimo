@@ -7,11 +7,13 @@ package io.askimo.ui.plan
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
@@ -245,7 +248,10 @@ fun plansGalleryView(
 
                 visiblePlans.chunked(2).forEach { row ->
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.large),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Max)
+                            .padding(bottom = Spacing.large),
                         horizontalArrangement = Arrangement.spacedBy(Spacing.large),
                     ) {
                         row.forEach { plan ->
@@ -368,15 +374,34 @@ private fun planCard(
 
     clickableCard(
         onClick = onSelect,
-        modifier = modifier,
+        // fillMaxHeight stretches the card to match the tallest card in the row (IntrinsicSize.Max)
+        // hoverable connects isHovered so the play icon tint responds to cursor position
+        modifier = modifier.fillMaxHeight().hoverable(interactionSource),
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(Spacing.large)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .padding(Spacing.large),
+        ) {
+            // ── Icon + title (wrapping) + menu — all on one line ───────────
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top,
             ) {
-                Text(text = plan.icon.ifBlank { "📋" }, style = MaterialTheme.typography.headlineMedium)
+                Text(
+                    text = plan.icon.ifBlank { "📋" },
+                    style = MaterialTheme.typography.headlineMedium,
+                )
+                Spacer(modifier = Modifier.width(Spacing.small))
+                Text(
+                    text = plan.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).padding(top = 4.dp),
+                )
                 if (onDelete != null || onEdit != null || onDuplicate != null) {
                     Box {
                         IconButton(onClick = { showMenu = true }, modifier = Modifier.size(24.dp)) {
@@ -435,28 +460,22 @@ private fun planCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(Spacing.small))
-
-            Text(
-                text = plan.name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-
+            // ── Description ───────────────────────────────────────────────
             if (plan.description.isNotBlank()) {
-                Spacer(modifier = Modifier.height(Spacing.extraSmall))
-                Text(
-                    text = plan.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Spacer(modifier = Modifier.height(Spacing.small))
+                themedTooltip(text = plan.description) {
+                    Text(
+                        text = plan.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
 
+            // ── Push steps/play row to the bottom of every card ───────────
+            Spacer(modifier = Modifier.weight(1f))
             Spacer(modifier = Modifier.height(Spacing.medium))
 
             Row(
@@ -472,7 +491,11 @@ private fun planCard(
                 Icon(
                     Icons.Default.PlayArrow,
                     contentDescription = stringResource("plans.run"),
-                    tint = if (isHovered) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                    tint = if (isHovered) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                    },
                     modifier = Modifier.size(20.dp),
                 )
             }

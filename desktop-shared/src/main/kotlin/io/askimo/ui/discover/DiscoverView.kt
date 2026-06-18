@@ -13,11 +13,13 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -280,7 +282,9 @@ private fun exploreFeaturesSection() {
             color = MaterialTheme.colorScheme.onBackground,
         )
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Max),
             horizontalArrangement = Arrangement.spacedBy(Spacing.large),
         ) {
             exploreCard(
@@ -288,28 +292,28 @@ private fun exploreFeaturesSection() {
                 title = stringResource("discover.explore.mcp.title"),
                 description = stringResource("discover.explore.mcp.desc"),
                 url = "https://$DOMAIN/docs/desktop/mcp-integration/",
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
             )
             exploreCard(
                 icon = { Icon(Icons.AutoMirrored.Filled.LibraryBooks, contentDescription = null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer) },
                 title = stringResource("discover.explore.rag.title"),
                 description = stringResource("discover.explore.rag.desc"),
                 url = "https://$DOMAIN/docs/desktop/rag/",
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
             )
             exploreCard(
                 icon = { Icon(Icons.Default.PlayCircle, contentDescription = null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer) },
                 title = stringResource("discover.explore.plans.title"),
                 description = stringResource("discover.explore.plans.desc"),
                 url = "https://$DOMAIN/docs/desktop/plans/",
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
             )
             exploreCard(
                 icon = { Icon(Icons.Default.Extension, contentDescription = null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer) },
                 title = stringResource("discover.explore.skills.title"),
                 description = stringResource("discover.explore.skills.desc"),
                 url = "https://$DOMAIN/docs/desktop/skills/",
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
             )
         }
     }
@@ -331,6 +335,7 @@ private fun exploreCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .fillMaxHeight()
                 .padding(Spacing.large),
             verticalArrangement = Arrangement.spacedBy(Spacing.medium),
         ) {
