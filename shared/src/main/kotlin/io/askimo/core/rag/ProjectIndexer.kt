@@ -330,6 +330,7 @@ class ProjectIndexer(
                 }
 
                 val totalFilesIndexed = projectCoordinators.sumOf { it.progress.value.processedFiles }
+                val allSkippedFileNames = projectCoordinators.flatMap { it.progress.value.skippedFileNames }
 
                 val indexDurationMs = System.currentTimeMillis() - indexingStartMs
                 val durationBucket = when {
@@ -350,11 +351,17 @@ class ProjectIndexer(
                         projectId = projectId,
                         projectName = projectName,
                         filesIndexed = totalFilesIndexed,
+                        skippedFileNames = allSkippedFileNames,
                     ),
                 )
                 updateProjectProgress(
                     projectId,
-                    IndexProgress(status = IndexStatus.READY, processedFiles = totalFilesIndexed, totalFiles = totalFilesIndexed),
+                    IndexProgress(
+                        status = IndexStatus.READY,
+                        processedFiles = totalFilesIndexed,
+                        totalFiles = totalFilesIndexed,
+                        skippedFileNames = allSkippedFileNames,
+                    ),
                 )
             } else {
                 val errors = projectCoordinators

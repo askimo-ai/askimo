@@ -96,6 +96,7 @@ fun communityProjectSidePanel(
     project: Project?,
     ragIndexingStatus: String?,
     ragIndexingPercentage: Int?,
+    indexedPaths: Set<String>,
     isExpanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     onAddToChat: (List<String>) -> Unit,
@@ -249,6 +250,7 @@ fun communityProjectSidePanel(
                                 project = project,
                                 ragIndexingStatus = ragIndexingStatus,
                                 ragIndexingPercentage = ragIndexingPercentage,
+                                indexedPaths = indexedPaths,
                                 onAddMaterial = { if (project != null) showAddMaterialDialog = true },
                                 onRemove = { source ->
                                     if (project != null) {
@@ -326,6 +328,7 @@ private fun ragSourcesTabContent(
     project: Project?,
     ragIndexingStatus: String?,
     ragIndexingPercentage: Int?,
+    indexedPaths: Set<String>,
     onAddMaterial: () -> Unit,
     onRemove: (KnowledgeSourceConfig) -> Unit,
     onAddToChat: (List<String>) -> Unit,
@@ -368,6 +371,7 @@ private fun ragSourcesTabContent(
                 } else {
                     ragSourcesTree(
                         sources = project.knowledgeSources,
+                        indexedPaths = indexedPaths,
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                         selectedNode = selectedNode,
                         onNodeSelected = { node -> selectedNode = if (node == selectedNode) null else node },

@@ -62,7 +62,6 @@ class LocalFilesIndexingCoordinator(
     ): Boolean {
         updateProgress { IndexProgress(status = IndexStatus.INDEXING) }
 
-        // Reset counters
         processedFilesCounter.set(0)
         totalFilesCounter.set(0)
 
@@ -73,8 +72,8 @@ class LocalFilesIndexingCoordinator(
             log.info("Starting indexing for project $projectId with ${paths.size} files")
 
             val fileHashes = ConcurrentHashMap<String, String>()
+            val skippedNames = mutableListOf<String>()
 
-            // Filter valid files
             val validFiles = paths.filter { path ->
                 when {
                     !path.isRegularFile() -> {
@@ -83,7 +82,7 @@ class LocalFilesIndexingCoordinator(
                     }
 
                     shouldExcludeFile(path) -> {
-                        log.debug("Skipping excluded file: $path")
+                        log.debug("Skipping excluded file: {}", path)
                         false
                     }
 
@@ -96,12 +95,18 @@ class LocalFilesIndexingCoordinator(
 
             log.info("Found ${validFiles.size} indexable files")
 
-            // Process files sequentially (simpler for file-only indexing)
             for (filePath in validFiles) {
-                indexFile(filePath, fileHashes, previousHashes)
+                indexFile(filePath, fileHashes, previousHashes, skippedNames)
             }
 
-            return finalizeIndexing(previousHashes, fileHashes)
+            val success = finalizeIndexing(previousHashes, fileHashes)
+
+            // Persist skipped file names into progress after finalization
+            if (skippedNames.isNotEmpty()) {
+                updateProgress { copy(skippedFileNames = skippedNames) }
+            }
+
+            return success
         } catch (e: Exception) {
             log.error("Indexing failed for project $projectId", e)
             updateProgress { copy(status = IndexStatus.FAILED, error = e.message ?: "Unknown error") }
@@ -117,6 +122,7 @@ class LocalFilesIndexingCoordinator(
         filePath: Path,
         fileHashes: ConcurrentHashMap<String, String>,
         previousHashes: Map<String, String>,
+        skippedNames: MutableList<String>,
     ): Boolean {
         val startTime = System.currentTimeMillis()
 
@@ -124,10 +130,8 @@ class LocalFilesIndexingCoordinator(
             val hash = stateManager.calculateFileHash(filePath)
             val absolutePath = filePath.toAbsolutePath().toString()
 
-            // Store hash regardless of whether we index or skip
             fileHashes[absolutePath] = hash
 
-            // Skip if file hasn't changed (incremental indexing)
             if (previousHashes[absolutePath] == hash) {
                 log.debug("Skipping unchanged file: {}", filePath.fileName)
                 updateProgressAtomic(filePath)
@@ -136,9 +140,9 @@ class LocalFilesIndexingCoordinator(
 
             val segments = resourceContentProcessor.createSegmentsForFile(filePath)
 
-            // Skip files that can't be read, have blank content, or produce no valid chunks
             if (segments == null) {
                 log.debug("Skipping file with no extractable content: {}", filePath.fileName)
+                skippedNames.add(filePath.fileName.toString())
                 updateProgressAtomic(filePath)
                 return true
             }

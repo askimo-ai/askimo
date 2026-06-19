@@ -211,7 +211,7 @@ fun projectView(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = Spacing.large),
-                        colors = AppComponents.surfaceVariantCardColors(),
+                        colors = AppComponents.bannerCardColors(),
                         shape = MaterialTheme.shapes.large,
                     ) {
                         Row(
@@ -597,7 +597,7 @@ private fun knowledgeSourcesPanel(
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = AppComponents.bannerCardColors(),
+        colors = AppComponents.surfaceVariantCardColors(),
     ) {
         Column(
             modifier = Modifier
@@ -753,6 +753,9 @@ private fun knowledgeSourcesPanel(
                 indexProgress = indexProgress,
                 hasKnowledgeSources = currentProject.knowledgeSources.isNotEmpty(),
             )
+
+            // ── Skipped files warning ──────────────────────────────────────
+            skippedFilesWarning(skippedFileNames = indexProgress.skippedFileNames)
 
             // Expandable content
             if (currentProject.knowledgeSources.isNotEmpty()) {
@@ -978,5 +981,81 @@ private fun indexProgressIndicator(
         }
 
         else -> Unit // READY, WATCHING, NOT_STARTED — no indicator needed
+    }
+}
+
+/**
+ * Collapsible warning shown in the knowledge sources panel when one or more files
+ * could not be indexed (e.g. image-only PDFs with no extractable text).
+ */
+@Composable
+private fun skippedFilesWarning(skippedFileNames: List<String>) {
+    if (skippedFileNames.isEmpty()) return
+
+    var expanded by remember { mutableStateOf(false) }
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        label = "skipped_rotation",
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = Spacing.small),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    onClick = { expanded = !expanded },
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() },
+                )
+                .pointerHoverIcon(PointerIcon.Hand),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(14.dp),
+            )
+            Text(
+                text = "${skippedFileNames.size} file(s) skipped — no extractable text (e.g. image-only PDFs)",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowDown,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .size(16.dp)
+                    .rotate(rotation),
+            )
+        }
+
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically(),
+            exit = shrinkVertically(),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = Spacing.extraSmall, start = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                skippedFileNames.forEach { name ->
+                    Text(
+                        text = "• $name",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                    )
+                }
+            }
+        }
     }
 }

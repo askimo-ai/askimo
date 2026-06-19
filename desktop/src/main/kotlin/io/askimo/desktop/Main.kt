@@ -1948,11 +1948,12 @@ fun mainContent(
                     onNavigateToMcpSettings = onNavigateToMcpSettings,
                     onMoveSessionToNewProject = { _ -> onNewProject() },
                     userAvatarPath = userAvatarPath,
-                    projectSidePanelSlot = { proj, ragStatus, ragPct, expanded, onExpandedChange, onAddToChat ->
+                    projectSidePanelSlot = { proj, ragStatus, ragPct, indexedPaths, expanded, onExpandedChange, onAddToChat ->
                         communityProjectSidePanel(
                             project = proj,
                             ragIndexingStatus = ragStatus,
                             ragIndexingPercentage = ragPct,
+                            indexedPaths = indexedPaths,
                             isExpanded = expanded,
                             onExpandedChange = onExpandedChange,
                             onAddToChat = onAddToChat,

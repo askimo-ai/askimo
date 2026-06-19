@@ -70,12 +70,20 @@ data class IndexingCompletedEvent(
     val projectId: String,
     val projectName: String,
     val filesIndexed: Int,
+    val skippedFileNames: List<String> = emptyList(),
     override val timestamp: Instant = Instant.now(),
     override val source: EventSource = EventSource.SYSTEM,
 ) : Event {
     override val type = EventType.INTERNAL
 
-    override fun getDetails(): String = "Successfully indexed $filesIndexed file(s) for project '$projectName'"
+    override fun getDetails(): String {
+        val skippedNote = if (skippedFileNames.isNotEmpty()) {
+            " (${skippedFileNames.size} skipped — no extractable text)"
+        } else {
+            ""
+        }
+        return "Successfully indexed $filesIndexed file(s) for project '$projectName'$skippedNote"
+    }
 }
 
 /**

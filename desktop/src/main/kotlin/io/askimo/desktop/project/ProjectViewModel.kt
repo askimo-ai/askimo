@@ -366,6 +366,7 @@ class ProjectViewModel(
                         status = IndexStatus.READY,
                         processedFiles = event.filesIndexed,
                         totalFiles = event.filesIndexed,
+                        skippedFileNames = event.skippedFileNames,
                     )
 
                     is IndexingFailedEvent -> IndexProgress(

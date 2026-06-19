@@ -99,4 +99,20 @@ class IndexStateManager(
             log.error("Failed to clear index states for project $projectId, resource $resourceId", e)
         }
     }
+
+    companion object {
+        private val repository by lazy { IndexStateRepository(DatabaseManager.getInstance()) }
+        private val localSourceTypes = setOf("folders", "files")
+
+        /**
+         * Returns all indexed local file paths for the given project.
+         */
+        fun getIndexedLocalPathsForProject(projectId: String): Set<String> = repository.getPathsForProject(projectId, localSourceTypes)
+            .mapTo(HashSet()) { IndexPathNormalizer.normalize(it) }
+
+        /**
+         * Canonical path key used by both persistence readers and UI lookups.
+         */
+        fun normalizePathKey(path: String): String = IndexPathNormalizer.normalize(path)
+    }
 }

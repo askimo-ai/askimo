@@ -26,7 +26,11 @@ data class IndexProgress(
     val resourceIdentifier: String? = null,
     val currentFile: String? = null,
     val error: String? = null,
+    /** File names (not full paths) skipped because no text could be extracted (e.g. image-only PDFs). */
+    val skippedFileNames: List<String> = emptyList(),
 ) {
+    val skippedFiles: Int get() = skippedFileNames.size
+
     val progressPercent: Int
         get() = if (totalFiles > 0) (processedFiles * 100) / totalFiles else 0
 

@@ -92,15 +92,15 @@ class LocalFoldersIndexingCoordinator(
                 updateProgress { copy(totalFiles = allFiles.size) }
                 log.info("Found ${allFiles.size} indexable files for project $projectId starting at $path")
 
-                // Multiple DB round-trips chunked at 500 paths each (SQLite bind-param limit)
                 log.debug("Loading previous hashes for {} files from DB", allFiles.size)
                 val previousHashes = stateManager.getHashesForFiles(allFiles.map { it.toAbsolutePath().toString() })
                 log.debug("Loaded {} previous hashes from DB", previousHashes.size)
                 val changedHashes = mutableMapOf<String, String>()
+                val skippedNames = mutableListOf<String>()
 
                 for (file in allFiles) {
                     if (cancelled) break
-                    indexFileIncremental(file, previousHashes, changedHashes)
+                    indexFileIncremental(file, previousHashes, changedHashes, skippedNames)
                 }
 
                 if (changedHashes.isNotEmpty()) {
@@ -122,7 +122,13 @@ class LocalFoldersIndexingCoordinator(
                     return@withContext false
                 }
 
-                updateProgress { copy(status = IndexStatus.READY, processedFiles = processedFilesCounter.get()) }
+                updateProgress {
+                    copy(
+                        status = IndexStatus.READY,
+                        processedFiles = processedFilesCounter.get(),
+                        skippedFileNames = skippedNames,
+                    )
+                }
                 log.info("Completed indexing for project $projectName: ${processedFilesCounter.get()} files processed at path $path")
                 true
             } catch (e: CancellationException) {
@@ -156,6 +162,7 @@ class LocalFoldersIndexingCoordinator(
         filePath: Path,
         previousHashes: Map<String, String>,
         changedHashes: MutableMap<String, String>,
+        skippedNames: MutableList<String>,
     ) {
         if (cancelled) {
             log.trace("Indexing cancelled, skipping file: {}", filePath.pathString)
@@ -182,6 +189,7 @@ class LocalFoldersIndexingCoordinator(
 
             if (segments == null) {
                 log.warn("Skipping file with no extractable content: {}", filePath.pathString)
+                skippedNames.add(filePath.fileName.toString())
                 changedHashes[absolutePath] = hash
                 updateProgressAtomic(filePath)
                 return
@@ -196,7 +204,6 @@ class LocalFoldersIndexingCoordinator(
 
             for (segment in segments) {
                 if (!hybridIndexer.addSegmentToBatch(segment, filePath)) {
-                    // Batch flush failed (e.g. Lucene closed after project deleted) — stop all further indexing.
                     cancelled = true
                     return
                 }

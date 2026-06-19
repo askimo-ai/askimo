@@ -96,6 +96,28 @@ class IndexStateRepository(
     }
 
     /**
+     * Get all indexed paths for a project, optionally limited by source types.
+     * Used by UI cache hydration to avoid per-resource queries.
+     */
+    fun getPathsForProject(
+        projectId: String,
+        sourceTypes: Set<String> = emptySet(),
+    ): Set<String> = transaction(database) {
+        if (sourceTypes.isEmpty()) {
+            IndexFileStateTable.selectAll()
+                .where { IndexFileStateTable.projectId eq projectId }
+                .mapTo(HashSet<String>()) { it[IndexFileStateTable.filePath] }
+        } else {
+            IndexFileStateTable.selectAll()
+                .where {
+                    (IndexFileStateTable.projectId eq projectId) and
+                        (IndexFileStateTable.sourceType inList sourceTypes.toList())
+                }
+                .mapTo(HashSet<String>()) { it[IndexFileStateTable.filePath] }
+        }
+    }
+
+    /**
      * Upsert hashes for a batch of changed files.
      * Only touches the files in [fileHashes] — all other entries remain untouched.
      * Used by chunked indexing to persist state incrementally per chunk.

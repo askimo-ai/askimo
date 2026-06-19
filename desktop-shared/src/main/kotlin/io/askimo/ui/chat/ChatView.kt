@@ -53,6 +53,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -153,10 +154,11 @@ fun chatView(
         project: Project?,
         ragIndexingStatus: String?,
         ragIndexingPercentage: Int?,
+        indexedPaths: Set<String>,
         isExpanded: Boolean,
         onExpandedChange: (Boolean) -> Unit,
         onAddToChat: (List<String>) -> Unit,
-    ) -> Unit = { _, _, _, _, _, _ -> },
+    ) -> Unit = { _, _, _, _, _, _, _ -> },
 ) {
     // Unpack state for internal use
     val messages = state.messages
@@ -290,6 +292,8 @@ fun chatView(
     // RAG indexing status state
     var ragIndexingStatus by remember { mutableStateOf<String?>(null) }
     var ragIndexingPercentage by remember { mutableStateOf<Int?>(null) }
+    val projectIndexStateManager = remember { GlobalContext.get().get<ProjectIndexStateManager>() }
+    val indexedPaths by projectIndexStateManager.indexedPaths.collectAsState()
 
     // Side panel state (RAG sources, MCP, etc.)
     var sidePanelExpanded by remember { mutableStateOf(ApplicationPreferences.getProjectSidePanelExpanded()) }
@@ -369,6 +373,17 @@ fun chatView(
             // Reset status when project changes or has no knowledge sources
             ragIndexingStatus = null
             ragIndexingPercentage = null
+        }
+    }
+
+    // Keep project-index cache in sync with the currently open project.
+    LaunchedEffect(project?.id, ragIndexingStatus) {
+        val currentProjectId = project?.id
+        projectIndexStateManager.activateProject(currentProjectId)
+
+        // Refresh after completed runs; activateProject already covers initial load.
+        if (currentProjectId != null && ragIndexingStatus == "completed") {
+            projectIndexStateManager.refreshActiveProject()
         }
     }
 
@@ -1252,6 +1267,7 @@ fun chatView(
                     project,
                     ragIndexingStatus,
                     ragIndexingPercentage,
+                    indexedPaths,
                     sidePanelExpanded,
                     { sidePanelExpanded = it },
                     { filePaths ->

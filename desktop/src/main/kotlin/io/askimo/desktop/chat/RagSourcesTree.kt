@@ -77,6 +77,9 @@ import io.askimo.core.chat.domain.LocalFilesKnowledgeSourceConfig
 import io.askimo.core.chat.domain.LocalFoldersKnowledgeSourceConfig
 import io.askimo.core.chat.domain.UrlKnowledgeSourceConfig
 import io.askimo.core.logging.currentFileLogger
+import io.askimo.core.rag.state.IndexStateManager
+import io.askimo.ui.common.components.indexedIcon
+import io.askimo.ui.common.components.notIndexedIcon
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.Spacing
@@ -116,6 +119,7 @@ private const val SEARCH_RESULTS_CAP = 200
 @Composable
 fun ragSourcesTree(
     sources: List<KnowledgeSourceConfig>,
+    indexedPaths: Set<String> = emptySet(),
     modifier: Modifier = Modifier,
     selectedNode: TreeNode? = null,
     onNodeSelected: (TreeNode?) -> Unit = {},
@@ -276,6 +280,7 @@ fun ragSourcesTree(
                                 searchResultItem(
                                     path = path,
                                     query = searchQuery.trim(),
+                                    indexedPaths = indexedPaths,
                                     isSelected = selectedNode?.fullPath == path,
                                     isInChatSelection = path in chatSelection,
                                     onSelect = { node -> onNodeSelected(node) },
@@ -303,6 +308,7 @@ fun ragSourcesTree(
                         treeNodeItem(
                             node = node,
                             level = 0,
+                            indexedPaths = indexedPaths,
                             selectedNode = selectedNode,
                             onNodeSelected = onNodeSelected,
                             onRemove = onRemove,
@@ -360,6 +366,7 @@ fun ragSourcesTree(
 private fun searchResultItem(
     path: String,
     query: String,
+    indexedPaths: Set<String>,
     isSelected: Boolean,
     isInChatSelection: Boolean,
     onSelect: (TreeNode) -> Unit,
@@ -380,6 +387,7 @@ private fun searchResultItem(
         isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
         else -> Color.Transparent
     }
+    val isIndexed = IndexStateManager.normalizePathKey(path) in indexedPaths
 
     themedTooltip(text = path) {
         Row(
@@ -430,6 +438,21 @@ private fun searchResultItem(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+
+            themedTooltip(
+                text = if (isIndexed) {
+                    stringResource("rag.tree.status.indexed")
+                } else {
+                    stringResource("rag.tree.status.not_indexed")
+                },
+            ) {
+                if (isIndexed) {
+                    indexedIcon(size = 14.dp)
+                } else {
+                    notIndexedIcon(size = 14.dp)
+                }
+            }
+
             // Add to chat button (files only)
             if (onAddToChat != null && isFile) {
                 if (isInChatSelection) {
@@ -509,6 +532,7 @@ data class UrlTreeNode(
 private fun treeNodeItem(
     node: TreeNode,
     level: Int,
+    indexedPaths: Set<String>,
     selectedNode: TreeNode?,
     onNodeSelected: (TreeNode) -> Unit,
     onRemove: (KnowledgeSourceConfig) -> Unit,
@@ -518,8 +542,8 @@ private fun treeNodeItem(
     modifier: Modifier = Modifier,
 ) {
     when (node) {
-        is FolderTreeNode -> folderNodeItem(node, level, selectedNode, onNodeSelected, onRemove, chatSelection, onAddToChat, expandedPaths, modifier)
-        is FileTreeNode -> fileNodeItem(node, level, selectedNode, onNodeSelected, onRemove, chatSelection, onAddToChat, modifier)
+        is FolderTreeNode -> folderNodeItem(node, level, indexedPaths, selectedNode, onNodeSelected, onRemove, chatSelection, onAddToChat, expandedPaths, modifier)
+        is FileTreeNode -> fileNodeItem(node, level, indexedPaths, selectedNode, onNodeSelected, onRemove, chatSelection, onAddToChat, modifier)
         is UrlTreeNode -> urlNodeItem(node, level, selectedNode, onNodeSelected, onRemove, modifier)
     }
 }
@@ -529,6 +553,7 @@ private fun treeNodeItem(
 private fun folderNodeItem(
     node: FolderTreeNode,
     level: Int,
+    indexedPaths: Set<String>,
     selectedNode: TreeNode?,
     onNodeSelected: (TreeNode) -> Unit,
     onRemove: (KnowledgeSourceConfig) -> Unit,
@@ -597,7 +622,7 @@ private fun folderNodeItem(
         if (isExpanded && children.isNotEmpty()) {
             Column {
                 children.forEach { child ->
-                    treeNodeItem(node = child, level = level + 1, selectedNode = selectedNode, onNodeSelected = onNodeSelected, onRemove = onRemove, chatSelection = chatSelection, onAddToChat = onAddToChat, expandedPaths = expandedPaths)
+                    treeNodeItem(node = child, level = level + 1, indexedPaths = indexedPaths, selectedNode = selectedNode, onNodeSelected = onNodeSelected, onRemove = onRemove, chatSelection = chatSelection, onAddToChat = onAddToChat, expandedPaths = expandedPaths)
                 }
             }
         }
@@ -609,6 +634,7 @@ private fun folderNodeItem(
 private fun fileNodeItem(
     node: FileTreeNode,
     level: Int,
+    indexedPaths: Set<String>,
     selectedNode: TreeNode?,
     onNodeSelected: (TreeNode) -> Unit,
     onRemove: (KnowledgeSourceConfig) -> Unit,
@@ -619,6 +645,7 @@ private fun fileNodeItem(
     var showContextMenu by remember { mutableStateOf(false) }
     val isSelected = selectedNode == node
     val isInChatSelection = node.path in chatSelection
+    val isIndexed = IndexStateManager.normalizePathKey(node.path) in indexedPaths
     val backgroundColor = when {
         isInChatSelection -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f)
         isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
@@ -640,6 +667,19 @@ private fun fileNodeItem(
             ) {
                 Icon(imageVector = Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = null, tint = AppComponents.secondaryIconColor(), modifier = Modifier.size(18.dp))
                 Text(text = node.displayName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                themedTooltip(
+                    text = if (isIndexed) {
+                        stringResource("rag.tree.status.indexed")
+                    } else {
+                        stringResource("rag.tree.status.not_indexed")
+                    },
+                ) {
+                    if (isIndexed) {
+                        indexedIcon(size = 14.dp)
+                    } else {
+                        notIndexedIcon(size = 14.dp)
+                    }
+                }
                 if (onAddToChat != null) {
                     if (isInChatSelection) {
                         IconButton(onClick = { chatSelection.remove(node.path) }, modifier = Modifier.size(20.dp).pointerHoverIcon(PointerIcon.Hand)) {

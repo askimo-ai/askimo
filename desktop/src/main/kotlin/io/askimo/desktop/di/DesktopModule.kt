@@ -17,6 +17,7 @@ import io.askimo.core.tools.ToolProviderImpl
 import io.askimo.desktop.project.ProjectViewModel
 import io.askimo.desktop.project.ProjectsViewModel
 import io.askimo.desktop.settings.SettingsViewModel
+import io.askimo.ui.chat.ProjectIndexStateManager
 import io.askimo.ui.common.monitoring.SystemResourceMonitor
 import io.askimo.ui.discover.DiscoverViewModel
 import io.askimo.ui.plan.PlansViewModel
@@ -79,6 +80,8 @@ val desktopModule = module {
     single { ToolProviderImpl(mcpInstanceService = get()) }
 
     single { SystemResourceMonitor() }
+
+    single { ProjectIndexStateManager() }
 
     single {
         SessionManager(
