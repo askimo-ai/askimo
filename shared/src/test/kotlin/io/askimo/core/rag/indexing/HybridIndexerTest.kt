@@ -31,6 +31,7 @@ import java.time.Instant
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 @AskimoTestHome
@@ -281,6 +282,67 @@ class HybridIndexerTest {
 
             assertTrue(segmentRepository.getSegmentIdsForFile(projectId, fA).isEmpty(), "moduleA/Foo.kt should be removed")
             assertTrue(segmentRepository.getSegmentIdsForFile(projectId, fExtra).isNotEmpty(), "moduleAExtra/Bar.kt must be untouched")
+        }
+    }
+
+    @Nested
+    inner class ProjectDeletedDuringIndexing {
+
+        @Test
+        fun `flushRemainingSegments returns false when project row deleted mid-indexing`() = runBlocking<Unit> {
+            val f = file("doc.txt")
+            indexer.addSegmentToBatch(segment(f), f)
+
+            // Simulate the production scenario: project row deleted while indexing is running
+            db.getProjectRepository().deleteProject(projectId)
+
+            val result = indexer.flushRemainingSegments()
+
+            assertFalse(result, "flush must return false when the project row has been deleted")
+        }
+
+        @Test
+        fun `addSegmentToBatch returns false when a full batch flush triggers FK violation`() = runBlocking<Unit> {
+            val f = file("batch.txt")
+
+            // Fill batch to BATCH_SIZE-1 (49) — no auto-flush yet
+            repeat(49) { i -> indexer.addSegmentToBatch(segment(f, i, "chunk $i"), f) }
+
+            // Delete the project row so the FK constraint fires on the 50th add
+            db.getProjectRepository().deleteProject(projectId)
+
+            val result = indexer.addSegmentToBatch(segment(f, 49, "chunk 49"), f)
+
+            assertFalse(result, "addSegmentToBatch must return false when the batch flush fails due to FK violation")
+        }
+
+        @Test
+        fun `pending mappings are cleared after FK failure so a second flush is a no-op`() = runBlocking<Unit> {
+            val f = file("retry.txt")
+            indexer.addSegmentToBatch(segment(f), f)
+
+            // Trigger FK failure
+            db.getProjectRepository().deleteProject(projectId)
+            indexer.flushRemainingSegments()
+
+            // Re-create the project row so subsequent DB writes would succeed if retried
+            db.getProjectRepository().createProject(
+                Project(
+                    id = projectId,
+                    name = "Recreated",
+                    description = null,
+                    knowledgeSources = emptyList(),
+                    createdAt = Instant.now(),
+                    updatedAt = Instant.now(),
+                ),
+            )
+
+            indexer.flushRemainingSegments()
+
+            assertTrue(
+                segmentRepository.getSegmentIdsForFile(projectId, f).isEmpty(),
+                "No segments should be in DB — pendingMappings must be cleared on FK failure, not retried",
+            )
         }
     }
 }

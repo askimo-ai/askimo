@@ -11,7 +11,7 @@ import java.io.File
 /**
  * Runnable language implementation for Python scripts.
  *
- * Uses a single Askimo-managed virtualenv at [ASKIMO_VENV_DIR] (~/.askimo/venv)
+ * Uses a single Askimo-managed virtualenv at [ASKIMO_VENV_DIR] (~/.askimo/personal/code/venv)
  * to avoid PEP 668 restrictions on system/Homebrew Python. The venv is created
  * automatically on first use. Third-party imports detected in the script are
  * installed into the venv before execution.
@@ -21,14 +21,17 @@ import java.io.File
  */
 object PythonLanguage : RunnableLanguage(setOf("python", "python3", "py"), "python3") {
 
+    /** Root directory for all code-execution artifacts. */
+    private val CODE_DIR get() = AskimoHome.base().resolve("code").toFile()
+
     /** Askimo-managed virtualenv directory. */
-    private val ASKIMO_VENV_DIR get() = AskimoHome.rootBase().resolve("venv").toFile()
+    private val ASKIMO_VENV_DIR get() = AskimoHome.base().resolve("code/venv").toFile()
 
     /** Persistent requirements file — packages accumulate here across runs. */
-    private val REQUIREMENTS_FILE get() = AskimoHome.rootBase().resolve("requirements.txt").toFile()
+    private val REQUIREMENTS_FILE get() = AskimoHome.base().resolve("code/requirements.txt").toFile()
 
     /** Shared workspace directory — scripts write outputs here for chaining across runs. */
-    private val ASKIMO_WORKSPACE_DIR get() = AskimoHome.rootBase().resolve("workspace").toFile()
+    private val ASKIMO_WORKSPACE_DIR get() = AskimoHome.base().resolve("code/workspace").toFile()
 
     private val isWindows = System.getProperty("os.name").lowercase().contains("win")
 
@@ -44,7 +47,7 @@ object PythonLanguage : RunnableLanguage(setOf("python", "python3", "py"), "pyth
     )
 
     override fun buildTerminalCommand(code: String): String {
-        // Ensure workspace dir exists so scripts can write to it immediately
+        CODE_DIR.mkdirs()
         if (!ASKIMO_WORKSPACE_DIR.exists()) ASKIMO_WORKSPACE_DIR.mkdirs()
 
         val tmpFile = File.createTempFile("askimo_", ".py").apply {

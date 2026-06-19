@@ -13,6 +13,7 @@ import io.askimo.core.chat.service.ProjectService
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.db.Pageable
 import io.askimo.core.event.EventBus
+import io.askimo.core.event.internal.ProjectRefreshEvent
 import io.askimo.core.event.internal.ProjectsRefreshEvent
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
@@ -251,6 +252,13 @@ class ProjectsViewModel(
                     )
                 }
                 log.debug("Updated project $projectId")
+                // Notify the per-project ProjectViewModel to reload its data
+                EventBus.post(
+                    ProjectRefreshEvent(
+                        projectId = projectId,
+                        reason = "Project updated by user",
+                    ),
+                )
                 refresh()
             } catch (e: Exception) {
                 log.error("Failed to update project $projectId", e)

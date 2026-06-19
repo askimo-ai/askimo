@@ -94,8 +94,13 @@ class HybridIndexer(
             flushSnapshot(snapshot)
         } else {
             // Nothing to flush — still persist any pending mappings
-            batchMutex.withLock { savePendingMappings() }
-            true
+            try {
+                batchMutex.withLock { savePendingMappings() }
+                true
+            } catch (e: Exception) {
+                log.warn("Failed to save pending mappings", e)
+                false
+            }
         }
     }
 
@@ -156,6 +161,12 @@ class HybridIndexer(
             )
             false
         } catch (e: Exception) {
+            // FK violation = project deleted while indexing. Already logged as WARN in
+            // savePendingMappings — do NOT surface a user-facing error for this.
+            if (e.isForeignKeyViolation()) {
+                return false
+            }
+
             val maxSegmentChars = segments.maxOfOrNull { it.text().length } ?: 0
             val largestSegmentIndex = segments.indexOfFirst { it.text().length == maxSegmentChars }
             val largestSegment = if (largestSegmentIndex >= 0) segments[largestSegmentIndex] else null
@@ -193,7 +204,13 @@ class HybridIndexer(
     }
 
     /**
-     * Save pending segment mappings to database
+     * Save pending segment mappings to database.
+     *
+     * Always clears [pendingMappings] — on success AND on failure — so a subsequent
+     * call never retries the same mappings and causes a cascade of FK errors.
+     *
+     * Throws on any database error so the caller ([flushSnapshot] / [flushRemainingSegments])
+     * can return `false` and stop the indexing loop immediately.
      */
     private fun savePendingMappings() {
         if (pendingMappings.isEmpty()) return
@@ -212,9 +229,25 @@ class HybridIndexer(
             log.trace("Saved {} segment mappings to database", pendingMappings.size)
             pendingMappings.clear()
         } catch (e: Exception) {
-            log.error("Failed to save segment mappings: {}", e.message, e)
+            // Always clear so the next call doesn't retry and trigger another FK error
+            pendingMappings.clear()
+            if (e.isForeignKeyViolation()) {
+                // Expected when the project is deleted while indexing is still running.
+                // Logged as WARN — not an application error.
+                log.warn(
+                    "Project {} no longer exists in DB — abandoning segment mapping saves. " +
+                        "This is expected when a project is deleted while indexing is in progress.",
+                    projectId,
+                )
+            } else {
+                log.error("Failed to save segment mappings: {}", e.message, e)
+            }
+            throw e // propagate so the caller returns false and the indexing loop stops
         }
     }
+
+    private fun Exception.isForeignKeyViolation(): Boolean = message?.contains("SQLITE_CONSTRAINT_FOREIGNKEY") == true ||
+        cause?.message?.contains("SQLITE_CONSTRAINT_FOREIGNKEY") == true
 
     /**
      * Remove all segments for a file from both the embedding store, keyword index, and tracking database

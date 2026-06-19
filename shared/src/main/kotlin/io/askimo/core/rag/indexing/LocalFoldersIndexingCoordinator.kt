@@ -126,7 +126,7 @@ class LocalFoldersIndexingCoordinator(
                 log.info("Completed indexing for project $projectName: ${processedFilesCounter.get()} files processed at path $path")
                 true
             } catch (e: CancellationException) {
-                log.error("Indexing was cancelled (CancellationException) for project $projectName: ${e.message}", e)
+                log.info("Indexing cancelled for project $projectName: ${e.message}")
                 updateProgress { copy(status = IndexStatus.FAILED, error = "Indexing cancelled: ${e.message}") }
                 throw e // must rethrow so the coroutine machinery knows it was cancelled
             } catch (e: Exception) {
@@ -195,7 +195,11 @@ class LocalFoldersIndexingCoordinator(
             }
 
             for (segment in segments) {
-                if (!hybridIndexer.addSegmentToBatch(segment, filePath)) return
+                if (!hybridIndexer.addSegmentToBatch(segment, filePath)) {
+                    // Batch flush failed (e.g. Lucene closed after project deleted) — stop all further indexing.
+                    cancelled = true
+                    return
+                }
             }
 
             changedHashes[absolutePath] = hash

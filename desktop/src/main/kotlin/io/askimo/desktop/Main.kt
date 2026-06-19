@@ -80,7 +80,6 @@ import io.askimo.core.mcp.McpInstanceService
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.user.domain.UserProfile
 import io.askimo.core.util.AskimoHome
-import io.askimo.core.util.AskimoHomeMigration
 import io.askimo.core.util.PersonalAskimoHome
 import io.askimo.desktop.chat.communityProjectSidePanel
 import io.askimo.desktop.di.allDesktopModules
@@ -205,7 +204,10 @@ fun main() {
 
     AskimoHome.register(PersonalAskimoHome)
 
-    AskimoHomeMigration.migrate(AskimoHome.rootBase().toFile())
+    // Reconfigure the FILE log appender to use the resolved Askimo home path.
+    // logback.xml cannot reliably resolve ASKIMO_HOME at parse time (before JVM startup),
+    // so we redirect the appender programmatically here, after AskimoHome is registered.
+    LogbackConfigurator.configureLogDirectory(AskimoHome.base().resolve("logs"))
 
     AppContext.initialize(ExecutionMode.STATEFUL_TOOLS_MODE)
 

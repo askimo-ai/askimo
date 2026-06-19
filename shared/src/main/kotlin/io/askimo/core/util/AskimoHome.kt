@@ -49,12 +49,6 @@ object AskimoHome {
     // ── Path resolution ──────────────────────────────────────────────────────
 
     /**
-     * Returns the root ~/.askimo directory.
-     * Respects the thread-local test override and ASKIMO_HOME env var.
-     */
-    fun rootBase(): Path = get().rootBase()
-
-    /**
      * Returns the profile home directory (e.g. ~/.askimo/personal).
      * All app data paths resolve under this directory.
      */
@@ -67,8 +61,6 @@ object AskimoHome {
     fun projectsDir(): Path = base().resolve("projects")
     fun sessionFile(): Path = base().resolve("session")
     fun encryptionKeyFile(): Path = base().resolve(".key")
-    fun logsDir(): Path = base().resolve("logs")
-    fun backupsDir(): Path = base().resolve("backups")
 
     fun userHome(): Path = Paths.get(System.getProperty("user.home")).toAbsolutePath().normalize()
 

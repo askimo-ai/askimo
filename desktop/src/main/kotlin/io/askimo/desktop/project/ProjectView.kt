@@ -10,6 +10,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -176,7 +178,7 @@ fun projectView(
                         .fillMaxWidth()
                         .padding(start = 24.dp, end = 36.dp, top = 24.dp, bottom = 8.dp),
                 ) {
-                    // ── Back navigation (same style as PlanDetailView) ─────────
+                    // ── Back navigation breadcrumb ─────────────────────────
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(bottom = Spacing.small),
@@ -188,7 +190,8 @@ fun projectView(
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = stringResource("action.back"),
-                                tint = MaterialTheme.colorScheme.onSurface,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp),
                             )
                         }
                         TextButton(
@@ -197,74 +200,102 @@ fun projectView(
                         ) {
                             Text(
                                 text = stringResource("projects.title"),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onBackground,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
 
-                    Row(
+                    // ── Project hero card ───────────────────────────────────
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = Spacing.large),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top,
+                        colors = AppComponents.surfaceVariantCardColors(),
+                        shape = MaterialTheme.shapes.large,
                     ) {
-                        Column(modifier = Modifier.weight(1f).padding(end = Spacing.small)) {
-                            Text(
-                                text = currentProject.name,
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            currentProject.description?.takeIf { it.isNotBlank() }?.let { desc ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(Spacing.large),
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.large),
+                            verticalAlignment = Alignment.Top,
+                        ) {
+                            // Project avatar — colored circle with first letter
+                            Box(
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                        shape = CircleShape,
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
                                 Text(
-                                    text = desc,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = Spacing.extraSmall),
+                                    text = currentProject.name.firstOrNull()?.uppercaseChar()?.toString() ?: "P",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 )
                             }
-                        }
 
-                        Box {
-                            themedTooltip(text = stringResource("project.menu.tooltip")) {
-                                IconButton(
-                                    onClick = { showProjectMenu = true },
-                                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.MoreVert,
-                                        contentDescription = stringResource("project.menu.tooltip"),
-                                        tint = MaterialTheme.colorScheme.onSurface,
+                            // Title + description — full content, no truncation
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = currentProject.name,
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                currentProject.description?.takeIf { it.isNotBlank() }?.let { desc ->
+                                    Text(
+                                        text = desc,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(top = Spacing.extraSmall),
                                     )
                                 }
                             }
 
-                            dropdownMenu(
-                                expanded = showProjectMenu,
-                                onDismissRequest = { showProjectMenu = false },
-                            ) {
-                                SessionActionMenu.projectActionMenu(
-                                    onEditProject = {
-                                        onEditProject(currentProject.id)
-                                        showProjectMenu = false
-                                    },
-                                    onDeleteProject = {
-                                        showDeleteDialog = true
-                                        showProjectMenu = false
-                                    },
-                                    onReindexProject = {
-                                        EventBus.post(
-                                            ProjectReIndexEvent(
-                                                projectId = currentProject.id,
-                                                reason = "Manual re-index requested by user from project menu",
-                                            ),
+                            // Menu button
+                            Box {
+                                themedTooltip(text = stringResource("project.menu.tooltip")) {
+                                    IconButton(
+                                        onClick = { showProjectMenu = true },
+                                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.MoreVert,
+                                            contentDescription = stringResource("project.menu.tooltip"),
+                                            tint = MaterialTheme.colorScheme.onSurface,
                                         )
-                                        showProjectMenu = false
-                                    },
-                                    onDismiss = { showProjectMenu = false },
-                                )
+                                    }
+                                }
+                                dropdownMenu(
+                                    expanded = showProjectMenu,
+                                    onDismissRequest = { showProjectMenu = false },
+                                ) {
+                                    SessionActionMenu.projectActionMenu(
+                                        onEditProject = {
+                                            onEditProject(currentProject.id)
+                                            showProjectMenu = false
+                                        },
+                                        onDeleteProject = {
+                                            showDeleteDialog = true
+                                            showProjectMenu = false
+                                        },
+                                        onReindexProject = {
+                                            EventBus.post(
+                                                ProjectReIndexEvent(
+                                                    projectId = currentProject.id,
+                                                    reason = "Manual re-index requested by user from project menu",
+                                                ),
+                                            )
+                                            showProjectMenu = false
+                                        },
+                                        onDismiss = { showProjectMenu = false },
+                                    )
+                                }
                             }
                         }
                     }

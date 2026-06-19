@@ -30,8 +30,10 @@ import io.askimo.core.rag.indexing.IndexingCoordinatorFactory
 import io.askimo.core.rag.state.IndexProgress
 import io.askimo.core.rag.state.IndexStatus
 import io.askimo.core.util.AskimoHome
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -73,6 +75,10 @@ class ProjectIndexer(
     // shared embedding model endpoint (Ollama, Docker AI, etc.).
     // Projects that arrive while another is indexing show QUEUED status.
     private val indexingMutex = Mutex()
+
+    // Tracks the active indexing Job per projectId so it can be cancelled when the project
+    // is deleted — even if removeCoordinator() fires before coordinators[] is populated.
+    private val activeIndexingJobs = ConcurrentHashMap<String, Job>()
     init {
         scope.launch {
             EventBus.internalEvents
@@ -88,7 +94,10 @@ class ProjectIndexer(
                 .filterIsInstance<ProjectReIndexEvent>()
                 .collect { event ->
                     log.info("Re-index requested for project ${event.projectId}: ${event.reason}")
-                    scope.launch { handleReIndexRequest(event) }
+                    scope.launch { handleReIndexRequest(event) }.also { job ->
+                        activeIndexingJobs[event.projectId] = job
+                        job.invokeOnCompletion { activeIndexingJobs.remove(event.projectId) }
+                    }
                 }
         }
 
@@ -101,7 +110,10 @@ class ProjectIndexer(
                     // Without this: when Project A suspends inside indexingMutex.withLock,
                     // the collector is stuck — Project B's event queues up but handleIndexingRequest(B)
                     // only runs after A finishes, at which point isLocked=false and QUEUED is missed.
-                    scope.launch { handleIndexingRequest(event) }
+                    scope.launch { handleIndexingRequest(event) }.also { job ->
+                        activeIndexingJobs[event.projectId] = job
+                        job.invokeOnCompletion { activeIndexingJobs.remove(event.projectId) }
+                    }
                 }
         }
 
@@ -122,6 +134,13 @@ class ProjectIndexer(
      *                            When false only index data is cleaned up (re-index scenario).
      */
     private fun removeCoordinator(projectId: String, deleteProjectFolder: Boolean) {
+        // Cancel the active indexing Job first — this covers the race where removeCoordinator()
+        // fires before coordinators[] is populated (e.g. project deleted right as indexing starts).
+        activeIndexingJobs.remove(projectId)?.let { job ->
+            log.info("Cancelling active indexing job for project $projectId")
+            job.cancel()
+        }
+
         coordinators.remove(projectId)?.forEach {
             it.clearAll()
             it.close()
@@ -407,6 +426,9 @@ class ProjectIndexer(
 
                 log.info("Re-indexing initiated for project $projectId")
             }
+        } catch (e: CancellationException) {
+            // Job was cancelled (e.g. project deleted while re-indexing) — not an error, skip user-facing events.
+            log.info("Re-index job cancelled for project ${event.projectId}: ${e.message}")
         } catch (e: Exception) {
             log.error("Failed to handle re-index request for project ${event.projectId}", e)
             EventBus.emit(
@@ -555,6 +577,9 @@ class ProjectIndexer(
                     )
                 }
             }
+        } catch (e: CancellationException) {
+            // Job was cancelled (e.g. project deleted while indexing) — not an error, skip user-facing events.
+            log.info("Indexing job cancelled for project ${event.projectId}: ${e.message}")
         } catch (e: Exception) {
             log.error("Failed to handle indexing request for project ${event.projectId}", e)
 

@@ -100,7 +100,7 @@ fun terminalPanel(
 
     // Askimo workspace — used as the working directory for all terminal tabs
     val workspaceDir = remember {
-        AskimoHome.rootBase().resolve("workspace").toFile().also { it.mkdirs() }.absolutePath
+        AskimoHome.base().resolve("workspace").toFile().also { it.mkdirs() }.absolutePath
     }
 
     // Terminal tabs state

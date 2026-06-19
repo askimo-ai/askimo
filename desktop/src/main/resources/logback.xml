@@ -7,7 +7,9 @@
         </encoder>
     </appender>
 
-    <!-- File appender for persistent logs -->
+    <!-- File appender for persistent logs — path is reconfigured at runtime by
+         LogbackConfigurator.configureLogDirectory() after AskimoHome is registered.
+         This fallback is only used for the brief startup window before that call. -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${user.home}/.askimo/logs/askimo-desktop.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
@@ -33,4 +35,3 @@
         <appender-ref ref="FILE" />
     </logger>
 </configuration>
-
