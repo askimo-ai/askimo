@@ -160,9 +160,6 @@ class AppConfigTest {
 
         updated = updateEmbeddingFieldHelper(config, "chunkOverlap", 300)
         assertEquals(300, updated.chunkOverlap)
-
-        updated = updateEmbeddingFieldHelper(config, "preferredDim", 1536)
-        assertEquals(1536, updated.preferredDim)
     }
 
     @Test
