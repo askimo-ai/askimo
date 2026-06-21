@@ -42,7 +42,7 @@ class HybridIndexer(
     private val luceneIndexer = LuceneIndexer.getInstance(projectId)
 
     companion object {
-        private const val BATCH_SIZE = 50
+        const val BATCH_SIZE = 50
     }
 
     // Mutex for thread-safe batch operations

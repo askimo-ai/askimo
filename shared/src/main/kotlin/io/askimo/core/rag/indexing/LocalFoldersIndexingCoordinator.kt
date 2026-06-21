@@ -9,6 +9,8 @@ import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.store.embedding.EmbeddingStore
 import io.askimo.core.chat.domain.LocalFoldersKnowledgeSourceConfig
 import io.askimo.core.context.AppContext
+import io.askimo.core.event.EventBus
+import io.askimo.core.event.user.IndexingInProgressEvent
 import io.askimo.core.logging.logger
 import io.askimo.core.rag.filter.FilterChain
 import io.askimo.core.rag.state.IndexProgress
@@ -202,10 +204,39 @@ class LocalFoldersIndexingCoordinator(
                 return
             }
 
-            for (segment in segments) {
+            // Announce chunk count — UI progress bar starts moving immediately
+            onFileChunksReady(filePath, segments.size)
+
+            for ((index, segment) in segments.withIndex()) {
                 if (!hybridIndexer.addSegmentToBatch(segment, filePath)) {
                     cancelled = true
                     return
+                }
+                val processedChunks = index + 1
+                // Emit after each real batch flush (every BATCH_SIZE) or at the final segment
+                if (processedChunks % HybridIndexer.BATCH_SIZE == 0 || processedChunks == segments.size) {
+                    val elapsedMs = System.currentTimeMillis() - currentFileStartMs
+                    currentFileChunksProcessed = processedChunks
+                    updateProgress {
+                        copy(
+                            currentFileProcessedChunks = processedChunks,
+                            currentFileTotalChunks = segments.size,
+                            currentFileElapsedMs = elapsedMs,
+                        )
+                    }
+                    EventBus.emit(
+                        IndexingInProgressEvent(
+                            projectId = projectId,
+                            projectName = projectName,
+                            filesIndexed = processedFilesCounter.get(),
+                            totalFiles = totalFilesCounter.get(),
+                            resourceId = stateManager.resourceId,
+                            currentFile = filePath.toAbsolutePath().toString(),
+                            chunksIndexed = processedChunks,
+                            totalChunks = segments.size,
+                            currentFileElapsedMs = elapsedMs,
+                        ),
+                    )
                 }
             }
 

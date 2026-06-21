@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -69,6 +70,26 @@ fun notIndexedIcon(
 ) {
     Icon(
         imageVector = Icons.Default.RadioButtonUnchecked,
+        contentDescription = contentDescription,
+        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+        modifier = modifier.size(size),
+    )
+}
+
+/**
+ * Warning icon. Used for non-destructive but important alerts (e.g. confirm dialogs).
+ * Tinted error@80% — visually distinct without being as alarming as a full error.
+ *
+ * @param size 24.dp standard; use 32.dp for dialog headers.
+ */
+@Composable
+fun warningIcon(
+    contentDescription: String? = null,
+    size: Dp = 24.dp,
+    modifier: Modifier = Modifier,
+) {
+    Icon(
+        imageVector = Icons.Default.Warning,
         contentDescription = contentDescription,
         tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
         modifier = modifier.size(size),

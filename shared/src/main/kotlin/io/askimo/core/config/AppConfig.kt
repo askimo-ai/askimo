@@ -48,7 +48,6 @@ private val log = logger<AppConfigObject>()
 data class EmbeddingConfig(
     @field:JsonAlias("maxCharsPerChunk") val maxCharsPerChunk: Int = 3000,
     @field:JsonAlias("chunkOverlap") val chunkOverlap: Int = 100,
-    @field:JsonAlias("preferredDim") val preferredDim: Int? = null,
 )
 
 // TODO: Remove @JsonAlias camelCase aliases in v1.2.30 — kept for backward compatibility with pre-snake_case config files
@@ -106,7 +105,7 @@ private class CommaSeparatedSetDeserializer : StdDeserializer<Set<String>>(Set::
 
 // TODO: Remove @JsonAlias camelCase aliases in v1.2.30 — kept for backward compatibility with pre-snake_case config files
 data class IndexingConfig(
-    @field:JsonAlias("maxFileBytes") val maxFileBytes: Long = 5_000_000,
+    @field:JsonAlias("maxFileBytes") val maxFileBytes: Long = 2_000_000,
     @field:JsonAlias("concurrentIndexingThreads") val concurrentIndexingThreads: Int = 3,
     val filters: FilterConfig = FilterConfig(),
     val customExcludes: Set<String> = emptySet(),
@@ -461,7 +460,6 @@ object AppConfig {
         embedding:
           max_chars_per_chunk: ${'$'}{ASKIMO_EMBED_MAX_CHARS_PER_CHUNK:4000}
           chunk_overlap:       ${'$'}{ASKIMO_EMBED_CHUNK_OVERLAP:200}
-          preferred_dim:       ${'$'}{ASKIMO_EMBED_DIM:}
 
 
         retry:
@@ -628,7 +626,6 @@ object AppConfig {
             "imageModel:" to "image_model:",
             "maxCharsPerChunk:" to "max_chars_per_chunk:",
             "chunkOverlap:" to "chunk_overlap:",
-            "preferredDim:" to "preferred_dim:",
             "baseDelayMs:" to "base_delay_ms:",
             "perRequestSleepMs:" to "per_request_sleep_ms:",
             "maxFileBytes:" to "max_file_bytes:",
@@ -897,7 +894,6 @@ object AppConfig {
             EmbeddingConfig(
                 maxCharsPerChunk = envInt("ASKIMO_EMBED_MAX_CHARS_PER_CHUNK", 4000),
                 chunkOverlap = envInt("ASKIMO_EMBED_CHUNK_OVERLAP", 200),
-                preferredDim = envNullableInt("ASKIMO_EMBED_DIM"),
             )
         val r =
             RetryConfig(
@@ -913,7 +909,7 @@ object AppConfig {
                 maxFileBytes = envLong("ASKIMO_EMBED_MAX_FILE_BYTES", 5_000_000L),
                 concurrentIndexingThreads = envInt("ASKIMO_INDEXING_CONCURRENT_THREADS", 10),
                 supportedExtensions = envList("ASKIMO_INDEXING_SUPPORTED_EXTENSIONS", "java,kt,kts,py,js,ts,jsx,tsx,go,rs,c,cpp,h,hpp,cs,rb,php,swift,scala,groovy,sh,bash,yaml,yml,json,xml,md,txt,gradle,properties,toml,pdf"),
-                binaryExtensions = envList("ASKIMO_INDEXING_BINARY_EXTENSIONS", "png,jpg,jpeg,gif,svg,ico,webp,bmp,mp4,avi,mov,mkv,mp3,wav,ogg,flac,zip,tar,gz,7z,rar,exe,dll,so,dylib,bin,db,sqlite,doc,docx,xls,xlsx,ppt,pptx,ttf,otf,woff,woff2,class,jar,pyc"),
+                binaryExtensions = envList("ASKIMO_INDEXING_BINARY_EXTENSIONS", "png,jpg,jpeg,gif,svg,ico,webp,bmp,mp4,avi,mov,mkv,mp3,wav,ogg,flac,zip,tar,gz,7z,rar,exe,dll,so,dylib,bin,db,sqlite,doc,docx,xls,xlsx,ppt,pptx,ttf,otf,woff,woff2,class,jar,pyc,icns"),
                 excludeFileNames = envList("ASKIMO_INDEXING_EXCLUDE_FILE_NAMES", ".DS_Store,Thumbs.db,desktop.ini,package-lock.json,yarn.lock,pnpm-lock.yaml,poetry.lock,Gemfile.lock"),
                 commonExcludes = envList("ASKIMO_INDEXING_COMMON_EXCLUDES", ".git/,.svn/,.hg/,.idea/,.vscode/,.DS_Store,*.log,*.tmp,*.temp,*.swp,*.bak,.history/"),
                 filters = FilterConfig(
@@ -1112,6 +1108,8 @@ object AppConfig {
 
                 "analytics" -> current.copy(analytics = updateAnalyticsField(current.analytics, field, value))
 
+                "indexing" -> current.copy(indexing = updateIndexingField(current.indexing, field, value))
+
                 else -> {
                     log.displayError("Unknown config section: $section", null)
                     return
@@ -1158,7 +1156,6 @@ object AppConfig {
     private fun updateEmbeddingField(config: EmbeddingConfig, field: String, value: Any): EmbeddingConfig = when (field) {
         "maxCharsPerChunk" -> config.copy(maxCharsPerChunk = value as Int)
         "chunkOverlap" -> config.copy(chunkOverlap = value as Int)
-        "preferredDim" -> config.copy(preferredDim = if (value is String && value.isBlank()) null else value as? Int)
         else -> config
     }
 
@@ -1283,5 +1280,14 @@ object AppConfig {
             log.displayError("Unknown proxy field: $field", null)
             config
         }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun updateIndexingField(config: IndexingConfig, field: String, value: Any): IndexingConfig = when (field) {
+        "maxFileBytes" -> config.copy(maxFileBytes = (value as Number).toLong())
+        "supportedExtensions" -> config.copy(supportedExtensions = value as Set<String>)
+        "excludeFileNames" -> config.copy(excludeFileNames = value as Set<String>)
+        "binaryExtensions" -> config.copy(binaryExtensions = value as Set<String>)
+        else -> config
     }
 }

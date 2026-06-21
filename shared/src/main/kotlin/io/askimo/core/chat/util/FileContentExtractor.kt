@@ -244,14 +244,6 @@ object FileContentExtractor {
         }
     }
 
-    /**
-     * Get a user-friendly message for file size exceeded errors.
-     */
-    fun getFileSizeExceededMessage(file: File): String {
-        val fileSize = file.length()
-        return "File '${file.name}' is too large (${formatFileSize(fileSize)}). Maximum allowed size is ${formatFileSize(maxFileSizeBytes)}."
-    }
-
     // Application MIME types that contain text
     private val SUPPORTED_APPLICATION_TYPES = setOf(
         "application/json",

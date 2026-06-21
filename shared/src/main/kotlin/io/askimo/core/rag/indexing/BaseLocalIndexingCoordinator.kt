@@ -56,14 +56,36 @@ abstract class BaseLocalIndexingCoordinator<T : KnowledgeSourceConfig>(
     protected val processedFilesCounter = AtomicInteger(0)
     protected val totalFilesCounter = AtomicInteger(0)
 
+    /** Chunks processed so far in the file currently being embedded. Reset at the start of each file. */
+    @Volatile protected var currentFileChunksProcessed: Int = 0
+
+    /** Total chunks in the file currently being embedded. Reset at the start of each file. */
+    @Volatile protected var currentFileChunksTotal: Int = 0
+
+    /** Set to [System.currentTimeMillis] each time processing starts on a new file. */
+    @Volatile protected var currentFileStartMs: Long = 0L
+
     /**
      * Update progress atomically and emit an [IndexingInProgressEvent] when appropriate.
+     * Called once per file after all its chunks have been embedded.
      */
     protected suspend fun updateProgressAtomic(currentFile: Path? = null) {
         val processedFiles = processedFilesCounter.incrementAndGet()
         val totalFiles = totalFilesCounter.get()
         val currentFilePath = currentFile?.toAbsolutePath()?.toString()
-        updateProgress { copy(processedFiles = processedFiles, currentFile = currentFilePath) }
+        val elapsedMs = System.currentTimeMillis() - currentFileStartMs
+        // Zero out per-file chunk counters — no stale chunk fraction leaks between files
+        currentFileChunksProcessed = 0
+        currentFileChunksTotal = 0
+        updateProgress {
+            copy(
+                processedFiles = processedFiles,
+                currentFile = currentFilePath,
+                currentFileProcessedChunks = 0,
+                currentFileTotalChunks = 0,
+                currentFileElapsedMs = elapsedMs,
+            )
+        }
 
         if (processedFiles % 10 == 0 || processedFiles == totalFiles) {
             EventBus.emit(
@@ -74,9 +96,46 @@ abstract class BaseLocalIndexingCoordinator<T : KnowledgeSourceConfig>(
                     totalFiles = totalFiles,
                     resourceId = stateManager.resourceId,
                     currentFile = currentFilePath,
+                    chunksIndexed = 0,
+                    totalChunks = 0,
+                    currentFileElapsedMs = elapsedMs,
                 ),
             )
         }
+    }
+
+    /**
+     * Called after splitting a file into chunks but before embedding.
+     * Registers the chunk count for this file and emits an in-progress event
+     * so the UI progress bar starts moving immediately for large files.
+     */
+    protected suspend fun onFileChunksReady(filePath: Path, chunkCount: Int) {
+        currentFileStartMs = System.currentTimeMillis()
+        // Reset to this file only — do NOT accumulate across files
+        currentFileChunksTotal = chunkCount
+        currentFileChunksProcessed = 0
+        val currentFilePath = filePath.toAbsolutePath().toString()
+        updateProgress {
+            copy(
+                currentFile = currentFilePath,
+                currentFileTotalChunks = chunkCount,
+                currentFileProcessedChunks = 0,
+                currentFileElapsedMs = 0L,
+            )
+        }
+        EventBus.emit(
+            IndexingInProgressEvent(
+                projectId = projectId,
+                projectName = projectName,
+                filesIndexed = processedFilesCounter.get(),
+                totalFiles = totalFilesCounter.get(),
+                resourceId = stateManager.resourceId,
+                currentFile = currentFilePath,
+                chunksIndexed = 0,
+                totalChunks = chunkCount,
+                currentFileElapsedMs = 0L,
+            ),
+        )
     }
 
     /**

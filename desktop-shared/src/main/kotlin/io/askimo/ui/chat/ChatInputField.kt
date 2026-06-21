@@ -40,7 +40,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -930,46 +929,53 @@ private fun toolsIndicatorButton(
                 stringResource("chat.tools.button")
             },
         ) {
-            IconButton(
-                onClick = { showToolsPopup = true },
-                enabled = !isLoading,
+            // Inline chip: [🔧 3] or [🔧 3/5] — avoids all badge clipping issues
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = when {
+                    totalServers == 0 -> Color.Transparent
+                    hasDisabled -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                    else -> MaterialTheme.colorScheme.secondaryContainer
+                },
+                tonalElevation = if (totalServers > 0) 2.dp else 0.dp,
                 modifier = Modifier
-                    .size(iconSize)
+                    .height(iconSize)
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(
+                        enabled = !isLoading,
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { showToolsPopup = true },
+                    )
                     .pointerHoverIcon(PointerIcon.Hand),
             ) {
-                BadgedBox(
-                    badge = {
-                        if (totalServers > 0) {
-                            Badge(
-                                containerColor = if (hasDisabled) {
-                                    MaterialTheme.colorScheme.secondary
-                                } else {
-                                    MaterialTheme.colorScheme.primary
-                                },
-                                contentColor = if (hasDisabled) {
-                                    MaterialTheme.colorScheme.onSecondary
-                                } else {
-                                    MaterialTheme.colorScheme.onPrimary
-                                },
-                            ) {
-                                Text(
-                                    text = enabledServers.toString(),
-                                    style = MaterialTheme.typography.labelSmall,
-                                )
-                            }
-                        }
-                    },
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(horizontal = 8.dp),
                 ) {
                     Icon(
                         Icons.Default.Build,
                         contentDescription = stringResource("chat.tools.button"),
-                        tint = if (hasDisabled) {
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
+                        tint = when {
+                            hasDisabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            totalServers > 0 -> MaterialTheme.colorScheme.onSecondaryContainer
+                            else -> MaterialTheme.colorScheme.onSurface
                         },
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(16.dp),
                     )
+                    if (totalServers > 0) {
+                        Text(
+                            text = if (hasDisabled) "$enabledServers/$totalServers" else "$enabledServers",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (hasDisabled) {
+                                MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f)
+                            } else {
+                                MaterialTheme.colorScheme.onSecondaryContainer
+                            },
+                        )
+                    }
                 }
             }
         }

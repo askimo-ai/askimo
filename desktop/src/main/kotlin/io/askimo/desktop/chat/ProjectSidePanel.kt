@@ -72,6 +72,7 @@ import io.askimo.core.event.internal.ProjectRefreshEvent
 import io.askimo.desktop.project.addReferenceMaterialDialog
 import io.askimo.desktop.project.buildKnowledgeSourceConfigs
 import io.askimo.desktop.project.mergeKnowledgeSourceConfigs
+import io.askimo.desktop.project.reIndexConfirmDialog
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents
@@ -104,6 +105,7 @@ fun communityProjectSidePanel(
 ) {
     var selectedTab by remember { mutableStateOf(PanelTab.RAG_SOURCES) }
     var showAddMaterialDialog by remember { mutableStateOf(false) }
+    var showReIndexConfirmDialog by remember { mutableStateOf(false) }
     var panelWidth by remember { mutableStateOf(ApplicationPreferences.getProjectSidePanelWidth().dp) }
 
     val targetWidth = if (isExpanded) panelWidth else 56.dp
@@ -222,7 +224,11 @@ fun communityProjectSidePanel(
                                             onClick = {
                                                 showContextMenu = false
                                                 project?.let {
-                                                    EventBus.post(ProjectReIndexEvent(projectId = it.id, reason = "Manual re-index from side panel"))
+                                                    if (ragIndexingStatus == "started" || ragIndexingStatus == "inprogress") {
+                                                        showReIndexConfirmDialog = true
+                                                    } else {
+                                                        EventBus.post(ProjectReIndexEvent(projectId = it.id, reason = "Manual re-index from side panel"))
+                                                    }
                                                 }
                                             },
                                             leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) },
@@ -303,6 +309,18 @@ fun communityProjectSidePanel(
                 EventBus.post(ProjectIndexingRequestedEvent(projectId = project.id, knowledgeSources = newConfigs, watchForChanges = true))
                 showAddMaterialDialog = false
             },
+        )
+    }
+
+    // Re-index confirmation dialog (shown when user requests re-index while project is actively indexing)
+    if (showReIndexConfirmDialog && project != null) {
+        reIndexConfirmDialog(
+            projectName = project.name,
+            onConfirm = {
+                showReIndexConfirmDialog = false
+                EventBus.post(ProjectReIndexEvent(projectId = project.id, reason = "Manual re-index confirmed by user from side panel"))
+            },
+            onDismiss = { showReIndexConfirmDialog = false },
         )
     }
 }

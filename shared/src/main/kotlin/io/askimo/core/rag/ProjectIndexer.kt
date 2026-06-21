@@ -11,6 +11,7 @@ import dev.langchain4j.store.embedding.EmbeddingStore
 import io.askimo.core.analytics.Analytics
 import io.askimo.core.analytics.AnalyticsEvent
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
+import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.repository.ProjectRepository
 import io.askimo.core.context.AppContext
 import io.askimo.core.db.DatabaseManager
@@ -35,17 +36,22 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Manager for project indexing with RAG (Retrieval-Augmented Generation).
  * Each project can have multiple coordinators - one per knowledge source.
+ *
+ * Concurrency model: a single [Channel]-based queue ensures only one indexing job runs at a
+ * time across all projects. This avoids aggressive concurrent embedding calls to remote
+ * endpoints (Ollama, Docker AI, etc.). A [ProjectReIndexEvent] or [ProjectDeletedEvent] for
+ * the currently-running project cancels it immediately; other projects wait their turn in the
+ * FIFO queue.
  */
 class ProjectIndexer(
     private val appContext: AppContext,
@@ -71,21 +77,57 @@ class ProjectIndexer(
         projectProgressFlow(projectId).value = progress
     }
 
-    // Global mutex — only one project indexes at a time to avoid contention on the
-    // shared embedding model endpoint (Ollama, Docker AI, etc.).
-    // Projects that arrive while another is indexing show QUEUED status.
-    private val indexingMutex = Mutex()
+    // ── Single-queue concurrency model ──────────────────────────────────────────────────────
+    // Tasks are processed one at a time by a single consumer coroutine. ReIndex and Delete
+    // tasks preempt a running job for the *same* project; otherwise tasks wait in FIFO order.
 
-    // Tracks the active indexing Job per projectId so it can be cancelled when the project
-    // is deleted — even if removeCoordinator() fires before coordinators[] is populated.
-    private val activeIndexingJobs = ConcurrentHashMap<String, Job>()
+    private sealed class IndexingTask {
+        abstract val projectId: String
+
+        data class Index(
+            override val projectId: String,
+            val event: ProjectIndexingRequestedEvent,
+        ) : IndexingTask()
+
+        data class ReIndex(
+            override val projectId: String,
+            val event: ProjectReIndexEvent,
+        ) : IndexingTask()
+
+        data class Delete(override val projectId: String) : IndexingTask()
+
+        data class RemoveSource(
+            override val projectId: String,
+            val event: ProjectIndexRemovalEvent,
+        ) : IndexingTask()
+    }
+
+    // The ID of the project whose task is currently executing. Written only by the consumer
+    // coroutine; read by event-collector coroutines to detect when to show QUEUED.
+    @Volatile private var activeProjectId: String? = null
+
+    // Active job reference — written by the consumer coroutine, read + cancelled by the
+    // ProjectReIndexEvent collector to preempt a running job immediately on re-index request.
+    @Volatile private var activeJob: Job? = null
+
+    // Name of the project currently being indexed.
+    // Set in the consumer right alongside activeProjectId — before the child job launches —
+    // so any event-collector coroutine that sees activeProjectId != null also sees this name.
+    @Volatile private var activeBlockingProjectName: String? = null
+
+    private val taskChannel = Channel<IndexingTask>(capacity = Channel.UNLIMITED)
+
+    // Prevents duplicate ReIndex tasks from accumulating for a queued (non-active) project.
+    // Uses ConcurrentHashMap.newKeySet for thread-safe add/remove/contains.
+    private val pendingReIndexIds = ConcurrentHashMap.newKeySet<String>()
+
     init {
         scope.launch {
             EventBus.internalEvents
                 .filterIsInstance<ProjectDeletedEvent>()
                 .collect { event ->
                     log.info("Project deleted, cleaning up coordinator: ${event.projectId}")
-                    removeCoordinator(event.projectId, true)
+                    taskChannel.send(IndexingTask.Delete(event.projectId))
                 }
         }
 
@@ -94,10 +136,23 @@ class ProjectIndexer(
                 .filterIsInstance<ProjectReIndexEvent>()
                 .collect { event ->
                     log.info("Re-index requested for project ${event.projectId}: ${event.reason}")
-                    scope.launch { handleReIndexRequest(event) }.also { job ->
-                        activeIndexingJobs[event.projectId] = job
-                        job.invokeOnCompletion { activeIndexingJobs.remove(event.projectId) }
+                    val isActive = activeProjectId == event.projectId
+                    if (isActive) {
+                        // Cancel the running job immediately so the consumer's join() unblocks
+                        // right away rather than waiting for the current indexing to complete.
+                        // Without this, the current indexing finishes normally and THEN the
+                        // re-index starts — causing two full cycles instead of one.
+                        log.info("Re-index for active project ${event.projectId} — cancelling current indexing immediately")
+                        activeJob?.cancel()
+                    } else if (!pendingReIndexIds.add(event.projectId)) {
+                        // Not the active project but already has a ReIndex task queued — ignore duplicate.
+                        log.debug("Re-index for project ${event.projectId} already queued, ignoring duplicate")
+                        return@collect
+                    } else if (activeProjectId != null) {
+                        // A different project is running, this one will wait in the queue
+                        updateProjectProgress(event.projectId, IndexProgress(status = IndexStatus.QUEUED, blockedByName = activeBlockingProjectName))
                     }
+                    taskChannel.send(IndexingTask.ReIndex(event.projectId, event))
                 }
         }
 
@@ -106,14 +161,11 @@ class ProjectIndexer(
                 .filterIsInstance<ProjectIndexingRequestedEvent>()
                 .collect { event ->
                     log.info("Indexing requested for project ${event.projectId}")
-                    // Launch each request in its own coroutine so the collector never blocks.
-                    // Without this: when Project A suspends inside indexingMutex.withLock,
-                    // the collector is stuck — Project B's event queues up but handleIndexingRequest(B)
-                    // only runs after A finishes, at which point isLocked=false and QUEUED is missed.
-                    scope.launch { handleIndexingRequest(event) }.also { job ->
-                        activeIndexingJobs[event.projectId] = job
-                        job.invokeOnCompletion { activeIndexingJobs.remove(event.projectId) }
+                    if (activeProjectId != null && activeProjectId != event.projectId) {
+                        updateProjectProgress(event.projectId, IndexProgress(status = IndexStatus.QUEUED, blockedByName = activeBlockingProjectName))
                     }
+
+                    taskChannel.send(IndexingTask.Index(event.projectId, event))
                 }
         }
 
@@ -122,8 +174,47 @@ class ProjectIndexer(
                 .filterIsInstance<ProjectIndexRemovalEvent>()
                 .collect { event ->
                     log.info("Indexing removal requested for project ${event.projectId}")
-                    handleRemoveIndexEvent(event)
+                    taskChannel.send(IndexingTask.RemoveSource(event.projectId, event))
                 }
+        }
+
+        // ── Single consumer — one task at a time ────────────────────────────────────────────
+        scope.launch {
+            for (task in taskChannel) {
+                // ReIndex and Delete preempt a running job for the *same* project.
+                // Jobs for *different* projects are never cancelled — they wait their turn.
+                if ((task is IndexingTask.ReIndex || task is IndexingTask.Delete) &&
+                    task.projectId == activeProjectId
+                ) {
+                    log.info(
+                        "Preempting active indexing for project ${task.projectId} " +
+                            "(incoming: ${task::class.simpleName})",
+                    )
+                    activeJob?.cancel()
+                    activeJob?.join()
+                    activeProjectId = null
+                }
+
+                activeProjectId = task.projectId
+                activeBlockingProjectName = projectRepository.getProject(task.projectId)?.name
+                activeJob = scope.launch {
+                    when (task) {
+                        is IndexingTask.Index -> handleIndexingRequest(task.event)
+
+                        is IndexingTask.ReIndex -> {
+                            pendingReIndexIds.remove(task.projectId)
+                            handleReIndexRequest(task.event)
+                        }
+
+                        is IndexingTask.Delete -> removeCoordinator(task.projectId, deleteProjectFolder = true)
+
+                        is IndexingTask.RemoveSource -> handleRemoveIndexEvent(task.event)
+                    }
+                }
+                activeJob?.join() // process tasks sequentially — next task only starts after this one finishes
+                activeProjectId = null
+                activeBlockingProjectName = null
+            }
         }
     }
 
@@ -134,13 +225,6 @@ class ProjectIndexer(
      *                            When false only index data is cleaned up (re-index scenario).
      */
     private fun removeCoordinator(projectId: String, deleteProjectFolder: Boolean) {
-        // Cancel the active indexing Job first — this covers the race where removeCoordinator()
-        // fires before coordinators[] is populated (e.g. project deleted right as indexing starts).
-        activeIndexingJobs.remove(projectId)?.let { job ->
-            log.info("Cancelling active indexing job for project $projectId")
-            job.cancel()
-        }
-
         coordinators.remove(projectId)?.forEach {
             it.clearAll()
             it.close()
@@ -213,14 +297,15 @@ class ProjectIndexer(
      *   When false (default), the coordinator list is replaced entirely.
      */
     private suspend fun performIndexing(
-        projectId: String,
-        projectName: String,
+        project: Project,
         knowledgeSources: List<KnowledgeSourceConfig>,
         embeddingStore: EmbeddingStore<TextSegment>,
         embeddingModel: EmbeddingModel,
         watchForChanges: Boolean,
         appendCoordinators: Boolean = false,
     ) {
+        val projectId = project.id
+        val projectName = project.name
         val indexingStartMs = System.currentTimeMillis()
 
         val dimension = RagUtils.getDimensionForModel(embeddingModel)
@@ -258,153 +343,146 @@ class ProjectIndexer(
             projectCoordinators
         }
 
-        // Mark as QUEUED if the mutex is already held by another project's indexing
-        if (indexingMutex.isLocked) {
-            log.info("Project $projectId queued — another project is currently indexing")
-            projectCoordinators.forEach { it.markQueued() }
-            val queuedProgress = IndexProgress(status = IndexStatus.QUEUED)
-            updateProjectProgress(projectId, queuedProgress)
-            EventBus.emit(IndexingQueuedEvent(projectId = projectId, projectName = projectName))
-        }
-
-        indexingMutex.withLock {
-            // ── Begin serialized indexing ────────────────────────────────────
-
-            val startedProgress = IndexProgress(status = IndexStatus.INDEXING)
-            updateProjectProgress(projectId, startedProgress)
+        // If this project was waiting in the queue, notify the UI now that we're starting.
+        if (projectProgressFlow(projectId).value.status == IndexStatus.QUEUED) {
             EventBus.emit(
-                IndexingStartedEvent(
+                IndexingQueuedEvent(
                     projectId = projectId,
                     projectName = projectName,
+                    blockedByProjectName = activeBlockingProjectName ?: projectName,
+                ),
+            )
+        }
+
+        // ── Begin indexing (channel consumer guarantees only one project indexes at a time) ──
+
+        val startedProgress = IndexProgress(status = IndexStatus.INDEXING)
+        updateProjectProgress(projectId, startedProgress)
+        EventBus.emit(
+            IndexingStartedEvent(
+                projectId = projectId,
+                projectName = projectName,
+            ),
+        )
+
+        // Index sources sequentially — all coordinators share the same embeddingModel and
+        // the embedding endpoint (Docker AI, Ollama, etc.) handles one request at a time.
+        // Running in parallel causes concurrent embedAll calls that queue up and appear stuck.
+        val results = projectCoordinators.map { coordinator ->
+            val status = coordinator.progress.value.status
+            when {
+                status == IndexStatus.INDEXING -> {
+                    log.debug(
+                        "Coordinator for {} is already indexing — skipping duplicate startIndexing",
+                        coordinator.knowledgeSourceConfig.resourceIdentifier,
+                    )
+                    true
+                }
+
+                coordinator.progress.value.isComplete -> {
+                    log.debug(
+                        "Coordinator for {} is already complete — skipping startIndexing",
+                        coordinator.knowledgeSourceConfig.resourceIdentifier,
+                    )
+                    true
+                }
+
+                else -> {
+                    log.info(
+                        "Starting indexing for knowledge source: {}",
+                        coordinator.knowledgeSourceConfig.resourceIdentifier,
+                    )
+                    try {
+                        coordinator.startIndexing()
+                    } catch (e: Exception) {
+                        log.error("Failed to index knowledge source for project $projectId", e)
+                        false
+                    }
+                }
+            }
+        }
+
+        val success = results.all { it }
+
+        if (success) {
+            if (watchForChanges) {
+                projectCoordinators.forEach { coordinator ->
+                    try {
+                        coordinator.startWatching(scope)
+                    } catch (e: Exception) {
+                        log.error("Failed to start watching for project $projectId", e)
+                    }
+                }
+            }
+
+            val totalFilesIndexed = projectCoordinators.sumOf { it.progress.value.processedFiles }
+            val allSkippedFileNames = projectCoordinators.flatMap { it.progress.value.skippedFileNames }
+
+            val indexDurationMs = System.currentTimeMillis() - indexingStartMs
+            val durationBucket = when {
+                indexDurationMs < 5_000L -> "<5s"
+                indexDurationMs < 30_000L -> "5-30s"
+                else -> ">30s"
+            }
+            Analytics.track(
+                AnalyticsEvent.RAG_INDEXED,
+                mapOf(
+                    "file_count" to totalFilesIndexed.toString(),
+                    "index_duration_bucket" to durationBucket,
                 ),
             )
 
-            // Index sources sequentially — all coordinators share the same embeddingModel and
-            // the embedding endpoint (Docker AI, Ollama, etc.) handles one request at a time.
-            // Running in parallel causes concurrent embedAll calls that queue up and appear stuck.
-            val results = projectCoordinators.map { coordinator ->
-                val status = coordinator.progress.value.status
-                when {
-                    status == IndexStatus.INDEXING -> {
-                        log.debug(
-                            "Coordinator for {} is already indexing — skipping duplicate startIndexing",
-                            coordinator.knowledgeSourceConfig.resourceIdentifier,
-                        )
-                        true
-                    }
-
-                    coordinator.progress.value.isComplete -> {
-                        log.debug(
-                            "Coordinator for {} is already complete — skipping startIndexing",
-                            coordinator.knowledgeSourceConfig.resourceIdentifier,
-                        )
-                        true
-                    }
-
-                    else -> {
-                        log.info(
-                            "Starting indexing for knowledge source: {}",
-                            coordinator.knowledgeSourceConfig.resourceIdentifier,
-                        )
-                        try {
-                            coordinator.startIndexing()
-                        } catch (e: Exception) {
-                            log.error("Failed to index knowledge source for project $projectId", e)
-                            false
-                        }
-                    }
-                }
-            }
-
-            val success = results.all { it }
-
-            if (success) {
-                if (watchForChanges) {
-                    projectCoordinators.forEach { coordinator ->
-                        try {
-                            coordinator.startWatching(scope)
-                        } catch (e: Exception) {
-                            log.error("Failed to start watching for project $projectId", e)
-                        }
-                    }
-                }
-
-                val totalFilesIndexed = projectCoordinators.sumOf { it.progress.value.processedFiles }
-                val allSkippedFileNames = projectCoordinators.flatMap { it.progress.value.skippedFileNames }
-
-                val indexDurationMs = System.currentTimeMillis() - indexingStartMs
-                val durationBucket = when {
-                    indexDurationMs < 5_000L -> "<5s"
-                    indexDurationMs < 30_000L -> "5-30s"
-                    else -> ">30s"
-                }
-                Analytics.track(
-                    AnalyticsEvent.RAG_INDEXED,
-                    mapOf(
-                        "file_count" to totalFilesIndexed.toString(),
-                        "index_duration_bucket" to durationBucket,
-                    ),
-                )
-
-                EventBus.emit(
-                    IndexingCompletedEvent(
-                        projectId = projectId,
-                        projectName = projectName,
-                        filesIndexed = totalFilesIndexed,
-                        skippedFileNames = allSkippedFileNames,
-                    ),
-                )
-                updateProjectProgress(
-                    projectId,
-                    IndexProgress(
-                        status = IndexStatus.READY,
-                        processedFiles = totalFilesIndexed,
-                        totalFiles = totalFilesIndexed,
-                        skippedFileNames = allSkippedFileNames,
-                    ),
-                )
-            } else {
-                val errors = projectCoordinators
-                    .mapNotNull { it.progress.value.error }
-                    .joinToString("; ")
-                    .takeIf { it.isNotEmpty() } ?: "Unknown error"
-
-                EventBus.emit(
-                    IndexingFailedEvent(
-                        projectId = projectId,
-                        projectName = projectName,
-                        errorMessage = errors,
-                    ),
-                )
-                updateProjectProgress(projectId, IndexProgress(status = IndexStatus.FAILED, error = errors))
-            }
-
-            log.info(
-                "Indexing ${if (success) "completed" else "failed"} for project $projectId " +
-                    "(${projectCoordinators.size} knowledge source(s))",
+            EventBus.emit(
+                IndexingCompletedEvent(
+                    projectId = projectId,
+                    projectName = projectName,
+                    filesIndexed = totalFilesIndexed,
+                    skippedFileNames = allSkippedFileNames,
+                ),
             )
+            updateProjectProgress(
+                projectId,
+                IndexProgress(
+                    status = IndexStatus.READY,
+                    processedFiles = totalFilesIndexed,
+                    totalFiles = totalFilesIndexed,
+                    skippedFileNames = allSkippedFileNames,
+                ),
+            )
+        } else {
+            val errors = projectCoordinators
+                .mapNotNull { it.progress.value.error }
+                .joinToString("; ")
+                .takeIf { it.isNotEmpty() } ?: "Unknown error"
+
+            EventBus.emit(
+                IndexingFailedEvent(
+                    projectId = projectId,
+                    projectName = projectName,
+                    errorMessage = errors,
+                ),
+            )
+            updateProjectProgress(projectId, IndexProgress(status = IndexStatus.FAILED, error = errors))
         }
+
+        log.info(
+            "Indexing ${if (success) "completed" else "failed"} for project $projectId " +
+                "(${projectCoordinators.size} knowledge source(s))",
+        )
     }
 
     /**
      * Handle re-index request event.
-     * Re-index always takes priority — if the project is currently being indexed,
-     * the in-progress indexing is stopped and a fresh re-index is started.
+     * Re-index always takes priority — if the project is currently being indexed, the consumer
+     * coroutine has already cancelled and joined that job before this handler runs.
      */
     private suspend fun handleReIndexRequest(event: ProjectReIndexEvent) {
         try {
             val projectId = event.projectId
 
-            val existingCoordinators = coordinators[projectId]
-            if (existingCoordinators != null &&
-                existingCoordinators.any { it.progress.value.status == IndexStatus.INDEXING }
-            ) {
-                log.info(
-                    "Project $projectId is currently indexing — stopping it, re-index takes priority. Reason: ${event.reason}",
-                )
-            }
-
-            // Always stop and clean up regardless of current status — re-index takes priority
+            // Always stop and clean up regardless of current status — re-index takes priority.
+            // Note: no job cancellation needed here; the channel consumer handles that before
+            // dispatching this handler.
             removeCoordinator(projectId, false)
             log.info("Cleaned up existing index data for project $projectId, starting re-index")
 
@@ -423,8 +501,7 @@ class ProjectIndexer(
                 val embeddingStore = RagUtils.getEmbeddingStoreWithDimension(projectId, dimension)
 
                 performIndexing(
-                    projectId = projectId,
-                    projectName = project.name,
+                    project = project,
                     knowledgeSources = project.knowledgeSources,
                     embeddingStore = embeddingStore,
                     embeddingModel = embeddingModel,
@@ -434,7 +511,7 @@ class ProjectIndexer(
                 log.info("Re-indexing initiated for project $projectId")
             }
         } catch (e: CancellationException) {
-            // Job was cancelled (e.g. project deleted while re-indexing) — not an error, skip user-facing events.
+            // Job was cancelled (e.g. project deleted while re-indexing) — not an error.
             log.info("Re-index job cancelled for project ${event.projectId}: ${e.message}")
         } catch (e: Exception) {
             log.error("Failed to handle re-index request for project ${event.projectId}", e)
@@ -564,8 +641,7 @@ class ProjectIndexer(
                         newSources.size,
                     )
                     performIndexing(
-                        projectId = projectId,
-                        projectName = project.name,
+                        project = project,
                         knowledgeSources = newSources,
                         embeddingStore = embeddingStore,
                         embeddingModel = embeddingModel,
@@ -575,8 +651,7 @@ class ProjectIndexer(
                 } else {
                     // Full project index (startup / first-time)
                     performIndexing(
-                        projectId = projectId,
-                        projectName = project.name,
+                        project = project,
                         knowledgeSources = project.knowledgeSources,
                         embeddingStore = embeddingStore,
                         embeddingModel = embeddingModel,
@@ -585,7 +660,7 @@ class ProjectIndexer(
                 }
             }
         } catch (e: CancellationException) {
-            // Job was cancelled (e.g. project deleted while indexing) — not an error, skip user-facing events.
+            // Job was cancelled (e.g. project deleted while indexing) — not an error.
             log.info("Indexing job cancelled for project ${event.projectId}: ${e.message}")
         } catch (e: Exception) {
             log.error("Failed to handle indexing request for project ${event.projectId}", e)

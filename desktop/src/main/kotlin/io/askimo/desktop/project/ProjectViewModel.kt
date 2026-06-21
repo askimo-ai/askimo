@@ -350,7 +350,10 @@ class ProjectViewModel(
                 EventBus.internalEvents.filterIsInstance<IndexingFailedEvent>().filter { it.projectId == projectId },
             ).collect { event ->
                 indexProgress = when (event) {
-                    is IndexingQueuedEvent -> IndexProgress(status = IndexStatus.QUEUED)
+                    is IndexingQueuedEvent -> IndexProgress(
+                        status = IndexStatus.QUEUED,
+                        blockedByName = event.blockedByProjectName,
+                    )
 
                     is IndexingStartedEvent -> IndexProgress(status = IndexStatus.INDEXING)
 
@@ -358,8 +361,11 @@ class ProjectViewModel(
                         status = IndexStatus.INDEXING,
                         totalFiles = event.totalFiles,
                         processedFiles = event.filesIndexed,
+                        currentFileTotalChunks = event.totalChunks,
+                        currentFileProcessedChunks = event.chunksIndexed,
                         resourceIdentifier = event.resourceId,
                         currentFile = event.currentFile,
+                        currentFileElapsedMs = event.currentFileElapsedMs,
                     )
 
                     is IndexingCompletedEvent -> IndexProgress(

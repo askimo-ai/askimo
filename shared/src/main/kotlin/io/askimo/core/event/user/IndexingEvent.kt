@@ -16,12 +16,13 @@ import java.time.Instant
 data class IndexingQueuedEvent(
     val projectId: String,
     val projectName: String,
+    /** Name of the project currently being indexed that is blocking this one. */
+    val blockedByProjectName: String,
     override val timestamp: Instant = Instant.now(),
     override val source: EventSource = EventSource.SYSTEM,
 ) : Event {
     override val type = EventType.INTERNAL
-
-    override fun getDetails(): String = "Project '$projectName' is queued for indexing"
+    override fun getDetails(): String = "Project '$projectName' is queued for indexing, waiting for '$blockedByProjectName'"
 }
 
 /**
@@ -50,15 +51,24 @@ data class IndexingInProgressEvent(
     val totalFiles: Int,
     val resourceId: String,
     val currentFile: String? = null,
+    val chunksIndexed: Int = 0,
+    val totalChunks: Int = 0,
+    val currentFileElapsedMs: Long = 0L,
     override val timestamp: Instant = Instant.now(),
     override val source: EventSource = EventSource.SYSTEM,
 ) : Event {
     override val type = EventType.INTERNAL
 
     override fun getDetails(): String {
-        val percentage = if (totalFiles > 0) (filesIndexed * 100 / totalFiles) else 0
+        val percentage = if (totalChunks > 0) {
+            (chunksIndexed * 100 / totalChunks)
+        } else if (totalFiles > 0) {
+            (filesIndexed * 100 / totalFiles)
+        } else {
+            0
+        }
         val fileInfo = currentFile?.let { " | current: $it" }.orEmpty()
-        return "Indexing project '$projectName': $filesIndexed/$totalFiles files ($percentage%) [resource: $resourceId$fileInfo]"
+        return "Indexing project '$projectName': $filesIndexed/$totalFiles files, $chunksIndexed/$totalChunks chunks ($percentage%) [resource: $resourceId$fileInfo]"
     }
 }
 

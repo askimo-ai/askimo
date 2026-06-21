@@ -131,12 +131,14 @@ fun projectView(
     var currentEnabledServerIds by remember { mutableStateOf(emptySet<String>()) }
     var showProjectMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showReIndexConfirmDialog by remember { mutableStateOf(false) }
     var showAddReferenceMaterialDialog by remember { mutableStateOf(false) }
 
     // Use ViewModel state
     val currentProject = viewModel.currentProject ?: project
     val projectSessions = viewModel.projectSessions
     val allProjects = viewModel.allProjects
+    val indexProgress = viewModel.indexProgress
 
     // Get repository
     val projectRepository = remember { DatabaseManager.getInstance().getProjectRepository() }
@@ -285,13 +287,17 @@ fun projectView(
                                             showProjectMenu = false
                                         },
                                         onReindexProject = {
-                                            EventBus.post(
-                                                ProjectReIndexEvent(
-                                                    projectId = currentProject.id,
-                                                    reason = "Manual re-index requested by user from project menu",
-                                                ),
-                                            )
                                             showProjectMenu = false
+                                            if (indexProgress.status == IndexStatus.INDEXING) {
+                                                showReIndexConfirmDialog = true
+                                            } else {
+                                                EventBus.post(
+                                                    ProjectReIndexEvent(
+                                                        projectId = currentProject.id,
+                                                        reason = "Manual re-index requested by user from project menu",
+                                                    ),
+                                                )
+                                            }
                                         },
                                         onDismiss = { showProjectMenu = false },
                                     )
@@ -402,6 +408,23 @@ fun projectView(
                 showDeleteDialog = false
             },
             onDismiss = { showDeleteDialog = false },
+        )
+    }
+
+    // Re-index confirmation dialog (shown when user requests re-index while project is actively indexing)
+    if (showReIndexConfirmDialog) {
+        reIndexConfirmDialog(
+            projectName = currentProject.name,
+            onConfirm = {
+                showReIndexConfirmDialog = false
+                EventBus.post(
+                    ProjectReIndexEvent(
+                        projectId = currentProject.id,
+                        reason = "Manual re-index confirmed by user from project menu",
+                    ),
+                )
+            },
+            onDismiss = { showReIndexConfirmDialog = false },
         )
     }
 
@@ -896,7 +919,7 @@ private fun indexProgressIndicator(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = stringResource("project.indexing.queued"),
+                    text = stringResource("project.indexing.queued", indexProgress.blockedByName!!),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -924,13 +947,14 @@ private fun indexProgressIndicator(
                     }
                     if (indexProgress.totalFiles > 0) {
                         Text(
-                            text = "${indexProgress.processedFiles} / ${indexProgress.totalFiles}",
+                            text = "${indexProgress.processedFiles} / ${indexProgress.totalFiles} (${indexProgress.progressPercentFormatted}%)",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
-                if (indexProgress.totalFiles > 0) {
+
+                if (indexProgress.progressPercent > 0f) {
                     LinearProgressIndicator(
                         progress = { indexProgress.progressPercent / 100f },
                         modifier = Modifier.fillMaxWidth(),
@@ -945,8 +969,13 @@ private fun indexProgressIndicator(
                     )
                 }
                 indexProgress.currentFile?.let { file ->
+                    val elapsed = indexProgress.currentFileElapsedMs
+                    val elapsedText = when {
+                        elapsed >= 1000 -> " (${elapsed / 1000}s)"
+                        else -> ""
+                    }
                     Text(
-                        text = file,
+                        text = "$file$elapsedText",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         modifier = Modifier.fillMaxWidth(),

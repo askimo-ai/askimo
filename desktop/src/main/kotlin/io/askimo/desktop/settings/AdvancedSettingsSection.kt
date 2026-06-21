@@ -51,9 +51,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import io.askimo.core.analytics.Analytics
 import io.askimo.core.config.AppConfig
+import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.LogLevel
 import io.askimo.core.logging.LoggingService
 import io.askimo.core.logging.currentFileLogger
+import io.askimo.core.util.NumberFormatUtil
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
@@ -619,13 +621,62 @@ private fun ragConfigurationSection() {
                 },
             )
 
-            // Preferred Dimension (optional)
-            ragOptionalIntField(
-                label = stringResource("settings.rag.embedding.preferred.dim"),
-                hint = stringResource("settings.rag.embedding.preferred.dim.hint"),
-                value = AppConfig.embedding.preferredDim,
+            // Divider before indexing configuration
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.2f),
+            )
+
+            // Indexing Configuration Section
+            Text(
+                text = stringResource("settings.rag.indexing.title"),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+
+            Text(
+                text = stringResource("settings.rag.indexing.description"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+            )
+
+            // Max File Bytes
+            ragLongField(
+                label = stringResource("settings.rag.indexing.max.file.bytes"),
+                hint = stringResource("settings.rag.indexing.max.file.bytes.hint"),
+                value = AppConfig.indexing.maxFileBytes,
                 onValueChange = { newValue ->
-                    AppConfig.updateField("embedding.preferredDim", newValue ?: "")
+                    AppConfig.updateField("indexing.maxFileBytes", newValue)
+                },
+            )
+
+            // Supported Extensions
+            ragStringSetField(
+                label = stringResource("settings.rag.indexing.supported.extensions"),
+                hint = stringResource("settings.rag.indexing.supported.extensions.hint"),
+                value = AppConfig.indexing.supportedExtensions,
+                onValueChange = { newValue ->
+                    AppConfig.updateField("indexing.supportedExtensions", newValue)
+                },
+            )
+
+            // Excluded File Names
+            ragStringSetField(
+                label = stringResource("settings.rag.indexing.exclude.file.names"),
+                hint = stringResource("settings.rag.indexing.exclude.file.names.hint"),
+                value = AppConfig.indexing.excludeFileNames,
+                onValueChange = { newValue ->
+                    AppConfig.updateField("indexing.excludeFileNames", newValue)
+                },
+            )
+
+            // Binary Extensions
+            ragStringSetField(
+                label = stringResource("settings.rag.indexing.binary.extensions"),
+                hint = stringResource("settings.rag.indexing.binary.extensions.hint"),
+                value = AppConfig.indexing.binaryExtensions,
+                onValueChange = { newValue ->
+                    AppConfig.updateField("indexing.binaryExtensions", newValue)
                 },
             )
         }
@@ -677,15 +728,15 @@ private fun ragIntField(
     value: Int,
     onValueChange: (Int) -> Unit,
 ) {
-    var textValue by remember { mutableStateOf(value.toString()) }
     var lastValidValue by remember { mutableStateOf(value) }
+    var textValue by remember { mutableStateOf(LocalizationManager.formatNumber(value)) }
+    var isEditing by remember { mutableStateOf(false) }
     var showSavedIndicator by remember { mutableStateOf(false) }
 
     LaunchedEffect(value) {
-        // Update text when external value changes (e.g., reload)
         if (value != lastValidValue) {
-            textValue = value.toString()
             lastValidValue = value
+            if (!isEditing) textValue = LocalizationManager.formatNumber(value)
         }
     }
 
@@ -696,9 +747,7 @@ private fun ragIntField(
         }
     }
 
-    Column(
-        verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-    ) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
@@ -706,14 +755,16 @@ private fun ragIntField(
         )
         OutlinedTextField(
             value = textValue,
-            onValueChange = { newValue ->
-                textValue = newValue
-            },
+            onValueChange = { textValue = it },
             modifier = Modifier
                 .fillMaxWidth()
                 .onFocusChanged { focusState ->
-                    if (!focusState.isFocused) {
-                        // Only save when losing focus if value is valid and changed
+                    if (focusState.isFocused) {
+                        // Switch to raw number for easy editing
+                        isEditing = true
+                        textValue = lastValidValue.toString()
+                    } else {
+                        isEditing = false
                         textValue.toIntOrNull()?.let { validInt ->
                             if (validInt != lastValidValue) {
                                 lastValidValue = validInt
@@ -721,32 +772,26 @@ private fun ragIntField(
                                 showSavedIndicator = true
                             }
                         }
+                        // Always reformat on blur (even if unchanged)
+                        textValue = LocalizationManager.formatNumber(lastValidValue)
                     }
                 },
             textStyle = MaterialTheme.typography.bodyMedium,
             singleLine = true,
-            isError = textValue.toIntOrNull() == null,
+            isError = isEditing && textValue.toIntOrNull() == null,
             trailingIcon = {
-                AnimatedVisibility(
-                    visible = showSavedIndicator,
-                    enter = fadeIn(),
-                    exit = fadeOut(),
-                ) {
+                AnimatedVisibility(visible = showSavedIndicator, enter = fadeIn(), exit = fadeOut()) {
                     Icon(
                         Icons.Default.Check,
                         contentDescription = "Saved",
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(20.dp),
                     )
                 }
             },
             colors = AppComponents.outlinedTextFieldColors(),
         )
-        Text(
-            text = hint,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
-        )
+        Text(text = hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f))
     }
 }
 
@@ -757,43 +802,38 @@ private fun ragDoubleField(
     value: Double,
     onValueChange: (Double) -> Unit,
 ) {
-    var textValue by remember { mutableStateOf(value.toString()) }
     var lastValidValue by remember { mutableStateOf(value) }
+    var textValue by remember { mutableStateOf(NumberFormatUtil.formatDecimal(value)) }
+    var isEditing by remember { mutableStateOf(false) }
     var showSavedIndicator by remember { mutableStateOf(false) }
 
     LaunchedEffect(value) {
-        // Update text when external value changes (e.g., reload)
         if (value != lastValidValue) {
-            textValue = value.toString()
             lastValidValue = value
+            if (!isEditing) textValue = NumberFormatUtil.formatDecimal(value)
         }
     }
 
     LaunchedEffect(showSavedIndicator) {
         if (showSavedIndicator) {
-            delay(2000)
+            delay(2000.milliseconds)
             showSavedIndicator = false
         }
     }
 
-    Column(
-        verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
-        )
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+        Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
         OutlinedTextField(
             value = textValue,
-            onValueChange = { newValue ->
-                textValue = newValue
-            },
+            onValueChange = { textValue = it },
             modifier = Modifier
                 .fillMaxWidth()
                 .onFocusChanged { focusState ->
-                    if (!focusState.isFocused) {
-                        // Only save when losing focus if value is valid and changed
+                    if (focusState.isFocused) {
+                        isEditing = true
+                        textValue = lastValidValue.toString()
+                    } else {
+                        isEditing = false
                         textValue.toDoubleOrNull()?.let { validDouble ->
                             if (validDouble != lastValidValue) {
                                 lastValidValue = validDouble
@@ -801,32 +841,20 @@ private fun ragDoubleField(
                                 showSavedIndicator = true
                             }
                         }
+                        textValue = NumberFormatUtil.formatDecimal(lastValidValue)
                     }
                 },
             textStyle = MaterialTheme.typography.bodyMedium,
             singleLine = true,
-            isError = textValue.toDoubleOrNull() == null,
+            isError = isEditing && textValue.toDoubleOrNull() == null,
             trailingIcon = {
-                AnimatedVisibility(
-                    visible = showSavedIndicator,
-                    enter = fadeIn(),
-                    exit = fadeOut(),
-                ) {
-                    Icon(
-                        Icons.Default.Check,
-                        contentDescription = "Saved",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp),
-                    )
+                AnimatedVisibility(visible = showSavedIndicator, enter = fadeIn(), exit = fadeOut()) {
+                    Icon(Icons.Default.Check, contentDescription = "Saved", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                 }
             },
             colors = AppComponents.outlinedTextFieldColors(),
         )
-        Text(
-            text = hint,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
-        )
+        Text(text = hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f))
     }
 }
 
@@ -900,6 +928,137 @@ private fun ragOptionalIntField(
                         Icons.Default.Check,
                         contentDescription = "Saved",
                         tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            },
+            colors = AppComponents.outlinedTextFieldColors(),
+        )
+        Text(
+            text = hint,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
+        )
+    }
+}
+
+@Composable
+private fun ragLongField(
+    label: String,
+    hint: String,
+    value: Long,
+    onValueChange: (Long) -> Unit,
+) {
+    var lastValidValue by remember { mutableStateOf(value) }
+    var textValue by remember { mutableStateOf(LocalizationManager.formatNumber(value)) }
+    var isEditing by remember { mutableStateOf(false) }
+    var showSavedIndicator by remember { mutableStateOf(false) }
+
+    LaunchedEffect(value) {
+        if (value != lastValidValue) {
+            lastValidValue = value
+            if (!isEditing) textValue = LocalizationManager.formatNumber(value)
+        }
+    }
+
+    LaunchedEffect(showSavedIndicator) {
+        if (showSavedIndicator) {
+            delay(2000.milliseconds)
+            showSavedIndicator = false
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+        Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+        OutlinedTextField(
+            value = textValue,
+            onValueChange = { textValue = it },
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { focusState ->
+                    if (focusState.isFocused) {
+                        isEditing = true
+                        textValue = lastValidValue.toString()
+                    } else {
+                        isEditing = false
+                        textValue.toLongOrNull()?.let { validLong ->
+                            if (validLong != lastValidValue) {
+                                lastValidValue = validLong
+                                onValueChange(validLong)
+                                showSavedIndicator = true
+                            }
+                        }
+                        textValue = LocalizationManager.formatNumber(lastValidValue)
+                    }
+                },
+            textStyle = MaterialTheme.typography.bodyMedium,
+            singleLine = true,
+            isError = isEditing && textValue.toLongOrNull() == null,
+            trailingIcon = {
+                AnimatedVisibility(visible = showSavedIndicator, enter = fadeIn(), exit = fadeOut()) {
+                    Icon(Icons.Default.Check, contentDescription = "Saved", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+                }
+            },
+            colors = AppComponents.outlinedTextFieldColors(),
+        )
+        Text(text = hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f))
+    }
+}
+
+/**
+ * Editable comma-separated [Set<String>] field.
+ * Displays items joined by ", " and parses on focus-lost by splitting on commas.
+ */
+@Composable
+private fun ragStringSetField(
+    label: String,
+    hint: String,
+    value: Set<String>,
+    onValueChange: (Set<String>) -> Unit,
+) {
+    var textValue by remember(value) { mutableStateOf(value.joinToString(", ")) }
+    var showSavedIndicator by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showSavedIndicator) {
+        if (showSavedIndicator) {
+            delay(2000.milliseconds)
+            showSavedIndicator = false
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+        )
+        OutlinedTextField(
+            value = textValue,
+            onValueChange = { textValue = it },
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { focusState ->
+                    if (!focusState.isFocused) {
+                        val parsed = textValue
+                            .split(",")
+                            .map { it.trim() }
+                            .filter { it.isNotEmpty() }
+                            .toSet()
+                        if (parsed != value) {
+                            onValueChange(parsed)
+                            showSavedIndicator = true
+                        }
+                    }
+                },
+            textStyle = MaterialTheme.typography.bodyMedium,
+            minLines = 2,
+            maxLines = 5,
+            trailingIcon = {
+                AnimatedVisibility(visible = showSavedIndicator, enter = fadeIn(), exit = fadeOut()) {
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = "Saved",
+                        tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(20.dp),
                     )
                 }
