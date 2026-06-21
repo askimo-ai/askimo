@@ -107,7 +107,7 @@ private class CommaSeparatedSetDeserializer : StdDeserializer<Set<String>>(Set::
 data class IndexingConfig(
     @field:JsonAlias("maxFileBytes") val maxFileBytes: Long = 5_000_000,
     @field:JsonAlias("concurrentIndexingThreads") val concurrentIndexingThreads: Int = 3,
-    @field:JsonAlias("embeddingBatchSize") val embeddingBatchSize: Int = 200,
+    @field:JsonAlias("embeddingBatchSize") val embeddingBatchSize: Int = 50,
     val filters: FilterConfig = FilterConfig(),
     val customExcludes: Set<String> = emptySet(),
     @field:JsonDeserialize(using = CommaSeparatedSetDeserializer::class)
