@@ -9,6 +9,7 @@ import dev.langchain4j.data.segment.TextSegment
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.store.embedding.EmbeddingStore
 import io.askimo.core.chat.repository.ResourceSegmentRepository
+import io.askimo.core.config.AppConfig
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.system.ShellErrorEvent
@@ -41,10 +42,6 @@ class HybridIndexer(
     private val log = logger<HybridIndexer>()
     private val luceneIndexer = LuceneIndexer.getInstance(projectId)
 
-    companion object {
-        const val BATCH_SIZE = 50
-    }
-
     // Mutex for thread-safe batch operations
     private val batchMutex = Mutex()
 
@@ -64,7 +61,7 @@ class HybridIndexer(
 
         val snapshot: List<Pair<TextSegment, Path>>? = batchMutex.withLock {
             segmentBatch.add(segment to filePath)
-            if (segmentBatch.size >= BATCH_SIZE) {
+            if (segmentBatch.size >= AppConfig.indexing.embeddingBatchSize) {
                 val snap = segmentBatch.toList()
                 segmentBatch.clear()
                 snap

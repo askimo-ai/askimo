@@ -305,7 +305,7 @@ class HybridIndexerTest {
         fun `addSegmentToBatch returns false when a full batch flush triggers FK violation`() = runBlocking<Unit> {
             val f = file("batch.txt")
 
-            // Fill batch to BATCH_SIZE-1 (49) — no auto-flush yet
+            // Fill batch to default batch size - 1 (49) — no auto-flush yet
             repeat(49) { i -> indexer.addSegmentToBatch(segment(f, i, "chunk $i"), f) }
 
             // Delete the project row so the FK constraint fires on the 50th add

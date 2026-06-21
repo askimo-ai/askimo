@@ -679,6 +679,16 @@ private fun ragConfigurationSection() {
                     AppConfig.updateField("indexing.binaryExtensions", newValue)
                 },
             )
+
+            // Embedding Batch Size
+            ragLongField(
+                label = stringResource("settings.rag.indexing.embedding.batch.size"),
+                hint = stringResource("settings.rag.indexing.embedding.batch.size.hint"),
+                value = AppConfig.indexing.embeddingBatchSize.toLong(),
+                onValueChange = { newValue ->
+                    AppConfig.updateField("indexing.embeddingBatchSize", newValue.toInt())
+                },
+            )
         }
     }
 }

@@ -8,6 +8,7 @@ import dev.langchain4j.data.segment.TextSegment
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.store.embedding.EmbeddingStore
 import io.askimo.core.chat.domain.LocalFilesKnowledgeSourceConfig
+import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.user.IndexingInProgressEvent
@@ -165,7 +166,7 @@ class LocalFilesIndexingCoordinator(
                 }
                 val processedChunks = index + 1
                 // Emit after each real batch flush (every BATCH_SIZE) or at the final segment
-                if (processedChunks % HybridIndexer.BATCH_SIZE == 0 || processedChunks == segments.size) {
+                if (processedChunks % AppConfig.indexing.embeddingBatchSize == 0 || processedChunks == segments.size) {
                     val elapsedMs = System.currentTimeMillis() - currentFileStartMs
                     currentFileChunksProcessed = processedChunks
                     updateProgress {
