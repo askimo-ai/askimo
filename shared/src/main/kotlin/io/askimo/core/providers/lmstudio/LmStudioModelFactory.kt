@@ -10,16 +10,12 @@ import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ModelProvider.LMSTUDIO
 import io.askimo.core.providers.OpenAiCompatibleChatModelFactory
 import io.askimo.core.providers.ensureLocalEmbeddingModelAvailable
-import java.net.http.HttpClient
 
 class LmStudioModelFactory : OpenAiCompatibleChatModelFactory<LmStudioSettings>() {
 
     override fun getProvider(): ModelProvider = LMSTUDIO
 
     override fun defaultSettings(): LmStudioSettings = LmStudioSettings()
-
-    /** LmStudio does not support HTTP/2. */
-    override fun httpVersion(): HttpClient.Version = HttpClient.Version.HTTP_1_1
 
     /**
      * When no explicit utility model is configured, fall back to whichever model is currently
