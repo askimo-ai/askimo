@@ -5,15 +5,13 @@
 package io.askimo.core.util
 
 import java.time.Instant
-import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import java.util.Locale
 
 object TimeUtil {
     private val instantDisplayFmt = DateTimeFormatter.ofPattern("MMM dd, HH:mm:ss")
-
-    fun stamp(): String = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
 
     /**
      * Formats an Instant with the standard display format for the given locale,
@@ -86,5 +84,20 @@ object TimeUtil {
             if (hours > 0 || minutes > 0) append("${minutes}$minuteLabel ")
             append("${seconds}$secondLabel")
         }.trim()
+    }
+
+    /**
+     * Formats an [Instant] as a full locale-aware date and time string suitable for tooltips.
+     * Example: "Saturday, June 21, 2026 at 3:45:00 PM"
+     *
+     * @param instant The Instant to format
+     * @param locale  The locale to use for formatting (defaults to system locale)
+     * @return The formatted date-time string in the user's local timezone
+     */
+    fun formatFullDateTime(instant: Instant, locale: Locale = Locale.getDefault()): String {
+        val formatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.FULL, FormatStyle.MEDIUM)
+            .withLocale(locale)
+            .withZone(ZoneId.systemDefault())
+        return formatter.format(instant)
     }
 }

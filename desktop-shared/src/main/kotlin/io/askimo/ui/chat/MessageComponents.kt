@@ -76,6 +76,7 @@ import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.RunCodeEvent
 import io.askimo.core.event.internal.parseFilePreviewRequestEvent
 import io.askimo.core.i18n.LocalizationManager
+import io.askimo.core.util.TimeUtil
 import io.askimo.core.util.formatFileSize
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
@@ -551,11 +552,13 @@ private fun userMessageBubble(
                                 // Timestamp — visible on hover, right side of action bar
                                 message.timestamp?.let { ts ->
                                     Spacer(modifier = Modifier.width(Spacing.small))
-                                    Text(
-                                        text = formatMessageTime(ts),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                    )
+                                    themedTooltip(text = TimeUtil.formatFullDateTime(ts, LocalizationManager.getCurrentLocale())) {
+                                        Text(
+                                            text = formatMessageTime(ts),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -927,11 +930,13 @@ private fun aiMessageBubble(
                 message.timestamp?.let { ts ->
                     Spacer(modifier = Modifier.width(Spacing.small))
                     val timestampPrefix = if (total != null && total > 0) "· " else ""
-                    Text(
-                        text = "$timestampPrefix${formatMessageTime(ts)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    )
+                    themedTooltip(text = TimeUtil.formatFullDateTime(ts, LocalizationManager.getCurrentLocale())) {
+                        Text(
+                            text = "$timestampPrefix${formatMessageTime(ts)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        )
+                    }
                 }
             }
         }
