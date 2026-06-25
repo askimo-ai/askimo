@@ -571,11 +571,6 @@ fun chatInputField(
                                 ),
                             )
 
-                            // ── Separator ──────────────────────────────────────────────────
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.surface,
-                                thickness = 0.5.dp,
-                            )
 
                             // ── Controls row ───────────────────────────────────────────────
                             // Layout: [attach | image | tools | image-mode-chip] <spacer> [reasoning chip]

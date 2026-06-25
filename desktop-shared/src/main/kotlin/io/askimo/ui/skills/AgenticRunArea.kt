@@ -52,7 +52,7 @@ import io.askimo.core.skills.agent.ExternalAgent
 import io.askimo.core.skills.agent.ExternalAgentLoader
 import io.askimo.core.skills.domain.SkillDefinition
 import io.askimo.core.skills.domain.SkillRunRecord
-import io.askimo.ui.common.components.sendTextField
+import io.askimo.ui.skills.AgentInputField
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents
@@ -605,13 +605,13 @@ internal fun agenticRunArea(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = Spacing.small),
                     )
-                    sendTextField(
+                    AgentInputField(
                         value = followUpInput,
                         onValueChange = { followUpInput = it },
                         placeholder = stringResource("skills.view.followup.placeholder"),
                         enabled = hasResponse && !isRunning,
                         onSend = {
-                            val agent = selectedAgent ?: return@sendTextField
+                            val agent = selectedAgent ?: return@AgentInputField
                             if (followUpInput.isNotBlank()) {
                                 val followUpContext = "$responseText\n\n---\n\n${followUpInput.trim()}"
                                 followUpInput = ""

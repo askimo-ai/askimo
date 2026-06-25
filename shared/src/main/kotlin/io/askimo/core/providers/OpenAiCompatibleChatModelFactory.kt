@@ -229,6 +229,7 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
 
     override fun createModel(settings: T): ChatModel {
         val telemetry = AppContext.getInstance().telemetry
+        val supportsThinking = ModelCapabilitiesCache.supportsThinking(getProvider(), settings.defaultModel)
         return OpenAiResponsesChatModel.builder()
             .httpClientBuilder(createHttpClientBuilder(settings.baseUrl))
             .baseUrl(settings.baseUrl)
@@ -236,6 +237,12 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
             .modelName(settings.defaultModel)
             .logRequests(log.isDebugEnabled)
             .logResponses(log.isTraceEnabled)
+            .apply {
+                val reasoningLevel = ModelCapabilitiesCache.getReasoningLevel(getProvider(), settings.defaultModel)
+                if (supportsThinking && reasoningLevel.isEnabled) {
+                    reasoningEffort(reasoningLevel.value)
+                }
+            }
             .listeners(listOf(TelemetryChatModelListener(telemetry, getProvider().providerKey())))
             .build()
     }
