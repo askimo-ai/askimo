@@ -7,7 +7,7 @@ package io.askimo.ui.skills
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
-import io.askimo.ui.common.components.ActionInputField
+import io.askimo.ui.common.components.actionInputField
 
 /**
  * Agent-specific input field.
@@ -15,7 +15,7 @@ import io.askimo.ui.common.components.ActionInputField
  * This stays intentionally minimal so agent workflows can evolve independently from plan inputs.
  */
 @Composable
-fun AgentInputField(
+fun agentInputField(
     value: String,
     onValueChange: (String) -> Unit,
     onSend: () -> Unit,
@@ -29,7 +29,7 @@ fun AgentInputField(
     sendContentDescription: String = "Send",
 ) {
     val tfv = TextFieldValue(text = value, selection = TextRange(value.length))
-    AgentInputField(
+    agentInputField(
         value = tfv,
         onValueChange = { onValueChange(it.text) },
         onSend = onSend,
@@ -48,7 +48,7 @@ fun AgentInputField(
  * Overload that works with [TextFieldValue] directly.
  */
 @Composable
-fun AgentInputField(
+fun agentInputField(
     value: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
     onSend: () -> Unit,
@@ -61,7 +61,7 @@ fun AgentInputField(
     error: String? = null,
     sendContentDescription: String = "Send",
 ) {
-    ActionInputField(
+    actionInputField(
         value = value,
         onValueChange = onValueChange,
         onSend = onSend,
@@ -75,4 +75,3 @@ fun AgentInputField(
         sendContentDescription = sendContentDescription,
     )
 }
-

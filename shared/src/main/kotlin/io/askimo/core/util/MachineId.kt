@@ -25,22 +25,24 @@ import java.util.UUID
  * | Windows | `wmic csproduct get UUID`        | Registry `MachineGuid`          | MAC address hash  |
  * | Unknown | MAC address hash                 | —                               | —                 |
  *
- * Returns `null` only when every strategy fails (extremely unlikely in practice).
- * The caller falls back to a persisted random UUID in that case.
  */
 object MachineId {
 
-    /** Attempt to resolve a hardware-bound ID; returns null if every strategy fails. */
-    fun resolve(): String? {
+    /**
+     * Hardware-bound device ID, resolved once on first access and cached for the JVM lifetime.
+     */
+    val id: String by lazy {
         val raw = when (os()) {
             OS.MACOS -> macOsUuid() ?: macAddress()
             OS.LINUX -> linuxMachineId() ?: macAddress()
             OS.WINDOWS -> windowsUuid() ?: windowsRegistryMachineGuid() ?: macAddress()
             OS.UNKNOWN -> macAddress()
-        } ?: return null
-
-        return sha256uuid(raw)
+        }
+        if (raw != null) sha256uuid(raw) else UUID.randomUUID().toString()
     }
+
+    /** Returns the hardware-bound ID. Resolved on first call; cached for all subsequent calls. */
+    fun resolve(): String = id
 
     // ── macOS ─────────────────────────────────────────────────────────────────
 

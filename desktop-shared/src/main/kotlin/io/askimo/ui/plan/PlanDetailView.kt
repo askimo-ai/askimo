@@ -76,7 +76,6 @@ import io.askimo.core.plan.domain.PlanInput
 import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
-import io.askimo.ui.plan.PlanInputField
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents
@@ -924,7 +923,7 @@ private fun interactiveQuestionPanel(
                 color = MaterialTheme.colorScheme.onTertiaryContainer,
                 modifier = Modifier.padding(bottom = Spacing.medium),
             )
-            PlanInputField(
+            planInputField(
                 value = answerText,
                 onValueChange = onAnswerChange,
                 onSend = onSubmit,
@@ -969,7 +968,7 @@ private fun followUpPanel(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = Spacing.small),
             )
-            PlanInputField(
+            planInputField(
                 value = viewModel.followUpText,
                 onValueChange = { viewModel.updateFollowUpText(it) },
                 onSend = { viewModel.runFollowUp() },

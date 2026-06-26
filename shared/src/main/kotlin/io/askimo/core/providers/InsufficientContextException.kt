@@ -46,14 +46,10 @@ class InsufficientContextException(
             The conversation history is too long for this model's context window.
 
             Recommended actions:
-            1. Switch to a model with a larger context (e.g., GPT-4 with 128K, Claude 3.5 with 200K, or Gemini 1.5 Pro with 2M tokens)
-            2. Clear conversation history to free up space
-            3. Start a new conversation
-
-            Models with larger context windows:
-            - GPT-4 Turbo: 128,000 tokens
-            - Claude 3.5 Sonnet: 200,000 tokens
-            - Gemini 1.5 Pro: 2,000,000 tokens
+            1. Switch to a model with a larger context window — cloud providers (OpenAI, Anthropic, Google) offer models with 128K–2M token windows; check your provider's latest model list for current options.
+            2. Clear conversation history to free up space.
+            3. Start a new conversation.
+            4. If you are using a local provider (Ollama, LM Studio, Docker AI), increase the context window size in the model settings (e.g. set num_ctx in Ollama, or adjust the context length slider in LM Studio).
         """.trimIndent()
     }
 }

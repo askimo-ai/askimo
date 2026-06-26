@@ -61,7 +61,7 @@ private val InlineControlsHeight = 44.dp
  *   ```
  */
 @Composable
-internal fun ActionInputField(
+internal fun actionInputField(
     value: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
     onSend: () -> Unit,
@@ -87,10 +87,12 @@ internal fun ActionInputField(
                 onValueChange(TextFieldValue(text = newText, selection = TextRange(cursor + 1)))
                 true
             }
+
             KeyMapManager.AppShortcut.SEND_MESSAGE -> {
                 if (canSend) onSend()
                 true
             }
+
             else -> false
         }
     }
@@ -115,8 +117,11 @@ internal fun ActionInputField(
                 Icon(
                     Icons.AutoMirrored.Filled.Send,
                     contentDescription = sendContentDescription,
-                    tint = if (canSend) MaterialTheme.colorScheme.onSurface
-                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                    tint = if (canSend) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    },
                 )
             }
         }
@@ -170,7 +175,6 @@ internal fun ActionInputField(
                             cursorColor = MaterialTheme.colorScheme.onSurface,
                         ),
                     )
-
 
                     // Controls strip — items provided by caller are pushed to the right
                     Row(

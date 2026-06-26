@@ -38,7 +38,7 @@ import io.askimo.core.event.internal.ThinkingSupportDetectedEvent
 import io.askimo.core.providers.ModelCapabilitiesCache
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ReasoningEffort
-import io.askimo.ui.common.components.ActionInputField
+import io.askimo.ui.common.components.actionInputField
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
@@ -52,7 +52,7 @@ import io.askimo.ui.common.ui.themedTooltip
  * when the active provider/model supports thinking.
  */
 @Composable
-fun PlanInputField(
+fun planInputField(
     value: String,
     onValueChange: (String) -> Unit,
     onSend: () -> Unit,
@@ -66,7 +66,7 @@ fun PlanInputField(
     sendContentDescription: String = "Send",
 ) {
     val tfv = TextFieldValue(text = value, selection = TextRange(value.length))
-    PlanInputField(
+    planInputField(
         value = tfv,
         onValueChange = { onValueChange(it.text) },
         onSend = onSend,
@@ -85,7 +85,7 @@ fun PlanInputField(
  * Overload that works with [TextFieldValue] directly, giving the caller cursor control.
  */
 @Composable
-fun PlanInputField(
+fun planInputField(
     value: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
     onSend: () -> Unit,
@@ -143,7 +143,7 @@ fun PlanInputField(
         }
     }
 
-    ActionInputField(
+    actionInputField(
         value = value,
         onValueChange = onValueChange,
         onSend = onSend,
@@ -245,4 +245,3 @@ fun PlanInputField(
         },
     )
 }
-

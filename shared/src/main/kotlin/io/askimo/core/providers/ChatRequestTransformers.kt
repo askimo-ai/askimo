@@ -40,7 +40,6 @@ object ChatRequestTransformers {
      * @param chatRequest The original chat request
      * @param memoryId The memory ID (can be null)
      * @param provider The AI provider
-     * @param model The model name
      * @return A new chat request with custom system messages added, duplicates removed, and token budget enforced
      */
     @JvmStatic

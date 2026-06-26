@@ -56,8 +56,6 @@ dependencies {
     implementation(libs.bundles.commonmark)
 
     // Testing
-    testImplementation(platform(libs.junit.bom))
-    testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockito.kotlin)
     testImplementation(libs.kotlin.test)
     testImplementation(libs.bundles.testcontainers)

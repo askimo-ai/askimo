@@ -11,6 +11,7 @@ import dev.langchain4j.model.chat.listener.ChatModelResponseContext
 import io.askimo.core.analytics.Analytics
 import io.askimo.core.analytics.AnalyticsEvent
 import io.askimo.core.logging.logger
+import io.askimo.core.util.MachineId
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -44,37 +45,53 @@ class TelemetryChatModelListener(
     private val log = logger<TelemetryChatModelListener>()
 
     /**
-     * Carries the correlationId from [onRequest] to the `customHeaders` lambda.
+     * Stable machine-bound identifier for the `X-Client-Id` request header.
      *
-     * LangChain4j calls [onRequest] **before** invoking the `customHeaders` supplier,
-     * both on the same thread. So we generate the UUID in [onRequest], write it to
-     * `context.attributes()` for the [onResponse]/[onError] leg, and also park it here
-     * so the `customHeaders` lambda (called immediately after on the same thread) can
-     * return it as the `X-Correlation-Id` header value.
+     * Resolved once at class-load time via [MachineId] (SHA-256 UUID of the hardware serial /
+     * MAC address) and cached in the companion object so the underlying shell command runs only
+     * once per JVM lifetime. Falls back to a random UUID if every hardware strategy fails.
      */
-    private val currentCorrelationId = ThreadLocal<String?>()
+    val clientId: String get() = MachineId.resolve()
 
     /**
-     * Called by the `customHeaders` lambda on the chat model builder, **after** [onRequest].
+     * Per-request UUID for the `X-Correlation-Id` request header and the usage-sync payload.
+     *
+     * [ThreadLocal] so concurrent requests on different threads each carry their own ID.
+     * Initialised eagerly with a random UUID so [requestHeaders] is always safe to call,
+     * even before [onRequest] fires (e.g. during HTTP-client construction).
+     *
+     * Lifecycle:
+     *  1. [onRequest] → generate a fresh UUID, write to ThreadLocal **and** to
+     *     `context.attributes()` for the [onResponse] → sync leg.
+     *  2. HTTP `send()` fires on the same thread immediately after [onRequest] →
+     *     [requestHeaders] reads the ThreadLocal → header and sync payload always agree.
      */
-    fun currentCorrelationIdForHeader(): String? = currentCorrelationId.get()
+    private val correlationId: ThreadLocal<String> =
+        ThreadLocal.withInitial { UUID.randomUUID().toString() }
+
+    /**
+     * Returns the two tracking headers to inject into every outgoing HTTP request.
+     *
+     * - `X-Client-Id`: stable machine ID (never changes within a JVM run)
+     * - `X-Correlation-Id`: per-request UUID (rotated in [onRequest] before each send)
+     */
+    fun requestHeaders(): Map<String, String> = mapOf(
+        "X-Client-Id" to clientId,
+        "X-Correlation-Id" to correlationId.get(),
+    )
 
     override fun onRequest(context: ChatModelRequestContext) {
         val attrs = context.attributes()
 
-        // Clear any leftover value from the previous request on this thread before
-        // generating the new one — onRequest is the authoritative "new request" boundary.
-        currentCorrelationId.remove()
-
-        // Generate the correlation ID here — onRequest fires before the customHeaders
-        // lambda on the same thread, so the ThreadLocal is readable by the header supplier.
-        val correlationId = if (usageSyncConfig != null) {
+        // Rotate to a fresh per-request UUID. onRequest fires before the HTTP send()
+        // on the same thread, so requestHeaders() will read this new value.
+        val newCorrelationId = if (usageSyncConfig != null) {
             UUID.randomUUID().toString().also { id ->
+                correlationId.set(id)
                 attrs[ATTR_CORRELATION_ID] = id
-                currentCorrelationId.set(id)
             }
         } else {
-            null
+            correlationId.get()
         }
 
         attrs[ATTR_START_TIME] = System.currentTimeMillis()
@@ -82,8 +99,8 @@ class TelemetryChatModelListener(
         val request = context.chatRequest()
         log.debug(
             "LLM request to $provider: ${request.messages().size} messages, " +
-                "model=${request.modelName() ?: "default"}" +
-                if (correlationId != null) ", correlationId=$correlationId" else "",
+                "model=${request.modelName() ?: "default"}, " +
+                "clientId=$clientId, correlationId=$newCorrelationId",
         )
     }
 

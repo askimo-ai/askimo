@@ -571,7 +571,6 @@ fun chatInputField(
                                 ),
                             )
 
-
                             // ── Controls row ───────────────────────────────────────────────
                             // Layout: [attach | image | tools | image-mode-chip] <spacer> [reasoning chip]
                             Row(

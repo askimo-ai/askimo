@@ -64,7 +64,6 @@ import io.askimo.core.skills.agent.ExternalAgentLoader
 import io.askimo.core.skills.domain.SkillDefinition
 import io.askimo.core.skills.domain.SkillRunRecord
 import io.askimo.ui.common.components.primaryButton
-import io.askimo.ui.skills.AgentInputField
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents
@@ -446,8 +445,8 @@ internal fun skillExecutionArea(
                 Column(modifier = Modifier.padding(Spacing.large)) {
                     Text(stringResource("skills.view.followup.label"), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = Spacing.small))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.small), verticalAlignment = Alignment.Bottom) {
-                        AgentInputField(value = followUpInput, onValueChange = { followUpInput = it }, placeholder = stringResource("skills.view.followup.placeholder"), enabled = hasResponse && !isRunning, onSend = {
-                            val agent = selectedAgent ?: return@AgentInputField
+                        agentInputField(value = followUpInput, onValueChange = { followUpInput = it }, placeholder = stringResource("skills.view.followup.placeholder"), enabled = hasResponse && !isRunning, onSend = {
+                            val agent = selectedAgent ?: return@agentInputField
                             if (followUpInput.isNotBlank()) {
                                 val ctx = "$responseText\n\n---\n\n${followUpInput.trim()}"
                                 followUpInput = ""

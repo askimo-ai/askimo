@@ -44,11 +44,11 @@ import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
-import io.askimo.ui.plan.PlanInputField
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.plan.PlansViewModel
+import io.askimo.ui.plan.planInputField
 import java.awt.Desktop
 import java.net.URI
 
@@ -360,7 +360,7 @@ private fun aiGenerationPanel(
                 )
             }
 
-            PlanInputField(
+            planInputField(
                 value = viewModel.aiPromptText,
                 onValueChange = { viewModel.updateAiPrompt(it) },
                 onSend = { viewModel.generateYamlFromPrompt() },

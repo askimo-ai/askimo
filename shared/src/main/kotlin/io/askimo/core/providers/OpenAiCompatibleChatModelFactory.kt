@@ -139,16 +139,28 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
     // ── Shared helpers ─────────────────────────────────────────────────────────
 
     /**
-     * Creates a JdkHttpClient builder configured with the correct HTTP version and proxy
+     * Creates a [JdkHttpClient] builder configured with the correct HTTP version and proxy
      * settings for this provider. Proxy is automatically bypassed for localhost URLs.
+     *
+     * [listener] is provided when the HTTP client should be wired to a specific
+     * [TelemetryChatModelListener] instance — e.g. to inject per-request headers that are
+     * derived from that listener. The default implementation ignores it;
      */
-    protected fun createHttpClientBuilder(baseUrl: String) = JdkHttpClient.builder().httpClientBuilder(
+    protected open fun createHttpClientBuilder(
+        baseUrl: String,
+        listener: TelemetryChatModelListener? = null,
+    ) = JdkHttpClient.builder().httpClientBuilder(
         ProxyUtil.configureProxy(
             HttpClient.newBuilder().version(httpVersion()),
             baseUrl,
         ),
     ).readTimeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
-        .connectTimeout((Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds)))
+        .connectTimeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
+
+    /**
+     * Creates the [TelemetryChatModelListener] attached to every model built by this factory.
+     */
+    protected open fun createTelemetryListener(): TelemetryChatModelListener = TelemetryChatModelListener(AppContext.getInstance().telemetry, getProvider().providerKey())
 
     // ── ChatModelFactory implementation ────────────────────────────────────────
 
@@ -200,10 +212,10 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
     }
 
     override fun createStreamingModel(settings: T): StreamingChatModel {
-        val telemetry = AppContext.getInstance().telemetry
+        val listener = createTelemetryListener()
         val supportsThinking = ModelCapabilitiesCache.supportsThinking(getProvider(), settings.defaultModel)
         return OpenAiResponsesStreamingChatModel.builder()
-            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl))
+            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener))
             .baseUrl(settings.baseUrl)
             .apiKey(resolveApiKey(settings))
             .modelName(settings.defaultModel)
@@ -215,23 +227,27 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
             }
             .logRequests(log.isDebugEnabled)
             .logResponses(log.isDebugEnabled)
-            .listeners(listOf(TelemetryChatModelListener(telemetry, getProvider().providerKey())))
+            .listeners(listOf(listener))
             .build()
     }
 
-    override fun createSecondaryModel(settings: T): ChatModel = OpenAiResponsesChatModel.builder()
-        .httpClientBuilder(createHttpClientBuilder(settings.baseUrl))
-        .baseUrl(settings.baseUrl)
-        .apiKey(resolveApiKey(settings))
-        .modelName(AppConfig.models[getProvider()].utilityModel.ifBlank { utilityModelFallback(settings) })
-        .logRequests(log.isDebugEnabled)
-        .build()
+    override fun createSecondaryModel(settings: T): ChatModel {
+        val listener = createTelemetryListener()
+        return OpenAiResponsesChatModel.builder()
+            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener))
+            .baseUrl(settings.baseUrl)
+            .apiKey(resolveApiKey(settings))
+            .modelName(AppConfig.models[getProvider()].utilityModel.ifBlank { utilityModelFallback(settings) })
+            .logRequests(log.isDebugEnabled)
+            .listeners(listOf(listener))
+            .build()
+    }
 
     override fun createModel(settings: T): ChatModel {
-        val telemetry = AppContext.getInstance().telemetry
+        val listener = createTelemetryListener()
         val supportsThinking = ModelCapabilitiesCache.supportsThinking(getProvider(), settings.defaultModel)
         return OpenAiResponsesChatModel.builder()
-            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl))
+            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener))
             .baseUrl(settings.baseUrl)
             .apiKey(resolveApiKey(settings))
             .modelName(settings.defaultModel)
@@ -243,7 +259,7 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
                     reasoningEffort(reasoningLevel.value)
                 }
             }
-            .listeners(listOf(TelemetryChatModelListener(telemetry, getProvider().providerKey())))
+            .listeners(listOf(listener))
             .build()
     }
 

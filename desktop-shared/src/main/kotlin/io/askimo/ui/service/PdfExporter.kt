@@ -4,22 +4,24 @@
  */
 package io.askimo.ui.service
 
-import com.lowagie.text.Chunk
-import com.lowagie.text.Document
-import com.lowagie.text.Element
-import com.lowagie.text.Font
-import com.lowagie.text.Image
-import com.lowagie.text.PageSize
-import com.lowagie.text.Paragraph
-import com.lowagie.text.Phrase
-import com.lowagie.text.Rectangle
-import com.lowagie.text.pdf.BaseFont
-import com.lowagie.text.pdf.PdfPCell
-import com.lowagie.text.pdf.PdfPTable
-import com.lowagie.text.pdf.PdfPageEventHelper
-import com.lowagie.text.pdf.PdfWriter
-import com.lowagie.text.pdf.draw.LineSeparator
 import io.askimo.core.logging.logger
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.openpdf.text.Chunk
+import org.openpdf.text.Document
+import org.openpdf.text.Element
+import org.openpdf.text.Font
+import org.openpdf.text.Image
+import org.openpdf.text.PageSize
+import org.openpdf.text.Paragraph
+import org.openpdf.text.Phrase
+import org.openpdf.text.Rectangle
+import org.openpdf.text.pdf.BaseFont
+import org.openpdf.text.pdf.PdfPCell
+import org.openpdf.text.pdf.PdfPTable
+import org.openpdf.text.pdf.PdfPageEventHelper
+import org.openpdf.text.pdf.PdfWriter
+import org.openpdf.text.pdf.draw.LineSeparator
 import java.awt.Color
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -159,7 +161,9 @@ internal object PdfExporter {
 
         val bytes = bos.toByteArray()
         if (bytes.isEmpty()) error("PDF rendering produced 0 bytes")
-        FileOutputStream(targetFile).use { it.write(bytes) }
+        withContext(Dispatchers.IO) {
+            FileOutputStream(targetFile).use { it.write(bytes) }
+        }
         log.debug("PDF written: {} bytes -> {}", bytes.size, targetFile.absolutePath)
     }
 
