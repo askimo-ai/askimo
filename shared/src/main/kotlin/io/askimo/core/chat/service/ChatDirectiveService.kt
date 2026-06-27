@@ -5,7 +5,10 @@
 package io.askimo.core.chat.service
 
 import io.askimo.core.chat.domain.ChatDirective
+import io.askimo.core.chat.domain.DirectiveScope
 import io.askimo.core.chat.repository.ChatDirectiveRepository
+import io.askimo.core.event.EventBus
+import io.askimo.core.event.internal.DirectiveDeletedEvent
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -62,6 +65,10 @@ class ChatDirectiveService(
 
     /**
      * Update an existing directive.
+     *
+     * TEAM-scoped directives are read-only on the client — this method returns
+     * false without making any changes if [id] resolves to a TEAM directive.
+     *
      * @return true if updated successfully
      */
     fun updateDirective(
@@ -70,6 +77,7 @@ class ChatDirectiveService(
         content: String,
     ): Boolean {
         val existing = repository.get(id) ?: return false
+        if (existing.scope == DirectiveScope.TEAM) return false // TEAM directives are read-only
         val directive = existing.copy(
             name = name,
             content = content,
@@ -79,9 +87,25 @@ class ChatDirectiveService(
 
     /**
      * Delete a directive.
+     *
+     * TEAM-scoped directives are managed by the server and cannot be deleted
+     * locally — they would simply reappear on the next pull. Returns false
+     * without deleting if [id] resolves to a TEAM directive.
+     *
+     * Emits [DirectiveDeletedEvent] on success so the sync layer can propagate
+     * the deletion to the server without tight coupling.
+     *
      * @return true if deleted successfully
      */
-    fun deleteDirective(id: String): Boolean = repository.delete(id)
+    fun deleteDirective(id: String): Boolean {
+        val existing = repository.get(id) ?: return false
+        if (existing.scope == DirectiveScope.TEAM) return false // TEAM directives are read-only
+        val deleted = repository.delete(id)
+        if (deleted) {
+            EventBus.post(DirectiveDeletedEvent(directiveId = id))
+        }
+        return deleted
+    }
 
     /**
      * List all directives.

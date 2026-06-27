@@ -32,6 +32,7 @@ import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import io.askimo.ui.common.components.primaryButton
@@ -130,7 +131,7 @@ fun errorDialog(
                         Text(
                             text = details,
                             style = MaterialTheme.typography.bodySmall.copy(
-                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                fontFamily = FontFamily.Monospace,
                             ),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier

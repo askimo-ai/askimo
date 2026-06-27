@@ -84,6 +84,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.chat.domain.ChatDirective
+import io.askimo.core.chat.domain.DirectiveScope
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
@@ -756,10 +757,29 @@ fun chatView(
                                                 ) {
                                                     DropdownMenuItem(
                                                         text = {
-                                                            Text(
-                                                                text = directive.name,
-                                                                style = MaterialTheme.typography.bodyMedium,
-                                                            )
+                                                            Row(
+                                                                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                                                                verticalAlignment = Alignment.CenterVertically,
+                                                            ) {
+                                                                Text(
+                                                                    text = directive.name,
+                                                                    style = MaterialTheme.typography.bodyMedium,
+                                                                    modifier = Modifier.weight(1f, fill = false),
+                                                                )
+                                                                if (directive.scope == DirectiveScope.TEAM) {
+                                                                    Surface(
+                                                                        shape = MaterialTheme.shapes.extraSmall,
+                                                                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                                                                    ) {
+                                                                        Text(
+                                                                            text = stringResource("directive.scope.team"),
+                                                                            style = MaterialTheme.typography.labelSmall,
+                                                                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                                                                        )
+                                                                    }
+                                                                }
+                                                            }
                                                         },
                                                         onClick = {
                                                             actions.setDirective(directive.id)

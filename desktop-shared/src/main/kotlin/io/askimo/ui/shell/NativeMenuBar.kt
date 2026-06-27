@@ -440,6 +440,15 @@ object NativeMenuBar {
             )
             helpMenu.add(starGitHubItem)
 
+            // Join Discord Community
+            val discordItem = MenuItem(LocalizationManager.getString("menu.help.discord"))
+            discordItem.addActionListener(
+                ActionListener {
+                    runCatching { if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI("https://discord.gg/eXSBR4fNmm")) }
+                },
+            )
+            helpMenu.add(discordItem)
+
             // Share Askimo submenu
             val shareMenu = Menu(LocalizationManager.getString("menu.help.share"))
 

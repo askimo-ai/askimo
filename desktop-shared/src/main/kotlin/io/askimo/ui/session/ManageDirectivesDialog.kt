@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.askimo.core.chat.domain.ChatDirective
+import io.askimo.core.chat.domain.DirectiveScope
 import io.askimo.core.chat.service.DirectiveImportResult
 import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.components.primaryButton
@@ -205,20 +206,44 @@ fun manageDirectivesDialog(
                                                 style = MaterialTheme.typography.titleMedium,
                                                 color = MaterialTheme.colorScheme.onSurface,
                                             )
+                                            // Show a read-only badge for TEAM directives
+                                            if (directive.scope == DirectiveScope.TEAM) {
+                                                AssistChip(
+                                                    onClick = {},
+                                                    label = {
+                                                        Text(
+                                                            text = stringResource("directive.scope.team"),
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                        )
+                                                    },
+                                                    modifier = Modifier.height(24.dp),
+                                                    colors = AssistChipDefaults.assistChipColors(
+                                                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                                        labelColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                    ),
+                                                    border = AssistChipDefaults.assistChipBorder(
+                                                        enabled = true,
+                                                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                                                    ),
+                                                )
+                                            }
                                         }
 
-                                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
-                                            IconButton(
-                                                onClick = { editingDirective = directive },
-                                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                            ) {
-                                                Icon(Icons.Default.Edit, contentDescription = stringResource("action.edit"), tint = MaterialTheme.colorScheme.onSurface)
-                                            }
-                                            IconButton(
-                                                onClick = { onDelete(directive.id) },
-                                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                            ) {
-                                                Icon(Icons.Default.Delete, contentDescription = stringResource("action.delete"), tint = MaterialTheme.colorScheme.error)
+                                        // TEAM directives are managed by the server — hide edit/delete
+                                        if (directive.scope != DirectiveScope.TEAM) {
+                                            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+                                                IconButton(
+                                                    onClick = { editingDirective = directive },
+                                                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                                ) {
+                                                    Icon(Icons.Default.Edit, contentDescription = stringResource("action.edit"), tint = MaterialTheme.colorScheme.onSurface)
+                                                }
+                                                IconButton(
+                                                    onClick = { onDelete(directive.id) },
+                                                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                                ) {
+                                                    Icon(Icons.Default.Delete, contentDescription = stringResource("action.delete"), tint = MaterialTheme.colorScheme.error)
+                                                }
                                             }
                                         }
                                     }

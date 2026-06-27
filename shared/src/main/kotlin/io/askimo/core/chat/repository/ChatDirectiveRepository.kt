@@ -115,6 +115,7 @@ class ChatDirectiveRepository internal constructor(
 
     /**
      * Update an existing directive.
+     *
      * @return true if updated, false if directive doesn't exist
      */
     fun update(directive: ChatDirective): Boolean {
@@ -124,6 +125,8 @@ class ChatDirectiveRepository internal constructor(
             ChatDirectivesTable.update({ ChatDirectivesTable.id eq directive.id }) {
                 it[name] = directive.name
                 it[content] = directive.content
+                it[updatedAt] = Instant.now()
+                it[syncedAt] = null // mark dirty so the next push cycle picks up this change
             } > 0
         }
     }

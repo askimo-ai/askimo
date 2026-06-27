@@ -39,6 +39,9 @@
   <a href="https://github.com/askimo-ai/askimo/releases">
     <img src="https://img.shields.io/github/downloads/askimo-ai/askimo/total" alt="Total Downloads">
   </a>
+  <a href="https://discord.gg/eXSBR4fNmm">
+    <img src="https://img.shields.io/discord/1465264770570518838?label=Discord&logo=discord&logoColor=white&color=5865F2" alt="Discord">
+  </a>
   <img src="https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white" alt="macOS">
   <img src="https://img.shields.io/badge/Windows-0078D6?logo=windows&logoColor=white" alt="Windows">
   <img src="https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black" alt="Linux">
@@ -215,6 +218,14 @@ AGPLv3. See [LICENSE](./LICENSE).
 ## Contributing
 
 Bug reports, feature requests, and pull requests are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
+
+---
+
+## Community
+
+Join the [Askimo Discord](https://discord.gg/eXSBR4fNmm) for help, feedback, and sharing what you build.
+
+[![Discord](https://img.shields.io/discord/1465264770570518838?label=Discord&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/eXSBR4fNmm)
 
 ---
 
