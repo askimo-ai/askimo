@@ -19,10 +19,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -53,11 +54,11 @@ private val InlineControlsHeight = 44.dp
  * - When [inlineControls] is **provided** — renders a two-section bordered container identical
  *   to the one used in [io.askimo.ui.chat.chatInputField]:
  *   ```
- *   ┌──────────────────────────────────────┐
- *   │  Text area  (scrollable)             │
- *   ├──────────────────────────────────────┤
- *   │  <spacer>  [inlineControls]          │
- *   └──────────────────────────────────────┘  [Send]
+ *   ┌──────────────────────────────────────────────┐
+ *   │  Text area  (scrollable)                     │
+ *   ├──────────────────────────────────────────────┤
+ *   │  <spacer>  [inlineControls]  [Send]          │
+ *   └──────────────────────────────────────────────┘
  *   ```
  */
 @Composable
@@ -97,11 +98,12 @@ internal fun actionInputField(
         }
     }
 
+    // Full-size send button — used in the simple flat layout (outside the border).
     val sendButton: @Composable () -> Unit = {
         IconButton(
             onClick = { if (canSend) onSend() },
             enabled = canSend,
-            colors = AppComponents.primaryIconButtonColors(),
+            colors = IconButtonDefaults.filledIconButtonColors(),
             modifier = Modifier
                 .size(48.dp)
                 .pointerHoverIcon(PointerIcon.Hand),
@@ -110,18 +112,40 @@ internal fun actionInputField(
                 CircularProgressIndicator(
                     modifier = Modifier.size(20.dp),
                     strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    trackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.3f),
                 )
             } else {
                 Icon(
-                    Icons.AutoMirrored.Filled.Send,
+                    Icons.Default.ArrowUpward,
                     contentDescription = sendContentDescription,
-                    tint = if (canSend) {
-                        MaterialTheme.colorScheme.onSurface
-                    } else {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                    },
+                )
+            }
+        }
+    }
+
+    // Compact send button — used inside the 44dp inline controls strip.
+    val inlineSendButton: @Composable () -> Unit = {
+        IconButton(
+            onClick = { if (canSend) onSend() },
+            enabled = canSend,
+            colors = IconButtonDefaults.filledIconButtonColors(),
+            modifier = Modifier
+                .size(28.dp)
+                .pointerHoverIcon(PointerIcon.Hand),
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    trackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.3f),
+                )
+            } else {
+                Icon(
+                    Icons.Default.ArrowUpward,
+                    contentDescription = sendContentDescription,
+                    modifier = Modifier.size(18.dp),
                 )
             }
         }
@@ -129,78 +153,71 @@ internal fun actionInputField(
 
     if (inlineControls != null) {
         // ── Two-section layout ────────────────────────────────────────────────
-        Row(
-            modifier = modifier.fillMaxWidth().then(keyModifier),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                val interactionSource = remember { MutableInteractionSource() }
-                val isFocused by interactionSource.collectIsFocusedAsState()
-                val borderColor = when {
-                    error != null -> MaterialTheme.colorScheme.error
-                    isFocused -> MaterialTheme.colorScheme.onSurface
-                    else -> MaterialTheme.colorScheme.outlineVariant
-                }
-                val borderWidth = if (isFocused || error != null) 2.dp else 1.dp
+        Column(modifier = modifier.fillMaxWidth().then(keyModifier)) {
+            val interactionSource = remember { MutableInteractionSource() }
+            val isFocused by interactionSource.collectIsFocusedAsState()
+            val borderColor = when {
+                error != null -> MaterialTheme.colorScheme.error
+                isFocused -> MaterialTheme.colorScheme.onSurface
+                else -> MaterialTheme.colorScheme.outlineVariant
+            }
+            val borderWidth = if (isFocused || error != null) 2.dp else 1.dp
 
-                Column(
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(borderWidth, borderColor, RoundedCornerShape(4.dp))
+                    .clip(RoundedCornerShape(4.dp)),
+            ) {
+                // Text area
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    placeholder = if (placeholder.isNotEmpty()) {
+                        { Text(placeholder) }
+                    } else {
+                        null
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = minLines,
+                    maxLines = maxLines,
+                    enabled = enabled,
+                    isError = error != null,
+                    interactionSource = interactionSource,
+                    // Outer container owns the border; keep the field's own border invisible.
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent,
+                        errorBorderColor = Color.Transparent,
+                        focusedLabelColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        cursorColor = MaterialTheme.colorScheme.onSurface,
+                    ),
+                )
+
+                // Controls strip — caller's controls pushed right, send button at far end
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(borderWidth, borderColor, RoundedCornerShape(4.dp))
-                        .clip(RoundedCornerShape(4.dp)),
+                        .height(InlineControlsHeight)
+                        .padding(horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    // Text area
-                    OutlinedTextField(
-                        value = value,
-                        onValueChange = onValueChange,
-                        placeholder = if (placeholder.isNotEmpty()) {
-                            { Text(placeholder) }
-                        } else {
-                            null
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = minLines,
-                        maxLines = maxLines,
-                        enabled = enabled,
-                        isError = error != null,
-                        interactionSource = interactionSource,
-                        // Outer container owns the border; keep the field's own border invisible.
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent,
-                            errorBorderColor = Color.Transparent,
-                            focusedLabelColor = MaterialTheme.colorScheme.onSurface,
-                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            cursorColor = MaterialTheme.colorScheme.onSurface,
-                        ),
-                    )
-
-                    // Controls strip — items provided by caller are pushed to the right
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(InlineControlsHeight)
-                            .padding(horizontal = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Spacer(modifier = Modifier.weight(1f))
-                        inlineControls()
-                    }
-                }
-
-                if (error != null) {
-                    Text(
-                        text = error,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(start = 16.dp, top = 4.dp),
-                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    inlineControls()
+                    Spacer(modifier = Modifier.width(4.dp))
+                    inlineSendButton()
                 }
             }
 
-            Spacer(modifier = Modifier.width(Spacing.small))
-            sendButton()
+            if (error != null) {
+                Text(
+                    text = error,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp),
+                )
+            }
         }
     } else {
         // ── Simple flat layout ────────────────────────────────────────────────

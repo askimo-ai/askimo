@@ -28,7 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.ChevronRight
@@ -456,347 +456,329 @@ fun chatInputField(
             }
 
             Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
+                // Resize handle — scoped to the text field column only so it
+                // doesn't overlap the send button.
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                        .pointerHoverIcon(
+                            PointerIcon(Cursor.getPredefinedCursor(Cursor.N_RESIZE_CURSOR)),
+                        )
+                        .pointerInput(Unit) {
+                            detectVerticalDragGestures { change, dragAmount ->
+                                change.consume()
+                                val newHeight = textFieldHeight - dragAmount.toDp()
+                                textFieldHeight = newHeight.coerceIn(defaultTextFieldHeight, maxTextFieldHeight)
+                                manuallyResized = true
+                            }
+                        },
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Column(
-                        modifier = Modifier.weight(1f),
+                    // Visual grip indicator
+                    Box(
+                        modifier = Modifier
+                            .width(40.dp)
+                            .height(4.dp)
+                            .background(
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                RoundedCornerShape(2.dp),
+                            ),
+                    )
+                }
+
+                // Custom two-section input container:
+                // ┌─────────────────────────────────────────┐
+                // │  Text area  (weight 1f, scrollable)     │
+                // ├─────────────────────────────────────────┤
+                // │  Controls row  (fixed height)           │
+                // └─────────────────────────────────────────┘
+                // Text can never overlap the controls because they are structurally separate.
+                val interactionSource = remember { MutableInteractionSource() }
+                val isFocused by interactionSource.collectIsFocusedAsState()
+                val containerBorderColor = when {
+                    errorMessage != null -> MaterialTheme.colorScheme.error
+                    isFocused -> MaterialTheme.colorScheme.onSurface
+                    else -> MaterialTheme.colorScheme.outlineVariant
+                }
+                val containerBorderWidth = if (isFocused || errorMessage != null) 2.dp else 1.dp
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(textFieldHeight)
+                        .border(containerBorderWidth, containerBorderColor, RoundedCornerShape(4.dp))
+                        .clip(RoundedCornerShape(4.dp)),
+                ) {
+                    // ── Text area ──────────────────────────────────────────────────
+                    OutlinedTextField(
+                        value = inputText,
+                        onValueChange = onInputTextChange,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .focusRequester(inputFocusRequester)
+                            .onGloballyPositioned { coordinates ->
+                                textFieldWidthPx = coordinates.size.width.toFloat()
+                            }
+                            .onPreviewKeyEvent { keyEvent ->
+                                val shortcut = KeyMapManager.handleKeyEvent(keyEvent)
+                                when (shortcut) {
+                                    KeyMapManager.AppShortcut.NEW_LINE -> {
+                                        val cursorPosition = inputText.selection.start
+                                        val textBeforeCursor = inputText.text.substring(0, cursorPosition)
+                                        val textAfterCursor = inputText.text.substring(cursorPosition)
+                                        val newText = textBeforeCursor + "\n" + textAfterCursor
+                                        val newCursorPosition = cursorPosition + 1
+                                        onInputTextChange(
+                                            TextFieldValue(
+                                                text = newText,
+                                                selection = TextRange(newCursorPosition),
+                                            ),
+                                        )
+                                        true
+                                    }
+
+                                    KeyMapManager.AppShortcut.SEND_MESSAGE -> {
+                                        if (inputText.text.isNotBlank() && !isLoading && !isThinking) {
+                                            onSendMessage(creationMode)
+                                        }
+                                        true
+                                    }
+
+                                    else -> false
+                                }
+                            },
+                        placeholder = { Text(placeholder) },
+                        maxLines = maxVisibleInputLines,
+                        interactionSource = interactionSource,
+                        // Border is provided by the outer container; keep OutlinedTextField's own border transparent.
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent,
+                            errorBorderColor = Color.Transparent,
+                            focusedLabelColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            cursorColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                    )
+
+                    // ── Controls row ───────────────────────────────────────────────
+                    // Layout: [attach | image | tools | image-mode-chip] <spacer> [reasoning chip] [send/stop]
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(inlineControlsBottomPadding)
+                            .padding(horizontal = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        // Resize handle — scoped to the text field column only so it
-                        // doesn't overlap the send button.
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(8.dp)
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                                .pointerHoverIcon(
-                                    PointerIcon(Cursor.getPredefinedCursor(Cursor.N_RESIZE_CURSOR)),
+                        // ── Left: action controls ──────────────────────────────────
+                        themedTooltip(
+                            text = stringResource("chat.attach.file", Platform.modifierKey),
+                        ) {
+                            IconButton(
+                                onClick = openFileDialog,
+                                enabled = !isLoading,
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .pointerHoverIcon(PointerIcon.Hand),
+                            ) {
+                                Icon(
+                                    Icons.Default.AttachFile,
+                                    contentDescription = stringResource("chat.attach.file.menu"),
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(16.dp),
                                 )
-                                .pointerInput(Unit) {
-                                    detectVerticalDragGestures { change, dragAmount ->
-                                        change.consume()
-                                        val newHeight = textFieldHeight - dragAmount.toDp()
-                                        textFieldHeight = newHeight.coerceIn(defaultTextFieldHeight, maxTextFieldHeight)
-                                        manuallyResized = true
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(2.dp))
+
+                        themedTooltip(
+                            text = stringResource("chat.create.image.menu"),
+                        ) {
+                            IconButton(
+                                onClick = {
+                                    creationMode = if (creationMode is CreationMode.Image) {
+                                        CreationMode.Chat
+                                    } else {
+                                        CreationMode.Image
                                     }
                                 },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            // Visual grip indicator
-                            Box(
+                                enabled = !isLoading,
+                                colors = if (creationMode is CreationMode.Image) {
+                                    AppComponents.primaryIconButtonColors()
+                                } else {
+                                    IconButtonDefaults.iconButtonColors()
+                                },
                                 modifier = Modifier
-                                    .width(40.dp)
-                                    .height(4.dp)
-                                    .background(
-                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                        RoundedCornerShape(2.dp),
-                                    ),
-                            )
-                        }
-
-                        // Custom two-section input container:
-                        // ┌─────────────────────────────────────────┐
-                        // │  Text area  (weight 1f, scrollable)     │
-                        // ├─────────────────────────────────────────┤
-                        // │  Controls row  (fixed height)           │
-                        // └─────────────────────────────────────────┘
-                        // Text can never overlap the controls because they are structurally separate.
-                        val interactionSource = remember { MutableInteractionSource() }
-                        val isFocused by interactionSource.collectIsFocusedAsState()
-                        val containerBorderColor = when {
-                            errorMessage != null -> MaterialTheme.colorScheme.error
-                            isFocused -> MaterialTheme.colorScheme.onSurface
-                            else -> MaterialTheme.colorScheme.outlineVariant
-                        }
-                        val containerBorderWidth = if (isFocused || errorMessage != null) 2.dp else 1.dp
-
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(textFieldHeight)
-                                .border(containerBorderWidth, containerBorderColor, RoundedCornerShape(4.dp))
-                                .clip(RoundedCornerShape(4.dp)),
-                        ) {
-                            // ── Text area ──────────────────────────────────────────────────
-                            OutlinedTextField(
-                                value = inputText,
-                                onValueChange = onInputTextChange,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f)
-                                    .focusRequester(inputFocusRequester)
-                                    .onGloballyPositioned { coordinates ->
-                                        textFieldWidthPx = coordinates.size.width.toFloat()
-                                    }
-                                    .onPreviewKeyEvent { keyEvent ->
-                                        val shortcut = KeyMapManager.handleKeyEvent(keyEvent)
-                                        when (shortcut) {
-                                            KeyMapManager.AppShortcut.NEW_LINE -> {
-                                                val cursorPosition = inputText.selection.start
-                                                val textBeforeCursor = inputText.text.substring(0, cursorPosition)
-                                                val textAfterCursor = inputText.text.substring(cursorPosition)
-                                                val newText = textBeforeCursor + "\n" + textAfterCursor
-                                                val newCursorPosition = cursorPosition + 1
-                                                onInputTextChange(
-                                                    TextFieldValue(
-                                                        text = newText,
-                                                        selection = TextRange(newCursorPosition),
-                                                    ),
-                                                )
-                                                true
-                                            }
-
-                                            KeyMapManager.AppShortcut.SEND_MESSAGE -> {
-                                                if (inputText.text.isNotBlank() && !isLoading && !isThinking) {
-                                                    onSendMessage(creationMode)
-                                                }
-                                                true
-                                            }
-
-                                            else -> false
-                                        }
-                                    },
-                                placeholder = { Text(placeholder) },
-                                maxLines = maxVisibleInputLines,
-                                interactionSource = interactionSource,
-                                // Border is provided by the outer container; keep OutlinedTextField's own border transparent.
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent,
-                                    errorBorderColor = Color.Transparent,
-                                    focusedLabelColor = MaterialTheme.colorScheme.onSurface,
-                                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    cursorColor = MaterialTheme.colorScheme.onSurface,
-                                ),
-                            )
-
-                            // ── Controls row ───────────────────────────────────────────────
-                            // Layout: [attach | image | tools | image-mode-chip] <spacer> [reasoning chip]
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(inlineControlsBottomPadding)
-                                    .padding(horizontal = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
+                                    .size(28.dp)
+                                    .pointerHoverIcon(PointerIcon.Hand),
                             ) {
-                                // ── Left: action controls ──────────────────────────────────
-                                themedTooltip(
-                                    text = stringResource("chat.attach.file", Platform.modifierKey),
-                                ) {
-                                    IconButton(
-                                        onClick = openFileDialog,
-                                        enabled = !isLoading,
-                                        modifier = Modifier
-                                            .size(28.dp)
-                                            .pointerHoverIcon(PointerIcon.Hand),
-                                    ) {
-                                        Icon(
-                                            Icons.Default.AttachFile,
-                                            contentDescription = stringResource("chat.attach.file.menu"),
-                                            tint = MaterialTheme.colorScheme.onSurface,
-                                            modifier = Modifier.size(16.dp),
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.width(2.dp))
-
-                                themedTooltip(
-                                    text = stringResource("chat.create.image.menu"),
-                                ) {
-                                    IconButton(
-                                        onClick = {
-                                            creationMode = if (creationMode is CreationMode.Image) {
-                                                CreationMode.Chat
-                                            } else {
-                                                CreationMode.Image
-                                            }
-                                        },
-                                        enabled = !isLoading,
-                                        colors = if (creationMode is CreationMode.Image) {
-                                            AppComponents.primaryIconButtonColors()
-                                        } else {
-                                            IconButtonDefaults.iconButtonColors()
-                                        },
-                                        modifier = Modifier
-                                            .size(28.dp)
-                                            .pointerHoverIcon(PointerIcon.Hand),
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Image,
-                                            contentDescription = stringResource("chat.create.image.menu"),
-                                            tint = if (creationMode is CreationMode.Image) {
-                                                MaterialTheme.colorScheme.primary
-                                            } else {
-                                                MaterialTheme.colorScheme.onSurface
-                                            },
-                                            modifier = Modifier.size(16.dp),
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.width(2.dp))
-
-                                toolsIndicatorButton(
-                                    sessionId = sessionId,
-                                    isLoading = isLoading,
-                                    enabledServerIds = enabledServerIds,
-                                    onEnabledServerIdsChange = { updated ->
-                                        enabledServerIds = updated
+                                Icon(
+                                    Icons.Default.Image,
+                                    contentDescription = stringResource("chat.create.image.menu"),
+                                    tint = if (creationMode is CreationMode.Image) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurface
                                     },
-                                    onNavigateToMcpSettings = onNavigateToMcpSettings,
-                                    iconSize = 28.dp,
+                                    modifier = Modifier.size(16.dp),
                                 )
+                            }
+                        }
 
-                                // Image mode chip — contextually tied to the image toggle above
-                                if (creationMode is CreationMode.Image) {
-                                    Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(2.dp))
+
+                        toolsIndicatorButton(
+                            sessionId = sessionId,
+                            isLoading = isLoading,
+                            enabledServerIds = enabledServerIds,
+                            onEnabledServerIdsChange = { updated ->
+                                enabledServerIds = updated
+                            },
+                            onNavigateToMcpSettings = onNavigateToMcpSettings,
+                            iconSize = 28.dp,
+                        )
+
+                        // Image mode chip — contextually tied to the image toggle above
+                        if (creationMode is CreationMode.Image) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                tonalElevation = 2.dp,
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(start = 8.dp, end = 4.dp, top = 3.dp, bottom = 3.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = stringResource("chat.create.image.mode"),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = stringResource("chat.create.image.mode.cancel"),
+                                        modifier = Modifier
+                                            .size(14.dp)
+                                            .clickable { creationMode = CreationMode.Chat }
+                                            .pointerHoverIcon(PointerIcon.Hand),
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    )
+                                }
+                            }
+                        }
+
+                        // ── Push reasoning chip to the far right ───────────────────
+                        Spacer(modifier = Modifier.weight(1f))
+
+                        // Reasoning effort chip — only shown for models that support it;
+                        // positioned far right as a model-setting indicator.
+                        if (supportsReasoning) {
+                            Box {
+                                themedTooltip(text = stringResource("chat.reasoning.effort.tooltip")) {
                                     Surface(
                                         shape = RoundedCornerShape(12.dp),
-                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                        color = MaterialTheme.colorScheme.secondaryContainer,
                                         tonalElevation = 2.dp,
+                                        modifier = Modifier
+                                            .clickable(
+                                                enabled = !isLoading,
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = null,
+                                                onClick = { showReasoningDropdown = true },
+                                            )
+                                            .pointerHoverIcon(PointerIcon.Hand),
                                     ) {
                                         Row(
-                                            modifier = Modifier.padding(start = 8.dp, end = 4.dp, top = 3.dp, bottom = 3.dp),
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                            modifier = Modifier.padding(
+                                                start = Spacing.small,
+                                                end = Spacing.small,
+                                                top = 3.dp,
+                                                bottom = 3.dp,
+                                            ),
+                                            horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                                             verticalAlignment = Alignment.CenterVertically,
                                         ) {
                                             Text(
-                                                text = stringResource("chat.create.image.mode"),
+                                                text = stringResource("chat.reasoning.effort.label") + ":",
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                                            )
+                                            Text(
+                                                text = reasoningEffort.value.replaceFirstChar { it.uppercase() },
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = MaterialTheme.colorScheme.onSecondaryContainer,
                                             )
                                             Icon(
-                                                imageVector = Icons.Default.Close,
-                                                contentDescription = stringResource("chat.create.image.mode.cancel"),
-                                                modifier = Modifier
-                                                    .size(14.dp)
-                                                    .clickable { creationMode = CreationMode.Chat }
-                                                    .pointerHoverIcon(PointerIcon.Hand),
-                                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                imageVector = Icons.Default.KeyboardArrowDown,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(12.dp),
+                                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                             )
                                         }
                                     }
                                 }
 
-                                // ── Push reasoning chip to the far right ───────────────────
-                                Spacer(modifier = Modifier.weight(1f))
-
-                                // Reasoning effort chip — only shown for models that support it;
-                                // positioned far right as a model-setting indicator.
-                                if (supportsReasoning) {
-                                    Box {
-                                        themedTooltip(text = stringResource("chat.reasoning.effort.tooltip")) {
-                                            Surface(
-                                                shape = RoundedCornerShape(12.dp),
-                                                color = MaterialTheme.colorScheme.secondaryContainer,
-                                                tonalElevation = 2.dp,
-                                                modifier = Modifier
-                                                    .clickable(
-                                                        enabled = !isLoading,
-                                                        interactionSource = remember { MutableInteractionSource() },
-                                                        indication = null,
-                                                        onClick = { showReasoningDropdown = true },
-                                                    )
-                                                    .pointerHoverIcon(PointerIcon.Hand),
-                                            ) {
-                                                Row(
-                                                    modifier = Modifier.padding(
-                                                        start = Spacing.small,
-                                                        end = Spacing.small,
-                                                        top = 3.dp,
-                                                        bottom = 3.dp,
-                                                    ),
-                                                    horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                ) {
-                                                    Text(
-                                                        text = stringResource("chat.reasoning.effort.label") + ":",
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
-                                                    )
-                                                    Text(
-                                                        text = reasoningEffort.value.replaceFirstChar { it.uppercase() },
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        fontWeight = FontWeight.SemiBold,
-                                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                                    )
-                                                    Icon(
-                                                        imageVector = Icons.Default.KeyboardArrowDown,
-                                                        contentDescription = null,
-                                                        modifier = Modifier.size(12.dp),
-                                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                                    )
-                                                }
-                                            }
+                                dropdownMenu(
+                                    expanded = showReasoningDropdown,
+                                    onDismissRequest = { showReasoningDropdown = false },
+                                ) {
+                                    ReasoningEffort.entries.forEach { effort ->
+                                        val label = when (effort) {
+                                            ReasoningEffort.OFF -> stringResource("chat.reasoning.effort.off")
+                                            ReasoningEffort.LOW -> stringResource("chat.reasoning.effort.low")
+                                            ReasoningEffort.MEDIUM -> stringResource("chat.reasoning.effort.medium")
+                                            ReasoningEffort.HIGH -> stringResource("chat.reasoning.effort.high")
                                         }
-
-                                        dropdownMenu(
-                                            expanded = showReasoningDropdown,
-                                            onDismissRequest = { showReasoningDropdown = false },
-                                        ) {
-                                            ReasoningEffort.entries.forEach { effort ->
-                                                val label = when (effort) {
-                                                    ReasoningEffort.OFF -> stringResource("chat.reasoning.effort.off")
-                                                    ReasoningEffort.LOW -> stringResource("chat.reasoning.effort.low")
-                                                    ReasoningEffort.MEDIUM -> stringResource("chat.reasoning.effort.medium")
-                                                    ReasoningEffort.HIGH -> stringResource("chat.reasoning.effort.high")
-                                                }
-                                                val description = when (effort) {
-                                                    ReasoningEffort.OFF -> stringResource("chat.reasoning.effort.off.description")
-                                                    ReasoningEffort.LOW -> stringResource("chat.reasoning.effort.low.description")
-                                                    ReasoningEffort.MEDIUM -> stringResource("chat.reasoning.effort.medium.description")
-                                                    ReasoningEffort.HIGH -> stringResource("chat.reasoning.effort.high.description")
-                                                }
-                                                themedTooltip(text = description) {
-                                                    DropdownMenuItem(
-                                                        text = {
-                                                            Text(
-                                                                text = label,
-                                                                style = MaterialTheme.typography.bodyMedium,
-                                                                fontWeight = if (effort == reasoningEffort) FontWeight.Bold else FontWeight.Normal,
-                                                            )
-                                                        },
-                                                        trailingIcon = null,
-                                                        onClick = {
-                                                            reasoningEffort = effort
-                                                            showReasoningDropdown = false
-                                                        },
-                                                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                                        colors = AppComponents.menuItemColors(),
+                                        val description = when (effort) {
+                                            ReasoningEffort.OFF -> stringResource("chat.reasoning.effort.off.description")
+                                            ReasoningEffort.LOW -> stringResource("chat.reasoning.effort.low.description")
+                                            ReasoningEffort.MEDIUM -> stringResource("chat.reasoning.effort.medium.description")
+                                            ReasoningEffort.HIGH -> stringResource("chat.reasoning.effort.high.description")
+                                        }
+                                        themedTooltip(text = description) {
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Text(
+                                                        text = label,
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        fontWeight = if (effort == reasoningEffort) FontWeight.Bold else FontWeight.Normal,
                                                     )
-                                                }
-                                            }
+                                                },
+                                                trailingIcon = null,
+                                                onClick = {
+                                                    reasoningEffort = effort
+                                                    showReasoningDropdown = false
+                                                },
+                                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                                colors = AppComponents.menuItemColors(),
+                                            )
                                         }
                                     }
                                 }
                             }
                         }
 
-                        // Error text shown below the container
-                        if (errorMessage != null) {
-                            Text(
-                                text = errorMessage,
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(start = 16.dp, top = 4.dp),
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Box(contentAlignment = Alignment.Center) {
+                        // ── Send / Stop button — beside reasoning chip ──────────────
+                        Spacer(modifier = Modifier.width(4.dp))
                         if (isLoading || isThinking) {
                             IconButton(
                                 onClick = onStopResponse,
-                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .pointerHoverIcon(PointerIcon.Hand),
                             ) {
                                 Icon(
                                     Icons.Default.Stop,
                                     contentDescription = "Chat stop",
                                     tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(18.dp),
                                 )
                             }
                         } else {
@@ -810,22 +792,34 @@ fun chatInputField(
                                 IconButton(
                                     onClick = { onSendMessage(creationMode) },
                                     enabled = inputText.text.isNotBlank(),
-                                    colors = AppComponents.primaryIconButtonColors(),
-                                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                    colors = IconButtonDefaults.filledIconButtonColors(),
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .pointerHoverIcon(PointerIcon.Hand),
                                 ) {
                                     Icon(
-                                        if (editingMessage != null) Icons.Default.Edit else Icons.AutoMirrored.Filled.Send,
+                                        if (editingMessage != null) Icons.Default.Edit else Icons.Default.ArrowUpward,
                                         contentDescription = if (editingMessage != null) {
                                             stringResource("message.update.regenerate")
                                         } else {
                                             stringResource("message.send")
                                         },
-                                        tint = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.size(18.dp),
                                     )
                                 }
                             }
                         }
                     }
+                }
+
+                // Error text shown below the container
+                if (errorMessage != null) {
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 16.dp, top = 4.dp),
+                    )
                 }
             }
         }
