@@ -5,6 +5,7 @@
 package io.askimo.ui.common.theme
 
 import androidx.compose.ui.unit.dp
+import io.askimo.core.config.AppConfig
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.LogLevel
 import io.askimo.core.logging.LoggingService
@@ -111,34 +112,15 @@ object ThemePreferences {
     }
 
     private fun loadLocale(): Locale {
-        // Check if user has saved a locale preference
-        val savedLocaleTag = prefs.get(LOCALE_KEY, null)
-
-        if (savedLocaleTag != null) {
-            // User has explicitly set a locale, use it
-            return try {
-                Locale.forLanguageTag(savedLocaleTag)
-            } catch (e: Exception) {
-                log.debug("Invalid saved locale tag '{}', falling back to English", savedLocaleTag, e)
-                Locale.ENGLISH
-            }
+        // AppConfig is the canonical store for the UI locale (shared, YAML-persisted)
+        val savedTag = runCatching { AppConfig.currentLocale }.getOrNull()
+        if (!savedTag.isNullOrBlank()) {
+            val locale = runCatching { Locale.forLanguageTag(savedTag) }.getOrDefault(Locale.ENGLISH)
+            LocalizationManager.setLocale(locale)
+            return locale
         }
-
-        // No saved preference - check if system locale is supported
-        val systemLocale = Locale.getDefault()
-        val availableLocales = LocalizationManager.availableLocales
-
-        // Check if system locale (or its language) is available
-        val supportedLocale = availableLocales.keys.find { locale ->
-            // Exact match (language + country)
-            locale.language == systemLocale.language && locale.country == systemLocale.country
-        } ?: availableLocales.keys.find { locale ->
-            // Language-only match
-            locale.language == systemLocale.language
-        }
-
-        // Return supported locale or default to English
-        return supportedLocale ?: Locale.ENGLISH
+        // No preference saved — default to English
+        return Locale.ENGLISH
     }
 
     private fun loadLogLevel(): LogLevel {
@@ -177,6 +159,7 @@ object ThemePreferences {
     fun setLocale(locale: Locale) {
         _locale.value = locale
         prefs.put(LOCALE_KEY, locale.toLanguageTag())
+        AppConfig.updateField("currentLocale", locale.toLanguageTag())
         LocalizationManager.setLocale(locale)
     }
 

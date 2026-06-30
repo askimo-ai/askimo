@@ -54,18 +54,6 @@ object ApplicationPreferences {
     private const val LANGUAGE_SELECTED_KEY = "language_selected"
     private const val ONBOARDING_COMPLETED_KEY = "onboarding_completed"
 
-    /** Returns true if language has not been selected yet (first launch). */
-    fun isFirstLaunch(): Boolean = !safeGetBoolean(LANGUAGE_SELECTED_KEY, false)
-
-    /** Mark language as selected after the first-time language selection screen. */
-    fun markLanguageSelected() = safePutBoolean(LANGUAGE_SELECTED_KEY, true)
-
-    /** Returns true if the in-app tutorial has been completed. */
-    fun isTutorialCompleted(): Boolean = safeGetBoolean(TUTORIAL_COMPLETED_KEY, false)
-
-    /** Mark the tutorial as completed. */
-    fun markTutorialCompleted() = safePutBoolean(TUTORIAL_COMPLETED_KEY, true)
-
     /** Returns true if the onboarding wizard has been completed or skipped. */
     fun isOnboardingCompleted(): Boolean = safeGetBoolean(ONBOARDING_COMPLETED_KEY, false)
 
@@ -106,9 +94,6 @@ object ApplicationPreferences {
     private const val SKILLS_SIDE_PANEL_WIDTH_KEY = "ui.skills_side_panel_width"
     private const val DEFAULT_SKILLS_SIDE_PANEL_WIDTH = 300
     private const val SKILLS_SIDE_PANEL_EXPANDED_KEY = "ui.skills_side_panel_expanded"
-    private const val SKILLS_LIST_PANEL_WIDTH_KEY = "ui.skills_list_panel_width"
-    private const val DEFAULT_SKILLS_LIST_PANEL_WIDTH = 240
-    private const val SKILLS_LIST_PANEL_EXPANDED_KEY = "ui.skills_list_panel_expanded"
     private const val SHOW_PLANS_IN_SIDEBAR_KEY = "ui.show_plans_in_sidebar"
     private const val SHOW_SKILLS_IN_SIDEBAR_KEY = "ui.show_skills_in_sidebar"
     private const val SHOW_PROJECTS_IN_SIDEBAR_KEY = "ui.show_projects_in_sidebar"
@@ -138,12 +123,6 @@ object ApplicationPreferences {
     fun getSkillsSidePanelExpanded(): Boolean = safeGetBoolean(SKILLS_SIDE_PANEL_EXPANDED_KEY, true)
     fun setSkillsSidePanelExpanded(expanded: Boolean) = safePutBoolean(SKILLS_SIDE_PANEL_EXPANDED_KEY, expanded)
 
-    fun getSkillsListPanelWidth(): Int = safeGetInt(SKILLS_LIST_PANEL_WIDTH_KEY, DEFAULT_SKILLS_LIST_PANEL_WIDTH)
-    fun setSkillsListPanelWidth(width: Int) = safePutInt(SKILLS_LIST_PANEL_WIDTH_KEY, width)
-
-    fun getSkillsListPanelExpanded(): Boolean = safeGetBoolean(SKILLS_LIST_PANEL_EXPANDED_KEY, true)
-    fun setSkillsListPanelExpanded(expanded: Boolean) = safePutBoolean(SKILLS_LIST_PANEL_EXPANDED_KEY, expanded)
-
     private const val SKILLS_WORKSPACE_DIR_KEY = "ui.skills_workspace_dir"
 
     fun getSkillsWorkspaceDir(): String? = safeGet(SKILLS_WORKSPACE_DIR_KEY, null)?.takeIf { it.isNotBlank() }
@@ -154,12 +133,6 @@ object ApplicationPreferences {
 
     fun getSkillsSelectedAgentId(): String? = safeGet(SKILLS_SELECTED_AGENT_KEY, null)?.takeIf { it.isNotBlank() }
     fun setSkillsSelectedAgentId(agentId: String) = safePut(SKILLS_SELECTED_AGENT_KEY, agentId)
-
-    /** Returns the last-active tab index in the skills right rail (0 = Skills, 1 = History). */
-    fun getSkillsRightRailTab(): Int = safeGetInt(SKILLS_RIGHT_RAIL_TAB_KEY, 0)
-
-    /** Persists the active tab index in the skills right rail. */
-    fun setSkillsRightRailTab(index: Int) = safePutInt(SKILLS_RIGHT_RAIL_TAB_KEY, index)
 
     fun getShowPlansInSidebar(): Boolean = safeGetBoolean(SHOW_PLANS_IN_SIDEBAR_KEY, true)
     fun setShowPlansInSidebar(show: Boolean) = safePutBoolean(SHOW_PLANS_IN_SIDEBAR_KEY, show)

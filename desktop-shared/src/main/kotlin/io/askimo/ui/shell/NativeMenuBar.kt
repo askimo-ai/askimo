@@ -31,6 +31,18 @@ import java.net.URI
 object NativeMenuBar {
     private var updateSidebarMenuItem: ((Boolean) -> Unit)? = null
 
+    private fun menuLabel(key: String, vararg args: Any): String = sanitizeMenuLabelForPlatform(LocalizationManager.getString(key, *args))
+
+    private fun sanitizeMenuLabelForPlatform(text: String): String {
+        if (!Platform.isWindows) return text
+
+        // AWT menu rendering on Windows often lacks proper emoji fallback.
+        // Strip leading symbol emoji and variation selectors for menu labels.
+        return text
+            .replace("\uFE0F", "")
+            .replace(Regex("^[\\p{So}\\p{Cn}]+\\s*"), "")
+    }
+
     fun updateSidebarMenuLabel(isSidebarExpanded: Boolean) {
         updateSidebarMenuItem?.invoke(isSidebarExpanded)
     }
@@ -381,9 +393,9 @@ object NativeMenuBar {
             menuBar.add(terminalMenu)
 
             // Help Menu
-            val helpMenu = Menu(LocalizationManager.getString("menu.help"))
+            val helpMenu = Menu(menuLabel("menu.help"))
 
-            val docsItem = MenuItem(LocalizationManager.getString("menu.documentation"))
+            val docsItem = MenuItem(menuLabel("menu.documentation"))
             docsItem.addActionListener(
                 ActionListener {
                     runCatching { if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI("https://$DOMAIN/docs/")) }
@@ -392,7 +404,7 @@ object NativeMenuBar {
             helpMenu.add(docsItem)
 
             // Getting started
-            val gettingStartedItem = MenuItem(LocalizationManager.getString("menu.help.gettingstarted"))
+            val gettingStartedItem = MenuItem(menuLabel("menu.help.gettingstarted"))
             gettingStartedItem.addActionListener(
                 ActionListener {
                     onShowGettingStarted()
@@ -401,7 +413,7 @@ object NativeMenuBar {
             helpMenu.add(gettingStartedItem)
 
             // Share Feedback — moved here from the footer status bar for better discoverability
-            val shareFeedbackItem = MenuItem(LocalizationManager.getString("system.share.feedback"))
+            val shareFeedbackItem = MenuItem(menuLabel("system.share.feedback"))
             shareFeedbackItem.addActionListener(
                 ActionListener {
                     runCatching {
@@ -416,7 +428,7 @@ object NativeMenuBar {
             helpMenu.addSeparator()
 
             // Release Notes
-            val releaseNotesItem = MenuItem(LocalizationManager.getString("menu.help.release.notes"))
+            val releaseNotesItem = MenuItem(menuLabel("menu.help.release.notes"))
             releaseNotesItem.addActionListener(
                 ActionListener {
                     runCatching { if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI("https://$DOMAIN/docs/changelogs/")) }
@@ -425,14 +437,7 @@ object NativeMenuBar {
             helpMenu.add(releaseNotesItem)
 
             // Star on GitHub
-            val starGitHubText = LocalizationManager.getString("menu.help.star.github")
-            // On Windows, replace emoji with Unicode star character that renders better in AWT
-            val starGitHubDisplayText = if (Platform.isWindows) {
-                starGitHubText.replace("⭐", "")
-            } else {
-                starGitHubText
-            }
-            val starGitHubItem = MenuItem(starGitHubDisplayText)
+            val starGitHubItem = MenuItem(menuLabel("menu.help.star.github"))
             starGitHubItem.addActionListener(
                 ActionListener {
                     runCatching { if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI("https://github.com/askimo-ai/askimo")) }
@@ -441,7 +446,7 @@ object NativeMenuBar {
             helpMenu.add(starGitHubItem)
 
             // Join Discord Community
-            val discordItem = MenuItem(LocalizationManager.getString("menu.help.discord"))
+            val discordItem = MenuItem(menuLabel("menu.help.discord"))
             discordItem.addActionListener(
                 ActionListener {
                     runCatching { if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI("https://discord.gg/eXSBR4fNmm")) }
@@ -450,7 +455,7 @@ object NativeMenuBar {
             helpMenu.add(discordItem)
 
             // Share Askimo submenu
-            val shareMenu = Menu(LocalizationManager.getString("menu.help.share"))
+            val shareMenu = Menu(menuLabel("menu.help.share"))
 
             ShareTarget.entries.forEach { target ->
                 val item = MenuItem(ShareUtils.labelFor(target))
@@ -463,7 +468,7 @@ object NativeMenuBar {
             helpMenu.addSeparator()
 
             // Check for Updates
-            val checkUpdatesItem = MenuItem(LocalizationManager.getString("menu.help.check.updates"))
+            val checkUpdatesItem = MenuItem(menuLabel("menu.help.check.updates"))
             checkUpdatesItem.addActionListener(
                 ActionListener {
                     onCheckForUpdates()
@@ -472,7 +477,7 @@ object NativeMenuBar {
             helpMenu.add(checkUpdatesItem)
 
             // Event Log (Developer Tools)
-            val eventLogItem = MenuItem(LocalizationManager.getString("menu.eventlog"))
+            val eventLogItem = MenuItem(menuLabel("menu.eventlog"))
             eventLogItem.addActionListener(
                 ActionListener {
                     onShowEventLog()
@@ -481,7 +486,7 @@ object NativeMenuBar {
             helpMenu.add(eventLogItem)
 
             // Open Model Capabilities File
-            val modelCapabilitiesItem = MenuItem(LocalizationManager.getString("menu.help.model.capabilities"))
+            val modelCapabilitiesItem = MenuItem(menuLabel("menu.help.model.capabilities"))
             modelCapabilitiesItem.addActionListener(
                 ActionListener {
                     runCatching {
@@ -495,7 +500,7 @@ object NativeMenuBar {
             helpMenu.add(modelCapabilitiesItem)
 
             // System Diagnostics — live CPU/memory and session telemetry
-            val systemDiagnosticsItem = MenuItem(LocalizationManager.getString("menu.help.diagnostics"))
+            val systemDiagnosticsItem = MenuItem(menuLabel("menu.help.diagnostics"))
             systemDiagnosticsItem.addActionListener(
                 ActionListener {
                     onShowSystemDiagnostics()
@@ -506,7 +511,7 @@ object NativeMenuBar {
             // Clear Account Preferences (Developer Tools — only shown when developer mode is active)
             val devConfig = AppConfig.developer
             if (devConfig.enabled && devConfig.active) {
-                val clearAccountPrefsItem = MenuItem(LocalizationManager.getString("menu.dev.clear.account.preferences"))
+                val clearAccountPrefsItem = MenuItem(menuLabel("menu.dev.clear.account.preferences"))
                 clearAccountPrefsItem.addActionListener(
                     ActionListener {
                         onClearAccountPreferences()
@@ -517,7 +522,7 @@ object NativeMenuBar {
 
             helpMenu.addSeparator()
 
-            val aboutItem = MenuItem(LocalizationManager.getString("menu.about"))
+            val aboutItem = MenuItem(menuLabel("menu.about"))
             aboutItem.addActionListener(
                 ActionListener {
                     onShowAbout()

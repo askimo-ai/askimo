@@ -361,6 +361,7 @@ data class AppConfigData(
     val proxy: ProxyConfig = ProxyConfig(),
     val analytics: AnalyticsConfig = AnalyticsConfig(),
     val context: AppContextParams = AppContextParams.noOp(),
+    @field:JsonAlias("current_locale") val currentLocale: String? = null,
 )
 
 object AppConfig {
@@ -373,6 +374,13 @@ object AppConfig {
     val models: ModelsConfig get() = delegate.models
     val context: AppContextParams get() = delegate.context
     val analytics: AnalyticsConfig get() = delegate.analytics
+
+    /**
+     * BCP-47 language tag of the user's selected UI locale (e.g. "ja-JP", "zh-CN").
+     * Null means no preference has been saved yet — callers should treat null as English.
+     * Stored in [AppConfigData.currentLocale] under the `current_locale:` YAML key.
+     */
+    val currentLocale: String? get() = delegate.currentLocale
 
     /**
      * Raw proxy configuration **without** keychain/secure-storage lookup.
@@ -575,6 +583,8 @@ object AppConfig {
           current_provider: ${'$'}{ASKIMO_CONTEXT_CURRENT_PROVIDER:UNKNOWN}
           models: {}
           provider_settings: {}
+
+        current_locale: ${'$'}{ASKIMO_UI_LOCALE:}
         """.trimIndent()
 
     // Lazy, thread-safe init
@@ -1078,6 +1088,24 @@ object AppConfig {
      */
     fun updateField(path: String, value: Any) {
         synchronized(this) {
+            // Handle top-level scalar fields that don't follow the section.field pattern
+            if (path == "currentLocale") {
+                val tag = (value as? String)?.takeIf { it.isNotBlank() }
+                val current = cached ?: loadOnce()
+                cached = current.copy(currentLocale = tag)
+                val configPath = resolveOrCreateConfigPath()
+                if (configPath != null && configPath.exists()) {
+                    try {
+                        val updatedYaml = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(cached)
+                        Files.writeString(configPath, updatedYaml)
+                        log.debug("Updated currentLocale=$tag in $configPath")
+                    } catch (e: Exception) {
+                        log.displayError("Failed to persist currentLocale to config file", e)
+                    }
+                }
+                return
+            }
+
             val parts = path.split(".")
 
             if (parts.size !in 2..3) {

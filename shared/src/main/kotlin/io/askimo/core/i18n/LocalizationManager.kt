@@ -16,7 +16,7 @@ import java.util.Properties
  * This is a shared component that can be used by both desktop and CLI modules.
  */
 object LocalizationManager {
-    private var currentLocale: Locale = Locale.getDefault()
+    private var currentLocale: Locale = Locale.ENGLISH
     private val loadedBundles = mutableMapOf<String, Properties>()
 
     /**

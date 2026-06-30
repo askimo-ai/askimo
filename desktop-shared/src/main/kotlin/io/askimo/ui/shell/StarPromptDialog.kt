@@ -227,9 +227,9 @@ fun feedbackPromptDialog(
  * Dialog prompting users to support the project.
  * Fetches the current star count from the public API and shows social proof when loaded.
  *
- * @param onDismiss       User clicked "Maybe later" — caller should call [snoozeStarPrompt].
- * @param onStar          User clicked "Star on GitHub" — caller should call [dismissStarPromptPermanently].
- * @param onAlreadyStarred User clicked "Already starred ✓" — caller should call [dismissStarPromptPermanently].
+ * @param onDismiss       User clicked "Maybe later"
+ * @param onStar          User clicked "Star on GitHub"
+ * @param onAlreadyStarred User clicked "Already starred ✓"
  */
 @Composable
 fun starPromptDialog(

@@ -127,3 +127,15 @@ class InsufficientCreditsException(
 
     override fun getMessageArgs() = emptyMap<String, String>()
 }
+
+/**
+ * No AI provider has been configured yet (currentProvider == UNKNOWN).
+ */
+class ProviderNotConfiguredException :
+    UserException(
+        "No AI provider configured. Please set up a provider in Settings before chatting.",
+    ) {
+    override fun getMessageKey() = "error.provider_not_configured"
+
+    override fun getMessageArgs() = emptyMap<String, String>()
+}

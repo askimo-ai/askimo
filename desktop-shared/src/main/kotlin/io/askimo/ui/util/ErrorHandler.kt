@@ -5,6 +5,7 @@
 package io.askimo.ui.util
 
 import io.askimo.core.chat.util.FileSizeExceededException
+import io.askimo.core.exception.ProviderNotConfiguredException
 import io.askimo.core.logging.logger
 import io.askimo.core.util.formatFileSize
 import java.io.IOException
@@ -33,6 +34,9 @@ object ErrorHandler {
 
         // Return user-friendly message based on exception type
         return when (exception) {
+            is ProviderNotConfiguredException ->
+                "⚠️ No AI provider configured.\n\nTo start chatting:\n1. Open Settings\n2. Select an AI provider (OpenAI, Ollama, Anthropic, etc.)\n3. Enter your API key or configure the connection"
+
             is FileSizeExceededException -> "File is too large (${formatFileSize(exception.fileSize)}). Maximum allowed size is ${formatFileSize(exception.maxAllowedSize)}."
 
             is UnknownHostException -> "Unable to connect to the server. Please check your internet connection."
@@ -76,11 +80,19 @@ object ErrorHandler {
 
         // Try to get a specific message first
         val specificMessage = when (exception) {
+            is ProviderNotConfiguredException ->
+                "⚠️ No AI provider configured.\n\nTo start chatting:\n1. Open Settings\n2. Select an AI provider (OpenAI, Ollama, Anthropic, etc.)\n3. Enter your API key or configure the connection"
+
             is FileSizeExceededException -> "File is too large (${formatFileSize(exception.fileSize)}). Maximum allowed size is ${formatFileSize(exception.maxAllowedSize)}."
+
             is UnknownHostException -> "Unable to connect to the server. Please check your internet connection."
+
             is ConnectException -> "Failed to connect to the AI service. Please check your connection and try again."
+
             is SocketTimeoutException -> "The request timed out. Please try again."
+
             is IOException -> "A network error occurred. Please check your connection and try again."
+
             else -> null
         }
 

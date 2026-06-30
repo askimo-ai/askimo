@@ -15,6 +15,7 @@ import io.askimo.core.config.AppConfig
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.ModelChangedEvent
+import io.askimo.core.exception.ProviderNotConfiguredException
 import io.askimo.core.logging.logger
 import io.askimo.core.memory.UserMemorySummary
 import io.askimo.core.providers.ChatClient
@@ -179,7 +180,7 @@ class AppContext private constructor(
      * Gets the provider-specific settings map, or creates defaults if missing.
      */
     fun getOrCreateProviderSettings(provider: ModelProvider): ProviderSettings = params.providerSettings.getOrPut(provider) {
-        getModelFactory(provider)?.defaultSettings() ?: NoopProviderSettings
+        ProviderRegistry.getFactory(provider)?.defaultSettings() ?: NoopProviderSettings
     }
 
     /**
@@ -201,13 +202,14 @@ class AppContext private constructor(
 
     /**
      * Returns the registered factory for the given provider.
+     *
+     * @throws ProviderNotConfiguredException if no factory is registered (provider is UNKNOWN or not set up yet)
      */
-    fun getModelFactory(provider: ModelProvider): ChatModelFactory<*>? = ProviderRegistry.getFactory(provider)
+    fun getModelFactory(provider: ModelProvider): ChatModelFactory<*> = ProviderRegistry.getFactory(provider) ?: throw ProviderNotConfiguredException()
 
     fun createChatModel(): ChatModel {
         val provider = params.currentProvider
         val factory = getModelFactory(provider)
-            ?: error("No model factory registered for $provider")
         val settings = getOrCreateProviderSettings(provider)
 
         @Suppress("UNCHECKED_CAST")
@@ -216,9 +218,7 @@ class AppContext private constructor(
 
     fun getStatelessChatClient(): ChatClient {
         val provider = params.currentProvider
-        val factory =
-            getModelFactory(provider)
-                ?: error("No model factory registered for $provider")
+        val factory = getModelFactory(provider)
 
         val settings = getOrCreateProviderSettings(provider)
 
@@ -252,7 +252,6 @@ class AppContext private constructor(
 
             val provider = params.currentProvider
             val factory = getModelFactory(provider)
-                ?: error("No model factory registered for $provider")
 
             val settings = getOrCreateProviderSettings(provider)
 
@@ -276,7 +275,6 @@ class AppContext private constructor(
 
             val provider = params.currentProvider
             val factory = getModelFactory(provider)
-                ?: error("No model factory registered for $provider")
 
             val settings = getOrCreateProviderSettings(provider)
 
@@ -307,7 +305,6 @@ class AppContext private constructor(
 
             val provider = params.currentProvider
             val factory = getModelFactory(provider)
-                ?: error("No model factory registered for $provider")
 
             if (!factory.supportsEmbedding()) {
                 throw UnsupportedOperationException(
@@ -335,7 +332,7 @@ class AppContext private constructor(
      */
     fun getEmbeddingTokenLimit(): Int {
         val provider = params.currentProvider
-        val factory = getModelFactory(provider) ?: return 2048
+        val factory = ProviderRegistry.getFactory(provider) ?: return 2048
         val settings = getOrCreateProviderSettings(provider)
 
         @Suppress("UNCHECKED_CAST")
@@ -365,7 +362,6 @@ class AppContext private constructor(
     ): ChatClient {
         val provider = params.currentProvider
         val factory = getModelFactory(provider)
-            ?: error("No model factory registered for $provider")
         val settings = getOrCreateProviderSettings(provider)
 
         @Suppress("UNCHECKED_CAST")

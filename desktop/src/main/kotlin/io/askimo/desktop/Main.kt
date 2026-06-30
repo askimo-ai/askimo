@@ -536,7 +536,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
 
         if (AccountPreferences.device().shouldShowStarPrompt()) {
             showHappinessGateDialog = true
-            Analytics.track(AnalyticsEvent.STAR_PROMPT_SHOWN)
         }
     }
 
@@ -1662,6 +1661,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                 }.onFailure { log.error("Can not open the browser", it) }
                             },
                             onAlreadyStarred = {
+                                Analytics.track(AnalyticsEvent.STAR_PROMPT_ACCEPTED)
                                 AccountPreferences.device().dismissStarPromptPermanently()
                                 showStarPromptDialog = false
                             },
@@ -1674,6 +1674,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                             onHappy = {
                                 showHappinessGateDialog = false
                                 showStarPromptDialog = true
+                                Analytics.track(AnalyticsEvent.STAR_PROMPT_SHOWN)
                             },
                             onNeutral = {
                                 showHappinessGateDialog = false
