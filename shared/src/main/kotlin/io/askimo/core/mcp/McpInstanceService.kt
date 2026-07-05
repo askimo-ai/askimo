@@ -97,24 +97,6 @@ class McpInstanceService(
     @Volatile
     private var ephemeralInstances: List<McpInstance> = emptyList()
 
-    /**
-     * Replaces the current set of ephemeral instances.
-     * Call this after fetching org-managed MCP servers from the team server.
-     * Invalidates the tools cache so the new instances are picked up on the next request.
-     */
-    fun setEphemeralInstances(instances: List<McpInstance>) {
-        ephemeralInstances = instances
-        invalidateCache()
-        log.debug("Registered {} ephemeral MCP instances", instances.size)
-    }
-
-    /** Remove all ephemeral instances (e.g. on logout). */
-    fun clearEphemeralInstances() {
-        ephemeralInstances = emptyList()
-        invalidateCache()
-        log.debug("Cleared ephemeral MCP instances")
-    }
-
     private val globalToolsCache: Cache<String, List<ToolConfig>> = Caffeine.newBuilder()
         .maximumSize(200)
         .expireAfterWrite(30.minutes.toJavaDuration())

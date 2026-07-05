@@ -120,8 +120,6 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
             .apiKey(resolveApiKey(settings))
             .modelName(settings.defaultModel)
             .reasoningEffort(ReasoningEffort.LOW.value)
-            .logRequests(log.isDebugEnabled)
-            .logResponses(log.isDebugEnabled)
             .build()
 
         val testClient = AiServices.builder(ChatClient::class.java)
@@ -225,8 +223,6 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
                     reasoningEffort(reasoningLevel.value)
                 }
             }
-            .logRequests(log.isDebugEnabled)
-            .logResponses(log.isDebugEnabled)
             .listeners(listOf(listener))
             .build()
     }
@@ -238,7 +234,6 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
             .baseUrl(settings.baseUrl)
             .apiKey(resolveApiKey(settings))
             .modelName(AppConfig.models[getProvider()].utilityModel.ifBlank { utilityModelFallback(settings) })
-            .logRequests(log.isDebugEnabled)
             .listeners(listOf(listener))
             .build()
     }
@@ -251,8 +246,6 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
             .baseUrl(settings.baseUrl)
             .apiKey(resolveApiKey(settings))
             .modelName(settings.defaultModel)
-            .logRequests(log.isDebugEnabled)
-            .logResponses(log.isTraceEnabled)
             .apply {
                 val reasoningLevel = ModelCapabilitiesCache.getReasoningLevel(getProvider(), settings.defaultModel)
                 if (supportsThinking && reasoningLevel.isEnabled) {

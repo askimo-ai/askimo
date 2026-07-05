@@ -12,6 +12,7 @@ import dev.langchain4j.service.tool.ToolProviderRequest
 import dev.langchain4j.service.tool.ToolProviderResult
 import io.askimo.core.context.ChatContext
 import io.askimo.core.intent.ToolConfig
+import io.askimo.core.intent.ToolRegistry
 import io.askimo.core.intent.ToolSource
 import io.askimo.core.logging.logger
 import io.askimo.core.mcp.McpInstanceService
@@ -36,18 +37,22 @@ class ToolProviderImpl(
 
         log.debug("Providing tools for request: {}", request)
 
-        // Global tools — always available in every chat
+        val builtInTools: List<ToolConfig> = ToolRegistry.getIntentBased()
+        log.debug("Loaded {} built-in tools", builtInTools.size)
+
         val mcpTools: List<ToolConfig> = runBlocking { mcpInstanceService.getGlobalTools() }
             .getOrElse { e ->
                 log.warn("Failed to load global MCP tools: {}", e.message)
                 emptyList()
             }
 
+        val allTools = builtInTools + mcpTools
+
         val enabledServers = ChatContext.getEnabledServers()
 
         val builder = ToolProviderResult.builder()
 
-        mcpTools
+        allTools
             .filter { tool -> tool.serverId in enabledServers }
             .forEach { tool ->
                 if (tool.source == ToolSource.ASKIMO_BUILTIN) {

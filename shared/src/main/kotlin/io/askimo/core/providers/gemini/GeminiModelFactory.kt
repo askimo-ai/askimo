@@ -159,9 +159,6 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
             .apiKey(safeApiKey(settings.apiKey))
             .modelName(settings.defaultModel)
             .timeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
-            .logger(log)
-            .logRequests(log.isDebugEnabled)
-            .logResponses(log.isDebugEnabled)
             .listeners(listOf(TelemetryChatModelListener(telemetry, GEMINI.name.lowercase())))
             .apply {
                 if (supportsThinking && reasoningLevel.isEnabled) {
