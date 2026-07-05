@@ -4,6 +4,7 @@
  */
 package io.askimo.core.telemetry
 
+import dev.langchain4j.data.message.SystemMessage
 import dev.langchain4j.model.chat.listener.ChatModelErrorContext
 import dev.langchain4j.model.chat.listener.ChatModelListener
 import dev.langchain4j.model.chat.listener.ChatModelRequestContext
@@ -11,6 +12,7 @@ import dev.langchain4j.model.chat.listener.ChatModelResponseContext
 import io.askimo.core.analytics.Analytics
 import io.askimo.core.analytics.AnalyticsEvent
 import io.askimo.core.logging.logger
+import io.askimo.core.memory.getTextContent
 import io.askimo.core.util.MachineId
 import java.net.URI
 import java.net.http.HttpClient
@@ -97,11 +99,55 @@ class TelemetryChatModelListener(
         attrs[ATTR_START_TIME] = System.currentTimeMillis()
 
         val request = context.chatRequest()
-        log.debug(
-            "LLM request to $provider: ${request.messages().size} messages, " +
-                "model=${request.modelName() ?: "default"}, " +
-                "clientId=$clientId, correlationId=$newCorrelationId",
-        )
+        if (log.isDebugEnabled) {
+            val messages = request.messages()
+            val systemMessages = messages.filterIsInstance<SystemMessage>()
+            val nonSystemMessages = messages.filter { it !is SystemMessage }
+            val lastMessages = nonSystemMessages.takeLast(3)
+            val params = request.parameters()
+
+            val debugMsg = buildString {
+                append("LLM request to $provider: ${messages.size} messages, ")
+                append("model=${request.modelName() ?: "default"}, ")
+                appendLine("clientId=$clientId, correlationId=$newCorrelationId")
+
+                if (systemMessages.isNotEmpty()) {
+                    appendLine("  [System messages (${systemMessages.size})]")
+                    systemMessages.forEach { msg ->
+                        val preview = msg.getTextContent().take(300).replace('\n', ' ')
+                        appendLine("    SYSTEM: $preview")
+                    }
+                }
+
+                if (lastMessages.isNotEmpty()) {
+                    appendLine("  [Last ${lastMessages.size} message(s)]")
+                    lastMessages.forEach { msg ->
+                        val role = msg.type().name
+                        val preview = msg.getTextContent().take(300).replace('\n', ' ')
+                        appendLine("    $role: $preview")
+                    }
+                }
+
+                val paramParts = buildList {
+                    params.modelName()?.let { add("modelName=$it") }
+                    params.temperature()?.let { add("temperature=$it") }
+                    params.topP()?.let { add("topP=$it") }
+                    params.topK()?.let { add("topK=$it") }
+                    params.frequencyPenalty()?.let { add("frequencyPenalty=$it") }
+                    params.presencePenalty()?.let { add("presencePenalty=$it") }
+                    params.maxOutputTokens()?.let { add("maxOutputTokens=$it") }
+                    params.stopSequences()?.takeIf { it.isNotEmpty() }?.let { add("stopSequences=$it") }
+                    params.responseFormat()?.let { add("responseFormat=$it") }
+                    params.toolChoice()?.let { add("toolChoice=$it") }
+                    params.toolSpecifications()?.takeIf { it.isNotEmpty() }?.let { tools -> add("tools(${tools.size})=${tools.map { it.name() }}") }
+                }
+                if (paramParts.isNotEmpty()) {
+                    append("  [Parameters] ")
+                    append(paramParts.joinToString(", "))
+                }
+            }
+            log.debug(debugMsg.trimEnd())
+        }
     }
 
     override fun onResponse(context: ChatModelResponseContext) {

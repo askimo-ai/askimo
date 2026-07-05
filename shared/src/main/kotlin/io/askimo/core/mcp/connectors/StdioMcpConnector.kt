@@ -47,7 +47,7 @@ class StdioMcpConnector(
 
         val builder = StdioMcpTransport.builder()
             .logger(log)
-            .logEvents(log.isDebugEnabled) // lowered from isTraceEnabled so DEBUG is enough
+            .logEvents(log.isTraceEnabled)
             .command(command)
             .environment(env)
 

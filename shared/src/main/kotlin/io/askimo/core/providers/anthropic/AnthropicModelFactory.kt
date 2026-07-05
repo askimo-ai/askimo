@@ -116,8 +116,6 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
             .apiKey(safeApiKey(settings.apiKey))
             .modelName(settings.defaultModel)
             .baseUrl(settings.baseUrl)
-            .logger(log)
-            .logRequests(log.isInfoEnabled)
             .thinkingType("enabled") // adaptive, enable, disabled
             .thinkingBudgetTokens(1024)
             .maxTokens(1025) // must be > thinkingBudgetTokens to properly test
