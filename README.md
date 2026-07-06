@@ -235,15 +235,3 @@ Join the [Askimo Discord](https://discord.gg/eXSBR4fNmm) for help, feedback, and
   <img src="https://contrib.rocks/image?repo=askimo-ai/askimo" />
 </a>
 
----
-
-## Star History
-
-<a href="https://www.star-history.com/?repos=askimo-ai%2Faskimo&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=askimo-ai/askimo&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=askimo-ai/askimo&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=askimo-ai/askimo&type=date&legend=top-left" />
- </picture>
-</a>
-

@@ -223,6 +223,7 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
                     reasoningEffort(reasoningLevel.value)
                 }
             }
+            .strictTools(true)
             .listeners(listOf(listener))
             .build()
     }

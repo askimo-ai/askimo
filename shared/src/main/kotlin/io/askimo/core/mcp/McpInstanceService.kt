@@ -213,6 +213,24 @@ class McpInstanceService(
         }
     }
 
+    /**
+     * Replaces the current set of ephemeral instances.
+     * Call this after fetching org-managed MCP servers from the team server.
+     * Invalidates the tools cache so the new instances are picked up on the next request.
+     */
+    fun setEphemeralInstances(instances: List<McpInstance>) {
+        ephemeralInstances = instances
+        invalidateCache()
+        log.debug("Registered {} ephemeral MCP instances", instances.size)
+    }
+
+    /** Remove all ephemeral instances (e.g. on logout). */
+    fun clearEphemeralInstances() {
+        ephemeralInstances = emptyList()
+        invalidateCache()
+        log.debug("Cleared ephemeral MCP instances")
+    }
+
     // ── Tool resolution ──────────────────────────────────────────────────────
 
     private fun getEnabledInstances(): List<McpInstance> = getInstances().filter { it.enabled }
