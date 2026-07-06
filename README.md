@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  Chat · Search your files · Run scripts · Build multi-step AI workflows · Execute AI agent skills - all offline-capable, all on your machine.
+  Chat · Search your files and the web · Run scripts · Build multi-step AI workflows · Execute AI agent skills - all offline-capable, all on your machine.
 </p>
 
 <p align="center">
@@ -129,11 +129,12 @@ You shouldn't have to choose between the best AI model, your privacy, and gettin
 ## Features
 
 - **Multi-provider** - Switch between OpenAI, Claude, Gemini, Grok, Ollama, LM Studio, LocalAI, Docker AI, or any OpenAI-compatible endpoint per session
+- **Web search (multiple backends)** - Search the web with DuckDuckGo (no API key), Brave Search API, Tavily, or your own SearxNG instance
 - **Local RAG** - Index local folders, files, and web URLs. Hybrid BM25 + vector retrieval with an AI classifier that skips retrieval when the query doesn't need it. Your data never leaves your machine.
 - **Plans (agentic workflows)** - Chain multi-step AI pipelines from a form UI. Each step builds on the previous; progress shown live. Export as PDF or Word. Define your own plans in YAML or generate them by describing your workflow in plain English.
 - **Skills** - Define reusable AI agents as Markdown files and execute them via [Gemini CLI](https://github.com/google-gemini/gemini-cli) or [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Skills carry a system prompt, run in a sandboxed workspace, stream live activity, and persist a full run history.
 - **Script runner** - Execute Python, Bash, and JavaScript from chat. Python runs in an auto-managed virtualenv with automatic dependency installation.
-- **MCP tool integration** - Connect MCP-compatible servers via stdio or HTTP, scoped globally or per project
+- **MCP tool integration** - Connect MCP-compatible servers via stdio or HTTP
 - **Persistent sessions** - Conversations stored in a local SQLite database, restored on restart
 - **Vision** - Attach images to conversations; works with any multimodal model
 - **Local telemetry** - Token usage, cost estimates, RAG performance per provider. Nothing uploaded.
@@ -234,4 +235,3 @@ Join the [Askimo Discord](https://discord.gg/eXSBR4fNmm) for help, feedback, and
 <a href="https://github.com/askimo-ai/askimo/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=askimo-ai/askimo" />
 </a>
-

@@ -4,11 +4,13 @@
  */
 package io.askimo.core.util
 
+import java.io.ByteArrayInputStream
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Duration
+import java.util.zip.GZIPInputStream
 
 /**
  * Perform a GET request to a local/remote URL with proxy support.
@@ -29,8 +31,9 @@ fun httpGet(
         .timeout(Duration.ofMillis(readTimeoutMs))
         .GET()
     headers.forEach { (k, v) -> requestBuilder.header(k, v) }
-    val response = client.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString())
-    return response.statusCode() to response.body()
+    val response = client.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofByteArray())
+    val decompressedBody = decompressGzipIfNeeded(response.body(), response)
+    return response.statusCode() to decompressedBody
 }
 
 /**
@@ -54,6 +57,22 @@ fun httpPost(
         .header("Content-Type", "application/json")
         .POST(HttpRequest.BodyPublishers.ofString(body))
     headers.forEach { (k, v) -> requestBuilder.header(k, v) }
-    val response = client.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString())
-    return response.statusCode() to response.body()
+    val response = client.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofByteArray())
+    val decompressedBody = decompressGzipIfNeeded(response.body(), response)
+    return response.statusCode() to decompressedBody
+}
+
+/**
+ * Decompresses gzip-encoded response body if the Content-Encoding header indicates gzip.
+ * Otherwise returns the body as-is.
+ */
+private fun decompressGzipIfNeeded(body: ByteArray, response: HttpResponse<ByteArray>): String {
+    val encoding = response.headers()
+        .allValues("Content-Encoding")
+        .firstOrNull { it.contains("gzip", ignoreCase = true) } ?: ""
+    return if (encoding.isNotEmpty()) {
+        GZIPInputStream(ByteArrayInputStream(body)).bufferedReader().use { it.readText() }
+    } else {
+        String(body, Charsets.UTF_8)
+    }
 }
