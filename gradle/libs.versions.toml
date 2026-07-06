@@ -1,9 +1,9 @@
 [versions]
 graalvm-plugin = "0.11.5"
 jline = "3.30.6"
-langchain4j = "1.16.3"
-langchain4j-extra = "1.16.3-beta26"
-langchain4j-jvector = "1.16.0-beta26"
+langchain4j = "1.17.1"
+langchain4j-extra = "1.17.1-beta27"
+langchain4j-jvector = "1.17.0-beta27"
 commonmark = "0.28.0"
 kotlinxSerializationJson = "1.10.0"
 kotlinxCoroutines = "1.10.2"
