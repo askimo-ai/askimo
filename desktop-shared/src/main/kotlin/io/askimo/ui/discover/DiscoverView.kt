@@ -47,6 +47,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
@@ -54,6 +55,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.chat.domain.ChatSession
+import io.askimo.core.config.FeatureFlags
 import io.askimo.core.user.domain.UserProfile
 import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.components.clickableCard
@@ -193,34 +195,46 @@ private fun statCardsSection(
             onClick = onNavigateToSessions,
             modifier = Modifier.weight(1f),
         )
-        statCard(
-            label = stringResource("discover.stat.projects"),
-            value = totalProjects?.toString() ?: "—",
-            icon = { Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) },
-            onClick = onNavigateToProjects,
-            modifier = Modifier.weight(1f),
-        )
-        statCard(
-            label = stringResource("discover.stat.mcp"),
-            value = totalMcpServers.toString(),
-            icon = { Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) },
-            onClick = onNavigateToMcpSettings,
-            modifier = Modifier.weight(1f),
-        )
-        statCard(
-            label = stringResource("discover.stat.plans"),
-            value = totalPlans?.toString() ?: "—",
-            icon = { Icon(Icons.Default.PlayCircle, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) },
-            onClick = onNavigateToPlans,
-            modifier = Modifier.weight(1f),
-        )
-        statCard(
-            label = stringResource("discover.stat.skills"),
-            value = totalSkills?.toString() ?: "—",
-            icon = { Icon(Icons.Default.Extension, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) },
-            onClick = onNavigateToSkills,
-            modifier = Modifier.weight(1f),
-        )
+
+        if (FeatureFlags.projectsEnabled) {
+            statCard(
+                label = stringResource("discover.stat.projects"),
+                value = totalProjects?.toString() ?: "—",
+                icon = { Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) },
+                onClick = onNavigateToProjects,
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        if (FeatureFlags.mcpIntegrationEnabled) {
+            statCard(
+                label = stringResource("discover.stat.mcp"),
+                value = totalMcpServers.toString(),
+                icon = { Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) },
+                onClick = onNavigateToMcpSettings,
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        if (FeatureFlags.plansEnabled) {
+            statCard(
+                label = stringResource("discover.stat.plans"),
+                value = totalPlans?.toString() ?: "—",
+                icon = { Icon(Icons.Default.PlayCircle, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) },
+                onClick = onNavigateToPlans,
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        if (FeatureFlags.skillsEnabled) {
+            statCard(
+                label = stringResource("discover.stat.skills"),
+                value = totalSkills?.toString() ?: "—",
+                icon = { Icon(Icons.Default.Extension, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) },
+                onClick = onNavigateToSkills,
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
 }
 
@@ -272,8 +286,65 @@ private fun statCard(
     }
 }
 
+/**
+ * Data class for explore feature card configuration.
+ */
+private data class ExploreCardData(
+    val icon: ImageVector,
+    val titleKey: String,
+    val descKey: String,
+    val url: String,
+)
+
 @Composable
 private fun exploreFeaturesSection() {
+    // Build list of enabled explore cards based on feature flags
+    val enabledCards = buildList {
+        if (FeatureFlags.mcpIntegrationEnabled) {
+            add(
+                ExploreCardData(
+                    icon = Icons.Default.Extension,
+                    titleKey = "discover.explore.mcp.title",
+                    descKey = "discover.explore.mcp.desc",
+                    url = "https://$DOMAIN/docs/desktop/mcp-integration/",
+                ),
+            )
+        }
+        if (FeatureFlags.ragEnabled) {
+            add(
+                ExploreCardData(
+                    icon = Icons.AutoMirrored.Filled.LibraryBooks,
+                    titleKey = "discover.explore.rag.title",
+                    descKey = "discover.explore.rag.desc",
+                    url = "https://$DOMAIN/docs/desktop/rag/",
+                ),
+            )
+        }
+        if (FeatureFlags.plansEnabled) {
+            add(
+                ExploreCardData(
+                    icon = Icons.Default.PlayCircle,
+                    titleKey = "discover.explore.plans.title",
+                    descKey = "discover.explore.plans.desc",
+                    url = "https://$DOMAIN/docs/desktop/plans/",
+                ),
+            )
+        }
+        if (FeatureFlags.skillsEnabled) {
+            add(
+                ExploreCardData(
+                    icon = Icons.Default.Extension,
+                    titleKey = "discover.explore.skills.title",
+                    descKey = "discover.explore.skills.desc",
+                    url = "https://$DOMAIN/docs/desktop/skills/",
+                ),
+            )
+        }
+    }
+
+    // Don't show section if no cards are enabled
+    if (enabledCards.isEmpty()) return
+
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
         Text(
             text = stringResource("discover.explore.title"),
@@ -287,34 +358,22 @@ private fun exploreFeaturesSection() {
                 .height(IntrinsicSize.Max),
             horizontalArrangement = Arrangement.spacedBy(Spacing.large),
         ) {
-            exploreCard(
-                icon = { Icon(Icons.Default.Extension, contentDescription = null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer) },
-                title = stringResource("discover.explore.mcp.title"),
-                description = stringResource("discover.explore.mcp.desc"),
-                url = "https://$DOMAIN/docs/desktop/mcp-integration/",
-                modifier = Modifier.weight(1f).fillMaxHeight(),
-            )
-            exploreCard(
-                icon = { Icon(Icons.AutoMirrored.Filled.LibraryBooks, contentDescription = null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer) },
-                title = stringResource("discover.explore.rag.title"),
-                description = stringResource("discover.explore.rag.desc"),
-                url = "https://$DOMAIN/docs/desktop/rag/",
-                modifier = Modifier.weight(1f).fillMaxHeight(),
-            )
-            exploreCard(
-                icon = { Icon(Icons.Default.PlayCircle, contentDescription = null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer) },
-                title = stringResource("discover.explore.plans.title"),
-                description = stringResource("discover.explore.plans.desc"),
-                url = "https://$DOMAIN/docs/desktop/plans/",
-                modifier = Modifier.weight(1f).fillMaxHeight(),
-            )
-            exploreCard(
-                icon = { Icon(Icons.Default.Extension, contentDescription = null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer) },
-                title = stringResource("discover.explore.skills.title"),
-                description = stringResource("discover.explore.skills.desc"),
-                url = "https://$DOMAIN/docs/desktop/skills/",
-                modifier = Modifier.weight(1f).fillMaxHeight(),
-            )
+            enabledCards.forEach { card ->
+                exploreCard(
+                    icon = {
+                        Icon(
+                            card.icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp),
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                    },
+                    title = stringResource(card.titleKey),
+                    description = stringResource(card.descKey),
+                    url = card.url,
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                )
+            }
         }
     }
 }
