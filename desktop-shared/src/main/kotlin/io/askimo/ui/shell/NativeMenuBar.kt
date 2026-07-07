@@ -7,6 +7,7 @@ package io.askimo.ui.shell
 import androidx.compose.ui.window.FrameWindowScope
 import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.config.AppConfig
+import io.askimo.core.config.FeatureFlags
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.util.AskimoHome
 import io.askimo.ui.common.theme.ThemeMode
@@ -19,7 +20,6 @@ import java.awt.MenuBar
 import java.awt.MenuItem
 import java.awt.MenuShortcut
 import java.awt.Window
-import java.awt.event.ActionListener
 import java.awt.event.KeyEvent
 import java.net.URI
 
@@ -149,29 +149,24 @@ object NativeMenuBar {
         if (window is Frame) {
             val menuBar = MenuBar()
 
-            // File Menu
             val fileMenu = Menu(LocalizationManager.getString("menu.file"))
 
             val newChatItem = MenuItem(
                 LocalizationManager.getString("chat.new"),
                 MenuShortcut(KeyEvent.VK_N),
             )
-            newChatItem.addActionListener(
-                ActionListener {
-                    onNewChat()
-                },
-            )
+            newChatItem.addActionListener {
+                onNewChat()
+            }
             fileMenu.add(newChatItem)
 
             val newProjectItem = MenuItem(
                 LocalizationManager.getString("menu.new.project"),
                 MenuShortcut(KeyEvent.VK_N, true), // Shift+Ctrl+N (or Shift+Cmd+N on Mac)
             )
-            newProjectItem.addActionListener(
-                ActionListener {
-                    onNewProject()
-                },
-            )
+            newProjectItem.addActionListener {
+                onNewProject()
+            }
             fileMenu.add(newProjectItem)
 
             fileMenu.addSeparator()
@@ -180,11 +175,9 @@ object NativeMenuBar {
                 LocalizationManager.getString("menu.search.sessions"),
                 MenuShortcut(KeyEvent.VK_F, true), // Shift+Ctrl+F (or Shift+Cmd+F on Mac)
             )
-            searchSessionsItem.addActionListener(
-                ActionListener {
-                    onSearchInSessions()
-                },
-            )
+            searchSessionsItem.addActionListener {
+                onSearchInSessions()
+            }
             fileMenu.add(searchSessionsItem)
 
             fileMenu.addSeparator()
@@ -193,22 +186,18 @@ object NativeMenuBar {
                 LocalizationManager.getString("menu.export.backup"),
                 MenuShortcut(KeyEvent.VK_E, true), // Shift+Ctrl+E (or Shift+Cmd+E on Mac)
             )
-            exportBackupItem.addActionListener(
-                ActionListener {
-                    onExportBackup()
-                },
-            )
+            exportBackupItem.addActionListener {
+                onExportBackup()
+            }
             fileMenu.add(exportBackupItem)
 
             val importBackupItem = MenuItem(
                 LocalizationManager.getString("menu.import.backup"),
                 MenuShortcut(KeyEvent.VK_I, true), // Shift+Ctrl+I (or Shift+Cmd+I on Mac)
             )
-            importBackupItem.addActionListener(
-                ActionListener {
-                    onImportBackup()
-                },
-            )
+            importBackupItem.addActionListener {
+                onImportBackup()
+            }
             fileMenu.add(importBackupItem)
 
             fileMenu.addSeparator()
@@ -216,21 +205,17 @@ object NativeMenuBar {
             val invalidateCachesItem = MenuItem(
                 LocalizationManager.getString("menu.invalidate.caches"),
             )
-            invalidateCachesItem.addActionListener(
-                ActionListener {
-                    onInvalidateCaches()
-                },
-            )
+            invalidateCachesItem.addActionListener {
+                onInvalidateCaches()
+            }
             fileMenu.add(invalidateCachesItem)
 
             val clearPreferencesItem = MenuItem(
                 LocalizationManager.getString("menu.clear.preferences"),
             )
-            clearPreferencesItem.addActionListener(
-                ActionListener {
-                    onClearPreferences()
-                },
-            )
+            clearPreferencesItem.addActionListener {
+                onClearPreferences()
+            }
             fileMenu.add(clearPreferencesItem)
 
             fileMenu.addSeparator()
@@ -239,11 +224,9 @@ object NativeMenuBar {
                 LocalizationManager.getString("settings.title"),
                 MenuShortcut(KeyEvent.VK_COMMA),
             )
-            settingsItem.addActionListener(
-                ActionListener {
-                    onShowSettings()
-                },
-            )
+            settingsItem.addActionListener {
+                onShowSettings()
+            }
             fileMenu.add(settingsItem)
 
             menuBar.add(fileMenu)
@@ -270,28 +253,22 @@ object NativeMenuBar {
             // Initialize labels
             updateThemeMenuItems()
 
-            systemThemeItem.addActionListener(
-                ActionListener {
-                    ThemePreferences.setThemeMode(ThemeMode.SYSTEM)
-                    updateThemeMenuItems()
-                },
-            )
+            systemThemeItem.addActionListener {
+                ThemePreferences.setThemeMode(ThemeMode.SYSTEM)
+                updateThemeMenuItems()
+            }
             appearanceMenu.add(systemThemeItem)
 
-            lightThemeItem.addActionListener(
-                ActionListener {
-                    ThemePreferences.setThemeMode(ThemeMode.LIGHT)
-                    updateThemeMenuItems()
-                },
-            )
+            lightThemeItem.addActionListener {
+                ThemePreferences.setThemeMode(ThemeMode.LIGHT)
+                updateThemeMenuItems()
+            }
             appearanceMenu.add(lightThemeItem)
 
-            darkThemeItem.addActionListener(
-                ActionListener {
-                    ThemePreferences.setThemeMode(ThemeMode.DARK)
-                    updateThemeMenuItems()
-                },
-            )
+            darkThemeItem.addActionListener {
+                ThemePreferences.setThemeMode(ThemeMode.DARK)
+                updateThemeMenuItems()
+            }
             appearanceMenu.add(darkThemeItem)
 
             viewMenu.add(appearanceMenu)
@@ -304,41 +281,44 @@ object NativeMenuBar {
                 LocalizationManager.getString("menu.view.discover"),
                 MenuShortcut(KeyEvent.VK_D),
             )
-            discoverItemGo.addActionListener(ActionListener { onNavigateToDiscover() })
+            discoverItemGo.addActionListener { onNavigateToDiscover() }
             viewMenu.add(discoverItemGo)
 
-            // Plans toggle
-            val plansToggleItem = MenuItem("")
-            val updatePlansMenuItemFunc: (Boolean) -> Unit = { visible ->
-                plansToggleItem.label = (if (visible) "✓ " else "  ") +
-                    LocalizationManager.getString("menu.view.plans")
+            if (FeatureFlags.plansEnabled) {
+                val plansToggleItem = MenuItem("")
+                val updatePlansMenuItemFunc: (Boolean) -> Unit = { visible ->
+                    plansToggleItem.label = (if (visible) "✓ " else "  ") +
+                        LocalizationManager.getString("menu.view.plans")
+                }
+                updatePlansMenuItem = updatePlansMenuItemFunc
+                updatePlansMenuItemFunc(isPlansVisible)
+                plansToggleItem.addActionListener { onTogglePlans?.invoke() }
+                viewMenu.add(plansToggleItem)
             }
-            updatePlansMenuItem = updatePlansMenuItemFunc
-            updatePlansMenuItemFunc(isPlansVisible)
-            plansToggleItem.addActionListener(ActionListener { onTogglePlans?.invoke() })
-            viewMenu.add(plansToggleItem)
 
-            // Skills toggle
-            val skillsToggleItem = MenuItem("")
-            val updateSkillsMenuItemFunc: (Boolean) -> Unit = { visible ->
-                skillsToggleItem.label = (if (visible) "✓ " else "  ") +
-                    LocalizationManager.getString("menu.view.skills")
+            if (FeatureFlags.skillsEnabled) {
+                val skillsToggleItem = MenuItem("")
+                val updateSkillsMenuItemFunc: (Boolean) -> Unit = { visible ->
+                    skillsToggleItem.label = (if (visible) "✓ " else "  ") +
+                        LocalizationManager.getString("menu.view.skills")
+                }
+                updateSkillsMenuItem = updateSkillsMenuItemFunc
+                updateSkillsMenuItemFunc(isSkillsVisible)
+                skillsToggleItem.addActionListener { onToggleSkills?.invoke() }
+                viewMenu.add(skillsToggleItem)
             }
-            updateSkillsMenuItem = updateSkillsMenuItemFunc
-            updateSkillsMenuItemFunc(isSkillsVisible)
-            skillsToggleItem.addActionListener(ActionListener { onToggleSkills?.invoke() })
-            viewMenu.add(skillsToggleItem)
 
-            // Projects toggle
-            val projectsToggleItem = MenuItem("")
-            val updateProjectsMenuItemFunc: (Boolean) -> Unit = { visible ->
-                projectsToggleItem.label = (if (visible) "✓ " else "  ") +
-                    LocalizationManager.getString("menu.view.projects")
+            if (FeatureFlags.projectsEnabled) {
+                val projectsToggleItem = MenuItem("")
+                val updateProjectsMenuItemFunc: (Boolean) -> Unit = { visible ->
+                    projectsToggleItem.label = (if (visible) "✓ " else "  ") +
+                        LocalizationManager.getString("menu.view.projects")
+                }
+                updateProjectsMenuItem = updateProjectsMenuItemFunc
+                updateProjectsMenuItemFunc(isProjectsVisible)
+                projectsToggleItem.addActionListener { onToggleProjects?.invoke() }
+                viewMenu.add(projectsToggleItem)
             }
-            updateProjectsMenuItem = updateProjectsMenuItemFunc
-            updateProjectsMenuItemFunc(isProjectsVisible)
-            projectsToggleItem.addActionListener(ActionListener { onToggleProjects?.invoke() })
-            viewMenu.add(projectsToggleItem)
 
             viewMenu.addSeparator()
 
@@ -356,22 +336,18 @@ object NativeMenuBar {
 
             updateSidebarMenuItemFunc(true)
 
-            toggleSidebarItem.addActionListener(
-                ActionListener {
-                    onToggleSidebar()
-                },
-            )
+            toggleSidebarItem.addActionListener {
+                onToggleSidebar()
+            }
             viewMenu.add(toggleSidebarItem)
 
             val fullScreenItem = MenuItem(
                 LocalizationManager.getString("menu.view.fullscreen"),
                 MenuShortcut(KeyEvent.VK_F, true), // Ctrl+Cmd+F on Mac, Ctrl+F on others
             )
-            fullScreenItem.addActionListener(
-                ActionListener {
-                    onEnterFullScreen()
-                },
-            )
+            fullScreenItem.addActionListener {
+                onEnterFullScreen()
+            }
             viewMenu.add(fullScreenItem)
 
             menuBar.add(viewMenu)
@@ -383,11 +359,9 @@ object NativeMenuBar {
                 LocalizationManager.getString("menu.terminal.new"),
                 MenuShortcut(KeyEvent.VK_T, true), // Shift+Ctrl+T (or Shift+Cmd+T on Mac)
             )
-            newTerminalItem.addActionListener(
-                ActionListener {
-                    onOpenTerminal()
-                },
-            )
+            newTerminalItem.addActionListener {
+                onOpenTerminal()
+            }
             terminalMenu.add(newTerminalItem)
 
             menuBar.add(terminalMenu)
@@ -396,62 +370,64 @@ object NativeMenuBar {
             val helpMenu = Menu(menuLabel("menu.help"))
 
             val docsItem = MenuItem(menuLabel("menu.documentation"))
-            docsItem.addActionListener(
-                ActionListener {
-                    runCatching { if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI("https://$DOMAIN/docs/")) }
-                },
-            )
+            docsItem.addActionListener {
+                runCatching {
+                    if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI("https://$DOMAIN/docs/"))
+                }
+            }
             helpMenu.add(docsItem)
 
             // Getting started
             val gettingStartedItem = MenuItem(menuLabel("menu.help.gettingstarted"))
-            gettingStartedItem.addActionListener(
-                ActionListener {
-                    onShowGettingStarted()
-                },
-            )
+            gettingStartedItem.addActionListener {
+                onShowGettingStarted()
+            }
             helpMenu.add(gettingStartedItem)
 
             // Share Feedback — moved here from the footer status bar for better discoverability
             val shareFeedbackItem = MenuItem(menuLabel("system.share.feedback"))
-            shareFeedbackItem.addActionListener(
-                ActionListener {
-                    runCatching {
-                        if (Desktop.isDesktopSupported()) {
-                            Desktop.getDesktop().browse(URI("https://$DOMAIN/contact/"))
-                        }
+            shareFeedbackItem.addActionListener {
+                runCatching {
+                    if (Desktop.isDesktopSupported()) {
+                        Desktop.getDesktop().browse(URI("https://$DOMAIN/contact/"))
                     }
-                },
-            )
+                }
+            }
             helpMenu.add(shareFeedbackItem)
 
             helpMenu.addSeparator()
 
             // Release Notes
             val releaseNotesItem = MenuItem(menuLabel("menu.help.release.notes"))
-            releaseNotesItem.addActionListener(
-                ActionListener {
-                    runCatching { if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI("https://$DOMAIN/docs/changelogs/")) }
-                },
-            )
+            releaseNotesItem.addActionListener {
+                runCatching {
+                    if (Desktop.isDesktopSupported()) {
+                        Desktop.getDesktop()
+                            .browse(URI("https://$DOMAIN/docs/changelogs/"))
+                    }
+                }
+            }
             helpMenu.add(releaseNotesItem)
 
             // Star on GitHub
             val starGitHubItem = MenuItem(menuLabel("menu.help.star.github"))
-            starGitHubItem.addActionListener(
-                ActionListener {
-                    runCatching { if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI("https://github.com/askimo-ai/askimo")) }
-                },
-            )
+            starGitHubItem.addActionListener {
+                runCatching {
+                    if (Desktop.isDesktopSupported()) {
+                        Desktop.getDesktop()
+                            .browse(URI("https://github.com/askimo-ai/askimo"))
+                    }
+                }
+            }
             helpMenu.add(starGitHubItem)
 
             // Join Discord Community
             val discordItem = MenuItem(menuLabel("menu.help.discord"))
-            discordItem.addActionListener(
-                ActionListener {
-                    runCatching { if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI("https://discord.gg/eXSBR4fNmm")) }
-                },
-            )
+            discordItem.addActionListener {
+                runCatching {
+                    if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI("https://discord.gg/eXSBR4fNmm"))
+                }
+            }
             helpMenu.add(discordItem)
 
             // Share Askimo submenu
@@ -459,7 +435,7 @@ object NativeMenuBar {
 
             ShareTarget.entries.forEach { target ->
                 val item = MenuItem(ShareUtils.labelFor(target))
-                item.addActionListener(ActionListener { ShareUtils.share(target) })
+                item.addActionListener { ShareUtils.share(target) }
                 shareMenu.add(item)
             }
 
@@ -469,65 +445,53 @@ object NativeMenuBar {
 
             // Check for Updates
             val checkUpdatesItem = MenuItem(menuLabel("menu.help.check.updates"))
-            checkUpdatesItem.addActionListener(
-                ActionListener {
-                    onCheckForUpdates()
-                },
-            )
+            checkUpdatesItem.addActionListener {
+                onCheckForUpdates()
+            }
             helpMenu.add(checkUpdatesItem)
 
             // Event Log (Developer Tools)
             val eventLogItem = MenuItem(menuLabel("menu.eventlog"))
-            eventLogItem.addActionListener(
-                ActionListener {
-                    onShowEventLog()
-                },
-            )
+            eventLogItem.addActionListener {
+                onShowEventLog()
+            }
             helpMenu.add(eventLogItem)
 
             // Open Model Capabilities File
             val modelCapabilitiesItem = MenuItem(menuLabel("menu.help.model.capabilities"))
-            modelCapabilitiesItem.addActionListener(
-                ActionListener {
-                    runCatching {
-                        val file = AskimoHome.base().resolve("model-capabilities-cache.json").toFile()
-                        if (file.exists() && Desktop.isDesktopSupported()) {
-                            Desktop.getDesktop().open(file)
-                        }
+            modelCapabilitiesItem.addActionListener {
+                runCatching {
+                    val file = AskimoHome.base().resolve("model-capabilities-cache.json").toFile()
+                    if (file.exists() && Desktop.isDesktopSupported()) {
+                        Desktop.getDesktop().open(file)
                     }
-                },
-            )
+                }
+            }
             helpMenu.add(modelCapabilitiesItem)
 
             // System Diagnostics — live CPU/memory and session telemetry
             val systemDiagnosticsItem = MenuItem(menuLabel("menu.help.diagnostics"))
-            systemDiagnosticsItem.addActionListener(
-                ActionListener {
-                    onShowSystemDiagnostics()
-                },
-            )
+            systemDiagnosticsItem.addActionListener {
+                onShowSystemDiagnostics()
+            }
             helpMenu.add(systemDiagnosticsItem)
 
             // Clear Account Preferences (Developer Tools — only shown when developer mode is active)
             val devConfig = AppConfig.developer
             if (devConfig.enabled && devConfig.active) {
                 val clearAccountPrefsItem = MenuItem(menuLabel("menu.dev.clear.account.preferences"))
-                clearAccountPrefsItem.addActionListener(
-                    ActionListener {
-                        onClearAccountPreferences()
-                    },
-                )
+                clearAccountPrefsItem.addActionListener {
+                    onClearAccountPreferences()
+                }
                 helpMenu.add(clearAccountPrefsItem)
             }
 
             helpMenu.addSeparator()
 
             val aboutItem = MenuItem(menuLabel("menu.about"))
-            aboutItem.addActionListener(
-                ActionListener {
-                    onShowAbout()
-                },
-            )
+            aboutItem.addActionListener {
+                onShowAbout()
+            }
             helpMenu.add(aboutItem)
 
             menuBar.add(helpMenu)
