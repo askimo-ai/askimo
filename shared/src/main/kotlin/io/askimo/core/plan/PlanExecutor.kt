@@ -13,6 +13,7 @@ import io.askimo.core.event.EventBus
 import io.askimo.core.logging.logger
 import io.askimo.core.plan.domain.PlanDef
 import io.askimo.core.plan.domain.PlanStep
+import io.askimo.core.plan.domain.PlanStepOutput
 import io.askimo.core.plan.domain.WorkflowNode
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.Executors
@@ -55,15 +56,14 @@ class PlanExecutor(private val chatModel: ChatModel) {
      * @param executionId Optional [PlanExecution] record id — passed to [PlanExecutionListener]
      *                    so every [PlanStepEvent] is correlated back to the DB record.
      * @param onStepOutputs Optional callback invoked after execution with the ordered list of
-     *                      (stepName → output) pairs for all completed steps. Use this to
-     *                      persist intermediate step results alongside the final output.
+     *                      completed step outputs (including nullable usage metadata).
      * @return The final output string produced by the last step in the workflow.
      */
     fun execute(
         plan: PlanDef,
         inputs: Map<String, String>,
         executionId: String = "",
-        onStepOutputs: ((List<Pair<String, String>>) -> Unit)? = null,
+        onStepOutputs: ((List<PlanStepOutput>) -> Unit)? = null,
     ): String {
         validateInputs(plan, inputs)
 
@@ -124,7 +124,12 @@ class PlanExecutor(private val chatModel: ChatModel) {
         }
     }
 
-    private fun executeInternal(plan: PlanDef, inputs: Map<String, String>, executionId: String, onStepOutputs: ((List<Pair<String, String>>) -> Unit)? = null): String {
+    private fun executeInternal(
+        plan: PlanDef,
+        inputs: Map<String, String>,
+        executionId: String,
+        onStepOutputs: ((List<PlanStepOutput>) -> Unit)? = null,
+    ): String {
         log.debug("Executing plan '{}' (execution={}) with inputs: {}", plan.id, executionId, inputs.keys)
 
         // Collect interactive answers first by traversing the workflow for Ask nodes.
@@ -143,8 +148,8 @@ class PlanExecutor(private val chatModel: ChatModel) {
         rootAgent?.invoke(scopeInputs)
 
         val lastStepId = lastLeafStepId(plan.workflow)
-        val output = listener.stepOutputs.lastOrNull { (stepName, _) -> stepName == lastStepId }?.second
-            ?: listener.stepOutputs.lastOrNull()?.second
+        val output = listener.stepOutputs.lastOrNull { it.stepName == lastStepId }?.output
+            ?: listener.stepOutputs.lastOrNull()?.output
             ?: ""
 
         logExecutionSummary(plan, output)

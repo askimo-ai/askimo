@@ -91,6 +91,16 @@ class PlansViewModel(
     var runError by mutableStateOf<String?>(null)
         private set
 
+    /** Plan-level token and duration summary for the current (or restored) run. */
+    var planTotalInputTokens by mutableStateOf<Int?>(null)
+        private set
+    var planTotalOutputTokens by mutableStateOf<Int?>(null)
+        private set
+    var planTotalTokens by mutableStateOf<Int?>(null)
+        private set
+    var planTotalDurationMs by mutableStateOf<Long?>(null)
+        private set
+
     var exportError by mutableStateOf<String?>(null)
         private set
 
@@ -359,7 +369,16 @@ class PlansViewModel(
             }.fold(
                 onSuccess = { result ->
                     result.fold(
-                        onSuccess = { runResult = it },
+                        onSuccess = { planResult ->
+                            runResult = planResult
+                            val saved = withContext(Dispatchers.IO) {
+                                planService.getExecutions(plan.id).firstOrNull { it.id == planResult.executionId }
+                            }
+                            planTotalInputTokens = saved?.totalInputTokens
+                            planTotalOutputTokens = saved?.totalOutputTokens
+                            planTotalTokens = saved?.totalTokens
+                            planTotalDurationMs = saved?.totalDurationMs
+                        },
                         onFailure = { runError = it.message ?: "Plan failed" },
                     )
                 },
@@ -392,6 +411,10 @@ class PlansViewModel(
         followUpError = null
         pendingQuestion = null
         pendingAnswerText = ""
+        planTotalInputTokens = null
+        planTotalOutputTokens = null
+        planTotalTokens = null
+        planTotalDurationMs = null
         selectedPlan?.id?.let { planStateCache.remove(it) }
     }
 
@@ -537,13 +560,16 @@ class PlansViewModel(
 
         // Reconstruct step progress from persisted step outputs so the UI shows
         // the breakdown from the previous run when the user clicks a history entry.
-        stepProgress = execution.stepOutputs.map { (stepName, output) ->
+        stepProgress = execution.stepOutputs.map { step ->
             PlanStepEvent.Completed(
                 planId = execution.planId,
-                stepName = stepName,
+                stepName = step.stepName,
                 executionId = execution.id,
-                output = output,
-                durationMs = 0L,
+                output = step.output,
+                inputTokens = step.inputTokens,
+                outputTokens = step.outputTokens,
+                totalTokens = step.totalTokens,
+                durationMs = step.durationMs ?: 0L,
             )
         }
 
@@ -564,6 +590,12 @@ class PlansViewModel(
                 runError = null
             }
         }
+
+        // Restore plan-level totals from the persisted execution record
+        planTotalInputTokens = execution.totalInputTokens
+        planTotalOutputTokens = execution.totalOutputTokens
+        planTotalTokens = execution.totalTokens
+        planTotalDurationMs = execution.totalDurationMs
     }
 
     /** Opens the editor to create a brand-new plan with a starter template. */

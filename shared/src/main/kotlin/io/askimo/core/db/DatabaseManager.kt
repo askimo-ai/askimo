@@ -655,6 +655,28 @@ class DatabaseManager private constructor(
             } catch (_: Exception) {
                 // Column already exists — safe to ignore.
             }
+
+            // Migration: add token usage columns for plan executions.
+            try {
+                stmt.executeUpdate("ALTER TABLE plan_executions ADD COLUMN total_input_tokens INTEGER")
+            } catch (_: Exception) {
+                // Column already exists — safe to ignore.
+            }
+            try {
+                stmt.executeUpdate("ALTER TABLE plan_executions ADD COLUMN total_output_tokens INTEGER")
+            } catch (_: Exception) {
+                // Column already exists — safe to ignore.
+            }
+            try {
+                stmt.executeUpdate("ALTER TABLE plan_executions ADD COLUMN total_tokens INTEGER")
+            } catch (_: Exception) {
+                // Column already exists — safe to ignore.
+            }
+            try {
+                stmt.executeUpdate("ALTER TABLE plan_executions ADD COLUMN total_duration_ms INTEGER")
+            } catch (_: Exception) {
+                // Column already exists — safe to ignore.
+            }
         }
     }
 

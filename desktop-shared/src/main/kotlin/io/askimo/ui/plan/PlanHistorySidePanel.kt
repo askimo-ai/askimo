@@ -55,6 +55,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.plan.domain.PlanExecution
 import io.askimo.core.plan.domain.PlanExecutionStatus
 import io.askimo.core.util.TimeUtil
@@ -282,7 +283,22 @@ private fun planHistoryItem(
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
 
-    themedTooltip(text = stringResource("plans.history.restore")) {
+    val tooltipText = buildString {
+        append(stringResource("plans.history.restore"))
+        val parts = mutableListOf<String>()
+        execution.totalTokens?.let { parts += "Tokens: ${LocalizationManager.formatNumber(it)}" }
+        execution.totalInputTokens?.let { parts += "In: ${LocalizationManager.formatNumber(it)}" }
+        execution.totalOutputTokens?.let { parts += "Out: ${LocalizationManager.formatNumber(it)}" }
+        execution.totalDurationMs?.let { ms ->
+            parts += if (ms >= 1_000) "Time: ${"%.1f".format(ms / 1000.0)}s" else "Time: ${ms}ms"
+        }
+        if (parts.isNotEmpty()) {
+            append("\n")
+            append(parts.joinToString(" · "))
+        }
+    }
+
+    themedTooltip(text = tooltipText) {
         Surface(
             modifier = modifier
                 .hoverable(interactionSource)

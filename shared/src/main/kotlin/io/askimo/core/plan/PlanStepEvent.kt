@@ -45,6 +45,9 @@ sealed class PlanStepEvent : Event {
      * Fired after a step agent returns successfully.
      *
      * @param output The raw output object returned by the agent (usually a String).
+     * @param inputTokens Prompt/input token count for this step (nullable when unavailable).
+     * @param outputTokens Completion/output token count for this step (nullable when unavailable).
+     * @param totalTokens Total token count for this step (nullable when unavailable).
      * @param durationMs Wall-clock time for this step in milliseconds.
      */
     data class Completed(
@@ -52,6 +55,9 @@ sealed class PlanStepEvent : Event {
         override val stepName: String,
         override val executionId: String,
         val output: Any?,
+        val inputTokens: Int? = null,
+        val outputTokens: Int? = null,
+        val totalTokens: Int? = null,
         val durationMs: Long = 0L,
         override val timestamp: Instant = Instant.now(),
     ) : PlanStepEvent() {

@@ -10,6 +10,7 @@ import dev.langchain4j.agentic.observability.AgentRequest
 import dev.langchain4j.agentic.observability.AgentResponse
 import io.askimo.core.event.EventBus
 import io.askimo.core.logging.logger
+import io.askimo.core.plan.domain.PlanStepOutput
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
@@ -38,10 +39,9 @@ internal class PlanExecutionListener(
 
     /**
      * Outputs of completed steps, in completion order.
-     * Key = stepName (agent name / outputKey), value = output string.
      * Used by [PlanExecutor] to derive the final plan output.
      */
-    val stepOutputs = CopyOnWriteArrayList<Pair<String, String>>()
+    val stepOutputs = CopyOnWriteArrayList<PlanStepOutput>()
 
     override fun inheritedBySubagents(): Boolean = true
 
@@ -70,11 +70,38 @@ internal class PlanExecutionListener(
         val durationMs = elapsed(startTimes.remove(key(agentResponse.agentId(), stepName)))
         val output = agentResponse.output()
         val outputStr = output?.toString() ?: ""
-        log.debug("[{}] ✔ step '{}' done in {}ms | output: {}", planId, stepName, durationMs, truncate(outputStr))
+
+        val tokenUsage = agentResponse.chatResponse()
+            ?.metadata()
+            ?.tokenUsage()
+
+        val inputTokens = tokenUsage?.inputTokenCount()
+        val outputTokens = tokenUsage?.outputTokenCount()
+        val totalTokens = tokenUsage?.totalTokenCount()
+
+        log.debug(
+            "[{}] ✔ step '{}' done in {}ms | tokens(total/in/out)={}/{}/{} | output: {}",
+            planId,
+            stepName,
+            durationMs,
+            totalTokens ?: "-",
+            inputTokens ?: "-",
+            outputTokens ?: "-",
+            truncate(outputStr),
+        )
 
         // Record non-blank outputs so the executor can find the final result.
         if (outputStr.isNotBlank()) {
-            stepOutputs.add(stepName to outputStr)
+            stepOutputs.add(
+                PlanStepOutput(
+                    stepName = stepName,
+                    output = outputStr,
+                    inputTokens = inputTokens,
+                    outputTokens = outputTokens,
+                    totalTokens = totalTokens,
+                    durationMs = durationMs,
+                ),
+            )
         }
 
         post(
@@ -83,6 +110,9 @@ internal class PlanExecutionListener(
                 stepName = stepName,
                 executionId = executionId,
                 output = output,
+                inputTokens = inputTokens,
+                outputTokens = outputTokens,
+                totalTokens = totalTokens,
                 durationMs = durationMs,
             ),
         )

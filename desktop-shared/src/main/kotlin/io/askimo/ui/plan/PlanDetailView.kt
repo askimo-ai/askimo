@@ -59,9 +59,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.semantics.Role
@@ -71,6 +74,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.plan.PlanStepEvent
 import io.askimo.core.plan.domain.PlanInput
 import io.askimo.core.util.TimeUtil
@@ -639,6 +643,7 @@ private fun agenticStepProgressPanel(
     }
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun agenticStepRow(
     event: PlanStepEvent,
@@ -647,6 +652,7 @@ private fun agenticStepRow(
     val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
     var showCopyFeedback by remember { mutableStateOf(false) }
+    var isHovered by remember { mutableStateOf(false) }
 
     var outputExpanded by remember { mutableStateOf(true) }
 
@@ -669,7 +675,11 @@ private fun agenticStepRow(
         null
     }
 
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+            .onPointerEvent(PointerEventType.Enter) { isHovered = true }
+            .onPointerEvent(PointerEventType.Exit) { isHovered = false },
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
@@ -725,22 +735,38 @@ private fun agenticStepRow(
                         )
                         when (event) {
                             is PlanStepEvent.Completed -> {
-                                Surface(
-                                    shape = MaterialTheme.shapes.extraSmall,
-                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Text(
-                                        text = TimeUtil.formatDurationMs(
-                                            durationMs = event.durationMs,
-                                            hourLabel = stringResource("plans.steps.duration.hour"),
-                                            minuteLabel = stringResource("plans.steps.duration.minute"),
-                                            secondLabel = stringResource("plans.steps.duration.second"),
-                                            lessThanOne = stringResource("plans.steps.duration.less.than.one.second"),
-                                        ),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                                    )
+                                    Surface(
+                                        shape = MaterialTheme.shapes.extraSmall,
+                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                    ) {
+                                        Text(
+                                            text = TimeUtil.formatDurationMs(
+                                                durationMs = event.durationMs,
+                                                hourLabel = stringResource("plans.steps.duration.hour"),
+                                                minuteLabel = stringResource("plans.steps.duration.minute"),
+                                                secondLabel = stringResource("plans.steps.duration.second"),
+                                                lessThanOne = stringResource("plans.steps.duration.less.than.one.second"),
+                                            ),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                        )
+                                    }
+                                    stepTokenUsageLabel(event)?.let { usage ->
+                                        if (isHovered) {
+                                            themedTooltip(text = stringResource("message.token.usage.tooltip")) {
+                                                Text(
+                                                    text = usage,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
 
@@ -873,6 +899,43 @@ private fun agenticStepRow(
                     )
                 }
             }
+        }
+    }
+}
+
+private fun stepTokenUsageLabel(event: PlanStepEvent.Completed): String? {
+    val total = event.totalTokens
+    val input = event.inputTokens
+    val output = event.outputTokens
+    if (total == null || total <= 0) return null
+
+    return if (input != null && output != null) {
+        "${LocalizationManager.formatNumber(total)} tokens (${LocalizationManager.formatNumber(input)} in / ${LocalizationManager.formatNumber(output)} out)"
+    } else {
+        "${LocalizationManager.formatNumber(total)} tokens"
+    }
+}
+
+@Composable
+private fun planTotalSummaryLabel(viewModel: PlansViewModel): String? {
+    val total = viewModel.planTotalTokens
+    val input = viewModel.planTotalInputTokens
+    val output = viewModel.planTotalOutputTokens
+    val durationMs = viewModel.planTotalDurationMs
+    if (total == null || total <= 0) return null
+
+    return buildString {
+        if (input != null && output != null) {
+            append("${LocalizationManager.formatNumber(total)} tokens (${LocalizationManager.formatNumber(input)} in / ${LocalizationManager.formatNumber(output)} out)")
+        } else {
+            append("${LocalizationManager.formatNumber(total)} tokens")
+        }
+        if (durationMs != null && durationMs > 0) {
+            val durationLabel = when {
+                durationMs < 1_000 -> "${durationMs}ms"
+                else -> "${"%.1f".format(durationMs / 1000.0)}s"
+            }
+            append(" · $durationLabel")
         }
     }
 }
@@ -1033,9 +1096,11 @@ private fun resultPanel(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                // Title + plan totals on hover
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                     verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f),
                 ) {
                     Icon(
                         if (isPinned) Icons.Default.PushPin else Icons.Default.CheckCircle,
@@ -1049,7 +1114,20 @@ private fun resultPanel(
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
+                    // Plan-level totals — only for the live (non-pinned) result panel
+                    if (!isPinned) {
+                        planTotalSummaryLabel(viewModel)?.let { summary ->
+                            themedTooltip(text = stringResource("message.token.usage.tooltip")) {
+                                Text(
+                                    text = summary,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                )
+                            }
+                        }
+                    }
                 }
+
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                     verticalAlignment = Alignment.CenterVertically,

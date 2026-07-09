@@ -12,6 +12,7 @@ import io.askimo.core.logging.logger
 import io.askimo.core.plan.domain.PlanDef
 import io.askimo.core.plan.domain.PlanExecution
 import io.askimo.core.plan.domain.PlanExecutionStatus
+import io.askimo.core.plan.domain.PlanStepOutput
 import io.askimo.core.plan.repository.PlanDefRepository
 import io.askimo.core.plan.repository.PlanExecutionRepository
 import java.time.Instant
@@ -119,20 +120,38 @@ class PlanService(
 
         val executor = PlanExecutor(chatModel)
 
-        var stepOutputs: List<Pair<String, String>> = emptyList()
+        var stepOutputs: List<PlanStepOutput> = emptyList()
 
         return runCatching {
             executor.execute(plan, inputs, execution.id) { stepOutputs = it }
         }.fold(
             onSuccess = { output ->
+                val totalInputTokens = stepOutputs.mapNotNull { it.inputTokens }.takeIf { it.isNotEmpty() }?.sum()
+                val totalOutputTokens = stepOutputs.mapNotNull { it.outputTokens }.takeIf { it.isNotEmpty() }?.sum()
+                val totalTokens = stepOutputs.mapNotNull { it.totalTokens }.takeIf { it.isNotEmpty() }?.sum()
+                val totalDurationMs = stepOutputs.mapNotNull { it.durationMs }.takeIf { it.isNotEmpty() }?.sum()
+
                 planExecutionRepository.update(
                     execution.copy(
                         status = PlanExecutionStatus.COMPLETED,
                         output = output.takeIf { it.isNotBlank() },
                         stepOutputs = stepOutputs,
+                        totalInputTokens = totalInputTokens,
+                        totalOutputTokens = totalOutputTokens,
+                        totalTokens = totalTokens,
+                        totalDurationMs = totalDurationMs,
                     ),
                 )
-                log.info("Plan '{}' (execution={}) completed successfully", plan.id, execution.id)
+                log.info(
+                    "Plan '{}' (execution={}) completed — steps={}, tokens(total/in/out)={}/{}/{}, duration={}ms",
+                    plan.id,
+                    execution.id,
+                    stepOutputs.size,
+                    totalTokens ?: "-",
+                    totalInputTokens ?: "-",
+                    totalOutputTokens ?: "-",
+                    totalDurationMs ?: "-",
+                )
                 Result.success(PlanRunResult(executionId = execution.id, output = output))
             },
             onFailure = { e ->
@@ -194,9 +213,9 @@ class PlanService(
                 // Multi-step plan — show each intermediate step's output for full context.
                 // The last entry equals priorOutput so we show it separately as "Final result".
                 append("This result was produced by a multi-step plan. Here are the intermediate step outputs:\n\n")
-                stepOutputs.dropLast(1).forEachIndexed { index, (stepName, output) ->
-                    append("### Step ${index + 1}: $stepName\n\n")
-                    append(output)
+                stepOutputs.dropLast(1).forEachIndexed { index, step ->
+                    append("### Step ${index + 1}: ${step.stepName}\n\n")
+                    append(step.output)
                     append("\n\n")
                 }
                 append("### Final result\n\n")

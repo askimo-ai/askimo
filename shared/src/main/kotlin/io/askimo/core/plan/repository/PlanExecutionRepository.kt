@@ -10,6 +10,15 @@ import io.askimo.core.logging.logger
 import io.askimo.core.plan.domain.PlanExecution
 import io.askimo.core.plan.domain.PlanExecutionStatus
 import io.askimo.core.plan.domain.PlanExecutionsTable
+import io.askimo.core.plan.domain.PlanStepOutput
+import io.askimo.core.util.JsonUtils.json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.eq
@@ -24,9 +33,8 @@ import java.util.UUID
 /**
  * Repository for persisting and querying [PlanExecution] records.
  *
- * Inputs are stored as a simple `key=value` text (one per line) to avoid a JSON
- * dependency at this layer. The format is intentionally human-readable so the
- * SQLite file can be inspected without tooling.
+ * Inputs are stored as a simple `key=value` text (one per line).
+ * Step outputs are stored as JSON for extensibility.
  */
 class PlanExecutionRepository internal constructor(
     databaseManager: DatabaseManager = DatabaseManager.getInstance(),
@@ -55,6 +63,10 @@ class PlanExecutionRepository internal constructor(
                 it[sessionId] = record.sessionId
                 it[output] = record.output
                 it[stepOutputs] = encodeStepOutputs(record.stepOutputs)
+                it[totalInputTokens] = record.totalInputTokens
+                it[totalOutputTokens] = record.totalOutputTokens
+                it[totalTokens] = record.totalTokens
+                it[totalDurationMs] = record.totalDurationMs
                 it[errorMessage] = record.errorMessage
                 it[createdAt] = record.createdAt
                 it[updatedAt] = record.updatedAt
@@ -78,6 +90,10 @@ class PlanExecutionRepository internal constructor(
                 it[sessionId] = record.sessionId
                 it[output] = record.output
                 it[stepOutputs] = encodeStepOutputs(record.stepOutputs)
+                it[totalInputTokens] = record.totalInputTokens
+                it[totalOutputTokens] = record.totalOutputTokens
+                it[totalTokens] = record.totalTokens
+                it[totalDurationMs] = record.totalDurationMs
                 it[errorMessage] = record.errorMessage
                 it[runCount] = record.runCount
                 it[updatedAt] = record.updatedAt
@@ -149,6 +165,10 @@ class PlanExecutionRepository internal constructor(
         sessionId = this[PlanExecutionsTable.sessionId],
         output = this[PlanExecutionsTable.output],
         stepOutputs = decodeStepOutputs(this[PlanExecutionsTable.stepOutputs]),
+        totalInputTokens = this[PlanExecutionsTable.totalInputTokens],
+        totalOutputTokens = this[PlanExecutionsTable.totalOutputTokens],
+        totalTokens = this[PlanExecutionsTable.totalTokens],
+        totalDurationMs = this[PlanExecutionsTable.totalDurationMs],
         errorMessage = this[PlanExecutionsTable.errorMessage],
         createdAt = this[PlanExecutionsTable.createdAt],
         updatedAt = this[PlanExecutionsTable.updatedAt],
@@ -168,23 +188,50 @@ class PlanExecutionRepository internal constructor(
             }
     }
 
-    /**
-     * Encodes step outputs as `stepName|output` lines (one per step).
-     * Step names are kebab-case identifiers and cannot contain `|` or newlines.
-     */
-    private fun encodeStepOutputs(steps: List<Pair<String, String>>): String? {
+    /** Encodes structured step outputs as a JSON array. */
+    private fun encodeStepOutputs(steps: List<PlanStepOutput>): String? {
         if (steps.isEmpty()) return null
-        return steps.joinToString("\n") { (name, output) ->
-            "$name|${output.replace("\n", "\\n")}"
-        }
+        return json.encodeToString(steps)
     }
 
-    private fun decodeStepOutputs(raw: String?): List<Pair<String, String>> {
+    private fun decodeStepOutputs(raw: String?): List<PlanStepOutput> {
         if (raw.isNullOrBlank()) return emptyList()
+
+        // New format: JSON array of PlanStepOutput.
+        runCatching {
+            json.decodeFromString<List<PlanStepOutput>>(raw)
+        }.getOrNull()?.let { return it }
+
+        // Compatibility format: JSON with legacy keys {"step":"...","output":"..."}.
+        val legacySteps = runCatching {
+            val element = json.parseToJsonElement(raw)
+            if (element !is JsonArray) return@runCatching null
+            element.jsonArray.mapNotNull { item ->
+                val obj = item as? JsonObject ?: return@mapNotNull null
+                val stepName = obj["stepName"]?.jsonPrimitive?.contentOrNull
+                    ?: obj["step"]?.jsonPrimitive?.contentOrNull
+                    ?: return@mapNotNull null
+                val output = obj["output"]?.jsonPrimitive?.contentOrNull ?: ""
+                PlanStepOutput(
+                    stepName = stepName,
+                    output = output,
+                    inputTokens = obj["inputTokens"]?.jsonPrimitive?.intOrNull,
+                    outputTokens = obj["outputTokens"]?.jsonPrimitive?.intOrNull,
+                    totalTokens = obj["totalTokens"]?.jsonPrimitive?.intOrNull,
+                    durationMs = obj["durationMs"]?.jsonPrimitive?.longOrNull,
+                )
+            }
+        }.getOrNull()
+        if (legacySteps != null) return legacySteps
+
+        // Legacy line format: stepName|output
         return raw.lines().mapNotNull { line ->
             val sep = line.indexOf('|')
             if (sep < 0) return@mapNotNull null
-            line.substring(0, sep) to line.substring(sep + 1).replace("\\n", "\n")
+            PlanStepOutput(
+                stepName = line.substring(0, sep),
+                output = line.substring(sep + 1).replace("\\n", "\n"),
+            )
         }
     }
 }
