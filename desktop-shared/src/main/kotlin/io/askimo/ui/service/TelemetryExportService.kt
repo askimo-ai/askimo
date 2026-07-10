@@ -148,10 +148,11 @@ object TelemetryExportService {
      * newlines within values are escaped as \n.
      */
     private fun StringWriter.appendCsvLine(vararg fields: Any) {
-        append(fields.joinToString(",") { field ->
-            "\"${field.toString().replace("\"", "\"\"").replace("\n", "\\n").replace("\r", "")}\""
-        })
+        append(
+            fields.joinToString(",") { field ->
+                "\"${field.toString().replace("\"", "\"\"").replace("\n", "\\n").replace("\r", "")}\""
+            },
+        )
         append("\n")
     }
 }
-

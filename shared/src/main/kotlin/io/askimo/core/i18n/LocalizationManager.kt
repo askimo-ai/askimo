@@ -192,11 +192,10 @@ object LocalizationManager {
      * Formats a decimal number using locale-aware grouping and fraction separators.
      * e.g. 3.14159 with fractionDigits=2 → "3.14" (en-US), "3,14" (de)
      */
-    fun formatDouble(value: Double, fractionDigits: Int = 2): String =
-        NumberFormat.getNumberInstance(currentLocale).apply {
-            minimumFractionDigits = fractionDigits
-            maximumFractionDigits = fractionDigits
-        }.format(value)
+    fun formatDouble(value: Double, fractionDigits: Int = 2): String = NumberFormat.getNumberInstance(currentLocale).apply {
+        minimumFractionDigits = fractionDigits
+        maximumFractionDigits = fractionDigits
+    }.format(value)
 
     /**
      * Load properties file for the current locale with UTF-8 encoding.

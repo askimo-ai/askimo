@@ -101,7 +101,6 @@ import io.askimo.desktop.shell.telemetryPanel
 import io.askimo.desktop.user.userProfileDialog
 import io.askimo.ui.chat.ChatViewModel
 import io.askimo.ui.chat.chatView
-import io.askimo.ui.service.TelemetryExportService
 import io.askimo.ui.common.components.dangerButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
@@ -138,6 +137,7 @@ import io.askimo.ui.onboarding.onboardingWizardDialog
 import io.askimo.ui.plan.PlansViewModel
 import io.askimo.ui.plan.planDetailView
 import io.askimo.ui.plan.plansGalleryView
+import io.askimo.ui.service.TelemetryExportService
 import io.askimo.ui.session.SessionManager
 import io.askimo.ui.session.SessionsViewModel
 import io.askimo.ui.session.command.DeleteSessionFromProjectCommand
