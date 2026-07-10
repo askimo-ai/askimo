@@ -45,10 +45,15 @@ import org.koin.java.KoinJavaComponent.get
  * The [telemetryContent] slot is intentionally left open so that each module
  * can pass its own `telemetryPanel` composable (community vs. Pro flavours
  * differ in implementation but share this outer shell).
+ *
+ * @param onExportTelemetry Called when the user clicks "Export CSV". The caller
+ *   is responsible for picking a save path and invoking the telemetry export service.
+ *   Pass `null` to hide the export button (e.g. when no telemetry data exists).
  */
 @Composable
 fun systemResourcesDialog(
     onDismiss: () -> Unit,
+    onExportTelemetry: (() -> Unit)?,
     telemetryContent: @Composable () -> Unit,
 ) {
     val monitor = remember { get<SystemResourceMonitor>(SystemResourceMonitor::class.java) }
@@ -140,12 +145,19 @@ fun systemResourcesDialog(
 
                 Spacer(Modifier.height(Spacing.large))
 
-                // ── Close button ─────────────────────────────────────────
-                secondaryButton(
-                    onClick = onDismiss,
+                // ── Action buttons ────────────────────────────────────────
+                Row(
                     modifier = Modifier.align(Alignment.End),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                 ) {
-                    Text(stringResource("action.close"))
+                    if (onExportTelemetry != null) {
+                        secondaryButton(onClick = onExportTelemetry) {
+                            Text(stringResource("telemetry.export.csv"))
+                        }
+                    }
+                    secondaryButton(onClick = onDismiss) {
+                        Text(stringResource("action.close"))
+                    }
                 }
             }
         }

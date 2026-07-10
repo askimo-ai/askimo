@@ -101,6 +101,7 @@ import io.askimo.desktop.shell.telemetryPanel
 import io.askimo.desktop.user.userProfileDialog
 import io.askimo.ui.chat.ChatViewModel
 import io.askimo.ui.chat.chatView
+import io.askimo.ui.service.TelemetryExportService
 import io.askimo.ui.common.components.dangerButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
@@ -1404,6 +1405,30 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                         val metrics by appContext.telemetry.metricsFlow.collectAsState()
                         systemResourcesDialog(
                             onDismiss = { showSystemDiagnosticsDialog = false },
+                            onExportTelemetry = {
+                                scope.launch {
+                                    val timestamp = withContext(Dispatchers.IO) {
+                                        LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
+                                    }
+                                    val targetFile = FileDialogUtils.pickSavePath(
+                                        suggestedName = "telemetry_$timestamp",
+                                        extension = "zip",
+                                        title = LocalizationManager.getString("telemetry.export.dialog.title"),
+                                    ) ?: return@launch
+
+                                    val result = TelemetryExportService.export(metrics, targetFile)
+                                    if (result.isFailure) {
+                                        errorDialogState = ErrorDialogState(
+                                            show = true,
+                                            title = LocalizationManager.getString("telemetry.export.error.title"),
+                                            message = LocalizationManager.getString(
+                                                "telemetry.export.error.message",
+                                                result.exceptionOrNull()?.message ?: "Unknown error",
+                                            ),
+                                        )
+                                    }
+                                }
+                            },
                             telemetryContent = { telemetryPanel(metrics = metrics, maxHeight = 480.dp) },
                         )
                     }

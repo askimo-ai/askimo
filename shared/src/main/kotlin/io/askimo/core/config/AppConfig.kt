@@ -1050,8 +1050,8 @@ object AppConfig {
 
         val models = ModelsConfig(
             timeouts = ModelTimeoutsConfig(
-                utilityModelTimeoutSeconds = envLong("ASKIMO_UTILITY_MODEL_TIMEOUT", 45L),
-                defaultModelTimeoutSeconds = envLong("ASKIMO_DEFAULT_MODEL_TIMEOUT", 300L),
+                utilityModelTimeoutSeconds = envLong("ASKIMO_UTILITY_MODEL_TIMEOUT", 600L),
+                defaultModelTimeoutSeconds = envLong("ASKIMO_DEFAULT_MODEL_TIMEOUT", 600L),
             ),
             anthropic = ProviderModelConfig(
                 utilityModel = env("ASKIMO_ANTHROPIC_UTILITY_MODEL", ""),

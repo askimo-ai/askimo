@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.askimo.core.context.AppContext
+import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.telemetry.TelemetryMetrics
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
@@ -138,17 +139,17 @@ internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
                     ) {
                         telemetryStat(
                             label = stringResource("telemetry.rag.total.queries"),
-                            value = metrics.ragClassificationTotal.toString(),
+                            value = LocalizationManager.formatNumber(metrics.ragClassificationTotal),
                             modifier = Modifier.weight(1f),
                         )
                         telemetryStat(
                             label = stringResource("telemetry.rag.triggered.label"),
-                            value = "${metrics.ragTriggered} (${String.format("%.0f", metrics.ragTriggeredPercent)}%)",
+                            value = "${LocalizationManager.formatNumber(metrics.ragTriggered)} (${LocalizationManager.formatDouble(metrics.ragTriggeredPercent, 0)}%)",
                             modifier = Modifier.weight(1f),
                         )
                         telemetryStat(
                             label = stringResource("telemetry.rag.skipped.label"),
-                            value = metrics.ragSkipped.toString(),
+                            value = LocalizationManager.formatNumber(metrics.ragSkipped),
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -160,7 +161,7 @@ internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
                     ) {
                         telemetryMetricCard(
                             label = stringResource("telemetry.rag.efficiency"),
-                            value = "${String.format("%.0f", metrics.ragTriggeredPercent)}%",
+                            value = "${LocalizationManager.formatDouble(metrics.ragTriggeredPercent, 0)}%",
                             subtitle = stringResource("telemetry.rag.triggered", metrics.ragTriggered, metrics.ragClassificationTotal),
                             modifier = Modifier.weight(1f),
                         )
@@ -176,7 +177,7 @@ internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
                                 label = stringResource("telemetry.retrieval"),
                                 value = formatDuration(metrics.ragAvgRetrievalTimeMs),
                                 valueTooltip = formatDurationDetailed(metrics.ragAvgRetrievalTimeMs),
-                                subtitle = stringResource("telemetry.retrieval.chunks", String.format("%.1f", metrics.ragAvgChunksRetrieved)),
+                                subtitle = stringResource("telemetry.retrieval.chunks", LocalizationManager.formatDouble(metrics.ragAvgChunksRetrieved, 1)),
                                 modifier = Modifier.weight(1f),
                             )
                         }
@@ -255,10 +256,10 @@ internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
                     llmTableRow(
                         provider = stringResource("telemetry.llm.col.total"),
                         model = "",
-                        calls = totalCalls.toString(),
-                        tokens = totalTokens.toString(),
+                        calls = LocalizationManager.formatNumber(totalCalls),
+                        tokens = LocalizationManager.formatNumber(totalTokens),
                         avgDuration = "",
-                        errors = if (totalErrors > 0) totalErrors.toString() else "—",
+                        errors = if (totalErrors > 0) LocalizationManager.formatNumber(totalErrors) else "—",
                         isHeader = true,
                         errorsIsError = totalErrors > 0,
                     )
@@ -361,15 +362,15 @@ private fun llmTableDataRow(row: LlmRow) {
     ) {
         Text(text = row.provider, style = style, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(COL_PROVIDER), maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(text = row.model, style = style, color = secondary, modifier = Modifier.weight(COL_MODEL), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(text = row.calls.toString(), style = style, color = secondary, modifier = Modifier.weight(COL_CALLS), maxLines = 1)
-        Text(text = row.tokens.toString(), style = style, color = secondary, modifier = Modifier.weight(COL_TOKENS), maxLines = 1)
+        Text(text = LocalizationManager.formatNumber(row.calls), style = style, color = secondary, modifier = Modifier.weight(COL_CALLS), maxLines = 1)
+        Text(text = LocalizationManager.formatNumber(row.tokens), style = style, color = secondary, modifier = Modifier.weight(COL_TOKENS), maxLines = 1)
         Box(modifier = Modifier.weight(COL_DURATION)) {
             themedTooltip(text = formatDurationDetailed(row.avgDurationMs)) {
                 Text(text = formatDuration(row.avgDurationMs), style = style, color = secondary, maxLines = 1)
             }
         }
         Text(
-            text = if (row.errors > 0) row.errors.toString() else "—",
+            text = if (row.errors > 0) LocalizationManager.formatNumber(row.errors) else "—",
             style = style,
             color = if (row.errors > 0) MaterialTheme.colorScheme.error else secondary,
             modifier = Modifier.weight(COL_ERRORS),
