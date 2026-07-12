@@ -53,7 +53,7 @@ fun ensureLocalEmbeddingModelAvailable(
                 ),
             )
 
-            error("Model '$modelName' not available in ${provider.name}")
+            error("Embedding model '$modelName' is not available in ${provider.name}. Go to Settings > AI Provider and select an available embedding model under the provider configuration card.")
         }
     }
 }
