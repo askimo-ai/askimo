@@ -6,17 +6,36 @@ package io.askimo.ui.common.theme
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ScrollbarStyle
+import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
@@ -40,6 +59,7 @@ import androidx.compose.material3.NavigationRailItemColors
 import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -58,10 +78,17 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.askimo.ui.common.i18n.stringResource
 
 object AppComponents {
+
+    // Shared spacing/tokens for scaffold-style dialogs.
+    val dialogContentPadding: Dp = 24.dp
+    val dialogSectionSpacing: Dp = 16.dp
+    val dialogActionBarMinHeight: Dp = 56.dp
+    val dialogScrollbarPadding: Dp = 12.dp
 
     // ── Navigation ───────────────────────────────────────────────────────────
 
@@ -466,6 +493,198 @@ object AppComponents {
                 tonalElevation = tonalElevation,
                 properties = properties,
             )
+        }
+    }
+
+    @Composable
+    fun scaffoldDialog(
+        onDismissRequest: () -> Unit,
+        actions: @Composable RowScope.() -> Unit,
+        modifier: Modifier = Modifier,
+        width: Dp = 650.dp,
+        maxHeightFraction: Float = 0.85f,
+        properties: DialogProperties = DialogProperties(),
+        shape: Shape = MaterialTheme.shapes.large,
+        containerColor: Color = MaterialTheme.colorScheme.surface,
+        tonalElevation: Dp = 8.dp,
+        contentPadding: Dp = dialogContentPadding,
+        sectionSpacing: Dp = dialogSectionSpacing,
+        onCloseRequest: (() -> Unit)? = null,
+        title: (@Composable () -> Unit)? = null,
+        content: @Composable ColumnScope.() -> Unit,
+    ) {
+        val safeMaxHeightFraction = maxHeightFraction.coerceIn(0.35f, 1f)
+        Dialog(onDismissRequest = onDismissRequest, properties = properties) {
+            BoxWithConstraints {
+                Surface(
+                    modifier = modifier
+                        .width(width)
+                        .heightIn(max = maxHeight * safeMaxHeightFraction),
+                    shape = shape,
+                    color = containerColor,
+                    tonalElevation = tonalElevation,
+                ) {
+                    val scrollState = rememberScrollState()
+                    androidx.compose.foundation.layout.Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(contentPadding),
+                        verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+                    ) {
+                        if (title != null || onCloseRequest != null) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            ) {
+                                Box(modifier = Modifier.weight(1f)) {
+                                    title?.invoke()
+                                }
+                                if (onCloseRequest != null) {
+                                    IconButton(
+                                        onClick = onCloseRequest,
+                                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = stringResource("dialog.close"),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f, fill = false),
+                        ) {
+                            androidx.compose.foundation.layout.Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(end = dialogScrollbarPadding)
+                                    .verticalScroll(scrollState),
+                                verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+                                content = content,
+                            )
+
+                            if (scrollState.maxValue > 0) {
+                                VerticalScrollbar(
+                                    adapter = rememberScrollbarAdapter(scrollState),
+                                    modifier = Modifier
+                                        .align(androidx.compose.ui.Alignment.CenterEnd)
+                                        .fillMaxHeight(),
+                                    style = scrollbarStyle(),
+                                )
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = dialogActionBarMinHeight),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            content = actions,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun scaffoldDialogLazyColumn(
+        onDismissRequest: () -> Unit,
+        actions: @Composable RowScope.() -> Unit,
+        modifier: Modifier = Modifier,
+        width: Dp = 650.dp,
+        maxHeightFraction: Float = 0.85f,
+        properties: DialogProperties = DialogProperties(),
+        shape: Shape = MaterialTheme.shapes.large,
+        containerColor: Color = MaterialTheme.colorScheme.surface,
+        tonalElevation: Dp = 8.dp,
+        contentPadding: Dp = dialogContentPadding,
+        sectionSpacing: Dp = dialogSectionSpacing,
+        onCloseRequest: (() -> Unit)? = null,
+        listState: LazyListState = rememberLazyListState(),
+        title: (@Composable () -> Unit)? = null,
+        content: LazyListScope.() -> Unit,
+    ) {
+        val safeMaxHeightFraction = maxHeightFraction.coerceIn(0.35f, 1f)
+        Dialog(onDismissRequest = onDismissRequest, properties = properties) {
+            BoxWithConstraints {
+                Surface(
+                    modifier = modifier
+                        .width(width)
+                        .heightIn(max = maxHeight * safeMaxHeightFraction),
+                    shape = shape,
+                    color = containerColor,
+                    tonalElevation = tonalElevation,
+                ) {
+                    androidx.compose.foundation.layout.Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(contentPadding),
+                        verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+                    ) {
+                        if (title != null || onCloseRequest != null) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            ) {
+                                Box(modifier = Modifier.weight(1f)) {
+                                    title?.invoke()
+                                }
+                                if (onCloseRequest != null) {
+                                    IconButton(
+                                        onClick = onCloseRequest,
+                                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = stringResource("dialog.close"),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f, fill = false),
+                        ) {
+                            LazyColumn(
+                                state = listState,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(end = dialogScrollbarPadding),
+                                verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+                                content = content,
+                            )
+
+                            VerticalScrollbar(
+                                adapter = rememberScrollbarAdapter(listState),
+                                modifier = Modifier
+                                    .align(androidx.compose.ui.Alignment.CenterEnd)
+                                    .fillMaxHeight(),
+                                style = scrollbarStyle(),
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = dialogActionBarMinHeight),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            content = actions,
+                        )
+                    }
+                }
+            }
         }
     }
 

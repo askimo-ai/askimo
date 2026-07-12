@@ -182,13 +182,13 @@ fun newProjectDialog(
         }
     }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier.width(650.dp),
-            shape = MaterialTheme.shapes.large,
-            tonalElevation = 8.dp,
-        ) {
-            if (showSuccess) {
+    if (showSuccess) {
+        Dialog(onDismissRequest = onDismiss) {
+            Surface(
+                modifier = Modifier.width(650.dp),
+                shape = MaterialTheme.shapes.large,
+                tonalElevation = 8.dp,
+            ) {
                 Column(
                     modifier = Modifier.padding(Spacing.extraLarge),
                     verticalArrangement = Arrangement.spacedBy(Spacing.large),
@@ -231,131 +231,123 @@ fun newProjectDialog(
                         Text(stringResource("project.new.dialog.success.close"))
                     }
                 }
-            } else {
+            }
+        }
+    } else {
+        AppComponents.scaffoldDialog(
+            onDismissRequest = onDismiss,
+            onCloseRequest = onDismiss,
+            width = 650.dp,
+            title = {
+                Text(
+                    text = stringResource("project.new.dialog.title"),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            },
+            content = {
+                OutlinedTextField(
+                    value = projectName,
+                    onValueChange = {
+                        projectName = it
+                        nameError = null
+                    },
+                    label = { Text(stringResource("project.new.dialog.name.label")) },
+                    placeholder = { Text(stringResource("project.new.dialog.name.placeholder")) },
+                    isError = nameError != null,
+                    supportingText = nameError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = AppComponents.outlinedTextFieldColors(),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                )
+
+                OutlinedTextField(
+                    value = projectDescription,
+                    onValueChange = { projectDescription = it },
+                    label = { Text(stringResource("project.new.dialog.description.label")) },
+                    placeholder = { Text(stringResource("project.new.dialog.description.placeholder")) },
+                    minLines = 3,
+                    maxLines = 5,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = AppComponents.outlinedTextFieldColors(),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { handleCreate() }),
+                )
+
                 Column(
-                    modifier = Modifier.padding(Spacing.extraLarge),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.large),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.small),
                 ) {
                     Text(
-                        text = stringResource("project.new.dialog.title"),
-                        style = MaterialTheme.typography.headlineSmall,
+                        text = stringResource("project.new.dialog.sources.label"),
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
 
-                    OutlinedTextField(
-                        value = projectName,
-                        onValueChange = {
-                            projectName = it
-                            nameError = null
-                        },
-                        label = { Text(stringResource("project.new.dialog.name.label")) },
-                        placeholder = { Text(stringResource("project.new.dialog.name.placeholder")) },
-                        isError = nameError != null,
-                        supportingText = nameError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = AppComponents.outlinedTextFieldColors(),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    )
-
-                    // Description Field (Optional)
-                    OutlinedTextField(
-                        value = projectDescription,
-                        onValueChange = { projectDescription = it },
-                        label = { Text(stringResource("project.new.dialog.description.label")) },
-                        placeholder = { Text(stringResource("project.new.dialog.description.placeholder")) },
-                        minLines = 3,
-                        maxLines = 5,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = AppComponents.outlinedTextFieldColors(),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { handleCreate() }),
-                    )
-
-                    // Reference Materials Section
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(Spacing.small),
-                    ) {
-                        Text(
-                            text = stringResource("project.new.dialog.sources.label"),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
+                    knowledgeSources.forEach { source ->
+                        knowledgeSourceRow(
+                            source = source,
+                            onRemove = { knowledgeSources = knowledgeSources - source },
                         )
-
-                        // List of existing sources
-                        knowledgeSources.forEach { source ->
-                            knowledgeSourceRow(
-                                source = source,
-                                onRemove = { knowledgeSources = knowledgeSources - source },
-                            )
-                        }
-
-                        // Add Source Button with Dropdown
-                        Box {
-                            OutlinedButton(
-                                onClick = { showAddSourceMenu = true },
-                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(Spacing.small))
-                                Text(stringResource("project.new.dialog.sources.add"))
-                                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                            }
-
-                            AppComponents.dropdownMenu(
-                                expanded = showAddSourceMenu,
-                                onDismissRequest = { showAddSourceMenu = false },
-                            ) {
-                                KnowledgeSourceItem.availableTypes.forEach { typeInfo ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(
-                                                    typeInfo.icon,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.onSurface,
-                                                    modifier = Modifier.padding(end = Spacing.small).size(20.dp),
-                                                )
-                                                Text(stringResource(typeInfo.typeLabelKey))
-                                            }
-                                        },
-                                        onClick = {
-                                            showAddSourceMenu = false
-                                            handleAddSource(typeInfo)
-                                        },
-                                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                    )
-                                }
-                            }
-                        }
                     }
 
-                    Spacer(modifier = Modifier.height(Spacing.small))
-
-                    // Inline error message for project creation failures
-                    inlineErrorMessage(errorMessage = dialogState.errorMessage)
-
-                    // Action buttons
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        secondaryButton(
-                            onClick = onDismiss,
+                    Box {
+                        OutlinedButton(
+                            onClick = { showAddSourceMenu = true },
+                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         ) {
-                            Text(stringResource("project.new.dialog.button.cancel"))
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(Spacing.small))
+                            Text(stringResource("project.new.dialog.sources.add"))
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
                         }
 
-                        primaryButton(
-                            onClick = { handleCreate() },
+                        AppComponents.dropdownMenu(
+                            expanded = showAddSourceMenu,
+                            onDismissRequest = { showAddSourceMenu = false },
                         ) {
-                            Text(stringResource("project.new.dialog.button.create"))
+                            KnowledgeSourceItem.availableTypes.forEach { typeInfo ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                typeInfo.icon,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.padding(end = Spacing.small).size(20.dp),
+                                            )
+                                            Text(stringResource(typeInfo.typeLabelKey))
+                                        }
+                                    },
+                                    onClick = {
+                                        showAddSourceMenu = false
+                                        handleAddSource(typeInfo)
+                                    },
+                                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                )
+                            }
                         }
                     }
                 }
-            }
-        }
+
+                inlineErrorMessage(errorMessage = dialogState.errorMessage)
+            },
+            actions = {
+                secondaryButton(
+                    onClick = onDismiss,
+                ) {
+                    Text(stringResource("project.new.dialog.button.cancel"))
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                primaryButton(
+                    onClick = { handleCreate() },
+                ) {
+                    Text(stringResource("project.new.dialog.button.create"))
+                }
+            },
+        )
     }
 
     // Show URL input dialog when requested

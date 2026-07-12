@@ -8,13 +8,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -29,7 +29,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -47,7 +46,6 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.askimo.core.chat.domain.ChatDirective
 import io.askimo.core.chat.domain.DirectiveScope
@@ -108,186 +106,86 @@ fun manageDirectivesDialog(
         )
     }
 
-    Dialog(
+    AppComponents.scaffoldDialogLazyColumn(
         onDismissRequest = onDismiss,
+        onCloseRequest = onDismiss,
+        width = 900.dp,
         properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Surface(
-            modifier = Modifier
-                .width(900.dp)
-                .height(700.dp)
-                .padding(Spacing.large),
-            shape = MaterialTheme.shapes.large,
-            tonalElevation = 8.dp,
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(Spacing.extraLarge),
-                verticalArrangement = Arrangement.spacedBy(Spacing.large),
-            ) {
-                // Title
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource("directive.manage.title"),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                    ) {
-                        Icon(Icons.Default.Close, contentDescription = stringResource("action.close"))
-                    }
-                }
-
-                HorizontalDivider()
-
-                // Directives list
-                if (directives.isEmpty()) {
+        title = {
+            Text(
+                text = stringResource("directive.manage.title"),
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        },
+        content = {
+            // Directives list
+            if (directives.isEmpty()) {
+                item {
                     Text(
                         text = stringResource("directive.manage.empty"),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f)
                             .padding(vertical = 32.dp),
                     )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.medium),
+                }
+            } else {
+                items(directives, key = { it.id }) { directive ->
+                    val isExpanded = directive.id in expandedDirectives
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = AppComponents.sidebarSurfaceColor(),
+                        ),
                     ) {
-                        items(directives, key = { it.id }) { directive ->
-                            val isExpanded = directive.id in expandedDirectives
-                            Card(
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(Spacing.large),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.small),
+                        ) {
+                            Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = AppComponents.sidebarSurfaceColor(),
-                                ),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(Spacing.large),
-                                    verticalArrangement = Arrangement.spacedBy(Spacing.small),
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
+                                    modifier = Modifier.weight(1f),
                                 ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically,
+                                    Surface(
+                                        shape = MaterialTheme.shapes.small,
+                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                        modifier = Modifier.size(36.dp),
                                     ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
-                                            modifier = Modifier.weight(1f),
-                                        ) {
-                                            Surface(
-                                                shape = MaterialTheme.shapes.small,
-                                                color = MaterialTheme.colorScheme.secondaryContainer,
-                                                modifier = Modifier.size(36.dp),
-                                            ) {
-                                                Icon(
-                                                    Icons.Outlined.Description,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                                    modifier = Modifier.padding(Spacing.small),
-                                                )
-                                            }
-                                            Text(
-                                                text = directive.name,
-                                                style = MaterialTheme.typography.titleMedium,
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                            )
-                                            // Show a read-only badge for TEAM directives
-                                            if (directive.scope == DirectiveScope.TEAM) {
-                                                AssistChip(
-                                                    onClick = {},
-                                                    label = {
-                                                        Text(
-                                                            text = stringResource("directive.scope.team"),
-                                                            style = MaterialTheme.typography.labelSmall,
-                                                        )
-                                                    },
-                                                    modifier = Modifier.height(24.dp),
-                                                    colors = AssistChipDefaults.assistChipColors(
-                                                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                                                        labelColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                                                    ),
-                                                    border = AssistChipDefaults.assistChipBorder(
-                                                        enabled = true,
-                                                        borderColor = MaterialTheme.colorScheme.outlineVariant,
-                                                    ),
-                                                )
-                                            }
-                                        }
-
-                                        // TEAM directives are managed by the server — hide edit/delete
-                                        if (directive.scope != DirectiveScope.TEAM) {
-                                            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
-                                                IconButton(
-                                                    onClick = { editingDirective = directive },
-                                                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                                ) {
-                                                    Icon(Icons.Default.Edit, contentDescription = stringResource("action.edit"), tint = MaterialTheme.colorScheme.onSurface)
-                                                }
-                                                IconButton(
-                                                    onClick = { onDelete(directive.id) },
-                                                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                                ) {
-                                                    Icon(Icons.Default.Delete, contentDescription = stringResource("action.delete"), tint = MaterialTheme.colorScheme.error)
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
-                                        Text(
-                                            text = directive.content,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = if (isExpanded) Int.MAX_VALUE else 3,
-                                            overflow = if (isExpanded) TextOverflow.Clip else TextOverflow.Ellipsis,
+                                        Icon(
+                                            Icons.Outlined.Description,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                            modifier = Modifier.padding(Spacing.small),
                                         )
-                                        if (directive.content.length > 120 || directive.content.lines().size > 3) {
-                                            Text(
-                                                text = if (isExpanded) stringResource("action.show.less") else stringResource("action.show.more"),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier
-                                                    .pointerHoverIcon(PointerIcon.Hand)
-                                                    .clickable {
-                                                        expandedDirectives = if (isExpanded) {
-                                                            expandedDirectives - directive.id
-                                                        } else {
-                                                            expandedDirectives + directive.id
-                                                        }
-                                                    },
-                                            )
-                                        }
+                                    }
+                                    Text(
+                                        text = directive.name,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    if (directive.scope == DirectiveScope.TEAM) {
                                         AssistChip(
                                             onClick = {},
                                             label = {
                                                 Text(
-                                                    text = stringResource("directive.created", TimeUtil.formatDisplay(directive.createdAt)),
+                                                    text = stringResource("directive.scope.team"),
                                                     style = MaterialTheme.typography.labelSmall,
                                                 )
                                             },
-                                            leadingIcon = {
-                                                Icon(Icons.Outlined.Schedule, contentDescription = null, modifier = Modifier.size(14.dp))
-                                            },
-                                            modifier = Modifier.height(28.dp),
+                                            modifier = Modifier.height(24.dp),
                                             colors = AssistChipDefaults.assistChipColors(
-                                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                                labelColor = MaterialTheme.colorScheme.onTertiaryContainer,
                                             ),
                                             border = AssistChipDefaults.assistChipBorder(
                                                 enabled = true,
@@ -296,16 +194,81 @@ fun manageDirectivesDialog(
                                         )
                                     }
                                 }
+
+                                if (directive.scope != DirectiveScope.TEAM) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+                                        IconButton(
+                                            onClick = { editingDirective = directive },
+                                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                        ) {
+                                            Icon(Icons.Default.Edit, contentDescription = stringResource("action.edit"), tint = MaterialTheme.colorScheme.onSurface)
+                                        }
+                                        IconButton(
+                                            onClick = { onDelete(directive.id) },
+                                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                        ) {
+                                            Icon(Icons.Default.Delete, contentDescription = stringResource("action.delete"), tint = MaterialTheme.colorScheme.error)
+                                        }
+                                    }
+                                }
+                            }
+
+                            Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+                                Text(
+                                    text = directive.content,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = if (isExpanded) Int.MAX_VALUE else 3,
+                                    overflow = if (isExpanded) TextOverflow.Clip else TextOverflow.Ellipsis,
+                                )
+                                if (directive.content.length > 120 || directive.content.lines().size > 3) {
+                                    Text(
+                                        text = if (isExpanded) stringResource("action.show.less") else stringResource("action.show.more"),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier
+                                            .pointerHoverIcon(PointerIcon.Hand)
+                                            .clickable {
+                                                expandedDirectives = if (isExpanded) {
+                                                    expandedDirectives - directive.id
+                                                } else {
+                                                    expandedDirectives + directive.id
+                                                }
+                                            },
+                                    )
+                                }
+                                AssistChip(
+                                    onClick = {},
+                                    label = {
+                                        Text(
+                                            text = stringResource("directive.created", TimeUtil.formatDisplay(directive.createdAt)),
+                                            style = MaterialTheme.typography.labelSmall,
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Outlined.Schedule, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    },
+                                    modifier = Modifier.height(28.dp),
+                                    colors = AssistChipDefaults.assistChipColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    ),
+                                    border = AssistChipDefaults.assistChipBorder(
+                                        enabled = true,
+                                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                                    ),
+                                )
                             }
                         }
                     }
                 }
+            }
 
-                HorizontalDivider()
-
-                // Import result / error banner
-                val result = importResult
-                if (result != null || importError) {
+            // Import result / error banner
+            val result = importResult
+            if (result != null || importError) {
+                item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
@@ -337,75 +300,70 @@ fun manageDirectivesDialog(
                         )
                     }
                 }
+            }
+        },
+        actions = {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                primaryButton(onClick = { showNewDirectiveDialog = true }) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Text(stringResource("directive.new.title"))
+                }
 
-                // Bottom bar
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    // Left side: New / Import / Export
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                        verticalAlignment = Alignment.CenterVertically,
+                themedTooltip(text = stringResource("directive.import.tooltip")) {
+                    secondaryButton(
+                        onClick = {
+                            importResult = null
+                            importError = false
+                            scope.launch {
+                                val path = FileDialogUtils.pickFilePath(
+                                    title = importDialogTitle,
+                                    extensions = listOf("json"),
+                                ) ?: return@launch
+                                try {
+                                    val json = withContext(Dispatchers.IO) {
+                                        File(path).readText()
+                                    }
+                                    val result = withContext(Dispatchers.IO) { onImport(json) }
+                                    importResult = result
+                                } catch (_: Exception) {
+                                    importError = true
+                                }
+                            }
+                        },
                     ) {
-                        primaryButton(onClick = { showNewDirectiveDialog = true }) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Text(stringResource("directive.new.title"))
-                        }
-
-                        themedTooltip(text = stringResource("directive.import.tooltip")) {
-                            secondaryButton(
-                                onClick = {
-                                    importResult = null
-                                    importError = false
-                                    scope.launch {
-                                        val path = FileDialogUtils.pickFilePath(
-                                            title = importDialogTitle,
-                                            extensions = listOf("json"),
-                                        ) ?: return@launch
-                                        try {
-                                            val json = withContext(Dispatchers.IO) {
-                                                File(path).readText()
-                                            }
-                                            val result = withContext(Dispatchers.IO) { onImport(json) }
-                                            importResult = result
-                                        } catch (_: Exception) {
-                                            importError = true
-                                        }
-                                    }
-                                },
-                            ) {
-                                Icon(Icons.Outlined.FileDownload, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Text(stringResource("directive.import"))
-                            }
-                        }
-
-                        themedTooltip(text = stringResource("directive.export.tooltip")) {
-                            secondaryButton(
-                                onClick = {
-                                    scope.launch {
-                                        val targetFile = FileDialogUtils.pickSavePath(
-                                            suggestedName = exportFilename,
-                                            extension = "json",
-                                        ) ?: return@launch
-                                        withContext(Dispatchers.IO) {
-                                            targetFile.writeText(onExport())
-                                        }
-                                    }
-                                },
-                            ) {
-                                Icon(Icons.Outlined.FileUpload, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Text(stringResource("directive.export"))
-                            }
-                        }
-                    }
-
-                    secondaryButton(onClick = onDismiss) {
-                        Text(stringResource("action.close"))
+                        Icon(Icons.Outlined.FileDownload, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Text(stringResource("directive.import"))
                     }
                 }
+
+                themedTooltip(text = stringResource("directive.export.tooltip")) {
+                    secondaryButton(
+                        onClick = {
+                            scope.launch {
+                                val targetFile = FileDialogUtils.pickSavePath(
+                                    suggestedName = exportFilename,
+                                    extension = "json",
+                                ) ?: return@launch
+                                withContext(Dispatchers.IO) {
+                                    targetFile.writeText(onExport())
+                                }
+                            }
+                        },
+                    ) {
+                        Icon(Icons.Outlined.FileUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Text(stringResource("directive.export"))
+                    }
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                secondaryButton(onClick = onDismiss) {
+                    Text(stringResource("action.close"))
+                }
             }
-        }
-    }
+        },
+    )
 }
