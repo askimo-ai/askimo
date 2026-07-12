@@ -13,9 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -23,7 +21,6 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -104,20 +101,19 @@ fun editProjectDialog(
         }
     }
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Surface(
-            modifier = Modifier
-                .width(800.dp)
-                .padding(Spacing.large),
-            shape = MaterialTheme.shapes.large,
-            tonalElevation = 8.dp,
-        ) {
-            when {
-                isLoading -> {
-                    // Loading state
+    when {
+        isLoading -> {
+            Dialog(
+                onDismissRequest = onDismiss,
+                properties = DialogProperties(usePlatformDefaultWidth = false),
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .width(800.dp)
+                        .padding(Spacing.large),
+                    shape = MaterialTheme.shapes.large,
+                    tonalElevation = 8.dp,
+                ) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -127,9 +123,21 @@ fun editProjectDialog(
                         CircularProgressIndicator()
                     }
                 }
+            }
+        }
 
-                dialogState.errorMessage != null -> {
-                    // Error state
+        dialogState.errorMessage != null -> {
+            Dialog(
+                onDismissRequest = onDismiss,
+                properties = DialogProperties(usePlatformDefaultWidth = false),
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .width(800.dp)
+                        .padding(Spacing.large),
+                    shape = MaterialTheme.shapes.large,
+                    tonalElevation = 8.dp,
+                ) {
                     Column(
                         modifier = Modifier.padding(Spacing.extraLarge),
                         verticalArrangement = Arrangement.spacedBy(Spacing.large),
@@ -148,15 +156,15 @@ fun editProjectDialog(
                         }
                     }
                 }
-
-                project != null -> {
-                    editProjectFormContent(
-                        project = project!!,
-                        onDismiss = onDismiss,
-                        onSave = onSave,
-                    )
-                }
             }
+        }
+
+        project != null -> {
+            editProjectFormDialog(
+                project = project!!,
+                onDismiss = onDismiss,
+                onSave = onSave,
+            )
         }
     }
 }
@@ -165,7 +173,7 @@ fun editProjectDialog(
  * The actual form for editing a project (extracted to separate composable).
  */
 @Composable
-private fun editProjectFormContent(
+private fun editProjectFormDialog(
     project: Project,
     onDismiss: () -> Unit,
     onSave: (projectId: String, name: String, description: String?, knowledgeSources: List<KnowledgeSourceConfig>) -> Unit,
@@ -265,107 +273,105 @@ private fun editProjectFormContent(
         focusRequester.requestFocus()
     }
 
-    Column(
-        modifier = Modifier
-            .padding(Spacing.extraLarge)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(Spacing.large),
-    ) {
-        Text(
-            text = stringResource("project.edit.dialog.title"),
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-
-        OutlinedTextField(
-            value = projectName,
-            onValueChange = {
-                projectName = it
-                nameError = null
-            },
-            label = { Text(stringResource("project.new.dialog.name.label")) },
-            placeholder = { Text(stringResource("project.new.dialog.name.placeholder")) },
-            isError = nameError != null,
-            supportingText = nameError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
-            singleLine = true,
-            modifier = Modifier
-                .fillMaxWidth()
-                .focusRequester(focusRequester),
-            colors = AppComponents.outlinedTextFieldColors(),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-        )
-
-        OutlinedTextField(
-            value = projectDescription,
-            onValueChange = { projectDescription = it },
-            label = { Text(stringResource("project.new.dialog.description.label")) },
-            placeholder = { Text(stringResource("project.new.dialog.description.placeholder")) },
-            minLines = 3,
-            maxLines = 5,
-            modifier = Modifier.fillMaxWidth(),
-            colors = AppComponents.outlinedTextFieldColors(),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-        )
-
-        Column(
-            verticalArrangement = Arrangement.spacedBy(Spacing.small),
-        ) {
+    AppComponents.scaffoldDialog(
+        onDismissRequest = onDismiss,
+        onCloseRequest = onDismiss,
+        width = 800.dp,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        title = {
             Text(
-                text = stringResource("project.new.dialog.sources.label"),
-                style = MaterialTheme.typography.bodyMedium,
+                text = stringResource("project.edit.dialog.title"),
+                style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface,
             )
+        },
+        content = {
+            OutlinedTextField(
+                value = projectName,
+                onValueChange = {
+                    projectName = it
+                    nameError = null
+                },
+                label = { Text(stringResource("project.new.dialog.name.label")) },
+                placeholder = { Text(stringResource("project.new.dialog.name.placeholder")) },
+                isError = nameError != null,
+                supportingText = nameError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester),
+                colors = AppComponents.outlinedTextFieldColors(),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+            )
 
-            knowledgeSources.forEach { source ->
-                knowledgeSourceRow(
-                    source = source,
-                    onRemove = { knowledgeSources = knowledgeSources - source },
+            OutlinedTextField(
+                value = projectDescription,
+                onValueChange = { projectDescription = it },
+                label = { Text(stringResource("project.new.dialog.description.label")) },
+                placeholder = { Text(stringResource("project.new.dialog.description.placeholder")) },
+                minLines = 3,
+                maxLines = 5,
+                modifier = Modifier.fillMaxWidth(),
+                colors = AppComponents.outlinedTextFieldColors(),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+            )
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(Spacing.small),
+            ) {
+                Text(
+                    text = stringResource("project.new.dialog.sources.label"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
-            }
 
-            Box {
-                OutlinedButton(
-                    onClick = { showAddSourceMenu = true },
-                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(Spacing.small))
-                    Text(stringResource("project.new.dialog.sources.add"))
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                knowledgeSources.forEach { source ->
+                    knowledgeSourceRow(
+                        source = source,
+                        onRemove = { knowledgeSources = knowledgeSources - source },
+                    )
                 }
 
-                DropdownMenu(
-                    expanded = showAddSourceMenu,
-                    onDismissRequest = { showAddSourceMenu = false },
-                ) {
-                    KnowledgeSourceItem.availableTypes.forEach { typeInfo ->
-                        DropdownMenuItem(
-                            text = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        typeInfo.icon,
-                                        contentDescription = null,
-                                        modifier = Modifier.padding(end = Spacing.small).size(20.dp),
-                                    )
-                                    Text(stringResource(typeInfo.typeLabelKey))
-                                }
-                            },
-                            onClick = {
-                                showAddSourceMenu = false
-                                handleAddSource(typeInfo)
-                            },
-                        )
+                Box {
+                    OutlinedButton(
+                        onClick = { showAddSourceMenu = true },
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(Spacing.small))
+                        Text(stringResource("project.new.dialog.sources.add"))
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                    }
+
+                    AppComponents.dropdownMenu(
+                        expanded = showAddSourceMenu,
+                        onDismissRequest = { showAddSourceMenu = false },
+                    ) {
+                        KnowledgeSourceItem.availableTypes.forEach { typeInfo ->
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            typeInfo.icon,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.padding(end = Spacing.small).size(20.dp),
+                                        )
+                                        Text(stringResource(typeInfo.typeLabelKey))
+                                    }
+                                },
+                                onClick = {
+                                    showAddSourceMenu = false
+                                    handleAddSource(typeInfo)
+                                },
+                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                            )
+                        }
                     }
                 }
             }
-        }
-
-        // Action Buttons
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        },
+        actions = {
             secondaryButton(
                 onClick = onDismiss,
             ) {
@@ -380,8 +386,8 @@ private fun editProjectFormContent(
             ) {
                 Text(stringResource("action.save"))
             }
-        }
-    }
+        },
+    )
 
     // Show URL input dialog when requested
     if (showUrlInputDialog) {
