@@ -78,6 +78,7 @@ import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.ProjectIndexingRequestedEvent
 import io.askimo.core.event.internal.ProjectReIndexEvent
 import io.askimo.core.event.internal.SessionsRefreshEvent
+import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.rag.state.IndexProgress
 import io.askimo.core.rag.state.IndexStatus
 import io.askimo.core.util.TimeUtil
@@ -95,6 +96,7 @@ import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.session.SessionActionMenu
 import io.askimo.ui.session.SessionActionMenu.projectViewMenu
 import io.askimo.ui.session.sessionTooltip
+import kotlinx.coroutines.delay
 import org.koin.core.context.GlobalContext
 import org.koin.core.parameter.parametersOf
 import java.awt.Desktop
@@ -969,9 +971,33 @@ private fun indexProgressIndicator(
                     )
                 }
                 indexProgress.currentFile?.let { file ->
-                    val elapsed = indexProgress.currentFileElapsedMs
+                    val backendElapsedMs = indexProgress.currentFileElapsedMs
+
+                    // Baseline resets whenever a new file starts being processed.
+                    val baseWallClock = remember(indexProgress.currentFile) { mutableStateOf(System.currentTimeMillis()) }
+                    val baseElapsed = remember(indexProgress.currentFile) { mutableStateOf(backendElapsedMs) }
+                    var liveElapsedMs by remember(indexProgress.currentFile) { mutableStateOf(backendElapsedMs) }
+
+                    // When the backend emits a higher value (a batch just completed),
+                    // advance the baseline so the display never goes backwards.
+                    LaunchedEffect(backendElapsedMs) {
+                        if (backendElapsedMs >= baseElapsed.value) {
+                            baseElapsed.value = backendElapsedMs
+                            baseWallClock.value = System.currentTimeMillis()
+                            liveElapsedMs = backendElapsedMs
+                        }
+                    }
+
+                    // Tick every 500 ms to interpolate smoothly between backend events.
+                    LaunchedEffect(indexProgress.currentFile) {
+                        while (true) {
+                            delay(500)
+                            liveElapsedMs = baseElapsed.value + (System.currentTimeMillis() - baseWallClock.value)
+                        }
+                    }
+
                     val elapsedText = when {
-                        elapsed >= 1000 -> " (${elapsed / 1000}s)"
+                        liveElapsedMs >= 1000 -> " (${LocalizationManager.formatNumber(liveElapsedMs / 1000)}s)"
                         else -> ""
                     }
                     Text(

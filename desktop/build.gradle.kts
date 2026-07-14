@@ -5,6 +5,7 @@ import java.time.Year
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Base64
+import java.util.zip.ZipFile
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
@@ -196,26 +197,12 @@ afterEvaluate {
                         }
 
                     jarFiles.forEach { jarFile ->
-                        logger.lifecycle("Stripping signatures from: ${jarFile.name}")
+                        logger.lifecycle("Processing: ${jarFile.name}")
 
-                        // Check if JAR has signature files
-                        val hasSignatures =
-                            ByteArrayOutputStream().use { output ->
-                                execOps.exec {
-                                    commandLine("jar", "tf", jarFile.absolutePath)
-                                    standardOutput = output
-                                    isIgnoreExitValue = true
-                                }
-                                val contents = output.toString()
-                                contents.contains(".SF") || contents.contains(".DSA") || contents.contains(".RSA")
-                            }
-
-                        if (!hasSignatures) {
-                            logger.lifecycle("   No signature files found, skipping...")
-                            return@forEach
-                        }
-
-                        // Create a temporary directory for extraction
+                        // Always extract, strip, merge services, and repack — never skip.
+                        // A hasSignatures pre-check is unreliable: the uber JAR merges
+                        // classes from signed deps so even when .SF/.DSA/.RSA files exist
+                        // their digests are invalid, causing SecurityException at launch.
                         val tempDir =
                             layout.buildDirectory
                                 .dir("tmp/jar-strip/${jarFile.nameWithoutExtension}")
@@ -225,7 +212,6 @@ afterEvaluate {
                         tempDir.mkdirs()
 
                         try {
-                            // Extract JAR contents using verbose mode to track all files
                             val extractOutput = ByteArrayOutputStream()
                             execOps.exec {
                                 commandLine("jar", "xf", jarFile.absolutePath)
@@ -233,22 +219,109 @@ afterEvaluate {
                                 standardOutput = extractOutput
                             }
 
-                            // Count extracted files for verification
                             val extractedFiles = tempDir.walkTopDown().filter { it.isFile }.count()
                             logger.lifecycle("   Extracted $extractedFiles files")
 
-                            // Delete signature files from META-INF
+                            // Delete ALL signature-related files from META-INF.
+                            // Use uppercase() for case-insensitive matching; also covers .EC.
                             val metaInfDir = File(tempDir, "META-INF")
                             var deletedCount = 0
                             if (metaInfDir.exists()) {
                                 metaInfDir.listFiles()?.forEach { file ->
-                                    if (file.extension in listOf("SF", "DSA", "RSA")) {
+                                    if (file.extension.uppercase() in listOf("SF", "DSA", "RSA", "EC")) {
                                         file.delete()
                                         logger.lifecycle("   Deleted: META-INF/${file.name}")
                                         deletedCount++
                                     }
                                 }
                             }
+
+                            // ── Merge META-INF/services/ files ──────────────────────────────
+                            // The Compose uber JAR plugin builds the fat JAR by overwriting —
+                            // only the LAST provider-config file for each service interface
+                            // survives.  This silently breaks any library that uses ServiceLoader
+                            // to discover implementations (e.g. Lucene codecs and analyzers:
+                            // lucene-core, lucene-queryparser and lucene-backward-codecs each
+                            // ship META-INF/services/org.apache.lucene.codecs.Codec entries,
+                            // but only one set makes it into the merged JAR).
+                            //
+                            // Fix: re-read every runtime dependency JAR and append any provider
+                            // class names that are absent from the already-extracted services
+                            // files, deduplicating as we go.  We use ZipFile so we never write
+                            // extra temp files and the overhead is minimal.
+                            val servicesDir = File(metaInfDir, "services")
+                            servicesDir.mkdirs()
+
+                            val runtimeJars =
+                                configurations
+                                    .getByName("runtimeClasspath")
+                                    .resolvedConfiguration
+                                    .resolvedArtifacts
+                                    .map { it.file }
+                                    .filter { it.extension == "jar" && it.exists() }
+
+                            var mergedServiceFiles = 0
+                            var mergedProviderLines = 0
+
+                            runtimeJars.forEach { depJar ->
+                                ZipFile(depJar).use { zip ->
+                                    zip
+                                        .entries()
+                                        .asSequence()
+                                        .filter { entry ->
+                                            !entry.isDirectory &&
+                                                entry.name.startsWith("META-INF/services/") &&
+                                                entry.name.length > "META-INF/services/".length
+                                        }.forEach { entry ->
+                                            val serviceName = entry.name.removePrefix("META-INF/services/")
+                                            val serviceFile = File(servicesDir, serviceName)
+
+                                            // Providers already present in the extracted uber JAR
+                                            val existingProviders =
+                                                if (serviceFile.exists()) {
+                                                    serviceFile
+                                                        .readLines()
+                                                        .map { it.trim() }
+                                                        .filter { it.isNotEmpty() && !it.startsWith("#") }
+                                                        .toMutableSet()
+                                                } else {
+                                                    mutableSetOf()
+                                                }
+
+                                            // Providers declared by this dependency JAR
+                                            val depProviders =
+                                                zip
+                                                    .getInputStream(entry)
+                                                    .bufferedReader()
+                                                    .readLines()
+                                                    .map { it.trim() }
+                                                    .filter { it.isNotEmpty() && !it.startsWith("#") }
+
+                                            // Append only the ones that were silently dropped
+                                            val newProviders = depProviders.filter { it !in existingProviders }
+                                            if (newProviders.isNotEmpty()) {
+                                                serviceFile.appendText(newProviders.joinToString("\n", postfix = "\n"))
+                                                existingProviders.addAll(newProviders)
+                                                mergedProviderLines += newProviders.size
+                                                mergedServiceFiles++
+                                                logger.lifecycle(
+                                                    "   Merged ${newProviders.size} provider(s) into " +
+                                                        "META-INF/services/$serviceName from ${depJar.name}",
+                                                )
+                                            }
+                                        }
+                                }
+                            }
+
+                            if (mergedServiceFiles > 0) {
+                                logger.lifecycle(
+                                    "   ✅ Merged $mergedProviderLines provider line(s) across " +
+                                        "$mergedServiceFiles META-INF/services/ file(s)",
+                                )
+                            } else {
+                                logger.lifecycle("   META-INF/services/ — all providers already present, nothing to merge")
+                            }
+                            // ── End META-INF/services/ merge ────────────────────────────────
 
                             // Re-create JAR without signature files
                             // Important: List all files explicitly to avoid missing hidden files or special resources

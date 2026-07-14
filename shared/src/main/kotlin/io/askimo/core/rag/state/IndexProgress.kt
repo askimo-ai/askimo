@@ -4,7 +4,7 @@
  */
 package io.askimo.core.rag.state
 
-import io.askimo.core.util.NumberFormatUtil
+import io.askimo.core.i18n.LocalizationManager
 
 /**
  * Enumeration of indexing status states
@@ -67,11 +67,12 @@ data class IndexProgress(
 
     /**
      * Locale-aware, 4-decimal-place string of [progressPercent].
-     * Delegates to [NumberFormatUtil.formatPercent] — no formatting logic needed in UI.
+     * Delegates to [LocalizationManager.formatDouble] so the decimal separator always
+     * matches the locale the user has selected inside the app.
      * Example: "35.3800" (en-US) or "35,3800" (de-DE).
      */
     val progressPercentFormatted: String
-        get() = NumberFormatUtil.formatPercent(progressPercent)
+        get() = LocalizationManager.formatDouble(progressPercent.toDouble(), fractionDigits = 4)
 
     val isComplete: Boolean
         get() = status == IndexStatus.READY || status == IndexStatus.WATCHING
