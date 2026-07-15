@@ -9,6 +9,8 @@ import androidx.compose.runtime.compositionLocalOf
 enum class LayoutDensity(val scale: Float) {
     COMFORTABLE(1.0f),
     COMPACT(0.7f),
+    RELAXED(1.2f),
+    SPACIOUS(1.4f),
     ;
 
     companion object {
