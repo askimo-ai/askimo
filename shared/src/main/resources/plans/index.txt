@@ -1,0 +1,7 @@
+blog-post.yml
+competitor-analysis.yml
+job-application.yml
+meeting-notes.yml
+research-report.yml
+system-design.yml
+

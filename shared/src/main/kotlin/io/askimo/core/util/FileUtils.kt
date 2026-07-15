@@ -12,6 +12,7 @@ import java.nio.file.FileSystemNotFoundException
 import java.nio.file.FileSystems
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 
 /**
  * Formats file size in human-readable format.
@@ -24,6 +25,9 @@ fun formatFileSize(bytes: Long): String = when {
     bytes < 1024 * 1024 -> "${bytes / 1024} KB"
     else -> "${String.format("%.1f", bytes / (1024.0 * 1024))} MB"
 }
+
+/** Sentinel used to resolve classpath resources from within top-level functions. */
+private object ResourceAnchor
 
 /**
  * Walks a classpath resource directory and invokes [action] for each matching file.
@@ -42,30 +46,63 @@ fun walkResourceDirectory(
     vararg extensions: String,
     action: (Path) -> Unit,
 ) {
-    if (resourceUrl == null) return
-
     fun matches(path: Path): Boolean = Files.isRegularFile(path) &&
         (extensions.isEmpty() || extensions.any { path.fileName.toString().endsWith(".$it") })
 
-    val uri = resourceUrl.toURI()
-    if (uri.scheme == "jar") {
-        var ownedFs: FileSystem? = null
-        val fs = try {
-            FileSystems.getFileSystem(uri)
-        } catch (_: FileSystemNotFoundException) {
-            FileSystems.newFileSystem(uri, emptyMap<String, Any>()).also { ownedFs = it }
-        }
-        ownedFs.use { _ ->
-            Files.walk(fs.getPath(jarPath))
+    if (resourceUrl != null) {
+        val uri = resourceUrl.toURI()
+        if (uri.scheme == "jar") {
+            var ownedFs: FileSystem? = null
+            val fs = try {
+                FileSystems.getFileSystem(uri)
+            } catch (_: FileSystemNotFoundException) {
+                FileSystems.newFileSystem(uri, emptyMap<String, Any>()).also { ownedFs = it }
+            }
+            ownedFs.use { _ ->
+                Files.walk(fs.getPath(jarPath))
+                    .filter { matches(it) }
+                    .sorted()
+                    .forEach(action)
+            }
+        } else {
+            Files.walk(Path.of(uri))
                 .filter { matches(it) }
                 .sorted()
                 .forEach(action)
         }
-    } else {
-        Files.walk(Path.of(uri))
-            .filter { matches(it) }
-            .sorted()
-            .forEach(action)
+        return
+    }
+
+    // Fallback for uber JARs: directory entries are often stripped during merging so
+    // getResource("/plans/") returns null even though the individual files are present.
+    // Read an index.txt from the same classpath path to enumerate the files explicitly.
+    val normalizedPath = jarPath.trimEnd('/') // e.g. "/plans"
+    val indexStream = ResourceAnchor::class.java.getResourceAsStream("$normalizedPath/index.txt")
+        ?: return // no index — nothing to walk
+
+    val fileNames = indexStream
+        .use { it.bufferedReader().readLines() }
+        .map { it.trim() }
+        .filter { it.isNotEmpty() && !it.startsWith("#") }
+        .let { names ->
+            if (extensions.isEmpty()) {
+                names
+            } else {
+                names.filter { name -> extensions.any { ext -> name.endsWith(".$ext") } }
+            }
+        }
+        .sorted()
+
+    for (name in fileNames) {
+        val entryStream = ResourceAnchor::class.java.getResourceAsStream("$normalizedPath/$name")
+            ?: continue
+        val tmp = Files.createTempFile("askimo-res-", "-$name")
+        try {
+            entryStream.use { Files.copy(it, tmp, StandardCopyOption.REPLACE_EXISTING) }
+            action(tmp)
+        } finally {
+            Files.deleteIfExists(tmp)
+        }
     }
 }
 
