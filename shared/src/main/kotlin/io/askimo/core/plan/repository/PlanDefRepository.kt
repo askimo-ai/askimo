@@ -122,15 +122,6 @@ class PlanDefRepository {
         val loaded = mutableListOf<PlanDef>()
         val rawYamls = mutableMapOf<String, String>()
 
-        // Scan the /plans/ directory on the classpath
-        val plansUrl = PlanDefRepository::class.java.getResource("/plans/")
-        if (plansUrl == null) {
-            log.debug("No built-in plans found (no /plans/ resource directory on classpath)")
-            builtInCache = emptyList()
-            builtInYamlCache = emptyMap()
-            return emptyList()
-        }
-
         fun loadPlanFile(path: Path) = runCatching {
             val yaml = Files.readString(path)
             val plan = PlanYamlParser.parse(yaml)
@@ -141,6 +132,7 @@ class PlanDefRepository {
             log.warn("Skipped built-in plan '{}': {}", path.fileName, e.message)
         }
 
+        val plansUrl = PlanDefRepository::class.java.getResource("/plans/")
         try {
             walkResourceDirectory(plansUrl, "/plans/", "yml") { loadPlanFile(it) }
         } catch (e: Exception) {
