@@ -17,12 +17,18 @@ data class FontSettings(
     val uiFontFamily: String = "System Default",
     val codeFontFamily: String = "System Monospace",
     val fontSize: FontSize = FontSize.MEDIUM,
+    val customFontScale: Float? = null,
     val lineSpacing: LineSpacing = LineSpacing.NORMAL,
 ) {
     companion object {
         const val SYSTEM_DEFAULT = "System Default"
         const val SYSTEM_MONOSPACE = "System Monospace"
+        const val MIN_CUSTOM_FONT_SCALE = 0.8f
+        const val MAX_CUSTOM_FONT_SCALE = 2.5f
     }
+
+    val effectiveScale: Float
+        get() = (customFontScale ?: fontSize.scale).coerceIn(MIN_CUSTOM_FONT_SCALE, MAX_CUSTOM_FONT_SCALE)
 }
 
 enum class FontSize(val displayName: String, val scale: Float) {
@@ -30,6 +36,8 @@ enum class FontSize(val displayName: String, val scale: Float) {
     MEDIUM("Medium", 1.0f),
     LARGE("Large", 1.15f),
     EXTRA_LARGE("Extra Large", 1.35f),
+    XX_LARGE("XX Large", 1.6f),
+    XXX_LARGE("XXX Large", 1.9f),
 }
 
 enum class LineSpacing(val displayName: String, val multiplier: Float) {
@@ -91,7 +99,7 @@ fun loadCodeFontFamily(fontName: String): FontFamily = when (fontName) {
  */
 fun createCustomTypography(fontSettings: FontSettings): Typography {
     val fontFamily = loadUiFontFamily(fontSettings.uiFontFamily)
-    val scale = fontSettings.fontSize.scale
+    val scale = fontSettings.effectiveScale
     val lh = fontSettings.lineSpacing.multiplier
     val base = Typography()
     return Typography(

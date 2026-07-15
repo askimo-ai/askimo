@@ -237,6 +237,22 @@ fun appearanceSettingsSection() {
                     onClick = { ThemePreferences.setLayoutDensity(LayoutDensity.COMPACT) },
                 )
 
+                themeOption(
+                    title = stringResource("layout.density.relaxed"),
+                    description = stringResource("layout.density.relaxed.description"),
+                    icon = { Icon(Icons.Default.ViewComfy, contentDescription = null) },
+                    selected = currentLayoutDensity == LayoutDensity.RELAXED,
+                    onClick = { ThemePreferences.setLayoutDensity(LayoutDensity.RELAXED) },
+                )
+
+                themeOption(
+                    title = stringResource("layout.density.spacious"),
+                    description = stringResource("layout.density.spacious.description"),
+                    icon = { Icon(Icons.Default.ViewComfy, contentDescription = null) },
+                    selected = currentLayoutDensity == LayoutDensity.SPACIOUS,
+                    onClick = { ThemePreferences.setLayoutDensity(LayoutDensity.SPACIOUS) },
+                )
+
                 // Background Image Section
                 Spacer(modifier = Modifier.height(Spacing.small))
                 Text(

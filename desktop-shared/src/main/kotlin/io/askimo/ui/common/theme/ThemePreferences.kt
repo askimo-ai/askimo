@@ -31,6 +31,7 @@ object ThemePreferences {
     private const val UI_FONT_FAMILY_KEY = "ui_font_family"
     private const val CODE_FONT_FAMILY_KEY = "code_font_family"
     private const val FONT_SIZE_KEY = "font_size"
+    private const val CUSTOM_FONT_SCALE_KEY = "custom_font_scale"
     private const val LINE_SPACING_KEY = "line_spacing"
     private const val LOCALE_KEY = "locale"
     private const val LOG_LEVEL_KEY = "log_level"
@@ -98,10 +99,15 @@ object ThemePreferences {
             log.debug("Unknown LineSpacing '{}', falling back to NORMAL", lineSpacingName, e)
             LineSpacing.NORMAL
         }
+        val customFontScale = prefs.get(CUSTOM_FONT_SCALE_KEY, null)?.toFloatOrNull()?.coerceIn(
+            FontSettings.MIN_CUSTOM_FONT_SCALE,
+            FontSettings.MAX_CUSTOM_FONT_SCALE,
+        )
         return FontSettings(
             uiFontFamily = uiFontFamily,
             codeFontFamily = codeFontFamily,
             fontSize = fontSize,
+            customFontScale = customFontScale,
             lineSpacing = lineSpacing,
         )
     }
@@ -148,6 +154,16 @@ object ThemePreferences {
         prefs.put(UI_FONT_FAMILY_KEY, settings.uiFontFamily)
         prefs.put(CODE_FONT_FAMILY_KEY, settings.codeFontFamily)
         prefs.put(FONT_SIZE_KEY, settings.fontSize.name)
+        if (settings.customFontScale == null) {
+            prefs.remove(CUSTOM_FONT_SCALE_KEY)
+        } else {
+            prefs.put(
+                CUSTOM_FONT_SCALE_KEY,
+                settings.customFontScale
+                    .coerceIn(FontSettings.MIN_CUSTOM_FONT_SCALE, FontSettings.MAX_CUSTOM_FONT_SCALE)
+                    .toString(),
+            )
+        }
         prefs.put(LINE_SPACING_KEY, settings.lineSpacing.name)
     }
 

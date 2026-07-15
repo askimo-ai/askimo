@@ -707,7 +707,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
 
     provideLocalization(locale = locale) {
         CompositionLocalProvider(
-            LocalFontScale provides fontSettings.fontSize.scale,
+            LocalFontScale provides fontSettings.effectiveScale,
             LocalCodeFontFamily provides customCodeFontFamily,
             LocalLayoutDensity provides layoutDensity,
             LocalSpacing provides SpacingValues(scale = layoutDensity.scale),
