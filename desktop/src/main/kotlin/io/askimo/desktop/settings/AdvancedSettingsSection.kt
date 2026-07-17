@@ -30,7 +30,6 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -205,8 +204,9 @@ private fun logLevelCard() {
                     expanded = logLevelDropdownExpanded,
                     onDismissRequest = { logLevelDropdownExpanded = false },
                 ) {
-                    LogLevel.entries.forEach { level ->
-                        DropdownMenuItem(
+                    val levels = LogLevel.entries
+                    levels.forEachIndexed { index, level ->
+                        AppComponents.themedDropdownMenuItem(
                             text = {
                                 Column {
                                     Text(
@@ -224,17 +224,8 @@ private fun logLevelCard() {
                                 ThemePreferences.setLogLevel(level)
                                 logLevelDropdownExpanded = false
                             },
-                            leadingIcon = if (level == currentLogLevel) {
-                                {
-                                    Icon(
-                                        Icons.Default.Check,
-                                        contentDescription = "Selected",
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                }
-                            } else {
-                                null
-                            },
+                            isSelected = level == currentLogLevel,
+                            showDivider = index < levels.lastIndex,
                         )
                     }
                 }

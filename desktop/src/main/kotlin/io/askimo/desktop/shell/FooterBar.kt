@@ -43,7 +43,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -479,18 +478,14 @@ private fun modelListColumn(
                                 items(providerModels, key = { it.modelId }) { dto ->
                                     val isCurrent = dto.modelId == currentModel &&
                                         state.pendingInstanceId == currentInstanceId
-                                    DropdownMenuItem(
+                                    AppComponents.themedDropdownMenuItem(
                                         text = { Text(dto.displayName, style = MaterialTheme.typography.bodyMedium) },
                                         onClick = {
                                             state.commitSelection(state.pendingInstanceId, dto.modelId)
                                             onModelSelected()
                                         },
-                                        leadingIcon = if (isCurrent) {
-                                            { Icon(Icons.Default.Check, contentDescription = "Current model", tint = MaterialTheme.colorScheme.onSurface) }
-                                        } else {
-                                            null
-                                        },
-                                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                        isSelected = isCurrent,
+                                        // No divider — items are in a LazyColumn with group headers
                                     )
                                 }
                             }

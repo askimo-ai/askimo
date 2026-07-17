@@ -19,11 +19,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Card
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -216,8 +214,9 @@ private fun proxyConfigurationCard() {
                         expanded = proxyTypeDropdownExpanded,
                         onDismissRequest = { proxyTypeDropdownExpanded = false },
                     ) {
-                        ProxyType.entries.forEach { type ->
-                            DropdownMenuItem(
+                        val proxyTypes = ProxyType.entries
+                        proxyTypes.forEachIndexed { index, type ->
+                            AppComponents.themedDropdownMenuItem(
                                 text = {
                                     Column(
                                         verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
@@ -238,17 +237,8 @@ private fun proxyConfigurationCard() {
                                     AppConfig.updateField("proxy.type", type.name)
                                     proxyTypeDropdownExpanded = false
                                 },
-                                leadingIcon = if (type == proxyType) {
-                                    {
-                                        Icon(
-                                            Icons.Default.Check,
-                                            contentDescription = "Selected",
-                                            tint = MaterialTheme.colorScheme.onSurface,
-                                        )
-                                    }
-                                } else {
-                                    null
-                                },
+                                isSelected = type == proxyType,
+                                showDivider = index < proxyTypes.lastIndex,
                             )
                         }
                     }
