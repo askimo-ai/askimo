@@ -45,10 +45,6 @@
 }, {
   "name": "[Lcom.zaxxer.hikari.util.ConcurrentBag$IConcurrentBagEntry;"
 }, {
-  "name": "[Ldev.langchain4j.model.anthropic.internal.api.AnthropicTextContent;"
-}, {
-  "name": "[Ldev.langchain4j.model.googleai.GeminiFunctionDeclaration;"
-}, {
   "name": "[Lio.askimo.core.config.ProjectType;"
 }, {
   "name": "[Ljava.lang.Object;"
@@ -1195,592 +1191,6 @@
     "name": "state"
   } ]
 }, {
-  "name": "dev.langchain4j.model.anthropic.internal.api.AnthropicCacheControl",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "getType",
-    "parameterTypes": [ ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.anthropic.internal.api.AnthropicContent",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.anthropic.internal.api.AnthropicCreateMessageRequest",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "getCustomParameters",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getMaxTokens",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getMessages",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getMetadata",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getModel",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getOutputConfig",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getStopSequences",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getSystem",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getTemperature",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getThinking",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getToolChoice",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getTools",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getTopK",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getTopP",
-    "parameterTypes": [ ]
-  }, {
-    "name": "isStream",
-    "parameterTypes": [ ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.anthropic.internal.api.AnthropicDelta",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.anthropic.internal.api.AnthropicError",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.anthropic.internal.api.AnthropicMessage",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.anthropic.internal.api.AnthropicMessageContent",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true
-}, {
-  "name": "dev.langchain4j.model.anthropic.internal.api.AnthropicResponseMessage",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.anthropic.internal.api.AnthropicRole",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "methods": [ {
-    "name": "serialize",
-    "parameterTypes": [ ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.anthropic.internal.api.AnthropicStreamingData",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.anthropic.internal.api.AnthropicTextContent",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.anthropic.internal.api.AnthropicThinking",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.anthropic.internal.api.AnthropicTool",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "customParameters",
-    "parameterTypes": [ ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.anthropic.internal.api.AnthropicToolSchema",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.anthropic.internal.api.AnthropicUsage",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiContent",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ "java.util.List", "java.lang.String" ]
-  }, {
-    "name": "parts",
-    "parameterTypes": [ ]
-  }, {
-    "name": "role",
-    "parameterTypes": [ ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiContent$GeminiPart",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ "java.lang.String", "dev.langchain4j.model.googleai.GeminiContent$GeminiPart$GeminiBlob", "dev.langchain4j.model.googleai.GeminiContent$GeminiPart$GeminiFunctionCall", "dev.langchain4j.model.googleai.GeminiContent$GeminiPart$GeminiFunctionResponse", "dev.langchain4j.model.googleai.GeminiContent$GeminiPart$GeminiFileData", "dev.langchain4j.model.googleai.GeminiContent$GeminiPart$GeminiExecutableCode", "dev.langchain4j.model.googleai.GeminiContent$GeminiPart$GeminiCodeExecutionResult", "java.lang.Boolean", "java.lang.String", "dev.langchain4j.model.googleai.GeminiMediaResolution" ]
-  }, {
-    "name": "codeExecutionResult",
-    "parameterTypes": [ ]
-  }, {
-    "name": "executableCode",
-    "parameterTypes": [ ]
-  }, {
-    "name": "fileData",
-    "parameterTypes": [ ]
-  }, {
-    "name": "functionCall",
-    "parameterTypes": [ ]
-  }, {
-    "name": "functionResponse",
-    "parameterTypes": [ ]
-  }, {
-    "name": "inlineData",
-    "parameterTypes": [ ]
-  }, {
-    "name": "mediaResolution",
-    "parameterTypes": [ ]
-  }, {
-    "name": "text",
-    "parameterTypes": [ ]
-  }, {
-    "name": "thought",
-    "parameterTypes": [ ]
-  }, {
-    "name": "thoughtSignature",
-    "parameterTypes": [ ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiContent$GeminiPart$GeminiBlob",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiContent$GeminiPart$GeminiCodeExecutionResult",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiContent$GeminiPart$GeminiCodeExecutionResult$GeminiOutcome",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiContent$GeminiPart$GeminiExecutableCode",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiContent$GeminiPart$GeminiExecutableCode$GeminiLanguage",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiContent$GeminiPart$GeminiFileData",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiContent$GeminiPart$GeminiFunctionCall",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ "java.lang.String", "java.lang.String", "java.util.Map" ]
-  }, {
-    "name": "args",
-    "parameterTypes": [ ]
-  }, {
-    "name": "id",
-    "parameterTypes": [ ]
-  }, {
-    "name": "name",
-    "parameterTypes": [ ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiContent$GeminiPart$GeminiFunctionResponse",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "id",
-    "parameterTypes": [ ]
-  }, {
-    "name": "name",
-    "parameterTypes": [ ]
-  }, {
-    "name": "response",
-    "parameterTypes": [ ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiFunctionDeclaration",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "description",
-    "parameterTypes": [ ]
-  }, {
-    "name": "name",
-    "parameterTypes": [ ]
-  }, {
-    "name": "parameters",
-    "parameterTypes": [ ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiGenerateContentRequest",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "cachedContent",
-    "parameterTypes": [ ]
-  }, {
-    "name": "contents",
-    "parameterTypes": [ ]
-  }, {
-    "name": "generationConfig",
-    "parameterTypes": [ ]
-  }, {
-    "name": "model",
-    "parameterTypes": [ ]
-  }, {
-    "name": "safetySettings",
-    "parameterTypes": [ ]
-  }, {
-    "name": "systemInstruction",
-    "parameterTypes": [ ]
-  }, {
-    "name": "toolConfig",
-    "parameterTypes": [ ]
-  }, {
-    "name": "tools",
-    "parameterTypes": [ ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiGenerateContentRequest$GeminiTool",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "codeExecution",
-    "parameterTypes": [ ]
-  }, {
-    "name": "functionDeclarations",
-    "parameterTypes": [ ]
-  }, {
-    "name": "googleMaps",
-    "parameterTypes": [ ]
-  }, {
-    "name": "googleSearch",
-    "parameterTypes": [ ]
-  }, {
-    "name": "urlContext",
-    "parameterTypes": [ ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiGenerateContentRequest$GeminiTool$GeminiCodeExecution",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiGenerateContentRequest$GeminiTool$GeminiGoogleMaps",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiGenerateContentRequest$GeminiTool$GeminiGoogleSearchRetrieval",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiGenerateContentRequest$GeminiTool$GeminiUrlContext",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiGenerateContentRequest$GeminiToolConfig",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiGenerateContentResponse",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ "java.lang.String", "java.lang.String", "java.util.List", "dev.langchain4j.model.googleai.GeminiGenerateContentResponse$GeminiUsageMetadata", "dev.langchain4j.model.googleai.GroundingMetadata" ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiGenerateContentResponse$GeminiCandidate",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ "dev.langchain4j.model.googleai.GeminiContent", "dev.langchain4j.model.googleai.GeminiGenerateContentResponse$GeminiCandidate$GeminiFinishReason", "dev.langchain4j.model.googleai.GeminiGenerateContentResponse$GeminiUrlContextMetadata", "dev.langchain4j.model.googleai.GroundingMetadata" ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiGenerateContentResponse$GeminiCandidate$GeminiFinishReason",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiGenerateContentResponse$GeminiUrlContextMetadata",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiGenerateContentResponse$GeminiUrlMetadata",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiGenerateContentResponse$GeminiUrlRetrievalStatus",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiGenerateContentResponse$GeminiUsageMetadata",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ "java.lang.Integer", "java.lang.Integer", "java.lang.Integer", "java.lang.Integer", "java.lang.Integer" ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiGenerationConfig",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "candidateCount",
-    "parameterTypes": [ ]
-  }, {
-    "name": "enableEnhancedCivicAnswers",
-    "parameterTypes": [ ]
-  }, {
-    "name": "frequencyPenalty",
-    "parameterTypes": [ ]
-  }, {
-    "name": "imageConfig",
-    "parameterTypes": [ ]
-  }, {
-    "name": "logprobs",
-    "parameterTypes": [ ]
-  }, {
-    "name": "maxOutputTokens",
-    "parameterTypes": [ ]
-  }, {
-    "name": "mediaResolution",
-    "parameterTypes": [ ]
-  }, {
-    "name": "presencePenalty",
-    "parameterTypes": [ ]
-  }, {
-    "name": "responseJsonSchema",
-    "parameterTypes": [ ]
-  }, {
-    "name": "responseLogprobs",
-    "parameterTypes": [ ]
-  }, {
-    "name": "responseMimeType",
-    "parameterTypes": [ ]
-  }, {
-    "name": "responseModalities",
-    "parameterTypes": [ ]
-  }, {
-    "name": "responseSchema",
-    "parameterTypes": [ ]
-  }, {
-    "name": "seed",
-    "parameterTypes": [ ]
-  }, {
-    "name": "stopSequences",
-    "parameterTypes": [ ]
-  }, {
-    "name": "temperature",
-    "parameterTypes": [ ]
-  }, {
-    "name": "thinkingConfig",
-    "parameterTypes": [ ]
-  }, {
-    "name": "topK",
-    "parameterTypes": [ ]
-  }, {
-    "name": "topP",
-    "parameterTypes": [ ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiGenerationConfig$GeminiImageConfig",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiMediaResolution",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiMediaResolutionLevel",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiSchema",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "getAnyOf",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getDescription",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getFormat",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getItems",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getMaxItems",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getNullable",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getProperties",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getRequired",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getType",
-    "parameterTypes": [ ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiThinkingConfig",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "includeThoughts",
-    "parameterTypes": [ ]
-  }, {
-    "name": "thinkingBudget",
-    "parameterTypes": [ ]
-  }, {
-    "name": "thinkingLevel",
-    "parameterTypes": [ ]
-  } ]
-}, {
-  "name": "dev.langchain4j.model.googleai.GeminiType",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GroundingMetadata",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GroundingMetadata$GroundingChunk",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GroundingMetadata$GroundingChunk$Maps",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GroundingMetadata$GroundingChunk$Maps$PlaceAnswerSources",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GroundingMetadata$GroundingChunk$Maps$ReviewSnippet",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GroundingMetadata$GroundingChunk$RetrievedContext",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GroundingMetadata$GroundingChunk$Web",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GroundingMetadata$GroundingSupport",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GroundingMetadata$RetrievalMetadata",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GroundingMetadata$SearchEntryPoint",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
-  "name": "dev.langchain4j.model.googleai.GroundingMetadata$Segment",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
-}, {
   "name": "dev.langchain4j.model.openai.internal.embedding.Embedding$Builder",
   "allDeclaredFields": true,
   "queryAllDeclaredMethods": true,
@@ -2153,16 +1563,16 @@
     "name": "handle with OpenAI provider shows models or helpful message",
     "parameterTypes": [ ]
   }, {
-    "name": "handle with custom provider settings uses them",
-    "parameterTypes": [ ]
-  }, {
     "name": "handle with different providers shows correct provider names",
     "parameterTypes": [ ]
   }, {
-    "name": "handle with empty provider settings map uses defaults",
+    "name": "handle with instance display name uses it as label",
     "parameterTypes": [ ]
   }, {
-    "name": "handle with null provider settings does not crash",
+    "name": "handle with no active instance uses factory defaults",
+    "parameterTypes": [ ]
+  }, {
+    "name": "handle with null active instance does not crash",
     "parameterTypes": [ ]
   }, {
     "name": "handle with unknown provider shows error",
@@ -3046,10 +2456,10 @@
   "queryAllDeclaredConstructors": true,
   "methods": [ {
     "name": "<init>",
-    "parameterTypes": [ "io.askimo.core.config.EmbeddingConfig", "io.askimo.core.config.RetryConfig", "io.askimo.core.config.ThrottleConfig", "io.askimo.core.config.IndexingConfig", "io.askimo.core.config.DeveloperConfig", "io.askimo.core.config.ChatConfig", "io.askimo.core.config.RagConfig", "io.askimo.core.config.ModelsConfig", "io.askimo.core.config.ProxyConfig", "io.askimo.core.config.AnalyticsConfig", "io.askimo.core.context.AppContextParams" ]
+    "parameterTypes": [ "io.askimo.core.config.EmbeddingConfig", "io.askimo.core.config.RetryConfig", "io.askimo.core.config.ThrottleConfig", "io.askimo.core.config.IndexingConfig", "io.askimo.core.config.DeveloperConfig", "io.askimo.core.config.ChatConfig", "io.askimo.core.config.RagConfig", "io.askimo.core.config.ModelsConfig", "io.askimo.core.config.ProxyConfig", "io.askimo.core.config.AnalyticsConfig", "io.askimo.core.config.WebSearchConfig", "io.askimo.core.context.AppContextParams", "java.lang.String" ]
   }, {
     "name": "<init>",
-    "parameterTypes": [ "io.askimo.core.config.EmbeddingConfig", "io.askimo.core.config.RetryConfig", "io.askimo.core.config.ThrottleConfig", "io.askimo.core.config.IndexingConfig", "io.askimo.core.config.DeveloperConfig", "io.askimo.core.config.ChatConfig", "io.askimo.core.config.RagConfig", "io.askimo.core.config.ModelsConfig", "io.askimo.core.config.ProxyConfig", "io.askimo.core.config.AnalyticsConfig", "io.askimo.core.context.AppContextParams", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
+    "parameterTypes": [ "io.askimo.core.config.EmbeddingConfig", "io.askimo.core.config.RetryConfig", "io.askimo.core.config.ThrottleConfig", "io.askimo.core.config.IndexingConfig", "io.askimo.core.config.DeveloperConfig", "io.askimo.core.config.ChatConfig", "io.askimo.core.config.RagConfig", "io.askimo.core.config.ModelsConfig", "io.askimo.core.config.ProxyConfig", "io.askimo.core.config.AnalyticsConfig", "io.askimo.core.config.WebSearchConfig", "io.askimo.core.context.AppContextParams", "java.lang.String", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
   }, {
     "name": "getAnalytics",
     "parameterTypes": [ ]
@@ -3058,6 +2468,9 @@
     "parameterTypes": [ ]
   }, {
     "name": "getContext",
+    "parameterTypes": [ ]
+  }, {
+    "name": "getCurrentLocale",
     "parameterTypes": [ ]
   }, {
     "name": "getDeveloper",
@@ -3082,6 +2495,9 @@
     "parameterTypes": [ ]
   }, {
     "name": "getThrottle",
+    "parameterTypes": [ ]
+  }, {
+    "name": "getWebSearch",
     "parameterTypes": [ ]
   } ]
 }, {
@@ -3222,18 +2638,15 @@
   "queryAllDeclaredConstructors": true,
   "methods": [ {
     "name": "<init>",
-    "parameterTypes": [ "int", "int", "java.lang.Integer" ]
+    "parameterTypes": [ "int", "int" ]
   }, {
     "name": "<init>",
-    "parameterTypes": [ "int", "int", "java.lang.Integer", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
+    "parameterTypes": [ "int", "int", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
   }, {
     "name": "getChunkOverlap",
     "parameterTypes": [ ]
   }, {
     "name": "getMaxCharsPerChunk",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getPreferredDim",
     "parameterTypes": [ ]
   } ]
 }, {
@@ -3273,10 +2686,10 @@
   "queryAllDeclaredConstructors": true,
   "methods": [ {
     "name": "<init>",
-    "parameterTypes": [ "long", "int", "io.askimo.core.config.FilterConfig", "java.util.Set", "java.util.Set", "java.util.Set", "java.util.Set", "java.util.List", "java.util.Set" ]
+    "parameterTypes": [ "long", "int", "int", "io.askimo.core.config.FilterConfig", "java.util.Set", "java.util.Set", "java.util.Set", "java.util.Set", "java.util.List", "java.util.Set" ]
   }, {
     "name": "<init>",
-    "parameterTypes": [ "long", "int", "io.askimo.core.config.FilterConfig", "java.util.Set", "java.util.Set", "java.util.Set", "java.util.Set", "java.util.List", "java.util.Set", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
+    "parameterTypes": [ "long", "int", "int", "io.askimo.core.config.FilterConfig", "java.util.Set", "java.util.Set", "java.util.Set", "java.util.Set", "java.util.List", "java.util.Set", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
   }, {
     "name": "getBinaryExtensions",
     "parameterTypes": [ ]
@@ -3288,6 +2701,9 @@
     "parameterTypes": [ ]
   }, {
     "name": "getCustomExcludes",
+    "parameterTypes": [ ]
+  }, {
+    "name": "getEmbeddingBatchSize",
     "parameterTypes": [ ]
   }, {
     "name": "getExcludeFileNames",
@@ -3512,6 +2928,39 @@
     "parameterTypes": [ ]
   } ]
 }, {
+  "name": "io.askimo.core.config.WebSearchBackend",
+  "allDeclaredFields": true,
+  "queryAllDeclaredMethods": true
+}, {
+  "name": "io.askimo.core.config.WebSearchConfig",
+  "allDeclaredFields": true,
+  "queryAllDeclaredMethods": true,
+  "queryAllDeclaredConstructors": true,
+  "methods": [ {
+    "name": "<init>",
+    "parameterTypes": [ "io.askimo.core.config.WebSearchBackend", "java.lang.String", "boolean", "java.lang.String", "java.lang.String" ]
+  }, {
+    "name": "<init>",
+    "parameterTypes": [ "io.askimo.core.config.WebSearchBackend", "java.lang.String", "boolean", "java.lang.String", "java.lang.String", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
+  }, {
+    "name": "getBackend",
+    "parameterTypes": [ ]
+  }, {
+    "name": "getBraveApiKey",
+    "parameterTypes": [ ]
+  }, {
+    "name": "getEnabled",
+    "parameterTypes": [ ]
+  }, {
+    "name": "getSearxngEndpoint",
+    "parameterTypes": [ ]
+  }, {
+    "name": "getTavilyApiKey",
+    "parameterTypes": [ ]
+  } ]
+}, {
+  "name": "io.askimo.core.config.WebSearchConfig$Companion"
+}, {
   "name": "io.askimo.core.context.AppContext",
   "allDeclaredFields": true,
   "allDeclaredClasses": true,
@@ -3525,6 +2974,9 @@
     "parameterTypes": [ ]
   }, {
     "name": "createUtilityClient",
+    "parameterTypes": [ ]
+  }, {
+    "name": "getActiveInstance",
     "parameterTypes": [ ]
   }, {
     "name": "getActiveProvider",
@@ -3544,22 +2996,31 @@
     "parameterTypes": [ ]
   }, {
     "name": "<init>",
-    "parameterTypes": [ "io.askimo.core.providers.ModelProvider", "java.util.Map" ]
+    "parameterTypes": [ "java.lang.String", "java.util.List" ]
   }, {
     "name": "<init>",
-    "parameterTypes": [ "io.askimo.core.providers.ModelProvider", "java.util.Map", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
+    "parameterTypes": [ "java.lang.String", "java.util.List", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
   }, {
-    "name": "getCurrentProvider",
+    "name": "getActiveInstance",
+    "parameterTypes": [ ]
+  }, {
+    "name": "getActiveProviderType",
+    "parameterTypes": [ ]
+  }, {
+    "name": "getCurrentInstanceId",
+    "parameterTypes": [ ]
+  }, {
+    "name": "getInstancesByType",
     "parameterTypes": [ ]
   }, {
     "name": "getModel",
     "parameterTypes": [ ]
   }, {
-    "name": "getProviderSettings",
+    "name": "getProviderInstances",
     "parameterTypes": [ ]
   }, {
-    "name": "setCurrentProvider",
-    "parameterTypes": [ "io.askimo.core.providers.ModelProvider" ]
+    "name": "setCurrentInstanceId",
+    "parameterTypes": [ "java.lang.String" ]
   }, {
     "name": "setModel",
     "parameterTypes": [ "java.lang.String" ]
@@ -4635,6 +4096,18 @@
     "name": "<init>",
     "parameterTypes": [ ]
   }, {
+    "name": "default token estimator uses 1_75 multiplier",
+    "parameterTypes": [ ]
+  }, {
+    "name": "mergeWithExistingSummary caps keyFacts at MAX_KEY_FACTS",
+    "parameterTypes": [ ]
+  }, {
+    "name": "mergeWithExistingSummary caps mainTopics at MAX_MAIN_TOPICS",
+    "parameterTypes": [ ]
+  }, {
+    "name": "mergeWithExistingSummary refreshes position of updated key",
+    "parameterTypes": [ ]
+  }, {
     "name": "setup",
     "parameterTypes": [ ]
   }, {
@@ -4689,6 +4162,9 @@
     "name": "should merge summaries when multiple summarizations occur",
     "parameterTypes": [ ]
   }, {
+    "name": "should not summarize when all messages are within protected window",
+    "parameterTypes": [ ]
+  }, {
     "name": "should not trigger summarization below threshold",
     "parameterTypes": [ ]
   }, {
@@ -4696,6 +4172,9 @@
     "parameterTypes": [ ]
   }, {
     "name": "should preserve system messages during summarization",
+    "parameterTypes": [ ]
+  }, {
+    "name": "should prune only non-protected messages",
     "parameterTypes": [ ]
   }, {
     "name": "should serialize and deserialize memory state correctly",
@@ -4725,7 +4204,7 @@
     "parameterTypes": [ "dev.langchain4j.data.message.UserMessage", "dev.langchain4j.model.chat.request.ChatRequestParameters" ]
   } ]
 }, {
-  "name": "io.askimo.core.providers.ChatClient$MockitoMock$aZzJ0eSM",
+  "name": "io.askimo.core.providers.ChatClient$MockitoMock$O2zoLVzp",
   "queryAllDeclaredConstructors": true,
   "methods": [ {
     "name": "<init>",
@@ -4840,6 +4319,29 @@
 }, {
   "name": "io.askimo.core.providers.ProviderConfigField"
 }, {
+  "name": "io.askimo.core.providers.ProviderInstance",
+  "allDeclaredFields": true,
+  "queryAllDeclaredMethods": true,
+  "queryAllDeclaredConstructors": true,
+  "methods": [ {
+    "name": "<init>",
+    "parameterTypes": [ "java.lang.String", "java.lang.String", "io.askimo.core.providers.ModelProvider", "io.askimo.core.providers.ProviderSettings" ]
+  }, {
+    "name": "getDisplayName",
+    "parameterTypes": [ ]
+  }, {
+    "name": "getId",
+    "parameterTypes": [ ]
+  }, {
+    "name": "getProviderType",
+    "parameterTypes": [ ]
+  }, {
+    "name": "getSettings",
+    "parameterTypes": [ ]
+  } ]
+}, {
+  "name": "io.askimo.core.providers.ProviderInstance$Companion"
+}, {
   "name": "io.askimo.core.providers.ProviderSettings",
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
@@ -4861,23 +4363,7 @@
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
   "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "availableModelsReturnsModelsWithApiKey",
-    "parameterTypes": [ ]
-  }, {
-    "name": "canCreateChatServiceAndStream",
-    "parameterTypes": [ ]
-  }, {
-    "name": "defaultSettingsTest",
-    "parameterTypes": [ ]
-  }, {
-    "name": "setUp",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllDeclaredConstructors": true
 }, {
   "name": "io.askimo.core.providers.anthropic.AnthropicSettings"
 }, {
@@ -4888,28 +4374,32 @@
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
   "queryAllPublicMethods": true,
+  "queryAllDeclaredConstructors": true
+}, {
+  "name": "io.askimo.core.providers.gemini.GeminiSettings",
+  "allDeclaredFields": true,
+  "queryAllDeclaredMethods": true,
   "queryAllDeclaredConstructors": true,
   "methods": [ {
     "name": "<init>",
+    "parameterTypes": [ "java.lang.String", "java.lang.String", "java.lang.String" ]
+  }, {
+    "name": "getApiKey",
     "parameterTypes": [ ]
   }, {
-    "name": "availableModelsReturnsModelsWithApiKey",
+    "name": "getBaseUrl",
     "parameterTypes": [ ]
   }, {
-    "name": "canCallCountEntriesTool",
+    "name": "getDefaultModel",
     "parameterTypes": [ ]
   }, {
-    "name": "canCreateChatServiceAndStream",
-    "parameterTypes": [ ]
-  }, {
-    "name": "defaultSettingsTest",
-    "parameterTypes": [ ]
-  }, {
-    "name": "setUp",
-    "parameterTypes": [ ]
+    "name": "setApiKey",
+    "parameterTypes": [ "java.lang.String" ]
   } ]
 }, {
-  "name": "io.askimo.core.providers.gemini.GeminiSettings"
+  "name": "io.askimo.core.providers.gemini.GeminiSettings$$serializer"
+}, {
+  "name": "io.askimo.core.providers.gemini.GeminiSettings$Companion"
 }, {
   "name": "io.askimo.core.providers.lmstudio.LmStudioSettings"
 }, {
@@ -4942,76 +4432,14 @@
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
   "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "canConfigureHttpProxy",
-    "parameterTypes": [ ]
-  }, {
-    "name": "canConfigureHttpsProxy",
-    "parameterTypes": [ ]
-  }, {
-    "name": "canConfigureProxyAuth",
-    "parameterTypes": [ ]
-  }, {
-    "name": "canConfigureSocks5Proxy",
-    "parameterTypes": [ ]
-  }, {
-    "name": "modelListRespectsProxy",
-    "parameterTypes": [ ]
-  }, {
-    "name": "proxyConfigPersistsAcrossRequests",
-    "parameterTypes": [ ]
-  }, {
-    "name": "setUp",
-    "parameterTypes": [ ]
-  }, {
-    "name": "streamingModelRespectsProxy",
-    "parameterTypes": [ ]
-  }, {
-    "name": "tearDown",
-    "parameterTypes": [ ]
-  }, {
-    "name": "utilityModelRespectsProxy",
-    "parameterTypes": [ ]
-  }, {
-    "name": "worksWithNoProxy",
-    "parameterTypes": [ ]
-  }, {
-    "name": "worksWithSystemProxy",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllDeclaredConstructors": true
 }, {
   "name": "io.askimo.core.providers.openai.OpenAiModelFactoryTest",
   "allDeclaredFields": true,
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
   "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "availableModelsReturnsEmptyListWithoutApiKey",
-    "parameterTypes": [ ]
-  }, {
-    "name": "availableModelsReturnsModelsWithApiKey",
-    "parameterTypes": [ ]
-  }, {
-    "name": "canCallCountEntriesTool",
-    "parameterTypes": [ ]
-  }, {
-    "name": "canCreateChatServiceAndStream",
-    "parameterTypes": [ ]
-  }, {
-    "name": "defaultSettingsTest",
-    "parameterTypes": [ ]
-  }, {
-    "name": "setUp",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllDeclaredConstructors": true
 }, {
   "name": "io.askimo.core.providers.openai.OpenAiSettings",
   "allDeclaredFields": true,
@@ -5046,29 +4474,7 @@
   "allDeclaredClasses": true,
   "queryAllDeclaredMethods": true,
   "queryAllPublicMethods": true,
-  "queryAllDeclaredConstructors": true,
-  "methods": [ {
-    "name": "<init>",
-    "parameterTypes": [ ]
-  }, {
-    "name": "availableModelsReturnsEmptyListWithoutApiKey",
-    "parameterTypes": [ ]
-  }, {
-    "name": "availableModelsReturnsModelsWithApiKey",
-    "parameterTypes": [ ]
-  }, {
-    "name": "canCallCountEntriesTool",
-    "parameterTypes": [ ]
-  }, {
-    "name": "canCreateChatServiceAndStream",
-    "parameterTypes": [ ]
-  }, {
-    "name": "defaultSettingsTest",
-    "parameterTypes": [ ]
-  }, {
-    "name": "setUp",
-    "parameterTypes": [ ]
-  } ]
+  "queryAllDeclaredConstructors": true
 }, {
   "name": "io.askimo.core.providers.xai.XAiSettings"
 }, {
@@ -5579,7 +4985,7 @@
     "name": "testLoadSessionWithEmptyApiKeys",
     "parameterTypes": [ ]
   }, {
-    "name": "testMultipleProvidersWithApiKeys",
+    "name": "testMultipleInstancesWithApiKeys",
     "parameterTypes": [ ]
   }, {
     "name": "testPreserveNonApiKeySettings",
@@ -5598,6 +5004,9 @@
     "parameterTypes": [ ]
   }, {
     "name": "testStorageSecurityDescriptions",
+    "parameterTypes": [ ]
+  }, {
+    "name": "testTwoInstancesSameProviderType",
     "parameterTypes": [ ]
   } ]
 }, {
@@ -6164,10 +5573,7 @@
     "parameterTypes": [ ]
   } ]
 }, {
-  "name": "java.lang.Double",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true,
-  "queryAllDeclaredConstructors": true
+  "name": "java.lang.Double"
 }, {
   "name": "java.lang.Enum",
   "allDeclaredFields": true,
@@ -6270,10 +5676,6 @@
     "name": "pid",
     "parameterTypes": [ ]
   } ]
-}, {
-  "name": "java.lang.Record",
-  "allDeclaredFields": true,
-  "queryAllDeclaredMethods": true
 }, {
   "name": "java.lang.Runtime",
   "methods": [ {
@@ -6572,15 +5974,6 @@
     "parameterTypes": [ ]
   } ]
 }, {
-  "name": "java.lang.reflect.RecordComponent",
-  "methods": [ {
-    "name": "getName",
-    "parameterTypes": [ ]
-  }, {
-    "name": "getType",
-    "parameterTypes": [ ]
-  } ]
-}, {
   "name": "java.lang.reflect.TypeVariable",
   "methods": [ {
     "name": "getAnnotatedBounds",
@@ -6706,7 +6099,7 @@
   "queryAllDeclaredMethods": true,
   "queryAllDeclaredConstructors": true
 }, {
-  "name": "java.util.ImmutableCollections$Map1",
+  "name": "java.util.ImmutableCollections$MapN",
   "allDeclaredFields": true,
   "queryAllDeclaredMethods": true,
   "queryAllDeclaredConstructors": true
@@ -7471,7 +6864,7 @@
     "parameterTypes": [ ]
   } ]
 }, {
-  "name": "org.jline.reader.ParsedLine$MockitoMock$S3CVh7fr",
+  "name": "org.jline.reader.ParsedLine$MockitoMock$2ZmAkecx",
   "queryAllDeclaredConstructors": true,
   "methods": [ {
     "name": "<init>",

@@ -4,7 +4,6 @@
  */
 package io.askimo.test.extensions
 
-import io.askimo.core.providers.ModelProvider
 import io.askimo.core.security.SecureSessionManager
 
 /**
@@ -12,5 +11,5 @@ import io.askimo.core.security.SecureSessionManager
  * to prevent test runs from reading or overwriting a developer's real API keys in the keychain.
  */
 class TestSecureSessionManager : SecureSessionManager() {
-    override fun providerKey(provider: ModelProvider): String = "test_${provider.name.lowercase()}"
+    override fun instanceKey(instanceId: String): String = "test_instance.$instanceId"
 }

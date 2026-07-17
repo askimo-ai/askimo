@@ -55,4 +55,47 @@ object ProviderRegistry {
 
     /** Returns the set of providers that currently have a registered factory. */
     fun getSupportedProviders(): Set<ModelProvider> = factories.keys
+
+    // ── Instance factory helpers ─────────────────────────────────────────────────────────────
+
+    /**
+     * Creates a new [ProviderInstance] for [providerType] with a randomly generated UUID.
+     *
+     * @param providerType  The provider type — must have a registered factory.
+     * @param displayName   User-visible name (e.g. `"Work OpenAI"`, `"ollama-macbook"`).
+     *                      Defaults to the canonical provider key (e.g. `"openai"`).
+     * @param settings      Optional override settings. When null, the factory's
+     *                      [ChatModelFactory.defaultSettings] are used.
+     * @return A fully initialised [ProviderInstance] ready to add to [AppContextParams].
+     */
+    fun createInstance(
+        providerType: ModelProvider,
+        displayName: String = providerType.providerKey(),
+        settings: ProviderSettings? = null,
+    ): ProviderInstance = ProviderInstance.create(
+        displayName = displayName,
+        providerType = providerType,
+        settings = settings,
+    )
+
+    /**
+     * Returns a human-readable display name for a provider type, suitable for use as a
+     * type badge in the UI (e.g. next to an instance name in the provider switcher).
+     *
+     * Examples: `OPENAI` → `"OpenAI"`, `OPENAI_COMPATIBLE` → `"OpenAI Compatible"`,
+     * `LMSTUDIO` → `"LM Studio"`.
+     */
+    fun getProviderDisplayName(provider: ModelProvider): String = when (provider) {
+        ModelProvider.OPENAI -> "OpenAI"
+        ModelProvider.XAI -> "xAI"
+        ModelProvider.GEMINI -> "Gemini"
+        ModelProvider.OLLAMA -> "Ollama"
+        ModelProvider.DOCKER -> "Docker AI"
+        ModelProvider.ANTHROPIC -> "Anthropic"
+        ModelProvider.LOCALAI -> "LocalAI"
+        ModelProvider.LMSTUDIO -> "LM Studio"
+        ModelProvider.OPENAI_COMPATIBLE -> "OpenAI Compatible"
+        ModelProvider.ASKIMO_PRO -> "Askimo Pro"
+        ModelProvider.UNKNOWN -> "Unknown"
+    }
 }

@@ -19,10 +19,15 @@ import java.time.Instant
 data class ModelChangedEvent(
     val provider: ModelProvider,
     val newModel: String,
+    /**
+     * Stable ID of the [io.askimo.core.providers.ProviderInstance] that was changed.
+     * Empty string for legacy callers that have not yet been migrated to instance-aware code.
+     */
+    val instanceId: String = "",
     override val timestamp: Instant = Instant.now(),
     override val source: EventSource = EventSource.SYSTEM,
 ) : Event {
     override val type = EventType.INTERNAL
 
-    override fun getDetails() = "Model changed to $newModel for provider $provider"
+    override fun getDetails() = "Model changed to $newModel for provider $provider (instance=$instanceId)"
 }

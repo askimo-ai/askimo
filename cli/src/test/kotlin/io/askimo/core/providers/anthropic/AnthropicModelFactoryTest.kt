@@ -10,6 +10,7 @@ import io.askimo.core.context.AppContextParams
 import io.askimo.core.context.ExecutionMode
 import io.askimo.core.providers.ChatClient
 import io.askimo.core.providers.ModelProvider
+import io.askimo.core.providers.ProviderInstance
 import io.askimo.core.providers.TestToolProviderFactory
 import io.askimo.core.providers.sendStreamingMessageWithCallback
 import io.askimo.test.extensions.AskimoTestHome
@@ -36,10 +37,15 @@ class AnthropicModelFactoryTest {
     @BeforeEach
     fun setUp() {
         AppContext.reset()
+        val instance = ProviderInstance.create(
+            displayName = "Anthropic",
+            providerType = ModelProvider.ANTHROPIC,
+        )
         AppContext.initialize(
             mode = ExecutionMode.STATELESS_MODE,
             AppContextParams(
-                currentProvider = ModelProvider.ANTHROPIC,
+                currentInstanceId = instance.id,
+                providerInstances = mutableListOf(instance),
             ),
         )
     }

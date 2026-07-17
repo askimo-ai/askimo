@@ -11,8 +11,6 @@
     }, {
       "pattern": "\\QMETA-INF/services/dev.langchain4j.http.client.HttpClientBuilderFactory\\E"
     }, {
-      "pattern": "\\QMETA-INF/services/dev.langchain4j.model.anthropic.internal.client.AnthropicClientBuilderFactory\\E"
-    }, {
       "pattern": "\\QMETA-INF/services/dev.langchain4j.model.openai.internal.spi.OpenAiClientBuilderFactory\\E"
     }, {
       "pattern": "\\QMETA-INF/services/dev.langchain4j.model.openai.spi.OpenAiEmbeddingModelBuilderFactory\\E"

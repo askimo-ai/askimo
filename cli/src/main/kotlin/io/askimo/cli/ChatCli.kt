@@ -110,7 +110,7 @@ fun main(args: Array<String>) {
         listOf(
             HelpCommandHandler(),
             ConfigCommandHandler(appContext),
-            ListProvidersCommandHandler(),
+            ListProvidersCommandHandler(appContext),
             SetProviderCommandHandler(appContext),
             ModelsCommandHandler(appContext),
             ParamsCommandHandler(appContext),

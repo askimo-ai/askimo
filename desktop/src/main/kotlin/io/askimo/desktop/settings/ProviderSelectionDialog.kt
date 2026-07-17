@@ -9,6 +9,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,23 +17,20 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Help
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -45,618 +43,444 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ProviderConfigField
+import io.askimo.core.providers.ProviderRegistry
 import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
-import io.askimo.ui.common.theme.AppComponents.alertDialog
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.clickableCard
 import java.awt.Desktop
 import java.net.URI
 
+// ── Dialog: Provider wizard (add & edit) ──────────────────────────────────────────────────
+
 @Composable
-fun providerSelectionDialog(
-    viewModel: SettingsViewModel,
-    onDismiss: () -> Unit,
-    onSave: () -> Unit,
-) {
-    alertDialog(
-        onDismissRequest = onDismiss,
+fun providerWizardDialog(viewModel: SettingsViewModel) {
+    val title = when (viewModel.wizardStep) {
+        WizardStep.MODEL -> stringResource("settings.model.select.title")
+
+        WizardStep.TYPE_PICKER -> stringResource("provider.type.picker.title")
+
+        WizardStep.CONFIG -> {
+            if (viewModel.isAddingNewInstance) {
+                stringResource("provider.configure.new.title", ProviderRegistry.getProviderDisplayName(viewModel.selectedProvider!!))
+            } else {
+                stringResource("provider.edit.title", viewModel.editingInstance?.displayName ?: "")
+            }
+        }
+    }
+
+    AppComponents.scaffoldDialog(
+        onDismissRequest = { viewModel.closeProviderWizard() },
+        onCloseRequest = { viewModel.closeProviderWizard() },
         title = {
-            Text(
-                text = if (viewModel.showModelSelectionInProviderDialog) {
-                    stringResource("settings.model.select.title")
-                } else if (viewModel.isInitialSetup) {
-                    stringResource("provider.select.title")
-                } else {
-                    stringResource("provider.change.title")
-                },
-                style = MaterialTheme.typography.headlineSmall,
-            )
+            Text(text = title, style = MaterialTheme.typography.headlineSmall)
         },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(0.dp),
-            ) {
-                if (viewModel.showModelSelectionInProviderDialog) {
-                    var searchQuery by remember { mutableStateOf("") }
+        actions = {
+            // Left side: testing indicator + Cancel
+            if (viewModel.wizardStep == WizardStep.CONFIG && viewModel.isFetchingModelsForConfig) {
+                val infiniteTransition = rememberInfiniteTransition(label = "dots")
+                val tick by infiniteTransition.animateFloat(
+                    initialValue = 0f,
+                    targetValue = 4f,
+                    animationSpec = infiniteRepeatable(animation = tween(1_200, easing = LinearEasing)),
+                    label = "dots_tick",
+                )
+                val dots = ".".repeat((tick.toInt() % 4).coerceAtLeast(1))
+                Text(
+                    text = stringResource("settings.test.connection.testing") + dots,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.width(Spacing.small))
+            }
+            secondaryButton(onClick = { viewModel.closeProviderWizard() }) {
+                Text(stringResource("settings.cancel"))
+            }
 
-                    val filteredModels = remember(viewModel.availableModels, searchQuery) {
-                        if (searchQuery.isBlank()) {
-                            viewModel.availableModels
-                        } else {
-                            viewModel.availableModels.filter {
-                                it.displayName.contains(searchQuery, ignoreCase = true) ||
-                                    it.modelId.contains(searchQuery, ignoreCase = true)
-                            }
-                        }
-                    }
+            Spacer(Modifier.weight(1f))
 
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.large),
-                    ) {
-                        when {
-                            viewModel.isLoadingModels -> {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    CircularProgressIndicator(
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                    Text(
-                                        text = stringResource("settings.model.loading"),
-                                        modifier = Modifier.padding(start = Spacing.large),
-                                    )
-                                }
-                            }
-
-                            viewModel.modelError != null -> {
-                                Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
-                                    Text(
-                                        text = viewModel.modelError ?: "",
-                                        color = MaterialTheme.colorScheme.error,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                    )
-                                    viewModel.modelErrorHelp?.let { helpText ->
-                                        Card(colors = AppComponents.surfaceVariantCardColors()) {
-                                            Text(
-                                                text = helpText,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                modifier = Modifier.padding(Spacing.medium),
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            viewModel.availableModels.isEmpty() -> {
-                                Text(
-                                    text = stringResource("settings.model.none"),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-
-                            else -> {
-                                Text(
-                                    text = stringResource("settings.model.select", viewModel.selectedProvider?.name ?: ""),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
-
-                                // Selected model display (if any)
-                                if (viewModel.pendingModelForNewProvider != null) {
-                                    Card(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = AppComponents.surfaceVariantCardColors(),
-                                    ) {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(Spacing.large),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            Column(modifier = Modifier.weight(1f)) {
-                                                Text(
-                                                    text = stringResource("settings.model.selected"),
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                )
-                                                Text(
-                                                    text = viewModel.pendingModelForNewProvider ?: "",
-                                                    style = MaterialTheme.typography.bodyLarge,
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Simple search field
-                                OutlinedTextField(
-                                    value = searchQuery,
-                                    onValueChange = { searchQuery = it },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    placeholder = { Text(stringResource("settings.model.search.placeholder")) },
-                                    label = { Text(stringResource("settings.model.search")) },
-                                    singleLine = true,
-                                    colors = AppComponents.outlinedTextFieldColors(),
-                                )
-
-                                // Filtered models list
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .heightIn(max = 400.dp)
-                                        .verticalScroll(rememberScrollState()),
-                                ) {
-                                    if (filteredModels.isEmpty()) {
-                                        Text(
-                                            text = stringResource("settings.model.no.match"),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(Spacing.large),
-                                        )
-                                    } else {
-                                        if (searchQuery.isNotBlank()) {
-                                            Text(
-                                                text = stringResource("settings.model.filtered", filteredModels.size, viewModel.availableModels.size),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.padding(bottom = Spacing.small),
-                                            )
-                                        }
-
-                                        // Display grouped models using shared component
-                                        groupedModelListAsCards(
-                                            models = filteredModels,
-                                            selectedModelId = viewModel.pendingModelForNewProvider,
-                                            onModelClick = { model ->
-                                                viewModel.selectModelForNewProvider(model)
-                                            },
-                                            showHeaders = true,
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    // Steps 1 & 2: Provider selection and configuration
-                    var providerDropdownExpanded by remember { mutableStateOf(false) }
-
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = AppComponents.bannerCardColors(),
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(Spacing.large),
-                            verticalArrangement = Arrangement.spacedBy(Spacing.large),
-                        ) {
-                            // Step 1: Provider selection dropdown
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-                            ) {
-                                Text(
-                                    text = stringResource("provider.select.prompt"),
-                                    style = MaterialTheme.typography.titleMedium,
-                                )
-
-                                Box(modifier = Modifier.fillMaxWidth()) {
-                                    Card(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickableCard { providerDropdownExpanded = true },
-                                        colors = CardDefaults.cardColors(
-                                            containerColor = MaterialTheme.colorScheme.surface,
-                                        ),
-                                    ) {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(Spacing.medium),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            Text(
-                                                text = viewModel.selectedProvider?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: stringResource("provider.choose.placeholder"),
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                            )
-                                            Icon(
-                                                Icons.Default.Edit,
-                                                contentDescription = "Select provider",
-                                                tint = MaterialTheme.colorScheme.onSurface,
-                                            )
-                                        }
-                                    }
-
-                                    AppComponents.dropdownMenu(
-                                        expanded = providerDropdownExpanded,
-                                        onDismissRequest = { providerDropdownExpanded = false },
-                                    ) {
-                                        viewModel.availableProviders.forEach { provider ->
-                                            DropdownMenuItem(
-                                                text = {
-                                                    Text(
-                                                        text = provider.name.lowercase().replaceFirstChar { it.uppercase() },
-                                                        style = MaterialTheme.typography.bodyLarge,
-                                                    )
-                                                },
-                                                onClick = {
-                                                    viewModel.selectProviderForChange(provider)
-                                                    providerDropdownExpanded = false
-                                                },
-                                                leadingIcon = if (viewModel.selectedProvider == provider) {
-                                                    {
-                                                        Icon(
-                                                            Icons.Default.CheckCircle,
-                                                            contentDescription = "Selected",
-                                                            tint = MaterialTheme.colorScheme.onSurface,
-                                                        )
-                                                    }
-                                                } else {
-                                                    null
-                                                },
-                                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Help link for provider setup instructions
-                            if (viewModel.selectedProvider != null) {
-                                linkButton(
-                                    onClick = {
-                                        try {
-                                            val providerName = viewModel.selectedProvider?.name?.lowercase() ?: return@linkButton
-                                            Desktop.getDesktop().browse(
-                                                URI("https://$DOMAIN/docs/desktop/providers/$providerName/"),
-                                            )
-                                        } catch (_: Exception) {
-                                            // Silently fail if browser cannot be opened
-                                        }
-                                    },
-                                    modifier = Modifier.padding(0.dp),
-                                ) {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.Help,
-                                        contentDescription = "Help",
-                                        modifier = Modifier.size(16.dp),
-                                    )
-                                    Spacer(modifier = Modifier.width(Spacing.extraSmall))
-                                    Text(
-                                        text = stringResource("provider.setup.guide", viewModel.selectedProvider?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: ""),
-                                        style = MaterialTheme.typography.bodySmall,
-                                    )
-                                }
-                            }
-
-                            // Step 2: Configuration fields (shown after provider is selected)
-                            if (viewModel.selectedProvider != null && viewModel.providerConfigFields.isNotEmpty()) {
-                                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.small))
-
-                                Text(
-                                    text = stringResource("provider.configure.prompt"),
-                                    style = MaterialTheme.typography.titleMedium,
-                                )
-
-                                viewModel.providerConfigFields.forEach { field ->
-                                    when (field) {
-                                        is ProviderConfigField.InfoField -> {
-                                            Card(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                colors = CardDefaults.cardColors(
-                                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                                ),
-                                            ) {
-                                                Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(Spacing.medium),
-                                                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                                                    verticalAlignment = Alignment.Top,
-                                                ) {
-                                                    Icon(
-                                                        Icons.Default.Info,
-                                                        contentDescription = "Info",
-                                                        modifier = Modifier.size(16.dp),
-                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    )
-                                                    Text(
-                                                        text = field.message,
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    )
-                                                }
-                                            }
-                                        }
-
-                                        else -> {
-                                            Column(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-                                            ) {
-                                                Text(
-                                                    text = field.label + if (field.required) " *" else "",
-                                                    style = MaterialTheme.typography.labelLarge,
-                                                )
-                                                Text(
-                                                    text = field.description,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                )
-
-                                                when (field) {
-                                                    is ProviderConfigField.ApiKeyField -> {
-                                                        OutlinedTextField(
-                                                            value = viewModel.providerFieldValues[field.name] ?: "",
-                                                            onValueChange = { viewModel.updateProviderField(field.name, it) },
-                                                            modifier = Modifier.fillMaxWidth(),
-                                                            singleLine = true,
-                                                            visualTransformation = PasswordVisualTransformation(),
-                                                            placeholder = {
-                                                                Text(
-                                                                    if (field.hasExistingValue) {
-                                                                        stringResource("provider.apikey.stored")
-                                                                    } else {
-                                                                        stringResource("provider.apikey.enter")
-                                                                    },
-                                                                )
-                                                            },
-                                                            trailingIcon = {
-                                                                Row {
-                                                                    if (field.hasExistingValue) {
-                                                                        Icon(
-                                                                            Icons.Default.CheckCircle,
-                                                                            contentDescription = stringResource("provider.apikey.already.stored"),
-                                                                            tint = MaterialTheme.colorScheme.onSurface,
-                                                                        )
-                                                                    }
-                                                                    Spacer(modifier = Modifier.width(8.dp))
-                                                                    Icon(Icons.Default.Lock, contentDescription = "Password")
-                                                                }
-                                                            },
-                                                            colors = AppComponents.outlinedTextFieldColors(),
-                                                        )
-
-                                                        // Security assurance message
-                                                        Card(
-                                                            modifier = Modifier
-                                                                .fillMaxWidth()
-                                                                .padding(top = Spacing.small),
-                                                            colors = CardDefaults.cardColors(
-                                                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                                            ),
-                                                        ) {
-                                                            Column(
-                                                                modifier = Modifier
-                                                                    .fillMaxWidth()
-                                                                    .padding(Spacing.medium),
-                                                                verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-                                                            ) {
-                                                                Text(
-                                                                    text = stringResource("provider.apikey.security.message"),
-                                                                    style = MaterialTheme.typography.bodySmall,
-                                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                                )
-                                                                linkButton(
-                                                                    onClick = {
-                                                                        try {
-                                                                            Desktop.getDesktop().browse(
-                                                                                URI("https://$DOMAIN/security/"),
-                                                                            )
-                                                                        } catch (_: Exception) {
-                                                                            // Silently fail if browser cannot be opened
-                                                                        }
-                                                                    },
-                                                                    modifier = Modifier.padding(0.dp),
-                                                                ) {
-                                                                    Text(
-                                                                        text = stringResource("provider.apikey.security.link"),
-                                                                        style = MaterialTheme.typography.bodySmall,
-                                                                    )
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-
-                                                    is ProviderConfigField.BaseUrlField -> {
-                                                        OutlinedTextField(
-                                                            value = viewModel.providerFieldValues[field.name] ?: "",
-                                                            onValueChange = { viewModel.updateProviderField(field.name, it) },
-                                                            modifier = Modifier.fillMaxWidth(),
-                                                            singleLine = true,
-                                                            placeholder = { Text(stringResource("settings.placeholder.baseurl")) },
-                                                            colors = AppComponents.outlinedTextFieldColors(),
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    } // when (field)
-                                }
-
-                                // Connection error display
-                                if (viewModel.connectionError != null) {
-                                    Card(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = CardDefaults.cardColors(
-                                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                                        ),
-                                    ) {
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(Spacing.medium),
-                                            verticalArrangement = Arrangement.spacedBy(Spacing.small),
-                                        ) {
-                                            Row(
-                                                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                                                verticalAlignment = Alignment.Top,
-                                            ) {
-                                                Icon(
-                                                    Icons.Default.Warning,
-                                                    contentDescription = "Error",
-                                                    tint = MaterialTheme.colorScheme.error,
-                                                )
-                                                Column {
-                                                    Text(
-                                                        text = viewModel.connectionError ?: "",
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        color = MaterialTheme.colorScheme.onErrorContainer,
-                                                    )
-                                                    if (viewModel.connectionErrorHelp != null) {
-                                                        Spacer(modifier = Modifier.height(Spacing.extraSmall))
-                                                        Text(
-                                                            text = viewModel.connectionErrorHelp ?: "",
-                                                            style = MaterialTheme.typography.bodySmall,
-                                                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f),
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Embedding model warning (only relevant for RAG features)
-                                if (viewModel.embeddingModelWarning != null) {
-                                    Card(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = CardDefaults.cardColors(
-                                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                                        ),
-                                    ) {
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(Spacing.medium),
-                                            verticalArrangement = Arrangement.spacedBy(Spacing.small),
-                                        ) {
-                                            Row(
-                                                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                                                verticalAlignment = Alignment.Top,
-                                            ) {
-                                                Icon(
-                                                    Icons.Default.Info,
-                                                    contentDescription = "Info",
-                                                    tint = MaterialTheme.colorScheme.tertiary,
-                                                )
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Text(
-                                                        text = stringResource("settings.embedding.rag_feature_only"),
-                                                        style = MaterialTheme.typography.titleSmall,
-                                                        color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                                    )
-                                                    Spacer(modifier = Modifier.height(Spacing.extraSmall))
-                                                    Text(
-                                                        text = viewModel.embeddingModelWarning ?: "",
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.9f),
-                                                    )
-                                                }
-                                            }
-
-                                            // Show download button for Ollama if model can be pulled
-                                            if (viewModel.canPullEmbeddingModel && viewModel.embeddingModelProvider == "OLLAMA") {
-                                                primaryButton(
-                                                    onClick = {
-                                                        val baseUrl = viewModel.providerFieldValues["baseUrl"] ?: ""
-                                                        if (baseUrl.isNotBlank()) {
-                                                            viewModel.pullEmbeddingModel(ModelProvider.OLLAMA, baseUrl)
-                                                        }
-                                                    },
-                                                    enabled = !viewModel.isCheckingEmbeddingModel,
-                                                ) {
-                                                    if (viewModel.isCheckingEmbeddingModel) {
-                                                        CircularProgressIndicator(
-                                                            modifier = Modifier.size(16.dp),
-                                                            strokeWidth = 2.dp,
-                                                            color = MaterialTheme.colorScheme.onPrimary,
-                                                        )
-                                                        Spacer(modifier = Modifier.width(8.dp))
-                                                    }
-                                                    Text(stringResource("settings.embedding.download_model"))
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } // End of else block for provider configuration
-            } // end Column
-        },
-        confirmButton = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (viewModel.showModelSelectionInProviderDialog) {
-                    secondaryButton(
-                        onClick = { viewModel.backToProviderConfiguration() },
-                    ) {
+            // Right side: navigation + primary action
+            when (viewModel.wizardStep) {
+                WizardStep.MODEL -> {
+                    secondaryButton(onClick = { viewModel.wizardBack() }) {
                         Text(stringResource("action.back"))
                     }
+                    Spacer(Modifier.width(Spacing.small))
+                    primaryButton(
+                        onClick = { viewModel.saveProvider() },
+                        enabled = viewModel.pendingModelForNewProvider != null,
+                    ) {
+                        Text(stringResource("settings.save"))
+                    }
                 }
 
-                // Save button
-                primaryButton(
-                    onClick = onSave,
-                    enabled = if (viewModel.showModelSelectionInProviderDialog) {
-                        viewModel.pendingModelForNewProvider != null
+                WizardStep.CONFIG -> {
+                    secondaryButton(onClick = { viewModel.wizardBack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(Spacing.extraSmall))
+                        Text(stringResource("action.back"))
+                    }
+                    Spacer(Modifier.width(Spacing.small))
+
+                    if (viewModel.isAddingNewInstance) {
+                        // Add mode: explicit Next button, enabled once connection verified
+                        primaryButton(
+                            onClick = { viewModel.advanceToModelPicker() },
+                            enabled = viewModel.connectionTestSuccess && !viewModel.isFetchingModelsForConfig,
+                        ) {
+                            if (viewModel.isFetchingModelsForConfig) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                                Spacer(Modifier.width(Spacing.small))
+                            }
+                            Text(stringResource("action.next"))
+                            Spacer(Modifier.width(Spacing.extraSmall))
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                        }
                     } else {
-                        false
-                    },
-                ) {
-                    Text(stringResource("settings.save"))
-                }
-            }
-        },
-        dismissButton = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (!viewModel.showModelSelectionInProviderDialog && viewModel.isFetchingModelsForConfig) {
-                    val infiniteTransition = rememberInfiniteTransition(label = "dots")
-                    val tick by infiniteTransition.animateFloat(
-                        initialValue = 0f,
-                        targetValue = 4f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(durationMillis = 1_200, easing = LinearEasing),
-                        ),
-                        label = "dots_tick",
-                    )
-                    val dots = ".".repeat((tick.toInt() % 4).coerceAtLeast(1))
-                    Text(
-                        text = stringResource("settings.test.connection.testing") + dots,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                        // Edit mode: save directly
+                        primaryButton(
+                            onClick = { viewModel.saveProvider() },
+                            enabled = !viewModel.isTestingConnection && !viewModel.isFetchingModelsForConfig,
+                        ) {
+                            if (viewModel.isTestingConnection) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                                Spacer(Modifier.width(Spacing.small))
+                            }
+                            Text(stringResource("settings.save"))
+                        }
+                    }
                 }
 
-                secondaryButton(onClick = onDismiss) {
-                    Text(stringResource("settings.cancel"))
+                WizardStep.TYPE_PICKER -> {
+                    // No back button — type picker is the entry point
                 }
             }
         },
-    )
+    ) {
+        when (viewModel.wizardStep) {
+            WizardStep.TYPE_PICKER -> providerTypePickerScreen(viewModel)
+            WizardStep.CONFIG -> instanceConfigScreen(viewModel)
+            WizardStep.MODEL -> modelPickerScreen(viewModel)
+        }
+    }
+}
+
+// ── Screen 2: Provider type picker ────────────────────────────────────────────────────────
+
+@Composable
+private fun providerTypePickerScreen(viewModel: SettingsViewModel) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(Spacing.small),
+    ) {
+        Text(
+            text = stringResource("provider.type.picker.prompt"),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        viewModel.availableProviders.chunked(3).forEach { rowItems ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+            ) {
+                rowItems.forEach { providerType ->
+                    val existingCount = viewModel.availableInstances.count { it.providerType == providerType }
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickableCard { viewModel.selectProviderTypeForNewInstance(providerType) }
+                            .pointerHoverIcon(PointerIcon.Hand),
+                        colors = AppComponents.surfaceVariantCardColors(),
+                    ) {
+                        Box(modifier = Modifier.fillMaxWidth().padding(Spacing.medium)) {
+                            Text(
+                                text = ProviderRegistry.getProviderDisplayName(providerType),
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .align(Alignment.CenterStart)
+                                    .padding(end = if (existingCount > 0) 16.dp else 0.dp),
+                            )
+                            if (existingCount > 0) {
+                                Canvas(modifier = Modifier.size(8.dp).align(Alignment.TopEnd)) {
+                                    drawCircle(color = Color(0xFF4CAF50))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                repeat(3 - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+// ── Screen 3: Instance config form ────────────────────────────────────────────────────────
+
+@Composable
+private fun instanceConfigScreen(viewModel: SettingsViewModel) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = AppComponents.bannerCardColors(),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.large),
+            verticalArrangement = Arrangement.spacedBy(Spacing.large),
+        ) {
+            // Instance display-name field
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+            ) {
+                Text(text = stringResource("provider.instance.name.label"), style = MaterialTheme.typography.titleMedium)
+                OutlinedTextField(
+                    value = if (viewModel.isAddingNewInstance) viewModel.newInstanceDisplayName else viewModel.editingInstanceDisplayName,
+                    onValueChange = {
+                        if (viewModel.isAddingNewInstance) {
+                            viewModel.updateNewInstanceDisplayName(it)
+                        } else {
+                            viewModel.updateEditingInstanceDisplayName(it)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text(stringResource("provider.instance.name.placeholder")) },
+                    colors = AppComponents.outlinedTextFieldColors(),
+                )
+            }
+            HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.small))
+
+            // Provider config fields (API key, base URL, etc.)
+            if (viewModel.providerConfigFields.isNotEmpty()) {
+                Text(text = stringResource("provider.configure.prompt"), style = MaterialTheme.typography.titleMedium)
+
+                viewModel.providerConfigFields.forEach { field ->
+                    when (field) {
+                        is ProviderConfigField.InfoField -> {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(Spacing.medium),
+                                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                                    verticalAlignment = Alignment.Top,
+                                ) {
+                                    Icon(Icons.Default.Info, contentDescription = "Info", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(text = field.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+
+                        else -> {
+                            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+                                Text(text = field.label + if (field.required) " *" else "", style = MaterialTheme.typography.labelLarge)
+                                Text(text = field.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                when (field) {
+                                    is ProviderConfigField.ApiKeyField -> {
+                                        AppComponents.appSecretTextField(
+                                            value = viewModel.providerFieldValues[field.name] ?: "",
+                                            onValueChange = { viewModel.updateProviderField(field.name, it) },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            placeholder = {
+                                                Text(if (field.hasExistingValue) stringResource("provider.apikey.stored") else stringResource("provider.apikey.enter"))
+                                            },
+                                        )
+                                        Card(
+                                            modifier = Modifier.fillMaxWidth().padding(top = Spacing.small),
+                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                                        ) {
+                                            Column(modifier = Modifier.fillMaxWidth().padding(Spacing.medium), verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+                                                Text(text = stringResource("provider.apikey.security.message"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                linkButton(onClick = {
+                                                    try {
+                                                        Desktop.getDesktop().browse(URI("https://$DOMAIN/security/"))
+                                                    } catch (_: Exception) {}
+                                                }, modifier = Modifier.padding(0.dp)) {
+                                                    Text(text = stringResource("provider.apikey.security.link"), style = MaterialTheme.typography.bodySmall)
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    is ProviderConfigField.BaseUrlField -> {
+                                        OutlinedTextField(
+                                            value = viewModel.providerFieldValues[field.name] ?: "",
+                                            onValueChange = { viewModel.updateProviderField(field.name, it) },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            singleLine = true,
+                                            placeholder = { Text(stringResource("settings.placeholder.baseurl")) },
+                                            colors = AppComponents.outlinedTextFieldColors(),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Help link
+            viewModel.selectedProvider?.let { provider ->
+                linkButton(
+                    onClick = {
+                        try {
+                            Desktop.getDesktop().browse(URI("https://$DOMAIN/docs/desktop/providers/${provider.name.lowercase()}/"))
+                        } catch (_: Exception) {}
+                    },
+                    modifier = Modifier.padding(0.dp),
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Help, contentDescription = "Help", modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(Spacing.extraSmall))
+                    Text(
+                        text = stringResource("provider.setup.guide", ProviderRegistry.getProviderDisplayName(provider)),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+
+            // Connection error
+            if (viewModel.connectionError != null) {
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(Spacing.medium), horizontalArrangement = Arrangement.spacedBy(Spacing.small), verticalAlignment = Alignment.Top) {
+                        Icon(Icons.Default.Warning, contentDescription = "Error", tint = MaterialTheme.colorScheme.error)
+                        Column {
+                            Text(text = viewModel.connectionError ?: "", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+                            viewModel.connectionErrorHelp?.let {
+                                Spacer(Modifier.height(Spacing.extraSmall))
+                                Text(text = it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f))
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Embedding model warning
+            if (viewModel.embeddingModelWarning != null) {
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(Spacing.medium), verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small), verticalAlignment = Alignment.Top) {
+                            Icon(Icons.Default.Info, contentDescription = "Info", tint = MaterialTheme.colorScheme.tertiary)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(text = stringResource("settings.embedding.rag_feature_only"), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                Spacer(Modifier.height(Spacing.extraSmall))
+                                Text(text = viewModel.embeddingModelWarning ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.9f))
+                            }
+                        }
+                        if (viewModel.canPullEmbeddingModel && viewModel.embeddingModelProvider == "OLLAMA") {
+                            primaryButton(onClick = {
+                                val baseUrl = viewModel.providerFieldValues["baseUrl"] ?: ""
+                                if (baseUrl.isNotBlank()) viewModel.pullEmbeddingModel(ModelProvider.OLLAMA, baseUrl)
+                            }, enabled = !viewModel.isCheckingEmbeddingModel) {
+                                if (viewModel.isCheckingEmbeddingModel) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                                    Spacer(Modifier.width(8.dp))
+                                }
+                                Text(stringResource("settings.embedding.download_model"))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── Screen 4: Model picker ─────────────────────────────────────────────────────────────────
+
+@Composable
+private fun modelPickerScreen(viewModel: SettingsViewModel) {
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredModels = remember(viewModel.availableModels, searchQuery) {
+        if (searchQuery.isBlank()) {
+            viewModel.availableModels
+        } else {
+            viewModel.availableModels.filter {
+                it.displayName.contains(searchQuery, ignoreCase = true) || it.modelId.contains(searchQuery, ignoreCase = true)
+            }
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.large)) {
+        when {
+            viewModel.isLoadingModels -> {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurface)
+                    Text(text = stringResource("settings.model.loading"), modifier = Modifier.padding(start = Spacing.large))
+                }
+            }
+
+            viewModel.modelError != null -> {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+                    Text(text = viewModel.modelError ?: "", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                    viewModel.modelErrorHelp?.let {
+                        Card(colors = AppComponents.surfaceVariantCardColors()) {
+                            Text(text = it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(Spacing.medium))
+                        }
+                    }
+                }
+            }
+
+            viewModel.availableModels.isEmpty() -> {
+                Text(text = stringResource("settings.model.none"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            else -> {
+                val providerDisplayName = viewModel.selectedProvider?.let { ProviderRegistry.getProviderDisplayName(it) } ?: ""
+                Text(text = stringResource("settings.model.select", providerDisplayName), style = MaterialTheme.typography.bodyMedium)
+
+                viewModel.pendingModelForNewProvider?.let { selectedModel ->
+                    Card(modifier = Modifier.fillMaxWidth(), colors = AppComponents.surfaceVariantCardColors()) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(Spacing.large), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(text = stringResource("settings.model.selected"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(text = selectedModel, style = MaterialTheme.typography.bodyLarge)
+                            }
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text(stringResource("settings.model.search.placeholder")) },
+                    label = { Text(stringResource("settings.model.search")) },
+                    singleLine = true,
+                    colors = AppComponents.outlinedTextFieldColors(),
+                )
+
+                Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                    if (filteredModels.isEmpty()) {
+                        Text(text = stringResource("settings.model.no.match"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(Spacing.large))
+                    } else {
+                        if (searchQuery.isNotBlank()) {
+                            Text(text = stringResource("settings.model.filtered", filteredModels.size, viewModel.availableModels.size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = Spacing.small))
+                        }
+                        groupedModelListAsCards(
+                            models = filteredModels,
+                            selectedModelId = viewModel.pendingModelForNewProvider,
+                            onModelClick = { viewModel.selectModelForNewProvider(it) },
+                            showHeaders = true,
+                        )
+                    }
+                }
+            }
+        }
+    }
 }

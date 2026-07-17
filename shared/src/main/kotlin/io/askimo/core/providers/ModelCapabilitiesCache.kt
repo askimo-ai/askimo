@@ -363,6 +363,25 @@ object ModelCapabilitiesCache {
     }
 
     /**
+     * Removes all capability entries belonging to [provider] from the in-memory cache and
+     * persists the reduced cache to disk.
+     *
+     * Call this when the **last** configured instance of a provider type is removed so that
+     * stale probe results (thinking support, tool support, context-size reductions) are not
+     * reused the next time a new instance of the same type is added.
+     *
+     * @param provider The provider whose cached entries should be evicted.
+     */
+    fun invalidateForProvider(provider: ModelProvider) {
+        val prefix = "${provider.providerKey()}:"
+        val removed = cache.keys.filter { it.startsWith(prefix) }
+        if (removed.isEmpty()) return
+        removed.forEach { cache.remove(it) }
+        saveToFile()
+        log.info("Evicted {} capability cache entries for provider {}", removed.size, provider.providerKey())
+    }
+
+    /**
      * Invalidate the cache by clearing all entries and deleting the cache file.
      * This is typically triggered by user action to reset cached model capabilities.
      */

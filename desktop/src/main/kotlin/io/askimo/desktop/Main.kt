@@ -93,7 +93,7 @@ import io.askimo.desktop.settings.SettingsSection
 import io.askimo.desktop.settings.SettingsViewModel
 import io.askimo.desktop.settings.aboutDialog
 import io.askimo.desktop.settings.fileViewerDialog
-import io.askimo.desktop.settings.providerSelectionDialog
+import io.askimo.desktop.settings.providerWizardDialog
 import io.askimo.desktop.settings.settingsViewWithSidebar
 import io.askimo.desktop.shell.footerBar
 import io.askimo.desktop.shell.navigationSidebar
@@ -1144,8 +1144,8 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                 onShowUpdateDetails = {
                                     updateViewModel.showUpdateDialogForExistingRelease()
                                 },
-                                onConfigureAiProvider = {
-                                    settingsViewModel.onChangeProvider()
+                                onAddProvider = {
+                                    settingsViewModel.openAddProviderWizard()
                                 },
                                 onShowAbout = {
                                     showAboutDialog = true
@@ -1378,7 +1378,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                 primaryButton(
                                     onClick = {
                                         showProviderSetupDialog = false
-                                        settingsViewModel.onChangeProvider(isInitialSetup = true)
+                                        settingsViewModel.onChangeProvider()
                                     },
                                 ) {
                                     Text(stringResource("provider.setup.required.button"))
@@ -1387,12 +1387,8 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                         )
                     }
 
-                    if (settingsViewModel.showProviderDialog) {
-                        providerSelectionDialog(
-                            viewModel = settingsViewModel,
-                            onDismiss = { settingsViewModel.closeProviderDialog() },
-                            onSave = { settingsViewModel.saveProvider() },
-                        )
+                    if (settingsViewModel.showProviderWizard) {
+                        providerWizardDialog(viewModel = settingsViewModel)
                     }
 
                     // About Dialog

@@ -308,12 +308,8 @@ fun settingsViewWithSidebar(
         )
     }
 
-    if (settingsViewModel.showProviderDialog) {
-        providerSelectionDialog(
-            viewModel = settingsViewModel,
-            onDismiss = { settingsViewModel.closeProviderDialog() },
-            onSave = { settingsViewModel.saveProvider() },
-        )
+    if (settingsViewModel.showProviderWizard) {
+        providerWizardDialog(viewModel = settingsViewModel)
     }
 
     if (settingsViewModel.showSettingsDialog) {

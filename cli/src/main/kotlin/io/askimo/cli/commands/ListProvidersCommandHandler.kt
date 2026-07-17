@@ -4,36 +4,51 @@
  */
 package io.askimo.cli.commands
 
+import io.askimo.core.context.AppContext
 import io.askimo.core.logging.display
 import io.askimo.core.logging.logger
 import io.askimo.core.providers.ProviderRegistry
 import org.jline.reader.ParsedLine
 
 /**
- * Handles the command to list all supported model providers.
+ * Handles the command to list configured provider instances and supported provider types.
  *
- * This class retrieves and displays all registered AI model providers that are available
- * in the application. It helps users discover which providers they can choose from when
- * setting up their chat environment.
+ * Shows all configured instances grouped by provider type (with an active indicator), followed
+ * by the full list of registered provider types that can be used to create new instances.
  */
-class ListProvidersCommandHandler : CommandHandler {
+class ListProvidersCommandHandler(
+    private val appContext: AppContext,
+) : CommandHandler {
     private val log = logger<ListProvidersCommandHandler>()
     override val keyword: String = ":providers"
-
-    override val description: String = "List all supported model providers"
+    override val description: String = "List configured provider instances and supported types"
 
     override fun handle(line: ParsedLine) {
-        val providers = ProviderRegistry.getSupportedProviders()
+        val instances = appContext.params.providerInstances
+        val currentId = appContext.params.currentInstanceId
 
-        if (providers.isEmpty()) {
-            log.display("⚠️  No model providers registered.")
-            return
+        if (instances.isNotEmpty()) {
+            log.display("Configured instances:")
+            instances.groupBy { it.providerType }.forEach { (type, group) ->
+                log.display("  [${ProviderRegistry.getProviderDisplayName(type)}]")
+                group.forEach { inst ->
+                    val marker = if (inst.id == currentId) " ◀ active" else ""
+                    log.display("    • ${inst.displayName}$marker")
+                }
+            }
+            log.display("")
+        } else {
+            log.display("ℹ️  No provider instances configured yet.")
+            log.display("")
         }
 
-        log.display("Available Model Providers:")
-        providers.forEach { provider ->
-            log.display("- ${provider.name.lowercase()}")
+        val supportedTypes = ProviderRegistry.getSupportedProviders()
+        log.display("Supported provider types:")
+        supportedTypes.forEach { provider ->
+            log.display("  - ${provider.providerKey()} (${ProviderRegistry.getProviderDisplayName(provider)})")
         }
-        log.display("Use `:set-provider <modelName>` to choose the active model.")
+        log.display("")
+        log.display("💡 Use `:set-provider <type>` to switch to or create an instance.")
+        log.display("💡 Use `:set-provider <type>:<name>` to create a named instance (e.g. :set-provider ollama:work-mac).")
     }
 }

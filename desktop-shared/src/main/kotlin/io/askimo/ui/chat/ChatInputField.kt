@@ -174,7 +174,7 @@ fun chatInputField(
 
     // Read current provider + model from AppContext — reactive to provider/model switches
     val appParams = AppContext.getInstance().params
-    val resolvedProvider: ModelProvider? = appParams.currentProvider.takeIf { it != ModelProvider.UNKNOWN }
+    val resolvedProvider: ModelProvider? = appParams.activeProviderType.takeIf { it != ModelProvider.UNKNOWN }
     val currentModel: String = appParams.model
 
     // Whether the current model supports extended reasoning.

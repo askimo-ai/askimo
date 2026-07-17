@@ -20,6 +20,7 @@ import io.askimo.core.providers.ModelAvailabilityResult
 import io.askimo.core.providers.ModelDTO
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ProviderConfigField
+import io.askimo.core.providers.ProviderInstance
 import io.askimo.core.providers.ProviderRegistry
 import io.askimo.core.providers.ProviderSettings
 import io.askimo.core.providers.ProviderTestResult
@@ -31,21 +32,21 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.text.isNotBlank
 import kotlin.time.Duration.Companion.milliseconds
+
+/** Wizard navigation steps for the provider add/edit wizard. */
+enum class WizardStep { TYPE_PICKER, CONFIG, MODEL }
 
 /**
  * ViewModel for managing settings state and configuration information.
  *
- * This class handles the business logic for the settings view, including:
- * - Fetching and exposing the current session configuration
- * - Provider information (OpenAI, Ollama, etc.)
- * - Model information
- * - Settings descriptions
- * - Model selection with validation
+ * Provider dialog flow:
+ * - [showProviderWizard] — wizard for adding or editing a provider instance
+ *   - Add flow:  TYPE_PICKER → CONFIG → MODEL
+ *   - Edit flow: CONFIG → MODEL (no type picker)
  *
- * @param scope The coroutine scope for this ViewModel
- * @param appContext The singleton Session instance injected by DI
+ * Domain changes (model switch, save) emit [ModelChangedEvent] on [EventBus].
+ * UI navigation (open/close dialogs) is pure ViewModel state — no callbacks.
  */
 class SettingsViewModel(
     private val scope: CoroutineScope,
@@ -53,14 +54,27 @@ class SettingsViewModel(
 ) {
     private val log = logger<SettingsViewModel>()
 
+    // ── Active-configuration display ─────────────────────────────────────────────────────────
+
     var provider by mutableStateOf<ModelProvider?>(null)
         private set
 
     var model by mutableStateOf("")
         private set
 
+    var instanceDisplayName by mutableStateOf("")
+        private set
+
+    var instanceId by mutableStateOf("")
+        private set
+
+    /** The currently active [ProviderInstance], or null if none is configured. */
+    val activeInstance get() = appContext.params.providerInstances.firstOrNull { it.id == instanceId }
+
     var settingsDescription by mutableStateOf<List<String>>(emptyList())
         private set
+
+    // ── Model-change dialog ──────────────────────────────────────────────────────────────────
 
     var showModelDialog by mutableStateOf(false)
         private set
@@ -77,11 +91,15 @@ class SettingsViewModel(
     var modelErrorHelp by mutableStateOf<String?>(null)
         private set
 
+    // ── Feedback ─────────────────────────────────────────────────────────────────────────────
+
     var showSuccessMessage by mutableStateOf(false)
         private set
 
     var successMessage by mutableStateOf("")
         private set
+
+    // ── Settings (advanced fields) dialog ────────────────────────────────────────────────────
 
     var showSettingsDialog by mutableStateOf(false)
         private set
@@ -89,13 +107,46 @@ class SettingsViewModel(
     var settingsFields by mutableStateOf<List<SettingField>>(emptyList())
         private set
 
-    var showProviderDialog by mutableStateOf(false)
+    // ── Manage providers dialog ───────────────────────────────────────────────────────────────
+
+    /** All configured instances shown in the manage dialog. */
+    var availableInstances by mutableStateOf<List<ProviderInstance>>(emptyList())
         private set
 
+    // ── Provider wizard (add & edit) ──────────────────────────────────────────────────────────
+
+    /** True while the add/edit provider wizard is open. */
+    var showProviderWizard by mutableStateOf(false)
+        private set
+
+    /** Current step within the wizard. */
+    var wizardStep by mutableStateOf(WizardStep.TYPE_PICKER)
+        private set
+
+    /** All supported provider types — shown in the TYPE_PICKER step. */
     var availableProviders by mutableStateOf<List<ModelProvider>>(emptyList())
         private set
 
+    /**
+     * Non-null when the wizard is in **edit** mode; null when adding a new instance.
+     * Derive [isAddingNewInstance] from this.
+     */
+    var editingInstance by mutableStateOf<ProviderInstance?>(null)
+        private set
+
+    /** True when the wizard is in add mode (no instance being edited). */
+    val isAddingNewInstance: Boolean get() = editingInstance == null && showProviderWizard
+
+    /** The provider type chosen in the wizard (TYPE_PICKER) or taken from the edited instance. */
     var selectedProvider by mutableStateOf<ModelProvider?>(null)
+        private set
+
+    /** Editable display name for a **new** instance. */
+    var newInstanceDisplayName by mutableStateOf("")
+        private set
+
+    /** Editable display name when **editing** an existing instance. */
+    var editingInstanceDisplayName by mutableStateOf("")
         private set
 
     var providerConfigFields by mutableStateOf<List<ProviderConfigField>>(emptyList())
@@ -107,10 +158,6 @@ class SettingsViewModel(
     var isTestingConnection by mutableStateOf(false)
         private set
 
-    /**
-     * True while the config screen is auto-fetching models in the background.
-     * Used to show a loading indicator on the config screen instead of an explicit "Test Connection" button.
-     */
     var isFetchingModelsForConfig by mutableStateOf(false)
         private set
 
@@ -125,13 +172,7 @@ class SettingsViewModel(
     var connectionTestSuccess by mutableStateOf(false)
         private set
 
-    var showModelSelectionInProviderDialog by mutableStateOf(false)
-        private set
-
     var pendingModelForNewProvider by mutableStateOf<String?>(null)
-        private set
-
-    var isInitialSetup by mutableStateOf(false)
         private set
 
     var isCheckingEmbeddingModel by mutableStateOf(false)
@@ -153,102 +194,92 @@ class SettingsViewModel(
             EventBus.internalEvents.collect { event ->
                 if (event is ModelChangedEvent) {
                     model = event.newModel
+                    loadConfiguration()
                 }
             }
         }
     }
 
-    /**
-     * Load the current configuration from the session.
-     */
+    // ── Active-configuration ─────────────────────────────────────────────────────────────────
+
     fun loadConfiguration() {
         val configInfo = appContext.getConfigInfo()
         provider = configInfo.provider
         model = configInfo.model
+        instanceDisplayName = configInfo.instanceDisplayName
+        instanceId = configInfo.instanceId
         settingsDescription = configInfo.settingsDescription
     }
 
-    /**
-     * Handle the "Change Provider" or "Select Provider" action.
-     * Opens the provider selection dialog.
-     * @param isInitialSetup true if this is the initial provider setup (no provider configured yet)
-     */
-    fun onChangeProvider(isInitialSetup: Boolean = false) {
-        this.isInitialSetup = isInitialSetup
-        availableProviders = ProviderRegistry.getSupportedProviders().toList()
+    // ── Instance switching (from manage dialog, no wizard) ───────────────────────────────────
 
-        // Reset all dialog states to prevent showing cached screens
-        connectionError = null
-        connectionErrorHelp = null
-        connectionTestSuccess = false
-        showModelSelectionInProviderDialog = false
-        pendingModelForNewProvider = null
-        availableModels = emptyList()
-        isLoadingModels = false
-        modelError = null
-        modelErrorHelp = null
-        embeddingModelWarning = null
-        embeddingModelProvider = null
-        canPullEmbeddingModel = false
-        isCheckingEmbeddingModel = false
-
-        // Pre-select the current provider if it exists
-        val currentProvider = provider
-        if (currentProvider != null && currentProvider != ModelProvider.UNKNOWN) {
-            selectedProvider = currentProvider
-
-            // Load existing settings and configuration fields
-            val existingSettings = appContext.params.providerSettings[currentProvider]
-                ?: ProviderRegistry.getFactory(currentProvider)?.defaultSettings()
-            providerConfigFields = existingSettings?.getConfigFields(LocalizationManager.messageResolver) ?: emptyList()
-
-            // Initialize field values with existing or default values
-            providerFieldValues = providerConfigFields.mapNotNull { field ->
-                when (field) {
-                    is ProviderConfigField.ApiKeyField -> field.name to field.value
-                    is ProviderConfigField.BaseUrlField -> field.name to field.value
-                    is ProviderConfigField.InfoField -> null
-                }
-            }.toMap()
-        } else {
-            // No provider configured yet
-            selectedProvider = null
-            providerConfigFields = emptyList()
-            providerFieldValues = emptyMap()
+    fun switchToInstance(targetInstanceId: String) {
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                appContext.setCurrentInstance(targetInstanceId)
+                appContext.save()
+            }
+            val instance = appContext.params.providerInstances.firstOrNull { it.id == targetInstanceId }
+            EventBus.emit(
+                ModelChangedEvent(
+                    provider = instance?.providerType ?: ModelProvider.UNKNOWN,
+                    newModel = instance?.settings?.defaultModel ?: "",
+                    instanceId = targetInstanceId,
+                ),
+            )
+            loadConfiguration()
         }
-
-        showProviderDialog = true
     }
 
+    fun deleteInstance(targetInstanceId: String) {
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                appContext.removeInstance(targetInstanceId)
+                appContext.save()
+            }
+            availableInstances = appContext.params.providerInstances.toList()
+            loadConfiguration()
+            successMessage = "Provider instance removed"
+            showSuccessMessage = true
+        }
+    }
+
+    // ── Manage providers dialog ───────────────────────────────────────────────────────────────
+
     /**
-     * Select a provider and show its configuration fields.
+     * Entry point — called when the user clicks the "Change provider" button in settings.
+     * Always opens the add provider wizard directly.
      */
-    fun selectProviderForChange(newProvider: ModelProvider) {
-        selectedProvider = newProvider
+    fun onChangeProvider() {
+        openAddProviderWizard()
+    }
 
-        // Reset connection and model states when changing provider
-        connectionError = null
-        connectionErrorHelp = null
-        connectionTestSuccess = false
-        showModelSelectionInProviderDialog = false
-        pendingModelForNewProvider = null
-        availableModels = emptyList()
-        isLoadingModels = false
-        modelError = null
-        modelErrorHelp = null
-        embeddingModelWarning = null
-        embeddingModelProvider = null
-        canPullEmbeddingModel = false
-        isCheckingEmbeddingModel = false
+    // ── Provider wizard — open ────────────────────────────────────────────────────────────────
 
-        // Get existing settings if available
-        val existingSettings = appContext.params.providerSettings[newProvider]
-            ?: ProviderRegistry.getFactory(newProvider)?.defaultSettings()
+    /** Opens the wizard in add mode (starts at TYPE_PICKER step). */
+    fun openAddProviderWizard() {
+        // Populate lists so providerTypePickerScreen has data regardless of call site
+        availableInstances = appContext.params.providerInstances.toList()
+        availableProviders = ProviderRegistry.getSupportedProviders()
+            .filter { it != ModelProvider.UNKNOWN && it != ModelProvider.ASKIMO_PRO }
+            .sortedBy { ProviderRegistry.getProviderDisplayName(it) }
+        editingInstance = null
+        selectedProvider = null
+        newInstanceDisplayName = ""
+        wizardStep = WizardStep.TYPE_PICKER
+        resetWizardFormState()
+        showProviderWizard = true
+    }
 
-        // Get configuration fields for the provider
-        providerConfigFields = existingSettings?.getConfigFields(LocalizationManager.messageResolver) ?: emptyList()
+    /** Opens the wizard in edit mode (starts at CONFIG step, pre-populated). */
+    fun openEditProviderWizard(instance: ProviderInstance) {
+        editingInstance = instance
+        selectedProvider = instance.providerType
+        editingInstanceDisplayName = instance.displayName
+        wizardStep = WizardStep.CONFIG
+        resetWizardFormState()
 
-        // Initialize field values with existing or default values
+        providerConfigFields = instance.settings.getConfigFields(LocalizationManager.messageResolver)
         providerFieldValues = providerConfigFields.mapNotNull { field ->
             when (field) {
                 is ProviderConfigField.ApiKeyField -> field.name to field.value
@@ -257,204 +288,95 @@ class SettingsViewModel(
             }
         }.toMap()
 
-        // Auto-fetch models if pre-existing fields already satisfy all requirements
         scheduleAutoModelFetch()
+        showProviderWizard = true
     }
 
-    /**
-     * Update a provider configuration field value and reschedule the auto model fetch.
-     */
-    fun updateProviderField(fieldName: String, value: String) {
-        providerFieldValues = providerFieldValues.toMutableMap().apply {
-            put(fieldName, value)
-        }
-        scheduleAutoModelFetch()
-    }
+    // ── Provider wizard — close / back ────────────────────────────────────────────────────────
 
-    /**
-     * Schedule a debounced model fetch when all required fields are filled.
-     * Cancels any in-flight fetch and waits 600ms after the last field change before
-     * attempting to load models. On success, automatically advances to model selection.
-     */
-    private fun scheduleAutoModelFetch() {
+    /** Closes the wizard and discards unsaved state. */
+    fun closeProviderWizard() {
         autoFetchJob?.cancel()
-
-        // Only attempt if all required config fields are satisfied
-        if (!validateConfigFields(providerFieldValues, providerConfigFields)) {
-            // Fields not complete yet — reset any previous error so the UI stays clean
-            connectionError = null
-            connectionErrorHelp = null
-            isFetchingModelsForConfig = false
-            return
-        }
-
-        val provider = selectedProvider ?: return
-
-        connectionError = null
-        connectionErrorHelp = null
-        isFetchingModelsForConfig = true
-
-        autoFetchJob = scope.launch {
-            delay(1000.milliseconds)
-
-            val result = withContext(Dispatchers.IO) {
-                try {
-                    val existingSettings = appContext.params.providerSettings[provider]
-                        ?: ProviderRegistry.getFactory(provider)?.defaultSettings()
-
-                    val newSettings = existingSettings?.applyConfigFields(providerFieldValues)
-                        ?: return@withContext ProviderTestResult.Failure("Failed to create settings")
-
-                    if (!newSettings.validate()) {
-                        return@withContext ProviderTestResult.Failure(
-                            message = "Cannot connect to ${provider.name.lowercase()} provider",
-                            helpText = newSettings.getSetupHelpText(LocalizationManager.messageResolver),
-                        )
-                    }
-
-                    val factory = ProviderRegistry.getFactory(provider)
-                        ?: return@withContext ProviderTestResult.Failure("No factory found for provider")
-
-                    @Suppress("UNCHECKED_CAST")
-                    val models = (factory as ChatModelFactory<ProviderSettings>).availableModels(newSettings)
-
-                    if (models.isNotEmpty()) {
-                        ProviderTestResult.Success
-                    } else {
-                        ProviderTestResult.Failure(
-                            message = LocalizationManager.getString("provider.connection.failed"),
-                            helpText = null,
-                        )
-                    }
-                } catch (e: Exception) {
-                    log.error("Error auto-fetching models for provider config", e)
-                    ProviderTestResult.Failure(
-                        ErrorHandler.getUserFriendlyError(
-                            e,
-                            "fetching models",
-                            "Could not reach the provider. Please check your settings.",
-                        ),
-                    )
-                }
-            }
-
-            isFetchingModelsForConfig = false
-
-            when (result) {
-                is ProviderTestResult.Success -> {
-                    connectionError = null
-                    connectionErrorHelp = null
-                    connectionTestSuccess = true
-                    showModelSelectionInProviderDialog = true
-                    loadModelsForSelectedProvider()
-
-                    val baseUrl = providerFieldValues[SettingField.BASE_URL]
-                    if (baseUrl != null && baseUrl.isNotBlank()) {
-                        checkEmbeddingModelAvailability(provider, baseUrl)
-                    }
-                }
-
-                is ProviderTestResult.Failure -> {
-                    connectionError = result.message
-                    connectionErrorHelp = result.helpText
-                    connectionTestSuccess = false
-                }
-            }
-        }
+        showProviderWizard = false
+        editingInstance = null
+        selectedProvider = null
+        newInstanceDisplayName = ""
+        editingInstanceDisplayName = ""
+        wizardStep = WizardStep.TYPE_PICKER
+        resetWizardFormState()
     }
 
     /**
-     * Load models for the selected provider (used in provider dialog flow).
+     * Navigates back within the wizard:
+     * MODEL → CONFIG, CONFIG → TYPE_PICKER (add) or close (edit),
+     * TYPE_PICKER → close.
      */
-    fun loadModelsForSelectedProvider() {
-        modelError = null
-        modelErrorHelp = null
-        isLoadingModels = true
-
-        scope.launch {
-            val provider = selectedProvider
-            if (provider == null) {
-                isLoadingModels = false
-                availableModels = emptyList()
-                modelError = "Provider not set"
-                modelErrorHelp = null
+    fun wizardBack() {
+        when (wizardStep) {
+            WizardStep.MODEL -> {
+                wizardStep = WizardStep.CONFIG
                 pendingModelForNewProvider = null
-                return@launch
             }
 
-            withContext(Dispatchers.IO) {
-                val factory = ProviderRegistry.getFactory(provider)
-                if (factory == null) {
-                    isLoadingModels = false
-                    availableModels = emptyList()
-                    modelError = "No model factory registered for provider: ${provider.name.lowercase()}"
-                    modelErrorHelp = null
-                    pendingModelForNewProvider = null
-                    return@withContext
-                }
-
-                // Get existing settings if available, otherwise use defaults
-                val existingSettings = appContext.params.providerSettings[provider]
-                    ?: factory.defaultSettings()
-
-                // Apply current field values to get the most up-to-date settings
-                val settings = existingSettings.applyConfigFields(providerFieldValues)
-
-                @Suppress("UNCHECKED_CAST")
-                val models = (factory as ChatModelFactory<ProviderSettings>)
-                    .availableModels(settings)
-
-                isLoadingModels = false
-
-                if (models.isEmpty()) {
-                    availableModels = emptyList()
-                    modelError = "No models available for ${provider.name.lowercase()}"
-                    modelErrorHelp = factory.getNoModelsHelpText()
-                    pendingModelForNewProvider = null
+            WizardStep.CONFIG -> {
+                if (isAddingNewInstance) {
+                    selectedProvider = null
+                    wizardStep = WizardStep.TYPE_PICKER
+                    resetWizardFormState()
                 } else {
-                    availableModels = models
-                    modelError = null
-                    modelErrorHelp = null
-
-                    // Pre-select the previously selected model if it exists in the available models
-                    val previousModel = appContext.params.getModel(provider)
-                    pendingModelForNewProvider = if (previousModel.isNotBlank() && models.any { it.modelId == previousModel }) {
-                        previousModel
-                    } else {
-                        null
-                    }
+                    // Edit: back = close wizard
+                    closeProviderWizard()
                 }
+            }
+
+            WizardStep.TYPE_PICKER -> {
+                closeProviderWizard()
             }
         }
     }
 
-    /**
-     * Select a model for the new provider (in provider dialog flow).
-     */
+    // ── Provider wizard — step actions ────────────────────────────────────────────────────────
+
+    /** Called when the user picks a provider type in the TYPE_PICKER step. */
+    fun selectProviderTypeForNewInstance(providerType: ModelProvider) {
+        selectedProvider = providerType
+        newInstanceDisplayName = ProviderRegistry.getProviderDisplayName(providerType)
+        wizardStep = WizardStep.CONFIG
+        resetWizardFormState()
+
+        val defaultSettings = ProviderRegistry.getFactory(providerType)?.defaultSettings()
+        providerConfigFields = defaultSettings?.getConfigFields(LocalizationManager.messageResolver) ?: emptyList()
+        providerFieldValues = providerConfigFields.mapNotNull { field ->
+            when (field) {
+                is ProviderConfigField.ApiKeyField -> field.name to field.value
+                is ProviderConfigField.BaseUrlField -> field.name to field.value
+                is ProviderConfigField.InfoField -> null
+            }
+        }.toMap()
+
+        scheduleAutoModelFetch()
+    }
+
+    fun updateNewInstanceDisplayName(name: String) {
+        newInstanceDisplayName = name
+    }
+    fun updateEditingInstanceDisplayName(name: String) {
+        editingInstanceDisplayName = name
+    }
+
+    fun updateProviderField(fieldName: String, value: String) {
+        providerFieldValues = providerFieldValues.toMutableMap().apply { put(fieldName, value) }
+        scheduleAutoModelFetch()
+    }
+
     fun selectModelForNewProvider(model: String) {
         pendingModelForNewProvider = model
     }
 
-    /**
-     * Go back from model selection to provider configuration.
-     */
-    fun backToProviderConfiguration() {
-        autoFetchJob?.cancel()
-        isFetchingModelsForConfig = false
-        showModelSelectionInProviderDialog = false
-        connectionTestSuccess = false
-        connectionError = null
-        connectionErrorHelp = null
-        pendingModelForNewProvider = null
-    }
-
-    /**
-     * Save the selected provider and its configuration.
-     */
+    /** Saves the instance and closes the wizard on success. Emits [ModelChangedEvent]. */
     fun saveProvider() {
         val provider = selectedProvider ?: return
 
-        // Validate all required fields are filled
         if (!validateConfigFields(providerFieldValues, providerConfigFields)) {
             connectionError = "Please fill in all required fields"
             return
@@ -467,15 +389,12 @@ class SettingsViewModel(
         scope.launch {
             val result = withContext(Dispatchers.IO) {
                 try {
-                    // Get existing settings if available
-                    val existingSettings = appContext.params.providerSettings[provider]
+                    val baseSettings = editingInstance?.settings
                         ?: ProviderRegistry.getFactory(provider)?.defaultSettings()
 
-                    // Create updated settings
-                    val newSettings = existingSettings?.applyConfigFields(providerFieldValues)
+                    val newSettings = baseSettings?.applyConfigFields(providerFieldValues)
                         ?: return@withContext ProviderTestResult.Failure("Failed to create settings")
 
-                    // Test connection (validate)
                     if (!newSettings.validate()) {
                         return@withContext ProviderTestResult.Failure(
                             message = "Cannot connect to ${provider.name.lowercase()} provider",
@@ -483,34 +402,39 @@ class SettingsViewModel(
                         )
                     }
 
-                    // Change provider (inline logic from ProviderService)
+                    val pendingModel = pendingModelForNewProvider?.takeIf { it.isNotBlank() }
+                        ?: newSettings.defaultModel
+                    val settingsWithModel = if (pendingModel.isNotBlank()) {
+                        newSettings.updateField(SettingField.DEFAULT_MODEL, pendingModel)
+                    } else {
+                        newSettings
+                    }
+
                     try {
-                        appContext.params.currentProvider = provider
-                        appContext.setProviderSetting(provider, newSettings)
-
-                        // Use the pending model selected by user, or fall back to the provider's defaultModel
-                        val model = pendingModelForNewProvider?.takeIf { it.isNotBlank() }
-                            ?: appContext.params.getModel(provider)
-                        appContext.params.model = model
-
-                        appContext.save()
-                        CoroutineScope(Dispatchers.Default).launch {
-                            EventBus.emit(ModelChangedEvent(provider, model))
+                        val eventInstanceId: String
+                        if (editingInstance != null) {
+                            val displayName = editingInstanceDisplayName.ifBlank { editingInstance!!.displayName }
+                            val updated = editingInstance!!.copy(displayName = displayName, settings = settingsWithModel)
+                            appContext.upsertInstance(updated)
+                            appContext.save()
+                            eventInstanceId = updated.id
+                        } else {
+                            val displayName = newInstanceDisplayName.ifBlank { ProviderRegistry.getProviderDisplayName(provider) }
+                            val newInstance = ProviderRegistry.createInstance(providerType = provider, displayName = displayName, settings = settingsWithModel)
+                            appContext.upsertInstance(newInstance)
+                            appContext.setCurrentInstance(newInstance.id)
+                            appContext.save()
+                            eventInstanceId = newInstance.id
                         }
-
+                        EventBus.emit(ModelChangedEvent(provider, pendingModel, eventInstanceId))
                         ProviderTestResult.Success
                     } catch (e: Exception) {
-                        ProviderTestResult.Failure("Failed to apply provider changes")
-                        log.error("Error applying provider changes", e)
+                        log.error("Error saving instance", e)
+                        ProviderTestResult.Failure("Failed to save provider instance")
                     }
                 } catch (e: Exception) {
-                    val errorMsg = ErrorHandler.getUserFriendlyError(
-                        e,
-                        "applying provider change",
-                        "Failed to apply provider settings. Please try again.",
-                    )
-                    ProviderTestResult.Failure(errorMsg)
-                    log.error("Error applying provider change", e)
+                    log.error("Error saving instance", e)
+                    ProviderTestResult.Failure(ErrorHandler.getUserFriendlyError(e, "saving instance", "Failed to apply provider settings. Please try again."))
                 }
             }
 
@@ -518,12 +442,15 @@ class SettingsViewModel(
 
             when (result) {
                 is ProviderTestResult.Success -> {
-                    // Update local state
+                    val wasAdding = isAddingNewInstance
+                    val savedName = if (wasAdding) {
+                        newInstanceDisplayName.ifBlank { provider.name.lowercase() }
+                    } else {
+                        editingInstanceDisplayName.ifBlank { editingInstance?.displayName ?: "" }
+                    }
+                    closeProviderWizard()
                     loadConfiguration()
-
-                    // Close dialog and show success
-                    showProviderDialog = false
-                    successMessage = "Provider changed to ${provider.name.lowercase()}"
+                    successMessage = if (wasAdding) "Provider \"$savedName\" added" else "Provider settings updated"
                     showSuccessMessage = true
                 }
 
@@ -535,35 +462,8 @@ class SettingsViewModel(
         }
     }
 
-    /**
-     * Close the provider selection dialog.
-     */
-    fun closeProviderDialog() {
-        autoFetchJob?.cancel()
-        isFetchingModelsForConfig = false
-        showProviderDialog = false
-        selectedProvider = null
-        providerConfigFields = emptyList()
-        providerFieldValues = emptyMap()
-        connectionError = null
-        connectionErrorHelp = null
-        connectionTestSuccess = false
-        showModelSelectionInProviderDialog = false
-        pendingModelForNewProvider = null
-        availableModels = emptyList()
-        isLoadingModels = false
-        modelError = null
-        modelErrorHelp = null
-        embeddingModelWarning = null
-        embeddingModelProvider = null
-        canPullEmbeddingModel = false
-        isCheckingEmbeddingModel = false
-    }
+    // ── Model-change dialog ───────────────────────────────────────────────────────────────────
 
-    /**
-     * Handle the "Change Model" action.
-     * Opens the model selection dialog.
-     */
     fun onChangeModel() {
         modelError = null
         modelErrorHelp = null
@@ -571,33 +471,25 @@ class SettingsViewModel(
         showModelDialog = true
 
         scope.launch {
-            val currentProvider = provider
-            if (currentProvider == null) {
+            val currentProvider = provider ?: run {
                 isLoadingModels = false
                 availableModels = emptyList()
                 modelError = "Provider not set"
-                modelErrorHelp = null
                 return@launch
             }
 
             withContext(Dispatchers.IO) {
-                val factory = ProviderRegistry.getFactory(currentProvider)
-                if (factory == null) {
+                val factory = ProviderRegistry.getFactory(currentProvider) ?: run {
                     isLoadingModels = false
                     availableModels = emptyList()
                     modelError = "No model factory registered for provider: ${currentProvider.name.lowercase()}"
-                    modelErrorHelp = null
                     return@withContext
                 }
 
-                val settings = appContext.params.providerSettings[currentProvider] ?: factory.defaultSettings()
-
                 @Suppress("UNCHECKED_CAST")
-                val models = (factory as ChatModelFactory<ProviderSettings>)
-                    .availableModels(settings)
+                val models = (factory as ChatModelFactory<ProviderSettings>).availableModels(appContext.getCurrentProviderSettings())
 
                 isLoadingModels = false
-
                 if (models.isEmpty()) {
                     availableModels = emptyList()
                     modelError = "No models available for ${currentProvider.name.lowercase()}"
@@ -611,44 +503,27 @@ class SettingsViewModel(
         }
     }
 
-    /**
-     * Handle the "Change Settings" action.
-     * Opens the settings configuration dialog.
-     */
-    fun onChangeSettings() {
-        provider?.let { currentProvider ->
-            val currentSettings = appContext.getCurrentProviderSettings()
-            settingsFields = currentSettings.getFields()
-            showSettingsDialog = true
-        }
-    }
-
-    /**
-     * Select a new model and update the session.
-     */
     fun selectModel(newModel: String) {
         scope.launch {
             val success = withContext(Dispatchers.IO) {
                 try {
-                    // Update the model in session params
                     appContext.params.model = newModel
-
-                    // Persist the change to disk
                     appContext.save()
-
-                    CoroutineScope(Dispatchers.Default).launch {
-                        EventBus.emit(ModelChangedEvent(appContext.getActiveProvider(), newModel))
-                    }
-
+                    EventBus.emit(
+                        ModelChangedEvent(
+                            provider = appContext.getActiveProvider(),
+                            newModel = newModel,
+                            instanceId = appContext.params.currentInstanceId,
+                        ),
+                    )
                     true
                 } catch (_: Exception) {
                     false
                 }
             }
-
             if (success) {
                 model = newModel
-                loadConfiguration() // Reload to get updated settings
+                loadConfiguration()
                 showModelDialog = false
                 successMessage = "Model updated to: $newModel"
                 showSuccessMessage = true
@@ -658,72 +533,44 @@ class SettingsViewModel(
         }
     }
 
-    /**
-     * Close the model selection dialog.
-     */
     fun closeModelDialog() {
         showModelDialog = false
         modelError = null
         modelErrorHelp = null
     }
 
-    /**
-     * Update a settings field value.
-     */
+    // ── Advanced settings dialog ──────────────────────────────────────────────────────────────
+
+    fun onChangeSettings() {
+        provider?.let {
+            settingsFields = appContext.getCurrentProviderSettings().getFields()
+            showSettingsDialog = true
+        }
+    }
+
     fun updateSettingsField(fieldName: String, value: String) {
         provider?.let { currentProvider ->
             scope.launch {
-                val currentSettings = appContext.getCurrentProviderSettings()
                 val updatedSettings = withContext(Dispatchers.IO) {
-                    currentSettings.updateField(fieldName, value)
+                    appContext.getCurrentProviderSettings().updateField(fieldName, value)
                 }
-
-                // Update session with new settings
-                appContext.setProviderSetting(currentProvider, updatedSettings)
-
-                CoroutineScope(Dispatchers.Default).launch {
-                    EventBus.emit(ModelChangedEvent(currentProvider, ""))
-                }
-
-                // Reload configuration to refresh UI
+                val activeInstanceId = appContext.params.currentInstanceId
+                appContext.setInstanceSettings(activeInstanceId, updatedSettings)
+                EventBus.emit(ModelChangedEvent(currentProvider, "", activeInstanceId))
                 loadConfiguration()
-
-                // Refresh settings fields in dialog
                 settingsFields = updatedSettings.getFields()
             }
         }
     }
 
-    /**
-     * Close the settings dialog and show success message.
-     */
     fun closeSettingsDialog() {
         showSettingsDialog = false
         successMessage = "Settings updated successfully"
         showSuccessMessage = true
     }
 
-    /**
-     * Validates that all required fields are filled.
-     */
-    private fun validateConfigFields(fields: Map<String, String>, configFields: List<ProviderConfigField>): Boolean = configFields.all { field ->
-        if (field.required) {
-            // For API key fields with existing values, blank is acceptable (means keep existing)
-            if (field is ProviderConfigField.ApiKeyField && field.hasExistingValue) {
-                true
-            } else {
-                val value = fields[field.name]
-                !value.isNullOrBlank()
-            }
-        } else {
-            true
-        }
-    }
+    // ── Embedding model availability ──────────────────────────────────────────────────────────
 
-    /**
-     * Check if the embedding model is available for the selected provider.
-     * This is only relevant for RAG features with local providers.
-     */
     fun checkEmbeddingModelAvailability(provider: ModelProvider, baseUrl: String) {
         isCheckingEmbeddingModel = true
         embeddingModelWarning = null
@@ -734,138 +581,215 @@ class SettingsViewModel(
             try {
                 val result = withContext(Dispatchers.IO) {
                     when (provider) {
-                        ModelProvider.OLLAMA -> {
-                            val modelName = AppConfig.models[ModelProvider.OLLAMA].embeddingModel
-                            LocalModelValidator.checkModelExists(
-                                provider,
-                                baseUrl,
-                                modelName,
-                            )
-                        }
-
-                        ModelProvider.DOCKER -> {
-                            val modelName = AppConfig.models[ModelProvider.DOCKER].embeddingModel
-                            LocalModelValidator.checkModelExists(
-                                provider,
-                                baseUrl,
-                                modelName,
-                            )
-                        }
-
-                        ModelProvider.LOCALAI -> {
-                            val modelName = AppConfig.models[ModelProvider.LOCALAI].embeddingModel
-                            LocalModelValidator.checkModelExists(
-                                provider,
-                                baseUrl,
-                                modelName,
-                            )
-                        }
-
-                        ModelProvider.LMSTUDIO -> {
-                            val modelName = AppConfig.models[ModelProvider.LMSTUDIO].embeddingModel
-                            LocalModelValidator.checkModelExists(
-                                provider,
-                                baseUrl,
-                                modelName,
-                            )
-                        }
-
-                        ModelProvider.ANTHROPIC -> {
-                            ModelAvailabilityResult.NotAvailable(
-                                reason = LocalizationManager.getString("settings.embedding.anthropic_no_embedding"),
-                                canAutoPull = false,
-                            )
-                        }
-
-                        ModelProvider.XAI -> {
-                            ModelAvailabilityResult.NotAvailable(
-                                reason = LocalizationManager.getString("settings.embedding.xai_no_embedding"),
-                                canAutoPull = false,
-                            )
-                        }
-
+                        ModelProvider.OLLAMA -> LocalModelValidator.checkModelExists(provider, baseUrl, AppConfig.models[ModelProvider.OLLAMA].embeddingModel)
+                        ModelProvider.DOCKER -> LocalModelValidator.checkModelExists(provider, baseUrl, AppConfig.models[ModelProvider.DOCKER].embeddingModel)
+                        ModelProvider.LOCALAI -> LocalModelValidator.checkModelExists(provider, baseUrl, AppConfig.models[ModelProvider.LOCALAI].embeddingModel)
+                        ModelProvider.LMSTUDIO -> LocalModelValidator.checkModelExists(provider, baseUrl, AppConfig.models[ModelProvider.LMSTUDIO].embeddingModel)
+                        ModelProvider.ANTHROPIC -> ModelAvailabilityResult.NotAvailable(reason = LocalizationManager.getString("settings.embedding.anthropic_no_embedding"), canAutoPull = false)
+                        ModelProvider.XAI -> ModelAvailabilityResult.NotAvailable(reason = LocalizationManager.getString("settings.embedding.xai_no_embedding"), canAutoPull = false)
                         else -> ModelAvailabilityResult.Available
                     }
                 }
-
                 when (result) {
-                    is ModelAvailabilityResult.Available -> {
-                        // Model is available, no warning needed
-                        embeddingModelWarning = null
-                    }
+                    is ModelAvailabilityResult.Available -> embeddingModelWarning = null
 
                     is ModelAvailabilityResult.NotAvailable -> {
-                        embeddingModelWarning = LocalizationManager.getString(
-                            "settings.embedding.not_available_rag_only",
-                            result.reason,
-                        )
+                        embeddingModelWarning = LocalizationManager.getString("settings.embedding.not_available_rag_only", result.reason)
                         embeddingModelProvider = provider.name
                         canPullEmbeddingModel = result.canAutoPull
                     }
 
                     is ModelAvailabilityResult.ProviderUnreachable -> {
-                        embeddingModelWarning = LocalizationManager.getString(
-                            "settings.embedding.provider_unreachable",
-                            result.error,
-                        )
+                        embeddingModelWarning = LocalizationManager.getString("settings.embedding.provider_unreachable", result.error)
                         embeddingModelProvider = provider.name
                         canPullEmbeddingModel = false
                     }
                 }
             } catch (e: Exception) {
                 log.error("Error checking embedding model availability", e)
-                embeddingModelWarning = LocalizationManager.getString(
-                    "settings.embedding.check_failed",
-                    e.message ?: "Unknown error",
-                )
+                embeddingModelWarning = LocalizationManager.getString("settings.embedding.check_failed", e.message ?: "Unknown error")
             } finally {
                 isCheckingEmbeddingModel = false
             }
         }
     }
 
-    /**
-     * Attempt to pull/download the embedding model (for Ollama)
-     */
     fun pullEmbeddingModel(provider: ModelProvider, baseUrl: String) {
         if (provider != ModelProvider.OLLAMA) return
-
         isCheckingEmbeddingModel = true
         scope.launch {
             try {
                 val modelName = AppConfig.models[ModelProvider.OLLAMA].embeddingModel
-                val success = withContext(Dispatchers.IO) {
-                    LocalModelValidator.pullOllamaModel(baseUrl, modelName)
-                }
-
+                val success = withContext(Dispatchers.IO) { LocalModelValidator.pullOllamaModel(baseUrl, modelName) }
                 if (success) {
                     embeddingModelWarning = null
                     successMessage = LocalizationManager.getString("settings.embedding.download_success", modelName)
                     showSuccessMessage = true
                 } else {
-                    embeddingModelWarning = LocalizationManager.getString(
-                        "settings.embedding.download_failed",
-                        modelName,
-                    )
+                    embeddingModelWarning = LocalizationManager.getString("settings.embedding.download_failed", modelName)
                 }
             } catch (e: Exception) {
                 log.error("Error pulling embedding model", e)
-                embeddingModelWarning = LocalizationManager.getString(
-                    "settings.embedding.download_error",
-                    e.message ?: "Unknown error",
-                )
+                embeddingModelWarning = LocalizationManager.getString("settings.embedding.download_error", e.message ?: "Unknown error")
             } finally {
                 isCheckingEmbeddingModel = false
             }
         }
     }
 
-    /**
-     * Clear embedding model warning
-     */
-    fun clearEmbeddingWarning() {
+    // ── Private helpers ───────────────────────────────────────────────────────────────────────
+
+    /** Debounced model fetch; on success advances wizard to MODEL step. */
+    private fun scheduleAutoModelFetch() {
+        autoFetchJob?.cancel()
+
+        if (!validateConfigFields(providerFieldValues, providerConfigFields)) {
+            connectionError = null
+            connectionErrorHelp = null
+            isFetchingModelsForConfig = false
+            return
+        }
+
+        val provider = selectedProvider ?: return
+        connectionError = null
+        connectionErrorHelp = null
+        isFetchingModelsForConfig = true
+
+        autoFetchJob = scope.launch {
+            delay(1000.milliseconds)
+
+            val result = withContext(Dispatchers.IO) {
+                try {
+                    val baseSettings = editingInstance?.settings ?: ProviderRegistry.getFactory(provider)?.defaultSettings()
+                    val newSettings = baseSettings?.applyConfigFields(providerFieldValues)
+                        ?: return@withContext ProviderTestResult.Failure("Failed to create settings")
+
+                    if (!newSettings.validate()) {
+                        return@withContext ProviderTestResult.Failure(
+                            message = "Cannot connect to ${provider.name.lowercase()} provider",
+                            helpText = newSettings.getSetupHelpText(LocalizationManager.messageResolver),
+                        )
+                    }
+
+                    val factory = ProviderRegistry.getFactory(provider)
+                        ?: return@withContext ProviderTestResult.Failure("No factory found for provider")
+
+                    @Suppress("UNCHECKED_CAST")
+                    val models = (factory as ChatModelFactory<ProviderSettings>)
+                        .availableModels((editingInstance?.settings ?: factory.defaultSettings()).applyConfigFields(providerFieldValues))
+
+                    isLoadingModels = false
+                    if (models.isNotEmpty()) {
+                        ProviderTestResult.Success
+                    } else {
+                        ProviderTestResult.Failure(message = LocalizationManager.getString("provider.connection.failed"), helpText = null)
+                    }
+                } catch (e: Exception) {
+                    log.error("Error auto-fetching models for provider config", e)
+                    ProviderTestResult.Failure(ErrorHandler.getUserFriendlyError(e, "fetching models", "Could not reach the provider. Please check your settings."))
+                }
+            }
+
+            isFetchingModelsForConfig = false
+
+            when (result) {
+                is ProviderTestResult.Success -> {
+                    connectionError = null
+                    connectionErrorHelp = null
+                    connectionTestSuccess = true
+                    // Pre-load models in background so they're ready when user clicks Next
+                    loadModelsForSelectedProvider()
+                    val baseUrl = providerFieldValues[SettingField.BASE_URL]
+                    if (!baseUrl.isNullOrBlank()) checkEmbeddingModelAvailability(provider, baseUrl)
+                }
+
+                is ProviderTestResult.Failure -> {
+                    connectionError = result.message
+                    connectionErrorHelp = result.helpText
+                    connectionTestSuccess = false
+                }
+            }
+        }
+    }
+
+    /** Called when user explicitly clicks "Next" on the CONFIG step (add mode). */
+    fun advanceToModelPicker() {
+        wizardStep = WizardStep.MODEL
+    }
+
+    private fun loadModelsForSelectedProvider() {
+        modelError = null
+        modelErrorHelp = null
+        isLoadingModels = true
+
+        scope.launch {
+            val provider = selectedProvider ?: run {
+                isLoadingModels = false
+                availableModels = emptyList()
+                modelError = "Provider not set"
+                pendingModelForNewProvider = null
+                return@launch
+            }
+
+            withContext(Dispatchers.IO) {
+                val factory = ProviderRegistry.getFactory(provider) ?: run {
+                    isLoadingModels = false
+                    availableModels = emptyList()
+                    modelError = "No model factory registered for provider: ${provider.name.lowercase()}"
+                    pendingModelForNewProvider = null
+                    return@withContext
+                }
+
+                @Suppress("UNCHECKED_CAST")
+                val models = (factory as ChatModelFactory<ProviderSettings>)
+                    .availableModels((editingInstance?.settings ?: factory.defaultSettings()).applyConfigFields(providerFieldValues))
+
+                isLoadingModels = false
+                if (models.isEmpty()) {
+                    availableModels = emptyList()
+                    modelError = "No models available for ${provider.name.lowercase()}"
+                    modelErrorHelp = factory.getNoModelsHelpText()
+                    pendingModelForNewProvider = null
+                } else {
+                    availableModels = models
+                    modelError = null
+                    modelErrorHelp = null
+                    val prev = editingInstance?.settings?.defaultModel ?: ""
+                    pendingModelForNewProvider = prev.takeIf { it.isNotBlank() && models.any { m -> m.modelId == it } }
+                }
+            }
+        }
+    }
+
+    private fun resetWizardFormState() {
+        autoFetchJob?.cancel()
+        connectionError = null
+        connectionErrorHelp = null
+        connectionTestSuccess = false
+        pendingModelForNewProvider = null
+        availableModels = emptyList()
+        isLoadingModels = false
+        modelError = null
+        modelErrorHelp = null
         embeddingModelWarning = null
         embeddingModelProvider = null
         canPullEmbeddingModel = false
+        isCheckingEmbeddingModel = false
+        providerConfigFields = emptyList()
+        providerFieldValues = emptyMap()
+        isFetchingModelsForConfig = false
+        isTestingConnection = false
+    }
+
+    private fun validateConfigFields(fields: Map<String, String>, configFields: List<ProviderConfigField>): Boolean = configFields.all { field ->
+        if (field.required) {
+            if (field is ProviderConfigField.ApiKeyField && field.hasExistingValue) {
+                true
+            } else {
+                !fields[field.name].isNullOrBlank()
+            }
+        } else {
+            true
+        }
     }
 }
