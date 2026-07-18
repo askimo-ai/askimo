@@ -94,6 +94,7 @@ tasks.test {
 }
 
 kotlin {
+    jvmToolchain((property("jvmVersion") as String).toInt())
     compilerOptions {
         javaParameters.set(true)
     }
