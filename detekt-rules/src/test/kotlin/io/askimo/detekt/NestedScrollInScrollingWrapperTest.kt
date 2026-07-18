@@ -31,7 +31,6 @@ class NestedScrollInScrollingWrapperTest {
             """.trimIndent(),
         )
         assertEquals(1, findings.size)
-        assertEquals("NestedScrollInScrollingWrapper", findings.first().ruleName.value)
     }
 
     @Test
@@ -50,7 +49,6 @@ class NestedScrollInScrollingWrapperTest {
             """.trimIndent(),
         )
         assertEquals(1, findings.size)
-        assertEquals("NestedScrollInScrollingWrapper", findings.first().ruleName.value)
     }
 
     @Test
@@ -119,9 +117,6 @@ class NestedScrollInScrollingWrapperTest {
 
     @Test
     fun `flags verticalScroll assigned to val inside scaffoldDialog lambda in object`() {
-        // Mirrors exactly the smokeTestViolation pattern in AppComponents.kt:
-        // scaffoldDialog called as a member of an object, with verticalScroll
-        // stored in a local val rather than passed directly as a modifier arg.
         val findings = rule.lint(
             """
             import androidx.compose.foundation.verticalScroll

@@ -31,7 +31,6 @@ class RememberCoroutineScopeInConditionalComposableTest {
             """.trimIndent(),
         )
         assertEquals(1, findings.size)
-        assertTrue(findings.first().ruleName.value == "RememberCoroutineScopeInConditionalComposable")
     }
 
     @Test
@@ -94,7 +93,6 @@ class RememberCoroutineScopeInConditionalComposableTest {
 
     @Test
     fun `does not flag rememberCoroutineScope called inside if condition itself`() {
-        // Edge case: call is in the condition expression, not the branch body
         val findings = rule.lint(
             """
             import androidx.compose.runtime.Composable

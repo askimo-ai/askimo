@@ -7,6 +7,15 @@ plugins {
 }
 
 dependencies {
+    components {
+        withModule("dev.detekt:detekt-api") {
+            allVariants {
+                withCapabilities {
+                    addCapability("dev.detekt", "detekt-api-test-fixtures", id.version)
+                }
+            }
+        }
+    }
     compileOnly(libs.detekt.api)
     testImplementation(libs.detekt.test)
     testImplementation(libs.junit.jupiter)
