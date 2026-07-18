@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -52,6 +53,7 @@ import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ProviderConfigField
 import io.askimo.core.providers.ProviderRegistry
+import io.askimo.core.providers.filterChatModels
 import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
@@ -406,11 +408,15 @@ private fun instanceConfigScreen(viewModel: SettingsViewModel) {
 @Composable
 private fun modelPickerScreen(viewModel: SettingsViewModel) {
     var searchQuery by remember { mutableStateOf("") }
-    val filteredModels = remember(viewModel.availableModels, searchQuery) {
+    var showAll by remember { mutableStateOf(false) }
+    val chatModels = remember(viewModel.availableModels) { filterChatModels(viewModel.availableModels) }
+    val isFiltered = chatModels.size < viewModel.availableModels.size
+    val displayModels = if (showAll || !isFiltered) viewModel.availableModels else chatModels
+    val filteredModels = remember(displayModels, searchQuery) {
         if (searchQuery.isBlank()) {
-            viewModel.availableModels
+            displayModels
         } else {
-            viewModel.availableModels.filter {
+            displayModels.filter {
                 it.displayName.contains(searchQuery, ignoreCase = true) || it.modelId.contains(searchQuery, ignoreCase = true)
             }
         }
@@ -455,6 +461,7 @@ private fun modelPickerScreen(viewModel: SettingsViewModel) {
                     }
                 }
 
+                // Search field — always visible, does not scroll with the list
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
@@ -465,12 +472,13 @@ private fun modelPickerScreen(viewModel: SettingsViewModel) {
                     colors = AppComponents.outlinedTextFieldColors(),
                 )
 
-                Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                // Model list — bounded height so it scrolls independently and the search field above stays visible
+                Column(modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp).verticalScroll(rememberScrollState())) {
                     if (filteredModels.isEmpty()) {
                         Text(text = stringResource("settings.model.no.match"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(Spacing.large))
                     } else {
                         if (searchQuery.isNotBlank()) {
-                            Text(text = stringResource("settings.model.filtered", filteredModels.size, viewModel.availableModels.size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = Spacing.small))
+                            Text(text = stringResource("settings.model.filtered", filteredModels.size, displayModels.size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = Spacing.small))
                         }
                         groupedModelListAsCards(
                             models = filteredModels,
@@ -478,6 +486,13 @@ private fun modelPickerScreen(viewModel: SettingsViewModel) {
                             onModelClick = { viewModel.selectModelForNewProvider(it) },
                             showHeaders = true,
                         )
+                    }
+
+                    // "Show all" toggle — visible only when list is filtered and user hasn't expanded yet
+                    if (isFiltered && !showAll && searchQuery.isBlank()) {
+                        linkButton(onClick = { showAll = true }, modifier = Modifier.padding(top = Spacing.small)) {
+                            Text(text = "Show all ${viewModel.availableModels.size} models", style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
             }

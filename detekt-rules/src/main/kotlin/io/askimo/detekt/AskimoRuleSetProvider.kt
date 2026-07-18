@@ -14,6 +14,7 @@ class AskimoRuleSetProvider : RuleSetProvider {
     override fun instance(config: Config): RuleSet = RuleSet(
         id = ruleSetId,
         rules = listOf(
+            NestedScrollInScrollingWrapper(config),
             RememberCoroutineScopeInConditionalComposable(config),
         ),
     )

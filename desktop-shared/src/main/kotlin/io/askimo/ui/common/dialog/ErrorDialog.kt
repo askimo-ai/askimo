@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -35,6 +36,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
+import androidx.compose.ui.unit.dp
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
@@ -136,6 +138,7 @@ fun errorDialog(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .heightIn(max = 200.dp)
                                 .verticalScroll(rememberScrollState())
                                 .padding(Spacing.small),
                         )

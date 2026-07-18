@@ -538,6 +538,24 @@ object AppComponents {
         }
     }
 
+    /**
+     * A scaffold-style dialog with a scrollable content area, sticky title bar, and action bar.
+     *
+     * **Scroll contract** — this composable internally wraps its content in a `verticalScroll`.
+     * Do **not** apply [androidx.compose.foundation.verticalScroll] or
+     * [androidx.compose.foundation.horizontalScroll] directly inside the [content] lambda
+     * without a bounded `heightIn` / `height` constraint.  Doing so causes an
+     * [IllegalStateException] at runtime:
+     * _"Vertically scrollable component was measured with an infinity maximum height constraints"_.
+     *
+     * ℹ️ The `NestedScrollInScrollingWrapper` Detekt rule enforces this contract automatically.
+     *
+     * If you need an independently scrollable sub-list inside the content, give the inner
+     * container an explicit max-height constraint first:
+     * ```kotlin
+     * Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())
+     * ```
+     */
     @Composable
     fun scaffoldDialog(
         onDismissRequest: () -> Unit,
@@ -635,6 +653,25 @@ object AppComponents {
         }
     }
 
+    /**
+     * A scaffold-style dialog with a lazily-rendered, scrollable content area,
+     * sticky title bar, and action bar.
+     *
+     * **Scroll contract** — the content area is rendered inside a [LazyColumn] which owns its
+     * own scroll state.  Do **not** apply [androidx.compose.foundation.verticalScroll] or
+     * [androidx.compose.foundation.horizontalScroll] directly inside the [content] lambda
+     * without a bounded height constraint.  Doing so causes an [IllegalStateException] at
+     * runtime:
+     * _"Vertically scrollable component was measured with an infinity maximum height constraints"_.
+     *
+     * ℹ️ The `NestedScrollInScrollingWrapper` Detekt rule enforces this contract automatically.
+     *
+     * If you need an independently scrollable sub-list, give the inner container an explicit
+     * max-height constraint first:
+     * ```kotlin
+     * Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())
+     * ```
+     */
     @Composable
     fun scaffoldDialogLazyColumn(
         onDismissRequest: () -> Unit,
