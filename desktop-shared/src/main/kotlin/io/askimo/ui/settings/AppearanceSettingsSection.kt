@@ -360,7 +360,6 @@ private fun accentColorSection() {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppComponents.secondaryCardColors(),
     ) {
         Column(
             modifier = Modifier

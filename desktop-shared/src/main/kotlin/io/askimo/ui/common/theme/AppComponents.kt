@@ -15,6 +15,7 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -538,6 +539,46 @@ object AppComponents {
         }
     }
 
+    /** Shared title-bar + optional sticky-header slot used by both scaffold dialog variants. */
+    @Composable
+    private fun scaffoldDialogHeader(
+        title: (@Composable () -> Unit)?,
+        onCloseRequest: (() -> Unit)?,
+        stickyHeader: (@Composable ColumnScope.() -> Unit)?,
+        sectionSpacing: Dp,
+    ) {
+        if (title != null || onCloseRequest != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    title?.invoke()
+                }
+                if (onCloseRequest != null) {
+                    IconButton(
+                        onClick = onCloseRequest,
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = stringResource("dialog.close"),
+                        )
+                    }
+                }
+            }
+        }
+
+        if (stickyHeader != null) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+                content = stickyHeader,
+            )
+        }
+    }
+
     /**
      * A scaffold-style dialog with a scrollable content area, sticky title bar, and action bar.
      *
@@ -555,6 +596,11 @@ object AppComponents {
      * ```kotlin
      * Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())
      * ```
+     *
+     * @param stickyHeader Optional composable rendered **between the title bar and the scrollable
+     *   content area**, outside the scroll viewport.  Use it for controls that must always be
+     *   visible regardless of scroll position — e.g. a search field above a long model list.
+     *   Each child is automatically separated by [sectionSpacing].
      */
     @Composable
     fun scaffoldDialog(
@@ -571,6 +617,7 @@ object AppComponents {
         sectionSpacing: Dp = dialogSectionSpacing,
         onCloseRequest: (() -> Unit)? = null,
         title: (@Composable () -> Unit)? = null,
+        stickyHeader: (@Composable ColumnScope.() -> Unit)? = null,
         content: @Composable ColumnScope.() -> Unit,
     ) {
         val safeMaxHeightFraction = maxHeightFraction.coerceIn(0.35f, 1f)
@@ -585,41 +632,20 @@ object AppComponents {
                     tonalElevation = tonalElevation,
                 ) {
                     val scrollState = rememberScrollState()
-                    androidx.compose.foundation.layout.Column(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(contentPadding),
                         verticalArrangement = Arrangement.spacedBy(sectionSpacing),
                     ) {
-                        if (title != null || onCloseRequest != null) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                            ) {
-                                Box(modifier = Modifier.weight(1f)) {
-                                    title?.invoke()
-                                }
-                                if (onCloseRequest != null) {
-                                    IconButton(
-                                        onClick = onCloseRequest,
-                                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Close,
-                                            contentDescription = stringResource("dialog.close"),
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                        scaffoldDialogHeader(title, onCloseRequest, stickyHeader, sectionSpacing)
 
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f, fill = false),
                         ) {
-                            androidx.compose.foundation.layout.Column(
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(end = dialogScrollbarPadding)
@@ -653,25 +679,6 @@ object AppComponents {
         }
     }
 
-    /**
-     * A scaffold-style dialog with a lazily-rendered, scrollable content area,
-     * sticky title bar, and action bar.
-     *
-     * **Scroll contract** — the content area is rendered inside a [LazyColumn] which owns its
-     * own scroll state.  Do **not** apply [androidx.compose.foundation.verticalScroll] or
-     * [androidx.compose.foundation.horizontalScroll] directly inside the [content] lambda
-     * without a bounded height constraint.  Doing so causes an [IllegalStateException] at
-     * runtime:
-     * _"Vertically scrollable component was measured with an infinity maximum height constraints"_.
-     *
-     * ℹ️ The `NestedScrollInScrollingWrapper` Detekt rule enforces this contract automatically.
-     *
-     * If you need an independently scrollable sub-list, give the inner container an explicit
-     * max-height constraint first:
-     * ```kotlin
-     * Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())
-     * ```
-     */
     @Composable
     fun scaffoldDialogLazyColumn(
         onDismissRequest: () -> Unit,
@@ -688,6 +695,7 @@ object AppComponents {
         onCloseRequest: (() -> Unit)? = null,
         listState: LazyListState = rememberLazyListState(),
         title: (@Composable () -> Unit)? = null,
+        stickyHeader: (@Composable ColumnScope.() -> Unit)? = null,
         content: LazyListScope.() -> Unit,
     ) {
         val safeMaxHeightFraction = maxHeightFraction.coerceIn(0.35f, 1f)
@@ -701,34 +709,13 @@ object AppComponents {
                     color = containerColor,
                     tonalElevation = tonalElevation,
                 ) {
-                    androidx.compose.foundation.layout.Column(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(contentPadding),
                         verticalArrangement = Arrangement.spacedBy(sectionSpacing),
                     ) {
-                        if (title != null || onCloseRequest != null) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                            ) {
-                                Box(modifier = Modifier.weight(1f)) {
-                                    title?.invoke()
-                                }
-                                if (onCloseRequest != null) {
-                                    IconButton(
-                                        onClick = onCloseRequest,
-                                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Close,
-                                            contentDescription = stringResource("dialog.close"),
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                        scaffoldDialogHeader(title, onCloseRequest, stickyHeader, sectionSpacing)
 
                         Box(
                             modifier = Modifier

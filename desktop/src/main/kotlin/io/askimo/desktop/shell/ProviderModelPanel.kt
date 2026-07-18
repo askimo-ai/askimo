@@ -180,7 +180,7 @@ internal fun providerModelPanel(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    IconButton(onClick = onAddProvider, modifier = Modifier.size(28.dp)) {
+                    IconButton(onClick = onAddProvider, modifier = Modifier.size(28.dp).pointerHoverIcon(PointerIcon.Hand)) {
                         Icon(
                             Icons.Default.Add,
                             contentDescription = stringResource("provider.add.new"),
@@ -202,10 +202,16 @@ internal fun providerModelPanel(
                         )
                     }
                 } else {
+                    val sortedInstances = remember(state.availableInstances, currentInstanceId) {
+                        state.availableInstances.sortedWith(
+                            compareByDescending<ProviderInstance> { it.id == currentInstanceId }
+                                .thenBy { it.displayName.lowercase() },
+                        )
+                    }
                     val instanceListState = rememberLazyListState()
                     Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                         LazyColumn(state = instanceListState, modifier = Modifier.fillMaxSize()) {
-                            items(state.availableInstances, key = { it.id }) { instance ->
+                            items(sortedInstances, key = { it.id }) { instance ->
                                 instanceRow(
                                     instance = instance,
                                     isActive = instance.id == currentInstanceId,
@@ -408,6 +414,30 @@ private fun modelListColumn(
                 )
 
                 val modelListState = rememberLazyListState()
+
+                // Scroll to the active model when first browsing the active instance
+                val isActiveInstance = state.pendingInstanceId == currentInstanceId
+                LaunchedEffect(state.pendingInstanceId, filteredModels) {
+                    if (isActiveInstance && currentModel.isNotBlank() && filteredModels.isNotEmpty()) {
+                        val groupedModels = filteredModels.groupBy { it.provider }
+                        val showHeaders = groupedModels.size > 1
+                        var flatIndex = 0
+                        var found = false
+                        for ((_, providerModels) in groupedModels) {
+                            if (showHeaders) flatIndex++ // header item
+                            for (dto in providerModels) {
+                                if (dto.modelId == currentModel) {
+                                    found = true
+                                    break
+                                }
+                                flatIndex++
+                            }
+                            if (found) break
+                        }
+                        if (found) modelListState.scrollToItem(flatIndex)
+                    }
+                }
+
                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                     if (filteredModels.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
