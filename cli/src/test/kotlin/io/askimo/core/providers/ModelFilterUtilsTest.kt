@@ -31,8 +31,7 @@ class ModelFilterUtilsTest {
     // ── Helpers ───────────────────────────────────────────────────────────────────────────
 
     /** Builds a minimal [ModelDTO] using Ollama as a stand-in provider. */
-    private fun model(id: String, category: ModelCategory? = null): ModelDTO =
-        ModelDTO(provider = ModelProvider.OLLAMA, modelId = id, category = category)
+    private fun model(id: String, category: ModelCategory? = null): ModelDTO = ModelDTO(provider = ModelProvider.OLLAMA, modelId = id, category = category)
 
     // ── filterChatModels ──────────────────────────────────────────────────────────────────
 
@@ -153,7 +152,7 @@ class ModelFilterUtilsTest {
 
             @Test
             fun `nomic-embed with null category is excluded when enough chat models exist`() {
-                val embed = model("nomic-embed-text")          // category = null
+                val embed = model("nomic-embed-text") // category = null
                 val chat1 = model("llama3:8b")
                 val chat2 = model("mistral:7b")
 
@@ -238,14 +237,16 @@ class ModelFilterUtilsTest {
             @Test
             fun `untagged embed model is excluded when at least 1 chat model survives keyword pass`() {
                 // Only one "real" chat model + one embed-named model (both untagged)
-                val embed = model("nomic-embed-text")   // category = null, keyword hit
-                val chat = model("llama3:8b")           // category = null, safe
+                val embed = model("nomic-embed-text") // category = null, keyword hit
+                val chat = model("llama3:8b") // category = null, safe
 
                 // chatModels = [chat] (non-empty) → no fallback → embed stays out
                 val result = filterChatModels(listOf(embed, chat))
 
-                assertFalse(result.contains(embed),
-                    "keyword-matched embed model must not appear even when it is the only non-chat model")
+                assertFalse(
+                    result.contains(embed),
+                    "keyword-matched embed model must not appear even when it is the only non-chat model",
+                )
                 assertTrue(result.contains(chat))
             }
 
@@ -257,8 +258,10 @@ class ModelFilterUtilsTest {
 
                 val result = filterChatModels(listOf(embed, chat))
 
-                assertFalse(result.contains(embed),
-                    "docker-registry-prefixed embed model must be excluded by keyword filter")
+                assertFalse(
+                    result.contains(embed),
+                    "docker-registry-prefixed embed model must be excluded by keyword filter",
+                )
                 assertTrue(result.contains(chat))
             }
 
@@ -272,8 +275,10 @@ class ModelFilterUtilsTest {
                 val result = filterChatModels(listOf(e1, e2))
 
                 // chatModels is empty → fallback to categorySafe → return both
-                assertTrue(result.containsAll(listOf(e1, e2)),
-                    "fallback must activate when keyword pass leaves nothing, to avoid an empty model list")
+                assertTrue(
+                    result.containsAll(listOf(e1, e2)),
+                    "fallback must activate when keyword pass leaves nothing, to avoid an empty model list",
+                )
             }
 
             @Test
@@ -284,8 +289,10 @@ class ModelFilterUtilsTest {
 
                 val result = filterChatModels(listOf(embed, chat))
 
-                assertFalse(result.contains(embed),
-                    "explicitly tagged EMBEDDING model must not be reinstated by fallback")
+                assertFalse(
+                    result.contains(embed),
+                    "explicitly tagged EMBEDDING model must not be reinstated by fallback",
+                )
                 assertTrue(result.contains(chat))
             }
         }
@@ -343,19 +350,21 @@ class ModelFilterUtilsTest {
 
             @Test
             fun `falls back to keyword match when fewer than 2 category matches`() {
-                val e1 = model("nomic-embed-text", ModelCategory.EMBEDDING)   // category match
-                val e2 = model("all-minilm-l6-v2")                           // keyword match
+                val e1 = model("nomic-embed-text", ModelCategory.EMBEDDING) // category match
+                val e2 = model("all-minilm-l6-v2") // keyword match
                 val chat = model("llama3:8b")
 
                 val result = filterModelsForType(listOf(e1, e2, chat), SpecialModelType.EMBEDDING)
-                assertTrue(result.contains(e2),
-                    "keyword-matched model should appear in fallback list")
+                assertTrue(
+                    result.contains(e2),
+                    "keyword-matched model should appear in fallback list",
+                )
             }
 
             @Test
             fun `nomic-embed-text is matched by keyword when untagged`() {
-                val e1 = model("nomic-embed-text")       // keyword: "nomic"
-                val e2 = model("bge-large-en")           // keyword: "bge-"
+                val e1 = model("nomic-embed-text") // keyword: "nomic"
+                val e2 = model("bge-large-en") // keyword: "bge-"
                 val chat = model("llama3:8b")
 
                 val result = filterModelsForType(listOf(e1, e2, chat), SpecialModelType.EMBEDDING)
@@ -479,4 +488,3 @@ class ModelFilterUtilsTest {
         }
     }
 }
-

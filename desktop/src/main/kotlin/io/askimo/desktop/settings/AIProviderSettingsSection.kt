@@ -516,7 +516,9 @@ private fun providerModelTypePickerDialog(
                     )
                 }
             }
-        } else null,
+        } else {
+            null
+        },
         actions = {
             secondaryButton(onClick = onDismiss) { Text(stringResource("action.cancel")) }
             Spacer(modifier = Modifier.width(Spacing.small))

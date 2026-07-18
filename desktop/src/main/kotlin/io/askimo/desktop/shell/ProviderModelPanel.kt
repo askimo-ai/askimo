@@ -180,7 +180,7 @@ internal fun providerModelPanel(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    IconButton(onClick = onAddProvider, modifier = Modifier.size(28.dp)) {
+                    IconButton(onClick = onAddProvider, modifier = Modifier.size(28.dp).pointerHoverIcon(PointerIcon.Hand)) {
                         Icon(
                             Icons.Default.Add,
                             contentDescription = stringResource("provider.add.new"),
@@ -426,7 +426,10 @@ private fun modelListColumn(
                         for ((_, providerModels) in groupedModels) {
                             if (showHeaders) flatIndex++ // header item
                             for (dto in providerModels) {
-                                if (dto.modelId == currentModel) { found = true; break }
+                                if (dto.modelId == currentModel) {
+                                    found = true
+                                    break
+                                }
                                 flatIndex++
                             }
                             if (found) break

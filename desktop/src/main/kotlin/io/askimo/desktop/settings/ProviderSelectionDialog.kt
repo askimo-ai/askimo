@@ -87,10 +87,13 @@ fun providerWizardDialog(viewModel: SettingsViewModel) {
     val isFiltered = chatModels.size < viewModel.availableModels.size
     val displayModels = if (showAll || !isFiltered) viewModel.availableModels else chatModels
     val filteredModels = remember(displayModels, searchQuery) {
-        if (searchQuery.isBlank()) displayModels
-        else displayModels.filter {
-            it.displayName.contains(searchQuery, ignoreCase = true) ||
-                it.modelId.contains(searchQuery, ignoreCase = true)
+        if (searchQuery.isBlank()) {
+            displayModels
+        } else {
+            displayModels.filter {
+                it.displayName.contains(searchQuery, ignoreCase = true) ||
+                    it.modelId.contains(searchQuery, ignoreCase = true)
+            }
         }
     }
 
@@ -147,7 +150,9 @@ fun providerWizardDialog(viewModel: SettingsViewModel) {
                     )
                 }
             }
-        } else null,
+        } else {
+            null
+        },
         actions = {
             // Left side: testing indicator + Cancel
             if (viewModel.wizardStep == WizardStep.CONFIG && viewModel.isFetchingModelsForConfig) {
@@ -228,7 +233,9 @@ fun providerWizardDialog(viewModel: SettingsViewModel) {
     ) {
         when (viewModel.wizardStep) {
             WizardStep.TYPE_PICKER -> providerTypePickerScreen(viewModel)
+
             WizardStep.CONFIG -> instanceConfigScreen(viewModel)
+
             WizardStep.MODEL -> modelPickerScreen(
                 viewModel = viewModel,
                 filteredModels = filteredModels,
