@@ -19,12 +19,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -109,10 +107,9 @@ fun webSearchSettingsSection() {
 
 @Composable
 private fun webSearchConfigCard() {
-    val raw = AppConfig.rawWebSearch
-    var backend by remember { mutableStateOf(raw.backend) }
-    var enabled by remember { mutableStateOf(raw.enabled) }
-    var searxngEndpoint by remember { mutableStateOf(raw.searxngEndpoint) }
+    var backend by remember { mutableStateOf(AppConfig.rawWebSearch.backend) }
+    var enabled by remember { mutableStateOf(AppConfig.rawWebSearch.enabled) }
+    var searxngEndpoint by remember { mutableStateOf(AppConfig.rawWebSearch.searxngEndpoint) }
     // API keys loaded async from keychain — start blank
     var braveApiKey by remember { mutableStateOf("") }
     var tavilyApiKey by remember { mutableStateOf("") }
@@ -270,8 +267,9 @@ private fun webSearchConfigCard() {
                         expanded = backendDropdownExpanded,
                         onDismissRequest = { backendDropdownExpanded = false },
                     ) {
-                        WebSearchBackend.entries.forEach { b ->
-                            DropdownMenuItem(
+                        val backends = WebSearchBackend.entries
+                        backends.forEachIndexed { index, b ->
+                            AppComponents.themedDropdownMenuItem(
                                 text = {
                                     Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
                                         Text(
@@ -291,12 +289,8 @@ private fun webSearchConfigCard() {
                                     backendDropdownExpanded = false
                                     testStatus = null
                                 },
-                                leadingIcon = if (b == backend) {
-                                    { Icon(Icons.Default.Check, contentDescription = "Selected", tint = MaterialTheme.colorScheme.onSurface) }
-                                } else {
-                                    null
-                                },
-                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                isSelected = b == backend,
+                                showDivider = index < backends.lastIndex,
                             )
                         }
                     }

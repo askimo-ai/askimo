@@ -46,6 +46,7 @@ import io.askimo.core.context.ExecutionMode
 import io.askimo.core.logging.displayError
 import io.askimo.core.logging.logger
 import io.askimo.core.providers.ChatClient
+import io.askimo.core.providers.ProviderInstanceService
 import io.askimo.core.providers.sendStreamingMessageWithCallback
 import io.askimo.core.util.AskimoHome
 import io.askimo.core.util.PersonalAskimoHome
@@ -110,8 +111,8 @@ fun main(args: Array<String>) {
         listOf(
             HelpCommandHandler(),
             ConfigCommandHandler(appContext),
-            ListProvidersCommandHandler(),
-            SetProviderCommandHandler(appContext),
+            ListProvidersCommandHandler(appContext),
+            SetProviderCommandHandler(appContext, ProviderInstanceService(appContext)),
             ModelsCommandHandler(appContext),
             ParamsCommandHandler(appContext),
             SetParamCommandHandler(appContext),

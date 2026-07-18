@@ -9,17 +9,19 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
@@ -44,9 +46,12 @@ import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
 import io.askimo.core.providers.ChatModelFactory
+import io.askimo.core.providers.ModelDTO
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ProviderRegistry
 import io.askimo.core.providers.ProviderSettings
+import io.askimo.core.providers.SpecialModelType
+import io.askimo.core.providers.filterModelsForType
 import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
@@ -84,111 +89,60 @@ fun aiProviderSettingsSection(viewModel: SettingsViewModel) {
                     modifier = Modifier.padding(bottom = Spacing.small),
                 )
 
-                // Chat Configuration Card
+                // Active provider card — Edit current instance or Add a new one
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = AppComponents.bannerCardColors(),
                 ) {
-                    Column(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(Spacing.large),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.medium),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top,
                     ) {
-                        // Provider
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
+                        // Summary of active configuration
+                        Column(
+                            modifier = Modifier.weight(1f).padding(end = Spacing.medium),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = stringResource("settings.provider"),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                )
-                                Text(
-                                    text = viewModel.provider?.name ?: stringResource("provider.not.set"),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                )
-                            }
-                            secondaryButton(
-                                onClick = { viewModel.onChangeProvider() },
-                            ) {
-                                Icon(Icons.Default.Edit, contentDescription = null)
-                                Text(
-                                    stringResource("settings.provider.change.button"),
-                                    modifier = Modifier.padding(start = 8.dp),
-                                )
-                            }
-                        }
-
-                        HorizontalDivider()
-
-                        // Model
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = stringResource("settings.model"),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                )
+                            Text(
+                                text = viewModel.instanceDisplayName.ifBlank {
+                                    viewModel.provider?.name ?: stringResource("provider.not.set")
+                                },
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                            if (viewModel.model.isNotBlank()) {
                                 Text(
                                     text = viewModel.model,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
                                 )
                             }
-                            secondaryButton(
-                                onClick = { viewModel.onChangeModel() },
-                            ) {
-                                Icon(Icons.Default.Edit, contentDescription = null)
+                            viewModel.settingsDescription.forEach { line ->
                                 Text(
-                                    stringResource("settings.model.change.button"),
-                                    modifier = Modifier.padding(start = 8.dp),
+                                    text = line,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
                                 )
                             }
                         }
 
-                        // Settings
-                        if (viewModel.settingsDescription.isNotEmpty()) {
-                            HorizontalDivider()
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.Top,
-                            ) {
-                                Column(
-                                    modifier = Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-                                ) {
-                                    Text(
-                                        text = stringResource("settings.title"),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    )
-                                    viewModel.settingsDescription.forEach { setting ->
-                                        Text(
-                                            text = setting,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        )
-                                    }
+                        // Actions
+                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {
+                            val active = viewModel.activeInstance
+                            if (active != null) {
+                                secondaryButton(onClick = { viewModel.openEditProviderWizard(active) }) {
+                                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(Spacing.extraSmall))
+                                    Text(stringResource("settings.change.button"))
                                 }
-                                secondaryButton(
-                                    onClick = { viewModel.onChangeSettings() },
-                                ) {
-                                    Icon(Icons.Default.Edit, contentDescription = null)
-                                    Text(
-                                        stringResource("settings.change.button"),
-                                        modifier = Modifier.padding(start = 8.dp),
-                                    )
-                                }
+                            }
+                            secondaryButton(onClick = { viewModel.openAddProviderWizard() }) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(Spacing.extraSmall))
+                                Text(stringResource("provider.add.new"))
                             }
                         }
                     }
@@ -297,9 +251,9 @@ private fun providerModelConfigCard(provider: ModelProvider) {
             )
 
             if (showUtilityModelDialog) {
-                specialModelSelectionDialog(
+                providerModelTypePickerDialog(
                     provider = provider,
-                    modelType = "Utility",
+                    modelType = SpecialModelType.UTILITY,
                     currentValue = getProviderUtilityModel(provider),
                     onDismiss = { showUtilityModelDialog = false },
                     onSelect = { model ->
@@ -322,9 +276,9 @@ private fun providerModelConfigCard(provider: ModelProvider) {
             )
 
             if (showVisionModelDialog) {
-                specialModelSelectionDialog(
+                providerModelTypePickerDialog(
                     provider = provider,
-                    modelType = "Vision",
+                    modelType = SpecialModelType.VISION,
                     currentValue = getProviderVisionModel(provider),
                     onDismiss = { showVisionModelDialog = false },
                     onSelect = { model ->
@@ -347,9 +301,9 @@ private fun providerModelConfigCard(provider: ModelProvider) {
             )
 
             if (showImageModelDialog) {
-                specialModelSelectionDialog(
+                providerModelTypePickerDialog(
                     provider = provider,
-                    modelType = "Image",
+                    modelType = SpecialModelType.IMAGE,
                     currentValue = getProviderImageModel(provider),
                     onDismiss = { showImageModelDialog = false },
                     onSelect = { model ->
@@ -373,9 +327,9 @@ private fun providerModelConfigCard(provider: ModelProvider) {
                 )
 
                 if (showEmbeddingModelDialog) {
-                    specialModelSelectionDialog(
+                    providerModelTypePickerDialog(
                         provider = provider,
-                        modelType = "Embedding",
+                        modelType = SpecialModelType.EMBEDDING,
                         currentValue = getProviderEmbeddingModel(provider),
                         onDismiss = { showEmbeddingModelDialog = false },
                         onSelect = { model ->
@@ -444,28 +398,27 @@ private fun providerModelSelectorField(
 }
 
 @Composable
-private fun specialModelSelectionDialog(
+private fun providerModelTypePickerDialog(
     provider: ModelProvider,
-    modelType: String,
+    modelType: SpecialModelType,
     currentValue: String,
     onDismiss: () -> Unit,
     onSelect: (String) -> Unit,
 ) {
     var selectedModel by remember(currentValue) { mutableStateOf(currentValue.takeIf { it.isNotBlank() }) }
     var searchQuery by remember { mutableStateOf("") }
-    var availableModels by remember { mutableStateOf<List<io.askimo.core.providers.ModelDTO>>(emptyList()) }
+    var availableModels by remember { mutableStateOf<List<ModelDTO>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var errorHelp by remember { mutableStateOf<String?>(null) }
+    var showAll by remember { mutableStateOf(false) }
 
     val appContext = remember { AppContext.getInstance() }
 
-    // Load models when dialog opens
     LaunchedEffect(Unit) {
         isLoading = true
         errorMessage = null
         errorHelp = null
-
         withContext(Dispatchers.IO) {
             try {
                 val factory = ProviderRegistry.getFactory(provider)
@@ -474,13 +427,11 @@ private fun specialModelSelectionDialog(
                     isLoading = false
                     return@withContext
                 }
-
-                val settings = appContext.params.providerSettings[provider]
+                val settings = appContext.params.instancesForType(provider).firstOrNull()?.settings
                     ?: factory.defaultSettings()
 
                 @Suppress("UNCHECKED_CAST")
                 val models = (factory as ChatModelFactory<ProviderSettings>).availableModels(settings)
-
                 if (models.isEmpty()) {
                     errorMessage = "No models available for ${provider.name.lowercase()}"
                     errorHelp = factory.getNoModelsHelpText()
@@ -495,11 +446,15 @@ private fun specialModelSelectionDialog(
         }
     }
 
-    val filteredModels = remember(availableModels, searchQuery) {
+    val suggestedModels = remember(availableModels, modelType) { filterModelsForType(availableModels, modelType) }
+    val isFiltered = suggestedModels.size < availableModels.size
+    val displayModels = if (showAll || !isFiltered) availableModels else suggestedModels
+
+    val filteredModels = remember(displayModels, searchQuery) {
         if (searchQuery.isBlank()) {
-            availableModels
+            displayModels
         } else {
-            availableModels.filter {
+            displayModels.filter {
                 it.displayName.contains(searchQuery, ignoreCase = true) ||
                     it.modelId.contains(searchQuery, ignoreCase = true)
             }
@@ -510,7 +465,7 @@ private fun specialModelSelectionDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = stringResource("settings.model.select.title") + " ($modelType)",
+                text = stringResource("settings.model.select.title") + " (${modelType.label})",
                 style = MaterialTheme.typography.headlineSmall,
             )
         },
@@ -519,116 +474,56 @@ private fun specialModelSelectionDialog(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(Spacing.large),
             ) {
-                // Display current model
                 if (currentValue.isNotBlank()) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = AppComponents.bannerCardColors(),
-                    ) {
+                    Card(modifier = Modifier.fillMaxWidth(), colors = AppComponents.bannerCardColors()) {
                         Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(Spacing.large),
+                            modifier = Modifier.fillMaxWidth().padding(Spacing.large),
                             verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                         ) {
-                            Text(
-                                text = stringResource("settings.model.current"),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            )
-                            Text(
-                                text = currentValue,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            )
+                            Text(text = stringResource("settings.model.current"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Text(text = currentValue, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
                         }
                     }
                 }
 
                 when {
                     isLoading -> {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            CircularProgressIndicator(
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                text = stringResource("settings.model.loading"),
-                                modifier = Modifier.padding(start = Spacing.large),
-                            )
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(text = stringResource("settings.model.loading"), modifier = Modifier.padding(start = Spacing.large))
                         }
                     }
 
                     errorMessage != null -> {
                         Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
-                            Text(
-                                text = errorMessage ?: "",
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
+                            Text(text = errorMessage ?: "", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
                             errorHelp?.let { helpText ->
                                 Card(colors = AppComponents.surfaceVariantCardColors()) {
-                                    Text(
-                                        text = helpText,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        modifier = Modifier.padding(Spacing.medium),
-                                    )
+                                    Text(text = helpText, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(Spacing.medium))
                                 }
                             }
                         }
                     }
 
                     availableModels.isEmpty() -> {
-                        Text(
-                            text = stringResource("settings.model.none"),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Text(text = stringResource("settings.model.none"), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
 
                     else -> {
-                        Text(
-                            text = stringResource("settings.model.change.description"),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
+                        Text(text = stringResource("settings.model.change.description"), style = MaterialTheme.typography.bodyMedium)
 
-                        // Show selected model if different from current
                         if (selectedModel != null && selectedModel != currentValue) {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = AppComponents.primaryCardColors(),
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(Spacing.large),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
+                            Card(modifier = Modifier.fillMaxWidth(), colors = AppComponents.primaryCardColors()) {
+                                Row(modifier = Modifier.fillMaxWidth().padding(Spacing.large), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = stringResource("settings.model.new"),
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        )
-                                        Text(
-                                            text = selectedModel ?: "",
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        )
+                                        Text(text = stringResource("settings.model.new"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                        Text(text = selectedModel ?: "", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
                                     }
-                                    Icon(
-                                        Icons.Default.CheckCircle,
-                                        contentDescription = "New model selected",
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                    )
+                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
                                 }
                             }
                         }
 
-                        // Search field
                         OutlinedTextField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it },
@@ -639,39 +534,23 @@ private fun specialModelSelectionDialog(
                             colors = AppComponents.outlinedTextFieldColors(),
                         )
 
-                        // Filtered models list
                         Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 400.dp)
-                                .verticalScroll(rememberScrollState()),
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
                             if (filteredModels.isEmpty()) {
-                                Text(
-                                    text = stringResource("settings.model.no.match"),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(Spacing.large),
-                                )
+                                Text(text = stringResource("settings.model.no.match"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(Spacing.large))
                             } else {
                                 if (searchQuery.isNotBlank()) {
-                                    Text(
-                                        text = stringResource("settings.model.filtered", filteredModels.size, availableModels.size),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(bottom = Spacing.small),
-                                    )
+                                    Text(text = stringResource("settings.model.filtered", filteredModels.size, displayModels.size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = Spacing.small))
                                 }
+                                groupedModelListAsCards(models = filteredModels, selectedModelId = selectedModel, onModelClick = { selectedModel = it }, showHeaders = true)
+                            }
 
-                                // Display grouped models using shared component
-                                groupedModelListAsCards(
-                                    models = filteredModels,
-                                    selectedModelId = selectedModel,
-                                    onModelClick = { model ->
-                                        selectedModel = model
-                                    },
-                                    showHeaders = true,
-                                )
+                            // "Show all" toggle — visible only when list is filtered and user hasn't expanded yet
+                            if (isFiltered && !showAll && searchQuery.isBlank()) {
+                                linkButton(onClick = { showAll = true }, modifier = Modifier.padding(top = Spacing.small)) {
+                                    Text(text = "Show all ${availableModels.size} models", style = MaterialTheme.typography.bodySmall)
+                                }
                             }
                         }
                     }
@@ -679,19 +558,12 @@ private fun specialModelSelectionDialog(
             }
         },
         confirmButton = {
-            primaryButton(
-                onClick = {
-                    selectedModel?.let { onSelect(it) }
-                },
-                enabled = selectedModel != null && !isLoading,
-            ) {
+            primaryButton(onClick = { selectedModel?.let { onSelect(it) } }, enabled = selectedModel != null && !isLoading) {
                 Text(stringResource("action.save"))
             }
         },
         dismissButton = {
-            secondaryButton(onClick = onDismiss) {
-                Text(stringResource("action.cancel"))
-            }
+            secondaryButton(onClick = onDismiss) { Text(stringResource("action.cancel")) }
         },
     )
 }

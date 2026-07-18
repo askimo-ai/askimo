@@ -46,9 +46,43 @@ class PlanDefRepository {
     private var builtInYamlCache: Map<String, String> = emptyMap()
 
     /**
-     * Returns the total number of plans (built-ins + user plans) without loading full objects.
+     * Returns the total number of plans (built-ins + user plans) without parsing any YAML.
+     * Deduplication is done by filename (which equals plan id), matching the merge logic in [getAll].
      */
-    fun count(): Int = getAll().size
+    fun count(): Int {
+        val userIds = userPlanIds()
+        val builtInIds = builtInIds()
+        return userIds.size + builtInIds.count { it !in userIds }
+    }
+
+    /** Collects plan ids from user-plan filenames without parsing YAML. */
+    private fun userPlanIds(): Set<String> {
+        val dir = plansDir()
+        if (!Files.isDirectory(dir)) return emptySet()
+        return Files.list(dir)
+            .filter { it.isRegularFile() && it.extension == "yml" }
+            .map { it.nameWithoutExtension }
+            .toList()
+            .toSet()
+    }
+
+    /**
+     * Returns built-in plan ids.
+     * Uses the in-memory cache when available; otherwise scans classpath filenames without parsing.
+     */
+    private fun builtInIds(): Set<String> {
+        builtInCache?.let { return it.map { p -> p.id }.toSet() }
+        val ids = mutableSetOf<String>()
+        val plansUrl = PlanDefRepository::class.java.getResource("/plans/")
+        try {
+            walkResourceDirectory(plansUrl, "/plans/", "yml") { path ->
+                ids += path.nameWithoutExtension
+            }
+        } catch (e: Exception) {
+            log.warn("Failed to scan built-in plan ids for count: {}", e.message)
+        }
+        return ids
+    }
 
     /**
      * Returns all known plans: built-ins + user plans merged.

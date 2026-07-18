@@ -10,6 +10,9 @@ build:
 # Custom Askimo rules
 # ─────────────────────────────────────────────────────────────────────────────
 askimo:
+  NestedScrollInScrollingWrapper:
+    active: true
+    severity: error
   RememberCoroutineScopeInConditionalComposable:
     active: true
     severity: error

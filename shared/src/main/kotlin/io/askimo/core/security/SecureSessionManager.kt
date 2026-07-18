@@ -7,13 +7,18 @@ package io.askimo.core.security
 import io.askimo.core.context.AppContextParams
 import io.askimo.core.logging.logger
 import io.askimo.core.providers.HasApiKey
-import io.askimo.core.providers.ModelProvider
-import io.askimo.core.providers.ProviderSettings
+import io.askimo.core.providers.ProviderInstance
 import io.askimo.core.security.SecureKeyManager.StorageMethod
 
 /**
- * Secure wrapper for AppContextParams that handles API key storage/retrieval transparently.
- * API keys are stored in system keychain or encrypted storage instead of plain text.
+ * Secure wrapper for [AppContextParams] that handles API key storage/retrieval transparently.
+ *
+ * Each [ProviderInstance] that has an API key ([HasApiKey]) gets its own keychain entry,
+ * keyed by **instance ID** rather than provider type. This allows multiple instances of
+ * the same provider type (e.g., two Ollama hosts) to each store their own API key
+ * independently.
+ *
+ * Keychain entry format: `askimo.<instanceId>` (overridable in tests via [instanceKey]).
  */
 open class SecureSessionManager {
     private val log = logger<SecureSessionManager>()
@@ -24,132 +29,96 @@ open class SecureSessionManager {
     }
 
     /**
-     * Loads session parameters and populates API keys from secure storage.
+     * Loads session parameters and populates API keys from secure storage for every instance.
      */
     fun loadSecureSession(appContextParams: AppContextParams): AppContextParams {
-        // Clone the session params with deep copy of provider settings
-        val secureParams = appContextParams.copy(
-            providerSettings = appContextParams.providerSettings.mapValues { (_, settings) ->
-                deepCopyProviderSettings(settings)
-            }.toMutableMap(),
-        )
-
-        // Load API keys from secure storage for each provider
-        secureParams.providerSettings.forEach { (provider, settings) ->
-            if (settings is HasApiKey) {
-                loadApiKeyForProvider(provider, settings)
+        val loadedInstances = appContextParams.providerInstances.map { instance ->
+            val settingsCopy = instance.settings.deepCopy()
+            if (settingsCopy is HasApiKey) {
+                loadApiKeyForInstance(instance.id, settingsCopy)
             }
-        }
+            instance.copy(settings = settingsCopy)
+        }.toMutableList()
 
-        return secureParams
+        return appContextParams.copy(providerInstances = loadedInstances)
     }
 
     /**
-     * Saves session parameters, storing API keys securely and removing them from the session file.
+     * Saves session parameters, storing API keys securely and replacing them with
+     * placeholders in the returned copy (safe to persist to YAML).
      */
     fun saveSecureSession(appContextParams: AppContextParams): AppContextParams {
-        // Clone the session params with deep copy of provider settings
-        val sanitizedParams = appContextParams.copy(
-            providerSettings = appContextParams.providerSettings.mapValues { (_, settings) ->
-                deepCopyProviderSettings(settings)
-            }.toMutableMap(),
-        )
-
-        // Store API keys securely and replace them with placeholders
-        sanitizedParams.providerSettings.forEach { (provider, settings) ->
-            if (settings is HasApiKey && settings.apiKey.isNotBlank()) {
-                saveApiKeyForProvider(provider, settings)
+        val sanitizedInstances = appContextParams.providerInstances.map { instance ->
+            val settingsCopy = instance.settings.deepCopy()
+            if (settingsCopy is HasApiKey && settingsCopy.apiKey.isNotBlank()) {
+                saveApiKeyForInstance(instance.id, settingsCopy)
             }
-        }
+            instance.copy(settings = settingsCopy)
+        }.toMutableList()
 
-        return sanitizedParams
+        return appContextParams.copy(providerInstances = sanitizedInstances)
     }
 
     /**
-     * Returns the keychain storage key for a given provider.
+     * Returns the keychain storage key for a given instance ID.
      * Override in tests to use a safe prefix and avoid touching real keychain entries.
      */
-    protected open fun providerKey(provider: ModelProvider): String = provider.name.lowercase()
+    protected open fun instanceKey(instanceId: String): String = "instance.$instanceId"
 
-    private fun loadApiKeyForProvider(
-        provider: ModelProvider,
-        settings: HasApiKey,
-    ) {
+    private fun loadApiKeyForInstance(instanceId: String, settings: HasApiKey) {
         val currentKey = settings.apiKey
 
-        // Skip if already loaded or empty
-        if (currentKey.isBlank() || isActualApiKey(currentKey)) {
-            return
-        }
+        // Skip if already loaded (actual key) or empty
+        if (currentKey.isBlank() || isActualApiKey(currentKey)) return
 
-        // Try to load from secure storage
-        val secureKey = SecureKeyManager.retrieveSecretKey(providerKey(provider))
+        val secureKey = SecureKeyManager.retrieveSecretKey(instanceKey(instanceId))
         if (secureKey != null) {
             settings.apiKey = secureKey
-            log.trace("Loaded API key for ${provider.name} from secure storage")
+            log.trace("Loaded API key for instance $instanceId from secure storage")
         } else if (currentKey.startsWith(ENCRYPTED_API_KEY_PREFIX)) {
-            // Try to decrypt legacy encrypted key
             val encryptedPart = currentKey.removePrefix(ENCRYPTED_API_KEY_PREFIX)
             val decryptedKey = EncryptionManager.decrypt(encryptedPart)
             if (decryptedKey != null) {
                 settings.apiKey = decryptedKey
-                log.debug("Decrypted legacy API key for ${provider.name}")
+                log.debug("Decrypted legacy API key for instance $instanceId")
             } else {
-                log.warn("Failed to decrypt API key for ${provider.name}")
+                log.warn("Failed to decrypt API key for instance $instanceId")
                 settings.apiKey = ""
             }
         }
     }
 
-    private fun saveApiKeyForProvider(
-        provider: ModelProvider,
-        settings: HasApiKey,
-    ) {
+    private fun saveApiKeyForInstance(instanceId: String, settings: HasApiKey) {
         val apiKey = settings.apiKey
 
         // Skip if it's already a placeholder or empty
-        if (!isActualApiKey(apiKey)) {
-            return
-        }
+        if (!isActualApiKey(apiKey)) return
 
-        val result = SecureKeyManager.storeSecuredKey(providerKey(provider), apiKey)
+        val result = SecureKeyManager.storeSecuredKey(instanceKey(instanceId), apiKey)
 
         if (result.success) {
-            // Replace with appropriate placeholder
             updateApiKeyPlaceholder(settings, result.method)
-
-            // Show warning if not using keychain
             result.warningMessage?.let { message -> log.warn(message) }
         } else {
-            // Fall back to encryption in the session file
             val encrypted = EncryptionManager.encrypt(apiKey)
             if (encrypted != null) {
                 settings.apiKey = "$ENCRYPTED_API_KEY_PREFIX$encrypted"
-                log.warn("⚠️ Storing encrypted API key for ${provider.name} in session file (less secure)")
+                log.warn("⚠️ Storing encrypted API key for instance $instanceId in config file (less secure)")
             } else {
-                log.warn("❌ Failed to encrypt API key for ${provider.name} - will be stored as plain text")
+                log.warn("❌ Failed to encrypt API key for instance $instanceId — will be stored as plain text")
             }
         }
     }
 
-    private fun updateApiKeyPlaceholder(
-        settings: HasApiKey,
-        method: StorageMethod,
-    ) {
-        settings.apiKey =
-            when (method) {
-                StorageMethod.KEYCHAIN -> KEYCHAIN_API_KEY_PLACEHOLDER
-                StorageMethod.ENCRYPTED -> KEYCHAIN_API_KEY_PLACEHOLDER
-                StorageMethod.INSECURE_FALLBACK -> settings.apiKey // Keep as-is
-            }
+    private fun updateApiKeyPlaceholder(settings: HasApiKey, method: StorageMethod) {
+        settings.apiKey = when (method) {
+            StorageMethod.KEYCHAIN -> KEYCHAIN_API_KEY_PLACEHOLDER
+            StorageMethod.ENCRYPTED -> KEYCHAIN_API_KEY_PLACEHOLDER
+            StorageMethod.INSECURE_FALLBACK -> settings.apiKey // Keep as-is
+        }
     }
 
     private fun isActualApiKey(apiKey: String): Boolean = apiKey.isNotBlank() &&
         apiKey != KEYCHAIN_API_KEY_PLACEHOLDER &&
         !apiKey.startsWith(ENCRYPTED_API_KEY_PREFIX)
-
-    /**
-     * Creates a deep copy of provider settings to avoid shared mutable state.
-     */
-    private fun deepCopyProviderSettings(settings: ProviderSettings): ProviderSettings = settings.deepCopy()
 }

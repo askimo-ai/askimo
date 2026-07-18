@@ -19,12 +19,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -161,29 +159,16 @@ private fun languageSelectionCard() {
                     expanded = languageDropdownExpanded,
                     onDismissRequest = { languageDropdownExpanded = false },
                 ) {
-                    availableLanguages.forEach { (locale, name) ->
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text = name,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
-                            },
+                    val languages = availableLanguages.entries.toList()
+                    languages.forEachIndexed { index, (locale, name) ->
+                        AppComponents.themedDropdownMenuItem(
+                            text = { Text(text = name, style = MaterialTheme.typography.bodyMedium) },
                             onClick = {
                                 ThemePreferences.setLocale(locale)
                                 languageDropdownExpanded = false
                             },
-                            leadingIcon = if (locale == currentLocale) {
-                                {
-                                    Icon(
-                                        Icons.Default.Check,
-                                        contentDescription = "Selected",
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                }
-                            } else {
-                                null
-                            },
+                            isSelected = locale == currentLocale,
+                            showDivider = index < languages.lastIndex,
                         )
                     }
                 }
@@ -292,54 +277,26 @@ private fun preferredAIResponseLanguageField(availableLanguages: Map<Locale, Str
                 onDismissRequest = { aiLanguageDropdownExpanded = false },
             ) {
                 // Auto-detect option
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = stringResource("settings.ai.response.language.auto"),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    },
+                AppComponents.themedDropdownMenuItem(
+                    text = { Text(stringResource("settings.ai.response.language.auto"), style = MaterialTheme.typography.bodyMedium) },
                     onClick = {
                         AppConfig.updateField("chat.defaultResponseAILocale", "")
                         aiLanguageDropdownExpanded = false
                     },
-                    leadingIcon = if (currentAILocale == null) {
-                        {
-                            Icon(
-                                Icons.Default.Check,
-                                contentDescription = "Selected",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                    } else {
-                        null
-                    },
+                    isSelected = currentAILocale == null,
+                    showDivider = true,
                 )
-
                 // Language options
-                availableLanguages.forEach { (locale, name) ->
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = name,
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                        },
+                val langs = availableLanguages.entries.toList()
+                langs.forEachIndexed { index, (locale, name) ->
+                    AppComponents.themedDropdownMenuItem(
+                        text = { Text(name, style = MaterialTheme.typography.bodyMedium) },
                         onClick = {
                             AppConfig.updateField("chat.defaultResponseAILocale", locale.toString())
                             aiLanguageDropdownExpanded = false
                         },
-                        leadingIcon = if (locale.toString() == currentAILocale) {
-                            {
-                                Icon(
-                                    Icons.Default.Check,
-                                    contentDescription = "Selected",
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                )
-                            }
-                        } else {
-                            null
-                        },
+                        isSelected = locale.toString() == currentAILocale,
+                        showDivider = index < langs.lastIndex,
                     )
                 }
             }
@@ -429,31 +386,16 @@ private fun fontSettingsCard() {
                         expanded = fontSizeDropdownExpanded,
                         onDismissRequest = { fontSizeDropdownExpanded = false },
                     ) {
-                        FontSize.entries.forEach { fontSize ->
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        text = fontSize.displayName,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                    )
-                                },
+                        val sizes = FontSize.entries
+                        sizes.forEachIndexed { index, fontSize ->
+                            AppComponents.themedDropdownMenuItem(
+                                text = { Text(text = fontSize.displayName, style = MaterialTheme.typography.bodyMedium) },
                                 onClick = {
-                                    ThemePreferences.setFontSettings(
-                                        currentFontSettings.copy(fontSize = fontSize),
-                                    )
+                                    ThemePreferences.setFontSettings(currentFontSettings.copy(fontSize = fontSize))
                                     fontSizeDropdownExpanded = false
                                 },
-                                leadingIcon = if (fontSize == currentFontSettings.fontSize) {
-                                    {
-                                        Icon(
-                                            Icons.Default.Check,
-                                            tint = MaterialTheme.colorScheme.onSurface,
-                                            contentDescription = "Selected",
-                                        )
-                                    }
-                                } else {
-                                    null
-                                },
+                                isSelected = fontSize == currentFontSettings.fontSize,
+                                showDivider = index < sizes.lastIndex,
                             )
                         }
                     }
@@ -558,31 +500,16 @@ private fun fontSettingsCard() {
                         expanded = lineSpacingDropdownExpanded,
                         onDismissRequest = { lineSpacingDropdownExpanded = false },
                     ) {
-                        LineSpacing.entries.forEach { spacing ->
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        text = spacing.displayName,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                    )
-                                },
+                        val spacings = LineSpacing.entries
+                        spacings.forEachIndexed { index, spacing ->
+                            AppComponents.themedDropdownMenuItem(
+                                text = { Text(text = spacing.displayName, style = MaterialTheme.typography.bodyMedium) },
                                 onClick = {
-                                    ThemePreferences.setFontSettings(
-                                        currentFontSettings.copy(lineSpacing = spacing),
-                                    )
+                                    ThemePreferences.setFontSettings(currentFontSettings.copy(lineSpacing = spacing))
                                     lineSpacingDropdownExpanded = false
                                 },
-                                leadingIcon = if (spacing == currentFontSettings.lineSpacing) {
-                                    {
-                                        Icon(
-                                            Icons.Default.Check,
-                                            tint = MaterialTheme.colorScheme.onSurface,
-                                            contentDescription = "Selected",
-                                        )
-                                    }
-                                } else {
-                                    null
-                                },
+                                isSelected = spacing == currentFontSettings.lineSpacing,
+                                showDivider = index < spacings.lastIndex,
                             )
                         }
                     }
@@ -642,8 +569,8 @@ private fun fontFamilySelector(
                 onDismissRequest = { dropdownExpanded = false },
                 modifier = Modifier.fillMaxWidth(0.5f),
             ) {
-                availableFonts.forEach { fontFamily ->
-                    DropdownMenuItem(
+                availableFonts.forEachIndexed { index, fontFamily ->
+                    AppComponents.themedDropdownMenuItem(
                         text = {
                             Text(
                                 text = fontFamily,
@@ -656,17 +583,8 @@ private fun fontFamilySelector(
                             onSelected(fontFamily)
                             dropdownExpanded = false
                         },
-                        leadingIcon = if (fontFamily == selectedFontFamily) {
-                            {
-                                Icon(
-                                    Icons.Default.Check,
-                                    contentDescription = "Selected",
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                )
-                            }
-                        } else {
-                            null
-                        },
+                        isSelected = fontFamily == selectedFontFamily,
+                        showDivider = index < availableFonts.lastIndex,
                     )
                 }
             }

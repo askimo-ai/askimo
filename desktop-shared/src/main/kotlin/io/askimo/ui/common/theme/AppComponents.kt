@@ -35,6 +35,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -46,6 +47,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardColors
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonColors
@@ -339,6 +342,45 @@ object AppComponents {
         disabledTrailingIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
     )
 
+    /**
+     * A themed [DropdownMenuItem] with consistent UX across the app:
+     * - Always reserves leading-icon space for a [Check] mark, rendered transparently
+     *   when not selected — keeping all item texts left-aligned regardless of selection.
+     * - Shows a hand [PointerIcon] on hover.
+     * - Optionally renders a subtle [HorizontalDivider] below the item — pass
+     *   `showDivider = false` for the last item in a list.
+     */
+    @Composable
+    fun themedDropdownMenuItem(
+        text: @Composable () -> Unit,
+        onClick: () -> Unit,
+        modifier: Modifier = Modifier,
+        isSelected: Boolean = false,
+        showDivider: Boolean = false,
+        enabled: Boolean = true,
+        trailingIcon: (@Composable () -> Unit)? = null,
+    ) {
+        DropdownMenuItem(
+            text = text,
+            onClick = onClick,
+            modifier = modifier.pointerHoverIcon(PointerIcon.Hand),
+            enabled = enabled,
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = if (isSelected) "Selected" else null,
+                    modifier = Modifier.size(18.dp),
+                    tint = if (isSelected) MaterialTheme.colorScheme.onSurface else Color.Transparent,
+                )
+            },
+            trailingIcon = trailingIcon,
+            colors = menuItemColors(),
+        )
+        if (showDivider) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        }
+    }
+
     // ── Surface Colors ────────────────────────────────────────────────────────
 
     @Composable
@@ -496,6 +538,24 @@ object AppComponents {
         }
     }
 
+    /**
+     * A scaffold-style dialog with a scrollable content area, sticky title bar, and action bar.
+     *
+     * **Scroll contract** — this composable internally wraps its content in a `verticalScroll`.
+     * Do **not** apply [androidx.compose.foundation.verticalScroll] or
+     * [androidx.compose.foundation.horizontalScroll] directly inside the [content] lambda
+     * without a bounded `heightIn` / `height` constraint.  Doing so causes an
+     * [IllegalStateException] at runtime:
+     * _"Vertically scrollable component was measured with an infinity maximum height constraints"_.
+     *
+     * ℹ️ The `NestedScrollInScrollingWrapper` Detekt rule enforces this contract automatically.
+     *
+     * If you need an independently scrollable sub-list inside the content, give the inner
+     * container an explicit max-height constraint first:
+     * ```kotlin
+     * Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())
+     * ```
+     */
     @Composable
     fun scaffoldDialog(
         onDismissRequest: () -> Unit,
@@ -593,6 +653,25 @@ object AppComponents {
         }
     }
 
+    /**
+     * A scaffold-style dialog with a lazily-rendered, scrollable content area,
+     * sticky title bar, and action bar.
+     *
+     * **Scroll contract** — the content area is rendered inside a [LazyColumn] which owns its
+     * own scroll state.  Do **not** apply [androidx.compose.foundation.verticalScroll] or
+     * [androidx.compose.foundation.horizontalScroll] directly inside the [content] lambda
+     * without a bounded height constraint.  Doing so causes an [IllegalStateException] at
+     * runtime:
+     * _"Vertically scrollable component was measured with an infinity maximum height constraints"_.
+     *
+     * ℹ️ The `NestedScrollInScrollingWrapper` Detekt rule enforces this contract automatically.
+     *
+     * If you need an independently scrollable sub-list, give the inner container an explicit
+     * max-height constraint first:
+     * ```kotlin
+     * Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())
+     * ```
+     */
     @Composable
     fun scaffoldDialogLazyColumn(
         onDismissRequest: () -> Unit,

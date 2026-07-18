@@ -28,7 +28,8 @@ class ModelsCommandHandler(
     override val description: String = "List available models for the current provider"
 
     override fun handle(line: ParsedLine) {
-        val provider = appContext.params.currentProvider
+        val instance = appContext.getActiveInstance()
+        val provider = appContext.getActiveProvider()
         val factory = ProviderRegistry.getFactory(provider)
 
         if (factory == null) {
@@ -36,16 +37,17 @@ class ModelsCommandHandler(
             return
         }
 
-        val settings = appContext.params.providerSettings[provider] ?: factory.defaultSettings()
+        val settings = instance?.settings ?: factory.defaultSettings()
+        val instanceLabel = instance?.displayName ?: provider.name.lowercase()
 
         @Suppress("UNCHECKED_CAST")
         val models = (factory as ChatModelFactory<ProviderSettings>).availableModels(settings)
 
         if (models.isEmpty()) {
-            log.display("❌ No models available for ${provider.name.lowercase()}")
+            log.display("❌ No models available for '$instanceLabel'")
             log.display("\n💡 ${factory.getNoModelsHelpText()}")
         } else {
-            log.display("Available models for provider '${provider.name.lowercase()}':")
+            log.display("Available models for '$instanceLabel':")
             models.forEach { log.display("- ${it.displayName}") }
             log.display("\n💡 Use `:set-param model <modelName>` to choose one of these models.")
         }

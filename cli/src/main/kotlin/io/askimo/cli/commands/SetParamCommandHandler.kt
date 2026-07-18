@@ -49,22 +49,21 @@ class SetParamCommandHandler(
         }
 
         try {
-            val provider = appContext.params.currentProvider
-            val factory = appContext.getModelFactory(provider)
-            if (factory == null) {
-                log.display("❌ No model factory registered for provider: ${provider.name.lowercase()}")
+            val instance = appContext.getActiveInstance()
+            if (instance == null) {
+                log.display("❌ No active provider instance. Use `:set-provider` to configure one.")
                 return
             }
-
-            val providerSettings =
-                appContext.params.providerSettings
-                    .getOrPut(provider) { factory.defaultSettings() }
+            val provider = instance.providerType
+            val providerSettings = appContext.getCurrentProviderSettings()
 
             key.applyTo(appContext.params, providerSettings, valueInput)
+            // Persist mutated settings back into the instance
+            appContext.setInstanceSettings(instance.id, providerSettings)
             appContext.save()
 
             CoroutineScope(Dispatchers.Default).launch {
-                EventBus.emit(ModelChangedEvent(provider, ""))
+                EventBus.emit(ModelChangedEvent(provider = provider, newModel = "", instanceId = instance.id))
             }
             log.display("✅ '${key.key}' is updated")
         } catch (e: IllegalArgumentException) {

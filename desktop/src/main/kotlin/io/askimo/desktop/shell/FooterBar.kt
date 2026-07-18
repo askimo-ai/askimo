@@ -4,41 +4,29 @@
  */
 package io.askimo.desktop.shell
 
-import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -47,31 +35,38 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import io.askimo.core.VersionInfo
 import io.askimo.core.context.AppContext
 import io.askimo.core.context.getConfigInfo
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.ModelChangedEvent
-import io.askimo.core.providers.ModelProvider
+import io.askimo.core.providers.ProviderInstanceService
+import io.askimo.core.providers.ProviderRegistry
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
-import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.clickableCard
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.shell.notificationIcon
 import org.koin.java.KoinJavaComponent.get
 
+// ── Footer AI config section ───────────────────────────────────────────────────────────────
+
 @Composable
-private fun aiConfigInfo(onConfigureAiProvider: () -> Unit) {
+private fun aiConfigInfo(
+    onAddProvider: () -> Unit,
+) {
     val appContext = remember { get<AppContext>(AppContext::class.java) }
+    val providerInstanceService = remember { get<ProviderInstanceService>(ProviderInstanceService::class.java) }
     val scope = rememberCoroutineScope()
     var configInfo by remember { mutableStateOf(appContext.getConfigInfo()) }
 
-    // Keep configInfo in sync with model-change events broadcast on the event bus.
+    // Keep configInfo in sync with model/instance changes broadcast on the event bus.
     LaunchedEffect(Unit) {
         EventBus.internalEvents.collect { event ->
             if (event is ModelChangedEvent) {
@@ -80,288 +75,108 @@ private fun aiConfigInfo(onConfigureAiProvider: () -> Unit) {
         }
     }
 
-    // State holder for the model dropdown — bound to the composable scope so that
-    // in-flight coroutines are cancelled automatically when this leaves the composition.
-    val dropdownState = remember(appContext) { ModelDropdownState(scope, appContext) }
+    val panelState = remember(appContext) { ProviderModelPanelState(scope, appContext, providerInstanceService) }
+    var panelExpanded by remember { mutableStateOf(false) }
 
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-        verticalAlignment = Alignment.CenterVertically,
+    // Measure the trigger card width so the panel can be centred beneath it.
+    var triggerWidthPx by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
+
+    Box(
+        modifier = Modifier.onGloballyPositioned { coords ->
+            triggerWidthPx = coords.size.width
+        },
     ) {
-        providerButton(
-            currentProvider = configInfo.provider,
-            onConfigureProvider = onConfigureAiProvider,
-        )
-
-        modelDropdown(
-            currentProvider = configInfo.provider,
-            currentModel = configInfo.model,
-            state = dropdownState,
-        )
-    }
-}
-
-@Composable
-private fun providerButton(
-    currentProvider: ModelProvider,
-    onConfigureProvider: () -> Unit,
-) {
-    themedTooltip(
-        text = stringResource("system.ai.provider.tooltip", currentProvider.name),
-    ) {
-        Card(
-            modifier = Modifier
-                .clickableCard { onConfigureProvider() }
-                .widthIn(min = 100.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            ),
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.AutoAwesome,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = currentProvider.name.lowercase().replaceFirstChar { it.uppercase() },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun modelDropdown(
-    currentProvider: ModelProvider,
-    currentModel: String,
-    state: ModelDropdownState,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
-
-    LaunchedEffect(currentProvider, expanded) {
-        if (expanded) {
-            state.loadModels(currentProvider)
-        }
-    }
-
-    LaunchedEffect(currentProvider) {
-        state.reset()
-        searchQuery = ""
-    }
-
-    Box {
-        Card(
-            modifier = Modifier
-                .clickableCard { expanded = true }
-                .widthIn(min = 60.dp, max = 250.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            ),
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = currentModel,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Icon(
-                    imageVector = if (expanded) {
-                        Icons.Default.ExpandLess
-                    } else {
-                        Icons.Default.ExpandMore
-                    },
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        dropdownMenu(
-            expanded = expanded,
-            onDismissRequest = {
-                expanded = false
-                searchQuery = ""
-            },
-        ) {
-            when {
-                state.isLoading -> {
-                    DropdownMenuItem(
-                        text = {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                                Text(
-                                    text = stringResource("settings.model.loading"),
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                            }
-                        },
-                        onClick = {},
-                        enabled = false,
-                    )
-                }
-
-                state.availableModels.isEmpty() -> {
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = stringResource("settings.model.none"),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                            )
-                        },
-                        onClick = {},
-                        enabled = false,
-                    )
-                }
-
-                else -> {
-                    // Search field
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        placeholder = {
-                            Text(
-                                text = stringResource("settings.model.search"),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                        singleLine = true,
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.Search,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        },
-                        textStyle = MaterialTheme.typography.bodySmall,
-                        colors = AppComponents.outlinedTextFieldColors(),
-                    )
-
-                    HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.extraSmall))
-
-                    // Filter models based on search
-                    val filteredModels = state.availableModels.filter {
-                        it.displayName.contains(searchQuery, ignoreCase = true) ||
-                            it.modelId.contains(searchQuery, ignoreCase = true)
-                    }
-
-                    // Scrollable list with fixed dimensions to avoid intrinsic measurement issues
-                    val listState = rememberLazyListState()
-
-                    Box(
-                        modifier = Modifier
-                            .width(300.dp)
-                            .height(400.dp),
-                    ) {
-                        if (filteredModels.isEmpty()) {
-                            // Show "no results" message if search yields nothing
-                            Text(
-                                text = stringResource("settings.model.no.results"),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                modifier = Modifier.padding(Spacing.large),
-                            )
-                        } else {
-                            // Use LazyColumn so item clicks are not swallowed by the scroll modifier
-                            LazyColumn(
-                                state = listState,
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                val groupedModels = filteredModels.groupBy { it.provider }
-                                val showHeaders = groupedModels.size > 1
-                                groupedModels.forEach { (provider, providerModels) ->
-                                    if (showHeaders && providerModels.isNotEmpty()) {
-                                        item(key = "header_$provider") {
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                                                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                                            ) {
-                                                Text(
-                                                    text = provider.name,
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                )
-                                            }
-                                        }
-                                    }
-                                    items(providerModels, key = { it.modelId }) { dto ->
-                                        DropdownMenuItem(
-                                            text = {
-                                                Text(
-                                                    text = dto.displayName,
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                )
-                                            },
-                                            onClick = {
-                                                state.selectModel(currentProvider, dto.modelId)
-                                                expanded = false
-                                                searchQuery = ""
-                                            },
-                                            leadingIcon = if (dto.modelId == currentModel) {
-                                                {
-                                                    Icon(
-                                                        Icons.Default.Check,
-                                                        contentDescription = "Current model",
-                                                        tint = MaterialTheme.colorScheme.onSurface,
-                                                    )
-                                                }
-                                            } else {
-                                                null
-                                            },
-                                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                        )
-                                    }
-                                }
-                            }
-
-                            VerticalScrollbar(
-                                adapter = rememberScrollbarAdapter(listState),
-                                modifier = Modifier
-                                    .align(Alignment.CenterEnd)
-                                    .fillMaxHeight()
-                                    .padding(end = 2.dp),
-                                style = AppComponents.scrollbarStyle(),
-                            )
+        // ── Trigger button ────────────────────────────────────────────────────────────────
+        themedTooltip(text = stringResource("system.ai.provider.tooltip", ProviderRegistry.getProviderDisplayName(configInfo.provider))) {
+            Card(
+                modifier = Modifier
+                    .clickableCard {
+                        if (!panelExpanded) {
+                            panelState.init()
+                            panelExpanded = true
                         }
                     }
+                    .widthIn(min = 120.dp, max = 320.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                ),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
+                    val instanceLabel = configInfo.instanceDisplayName.ifBlank {
+                        ProviderRegistry.getProviderDisplayName(configInfo.provider)
+                    }
+                    Text(
+                        text = instanceLabel,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (configInfo.model.isNotBlank()) {
+                        Text(
+                            text = "·",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = configInfo.model,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Icon(
+                        imageVector = if (panelExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
+
+        // ── Two-column panel ──────────────────────────────────────────────────────────────
+        // Shift left so the panel centre aligns with the trigger card centre.
+        val triggerWidthDp = with(density) { triggerWidthPx.toDp() }
+        val menuOffsetX = -(MODEL_PANEL_WIDTH / 2 - triggerWidthDp / 2)
+
+        providerModelPanel(
+            expanded = panelExpanded,
+            state = panelState,
+            currentInstanceId = configInfo.instanceId,
+            currentModel = configInfo.model,
+            menuOffset = DpOffset(x = menuOffsetX, y = 0.dp),
+            onDismiss = {
+                panelExpanded = false
+                panelState.reset()
+            },
+            onAddProvider = {
+                panelExpanded = false
+                panelState.reset()
+                onAddProvider()
+            },
+        )
     }
 }
+
+// ── Footer bar ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun footerBar(
     onShowUpdateDetails: () -> Unit = {},
-    onConfigureAiProvider: () -> Unit = {},
+    onAddProvider: () -> Unit = {},
     onShowAbout: () -> Unit = {},
 ) {
     Column(
@@ -389,9 +204,9 @@ fun footerBar(
                 )
             }
 
-            // Centre — provider + model selector
+            // Centre — unified provider + model selector
             Box(modifier = Modifier.align(Alignment.Center)) {
-                aiConfigInfo(onConfigureAiProvider = onConfigureAiProvider)
+                aiConfigInfo(onAddProvider = onAddProvider)
             }
 
             // Right — notification bell

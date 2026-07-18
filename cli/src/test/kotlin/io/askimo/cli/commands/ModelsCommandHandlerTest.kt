@@ -5,7 +5,6 @@
 package io.askimo.cli.commands
 
 import io.askimo.core.context.AppContext
-import io.askimo.core.context.AppContextParams
 import io.askimo.core.providers.ModelProvider
 import io.askimo.test.extensions.AskimoTestHome
 import org.junit.jupiter.api.BeforeEach
@@ -20,15 +19,11 @@ import kotlin.test.assertTrue
 class ModelsCommandHandlerTest : CommandHandlerTestBase() {
     private lateinit var appContext: AppContext
     private lateinit var handler: ModelsCommandHandler
-    private lateinit var params: AppContextParams
 
     @BeforeEach
     fun setUp() {
         appContext = mock<AppContext>()
-        params = mock<AppContextParams>()
         handler = ModelsCommandHandler(appContext)
-
-        whenever(appContext.params) doReturn params
     }
 
     @Test
@@ -48,8 +43,8 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
 
     @Test
     fun `handle with OpenAI provider shows models or helpful message`() {
-        whenever(params.currentProvider) doReturn ModelProvider.OPENAI
-        whenever(params.providerSettings) doReturn mutableMapOf()
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OPENAI
+        whenever(appContext.getActiveInstance()) doReturn null
 
         val parsedLine = mockParsedLine(":models")
 
@@ -58,8 +53,8 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
         val output = getOutput()
         // Without a valid API key, OpenAI might return no models
         assertTrue(
-            output.contains("Available models for provider 'openai'") ||
-                output.contains("❌ No models available for openai"),
+            output.contains("Available models for 'openai'") ||
+                output.contains("❌ No models available for 'openai'"),
         )
         // Should always show some helpful information (usage hint on success, help text on error)
         assertTrue(output.contains("💡") || output.contains("Please check your provider configuration"))
@@ -67,8 +62,8 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
 
     @Test
     fun `handle with OpenAI and no API key shows helpful guidance`() {
-        whenever(params.currentProvider) doReturn ModelProvider.OPENAI
-        whenever(params.providerSettings) doReturn mutableMapOf()
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OPENAI
+        whenever(appContext.getActiveInstance()) doReturn null
 
         val parsedLine = mockParsedLine(":models")
 
@@ -83,8 +78,8 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
 
     @Test
     fun `handle with Ollama provider shows models or helpful message`() {
-        whenever(params.currentProvider) doReturn ModelProvider.OLLAMA
-        whenever(params.providerSettings) doReturn mutableMapOf()
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OLLAMA
+        whenever(appContext.getActiveInstance()) doReturn null
 
         val parsedLine = mockParsedLine(":models")
 
@@ -93,8 +88,8 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
         val output = getOutput()
         // Ollama might have no models if not installed, or might list available ones
         assertTrue(
-            output.contains("Available models for provider 'ollama'") ||
-                output.contains("❌ No models available for ollama"),
+            output.contains("Available models for 'ollama'") ||
+                output.contains("❌ No models available for 'ollama'"),
         )
         // Should always show some helpful information (usage hint on success, help text on error)
         assertTrue(output.contains("💡"))
@@ -102,8 +97,8 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
 
     @Test
     fun `handle with Ollama and no models shows helpful message`() {
-        whenever(params.currentProvider) doReturn ModelProvider.OLLAMA
-        whenever(params.providerSettings) doReturn mutableMapOf()
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OLLAMA
+        whenever(appContext.getActiveInstance()) doReturn null
 
         val parsedLine = mockParsedLine(":models")
 
@@ -119,8 +114,8 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
 
     @Test
     fun `handle with Anthropic provider shows models or helpful message`() {
-        whenever(params.currentProvider) doReturn ModelProvider.ANTHROPIC
-        whenever(params.providerSettings) doReturn mutableMapOf()
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.ANTHROPIC
+        whenever(appContext.getActiveInstance()) doReturn null
 
         val parsedLine = mockParsedLine(":models")
 
@@ -128,8 +123,8 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
 
         val output = getOutput()
         assertTrue(
-            output.contains("Available models for provider 'anthropic'") ||
-                output.contains("❌ No models available for anthropic"),
+            output.contains("Available models for 'anthropic'") ||
+                output.contains("❌ No models available for 'anthropic'"),
         )
         // Should always show some helpful information (usage hint on success, help text on error)
         assertTrue(output.contains("💡"))
@@ -137,8 +132,8 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
 
     @Test
     fun `handle with Gemini provider shows models or helpful message`() {
-        whenever(params.currentProvider) doReturn ModelProvider.GEMINI
-        whenever(params.providerSettings) doReturn mutableMapOf()
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.GEMINI
+        whenever(appContext.getActiveInstance()) doReturn null
 
         val parsedLine = mockParsedLine(":models")
 
@@ -146,8 +141,8 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
 
         val output = getOutput()
         assertTrue(
-            output.contains("Available models for provider 'gemini'") ||
-                output.contains("❌ No models available for gemini"),
+            output.contains("Available models for 'gemini'") ||
+                output.contains("❌ No models available for 'gemini'"),
         )
         // Should always show some helpful information (usage hint on success, help text on error)
         assertTrue(output.contains("💡") || output.contains("Please check your provider configuration"))
@@ -155,8 +150,8 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
 
     @Test
     fun `handle with xAI provider shows models or helpful message`() {
-        whenever(params.currentProvider) doReturn ModelProvider.XAI
-        whenever(params.providerSettings) doReturn mutableMapOf()
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.XAI
+        whenever(appContext.getActiveInstance()) doReturn null
 
         val parsedLine = mockParsedLine(":models")
 
@@ -164,8 +159,8 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
 
         val output = getOutput()
         assertTrue(
-            output.contains("Available models for provider 'xai'") ||
-                output.contains("❌ No models available for xai"),
+            output.contains("Available models for 'xai'") ||
+                output.contains("❌ No models available for 'xai'"),
         )
         // Should always show some helpful information (usage hint on success, help text on error)
         assertTrue(output.contains("💡") || output.contains("Please check your provider configuration"))
@@ -173,7 +168,8 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
 
     @Test
     fun `handle with unknown provider shows error`() {
-        whenever(params.currentProvider) doReturn ModelProvider.UNKNOWN
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.UNKNOWN
+        whenever(appContext.getActiveInstance()) doReturn null
 
         val parsedLine = mockParsedLine(":models")
 
@@ -185,8 +181,8 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
 
     @Test
     fun `handle always shows usage hint`() {
-        whenever(params.currentProvider) doReturn ModelProvider.OPENAI
-        whenever(params.providerSettings) doReturn mutableMapOf()
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OPENAI
+        whenever(appContext.getActiveInstance()) doReturn null
 
         val parsedLine = mockParsedLine(":models")
 
@@ -194,7 +190,6 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
 
         val output = getOutput()
         // Should always show how to set a model (unless there's an error with no factory)
-        // Help text can be either about setting the model or about fixing the provider setup
         assertTrue(
             output.contains(":set-param model") ||
                 output.contains("💡") ||
@@ -204,8 +199,8 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
 
     @Test
     fun `handle shows provider name in lowercase`() {
-        whenever(params.currentProvider) doReturn ModelProvider.OPENAI
-        whenever(params.providerSettings) doReturn mutableMapOf()
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OPENAI
+        whenever(appContext.getActiveInstance()) doReturn null
 
         val parsedLine = mockParsedLine(":models")
 
@@ -218,8 +213,8 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
 
     @Test
     fun `handle formats model list with dashes when models available`() {
-        whenever(params.currentProvider) doReturn ModelProvider.ANTHROPIC
-        whenever(params.providerSettings) doReturn mutableMapOf()
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.ANTHROPIC
+        whenever(appContext.getActiveInstance()) doReturn null
 
         val parsedLine = mockParsedLine(":models")
 
@@ -247,8 +242,8 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
         testCases.forEach { (provider, expectedName) ->
             testOut.reset() // Reset output between iterations
 
-            whenever(params.currentProvider) doReturn provider
-            whenever(params.providerSettings) doReturn mutableMapOf()
+            whenever(appContext.getActiveProvider()) doReturn provider
+            whenever(appContext.getActiveInstance()) doReturn null
 
             val parsedLine = mockParsedLine(":models")
             handler.handle(parsedLine)
@@ -262,27 +257,31 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
     }
 
     @Test
-    fun `handle with custom provider settings uses them`() {
-        whenever(params.currentProvider) doReturn ModelProvider.OLLAMA
-        whenever(params.providerSettings) doReturn mutableMapOf()
+    fun `handle with instance display name uses it as label`() {
+        val instance = io.askimo.core.providers.ProviderInstance.create(
+            displayName = "My Ollama",
+            providerType = ModelProvider.OLLAMA,
+        )
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OLLAMA
+        whenever(appContext.getActiveInstance()) doReturn instance
 
         val parsedLine = mockParsedLine(":models")
 
         handler.handle(parsedLine)
 
         val output = getOutput()
-        // Should successfully process without errors
+        // Should use instance display name, not raw provider key
         assertTrue(
-            output.contains("Available models") ||
-                output.contains("❌ No models available") ||
-                output.contains("❌"),
+            output.contains("My Ollama") ||
+                output.contains("Available models") ||
+                output.contains("❌ No models available"),
         )
     }
 
     @Test
     fun `handle shows emoji in output`() {
-        whenever(params.currentProvider) doReturn ModelProvider.OPENAI
-        whenever(params.providerSettings) doReturn mutableMapOf()
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OPENAI
+        whenever(appContext.getActiveInstance()) doReturn null
 
         val parsedLine = mockParsedLine(":models")
 
@@ -298,9 +297,9 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
     }
 
     @Test
-    fun `handle with empty provider settings map uses defaults`() {
-        whenever(params.currentProvider) doReturn ModelProvider.OLLAMA
-        whenever(params.providerSettings) doReturn mutableMapOf()
+    fun `handle with no active instance uses factory defaults`() {
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OLLAMA
+        whenever(appContext.getActiveInstance()) doReturn null
 
         val parsedLine = mockParsedLine(":models")
 
@@ -318,8 +317,8 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
     @Test
     fun `handle shows appropriate guidance based on provider`() {
         // Test Ollama guidance
-        whenever(params.currentProvider) doReturn ModelProvider.OLLAMA
-        whenever(params.providerSettings) doReturn mutableMapOf()
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OLLAMA
+        whenever(appContext.getActiveInstance()) doReturn null
 
         var parsedLine = mockParsedLine(":models")
         handler.handle(parsedLine)
@@ -331,7 +330,7 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
 
         // Reset and test OpenAI guidance
         testOut.reset()
-        whenever(params.currentProvider) doReturn ModelProvider.OPENAI
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OPENAI
 
         parsedLine = mockParsedLine(":models")
         handler.handle(parsedLine)
@@ -343,9 +342,9 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
     }
 
     @Test
-    fun `handle with null provider settings does not crash`() {
-        whenever(params.currentProvider) doReturn ModelProvider.OLLAMA
-        whenever(params.providerSettings) doReturn mutableMapOf()
+    fun `handle with null active instance does not crash`() {
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OLLAMA
+        whenever(appContext.getActiveInstance()) doReturn null
 
         val parsedLine = mockParsedLine(":models")
 

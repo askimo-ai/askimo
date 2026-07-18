@@ -6,6 +6,7 @@ package io.askimo.core.config
 
 import io.askimo.core.context.AppContextParams
 import io.askimo.core.providers.ModelProvider
+import io.askimo.core.providers.ProviderInstance
 import io.askimo.core.providers.openai.OpenAiSettings
 import io.askimo.core.util.AskimoHome
 import io.askimo.test.extensions.AskimoTestHome
@@ -367,15 +368,20 @@ class AppConfigTest {
 
     @Test
     fun `saveContext updates in-memory cache with given params`() {
-        val params = AppContextParams().apply {
-            currentProvider = ModelProvider.OPENAI
-            providerSettings[ModelProvider.OPENAI] = OpenAiSettings(apiKey = "", defaultModel = "gpt-4o")
-        }
+        val instance = ProviderInstance.create(
+            displayName = "OpenAI",
+            providerType = ModelProvider.OPENAI,
+            settings = OpenAiSettings(apiKey = "", defaultModel = "gpt-4o"),
+        )
+        val params = AppContextParams(
+            currentInstanceId = instance.id,
+            providerInstances = mutableListOf(instance),
+        )
 
         AppConfig.saveContext(params)
 
-        assertEquals(ModelProvider.OPENAI, AppConfig.context.currentProvider)
-        assertEquals("gpt-4o", AppConfig.context.getModel(ModelProvider.OPENAI))
+        assertEquals(ModelProvider.OPENAI, AppConfig.context.activeProviderType)
+        assertEquals("gpt-4o", AppConfig.context.activeInstance?.settings?.defaultModel)
     }
 
     @Test
@@ -384,22 +390,28 @@ class AppConfigTest {
 
         AppConfig.saveContext(params)
 
-        assertEquals(ModelProvider.UNKNOWN, AppConfig.context.currentProvider)
-        assertTrue(AppConfig.context.providerSettings.isEmpty())
+        assertEquals(ModelProvider.UNKNOWN, AppConfig.context.activeProviderType)
+        assertTrue(AppConfig.context.providerInstances.isEmpty())
     }
 
     @Test
     fun `saveContext sanitizes API key before persisting to disk`() {
-        val params = AppContextParams().apply {
-            currentProvider = ModelProvider.OPENAI
-            providerSettings[ModelProvider.OPENAI] = OpenAiSettings(apiKey = "sk-super-secret-key")
-        }
+        val instance = ProviderInstance.create(
+            displayName = "OpenAI",
+            providerType = ModelProvider.OPENAI,
+            settings = OpenAiSettings(apiKey = "sk-super-secret-key"),
+        )
+        val params = AppContextParams(
+            currentInstanceId = instance.id,
+            providerInstances = mutableListOf(instance),
+        )
 
         AppConfig.saveContext(params)
 
         // The in-memory context must NOT contain the raw API key — SecureSessionManager
         // replaces it with a placeholder or encrypted form before writing to disk.
-        val storedKey = (AppConfig.context.providerSettings[ModelProvider.OPENAI] as? OpenAiSettings)?.apiKey
+        val storedInstance = AppConfig.context.providerInstances.firstOrNull { it.providerType == ModelProvider.OPENAI }
+        val storedKey = (storedInstance?.settings as? OpenAiSettings)?.apiKey
         assertNotEquals("sk-super-secret-key", storedKey)
     }
 
@@ -407,10 +419,15 @@ class AppConfigTest {
     fun `saveContext persists context to YAML config file on disk`() {
         val configFile = AskimoHome.base().resolve("askimo.yml")
 
-        val params = AppContextParams().apply {
-            currentProvider = ModelProvider.OPENAI
-            providerSettings[ModelProvider.OPENAI] = OpenAiSettings(apiKey = "", defaultModel = "gpt-4o-mini")
-        }
+        val instance = ProviderInstance.create(
+            displayName = "OpenAI",
+            providerType = ModelProvider.OPENAI,
+            settings = OpenAiSettings(apiKey = "", defaultModel = "gpt-4o-mini"),
+        )
+        val params = AppContextParams(
+            currentInstanceId = instance.id,
+            providerInstances = mutableListOf(instance),
+        )
 
         AppConfig.saveContext(params)
 
@@ -424,9 +441,14 @@ class AppConfigTest {
         // Verify that saving context does not wipe out unrelated config sections
         val originalEmbeddingModel = AppConfig.models[ModelProvider.OLLAMA].embeddingModel
 
-        val params = AppContextParams().apply {
-            currentProvider = ModelProvider.OPENAI
-        }
+        val instance = ProviderInstance.create(
+            displayName = "OpenAI",
+            providerType = ModelProvider.OPENAI,
+        )
+        val params = AppContextParams(
+            currentInstanceId = instance.id,
+            providerInstances = mutableListOf(instance),
+        )
 
         AppConfig.saveContext(params)
 
@@ -435,18 +457,28 @@ class AppConfigTest {
 
     @Test
     fun `saveContext overwrites a previously saved context`() {
-        val firstParams = AppContextParams().apply {
-            currentProvider = ModelProvider.OPENAI
-            providerSettings[ModelProvider.OPENAI] = OpenAiSettings(defaultModel = "gpt-4o")
-        }
+        val openAiInstance = ProviderInstance.create(
+            displayName = "OpenAI",
+            providerType = ModelProvider.OPENAI,
+            settings = OpenAiSettings(defaultModel = "gpt-4o"),
+        )
+        val firstParams = AppContextParams(
+            currentInstanceId = openAiInstance.id,
+            providerInstances = mutableListOf(openAiInstance),
+        )
         AppConfig.saveContext(firstParams)
-        assertEquals(ModelProvider.OPENAI, AppConfig.context.currentProvider)
+        assertEquals(ModelProvider.OPENAI, AppConfig.context.activeProviderType)
 
-        val secondParams = AppContextParams().apply {
-            currentProvider = ModelProvider.GEMINI
-        }
+        val geminiInstance = ProviderInstance.create(
+            displayName = "Gemini",
+            providerType = ModelProvider.GEMINI,
+        )
+        val secondParams = AppContextParams(
+            currentInstanceId = geminiInstance.id,
+            providerInstances = mutableListOf(geminiInstance),
+        )
         AppConfig.saveContext(secondParams)
 
-        assertEquals(ModelProvider.GEMINI, AppConfig.context.currentProvider)
+        assertEquals(ModelProvider.GEMINI, AppConfig.context.activeProviderType)
     }
 }

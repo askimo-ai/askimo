@@ -20,8 +20,10 @@ import io.askimo.core.logging.logger
 import io.askimo.core.memory.UserMemorySummary
 import io.askimo.core.providers.ChatClient
 import io.askimo.core.providers.ChatModelFactory
+import io.askimo.core.providers.ModelCapabilitiesCache
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.NoopProviderSettings
+import io.askimo.core.providers.ProviderInstance
 import io.askimo.core.providers.ProviderRegistry
 import io.askimo.core.providers.ProviderSettings
 import io.askimo.core.security.SecureSessionManager
@@ -156,7 +158,27 @@ class AppContext private constructor(
      * Handle model change event - clear the cached utility client since it uses the old model.
      */
     private fun handleModelChanged(event: ModelChangedEvent) {
-        log.info("Model changed to ${event.newModel} for provider ${event.provider}, clearing cached utility client")
+        log.info("Model changed to ${event.newModel} for instance ${event.instanceId} (${event.provider}), clearing cached utility client")
+        synchronized(this) {
+            cachedUtilityClient = null
+            cachedImageModel = null
+            cachedEmbeddingModel = null
+        }
+    }
+
+    // ── Instance-level API (new, preferred) ─────────────────────────────────────────────────
+
+    /**
+     * Returns the currently active [ProviderInstance], or null if none is configured.
+     */
+    fun getActiveInstance(): ProviderInstance? = params.activeInstance
+
+    /**
+     * Switches the active instance to [instanceId].
+     * Clears cached clients so the next call creates fresh ones for the new instance.
+     */
+    fun setCurrentInstance(instanceId: String) {
+        params.currentInstanceId = instanceId
         synchronized(this) {
             cachedUtilityClient = null
             cachedImageModel = null
@@ -165,32 +187,98 @@ class AppContext private constructor(
     }
 
     /**
-     * Gets the currently active model provider for this session.
+     * Adds or replaces a [ProviderInstance] in [params].
      */
-    fun getActiveProvider(): ModelProvider = params.currentProvider
-
-    /**
-     * Gets the current provider's settings.
-     */
-    fun getCurrentProviderSettings(): ProviderSettings = params.providerSettings[params.currentProvider]
-        ?: ProviderRegistry.getFactory(params.currentProvider)?.defaultSettings()
-        ?: NoopProviderSettings
-
-    /**
-     * Gets the provider-specific settings map, or creates defaults if missing.
-     */
-    fun getOrCreateProviderSettings(provider: ModelProvider): ProviderSettings = params.providerSettings.getOrPut(provider) {
-        ProviderRegistry.getFactory(provider)?.defaultSettings() ?: NoopProviderSettings
+    fun upsertInstance(instance: ProviderInstance) {
+        params.upsertInstance(instance)
     }
 
     /**
-     * Sets the provider-specific settings into the map.
+     * Removes the instance with [instanceId] from [params].
+     * If it was the active instance, [params.currentInstanceId] is cleared.
+     *
+     * When the removed instance was the **last** one of its provider type, all capability cache
+     * entries for that provider are also evicted so stale probe results (thinking support,
+     * tool support, learned context-size limits) are not reused the next time a new instance
+     * of the same type is added.
+     */
+    fun removeInstance(instanceId: String) {
+        val providerType = params.providerInstances.firstOrNull { it.id == instanceId }?.providerType
+        params.removeInstance(instanceId)
+        // Evict provider-level capability cache when there are no remaining instances of that type
+        if (providerType != null && params.instancesForType(providerType).isEmpty()) {
+            ProviderRegistry.getFactory(providerType)?.let {
+                ModelCapabilitiesCache.invalidateForProvider(providerType)
+            }
+        }
+    }
+
+    /**
+     * Returns the settings for the instance with [instanceId], or null if not found.
+     */
+    fun getInstanceSettings(instanceId: String): ProviderSettings? = params.providerInstances.firstOrNull { it.id == instanceId }?.settings
+
+    /**
+     * Updates the settings of an existing instance in-place.
+     * No-op if no instance with [instanceId] is found.
+     */
+    fun setInstanceSettings(instanceId: String, settings: ProviderSettings) {
+        val instance = params.providerInstances.firstOrNull { it.id == instanceId } ?: return
+        params.replaceInstance(instance.copy(settings = settings))
+    }
+
+    // ── Provider-level API (transitional, backed by instance list) ───────────────────────────
+
+    /**
+     * Gets the currently active model provider for this session.
+     */
+    fun getActiveProvider(): ModelProvider = params.activeProviderType
+
+    /**
+     * Gets the current provider's settings (from the active instance).
+     */
+    fun getCurrentProviderSettings(): ProviderSettings = params.activeInstance?.settings
+        ?: ProviderRegistry.getFactory(params.activeProviderType)?.defaultSettings()
+        ?: NoopProviderSettings
+
+    /**
+     * Gets (or lazily creates) settings for the first instance of [provider] type.
+     * If no instance of that type exists, a new one is created with default settings and
+     * added to [params.providerInstances].
+     */
+    fun getOrCreateProviderSettings(provider: ModelProvider): ProviderSettings {
+        val existing = params.providerInstances.firstOrNull { it.providerType == provider }
+        if (existing != null) return existing.settings
+        val newInstance = ProviderInstance.create(
+            displayName = provider.providerKey(),
+            providerType = provider,
+        )
+        params.upsertInstance(newInstance)
+        return newInstance.settings
+    }
+
+    /**
+     * Updates the settings of the first instance of [provider] type, or creates a new
+     * instance if none exists for that type.
+     *
+     * When there is an active instance of a different type, this does **not** change
+     * [params.currentInstanceId] — call [setCurrentInstance] explicitly if needed.
      */
     fun setProviderSetting(
         provider: ModelProvider,
         settings: ProviderSettings,
     ) {
-        params.providerSettings[provider] = settings
+        val existing = params.providerInstances.firstOrNull { it.providerType == provider }
+        if (existing != null) {
+            params.replaceInstance(existing.copy(settings = settings))
+        } else {
+            val newInstance = ProviderInstance.create(
+                displayName = provider.providerKey(),
+                providerType = provider,
+                settings = settings,
+            )
+            params.upsertInstance(newInstance)
+        }
     }
 
     /**
@@ -208,7 +296,7 @@ class AppContext private constructor(
     fun getModelFactory(provider: ModelProvider): ChatModelFactory<*> = ProviderRegistry.getFactory(provider) ?: throw ProviderNotConfiguredException()
 
     fun createChatModel(): ChatModel {
-        val provider = params.currentProvider
+        val provider = params.activeProviderType
         val factory = getModelFactory(provider)
         val settings = getOrCreateProviderSettings(provider)
 
@@ -217,7 +305,7 @@ class AppContext private constructor(
     }
 
     fun getStatelessChatClient(): ChatClient {
-        val provider = params.currentProvider
+        val provider = params.activeProviderType
         val factory = getModelFactory(provider)
 
         val settings = getOrCreateProviderSettings(provider)
@@ -250,7 +338,7 @@ class AppContext private constructor(
             // Double-check after acquiring lock
             cachedUtilityClient?.let { return it }
 
-            val provider = params.currentProvider
+            val provider = params.activeProviderType
             val factory = getModelFactory(provider)
 
             val settings = getOrCreateProviderSettings(provider)
@@ -273,7 +361,7 @@ class AppContext private constructor(
         synchronized(this) {
             cachedImageModel?.let { return it }
 
-            val provider = params.currentProvider
+            val provider = params.activeProviderType
             val factory = getModelFactory(provider)
 
             val settings = getOrCreateProviderSettings(provider)
@@ -303,7 +391,7 @@ class AppContext private constructor(
         synchronized(this) {
             cachedEmbeddingModel?.let { return it }
 
-            val provider = params.currentProvider
+            val provider = params.activeProviderType
             val factory = getModelFactory(provider)
 
             if (!factory.supportsEmbedding()) {
@@ -331,7 +419,7 @@ class AppContext private constructor(
      * @return Maximum number of tokens the embedding model can handle
      */
     fun getEmbeddingTokenLimit(): Int {
-        val provider = params.currentProvider
+        val provider = params.activeProviderType
         val factory = ProviderRegistry.getFactory(provider) ?: return 2048
         val settings = getOrCreateProviderSettings(provider)
 
@@ -360,7 +448,7 @@ class AppContext private constructor(
         retriever: ContentRetriever? = null,
         memory: ChatMemory,
     ): ChatClient {
-        val provider = params.currentProvider
+        val provider = params.activeProviderType
         val factory = getModelFactory(provider)
         val settings = getOrCreateProviderSettings(provider)
 
