@@ -107,7 +107,6 @@ class ProviderInstanceService(private val appContext: AppContext) {
         val wasActive = instanceId == appContext.params.currentInstanceId
         return try {
             appContext.removeInstance(instanceId)
-            appContext.save()
             if (wasActive) {
                 val next = appContext.params.providerInstances.firstOrNull()
                 if (next != null) appContext.setCurrentInstance(next.id)
@@ -119,6 +118,7 @@ class ProviderInstanceService(private val appContext: AppContext) {
                     ),
                 )
             }
+            appContext.save()
             log.debug("Deleted provider instance '{}' ({})", instance.displayName, instance.providerType)
             Result.success(Unit)
         } catch (e: Exception) {

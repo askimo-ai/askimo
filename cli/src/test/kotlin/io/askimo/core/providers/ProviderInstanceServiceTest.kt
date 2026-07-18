@@ -262,15 +262,15 @@ class ProviderInstanceServiceTest {
         }
 
         @Test
-        fun `clears currentInstanceId when the active instance is deleted`() {
+        fun `clears currentInstanceId when the last instance is deleted`() {
             val instance = makeInstance("Active One")
             service.add(instance)
             assertEquals(instance.id, AppContext.getInstance().params.currentInstanceId)
 
             service.delete(instance.id)
 
-            // With no remaining instances, currentInstanceId should be cleared
             assertEquals("", AppContext.getInstance().params.currentInstanceId)
+            assertNull(service.active)
         }
 
         @Test
@@ -279,12 +279,47 @@ class ProviderInstanceServiceTest {
             val second = makeInstance("Second")
             service.add(first)
             service.add(second)
-            // first is active; second is next
             service.setActive(first.id)
 
             service.delete(first.id)
 
             assertEquals(second.id, AppContext.getInstance().params.currentInstanceId)
+            assertEquals(second.id, service.active?.id)
+        }
+
+        @Test
+        fun `promotes the first remaining instance regardless of position`() {
+            val a = makeInstance("A")
+            val b = makeInstance("B")
+            val c = makeInstance("C")
+            service.add(a)
+            service.add(b)
+            service.add(c)
+            service.setActive(b.id) // middle instance is active
+
+            service.delete(b.id)
+
+            // After removing the middle, 'a' is first in the list
+            assertEquals(a.id, AppContext.getInstance().params.currentInstanceId)
+            assertEquals(a.id, service.active?.id)
+            assertEquals(2, service.all.size)
+        }
+
+        @Test
+        fun `active instance is updated in params before save (promotion is persisted)`() {
+            val first = makeInstance("First")
+            val second = makeInstance("Second")
+            service.add(first)
+            service.add(second)
+            service.setActive(first.id)
+
+            service.delete(first.id)
+
+            // service.active reads from appContext.params which is what gets saved —
+            // verifies setCurrentInstance was called before save(), not after
+            val activeId = AppContext.getInstance().params.currentInstanceId
+            assertFalse(activeId.isEmpty(), "currentInstanceId must not be empty when instances remain")
+            assertEquals(second.id, activeId)
         }
 
         @Test
@@ -297,6 +332,7 @@ class ProviderInstanceServiceTest {
             service.delete(other.id)
 
             assertEquals(active.id, AppContext.getInstance().params.currentInstanceId)
+            assertEquals(active.id, service.active?.id)
             assertEquals(1, service.all.size)
         }
     }
