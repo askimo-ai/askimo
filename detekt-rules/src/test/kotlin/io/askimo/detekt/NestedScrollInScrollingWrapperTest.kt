@@ -31,7 +31,7 @@ class NestedScrollInScrollingWrapperTest {
             """.trimIndent(),
         )
         assertEquals(1, findings.size)
-        assertEquals("NestedScrollInScrollingWrapper", findings.first().issue.id)
+        assertEquals("NestedScrollInScrollingWrapper", findings.first().ruleName.value)
     }
 
     @Test
@@ -50,7 +50,7 @@ class NestedScrollInScrollingWrapperTest {
             """.trimIndent(),
         )
         assertEquals(1, findings.size)
-        assertEquals("NestedScrollInScrollingWrapper", findings.first().issue.id)
+        assertEquals("NestedScrollInScrollingWrapper", findings.first().ruleName.value)
     }
 
     @Test

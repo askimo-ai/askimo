@@ -31,7 +31,7 @@ class RememberCoroutineScopeInConditionalComposableTest {
             """.trimIndent(),
         )
         assertEquals(1, findings.size)
-        assertTrue(findings.first().issue.id == "RememberCoroutineScopeInConditionalComposable")
+        assertTrue(findings.first().ruleName.value == "RememberCoroutineScopeInConditionalComposable")
     }
 
     @Test
