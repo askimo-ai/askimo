@@ -352,7 +352,7 @@ class SettingsViewModel(
     fun updateNewInstanceDisplayName(name: String) {
         newInstanceDisplayName = name
         displayNameError = if (name.isNotBlank() && !providerInstanceService.isDisplayNameAvailable(name)) {
-            "A provider named \"${name.trim()}\" already exists"
+            LocalizationManager.getString("provider.instance.name.duplicate", name.trim())
         } else {
             null
         }
@@ -361,7 +361,7 @@ class SettingsViewModel(
     fun updateEditingInstanceDisplayName(name: String) {
         editingInstanceDisplayName = name
         displayNameError = if (name.isNotBlank() && !providerInstanceService.isDisplayNameAvailable(name, excludingId = editingInstance?.id)) {
-            "A provider named \"${name.trim()}\" already exists"
+            LocalizationManager.getString("provider.instance.name.duplicate", name.trim())
         } else {
             null
         }
@@ -393,7 +393,7 @@ class SettingsViewModel(
         }
         val excludingId = editingInstance?.id
         if (!providerInstanceService.isDisplayNameAvailable(candidateName, excludingId = excludingId)) {
-            displayNameError = "A provider named \"${candidateName.trim()}\" already exists"
+            displayNameError = LocalizationManager.getString("provider.instance.name.duplicate", candidateName.trim())
             return
         }
 
@@ -650,6 +650,14 @@ class SettingsViewModel(
 
     /** Called when user explicitly clicks "Next" on the CONFIG step (add mode). */
     fun advanceToModelPicker() {
+        val candidateName = newInstanceDisplayName.ifBlank {
+            selectedProvider?.let { ProviderRegistry.getProviderDisplayName(it) } ?: ""
+        }
+        if (!providerInstanceService.isDisplayNameAvailable(candidateName)) {
+            displayNameError = LocalizationManager.getString("provider.instance.name.duplicate", candidateName.trim())
+            return
+        }
+        displayNameError = null
         wizardStep = WizardStep.MODEL
     }
 
