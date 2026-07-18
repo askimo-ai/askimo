@@ -5,16 +5,12 @@
 package io.askimo.cli.commands
 
 import io.askimo.core.context.AppContext
-import io.askimo.core.event.EventBus
-import io.askimo.core.event.internal.ModelChangedEvent
 import io.askimo.core.logging.display
 import io.askimo.core.logging.logger
 import io.askimo.core.providers.DefaultMessageResolver
 import io.askimo.core.providers.ModelProvider
+import io.askimo.core.providers.ProviderInstanceService
 import io.askimo.core.providers.ProviderRegistry
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import org.jline.reader.ParsedLine
 
 /**
@@ -27,6 +23,7 @@ import org.jline.reader.ParsedLine
  */
 class SetProviderCommandHandler(
     private val appContext: AppContext,
+    private val providerInstanceService: ProviderInstanceService,
 ) : CommandHandler {
     private val log = logger<SetProviderCommandHandler>()
     override val keyword: String = ":set-provider"
@@ -49,21 +46,21 @@ class SetProviderCommandHandler(
             val typeStr = parts[0]
             val name = parts[1]
             val provider = parseProviderType(typeStr) ?: return
-            val existing = appContext.params.providerInstances.firstOrNull {
+            val existing = providerInstanceService.all.firstOrNull {
                 it.displayName.equals(name, ignoreCase = true) && it.providerType == provider
             }
             if (existing != null) {
                 activateInstance(existing.id, existing.displayName, provider)
             } else {
                 val newInstance = ProviderRegistry.createInstance(providerType = provider, displayName = name)
-                appContext.upsertInstance(newInstance)
+                providerInstanceService.add(newInstance)
                 activateInstance(newInstance.id, name, provider)
             }
             return
         }
 
         // ── Form 2: match an existing instance by display name ────────────────────────────────
-        val byName = appContext.params.providerInstances.firstOrNull {
+        val byName = providerInstanceService.all.firstOrNull {
             it.displayName.equals(input, ignoreCase = true)
         }
         if (byName != null) {
@@ -78,7 +75,7 @@ class SetProviderCommandHandler(
             when {
                 instances.isEmpty() -> {
                     val newInstance = ProviderRegistry.createInstance(providerType = provider)
-                    appContext.upsertInstance(newInstance)
+                    providerInstanceService.add(newInstance)
                     activateInstance(newInstance.id, newInstance.displayName, provider)
                 }
 
@@ -119,11 +116,7 @@ class SetProviderCommandHandler(
     }
 
     private fun activateInstance(instanceId: String, displayName: String, provider: ModelProvider) {
-        appContext.setCurrentInstance(instanceId)
-        appContext.save()
-        CoroutineScope(Dispatchers.Default).launch {
-            EventBus.emit(ModelChangedEvent(provider = provider, newModel = "", instanceId = instanceId))
-        }
+        providerInstanceService.setActive(instanceId)
         log.display("✅ Switched to: $displayName (${ProviderRegistry.getProviderDisplayName(provider)})")
         log.display("💡 Use `:models` to list available models for this instance.")
         log.display("💡 Then use `:set-param model <modelName>` to choose one.")

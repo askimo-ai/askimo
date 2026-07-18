@@ -261,7 +261,11 @@ private fun instanceConfigScreen(viewModel: SettingsViewModel) {
                     },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
+                    isError = viewModel.displayNameError != null,
                     placeholder = { Text(stringResource("provider.instance.name.placeholder")) },
+                    supportingText = viewModel.displayNameError?.let { error ->
+                        { Text(text = error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                    },
                     colors = AppComponents.outlinedTextFieldColors(),
                 )
             }

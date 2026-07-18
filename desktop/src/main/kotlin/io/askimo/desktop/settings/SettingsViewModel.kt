@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
 import io.askimo.core.context.getConfigInfo
+import io.askimo.core.error.AppError
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.ModelChangedEvent
 import io.askimo.core.i18n.LocalizationManager
@@ -21,6 +22,7 @@ import io.askimo.core.providers.ModelDTO
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ProviderConfigField
 import io.askimo.core.providers.ProviderInstance
+import io.askimo.core.providers.ProviderInstanceService
 import io.askimo.core.providers.ProviderRegistry
 import io.askimo.core.providers.ProviderSettings
 import io.askimo.core.providers.ProviderTestResult
@@ -51,6 +53,7 @@ enum class WizardStep { TYPE_PICKER, CONFIG, MODEL }
 class SettingsViewModel(
     private val scope: CoroutineScope,
     private val appContext: AppContext,
+    private val providerInstanceService: ProviderInstanceService,
 ) {
     private val log = logger<SettingsViewModel>()
 
@@ -69,15 +72,20 @@ class SettingsViewModel(
         private set
 
     /** The currently active [ProviderInstance], or null if none is configured. */
-    val activeInstance get() = appContext.params.providerInstances.firstOrNull { it.id == instanceId }
+    val activeInstance get() = providerInstanceService.findById(instanceId)
 
     var settingsDescription by mutableStateOf<List<String>>(emptyList())
         private set
 
-    // ── Model-change dialog ──────────────────────────────────────────────────────────────────
+    // ── Feedback ─────────────────────────────────────────────────────────────────────────────
 
-    var showModelDialog by mutableStateOf(false)
+    var showSuccessMessage by mutableStateOf(false)
         private set
+
+    var successMessage by mutableStateOf("")
+        private set
+
+    // ── Model list state (used by wizard model picker) ────────────────────────────────────────
 
     var availableModels by mutableStateOf<List<ModelDTO>>(emptyList())
         private set
@@ -89,14 +97,6 @@ class SettingsViewModel(
         private set
 
     var modelErrorHelp by mutableStateOf<String?>(null)
-        private set
-
-    // ── Feedback ─────────────────────────────────────────────────────────────────────────────
-
-    var showSuccessMessage by mutableStateOf(false)
-        private set
-
-    var successMessage by mutableStateOf("")
         private set
 
     // ── Settings (advanced fields) dialog ────────────────────────────────────────────────────
@@ -187,6 +187,9 @@ class SettingsViewModel(
     var canPullEmbeddingModel by mutableStateOf(false)
         private set
 
+    var displayNameError by mutableStateOf<String?>(null)
+        private set
+
     init {
         loadConfiguration()
 
@@ -216,17 +219,8 @@ class SettingsViewModel(
     fun switchToInstance(targetInstanceId: String) {
         scope.launch {
             withContext(Dispatchers.IO) {
-                appContext.setCurrentInstance(targetInstanceId)
-                appContext.save()
+                providerInstanceService.setActive(targetInstanceId)
             }
-            val instance = appContext.params.providerInstances.firstOrNull { it.id == targetInstanceId }
-            EventBus.emit(
-                ModelChangedEvent(
-                    provider = instance?.providerType ?: ModelProvider.UNKNOWN,
-                    newModel = instance?.settings?.defaultModel ?: "",
-                    instanceId = targetInstanceId,
-                ),
-            )
             loadConfiguration()
         }
     }
@@ -234,10 +228,9 @@ class SettingsViewModel(
     fun deleteInstance(targetInstanceId: String) {
         scope.launch {
             withContext(Dispatchers.IO) {
-                appContext.removeInstance(targetInstanceId)
-                appContext.save()
+                providerInstanceService.delete(targetInstanceId)
             }
-            availableInstances = appContext.params.providerInstances.toList()
+            availableInstances = providerInstanceService.all
             loadConfiguration()
             successMessage = "Provider instance removed"
             showSuccessMessage = true
@@ -258,8 +251,7 @@ class SettingsViewModel(
 
     /** Opens the wizard in add mode (starts at TYPE_PICKER step). */
     fun openAddProviderWizard() {
-        // Populate lists so providerTypePickerScreen has data regardless of call site
-        availableInstances = appContext.params.providerInstances.toList()
+        availableInstances = providerInstanceService.all
         availableProviders = ProviderRegistry.getSupportedProviders()
             .filter { it != ModelProvider.UNKNOWN && it != ModelProvider.ASKIMO_PRO }
             .sortedBy { ProviderRegistry.getProviderDisplayName(it) }
@@ -359,9 +351,20 @@ class SettingsViewModel(
 
     fun updateNewInstanceDisplayName(name: String) {
         newInstanceDisplayName = name
+        displayNameError = if (name.isNotBlank() && !providerInstanceService.isDisplayNameAvailable(name)) {
+            "A provider named \"${name.trim()}\" already exists"
+        } else {
+            null
+        }
     }
+
     fun updateEditingInstanceDisplayName(name: String) {
         editingInstanceDisplayName = name
+        displayNameError = if (name.isNotBlank() && !providerInstanceService.isDisplayNameAvailable(name, excludingId = editingInstance?.id)) {
+            "A provider named \"${name.trim()}\" already exists"
+        } else {
+            null
+        }
     }
 
     fun updateProviderField(fieldName: String, value: String) {
@@ -373,12 +376,24 @@ class SettingsViewModel(
         pendingModelForNewProvider = model
     }
 
-    /** Saves the instance and closes the wizard on success. Emits [ModelChangedEvent]. */
+    /** Saves the instance and closes the wizard on success. */
     fun saveProvider() {
         val provider = selectedProvider ?: return
 
         if (!validateConfigFields(providerFieldValues, providerConfigFields)) {
             connectionError = "Please fill in all required fields"
+            return
+        }
+
+        // Guard: reject duplicate display names before hitting IO
+        val candidateName = if (editingInstance != null) {
+            editingInstanceDisplayName.ifBlank { editingInstance!!.displayName }
+        } else {
+            newInstanceDisplayName.ifBlank { ProviderRegistry.getProviderDisplayName(provider) }
+        }
+        val excludingId = editingInstance?.id
+        if (!providerInstanceService.isDisplayNameAvailable(candidateName, excludingId = excludingId)) {
+            displayNameError = "A provider named \"${candidateName.trim()}\" already exists"
             return
         }
 
@@ -411,26 +426,24 @@ class SettingsViewModel(
                     }
 
                     try {
-                        val eventInstanceId: String
                         if (editingInstance != null) {
                             val displayName = editingInstanceDisplayName.ifBlank { editingInstance!!.displayName }
                             val updated = editingInstance!!.copy(displayName = displayName, settings = settingsWithModel)
-                            appContext.upsertInstance(updated)
-                            appContext.save()
-                            eventInstanceId = updated.id
+                            providerInstanceService.update(updated).getOrThrow()
                         } else {
                             val displayName = newInstanceDisplayName.ifBlank { ProviderRegistry.getProviderDisplayName(provider) }
                             val newInstance = ProviderRegistry.createInstance(providerType = provider, displayName = displayName, settings = settingsWithModel)
-                            appContext.upsertInstance(newInstance)
-                            appContext.setCurrentInstance(newInstance.id)
-                            appContext.save()
-                            eventInstanceId = newInstance.id
+                            providerInstanceService.add(newInstance).getOrThrow()
                         }
-                        EventBus.emit(ModelChangedEvent(provider, pendingModel, eventInstanceId))
                         ProviderTestResult.Success
                     } catch (e: Exception) {
                         log.error("Error saving instance", e)
-                        ProviderTestResult.Failure("Failed to save provider instance")
+                        val appError = (e as? AppError) ?: (e.cause as? AppError)
+                        if (appError is AppError.DuplicateEntry) {
+                            ProviderTestResult.Failure("A provider named \"${appError.value.trim()}\" already exists")
+                        } else {
+                            ProviderTestResult.Failure("Failed to save provider instance")
+                        }
                     }
                 } catch (e: Exception) {
                     log.error("Error saving instance", e)
@@ -460,83 +473,6 @@ class SettingsViewModel(
                 }
             }
         }
-    }
-
-    // ── Model-change dialog ───────────────────────────────────────────────────────────────────
-
-    fun onChangeModel() {
-        modelError = null
-        modelErrorHelp = null
-        isLoadingModels = true
-        showModelDialog = true
-
-        scope.launch {
-            val currentProvider = provider ?: run {
-                isLoadingModels = false
-                availableModels = emptyList()
-                modelError = "Provider not set"
-                return@launch
-            }
-
-            withContext(Dispatchers.IO) {
-                val factory = ProviderRegistry.getFactory(currentProvider) ?: run {
-                    isLoadingModels = false
-                    availableModels = emptyList()
-                    modelError = "No model factory registered for provider: ${currentProvider.name.lowercase()}"
-                    return@withContext
-                }
-
-                @Suppress("UNCHECKED_CAST")
-                val models = (factory as ChatModelFactory<ProviderSettings>).availableModels(appContext.getCurrentProviderSettings())
-
-                isLoadingModels = false
-                if (models.isEmpty()) {
-                    availableModels = emptyList()
-                    modelError = "No models available for ${currentProvider.name.lowercase()}"
-                    modelErrorHelp = factory.getNoModelsHelpText()
-                } else {
-                    availableModels = models
-                    modelError = null
-                    modelErrorHelp = null
-                }
-            }
-        }
-    }
-
-    fun selectModel(newModel: String) {
-        scope.launch {
-            val success = withContext(Dispatchers.IO) {
-                try {
-                    appContext.params.model = newModel
-                    appContext.save()
-                    EventBus.emit(
-                        ModelChangedEvent(
-                            provider = appContext.getActiveProvider(),
-                            newModel = newModel,
-                            instanceId = appContext.params.currentInstanceId,
-                        ),
-                    )
-                    true
-                } catch (_: Exception) {
-                    false
-                }
-            }
-            if (success) {
-                model = newModel
-                loadConfiguration()
-                showModelDialog = false
-                successMessage = "Model updated to: $newModel"
-                showSuccessMessage = true
-            } else {
-                modelError = "Failed to change model to: $newModel"
-            }
-        }
-    }
-
-    fun closeModelDialog() {
-        showModelDialog = false
-        modelError = null
-        modelErrorHelp = null
     }
 
     // ── Advanced settings dialog ──────────────────────────────────────────────────────────────
@@ -779,6 +715,7 @@ class SettingsViewModel(
         providerFieldValues = emptyMap()
         isFetchingModelsForConfig = false
         isTestingConnection = false
+        displayNameError = null
     }
 
     private fun validateConfigFields(fields: Map<String, String>, configFields: List<ProviderConfigField>): Boolean = configFields.all { field ->

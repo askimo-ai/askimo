@@ -300,13 +300,6 @@ fun settingsViewWithSidebar(
     }
 
     // Dialogs
-    if (settingsViewModel.showModelDialog) {
-        modelSelectionDialog(
-            viewModel = settingsViewModel,
-            onDismiss = { settingsViewModel.closeModelDialog() },
-            onSelect = { model -> settingsViewModel.selectModel(model) },
-        )
-    }
 
     if (settingsViewModel.showProviderWizard) {
         providerWizardDialog(viewModel = settingsViewModel)

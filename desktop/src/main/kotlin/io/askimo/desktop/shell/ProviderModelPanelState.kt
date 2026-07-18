@@ -9,14 +9,13 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.askimo.core.context.AppContext
-import io.askimo.core.event.EventBus
-import io.askimo.core.event.internal.ModelChangedEvent
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
 import io.askimo.core.providers.ChatModelFactory
 import io.askimo.core.providers.ModelDTO
 import io.askimo.core.providers.ProviderConfigField
 import io.askimo.core.providers.ProviderInstance
+import io.askimo.core.providers.ProviderInstanceService
 import io.askimo.core.providers.ProviderSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -40,8 +39,8 @@ sealed class RightColumnMode {
  * 2. User clicks an instance in the left column → [selectInstanceForPreview] sets [pendingInstanceId]
  *    and lazily loads that instance's models (cached for the lifetime of the panel).
  * 3. User clicks a model in the right column → [commitSelection] atomically switches the active
- *    instance (if different) and persists the chosen model, then emits [ModelChangedEvent] on
- *    [EventBus] so the rest of the UI reacts.
+ *    instance (if different) and persists the chosen model, then emits a domain event so the
+ *    rest of the UI reacts.
  * 4. Panel dismisses → [reset] clears the model cache and resets to [RightColumnMode.Models].
  *
  * Nothing is written to [AppContext] until step 3 (or [saveEdit]), so dismissing without
@@ -53,6 +52,7 @@ sealed class RightColumnMode {
 class ProviderModelPanelState(
     private val scope: CoroutineScope,
     private val appContext: AppContext,
+    private val providerInstanceService: ProviderInstanceService,
 ) {
     private val log = logger<ProviderModelPanelState>()
 
@@ -102,7 +102,7 @@ class ProviderModelPanelState(
     // ── Lifecycle ────────────────────────────────────────────────────────────────────────────
 
     fun init() {
-        availableInstances = appContext.params.providerInstances.toList()
+        availableInstances = providerInstanceService.all
         pendingInstanceId = appContext.params.currentInstanceId
         if (pendingInstanceId.isNotBlank()) {
             fetchModels(pendingInstanceId)
@@ -118,8 +118,6 @@ class ProviderModelPanelState(
         editFieldValues = emptyMap()
     }
 
-    // ── Instance interaction ─────────────────────────────────────────────────────────────────
-
     fun selectInstanceForPreview(instanceId: String) {
         // Switching instance while editing discards changes (cancel edit implicitly)
         if (rightColumnMode is RightColumnMode.EditInstance) {
@@ -134,7 +132,7 @@ class ProviderModelPanelState(
      * Pre-populates [editDisplayName] and [editFieldValues] from the instance's current settings.
      */
     fun openEditForm(instanceId: String) {
-        val instance = appContext.params.providerInstances.firstOrNull { it.id == instanceId } ?: return
+        val instance = providerInstanceService.findById(instanceId) ?: return
         val fields = instance.settings.getConfigFields(LocalizationManager.messageResolver)
         editDisplayName = instance.displayName
         editConfigFields = fields
@@ -163,11 +161,11 @@ class ProviderModelPanelState(
 
     /**
      * Persists the edited display name and config fields for [instanceId], then returns to
-     * [RightColumnMode.Models]. Emits [ModelChangedEvent] if the edited instance is active so
+     * [RightColumnMode.Models]. Emits a domain event if the edited instance is active so
      * the footer trigger label updates immediately.
      */
     fun saveEdit(instanceId: String) {
-        val instance = appContext.params.providerInstances.firstOrNull { it.id == instanceId } ?: return
+        val instance = providerInstanceService.findById(instanceId) ?: return
         val newName = editDisplayName.trim().ifBlank { instance.displayName }
         val updatedSettings = instance.settings.applyConfigFields(editFieldValues)
         val updatedInstance = instance.copy(displayName = newName, settings = updatedSettings)
@@ -177,60 +175,30 @@ class ProviderModelPanelState(
         scope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    appContext.upsertInstance(updatedInstance)
-                    appContext.save()
+                    providerInstanceService.update(updatedInstance).getOrThrow()
                 }
-                availableInstances = appContext.params.providerInstances.toList()
+                availableInstances = providerInstanceService.all
                 // Invalidate cached models for this instance — settings may have changed
                 modelCache.remove(instanceId)
-
-                if (instanceId == appContext.params.currentInstanceId) {
-                    EventBus.emit(
-                        ModelChangedEvent(
-                            provider = instance.providerType,
-                            newModel = updatedSettings.defaultModel,
-                            instanceId = instanceId,
-                        ),
-                    )
-                }
             } catch (e: Exception) {
                 log.error("Failed to save edit for instance $instanceId", e)
             }
         }
     }
 
-    // ── Model selection ──────────────────────────────────────────────────────────────────────
-
     fun commitSelection(instanceId: String, modelId: String) {
-        val instance = appContext.params.providerInstances.firstOrNull { it.id == instanceId } ?: return
         scope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    if (instanceId != appContext.params.currentInstanceId) {
-                        appContext.setCurrentInstance(instanceId)
-                    }
-                    appContext.params.model = modelId
-                    appContext.save()
+                    providerInstanceService.setModel(instanceId, modelId).getOrThrow()
                 }
-                EventBus.emit(
-                    ModelChangedEvent(
-                        provider = instance.providerType,
-                        newModel = modelId,
-                        instanceId = instanceId,
-                    ),
-                )
             } catch (e: Exception) {
                 log.error("Failed to commit selection (instance=$instanceId, model=$modelId)", e)
             }
         }
     }
 
-    // ── Delete ───────────────────────────────────────────────────────────────────────────────
-
     fun deleteInstance(instanceId: String) {
-        val wasActive = instanceId == appContext.params.currentInstanceId
-        val deleted = appContext.params.providerInstances.firstOrNull { it.id == instanceId } ?: return
-
         // If deleting the instance currently being edited, close the form
         if (rightColumnMode is RightColumnMode.EditInstance &&
             (rightColumnMode as RightColumnMode.EditInstance).instanceId == instanceId
@@ -241,35 +209,21 @@ class ProviderModelPanelState(
         scope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    appContext.removeInstance(instanceId)
-                    appContext.save()
+                    providerInstanceService.delete(instanceId).getOrThrow()
                 }
                 modelCache.remove(instanceId)
-                availableInstances = appContext.params.providerInstances.toList()
+                availableInstances = providerInstanceService.all
 
                 if (pendingInstanceId == instanceId) {
                     val next = availableInstances.firstOrNull()
                     pendingInstanceId = next?.id ?: ""
                     if (next != null) fetchModels(next.id)
                 }
-
-                if (wasActive) {
-                    val next = availableInstances.firstOrNull()
-                    EventBus.emit(
-                        ModelChangedEvent(
-                            provider = next?.providerType ?: deleted.providerType,
-                            newModel = next?.settings?.defaultModel ?: "",
-                            instanceId = next?.id ?: "",
-                        ),
-                    )
-                }
             } catch (e: Exception) {
                 log.error("Failed to delete instance $instanceId", e)
             }
         }
     }
-
-    // ── Internal ─────────────────────────────────────────────────────────────────────────────
 
     private fun fetchModels(instanceId: String) {
         if (modelCache.containsKey(instanceId) || instanceId in loadingInstances) return

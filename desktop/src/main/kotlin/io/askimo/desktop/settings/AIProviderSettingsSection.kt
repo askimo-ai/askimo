@@ -252,7 +252,7 @@ private fun providerModelConfigCard(provider: ModelProvider) {
             )
 
             if (showUtilityModelDialog) {
-                specialModelSelectionDialog(
+                providerModelTypePickerDialog(
                     provider = provider,
                     modelType = SpecialModelType.UTILITY,
                     currentValue = getProviderUtilityModel(provider),
@@ -277,7 +277,7 @@ private fun providerModelConfigCard(provider: ModelProvider) {
             )
 
             if (showVisionModelDialog) {
-                specialModelSelectionDialog(
+                providerModelTypePickerDialog(
                     provider = provider,
                     modelType = SpecialModelType.VISION,
                     currentValue = getProviderVisionModel(provider),
@@ -302,7 +302,7 @@ private fun providerModelConfigCard(provider: ModelProvider) {
             )
 
             if (showImageModelDialog) {
-                specialModelSelectionDialog(
+                providerModelTypePickerDialog(
                     provider = provider,
                     modelType = SpecialModelType.IMAGE,
                     currentValue = getProviderImageModel(provider),
@@ -328,7 +328,7 @@ private fun providerModelConfigCard(provider: ModelProvider) {
                 )
 
                 if (showEmbeddingModelDialog) {
-                    specialModelSelectionDialog(
+                    providerModelTypePickerDialog(
                         provider = provider,
                         modelType = SpecialModelType.EMBEDDING,
                         currentValue = getProviderEmbeddingModel(provider),
@@ -399,7 +399,7 @@ private fun providerModelSelectorField(
 }
 
 @Composable
-private fun specialModelSelectionDialog(
+private fun providerModelTypePickerDialog(
     provider: ModelProvider,
     modelType: SpecialModelType,
     currentValue: String,

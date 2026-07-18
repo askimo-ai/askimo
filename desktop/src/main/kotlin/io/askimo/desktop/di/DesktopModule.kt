@@ -13,6 +13,7 @@ import io.askimo.core.mcp.McpClientFactory
 import io.askimo.core.mcp.McpInstanceService
 import io.askimo.core.plan.PlanService
 import io.askimo.core.plan.repository.PlanDefRepository
+import io.askimo.core.providers.ProviderInstanceService
 import io.askimo.core.tools.ToolProviderImpl
 import io.askimo.desktop.project.ProjectViewModel
 import io.askimo.desktop.project.ProjectsViewModel
@@ -38,6 +39,8 @@ import org.koin.dsl.module
 val desktopModule = module {
 
     single<AppContext> { AppContext.getInstance() }
+
+    single { ProviderInstanceService(get()) }
 
     single { DatabaseManager.getInstance() }
 
@@ -123,7 +126,7 @@ val desktopModule = module {
     }
 
     factory { (scope: CoroutineScope) ->
-        SettingsViewModel(scope = scope, appContext = get())
+        SettingsViewModel(scope = scope, appContext = get<AppContext>(), providerInstanceService = get<ProviderInstanceService>())
     }
 
     // Commands
