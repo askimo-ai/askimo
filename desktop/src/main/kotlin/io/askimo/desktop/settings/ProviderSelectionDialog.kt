@@ -17,12 +17,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -476,8 +473,8 @@ private fun modelPickerScreen(viewModel: SettingsViewModel) {
                     colors = AppComponents.outlinedTextFieldColors(),
                 )
 
-                // Model list — bounded height so it scrolls independently and the search field above stays visible
-                Column(modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp).verticalScroll(rememberScrollState())) {
+                // Model list — scaffoldDialog owns the scroll, no inner bounded scroll needed
+                Column(modifier = Modifier.fillMaxWidth()) {
                     if (filteredModels.isEmpty()) {
                         Text(text = stringResource("settings.model.no.match"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(Spacing.large))
                     } else {
