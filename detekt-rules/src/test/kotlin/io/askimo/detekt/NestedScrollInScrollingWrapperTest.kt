@@ -4,7 +4,7 @@
  */
 package io.askimo.detekt
 
-import io.gitlab.arturbosch.detekt.test.lint
+import dev.detekt.test.lint
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test

@@ -4,18 +4,24 @@
  */
 package io.askimo.detekt
 
-import io.gitlab.arturbosch.detekt.api.Config
-import io.gitlab.arturbosch.detekt.api.RuleSet
-import io.gitlab.arturbosch.detekt.api.RuleSetProvider
+import dev.detekt.api.Config
+import dev.detekt.api.RuleName
+import dev.detekt.api.RuleSet
+import dev.detekt.api.RuleSetId
+import dev.detekt.api.RuleSetProvider
 
 class AskimoRuleSetProvider : RuleSetProvider {
-    override val ruleSetId: String = "askimo"
+    override val ruleSetId: RuleSetId = RuleSetId("askimo")
 
-    override fun instance(config: Config): RuleSet = RuleSet(
+    override fun instance(): RuleSet = RuleSet(
         id = ruleSetId,
-        rules = listOf(
-            NestedScrollInScrollingWrapper(config),
-            RememberCoroutineScopeInConditionalComposable(config),
+        rules = mapOf(
+            RuleName("NestedScrollInScrollingWrapper") to { config: Config ->
+                NestedScrollInScrollingWrapper(config)
+            },
+            RuleName("RememberCoroutineScopeInConditionalComposable") to { config: Config ->
+                RememberCoroutineScopeInConditionalComposable(config)
+            },
         ),
     )
 }

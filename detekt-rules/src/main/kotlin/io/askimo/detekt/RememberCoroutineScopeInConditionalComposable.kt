@@ -4,13 +4,10 @@
  */
 package io.askimo.detekt
 
-import io.gitlab.arturbosch.detekt.api.CodeSmell
-import io.gitlab.arturbosch.detekt.api.Config
-import io.gitlab.arturbosch.detekt.api.Debt
-import io.gitlab.arturbosch.detekt.api.Entity
-import io.gitlab.arturbosch.detekt.api.Issue
-import io.gitlab.arturbosch.detekt.api.Rule
-import io.gitlab.arturbosch.detekt.api.Severity
+import dev.detekt.api.Config
+import dev.detekt.api.Entity
+import dev.detekt.api.Finding
+import dev.detekt.api.Rule
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtIfExpression
 import org.jetbrains.kotlin.psi.KtNamedFunction
@@ -47,18 +44,15 @@ import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
  * }
  * ```
  */
-class RememberCoroutineScopeInConditionalComposable(config: Config = Config.empty) : Rule(config) {
-
-    override val issue = Issue(
-        id = "RememberCoroutineScopeInConditionalComposable",
-        severity = Severity.Warning,
-        description = "`rememberCoroutineScope()` is called inside a conditional block. " +
+class RememberCoroutineScopeInConditionalComposable(config: Config = Config.empty) :
+    Rule(
+        config,
+        "`rememberCoroutineScope()` is called inside a conditional block. " +
             "When the condition becomes false the composable is removed and its scope is " +
             "cancelled, killing any in-flight coroutines (e.g. open file dialogs or downloads). " +
             "Hoist `rememberCoroutineScope()` to the parent composable and pass a plain " +
             "lambda instead of a `suspend` lambda.",
-        debt = Debt.TWENTY_MINS,
-    )
+    ) {
 
     override fun visitCallExpression(expression: KtCallExpression) {
         super.visitCallExpression(expression)
@@ -81,8 +75,7 @@ class RememberCoroutineScopeInConditionalComposable(config: Config = Config.empt
 
         if (isInsideBranch) {
             report(
-                CodeSmell(
-                    issue = issue,
+                Finding(
                     entity = Entity.from(expression),
                     message = "`rememberCoroutineScope()` inside an `if` branch in " +
                         "`${containingFunction.name}`. The scope will be cancelled when the " +

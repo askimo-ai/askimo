@@ -43,12 +43,12 @@ spotless {
 }
 
 subprojects {
-    apply(plugin = "com.diffplug.spotless")
+    plugins.apply("com.diffplug.spotless")
 
     plugins.withId("org.jetbrains.kotlin.jvm") {
-        apply(plugin = "io.gitlab.arturbosch.detekt")
+        plugins.apply("dev.detekt")
 
-        configure<io.gitlab.arturbosch.detekt.extensions.DetektExtension> {
+        configure<dev.detekt.gradle.extensions.DetektExtension> {
             buildUponDefaultConfig = true
             config.setFrom(rootProject.file("detekt.yml"))
             dependencies {
@@ -56,17 +56,15 @@ subprojects {
             }
         }
 
-        tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+        tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
             reports {
-                xml.required.set(true)
                 html.required.set(true)
-                txt.required.set(false)
-                sarif.required.set(false)
+                sarif.required.set(true)
             }
             // Always re-analyse — never serve a cached report
             outputs.upToDateWhen { false }
-            // Always succeed so XML is written even when findings exist.
-            // The root-level `detekt` task reads the XML and decides pass/fail.
+            // Always succeed so SARIF is written even when findings exist.
+            // The root-level `detekt` task reads SARIF and decides pass/fail.
             ignoreFailures = true
         }
 
@@ -97,7 +95,7 @@ subprojects {
 
 // ── Detekt aggregated reports ─────────────────────────────────────────────
 // Usage:
-//   ./gradlew detekt            — analyse all modules, write merged XML + HTML, fail if errors
+//   ./gradlew detekt            — analyse all modules, write merged HTML, fail if errors
 //   ./gradlew openDetektReport  — open the merged HTML in the browser
 
 /** Builds a single-page HTML from a list of detekt findings. */
@@ -161,32 +159,40 @@ ${if (findings.isEmpty()) "<p style='color:#008800;font-size:20px'>✅ No findin
 </body></html>"""
 }
 
-/** Parses a Checkstyle-format XML file produced by detekt and returns a list of finding maps. */
-fun parseDetektXml(xmlFile: java.io.File): List<Map<String, String>> {
-    if (!xmlFile.exists()) return emptyList()
+/** Parses a SARIF file produced by detekt 2.x and returns a list of finding maps. */
+@Suppress("UNCHECKED_CAST")
+fun parseDetektSarif(sarifFile: java.io.File): List<Map<String, String>> {
+    if (!sarifFile.exists()) return emptyList()
     return try {
-        val doc = javax.xml.parsers.DocumentBuilderFactory.newInstance()
-            .newDocumentBuilder().parse(xmlFile)
-        val nodes = doc.getElementsByTagName("error")
-        (0 until nodes.length).map { i ->
-            val node = nodes.item(i)
-            val attrs = node.attributes
-            val filePath = node.parentNode?.attributes?.getNamedItem("name")?.nodeValue ?: "unknown"
-            mapOf(
-                "severity" to (attrs.getNamedItem("severity")?.nodeValue ?: "unknown"),
-                "rule"     to (attrs.getNamedItem("source")?.nodeValue?.substringAfterLast(".") ?: "unknown"),
-                "file"     to filePath.substringAfter("/kotlin/").ifBlank { filePath },
-                "line"     to (attrs.getNamedItem("line")?.nodeValue ?: "?"),
-                "message"  to (attrs.getNamedItem("message")?.nodeValue ?: ""),
-            )
+        val sarif = groovy.json.JsonSlurper().parse(sarifFile) as Map<String, Any>
+        val runs = sarif["runs"] as? List<Map<String, Any>> ?: return emptyList()
+        runs.flatMap { run ->
+            val results = run["results"] as? List<Map<String, Any>> ?: emptyList()
+            results.map { result ->
+                val ruleId = result["ruleId"] as? String ?: "unknown"
+                val level  = result["level"]  as? String ?: "warning"
+                val message = (result["message"] as? Map<String, Any>)?.get("text") as? String ?: ""
+                val location = (result["locations"] as? List<Map<String, Any>>)?.firstOrNull()
+                val physLoc  = location?.get("physicalLocation") as? Map<String, Any>
+                val uri  = (physLoc?.get("artifactLocation") as? Map<String, Any>)?.get("uri") as? String ?: ""
+                val line = (physLoc?.get("region") as? Map<String, Any>)?.get("startLine")?.toString() ?: "?"
+                mapOf(
+                    "severity" to if (level == "error") "error" else "warning",
+                    "rule"     to ruleId.substringAfterLast("/").substringAfterLast("."),
+                    "file"     to uri.removePrefix("file://").substringAfter("/kotlin/").ifBlank { uri },
+                    "line"     to line,
+                    "message"  to message,
+                )
+            }
         }
     } catch (e: Exception) {
+        logger.warn("Could not parse SARIF ${sarifFile.path}: ${e.message}")
         emptyList()
     }
 }
 
 // Root-level `detekt` task — single command that runs analysis on every subproject,
-// merges all XML reports into one, generates a single HTML, prints a summary, and fails if errors.
+// collects all SARIF reports, generates a single HTML, prints a summary, and fails if errors.
 // Usage: ./gradlew detekt
 tasks.register("detekt") {
     group = "verification"
@@ -196,36 +202,21 @@ tasks.register("detekt") {
     outputs.upToDateWhen { false }
 
     doLast {
-        // ── 1. Collect + merge all subproject XML reports ──────────────────
-        val mergedXmlDir = layout.buildDirectory.dir("reports/detekt").get().asFile.also { it.mkdirs() }
-        val mergedXmlFile = mergedXmlDir.resolve("detekt.xml")
+        val reportDir = layout.buildDirectory.dir("reports/detekt").get().asFile.also { it.mkdirs() }
 
-        val fileBlocks = StringBuilder()
-        subprojects.forEach { sub ->
-            val xml = sub.layout.buildDirectory.file("reports/detekt/detekt.xml").get().asFile
-            if (!xml.exists()) return@forEach
-            try {
-                val content = xml.readText()
-                val fileRegex = Regex("<file[^/].*?</file>", RegexOption.DOT_MATCHES_ALL)
-                fileRegex.findAll(content).forEach { fileBlocks.append(it.value).append("\n") }
-            } catch (e: Exception) {
-                logger.warn("Could not read ${xml.path}: ${e.message}")
-            }
+        // ── 1. Collect findings from every subproject SARIF report ─────────
+        val findings = subprojects.flatMap { sub ->
+            val sarif = sub.layout.buildDirectory.file("reports/detekt/detekt.sarif").get().asFile
+            parseDetektSarif(sarif)
         }
-        mergedXmlFile.writeText(
-            """<?xml version="1.0" encoding="utf-8"?><checkstyle version="4.3">$fileBlocks</checkstyle>""",
-        )
-
-        // ── 2. Parse merged XML ────────────────────────────────────────────
-        val findings = parseDetektXml(mergedXmlFile)
         val errors   = findings.filter { it["severity"] == "error" }
         val warnings = findings.filter { it["severity"] == "warning" }
 
-        // ── 3. Generate single merged HTML report ──────────────────────────
-        val htmlFile = mergedXmlDir.resolve("detekt.html")
+        // ── 2. Generate merged HTML report ─────────────────────────────────
+        val htmlFile = reportDir.resolve("detekt.html")
         htmlFile.writeText(buildDetektHtml(findings, errors.size, warnings.size))
 
-        // ── 4. Print console summary ───────────────────────────────────────
+        // ── 3. Print console summary ───────────────────────────────────────
         println("\n======================================================")
         println("  Detekt Aggregated Report Summary")
         println("======================================================")
