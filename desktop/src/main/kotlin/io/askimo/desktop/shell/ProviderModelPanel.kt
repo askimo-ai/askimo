@@ -30,6 +30,7 @@ import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -37,6 +38,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -58,6 +60,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -253,19 +256,55 @@ internal fun providerModelPanel(
                     }
 
                     RightColumnMode.Models -> {
-                        modelListColumn(
-                            state = state,
-                            searchQuery = searchQuery,
-                            filteredModels = filteredModels,
-                            currentInstanceId = currentInstanceId,
-                            currentModel = currentModel,
-                            totalModelCount = pendingModels.size,
-                            isChatFiltered = isChatFiltered,
-                            showAllModels = showAllModels,
-                            onShowAll = { showAllModels = true },
-                            onSearchChange = { searchQuery = it },
-                            onModelSelected = { onDismiss() },
-                        )
+                        val pendingInstance = remember(state.pendingInstanceId) {
+                            state.availableInstances.firstOrNull { it.id == state.pendingInstanceId }
+                        }
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            // ── Right-column header: badge + name + type + model count ────
+                            if (pendingInstance != null) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(start = 10.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    providerBadge(pendingInstance.providerType, size = 22)
+                                    Text(
+                                        text = pendingInstance.displayName,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    if (pendingModels.isNotEmpty() && !state.isLoadingPending) {
+                                        Text(
+                                            text = stringResource("provider.model.panel.model.count", pendingModels.size),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                        )
+                                    }
+                                }
+                                HorizontalDivider()
+                            }
+                            // ── Model list ────────────────────────────────────────────────
+                            Box(modifier = Modifier.weight(1f)) {
+                                modelListColumn(
+                                    state = state,
+                                    searchQuery = searchQuery,
+                                    filteredModels = filteredModels,
+                                    currentInstanceId = currentInstanceId,
+                                    currentModel = currentModel,
+                                    totalModelCount = pendingModels.size,
+                                    isChatFiltered = isChatFiltered,
+                                    showAllModels = showAllModels,
+                                    onShowAll = { showAllModels = true },
+                                    onSearchChange = { searchQuery = it },
+                                    onModelSelected = { onDismiss() },
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -297,12 +336,26 @@ private fun modelListColumn(
     ) {
         when {
             state.pendingInstanceId.isBlank() -> {
+                // No instance selected — nudge the user toward the provider list on the left
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = stringResource("provider.type.picker.prompt"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(Spacing.small),
+                        modifier = Modifier.padding(Spacing.large),
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        )
+                        Text(
+                            text = stringResource("provider.model.panel.select.hint"),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
                 }
             }
 
@@ -493,7 +546,11 @@ private fun instanceEditForm(
                     onValueChange = { state.updateEditDisplayName(it) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
+                    isError = state.editDisplayNameError != null,
                     placeholder = { Text(stringResource("provider.instance.name.placeholder"), style = MaterialTheme.typography.bodySmall) },
+                    supportingText = state.editDisplayNameError?.let { error ->
+                        { Text(text = error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                    },
                     textStyle = MaterialTheme.typography.bodySmall,
                     colors = AppComponents.outlinedTextFieldColors(),
                 )
@@ -565,6 +622,34 @@ private fun instanceEditForm(
                     }
                 }
             }
+
+            // Connection error card
+            if (state.editConnectionError != null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(Spacing.medium),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Icon(
+                            Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Text(
+                            text = state.editConnectionError ?: "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                    }
+                }
+            }
         }
 
         HorizontalDivider()
@@ -574,13 +659,24 @@ private fun instanceEditForm(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(Spacing.small, Alignment.End),
         ) {
-            secondaryButton(onClick = onCancel) {
+            secondaryButton(onClick = onCancel, enabled = !state.isTestingEdit) {
                 Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(Spacing.extraSmall))
                 Text(stringResource("settings.cancel"), style = MaterialTheme.typography.bodySmall)
             }
-            primaryButton(onClick = onSave) {
-                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp))
+            primaryButton(
+                onClick = onSave,
+                enabled = !state.isTestingEdit && state.editDisplayNameError == null,
+            ) {
+                if (state.isTestingEdit) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                } else {
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp))
+                }
                 Spacer(Modifier.width(Spacing.extraSmall))
                 Text(stringResource("settings.save"), style = MaterialTheme.typography.bodySmall)
             }
@@ -619,7 +715,8 @@ internal fun instanceRow(
     // LazyColumn/popup. AUTO placement picks above/below the row, never overlapping the
     // edit/delete buttons that appear on the right side on hover.
     val tooltipText = buildString {
-        append("Type: $providerDisplayName")
+        append(instance.displayName)
+        append("\nType: $providerDisplayName")
         append("\nModel: $model")
         if (baseUrl != null) append("\nBase URL: $baseUrl")
         if (apiKey != null) append("\nAPI Key: ${if (apiKeyConfigured) "✓ Configured" else "Not set"}")

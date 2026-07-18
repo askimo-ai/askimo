@@ -17,6 +17,8 @@ import io.askimo.core.providers.ProviderConfigField
 import io.askimo.core.providers.ProviderInstance
 import io.askimo.core.providers.ProviderInstanceService
 import io.askimo.core.providers.ProviderSettings
+import io.askimo.core.providers.ProviderTestResult
+import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -93,10 +95,19 @@ class ProviderModelPanelState(
     var editDisplayName by mutableStateOf("")
         private set
 
+    var editDisplayNameError by mutableStateOf<String?>(null)
+        private set
+
     var editConfigFields by mutableStateOf<List<ProviderConfigField>>(emptyList())
         private set
 
     var editFieldValues by mutableStateOf<Map<String, String>>(emptyMap())
+        private set
+
+    var editConnectionError by mutableStateOf<String?>(null)
+        private set
+
+    var isTestingEdit by mutableStateOf(false)
         private set
 
     // ── Lifecycle ────────────────────────────────────────────────────────────────────────────
@@ -114,8 +125,11 @@ class ProviderModelPanelState(
         loadingInstances = emptySet()
         rightColumnMode = RightColumnMode.Models
         editDisplayName = ""
+        editDisplayNameError = null
         editConfigFields = emptyList()
         editFieldValues = emptyMap()
+        editConnectionError = null
+        isTestingEdit = false
     }
 
     fun selectInstanceForPreview(instanceId: String) {
@@ -135,6 +149,7 @@ class ProviderModelPanelState(
         val instance = providerInstanceService.findById(instanceId) ?: return
         val fields = instance.settings.getConfigFields(LocalizationManager.messageResolver)
         editDisplayName = instance.displayName
+        editDisplayNameError = null
         editConfigFields = fields
         editFieldValues = fields.mapNotNull { field ->
             when (field) {
@@ -143,16 +158,29 @@ class ProviderModelPanelState(
                 is ProviderConfigField.InfoField -> null
             }
         }.toMap()
+        editConnectionError = null
+        isTestingEdit = false
         rightColumnMode = RightColumnMode.EditInstance(instanceId)
     }
 
     /** Cancels the edit form and returns to the model list without saving. */
     fun cancelEdit() {
+        editDisplayNameError = null
+        editConnectionError = null
+        isTestingEdit = false
         rightColumnMode = RightColumnMode.Models
     }
 
     fun updateEditDisplayName(name: String) {
         editDisplayName = name
+        val instanceId = (rightColumnMode as? RightColumnMode.EditInstance)?.instanceId
+        editDisplayNameError = if (name.isNotBlank() &&
+            !providerInstanceService.isDisplayNameAvailable(name, excludingId = instanceId)
+        ) {
+            LocalizationManager.getString("provider.instance.name.duplicate", name.trim())
+        } else {
+            null
+        }
     }
 
     fun updateEditField(fieldName: String, value: String) {
@@ -160,28 +188,76 @@ class ProviderModelPanelState(
     }
 
     /**
-     * Persists the edited display name and config fields for [instanceId], then returns to
-     * [RightColumnMode.Models]. Emits a domain event if the edited instance is active so
-     * the footer trigger label updates immediately.
+     * Validates the display name and tests the connection with the new settings before
+     * persisting. Shows [editDisplayNameError] or [editConnectionError] on failure; on
+     * success persists the instance and returns to [RightColumnMode.Models].
      */
     fun saveEdit(instanceId: String) {
         val instance = providerInstanceService.findById(instanceId) ?: return
         val newName = editDisplayName.trim().ifBlank { instance.displayName }
+
+        // 1. Display name uniqueness check
+        if (!providerInstanceService.isDisplayNameAvailable(newName, excludingId = instanceId)) {
+            editDisplayNameError = LocalizationManager.getString("provider.instance.name.duplicate", newName)
+            return
+        }
+        editDisplayNameError = null
+
+        // 2. Build updated settings
         val updatedSettings = instance.settings.applyConfigFields(editFieldValues)
         val updatedInstance = instance.copy(displayName = newName, settings = updatedSettings)
 
-        rightColumnMode = RightColumnMode.Models
+        // 3. Test connection by fetching models with the new settings
+        isTestingEdit = true
+        editConnectionError = null
 
         scope.launch {
-            try {
-                withContext(Dispatchers.IO) {
-                    providerInstanceService.update(updatedInstance).getOrThrow()
+            val testResult = withContext(Dispatchers.IO) {
+                try {
+                    val factory = appContext.getModelFactory(instance.providerType)
+
+                    @Suppress("UNCHECKED_CAST")
+                    val models = (factory as? ChatModelFactory<ProviderSettings>)
+                        ?.availableModels(updatedSettings)
+                        ?: emptyList()
+                    if (models.isNotEmpty()) {
+                        ProviderTestResult.Success
+                    } else {
+                        ProviderTestResult.Failure(
+                            message = LocalizationManager.getString("provider.connection.failed"),
+                        )
+                    }
+                } catch (e: Exception) {
+                    log.error("Connection test failed for instance $instanceId", e)
+                    ProviderTestResult.Failure(
+                        message = ErrorHandler.getUserFriendlyError(e, "testing connection", "Could not reach the provider. Please check your settings."),
+                    )
                 }
-                availableInstances = providerInstanceService.all
-                // Invalidate cached models for this instance — settings may have changed
-                modelCache.remove(instanceId)
-            } catch (e: Exception) {
-                log.error("Failed to save edit for instance $instanceId", e)
+            }
+
+            isTestingEdit = false
+
+            when (testResult) {
+                is ProviderTestResult.Success -> {
+                    editConnectionError = null
+                    try {
+                        withContext(Dispatchers.IO) {
+                            providerInstanceService.update(updatedInstance).getOrThrow()
+                        }
+                        availableInstances = providerInstanceService.all
+                        // Invalidate cached models — settings may have changed, then re-fetch
+                        modelCache.remove(instanceId)
+                        fetchModels(instanceId)
+                        rightColumnMode = RightColumnMode.Models
+                    } catch (e: Exception) {
+                        log.error("Failed to save edit for instance $instanceId", e)
+                        editConnectionError = e.message ?: "Failed to save changes"
+                    }
+                }
+
+                is ProviderTestResult.Failure -> {
+                    editConnectionError = testResult.message
+                }
             }
         }
     }
