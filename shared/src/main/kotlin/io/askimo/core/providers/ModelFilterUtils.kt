@@ -8,23 +8,28 @@ package io.askimo.core.providers
  * Filters a model list to only chat-suitable models (CHAT, VISION, or untagged).
  * Excludes embedding, image-only, and audio models by category first, then by keyword
  * when category is null (e.g. local providers that don't tag models).
- * Falls back to the full list if fewer than 2 models would remain after filtering.
+ *
  */
 fun filterChatModels(models: List<ModelDTO>): List<ModelDTO> {
-    val chatModels = models
-        .filter {
-            when (it.category) {
-                ModelCategory.CHAT, ModelCategory.VISION, null -> true
-                else -> false
-            }
+    // Pass 1 – hard-exclude explicitly non-chat categories (no fallback override)
+    val categorySafe = models.filter {
+        when (it.category) {
+            ModelCategory.CHAT, ModelCategory.VISION, null -> true
+            else -> false
         }
-        .filter { dto ->
-            // When category is null additionally exclude models whose id strongly implies non-chat
-            if (dto.category != null) return@filter true
-            val id = dto.modelId.lowercase()
-            NON_CHAT_KEYWORDS.none { kw -> id.contains(kw) }
-        }
-    return if (chatModels.size >= 2) chatModels else models
+    }
+
+    // Pass 2 – additionally exclude untagged models whose ID implies non-chat
+    val chatModels = categorySafe.filter { dto ->
+        if (dto.category != null) return@filter true
+        val id = dto.modelId.lowercase()
+        NON_CHAT_KEYWORDS.none { kw -> id.contains(kw) }
+    }
+
+    // Fall back to categorySafe only when keyword filtering leaves absolutely nothing,
+    // so a single legitimate chat model is never hidden by an over-aggressive keyword hit
+    // on a sibling model (e.g. one chat + one embed model in an Ollama instance).
+    return if (chatModels.isNotEmpty()) chatModels else categorySafe
 }
 
 /**

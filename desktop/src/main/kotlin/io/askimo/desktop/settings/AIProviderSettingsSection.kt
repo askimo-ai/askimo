@@ -461,19 +461,19 @@ private fun providerModelTypePickerDialog(
         }
     }
 
-    AppComponents.alertDialog(
+    val modelsReady = !isLoading && errorMessage == null && availableModels.isNotEmpty()
+
+    AppComponents.scaffoldDialog(
         onDismissRequest = onDismiss,
+        onCloseRequest = onDismiss,
         title = {
             Text(
                 text = stringResource("settings.model.select.title") + " (${modelType.label})",
                 style = MaterialTheme.typography.headlineSmall,
             )
         },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(Spacing.large),
-            ) {
+        stickyHeader = if (modelsReady) {
+            {
                 if (currentValue.isNotBlank()) {
                     Card(modifier = Modifier.fillMaxWidth(), colors = AppComponents.bannerCardColors()) {
                         Column(
@@ -486,84 +486,86 @@ private fun providerModelTypePickerDialog(
                     }
                 }
 
-                when {
-                    isLoading -> {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(text = stringResource("settings.model.loading"), modifier = Modifier.padding(start = Spacing.large))
+                if (selectedModel != null && selectedModel != currentValue) {
+                    Card(modifier = Modifier.fillMaxWidth(), colors = AppComponents.primaryCardColors()) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(Spacing.large), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(text = stringResource("settings.model.new"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                Text(text = selectedModel ?: "", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            }
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
                         }
                     }
+                }
 
-                    errorMessage != null -> {
-                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
-                            Text(text = errorMessage ?: "", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-                            errorHelp?.let { helpText ->
-                                Card(colors = AppComponents.surfaceVariantCardColors()) {
-                                    Text(text = helpText, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(Spacing.medium))
-                                }
-                            }
-                        }
-                    }
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text(stringResource("settings.model.search.placeholder")) },
+                    label = { Text(stringResource("settings.model.search")) },
+                    singleLine = true,
+                    colors = AppComponents.outlinedTextFieldColors(),
+                )
 
-                    availableModels.isEmpty() -> {
-                        Text(text = stringResource("settings.model.none"), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                if (searchQuery.isNotBlank() && filteredModels.isNotEmpty()) {
+                    Text(
+                        text = stringResource("settings.model.filtered", filteredModels.size, displayModels.size),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        } else null,
+        actions = {
+            secondaryButton(onClick = onDismiss) { Text(stringResource("action.cancel")) }
+            Spacer(modifier = Modifier.width(Spacing.small))
+            primaryButton(
+                onClick = { selectedModel?.let { onSelect(it) } },
+                enabled = selectedModel != null && !isLoading,
+            ) {
+                Text(stringResource("action.save"))
+            }
+        },
+    ) {
+        when {
+            isLoading -> {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(text = stringResource("settings.model.loading"), modifier = Modifier.padding(start = Spacing.large))
+                }
+            }
 
-                    else -> {
-                        Text(text = stringResource("settings.model.change.description"), style = MaterialTheme.typography.bodyMedium)
-
-                        if (selectedModel != null && selectedModel != currentValue) {
-                            Card(modifier = Modifier.fillMaxWidth(), colors = AppComponents.primaryCardColors()) {
-                                Row(modifier = Modifier.fillMaxWidth().padding(Spacing.large), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(text = stringResource("settings.model.new"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                                        Text(text = selectedModel ?: "", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                                    }
-                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
-                                }
-                            }
-                        }
-
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text(stringResource("settings.model.search.placeholder")) },
-                            label = { Text(stringResource("settings.model.search")) },
-                            singleLine = true,
-                            colors = AppComponents.outlinedTextFieldColors(),
-                        )
-
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            if (filteredModels.isEmpty()) {
-                                Text(text = stringResource("settings.model.no.match"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(Spacing.large))
-                            } else {
-                                if (searchQuery.isNotBlank()) {
-                                    Text(text = stringResource("settings.model.filtered", filteredModels.size, displayModels.size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = Spacing.small))
-                                }
-                                groupedModelListAsCards(models = filteredModels, selectedModelId = selectedModel, onModelClick = { selectedModel = it }, showHeaders = true)
-                            }
-
-                            // "Show all" toggle — visible only when list is filtered and user hasn't expanded yet
-                            if (isFiltered && !showAll && searchQuery.isBlank()) {
-                                linkButton(onClick = { showAll = true }, modifier = Modifier.padding(top = Spacing.small)) {
-                                    Text(text = "Show all ${availableModels.size} models", style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
+            errorMessage != null -> {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+                    Text(text = errorMessage ?: "", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                    errorHelp?.let { helpText ->
+                        Card(colors = AppComponents.surfaceVariantCardColors()) {
+                            Text(text = helpText, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(Spacing.medium))
                         }
                     }
                 }
             }
-        },
-        confirmButton = {
-            primaryButton(onClick = { selectedModel?.let { onSelect(it) } }, enabled = selectedModel != null && !isLoading) {
-                Text(stringResource("action.save"))
+
+            availableModels.isEmpty() -> {
+                Text(text = stringResource("settings.model.none"), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        },
-        dismissButton = {
-            secondaryButton(onClick = onDismiss) { Text(stringResource("action.cancel")) }
-        },
-    )
+
+            else -> {
+                Text(text = stringResource("settings.model.change.description"), style = MaterialTheme.typography.bodyMedium)
+
+                if (filteredModels.isEmpty()) {
+                    Text(text = stringResource("settings.model.no.match"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(Spacing.large))
+                } else {
+                    groupedModelListAsCards(models = filteredModels, selectedModelId = selectedModel, onModelClick = { selectedModel = it }, showHeaders = true)
+                }
+
+                if (isFiltered && !showAll && searchQuery.isBlank()) {
+                    linkButton(onClick = { showAll = true }, modifier = Modifier.padding(top = Spacing.small)) {
+                        Text(text = "Show all ${availableModels.size} models", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
+    }
 }

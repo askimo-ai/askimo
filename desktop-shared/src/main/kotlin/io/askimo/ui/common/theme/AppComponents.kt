@@ -555,6 +555,11 @@ object AppComponents {
      * ```kotlin
      * Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())
      * ```
+     *
+     * @param stickyHeader Optional composable rendered **between the title bar and the scrollable
+     *   content area**, outside the scroll viewport.  Use it for controls that must always be
+     *   visible regardless of scroll position — e.g. a search field above a long model list.
+     *   Each child is automatically separated by [sectionSpacing].
      */
     @Composable
     fun scaffoldDialog(
@@ -571,6 +576,7 @@ object AppComponents {
         sectionSpacing: Dp = dialogSectionSpacing,
         onCloseRequest: (() -> Unit)? = null,
         title: (@Composable () -> Unit)? = null,
+        stickyHeader: (@Composable ColumnScope.() -> Unit)? = null,
         content: @Composable ColumnScope.() -> Unit,
     ) {
         val safeMaxHeightFraction = maxHeightFraction.coerceIn(0.35f, 1f)
@@ -612,6 +618,14 @@ object AppComponents {
                                     }
                                 }
                             }
+                        }
+
+                        if (stickyHeader != null) {
+                            androidx.compose.foundation.layout.Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+                                content = stickyHeader,
+                            )
                         }
 
                         Box(
@@ -671,6 +685,11 @@ object AppComponents {
      * ```kotlin
      * Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())
      * ```
+     *
+     * @param stickyHeader Optional composable rendered **between the title bar and the scrollable
+     *   content area**, outside the scroll viewport.  Use it for controls that must always be
+     *   visible regardless of scroll position — e.g. a search field above a long model list.
+     *   Each child is automatically separated by [sectionSpacing].
      */
     @Composable
     fun scaffoldDialogLazyColumn(
@@ -688,6 +707,7 @@ object AppComponents {
         onCloseRequest: (() -> Unit)? = null,
         listState: LazyListState = rememberLazyListState(),
         title: (@Composable () -> Unit)? = null,
+        stickyHeader: (@Composable ColumnScope.() -> Unit)? = null,
         content: LazyListScope.() -> Unit,
     ) {
         val safeMaxHeightFraction = maxHeightFraction.coerceIn(0.35f, 1f)
@@ -728,6 +748,14 @@ object AppComponents {
                                     }
                                 }
                             }
+                        }
+
+                        if (stickyHeader != null) {
+                            androidx.compose.foundation.layout.Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+                                content = stickyHeader,
+                            )
                         }
 
                         Box(
