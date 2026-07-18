@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -60,7 +61,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import io.askimo.core.providers.HasApiKey
+import io.askimo.core.providers.HasBaseUrl
 import io.askimo.core.providers.ModelDTO
+import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ProviderConfigField
 import io.askimo.core.providers.ProviderInstance
 import io.askimo.core.providers.ProviderRegistry
@@ -72,8 +76,44 @@ import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.Spacing
+import io.askimo.ui.common.ui.TooltipPlacement
+import io.askimo.ui.common.ui.themedTooltip
 
 internal val MODEL_PANEL_WIDTH = 800.dp
+
+// ── Provider badge ─────────────────────────────────────────────────────────────────────────
+
+private fun providerInitials(provider: ModelProvider): String = when (provider) {
+    ModelProvider.OPENAI -> "OA"
+    ModelProvider.ANTHROPIC -> "AN"
+    ModelProvider.GEMINI -> "GM"
+    ModelProvider.XAI -> "xA"
+    ModelProvider.OLLAMA -> "OL"
+    ModelProvider.DOCKER -> "DA"
+    ModelProvider.LOCALAI -> "LA"
+    ModelProvider.LMSTUDIO -> "LM"
+    ModelProvider.OPENAI_COMPATIBLE -> "OC"
+    ModelProvider.ASKIMO_PRO -> "AP"
+    ModelProvider.UNKNOWN -> "?"
+}
+
+@Composable
+private fun providerBadge(provider: ModelProvider, size: Int = 26) {
+    Box(
+        modifier = Modifier
+            .size(size.dp)
+            .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = providerInitials(provider),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            maxLines = 1,
+        )
+    }
+}
 
 // ── Two-column provider + model panel ─────────────────────────────────────────────────────
 
@@ -568,62 +608,86 @@ internal fun instanceRow(
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(rowBg)
-            .hoverable(interactionSource)
-            .clickable { onSelect() }
-            .pointerHoverIcon(PointerIcon.Hand)
-            .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = instance.displayName,
-            style = MaterialTheme.typography.bodySmall,
-            color = when {
-                isActive -> MaterialTheme.colorScheme.onPrimaryContainer
-                isPending -> MaterialTheme.colorScheme.onSecondaryContainer
-                else -> MaterialTheme.colorScheme.onSurface
-            },
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
+    val providerDisplayName = ProviderRegistry.getProviderDisplayName(instance.providerType)
+    val model = instance.settings.defaultModel.ifBlank { "—" }
+    val baseUrl = (instance.settings as? HasBaseUrl)?.baseUrl
+    val apiKey = (instance.settings as? HasApiKey)?.apiKey
+    val apiKeyConfigured = apiKey != null &&
+        (apiKey == "***keychain***" || apiKey.startsWith("encrypted:") || apiKey.isNotBlank())
 
-        when {
-            isHovered -> {
-                Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
-                    IconButton(onClick = onEditOpen, modifier = Modifier.size(24.dp)) {
-                        Icon(
-                            Icons.Default.Edit,
-                            contentDescription = "Edit",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(13.dp),
-                        )
-                    }
-                    IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = "Delete",
-                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
-                            modifier = Modifier.size(13.dp),
-                        )
+    // Plain multi-line string — themedTooltip is width-constrained and flicker-free inside
+    // LazyColumn/popup. AUTO placement picks above/below the row, never overlapping the
+    // edit/delete buttons that appear on the right side on hover.
+    val tooltipText = buildString {
+        append("Type: $providerDisplayName")
+        append("\nModel: $model")
+        if (baseUrl != null) append("\nBase URL: $baseUrl")
+        if (apiKey != null) append("\nAPI Key: ${if (apiKeyConfigured) "✓ Configured" else "Not set"}")
+    }
+
+    themedTooltip(
+        text = tooltipText,
+        placement = TooltipPlacement.AUTO,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(rowBg)
+                .hoverable(interactionSource)
+                .clickable { onSelect() }
+                .pointerHoverIcon(PointerIcon.Hand)
+                .padding(start = 8.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            providerBadge(instance.providerType)
+
+            Text(
+                text = instance.displayName,
+                style = MaterialTheme.typography.bodySmall,
+                color = when {
+                    isActive -> MaterialTheme.colorScheme.onPrimaryContainer
+                    isPending -> MaterialTheme.colorScheme.onSecondaryContainer
+                    else -> MaterialTheme.colorScheme.onSurface
+                },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+
+            when {
+                isHovered -> {
+                    Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
+                        IconButton(onClick = onEditOpen, modifier = Modifier.size(24.dp)) {
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = "Edit",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(13.dp),
+                            )
+                        }
+                        IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Delete",
+                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                                modifier = Modifier.size(13.dp),
+                            )
+                        }
                     }
                 }
-            }
 
-            isActive -> {
-                Icon(
-                    Icons.Default.RadioButtonChecked,
-                    contentDescription = "Active",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(14.dp),
-                )
-            }
+                isActive -> {
+                    Icon(
+                        Icons.Default.RadioButtonChecked,
+                        contentDescription = "Active",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
 
-            else -> Spacer(Modifier.size(24.dp))
+                else -> Spacer(Modifier.size(24.dp))
+            }
         }
     }
 }
