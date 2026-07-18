@@ -94,6 +94,7 @@ tasks.test {
 }
 
 kotlin {
+    jvmToolchain((property("jvmVersion") as String).toInt())
     compilerOptions {
         javaParameters.set(true)
     }
@@ -179,7 +180,9 @@ graalvmNative {
     binaries {
         named("main") {
             imageName.set("askimo")
-            javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(21)) })
+            javaLauncher.set(
+                javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of((property("jvmVersion") as String).toInt())) },
+            )
 
             val graalvmMemory = project.findProperty("graalvm.native-image.memory") as? String ?: "8g"
 

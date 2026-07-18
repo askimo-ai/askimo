@@ -417,7 +417,7 @@ tasks.test {
 }
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain((property("jvmVersion") as String).toInt())
     compilerOptions {
         javaParameters = true
     }

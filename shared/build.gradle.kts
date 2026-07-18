@@ -73,7 +73,7 @@ tasks.test {
     jvmArgs("--add-modules", "jdk.incubator.vector")
 }
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain((property("jvmVersion") as String).toInt())
     compilerOptions {
         // Preserve parameter names in bytecode so LangChain4j @Tool/@P reflection works correctly.
         // Without this, tool method parameters appear as arg0, arg1 in the LLM's tool schema.

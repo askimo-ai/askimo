@@ -1,33 +1,18 @@
-build:
-  maxIssues: 0
-  weights:
-    info: 0
-    hint: 0
-    warning: 0
-    error: 1
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Custom Askimo rules
-# ─────────────────────────────────────────────────────────────────────────────
-askimo:
-  NestedScrollInScrollingWrapper:
-    active: true
-    severity: error
-  RememberCoroutineScopeInConditionalComposable:
-    active: true
-    severity: error
+config:
+  validation: true
+  warningsAsErrors: false
+  checkExhaustiveness: false
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Comments
 # ─────────────────────────────────────────────────────────────────────────────
 comments:
   active: true
-  severity: warning        # documentation issues are conventions, not logic bugs
   AbsentOrWrongFileLicense:
     active: false          # Handled by Spotless licenseHeaderFile
-  CommentOverPrivateFunction:
+  DocumentationOverPrivateFunction:
     active: false
-  CommentOverPrivateProperty:
+  DocumentationOverPrivateProperty:
     active: false
   DeprecatedBlockTag:
     active: true
@@ -49,63 +34,56 @@ comments:
 # ─────────────────────────────────────────────────────────────────────────────
 complexity:
   active: true
-  severity: warning        # complexity is a maintainability concern, not a correctness one
   CognitiveComplexMethod:
     active: true
-    threshold: 20          # slightly relaxed for UI/state-heavy code
-    ignoreAnnotated: ['Composable']   # Composable UI trees are inherently complex
+    allowedComplexity: 20          # was threshold
   ComplexCondition:
     active: true
-    threshold: 5
+    allowedConditions: 5           # was threshold
   ComplexInterface:
     active: false
   CyclomaticComplexMethod:
     active: true
-    threshold: 15
-    ignoreAnnotated: ['Composable']   # UI trees are inherently complex
+    allowedComplexity: 15          # was threshold
   LabeledExpression:
     active: true
   LargeClass:
     active: true
-    threshold: 600         # desktop files are large; Gradle build scripts excluded
-    excludes: ['**/build.gradle.kts', '**/desktop/build.gradle.kts']
-    ignoreAnnotated: ['Composable']   # UI files naturally grow large
+    allowedLines: 600              # was threshold; excludes/ignoreAnnotated removed in 2.x
   LongMethod:
     active: true
-    threshold: 80
-    excludes: ['**/build.gradle.kts']
-    ignoreAnnotated: ['Composable']   # Composable functions are inherently long UI trees
+    allowedLines: 80               # was threshold; excludes/ignoreAnnotated removed in 2.x
   LongParameterList:
     active: true
-    functionThreshold: 8
-    constructorThreshold: 8
+    allowedFunctionParameters: 8   # was functionThreshold
+    allowedConstructorParameters: 8 # was constructorThreshold
     ignoreDefaultParameters: true
     ignoreDataClasses: true
-    ignoreAnnotated: ['Composable']   # Compose functions commonly have many params
+    ignoreAnnotatedParameter: ['Composable']  # was ignoreAnnotated
   MethodOverloading:
     active: false
   NamedArguments:
     active: false
   NestedBlockDepth:
     active: true
-    threshold: 5
+    allowedDepth: 5                # was threshold
   NestedScopeFunctions:
     active: true
-    threshold: 3
+    allowedDepth: 3                # was threshold
   ReplaceSafeCallChainWithRun:
     active: true
   StringLiteralDuplication:
-    active: false          # Too many false positives in UI/i18n code
+    active: false
   TooManyFunctions:
     active: true
-    thresholdInFiles: 60
-    thresholdInClasses: 30
-    thresholdInObjects: 30
-    thresholdInInterfaces: 15
-    thresholdInEnums: 10
+    allowedFunctionsPerFile: 60         # was allowedFunctionsInFile
+    allowedFunctionsPerClass: 30        # was allowedFunctionsInClass
+    allowedFunctionsPerObject: 30       # was allowedFunctionsInObject
+    allowedFunctionsPerInterface: 15    # was allowedFunctionsInInterface
+    allowedFunctionsPerEnum: 10         # was allowedFunctionsInEnum
     ignoreDeprecated: true
     ignorePrivate: true
-    ignoreAnnotated: ['Composable']
+    ignoreAnnotatedFunctions: ['Composable']  # was ignoreAnnotated
     excludes: ['**/build.gradle.kts']
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -113,33 +91,25 @@ complexity:
 # ─────────────────────────────────────────────────────────────────────────────
 coroutines:
   active: true
-  severity: error          # coroutine misuse causes cancellation leaks and race conditions
   GlobalCoroutineUsage:
     active: true           # ban GlobalScope — use structured concurrency
-    severity: error
   InjectDispatcher:
     active: true           # dispatchers should be injected, not hardcoded
-    severity: warning      # testability concern rather than runtime failure
     dispatcherNames: ['IO', 'Default', 'Unconfined']
   RedundantSuspendModifier:
     active: true
-    severity: warning
   SleepInsteadOfDelay:
-    active: true
-    severity: error        # Thread.sleep blocks the coroutine thread pool
+    active: true           # Thread.sleep blocks the coroutine thread pool
   SuspendFunSwallowedCancellation:
     active: true
-    severity: error
   SuspendFunWithCoroutineScopeReceiver:
     active: true
-    severity: error
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Empty blocks
 # ─────────────────────────────────────────────────────────────────────────────
 empty-blocks:
   active: true
-  severity: warning        # empty blocks are usually dead code, not runtime bugs
   EmptyCatchBlock:
     active: true
     allowedExceptionNameRegex: '_|ignored|expected'
@@ -162,7 +132,7 @@ empty-blocks:
     active: true
   EmptyInitBlock:
     active: true
-  EmptyKtFile:
+  EmptyKotlinFile:
     active: true
   EmptySecondaryConstructor:
     active: true
@@ -178,31 +148,22 @@ empty-blocks:
 # ─────────────────────────────────────────────────────────────────────────────
 exceptions:
   active: true
-  severity: error          # silencing or mishandling exceptions hides real failures
   ExceptionRaisedInUnexpectedLocation:
     active: true
-    severity: error
   InstanceOfCheckForException:
     active: true
-    severity: warning
   NotImplementedDeclaration:
     active: true
-    severity: warning
   ObjectExtendsThrowable:
     active: true
-    severity: warning
   PrintStackTrace:
-    active: true
-    severity: error        # leaks stack traces to stdout instead of structured logging
+    active: true           # leaks stack traces to stdout instead of structured logging
   RethrowCaughtException:
     active: true
-    severity: warning
   ReturnFromFinally:
     active: true
-    severity: error
   SwallowedException:
     active: true
-    severity: error
     excludes: ['**/test/**', '**/*Test.kt', '**/*Tests.kt', '**/*Spec.kt', '**/*TestBase.kt']
     ignoredExceptionTypes:
       - 'InterruptedException'
@@ -212,19 +173,15 @@ exceptions:
     allowedExceptionNameRegex: '_|ignored|expected'
   ThrowingExceptionFromFinally:
     active: true
-    severity: error
   ThrowingExceptionInMain:
     active: false          # CLI main functions intentionally throw
   ThrowingExceptionsWithoutMessageOrCause:
     active: true
-    severity: warning
     excludes: ['**/test/**', '**/*Test.kt', '**/*Spec.kt']
   ThrowingNewInstanceOfSameException:
     active: true
-    severity: warning
   TooGenericExceptionCaught:
     active: true
-    severity: warning        # masks unexpected failures
     exceptionNames:
       - 'ArrayIndexOutOfBoundsException'
       - 'Error'
@@ -238,7 +195,6 @@ exceptions:
     excludes: ['**/test/**', '**/*Test.kt']
   TooGenericExceptionThrown:
     active: true
-    severity: error
     excludes: ['**/test/**', '**/*Test.kt', '**/*Tests.kt', '**/*Spec.kt', '**/*TestBase.kt']
     exceptionNames:
       - 'Error'
@@ -251,7 +207,6 @@ exceptions:
 # ─────────────────────────────────────────────────────────────────────────────
 naming:
   active: true
-  severity: warning        # naming is a readability convention
   BooleanPropertyNaming:
     active: true
     allowedPattern: '^(is|has|are|can|should|was|will|use)[A-Z].*'
@@ -267,9 +222,9 @@ naming:
     enumEntryPattern: '[A-Z][_A-Z0-9]*'
   ForbiddenClassName:
     active: false
-  FunctionMaxLength:
+  FunctionNameMaxLength:
     active: false
-  FunctionMinLength:
+  FunctionNameMinLength:
     active: false
   FunctionNaming:
     active: true
@@ -322,12 +277,11 @@ naming:
 # ─────────────────────────────────────────────────────────────────────────────
 performance:
   active: true
-  severity: warning        # performance hints are advisory
   ArrayPrimitive:
     active: true
   CouldBeSequence:
     active: true
-    threshold: 3
+    allowedOperations: 3               # was threshold
   ForEachOnRange:
     active: true
   SpreadOperator:
@@ -345,116 +299,84 @@ performance:
 # ─────────────────────────────────────────────────────────────────────────────
 potential-bugs:
   active: true
-  severity: error          # default: potential bugs are errors
   AvoidReferentialEquality:
     active: true
-    severity: error
     forbiddenTypePatterns:
       - 'kotlin.String'
   CastToNullableType:
     active: true
-    severity: error
   Deprecation:
     active: false          # Too noisy with third-party libraries
   DontDowncastCollectionTypes:
     active: true
-    severity: error
   DoubleMutabilityForCollection:
     active: true
-    severity: warning
   ElseCaseInsteadOfExhaustiveWhen:
     active: true
-    severity: error
   EqualsAlwaysReturnsTrueOrFalse:
     active: true
-    severity: error
   EqualsWithHashCodeExist:
     active: true
-    severity: error
   ExitOutsideMain:
     active: true
-    severity: error
     excludes: ['**/cli/**']   # CLI is allowed to call exitProcess
   HasPlatformType:
     active: true
-    severity: warning
   IgnoredReturnValue:
     active: true
-    severity: error
     restrictToConfig: true
     returnValueAnnotations: ['CheckResult', 'CheckReturnValue']
   ImplicitDefaultLocale:
     active: true
-    severity: warning
   ImplicitUnitReturnType:
     active: true
-    severity: warning
     allowExplicitReturnType: true
   InvalidRange:
     active: true
-    severity: error
   IteratorHasNextCallsNextMethod:
     active: true
-    severity: error
   IteratorNotThrowingNoSuchElementException:
     active: true
-    severity: error
   LateinitUsage:
     active: false          # Koin inject uses lateinit
   MapGetWithNotNullAssertionOperator:
     active: true
-    severity: error
   MissingPackageDeclaration:
     active: true
-    severity: error
     excludes: ['**/*.kts']
   NullCheckOnMutableProperty:
     active: true
-    severity: error
   NullableToStringCall:
     active: true
-    severity: warning
   PropertyUsedBeforeDeclaration:
     active: true
-    severity: error
   UnconditionalJumpStatementInLoop:
     active: true
-    severity: error
   UnnecessaryNotNullCheck:
     active: true
-    severity: warning
   UnnecessaryNotNullOperator:
     active: true
-    severity: warning
   UnnecessarySafeCall:
     active: true
-    severity: warning
   UnreachableCode:
     active: true
-    severity: error
   UnsafeCallOnNullableType:
     active: true
-    severity: error
     excludes: ['**/test/**', '**/*Test.kt']
   UnsafeCast:
     active: true
-    severity: error
   UnusedUnaryOperator:
     active: true
-    severity: warning
   UselessPostfixExpression:
     active: true
-    severity: error
   WrongEqualsTypeParameter:
     active: true
-    severity: error
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Style
 # ─────────────────────────────────────────────────────────────────────────────
 style:
   active: true
-  severity: warning        # style issues are coding-convention, not logic bugs
   AlsoCouldBeApply:
     active: true
   BracesOnIfStatements:
@@ -478,7 +400,6 @@ style:
     maxDestructuringEntries: 5
   EqualsNullCall:
     active: true
-    severity: error        # equalsNullCall is a correctness bug (obj.equals(null) vs obj == null)
   EqualsOnSignatureLine:
     active: false
   ExplicitCollectionElementAccessMethod:
@@ -499,9 +420,8 @@ style:
     allowedPatterns: ''
   ForbiddenImport:
     active: true
-    severity: error        # banned imports violate architectural constraints
     excludes: ['**/test/**', '**/*Test.kt', '**/*Tests.kt', '**/*Spec.kt', '**/*TestBase.kt']
-    imports:
+    forbiddenImports:                  # was imports
       - reason: 'Use kotlinx.coroutines.GlobalScope alternatives with structured concurrency.'
         value: 'kotlinx.coroutines.GlobalScope'
       - reason: 'Use kotlin.io.println only in CLI main; avoid in library/UI code.'
@@ -538,7 +458,7 @@ style:
     active: false
   MaxLineLength:
     active: false          # Handled by ktlint / .editorconfig
-  MayBeConst:
+  MayBeConstant:                       # was MayBeConst
     active: true
   ModifierOrder:
     active: true
@@ -554,14 +474,13 @@ style:
     active: false          # Handled by Spotless
   NullableBooleanCheck:
     active: true
-    severity: error        # nullable boolean checks are subtle correctness bugs
   ObjectLiteralToLambda:
     active: true
   OptionalAbstractKeyword:
     active: true
   OptionalUnit:
     active: false
-  PreferToOverPairSyntax:
+  RangeUntilInsteadOfRangeTo:          # was UntilInsteadOfRangeTo
     active: true
   ProtectedMemberInFinalClass:
     active: true
@@ -569,7 +488,7 @@ style:
     active: false
   RedundantHigherOrderMapUsage:
     active: true
-  RedundantVisibilityModifierRule:
+  RedundantVisibilityModifier:         # was RedundantVisibilityModifierRule
     active: false
   ReturnCount:
     active: true
@@ -582,7 +501,7 @@ style:
     active: true
   SerialVersionUIDInSerializableClass:
     active: false          # Using kotlinx.serialization, not Java Serializable
-  SpacingBetweenPackageAndImports:
+  SpacingAfterPackageAndImports:       # was SpacingBetweenPackageAndImports
     active: false          # Handled by ktlint
   StringShouldBeRawString:
     active: false
@@ -598,10 +517,6 @@ style:
     active: true
     acceptableLength: 5
     allowNonStandardGrouping: false
-  UnnecessaryAbstractClass:
-    active: true
-  UnnecessaryAnnotationUseSiteTarget:
-    active: true
   UnnecessaryApply:
     active: true
   UnnecessaryBackticks:
@@ -618,16 +533,14 @@ style:
     active: true
   UnnecessaryParentheses:
     active: true
-  UntilInsteadOfRangeTo:
-    active: true
-  UnusedImports:
+  UnusedImport:                        # was UnusedImports
     active: false          # ktlint handles this
   UnusedParameter:
     active: true
     allowedNames: '_|ignored|expected'
   UnusedPrivateClass:
     active: true
-  UnusedPrivateMember:
+  UnusedPrivateFunction:               # was part of UnusedPrivateMember
     active: true
     allowedNames: '_|ignored|expected'
   UnusedPrivateProperty:
@@ -639,14 +552,12 @@ style:
     active: true
   UseCheckNotNull:
     active: true
-    severity: error        # incorrect null handling is a logic bug
     excludes: ['**/test/**', '**/*Test.kt', '**/*Tests.kt', '**/*Spec.kt', '**/*TestBase.kt']
   UseCheckOrError:
     active: true
-    severity: error
     excludes: ['**/test/**', '**/*Test.kt', '**/*Tests.kt', '**/*Spec.kt', '**/*TestBase.kt']
   UseDataClass:
-    active: false          # too aggressive for domain model classes with logic
+    active: false
   UseEmptyCounterpart:
     active: true
   UseIfEmptyOrIfBlank:
@@ -662,17 +573,14 @@ style:
     active: true
   UseRequire:
     active: true
-    severity: error
     excludes: ['**/test/**', '**/*Test.kt', '**/*Tests.kt', '**/*Spec.kt', '**/*TestBase.kt']
   UseRequireNotNull:
     active: true
-    severity: error
     excludes: ['**/test/**', '**/*Test.kt', '**/*Tests.kt', '**/*Spec.kt', '**/*TestBase.kt']
   UseSumOfInsteadOfFlatMapSize:
     active: true
   VarCouldBeVal:
     active: true
-    severity: error        # unnecessary mutability can cause unintended state changes
     ignoreLateinitVar: true
   WildcardImport:
     active: true

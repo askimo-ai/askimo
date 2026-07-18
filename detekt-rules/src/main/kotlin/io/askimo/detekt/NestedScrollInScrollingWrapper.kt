@@ -4,13 +4,10 @@
  */
 package io.askimo.detekt
 
-import io.gitlab.arturbosch.detekt.api.CodeSmell
-import io.gitlab.arturbosch.detekt.api.Config
-import io.gitlab.arturbosch.detekt.api.Debt
-import io.gitlab.arturbosch.detekt.api.Entity
-import io.gitlab.arturbosch.detekt.api.Issue
-import io.gitlab.arturbosch.detekt.api.Rule
-import io.gitlab.arturbosch.detekt.api.Severity
+import dev.detekt.api.Config
+import dev.detekt.api.Entity
+import dev.detekt.api.Finding
+import dev.detekt.api.Rule
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtLambdaArgument
 import org.jetbrains.kotlin.psi.KtLambdaExpression
@@ -43,18 +40,15 @@ import org.jetbrains.kotlin.psi.KtValueArgumentList
  * }
  * ```
  */
-class NestedScrollInScrollingWrapper(config: Config = Config.empty) : Rule(config) {
-
-    override val issue = Issue(
-        id = "NestedScrollInScrollingWrapper",
-        severity = Severity.Defect,
-        description = "`verticalScroll` or `horizontalScroll` was used directly inside a " +
+class NestedScrollInScrollingWrapper(config: Config = Config.empty) :
+    Rule(
+        config,
+        "`verticalScroll` or `horizontalScroll` was used directly inside a " +
             "scrolling-wrapper composable (e.g. `scaffoldDialog`, `scaffoldDialogLazyColumn`). " +
             "Those wrappers already provide their own scroll container. " +
             "Add an explicit `Modifier.heightIn(max = …)` constraint before the scroll modifier, " +
             "or remove the redundant scroll modifier entirely.",
-        debt = Debt.TEN_MINS,
-    )
+    ) {
 
     private companion object {
         /** Scroll modifiers that must not appear unbounded inside a wrapper. */
@@ -87,8 +81,7 @@ class NestedScrollInScrollingWrapper(config: Config = Config.empty) : Rule(confi
                 val wrapperName = enclosingCallName(node)
                 if (wrapperName in SCROLLING_WRAPPERS) {
                     report(
-                        CodeSmell(
-                            issue = issue,
+                        Finding(
                             entity = Entity.from(expression),
                             message = "`$calleeName` appears inside the content lambda of " +
                                 "`$wrapperName`, which already provides its own scroll container. " +

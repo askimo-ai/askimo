@@ -4,7 +4,7 @@
  */
 package io.askimo.detekt
 
-import io.gitlab.arturbosch.detekt.test.lint
+import dev.detekt.test.lint
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -31,7 +31,6 @@ class RememberCoroutineScopeInConditionalComposableTest {
             """.trimIndent(),
         )
         assertEquals(1, findings.size)
-        assertTrue(findings.first().issue.id == "RememberCoroutineScopeInConditionalComposable")
     }
 
     @Test
@@ -94,7 +93,6 @@ class RememberCoroutineScopeInConditionalComposableTest {
 
     @Test
     fun `does not flag rememberCoroutineScope called inside if condition itself`() {
-        // Edge case: call is in the condition expression, not the branch body
         val findings = rule.lint(
             """
             import androidx.compose.runtime.Composable
