@@ -191,10 +191,7 @@ import kotlin.time.Duration.Companion.milliseconds
 private val log = currentFileLogger()
 
 fun main() {
-    // Linux UI scale is user-controlled via preferences.
-    // Must be set before any Compose/Skia initialisation.
-    // Apply user-selected UI scale before Compose/Skia initialisation (all platforms).
-    // JVM flags (-Dsun.java2d.uiScale / -Dskiko.uiScale) take priority over saved preference.
+    // UI scale is user-controlled via preferences.
     val explicitSun = System.getProperty("sun.java2d.uiScale")?.toFloatOrNull()
     val explicitSkiko = System.getProperty("skiko.uiScale")?.toFloatOrNull()
     val savedScale = AccountPreferences.device().getUiScale()
@@ -204,6 +201,17 @@ fun main() {
         if (explicitSun == null) System.setProperty("sun.java2d.uiScale", scaleText)
         if (explicitSkiko == null) System.setProperty("skiko.uiScale", scaleText)
         log.info("UI scale: {} (source={})", scaleText, if (explicitSun != null || explicitSkiko != null) "jvm" else "preferences")
+    } else if (System.getProperty("os.name")?.contains("Linux", ignoreCase = true) == true) {
+        // No user preference or JVM flag set — auto-detect from environment/DRM on Linux.
+        val decision = LinuxUiScaleResolver.resolve()
+        if (decision.scale != 1.0f) {
+            val scaleText = decision.scale.toString()
+            System.setProperty("sun.java2d.uiScale", scaleText)
+            System.setProperty("skiko.uiScale", scaleText)
+            log.info("Linux HiDPI auto-detected: scale={} (source={})", scaleText, decision.source)
+        } else {
+            log.info("Linux HiDPI: no scale hint detected (source={}); using platform default", decision.source)
+        }
     }
 
     // Apply software rendering flags BEFORE any Compose/Skia initialisation.
