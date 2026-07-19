@@ -64,8 +64,8 @@ import org.jetbrains.skia.Image
 import java.awt.Cursor
 
 enum class SettingsSection {
-    AI_PROVIDER,
     APPEARANCE,
+    AI_PROVIDER,
     NETWORK,
     WEB_SEARCH,
     SHORTCUTS,
@@ -173,16 +173,16 @@ fun settingsViewWithSidebar(
                         .background(AppComponents.sidebarSurfaceColor()),
                 ) {
                     settingsSidebarItem(
-                        title = stringResource("settings.ai.provider"),
-                        icon = Icons.Default.SmartToy,
-                        isSelected = selectedSection == SettingsSection.AI_PROVIDER,
-                        onClick = { onSectionChange(SettingsSection.AI_PROVIDER) },
-                    )
-                    settingsSidebarItem(
                         title = stringResource("settings.appearance"),
                         icon = Icons.Default.Palette,
                         isSelected = selectedSection == SettingsSection.APPEARANCE,
                         onClick = { onSectionChange(SettingsSection.APPEARANCE) },
+                    )
+                    settingsSidebarItem(
+                        title = stringResource("settings.ai.provider"),
+                        icon = Icons.Default.SmartToy,
+                        isSelected = selectedSection == SettingsSection.AI_PROVIDER,
+                        onClick = { onSectionChange(SettingsSection.AI_PROVIDER) },
                     )
                     settingsSidebarItem(
                         title = stringResource("settings.network"),

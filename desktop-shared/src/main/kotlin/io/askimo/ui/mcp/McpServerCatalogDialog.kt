@@ -95,7 +95,7 @@ fun mcpServerCatalogDialog(
         Surface(
             modifier = Modifier
                 .widthIn(min = 700.dp, max = 900.dp)
-                .heightIn(min = 520.dp, max = 720.dp),
+                .heightIn(min = 700.dp, max = 900.dp),
             shape = MaterialTheme.shapes.large,
             tonalElevation = 8.dp,
         ) {

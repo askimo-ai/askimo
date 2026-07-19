@@ -404,31 +404,29 @@ private fun accentColorSection() {
                 .padding(Spacing.large),
             verticalArrangement = Arrangement.spacedBy(Spacing.medium),
         ) {
-            // Hex input — constrained width, not full-width (hex values are short)
-            OutlinedTextField(
-                value = accentInput,
-                onValueChange = { accentInput = it.trim() },
-                modifier = Modifier.widthIn(max = 220.dp),
-                label = { Text(stringResource("settings.appearance.accent.label")) },
-                placeholder = { Text("#0284C7") },
-                singleLine = true,
-                isError = accentInput.isNotBlank() && parsedAccent == null,
-                supportingText = {
-                    if (accentInput.isNotBlank() && parsedAccent == null) {
-                        Text(
-                            text = stringResource("settings.appearance.accent.invalid"),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                },
-                colors = AppComponents.outlinedTextFieldColors(),
-            )
-
-            // Pick + Reset in the same row
             Row(
                 horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                OutlinedTextField(
+                    value = accentInput,
+                    onValueChange = { accentInput = it.trim() },
+                    modifier = Modifier.widthIn(max = 300.dp),
+                    label = { Text(stringResource("settings.appearance.accent.label")) },
+                    placeholder = { Text("#0284C7") },
+                    singleLine = true,
+                    isError = accentInput.isNotBlank() && parsedAccent == null,
+                    supportingText = {
+                        if (accentInput.isNotBlank() && parsedAccent == null) {
+                            Text(
+                                text = stringResource("settings.appearance.accent.invalid"),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    },
+                    colors = AppComponents.outlinedTextFieldColors(),
+                )
+
                 secondaryButton(
                     onClick = {
                         scope.launch {

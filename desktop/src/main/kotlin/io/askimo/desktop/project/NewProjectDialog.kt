@@ -239,7 +239,7 @@ fun newProjectDialog(
         AppComponents.scaffoldDialog(
             onDismissRequest = onDismiss,
             onCloseRequest = onDismiss,
-            width = 650.dp,
+            width = 800.dp,
             title = {
                 Text(
                     text = stringResource("project.new.dialog.title"),
