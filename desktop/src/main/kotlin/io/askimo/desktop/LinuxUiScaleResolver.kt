@@ -59,15 +59,13 @@ internal object LinuxUiScaleResolver {
         return ScaleDecision(1.0f, "default")
     }
 
-    private fun readDrmModes(): List<String> =
-        runCatching {
-            File("/sys/class/drm")
-                .walkTopDown()
-                .maxDepth(2)
-                .filter { it.name == "modes" && it.isFile }
-                .flatMap { it.readLines() }
-                .toList()
-        }.onFailure { log.debug("Could not read DRM modes: {}", it.message) }
-            .getOrDefault(emptyList())
+    private fun readDrmModes(): List<String> = runCatching {
+        File("/sys/class/drm")
+            .walkTopDown()
+            .maxDepth(2)
+            .filter { it.name == "modes" && it.isFile }
+            .flatMap { it.readLines() }
+            .toList()
+    }.onFailure { log.debug("Could not read DRM modes: {}", it.message) }
+        .getOrDefault(emptyList())
 }
-

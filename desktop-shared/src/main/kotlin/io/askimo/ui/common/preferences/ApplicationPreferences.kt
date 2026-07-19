@@ -5,8 +5,6 @@
 package io.askimo.ui.common.preferences
 
 import io.askimo.core.logging.logger
-import io.askimo.core.util.MachineId
-import java.util.UUID
 import java.util.prefs.Preferences
 import kotlin.jvm.java
 
@@ -49,9 +47,6 @@ object ApplicationPreferences {
     // ============================================================
     // TUTORIAL & ONBOARDING  (resettable — re-shows on clearAll)
     // ============================================================
-
-    private const val TUTORIAL_COMPLETED_KEY = "tutorial_completed"
-    private const val LANGUAGE_SELECTED_KEY = "language_selected"
     private const val ONBOARDING_COMPLETED_KEY = "onboarding_completed"
 
     /** Returns true if the onboarding wizard has been completed or skipped. */
@@ -65,18 +60,6 @@ object ApplicationPreferences {
     // ============================================================
 
     private const val DEVICE_ID_KEY = "sync.device_id"
-
-    /**
-     * Returns a stable device identifier used for echo suppression during sync pull.
-     * Machine-level (shared across accounts on the same machine).
-     */
-    fun getOrCreateDeviceId(): String {
-        val cached = safeGet(DEVICE_ID_KEY, null)
-        if (cached != null) return cached
-        val id = MachineId.resolve() ?: UUID.randomUUID().toString()
-        safePut(DEVICE_ID_KEY, id)
-        return id
-    }
 
     // ============================================================
     // UI PREFERENCES  (resettable — safe to clear)
