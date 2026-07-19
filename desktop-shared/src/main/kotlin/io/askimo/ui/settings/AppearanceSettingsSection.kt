@@ -1069,14 +1069,24 @@ private fun backgroundImageCustomOption(
 private fun uiScaleSection() {
     data class ScaleOption(val label: String, val value: Float)
 
-    val scaleOptions = listOf(
-        ScaleOption("75%", 0.75f),
-        ScaleOption("100%", 1.0f),
-        ScaleOption("125%", 1.25f),
-        ScaleOption("150%", 1.5f),
-        ScaleOption("175%", 1.75f),
-        ScaleOption("200%", 2.0f),
-    )
+    // Linux (X11/XRender) only honours integer UI-scale values; fractional values are
+    // silently rounded to 1 by Java2D, so we only expose options that actually work.
+    val scaleOptions = if (Platform.isLinux) {
+        listOf(
+            ScaleOption("100%", 1.0f),
+            ScaleOption("200%", 2.0f),
+            ScaleOption("300%", 3.0f),
+        )
+    } else {
+        listOf(
+            ScaleOption("75%", 0.75f),
+            ScaleOption("100%", 1.0f),
+            ScaleOption("125%", 1.25f),
+            ScaleOption("150%", 1.5f),
+            ScaleOption("175%", 1.75f),
+            ScaleOption("200%", 2.0f),
+        )
+    }
 
     var currentScale by remember { mutableStateOf(AccountPreferences.device().getUiScale() ?: 1.0f) }
     var dropdownExpanded by remember { mutableStateOf(false) }

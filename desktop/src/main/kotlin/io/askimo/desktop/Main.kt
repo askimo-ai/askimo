@@ -200,6 +200,7 @@ fun main() {
         val scaleText = effectiveScale.toString()
         if (explicitSun == null) System.setProperty("sun.java2d.uiScale", scaleText)
         if (explicitSkiko == null) System.setProperty("skiko.uiScale", scaleText)
+        System.setProperty("sun.java2d.uiScale.enabled", "true")
         log.info("UI scale: {} (source={})", scaleText, if (explicitSun != null || explicitSkiko != null) "jvm" else "preferences")
     } else if (System.getProperty("os.name")?.contains("Linux", ignoreCase = true) == true) {
         // No user preference or JVM flag set — auto-detect from environment/DRM on Linux.
