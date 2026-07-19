@@ -23,7 +23,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.outlined.Cable
 import androidx.compose.material.icons.outlined.Extension
@@ -59,14 +58,12 @@ import io.askimo.ui.common.theme.LocalBackgroundActive
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.settings.appearanceSettingsSection
-import io.askimo.ui.settings.generalSettingsSection
 import io.askimo.ui.settings.shortcutsSettingsSection
 import io.askimo.ui.settings.skillsSettingsSection
 import org.jetbrains.skia.Image
 import java.awt.Cursor
 
 enum class SettingsSection {
-    GENERAL,
     AI_PROVIDER,
     APPEARANCE,
     NETWORK,
@@ -82,7 +79,7 @@ enum class SettingsSection {
 fun settingsViewWithSidebar(
     onClose: () -> Unit,
     settingsViewModel: SettingsViewModel,
-    selectedSection: SettingsSection = SettingsSection.GENERAL,
+    selectedSection: SettingsSection = SettingsSection.APPEARANCE,
     onSectionChange: (SettingsSection) -> Unit = {},
 ) {
     // Sidebar width as a fraction of screen width (0.0 to 1.0) - load from preferences
@@ -175,12 +172,6 @@ fun settingsViewWithSidebar(
                         .fillMaxHeight()
                         .background(AppComponents.sidebarSurfaceColor()),
                 ) {
-                    settingsSidebarItem(
-                        title = stringResource("settings.general"),
-                        icon = Icons.Default.Settings,
-                        isSelected = selectedSection == SettingsSection.GENERAL,
-                        onClick = { onSectionChange(SettingsSection.GENERAL) },
-                    )
                     settingsSidebarItem(
                         title = stringResource("settings.ai.provider"),
                         icon = Icons.Default.SmartToy,
@@ -283,7 +274,6 @@ fun settingsViewWithSidebar(
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     when (selectedSection) {
-                        SettingsSection.GENERAL -> generalSettingsSection()
                         SettingsSection.AI_PROVIDER -> aiProviderSettingsSection(settingsViewModel)
                         SettingsSection.APPEARANCE -> appearanceSettingsSection()
                         SettingsSection.NETWORK -> networkSettingsSection()

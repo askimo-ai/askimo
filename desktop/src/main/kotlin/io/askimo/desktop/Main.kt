@@ -277,7 +277,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
 
     var currentView by remember { mutableStateOf(View.DISCOVER) }
     var previousView by remember { mutableStateOf(View.CHAT) }
-    var settingsSection by remember { mutableStateOf(SettingsSection.GENERAL) }
+    var settingsSection by remember { mutableStateOf(SettingsSection.APPEARANCE) }
     var isSidebarExpanded by remember { mutableStateOf(true) }
     var isProjectsExpanded by remember { mutableStateOf(true) }
     var isSessionsExpanded by remember { mutableStateOf(true) }

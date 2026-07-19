@@ -623,7 +623,12 @@ object AppComponents {
         content: @Composable ColumnScope.() -> Unit,
     ) {
         val safeMaxHeightFraction = maxHeightFraction.coerceIn(0.35f, 1f)
-        Dialog(onDismissRequest = onDismissRequest, properties = properties) {
+        val resolvedProperties = DialogProperties(
+            dismissOnBackPress = properties.dismissOnBackPress,
+            dismissOnClickOutside = properties.dismissOnClickOutside,
+            usePlatformDefaultWidth = false,
+        )
+        Dialog(onDismissRequest = onDismissRequest, properties = resolvedProperties) {
             BoxWithConstraints {
                 Surface(
                     modifier = modifier
@@ -701,7 +706,12 @@ object AppComponents {
         content: LazyListScope.() -> Unit,
     ) {
         val safeMaxHeightFraction = maxHeightFraction.coerceIn(0.35f, 1f)
-        Dialog(onDismissRequest = onDismissRequest, properties = properties) {
+        val resolvedProperties = DialogProperties(
+            dismissOnBackPress = properties.dismissOnBackPress,
+            dismissOnClickOutside = properties.dismissOnClickOutside,
+            usePlatformDefaultWidth = false,
+        )
+        Dialog(onDismissRequest = onDismissRequest, properties = resolvedProperties) {
             BoxWithConstraints {
                 Surface(
                     modifier = modifier

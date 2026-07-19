@@ -4,6 +4,7 @@
  */
 package io.askimo.desktop.project
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,7 +22,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -347,25 +348,34 @@ private fun editProjectFormDialog(
                         expanded = showAddSourceMenu,
                         onDismissRequest = { showAddSourceMenu = false },
                     ) {
-                        KnowledgeSourceItem.availableTypes.forEach { typeInfo ->
-                            DropdownMenuItem(
-                                text = {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            typeInfo.icon,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurface,
-                                            modifier = Modifier.padding(end = Spacing.small).size(20.dp),
-                                        )
-                                        Text(stringResource(typeInfo.typeLabelKey))
+                        KnowledgeSourceItem.availableTypes.forEachIndexed { index, typeInfo ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        showAddSourceMenu = false
+                                        handleAddSource(typeInfo)
                                     }
-                                },
-                                onClick = {
-                                    showAddSourceMenu = false
-                                    handleAddSource(typeInfo)
-                                },
-                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                            )
+                                    .pointerHoverIcon(PointerIcon.Hand)
+                                    .padding(horizontal = Spacing.medium, vertical = Spacing.small),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                            ) {
+                                Icon(
+                                    typeInfo.icon,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                                Text(
+                                    text = stringResource(typeInfo.typeLabelKey),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                            if (index < KnowledgeSourceItem.availableTypes.lastIndex) {
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            }
                         }
                     }
                 }
