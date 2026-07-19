@@ -46,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import io.askimo.core.mcp.McpServerDefinition
 import io.askimo.core.mcp.McpServerTemplateRegistry
 import io.askimo.ui.common.components.primaryButton
@@ -87,11 +88,14 @@ fun mcpServerCatalogDialog(
             }
     }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
         Surface(
             modifier = Modifier
                 .widthIn(min = 700.dp, max = 900.dp)
-                .heightIn(min = 520.dp, max = 720.dp),
+                .heightIn(min = 700.dp, max = 900.dp),
             shape = MaterialTheme.shapes.large,
             tonalElevation = 8.dp,
         ) {

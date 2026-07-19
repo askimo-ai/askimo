@@ -178,7 +178,6 @@ import org.koin.core.parameter.parametersOf
 import java.awt.Cursor
 import java.awt.Desktop
 import java.awt.GraphicsEnvironment
-import java.awt.Toolkit
 import java.net.URI
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -192,34 +191,27 @@ import kotlin.time.Duration.Companion.milliseconds
 private val log = currentFileLogger()
 
 fun main() {
-    // Auto-detect HiDPI scaling on Linux if not explicitly overridden by the user.
-    // On macOS and Windows, Skiko picks up the display scale automatically.
-    // On Linux, no such automatic detection exists — we read GDK_SCALE / QT_SCALE_FACTOR
-    // set by the desktop environment, or fall back to the AWT screen DPI.
-    // Must be set before any Compose/Skia initialisation (i.e. before application {}).
-    if (System.getProperty("os.name")?.contains("Linux", ignoreCase = true) == true &&
-        System.getProperty("skiko.uiScale") == null
-    ) {
-        val envScale = System.getenv("GDK_SCALE")?.toFloatOrNull()
-            ?: System.getenv("QT_SCALE_FACTOR")?.toFloatOrNull()
-        if (envScale != null) {
-            System.setProperty("skiko.uiScale", envScale.toString())
-            log.info("Linux HiDPI: skiko.uiScale set from environment to $envScale")
+    // UI scale is user-controlled via preferences.
+    val explicitSun = System.getProperty("sun.java2d.uiScale")?.toFloatOrNull()
+    val explicitSkiko = System.getProperty("skiko.uiScale")?.toFloatOrNull()
+    val savedScale = AccountPreferences.device().getUiScale()
+    val effectiveScale = explicitSun ?: explicitSkiko ?: savedScale
+    if (effectiveScale != null) {
+        val scaleText = effectiveScale.toString()
+        if (explicitSun == null) System.setProperty("sun.java2d.uiScale", scaleText)
+        if (explicitSkiko == null) System.setProperty("skiko.uiScale", scaleText)
+        System.setProperty("sun.java2d.uiScale.enabled", "true")
+        log.info("UI scale: {} (source={})", scaleText, if (explicitSun != null || explicitSkiko != null) "jvm" else "preferences")
+    } else if (System.getProperty("os.name")?.contains("Linux", ignoreCase = true) == true) {
+        // No user preference or JVM flag set — auto-detect from environment/DRM on Linux.
+        val decision = LinuxUiScaleResolver.resolve()
+        if (decision.scale != 1.0f) {
+            val scaleText = decision.scale.toString()
+            System.setProperty("sun.java2d.uiScale", scaleText)
+            System.setProperty("skiko.uiScale", scaleText)
+            log.info("Linux HiDPI auto-detected: scale={} (source={})", scaleText, decision.source)
         } else {
-            // Fallback: derive scale from the AWT screen DPI.
-            // 96 DPI is the universal baseline for 1× scaling (standard 1080p).
-            // Dividing the actual DPI by 96 gives the natural scale factor:
-            //   96 DPI  → 1.0× (standard 1080p, no scaling)
-            //   144 DPI → 1.5× (HiDPI laptop, e.g. 2560×1600)
-            //   192 DPI → 2.0× (4K display in HiDPI mode)
-            // Clamped to [1.0, 3.0] to guard against abnormal DPI values on
-            // misconfigured or headless Linux environments.
-            val dpi = runCatching {
-                Toolkit.getDefaultToolkit().screenResolution
-            }.getOrDefault(96)
-            val autoScale = (dpi / 96.0f).coerceIn(1.0f, 3.0f)
-            System.setProperty("skiko.uiScale", autoScale.toString())
-            log.info("Linux HiDPI: skiko.uiScale auto-detected as $autoScale (DPI=$dpi)")
+            log.info("Linux HiDPI: no scale hint detected (source={}); using platform default", decision.source)
         }
     }
 
@@ -294,7 +286,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
 
     var currentView by remember { mutableStateOf(View.DISCOVER) }
     var previousView by remember { mutableStateOf(View.CHAT) }
-    var settingsSection by remember { mutableStateOf(SettingsSection.GENERAL) }
+    var settingsSection by remember { mutableStateOf(SettingsSection.APPEARANCE) }
     var isSidebarExpanded by remember { mutableStateOf(true) }
     var isProjectsExpanded by remember { mutableStateOf(true) }
     var isSessionsExpanded by remember { mutableStateOf(true) }

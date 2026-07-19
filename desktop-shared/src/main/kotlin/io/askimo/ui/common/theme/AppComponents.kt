@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -376,6 +377,7 @@ object AppComponents {
             },
             trailingIcon = trailingIcon,
             colors = menuItemColors(),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         )
         if (showDivider) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -621,7 +623,12 @@ object AppComponents {
         content: @Composable ColumnScope.() -> Unit,
     ) {
         val safeMaxHeightFraction = maxHeightFraction.coerceIn(0.35f, 1f)
-        Dialog(onDismissRequest = onDismissRequest, properties = properties) {
+        val resolvedProperties = DialogProperties(
+            dismissOnBackPress = properties.dismissOnBackPress,
+            dismissOnClickOutside = properties.dismissOnClickOutside,
+            usePlatformDefaultWidth = false,
+        )
+        Dialog(onDismissRequest = onDismissRequest, properties = resolvedProperties) {
             BoxWithConstraints {
                 Surface(
                     modifier = modifier
@@ -699,7 +706,12 @@ object AppComponents {
         content: LazyListScope.() -> Unit,
     ) {
         val safeMaxHeightFraction = maxHeightFraction.coerceIn(0.35f, 1f)
-        Dialog(onDismissRequest = onDismissRequest, properties = properties) {
+        val resolvedProperties = DialogProperties(
+            dismissOnBackPress = properties.dismissOnBackPress,
+            dismissOnClickOutside = properties.dismissOnClickOutside,
+            usePlatformDefaultWidth = false,
+        )
+        Dialog(onDismissRequest = onDismissRequest, properties = resolvedProperties) {
             BoxWithConstraints {
                 Surface(
                     modifier = modifier

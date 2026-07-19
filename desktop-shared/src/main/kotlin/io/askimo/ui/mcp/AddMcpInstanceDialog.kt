@@ -47,6 +47,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import dev.langchain4j.agent.tool.ToolSpecification
 import io.askimo.core.mcp.HttpConfig
 import io.askimo.core.mcp.McpClientFactory
@@ -352,6 +353,7 @@ fun addMcpInstanceDialog(
 
     Dialog(
         onDismissRequest = { /* modal: do not dismiss on outside click */ },
+        properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Surface(
             modifier = Modifier

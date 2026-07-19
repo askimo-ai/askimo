@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.config.AppConfig
 import io.askimo.core.config.WebSearchBackend
@@ -52,6 +53,7 @@ import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.clickableCard
+import io.askimo.ui.common.ui.themedTooltip
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -220,46 +222,51 @@ private fun webSearchConfigCard() {
             HorizontalDivider()
 
             // ── Backend selector ──────────────────────────────────────────────────
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
                     text = stringResource("settings.web_search.backend"),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.weight(1f).padding(end = Spacing.large),
                 )
 
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickableCard { backendDropdownExpanded = true },
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                        ),
+                Box(modifier = Modifier.widthIn(min = 160.dp, max = 280.dp)) {
+                    themedTooltip(
+                        text = stringResource("settings.web_search.backend.${backend.name.lowercase()}.description"),
                     ) {
-                        Row(
+                        Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
+                                .clickableCard { backendDropdownExpanded = true },
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface,
+                            ),
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
                                 Text(
                                     text = stringResource("settings.web_search.backend.${backend.name.lowercase()}"),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f).padding(end = Spacing.small),
                                 )
-                                Text(
-                                    text = stringResource("settings.web_search.backend.${backend.name.lowercase()}.description"),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = "Change backend",
+                                    tint = MaterialTheme.colorScheme.onSurface,
                                 )
                             }
-                            Icon(
-                                Icons.Default.Edit,
-                                contentDescription = "Change backend",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                            )
                         }
                     }
 

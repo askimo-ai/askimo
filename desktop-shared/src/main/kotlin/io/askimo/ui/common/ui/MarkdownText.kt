@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
@@ -691,89 +692,90 @@ private fun renderCodeBlock(codeBlock: FencedCodeBlock, viewportTopY: Float? = n
             modifier = Modifier.fillMaxWidth(),
         )
 
-        // Simple: button inside code block, just adjust offset
         if (isHovered) {
-            Row(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = copyButtonTopOffset, end = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // Copy feedback
-                if (showCopyFeedback) {
-                    Text(
-                        text = stringResource("mermaid.feedback.copied"),
-                        modifier = Modifier
-                            .background(
-                                MaterialTheme.colorScheme.primaryContainer,
-                                shape = MaterialTheme.shapes.small,
-                            )
-                            .padding(horizontal = Spacing.large, vertical = Spacing.small),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                    Spacer(modifier = Modifier.width(Spacing.small))
-                }
+            DisableSelection {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = copyButtonTopOffset, end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // Copy feedback
+                    if (showCopyFeedback) {
+                        Text(
+                            text = stringResource("mermaid.feedback.copied"),
+                            modifier = Modifier
+                                .background(
+                                    MaterialTheme.colorScheme.primaryContainer,
+                                    shape = MaterialTheme.shapes.small,
+                                )
+                                .padding(horizontal = Spacing.large, vertical = Spacing.small),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                        Spacer(modifier = Modifier.width(Spacing.small))
+                    }
 
-                // Run button — shown only when the language is runnable and its executable is on PATH
-                if (runnableLanguage != null) {
+                    // Run button — shown only when the language is runnable and its executable is on PATH
+                    if (runnableLanguage != null) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            ),
+                        ) {
+                            themedTooltip(text = stringResource("code.run")) {
+                                IconButton(
+                                    onClick = {
+                                        onRunRequest?.invoke(
+                                            runnableLanguage.buildTerminalCommand(code),
+                                            runnableLanguage.aliases.first(),
+                                        )
+                                    },
+                                    modifier = Modifier.size(32.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.PlayArrow,
+                                        contentDescription = stringResource("code.run.description"),
+                                        modifier = Modifier.size(16.dp).pointerHoverIcon(PointerIcon.Hand),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(Spacing.extraSmall))
+                    }
+
+                    // Copy button
                     Card(
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
                             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         ),
                     ) {
-                        themedTooltip(text = stringResource("code.run")) {
+                        themedTooltip(text = stringResource("code.copy")) {
                             IconButton(
                                 onClick = {
-                                    onRunRequest?.invoke(
-                                        runnableLanguage.buildTerminalCommand(code),
-                                        runnableLanguage.aliases.first(),
-                                    )
+                                    clipboardManager.setText(AnnotatedString(codeBlock.literal.trimEnd('\n', '\r')))
+                                    showCopyFeedback = true
+                                    coroutineScope.launch {
+                                        delay(2000.milliseconds)
+                                        showCopyFeedback = false
+                                    }
                                 },
                                 modifier = Modifier.size(32.dp),
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.PlayArrow,
-                                    contentDescription = stringResource("code.run.description"),
+                                    imageVector = Icons.Default.ContentCopy,
+                                    contentDescription = stringResource("code.copy.description"),
                                     modifier = Modifier.size(16.dp).pointerHoverIcon(PointerIcon.Hand),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.width(Spacing.extraSmall))
-                }
-
-                // Copy button
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    ),
-                ) {
-                    themedTooltip(text = stringResource("code.copy")) {
-                        IconButton(
-                            onClick = {
-                                clipboardManager.setText(AnnotatedString(codeBlock.literal.trimEnd('\n', '\r')))
-                                showCopyFeedback = true
-                                coroutineScope.launch {
-                                    delay(2000.milliseconds)
-                                    showCopyFeedback = false
-                                }
-                            },
-                            modifier = Modifier.size(32.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ContentCopy,
-                                contentDescription = stringResource("code.copy.description"),
-                                modifier = Modifier.size(16.dp).pointerHoverIcon(PointerIcon.Hand),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-            }
+                } // end Row
+            } // end DisableSelection
         }
     }
 }

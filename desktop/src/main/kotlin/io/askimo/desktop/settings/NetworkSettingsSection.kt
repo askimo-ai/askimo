@@ -46,6 +46,7 @@ import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.clickableCard
+import io.askimo.ui.common.ui.themedTooltip
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.awt.Desktop
@@ -167,46 +168,51 @@ private fun proxyConfigurationCard() {
             HorizontalDivider()
 
             // Proxy Type Dropdown
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
                     text = stringResource("settings.proxy.type"),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.weight(1f).padding(end = Spacing.large),
                 )
 
-                androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxWidth()) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickableCard { proxyTypeDropdownExpanded = true },
-                        colors = androidx.compose.material3.CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                        ),
+                Box(modifier = Modifier.widthIn(min = 180.dp, max = 300.dp)) {
+                    themedTooltip(
+                        text = stringResource("settings.proxy.type.${proxyType.name.lowercase()}.description"),
                     ) {
-                        Row(
+                        Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
+                                .clickableCard { proxyTypeDropdownExpanded = true },
+                            colors = androidx.compose.material3.CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface,
+                            ),
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
                                 Text(
                                     text = stringResource("settings.proxy.type.${proxyType.name.lowercase()}"),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f).padding(end = Spacing.small),
                                 )
-                                Text(
-                                    text = stringResource("settings.proxy.type.${proxyType.name.lowercase()}.description"),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = "Change proxy type",
+                                    tint = MaterialTheme.colorScheme.onSurface,
                                 )
                             }
-                            Icon(
-                                Icons.Default.Edit,
-                                contentDescription = "Change proxy type",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                            )
                         }
                     }
 

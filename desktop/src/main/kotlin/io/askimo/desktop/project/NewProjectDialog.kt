@@ -4,6 +4,7 @@
  */
 package io.askimo.desktop.project
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,7 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -41,6 +42,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import io.askimo.core.chat.service.ProjectService
 import io.askimo.core.logging.logger
 import io.askimo.ui.common.components.inlineErrorMessage
@@ -183,7 +185,7 @@ fun newProjectDialog(
     }
 
     if (showSuccess) {
-        Dialog(onDismissRequest = onDismiss) {
+        Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
             Surface(
                 modifier = Modifier.width(650.dp),
                 shape = MaterialTheme.shapes.large,
@@ -237,7 +239,7 @@ fun newProjectDialog(
         AppComponents.scaffoldDialog(
             onDismissRequest = onDismiss,
             onCloseRequest = onDismiss,
-            width = 650.dp,
+            width = 800.dp,
             title = {
                 Text(
                     text = stringResource("project.new.dialog.title"),
@@ -306,25 +308,34 @@ fun newProjectDialog(
                             expanded = showAddSourceMenu,
                             onDismissRequest = { showAddSourceMenu = false },
                         ) {
-                            KnowledgeSourceItem.availableTypes.forEach { typeInfo ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                typeInfo.icon,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onSurface,
-                                                modifier = Modifier.padding(end = Spacing.small).size(20.dp),
-                                            )
-                                            Text(stringResource(typeInfo.typeLabelKey))
+                            KnowledgeSourceItem.availableTypes.forEachIndexed { index, typeInfo ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            showAddSourceMenu = false
+                                            handleAddSource(typeInfo)
                                         }
-                                    },
-                                    onClick = {
-                                        showAddSourceMenu = false
-                                        handleAddSource(typeInfo)
-                                    },
-                                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                )
+                                        .pointerHoverIcon(PointerIcon.Hand)
+                                        .padding(horizontal = Spacing.medium, vertical = Spacing.small),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                                ) {
+                                    Icon(
+                                        typeInfo.icon,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                    Text(
+                                        text = stringResource(typeInfo.typeLabelKey),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                                if (index < KnowledgeSourceItem.availableTypes.lastIndex) {
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                }
                             }
                         }
                     }

@@ -247,6 +247,21 @@ class AccountPreferences private constructor(private val prefs: Preferences) {
     fun isVrrHintDismissed(): Boolean = safeGetBoolean("perf.vrr_hint_dismissed", false)
     fun dismissVrrHint() = safePutBoolean("perf.vrr_hint_dismissed", true)
 
+    /**
+     * Optional UI scale set by the user. Null means no explicit preference.
+     * This value is read at startup before Compose initialisation.
+     */
+    fun getUiScale(): Float? = safeGet("perf.ui_scale", null)?.toFloatOrNull()
+
+    fun setUiScale(scale: Float?) {
+        if (scale == null) {
+            runCatching { prefs.remove("perf.ui_scale") }
+                .onFailure { log.warn("AccountPreferences.remove failed key='perf.ui_scale': ${it.message}") }
+        } else {
+            safePut("perf.ui_scale", scale.toString())
+        }
+    }
+
     // ── Update notifications ──────────────────────────────────────────────────
 
     /**
