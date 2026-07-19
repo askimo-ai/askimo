@@ -110,6 +110,8 @@ compose.desktop {
 
         // Enable Vector API for better JVector performance
         jvmArgs("--add-modules", "jdk.incubator.vector")
+        // Suppress JDK restricted-method warning from SQLite native loader
+        jvmArgs("--enable-native-access=ALL-UNNAMED")
 
         nativeDistributions {
             targetFormats(

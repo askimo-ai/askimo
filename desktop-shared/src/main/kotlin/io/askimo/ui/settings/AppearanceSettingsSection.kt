@@ -339,9 +339,11 @@ fun appearanceSettingsSection() {
                 // AI Avatar Section
                 aiAvatarSettingsSection()
 
-                // Display Scale Section
-                Spacer(modifier = Modifier.height(Spacing.small))
-                uiScaleSection()
+                // Display Scale Section — macOS manages its own HiDPI scaling; skip on Mac
+                if (!Platform.isMac) {
+                    Spacer(modifier = Modifier.height(Spacing.small))
+                    uiScaleSection()
+                }
 
                 // Hardware Acceleration Section
                 Spacer(modifier = Modifier.height(Spacing.small))
