@@ -36,14 +36,17 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.ViewComfy
 import androidx.compose.material.icons.filled.ViewCompact
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -67,6 +70,7 @@ import io.askimo.ui.common.components.dangerButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.preferences.AccountPreferences
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.BackgroundImage
 import io.askimo.ui.common.theme.LayoutDensity
@@ -83,6 +87,7 @@ import io.askimo.ui.common.ui.clickableCard
 import io.askimo.ui.common.ui.util.FileDialogUtils
 import io.askimo.ui.service.AvatarService
 import io.askimo.ui.service.BackgroundImageService
+import io.askimo.ui.util.Platform
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
@@ -309,6 +314,14 @@ fun appearanceSettingsSection() {
 
                 // AI Avatar Section
                 aiAvatarSettingsSection()
+
+                // Display Scale Section
+                Spacer(modifier = Modifier.height(Spacing.small))
+                uiScaleSection()
+
+                // Hardware Acceleration Section
+                Spacer(modifier = Modifier.height(Spacing.small))
+                hardwareAccelerationSection()
             }
         }
 
@@ -367,10 +380,11 @@ private fun accentColorSection() {
                 .padding(Spacing.large),
             verticalArrangement = Arrangement.spacedBy(Spacing.medium),
         ) {
+            // Hex input — constrained width, not full-width (hex values are short)
             OutlinedTextField(
                 value = accentInput,
                 onValueChange = { accentInput = it.trim() },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.widthIn(max = 220.dp),
                 label = { Text(stringResource("settings.appearance.accent.label")) },
                 placeholder = { Text("#0284C7") },
                 singleLine = true,
@@ -386,12 +400,11 @@ private fun accentColorSection() {
                 colors = AppComponents.outlinedTextFieldColors(),
             )
 
+            // Pick + Reset in the same row
             Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth(),
             ) {
-                // Color picker — applies immediately on dialog confirm
                 secondaryButton(
                     onClick = {
                         scope.launch {
@@ -410,15 +423,15 @@ private fun accentColorSection() {
                     Text(stringResource("settings.appearance.accent.pick"))
                 }
 
-                // Reset — always available when an accent is saved
-                secondaryButton(
-                    enabled = savedAccentHex != null,
-                    onClick = {
-                        ThemePreferences.setAccentColorHex(null)
-                        accentInput = ""
-                    },
-                ) {
-                    Text(stringResource("settings.appearance.accent.reset"))
+                if (savedAccentHex != null) {
+                    secondaryButton(
+                        onClick = {
+                            ThemePreferences.setAccentColorHex(null)
+                            accentInput = ""
+                        },
+                    ) {
+                        Text(stringResource("settings.appearance.accent.reset"))
+                    }
                 }
             }
 
@@ -1025,6 +1038,155 @@ private fun backgroundImageCustomOption(
                         modifier = Modifier.size(12.dp),
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun uiScaleSection() {
+    data class ScaleOption(val label: String, val value: Float)
+
+    val scaleOptions = listOf(
+        ScaleOption("75%", 0.75f),
+        ScaleOption("100%", 1.0f),
+        ScaleOption("125%", 1.25f),
+        ScaleOption("150%", 1.5f),
+        ScaleOption("175%", 1.75f),
+        ScaleOption("200%", 2.0f),
+    )
+
+    var currentScale by remember { mutableStateOf(AccountPreferences.device().getUiScale() ?: 1.0f) }
+    var dropdownExpanded by remember { mutableStateOf(false) }
+    var showRestartNotice by remember { mutableStateOf(false) }
+
+    val selectedOption = scaleOptions.minByOrNull { kotlin.math.abs(it.value - currentScale) }
+
+    Text(
+        text = stringResource("settings.ui.scale.title"),
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onBackground,
+    )
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.large),
+            verticalArrangement = Arrangement.spacedBy(Spacing.medium),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource("settings.ui.scale.description"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f).padding(end = Spacing.large),
+                )
+
+                Box(modifier = Modifier.widthIn(min = 100.dp, max = 160.dp)) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().clickableCard { dropdownExpanded = true },
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = selectedOption?.label ?: "${currentScale * 100}%",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = "Change scale",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+
+                    AppComponents.dropdownMenu(
+                        expanded = dropdownExpanded,
+                        onDismissRequest = { dropdownExpanded = false },
+                    ) {
+                        scaleOptions.forEachIndexed { index, option ->
+                            AppComponents.themedDropdownMenuItem(
+                                text = { Text(text = option.label, style = MaterialTheme.typography.bodyMedium) },
+                                onClick = {
+                                    currentScale = option.value
+                                    AccountPreferences.device().setUiScale(option.value)
+                                    dropdownExpanded = false
+                                    showRestartNotice = true
+                                },
+                                isSelected = option == selectedOption,
+                                showDivider = index < scaleOptions.lastIndex,
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (showRestartNotice) {
+                Text(
+                    text = stringResource("settings.ui.scale.restart.notice"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun hardwareAccelerationSection() {
+    var isEnabled by remember { mutableStateOf(AccountPreferences.device().getHardwareAccelerationEnabled()) }
+    var showRestartNotice by remember { mutableStateOf(false) }
+
+    Text(
+        text = stringResource("settings.hardware.acceleration.title"),
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onBackground,
+    )
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.large),
+            verticalArrangement = Arrangement.spacedBy(Spacing.medium),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = if (Platform.isWindows) {
+                        stringResource("settings.hardware.acceleration.description.windows")
+                    } else {
+                        stringResource("settings.hardware.acceleration.description")
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                Switch(
+                    checked = isEnabled,
+                    onCheckedChange = { checked ->
+                        isEnabled = checked
+                        AccountPreferences.device().setHardwareAccelerationEnabled(checked)
+                        showRestartNotice = true
+                    },
+                )
+            }
+
+            if (showRestartNotice) {
+                Text(
+                    text = stringResource("settings.hardware.acceleration.restart.notice"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
             }
         }
     }
