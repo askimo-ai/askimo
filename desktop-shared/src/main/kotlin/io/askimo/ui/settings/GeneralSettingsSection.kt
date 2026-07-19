@@ -26,8 +26,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -51,7 +49,6 @@ import io.askimo.core.config.AppConfig
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
-import io.askimo.ui.common.theme.FontSettings
 import io.askimo.ui.common.theme.FontSize
 import io.askimo.ui.common.theme.LineSpacing
 import io.askimo.ui.common.theme.Spacing
@@ -61,7 +58,6 @@ import io.askimo.ui.common.theme.loadUiFontFamily
 import io.askimo.ui.common.ui.clickableCard
 import io.askimo.ui.common.ui.themedTooltip
 import java.util.Locale
-import kotlin.math.roundToInt
 
 @Composable
 fun generalSettingsSection() {
@@ -330,7 +326,6 @@ private fun fontSettingsCard() {
     val availableFonts = remember { ThemePreferences.getAvailableSystemFonts() }
     var fontSizeDropdownExpanded by remember { mutableStateOf(false) }
     var lineSpacingDropdownExpanded by remember { mutableStateOf(false) }
-    val customScaleEnabled = currentFontSettings.customFontScale != null
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -425,62 +420,6 @@ private fun fontSettingsCard() {
                         }
                     }
                 }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource("settings.font.custom.scale"),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    )
-                    Text(
-                        text = stringResource("settings.font.custom.scale.description"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
-                    )
-                }
-                Switch(
-                    checked = customScaleEnabled,
-                    onCheckedChange = { enabled ->
-                        ThemePreferences.setFontSettings(
-                            currentFontSettings.copy(
-                                customFontScale = if (enabled) {
-                                    currentFontSettings.effectiveScale
-                                } else {
-                                    null
-                                },
-                            ),
-                        )
-                    },
-                )
-            }
-
-            if (customScaleEnabled) {
-                val minScale = FontSettings.MIN_CUSTOM_FONT_SCALE
-                val maxScale = FontSettings.MAX_CUSTOM_FONT_SCALE
-                val currentScale = currentFontSettings.effectiveScale.coerceIn(minScale, maxScale)
-
-                Slider(
-                    value = currentScale,
-                    onValueChange = { value ->
-                        val rounded = ((value * 20f).roundToInt() / 20f).coerceIn(minScale, maxScale)
-                        ThemePreferences.setFontSettings(
-                            currentFontSettings.copy(customFontScale = rounded),
-                        )
-                    },
-                    valueRange = minScale..maxScale,
-                    steps = 33,
-                )
-                Text(
-                    text = stringResource("settings.font.custom.scale.value", (currentScale * 100).roundToInt()),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f),
-                )
             }
 
             HorizontalDivider()
