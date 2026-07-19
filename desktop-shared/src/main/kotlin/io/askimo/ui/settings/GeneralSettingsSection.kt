@@ -43,6 +43,7 @@ import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import io.askimo.core.AppConstants.DOMAIN
@@ -121,55 +122,62 @@ private fun languageSelectionCard() {
                 .padding(Spacing.large),
             verticalArrangement = Arrangement.spacedBy(Spacing.small),
         ) {
-            Text(
-                text = stringResource("settings.app.language"),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-            )
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickableCard { languageDropdownExpanded = true },
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                    ),
-                ) {
-                    Row(
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource("settings.app.language"),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.weight(1f).padding(end = Spacing.large),
+                )
+                Box(modifier = Modifier.widthIn(min = 160.dp, max = 280.dp)) {
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(Spacing.medium),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
+                            .clickableCard { languageDropdownExpanded = true },
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                        ),
                     ) {
-                        Text(
-                            text = availableLanguages[currentLocale] ?: currentLocale.displayName,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Icon(
-                            Icons.Default.Edit,
-                            contentDescription = "Change language",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(Spacing.medium),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = availableLanguages[currentLocale] ?: currentLocale.displayName,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = "Change language",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
                     }
-                }
 
-                AppComponents.dropdownMenu(
-                    expanded = languageDropdownExpanded,
-                    onDismissRequest = { languageDropdownExpanded = false },
-                ) {
-                    val languages = availableLanguages.entries.toList()
-                    languages.forEachIndexed { index, (locale, name) ->
-                        AppComponents.themedDropdownMenuItem(
-                            text = { Text(text = name, style = MaterialTheme.typography.bodyMedium) },
-                            onClick = {
-                                ThemePreferences.setLocale(locale)
-                                languageDropdownExpanded = false
-                            },
-                            isSelected = locale == currentLocale,
-                            showDivider = index < languages.lastIndex,
-                        )
+                    AppComponents.dropdownMenu(
+                        expanded = languageDropdownExpanded,
+                        onDismissRequest = { languageDropdownExpanded = false },
+                    ) {
+                        val languages = availableLanguages.entries.toList()
+                        languages.forEachIndexed { index, (locale, name) ->
+                            AppComponents.themedDropdownMenuItem(
+                                text = { Text(text = name, style = MaterialTheme.typography.bodyMedium) },
+                                onClick = {
+                                    ThemePreferences.setLocale(locale)
+                                    languageDropdownExpanded = false
+                                },
+                                isSelected = locale == currentLocale,
+                                showDivider = index < languages.lastIndex,
+                            )
+                        }
                     }
                 }
             }
@@ -217,20 +225,95 @@ private fun preferredAIResponseLanguageField(availableLanguages: Map<Locale, Str
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = stringResource("settings.ai.response.language"),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-            )
-            themedTooltip(
-                text = stringResource("settings.ai.response.language.tooltip"),
+            Row(
+                modifier = Modifier.weight(1f).padding(end = Spacing.large),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
             ) {
-                Icon(
-                    Icons.Default.Info,
-                    contentDescription = "Information",
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
-                    modifier = Modifier.width(24.dp),
+                Text(
+                    text = stringResource("settings.ai.response.language"),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
+                themedTooltip(
+                    text = stringResource("settings.ai.response.language.tooltip"),
+                ) {
+                    Icon(
+                        Icons.Default.Info,
+                        contentDescription = "Information",
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
+                        modifier = Modifier.width(24.dp),
+                    )
+                }
+            }
+            Box(modifier = Modifier.widthIn(min = 160.dp, max = 280.dp)) {
+                val aiLangDisplayText = if (currentAILocale == null) {
+                    stringResource("settings.ai.response.language.auto")
+                } else {
+                    availableLanguages.entries.find { it.key.toString() == currentAILocale }?.value
+                        ?: currentAILocale
+                }
+                themedTooltip(text = aiLangDisplayText) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickableCard { aiLanguageDropdownExpanded = true },
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                        ),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(Spacing.medium),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = aiLangDisplayText,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f).padding(end = Spacing.small),
+                            )
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = "Change AI response language",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                }
+
+                AppComponents.dropdownMenu(
+                    expanded = aiLanguageDropdownExpanded,
+                    onDismissRequest = { aiLanguageDropdownExpanded = false },
+                ) {
+                    // Auto-detect option
+                    AppComponents.themedDropdownMenuItem(
+                        text = { Text(stringResource("settings.ai.response.language.auto"), style = MaterialTheme.typography.bodyMedium) },
+                        onClick = {
+                            AppConfig.updateField("chat.defaultResponseAILocale", "")
+                            aiLanguageDropdownExpanded = false
+                        },
+                        isSelected = currentAILocale == null,
+                        showDivider = true,
+                    )
+                    // Language options
+                    val langs = availableLanguages.entries.toList()
+                    langs.forEachIndexed { index, (locale, name) ->
+                        AppComponents.themedDropdownMenuItem(
+                            text = { Text(name, style = MaterialTheme.typography.bodyMedium) },
+                            onClick = {
+                                AppConfig.updateField("chat.defaultResponseAILocale", locale.toString())
+                                aiLanguageDropdownExpanded = false
+                            },
+                            isSelected = locale.toString() == currentAILocale,
+                            showDivider = index < langs.lastIndex,
+                        )
+                    }
+                }
             }
         }
         Text(
@@ -238,69 +321,6 @@ private fun preferredAIResponseLanguageField(availableLanguages: Map<Locale, Str
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
         )
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickableCard { aiLanguageDropdownExpanded = true },
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(Spacing.medium),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = if (currentAILocale == null) {
-                            stringResource("settings.ai.response.language.auto")
-                        } else {
-                            availableLanguages.entries.find { it.key.toString() == currentAILocale }?.value
-                                ?: currentAILocale
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Icon(
-                        Icons.Default.Edit,
-                        contentDescription = "Change AI response language",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-            }
-
-            AppComponents.dropdownMenu(
-                expanded = aiLanguageDropdownExpanded,
-                onDismissRequest = { aiLanguageDropdownExpanded = false },
-            ) {
-                // Auto-detect option
-                AppComponents.themedDropdownMenuItem(
-                    text = { Text(stringResource("settings.ai.response.language.auto"), style = MaterialTheme.typography.bodyMedium) },
-                    onClick = {
-                        AppConfig.updateField("chat.defaultResponseAILocale", "")
-                        aiLanguageDropdownExpanded = false
-                    },
-                    isSelected = currentAILocale == null,
-                    showDivider = true,
-                )
-                // Language options
-                val langs = availableLanguages.entries.toList()
-                langs.forEachIndexed { index, (locale, name) ->
-                    AppComponents.themedDropdownMenuItem(
-                        text = { Text(name, style = MaterialTheme.typography.bodyMedium) },
-                        onClick = {
-                            AppConfig.updateField("chat.defaultResponseAILocale", locale.toString())
-                            aiLanguageDropdownExpanded = false
-                        },
-                        isSelected = locale.toString() == currentAILocale,
-                        showDivider = index < langs.lastIndex,
-                    )
-                }
-            }
-        }
     }
 }
 
@@ -346,14 +366,19 @@ private fun fontSettingsCard() {
 
             HorizontalDivider()
 
-            // Font Size
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+            // Font Size — label left, dropdown right
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
                     text = stringResource("settings.font.size"),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.weight(1f).padding(end = Spacing.large),
                 )
-                Box(modifier = Modifier.fillMaxWidth()) {
+                Box(modifier = Modifier.widthIn(min = 120.dp, max = 200.dp)) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -400,74 +425,79 @@ private fun fontSettingsCard() {
                         }
                     }
                 }
+            }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource("settings.font.custom.scale"),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
-                        Text(
-                            text = stringResource("settings.font.custom.scale.description"),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
-                        )
-                    }
-                    Switch(
-                        checked = customScaleEnabled,
-                        onCheckedChange = { enabled ->
-                            ThemePreferences.setFontSettings(
-                                currentFontSettings.copy(
-                                    customFontScale = if (enabled) {
-                                        currentFontSettings.effectiveScale
-                                    } else {
-                                        null
-                                    },
-                                ),
-                            )
-                        },
-                    )
-                }
-
-                if (customScaleEnabled) {
-                    val minScale = FontSettings.MIN_CUSTOM_FONT_SCALE
-                    val maxScale = FontSettings.MAX_CUSTOM_FONT_SCALE
-                    val currentScale = currentFontSettings.effectiveScale.coerceIn(minScale, maxScale)
-
-                    Slider(
-                        value = currentScale,
-                        onValueChange = { value ->
-                            val rounded = ((value * 20f).roundToInt() / 20f).coerceIn(minScale, maxScale)
-                            ThemePreferences.setFontSettings(
-                                currentFontSettings.copy(customFontScale = rounded),
-                            )
-                        },
-                        valueRange = minScale..maxScale,
-                        steps = 33,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource("settings.font.custom.scale"),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
                     )
                     Text(
-                        text = stringResource("settings.font.custom.scale.value", (currentScale * 100).roundToInt()),
+                        text = stringResource("settings.font.custom.scale.description"),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f),
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
                     )
                 }
+                Switch(
+                    checked = customScaleEnabled,
+                    onCheckedChange = { enabled ->
+                        ThemePreferences.setFontSettings(
+                            currentFontSettings.copy(
+                                customFontScale = if (enabled) {
+                                    currentFontSettings.effectiveScale
+                                } else {
+                                    null
+                                },
+                            ),
+                        )
+                    },
+                )
+            }
+
+            if (customScaleEnabled) {
+                val minScale = FontSettings.MIN_CUSTOM_FONT_SCALE
+                val maxScale = FontSettings.MAX_CUSTOM_FONT_SCALE
+                val currentScale = currentFontSettings.effectiveScale.coerceIn(minScale, maxScale)
+
+                Slider(
+                    value = currentScale,
+                    onValueChange = { value ->
+                        val rounded = ((value * 20f).roundToInt() / 20f).coerceIn(minScale, maxScale)
+                        ThemePreferences.setFontSettings(
+                            currentFontSettings.copy(customFontScale = rounded),
+                        )
+                    },
+                    valueRange = minScale..maxScale,
+                    steps = 33,
+                )
+                Text(
+                    text = stringResource("settings.font.custom.scale.value", (currentScale * 100).roundToInt()),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f),
+                )
             }
 
             HorizontalDivider()
 
-            // Line Spacing
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+            // Line Spacing — label left, dropdown right
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
                     text = stringResource("settings.font.line.spacing"),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.weight(1f).padding(end = Spacing.large),
                 )
-                Box(modifier = Modifier.fillMaxWidth()) {
+                Box(modifier = Modifier.widthIn(min = 120.dp, max = 200.dp)) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -529,13 +559,18 @@ private fun fontFamilySelector(
 ) {
     var dropdownExpanded by remember { mutableStateOf(false) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier.weight(1f).padding(end = Spacing.large),
         )
-        Box(modifier = Modifier.fillMaxWidth()) {
+        Box(modifier = Modifier.widthIn(min = 160.dp, max = 260.dp)) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -567,7 +602,6 @@ private fun fontFamilySelector(
             AppComponents.dropdownMenu(
                 expanded = dropdownExpanded,
                 onDismissRequest = { dropdownExpanded = false },
-                modifier = Modifier.fillMaxWidth(0.5f),
             ) {
                 availableFonts.forEachIndexed { index, fontFamily ->
                     AppComponents.themedDropdownMenuItem(
