@@ -9,6 +9,8 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.askimo.core.context.AppContext
+import io.askimo.core.event.EventBus
+import io.askimo.core.event.error.AppErrorEvent
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
 import io.askimo.core.providers.ChatModelFactory
@@ -321,6 +323,13 @@ class ProviderModelPanelState(
             } catch (e: Exception) {
                 log.error("Failed to load models for instance $instanceId (${instance.providerType})", e)
                 modelCache[instanceId] = emptyList()
+                EventBus.post(
+                    AppErrorEvent(
+                        title = "Failed to load models",
+                        message = ErrorHandler.getUserFriendlyError(e, "loading models for ${instance.providerType}"),
+                        cause = e,
+                    ),
+                )
             } finally {
                 loadingInstances = loadingInstances - instanceId
             }
