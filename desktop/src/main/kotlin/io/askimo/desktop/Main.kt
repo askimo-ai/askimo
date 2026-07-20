@@ -1431,7 +1431,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                     val targetFile = FileDialogUtils.pickSavePath(
                                         suggestedName = "telemetry_$timestamp",
                                         extension = "zip",
-                                        title = LocalizationManager.getString("telemetry.export.dialog.title"),
                                     ) ?: return@launch
 
                                     val result = TelemetryExportService.export(metrics, targetFile)

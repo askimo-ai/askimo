@@ -32,9 +32,7 @@ class KnowledgeSourceBrowser(
     /**
      * Browse for files using the native OS dialog and return a list of [KnowledgeSourceItem.File].
      */
-    suspend fun browseForFiles(): List<KnowledgeSourceItem.File> = FileDialogUtils.pickFilePaths(
-        title = browseFileTitle,
-    ).map { path ->
+    suspend fun browseForFiles(): List<KnowledgeSourceItem.File> = FileDialogUtils.pickFilePaths().map { path ->
         KnowledgeSourceItem.File(
             id = UUID.randomUUID().toString(),
             path = path,
