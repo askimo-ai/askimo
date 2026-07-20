@@ -1647,7 +1647,6 @@ private suspend fun downloadImage(
         val file = FileDialogUtils.pickSavePath(
             suggestedName = fileName.substringBeforeLast('.', fileName),
             extension = extension,
-            title = "Save Image",
         ) ?: run {
             log.debug("Save image dialog cancelled")
             return

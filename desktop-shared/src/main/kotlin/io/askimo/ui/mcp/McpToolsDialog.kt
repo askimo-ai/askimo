@@ -402,7 +402,6 @@ fun mcpToolsDialog(
         confirmButton = {
             val exportSuccessMsg = stringResource("mcp.tools.dialog.export.success")
             val exportFailedMsg = stringResource("mcp.tools.dialog.export.failed")
-            val exportDialogTitle = stringResource("mcp.tools.dialog.export")
 
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {
                 // Export button — only enabled when tools are loaded
@@ -413,7 +412,6 @@ fun mcpToolsDialog(
                                 exportToolsToJson(
                                     tools = tools!!,
                                     instanceName = instance.name,
-                                    dialogTitle = exportDialogTitle,
                                 ).fold(
                                     onSuccess = { path ->
                                         exportMessage = true to exportSuccessMsg.replace("{0}", path)
@@ -445,14 +443,12 @@ fun mcpToolsDialog(
 private suspend fun exportToolsToJson(
     tools: List<ToolConfig>,
     instanceName: String,
-    dialogTitle: String,
 ): Result<String> = withContext(Dispatchers.IO) {
     runCatching {
         val suggestedName = "${instanceName.replace(" ", "_")}_tools"
         val targetFile = FileDialogUtils.pickSavePath(
             suggestedName = suggestedName,
             extension = "json",
-            title = dialogTitle,
         ) ?: return@runCatching Result.failure<String>(
             IllegalStateException("Export cancelled"),
         ).getOrThrow()

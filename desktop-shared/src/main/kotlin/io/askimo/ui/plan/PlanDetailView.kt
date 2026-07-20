@@ -1261,7 +1261,6 @@ private suspend fun triggerExport(
     val targetFile = FileDialogUtils.pickSavePath(
         suggestedName = planName.replace(" ", "_"),
         extension = extension,
-        title = "Export Plan",
     ) ?: return
     viewModel.exportPlan(targetFile, mode, format) { _ -> }
 }

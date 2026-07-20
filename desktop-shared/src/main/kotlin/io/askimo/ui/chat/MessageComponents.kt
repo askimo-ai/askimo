@@ -836,7 +836,6 @@ private fun aiMessageBubble(
                     }
 
                     // Export to PDF button
-                    val exportPdfDialogTitle = stringResource("message.ai.export.pdf.dialog.title")
                     themedTooltip(text = stringResource("message.ai.export.pdf")) {
                         IconButton(
                             onClick = {
@@ -846,7 +845,6 @@ private fun aiMessageBubble(
                                         val file = FileDialogUtils.pickSavePath(
                                             suggestedName = "ai-response",
                                             extension = "pdf",
-                                            title = exportPdfDialogTitle,
                                         )
                                         if (file != null) {
                                             MessageExportService.export(

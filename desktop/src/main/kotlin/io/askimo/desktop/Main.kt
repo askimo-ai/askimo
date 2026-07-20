@@ -398,7 +398,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                 val backupFile = FileDialogUtils.pickSavePath(
                     suggestedName = defaultFileName.substringBeforeLast('.'),
                     extension = "zip",
-                    title = LocalizationManager.getString("backup.export.title"),
                 ) ?: return@launch
 
                 val savedFile = withContext(Dispatchers.IO) {

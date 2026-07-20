@@ -83,8 +83,6 @@ fun exportSessionDialog(
     var filePath by remember { mutableStateOf("") }
     var showFileBrowser by remember { mutableStateOf(false) }
 
-    val fileChooserTitle = stringResource("session.export.file.chooser.title")
-
     // Update file path when format changes
     LaunchedEffect(defaultFilename) {
         if (filePath.isEmpty() || filePath.substringAfterLast('/').substringBeforeLast('.') ==
@@ -107,7 +105,6 @@ fun exportSessionDialog(
             val target = FileDialogUtils.pickSavePath(
                 suggestedName = baseName,
                 extension = selectedFormat.extension,
-                title = fileChooserTitle,
             )
             if (target != null) {
                 filePath = target.absolutePath

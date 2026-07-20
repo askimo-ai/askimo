@@ -313,7 +313,6 @@ fun chatInputField(
         }
     }
 
-    val selectFileTitle = stringResource("chat.select.file")
     val scope = rememberCoroutineScope()
 
     // ── Rotating placeholder hints ─────────────────────────────────────────────
@@ -343,7 +342,7 @@ fun chatInputField(
     }
     val openFileDialog = {
         scope.launch {
-            val paths = FileDialogUtils.pickFilePaths(selectFileTitle)
+            val paths = FileDialogUtils.pickFilePaths()
             if (paths.isNotEmpty()) {
                 try {
                     val maxFileSizeBytes = AppConfig.indexing.maxFileBytes

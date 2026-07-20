@@ -1045,7 +1045,6 @@ fun chatView(
                 }
 
                 // Download attachment handler
-                val saveDialogTitle = stringResource("attachment.save.file")
                 val downloadAttachment: (FileAttachmentDTO) -> Unit = { attachment ->
                     scope.launch {
                         val nameWithoutExt = attachment.fileName.substringBeforeLast('.', attachment.fileName)
@@ -1053,7 +1052,6 @@ fun chatView(
                         val targetFile = FileDialogUtils.pickSavePath(
                             suggestedName = nameWithoutExt,
                             extension = ext,
-                            title = saveDialogTitle,
                         ) ?: return@launch
                         attachment.filePath?.let { filePath ->
                             val sourceFile = File(filePath)

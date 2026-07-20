@@ -658,7 +658,6 @@ private fun downloadDiagramAsPng(imageData: ByteArray, log: Logger) {
         val file = FileDialogUtils.pickSavePath(
             suggestedName = "mermaid-diagram",
             extension = "png",
-            title = "Save Diagram",
         ) ?: return@runBlocking
         try {
             file.writeBytes(imageData)
