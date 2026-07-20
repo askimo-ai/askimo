@@ -6,7 +6,6 @@ package io.askimo.core.providers
 
 import dev.langchain4j.agent.tool.ToolExecutionRequest
 import dev.langchain4j.data.message.ToolExecutionResultMessage
-import io.askimo.core.logging.displayError
 import io.askimo.core.logging.logger
 import io.askimo.core.util.appJson
 import io.askimo.core.util.httpGet
@@ -39,16 +38,13 @@ object ProviderModelUtils {
         url: String,
         providerName: ModelProvider,
         httpVersion: HttpClient.Version = HttpClient.Version.HTTP_2,
-    ): List<String> = try {
+    ): List<String> {
         val (_, body) = httpGet(url, headers = mapOf("Authorization" to "Bearer $apiKey"), httpVersion = httpVersion)
         val jsonElement = appJson.parseToJsonElement(body)
         val data = jsonElement.jsonObject["data"]?.jsonArray.orEmpty()
-        data
+        return data
             .mapNotNull { it.jsonObject["id"]?.jsonPrimitive?.contentOrNull }
             .distinct()
             .sorted()
-    } catch (e: Exception) {
-        log.displayError("⚠️ Failed to fetch models from $providerName: ${e.message}", e)
-        emptyList()
     }
 }

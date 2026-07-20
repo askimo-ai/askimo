@@ -5,8 +5,11 @@
 package io.askimo.core.util
 
 import java.io.ByteArrayInputStream
+import java.io.IOException
+import java.net.ConnectException
 import java.net.URI
 import java.net.http.HttpClient
+import java.net.http.HttpConnectTimeoutException
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Duration
@@ -31,7 +34,7 @@ fun httpGet(
         .timeout(Duration.ofMillis(readTimeoutMs))
         .GET()
     headers.forEach { (k, v) -> requestBuilder.header(k, v) }
-    val response = client.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofByteArray())
+    val response = client.sendWithErrorHandling(requestBuilder.build(), url)
     val decompressedBody = decompressGzipIfNeeded(response.body(), response)
     return response.statusCode() to decompressedBody
 }
@@ -57,9 +60,28 @@ fun httpPost(
         .header("Content-Type", "application/json")
         .POST(HttpRequest.BodyPublishers.ofString(body))
     headers.forEach { (k, v) -> requestBuilder.header(k, v) }
-    val response = client.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofByteArray())
+    val response = client.sendWithErrorHandling(requestBuilder.build(), url)
     val decompressedBody = decompressGzipIfNeeded(response.body(), response)
     return response.statusCode() to decompressedBody
+}
+
+/**
+ * Sends an HTTP request and wraps any connection/IO errors with a descriptive message.
+ */
+private fun HttpClient.sendWithErrorHandling(
+    request: HttpRequest,
+    url: String,
+): HttpResponse<ByteArray> = try {
+    send(request, HttpResponse.BodyHandlers.ofByteArray())
+} catch (e: ConnectException) {
+    throw RuntimeException("Connection failed to $url: ${e.message}", e)
+} catch (e: HttpConnectTimeoutException) {
+    throw RuntimeException("Connect timeout to $url", e)
+} catch (e: IOException) {
+    throw RuntimeException("IO error for $url: ${e.message}", e)
+} catch (e: InterruptedException) {
+    Thread.currentThread().interrupt()
+    throw RuntimeException("Request interrupted for $url", e)
 }
 
 /**
