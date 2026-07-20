@@ -425,7 +425,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
         scope.launch {
             try {
                 val selectedPath = FileDialogUtils.pickFilePath(
-                    title = LocalizationManager.getString("backup.import.title"),
                     extensions = listOf("zip"),
                 ) ?: return@launch
 

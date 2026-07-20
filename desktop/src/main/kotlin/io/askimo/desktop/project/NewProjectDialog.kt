@@ -52,7 +52,6 @@ import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.Spacing
-import io.askimo.ui.common.ui.util.FileDialogUtils
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
@@ -92,8 +91,24 @@ fun newProjectDialog(
     // Retrieve string resources in composable scope
     val errorEmptyName = stringResource("project.new.dialog.error.empty.name")
     val errorCreateFailed = stringResource("project.new.dialog.error.create.failed")
-    val browseFolderTitle = stringResource("project.new.dialog.folder.browse")
     val browseFileTitle = stringResource("project.new.dialog.file.browse")
+
+    // Shared knowledge source browser helper
+    val sourceBrowser = remember(browseFileTitle) {
+        KnowledgeSourceBrowser(
+            browseFileTitle = browseFileTitle,
+        )
+    }
+
+    // Handle adding a source based on type
+    fun handleAddSource(typeInfo: KnowledgeSourceItem.TypeInfo) {
+        scope.launch {
+            val newSources = sourceBrowser.handleAddSource(typeInfo) {
+                showUrlInputDialog = true
+            }
+            knowledgeSources = knowledgeSources + newSources
+        }
+    }
 
     // Countdown and auto-dismiss when success is shown
     LaunchedEffect(showSuccess) {
@@ -104,41 +119,6 @@ fun newProjectDialog(
                 countdown--
             }
             onDismiss()
-        }
-    }
-
-    // Browse for folder
-    fun browseForFolder() {
-        scope.launch {
-            val folderPath = FileDialogUtils.pickFolderPath(browseFolderTitle) ?: return@launch
-            knowledgeSources = knowledgeSources + KnowledgeSourceItem.Folder(
-                id = UUID.randomUUID().toString(),
-                path = folderPath,
-                isValid = validateFolder(folderPath),
-            )
-        }
-    }
-
-    // Browse for files
-    fun browseForFiles() {
-        scope.launch {
-            val paths = FileDialogUtils.pickFilePaths(browseFileTitle)
-            paths.forEach { path ->
-                knowledgeSources = knowledgeSources + KnowledgeSourceItem.File(
-                    id = UUID.randomUUID().toString(),
-                    path = path,
-                    isValid = validateFile(path),
-                )
-            }
-        }
-    }
-
-    // Handle adding a source based on type
-    fun handleAddSource(typeInfo: KnowledgeSourceItem.TypeInfo) {
-        when (typeInfo) {
-            KnowledgeSourceItem.TypeInfo.FOLDER -> browseForFolder()
-            KnowledgeSourceItem.TypeInfo.FILE -> browseForFiles()
-            KnowledgeSourceItem.TypeInfo.URL -> showUrlInputDialog = true
         }
     }
 

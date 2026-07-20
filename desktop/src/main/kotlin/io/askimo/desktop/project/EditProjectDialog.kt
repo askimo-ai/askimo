@@ -195,20 +195,12 @@ private fun editProjectFormDialog(
     val focusRequester = remember { FocusRequester() }
 
     val emptyNameError = stringResource("project.new.dialog.name.error.empty")
-    val browseFolderTitle = stringResource("project.new.dialog.folder.browse")
     val browseFileTitle = stringResource("project.new.dialog.file.browse")
-    val folderApproveButtonText = stringResource("file.chooser.folder.select")
-    val folderNavigationHint = stringResource("file.chooser.folder.hint")
-    val fileApproveButtonText = stringResource("file.chooser.file.select")
 
     // Shared knowledge source browser helper
-    val sourceBrowser = remember(browseFolderTitle, browseFileTitle, folderApproveButtonText, folderNavigationHint, fileApproveButtonText) {
+    val sourceBrowser = remember(browseFileTitle) {
         KnowledgeSourceBrowser(
-            browseFolderTitle = browseFolderTitle,
             browseFileTitle = browseFileTitle,
-            folderApproveButtonText = folderApproveButtonText,
-            folderNavigationHint = folderNavigationHint,
-            fileApproveButtonText = fileApproveButtonText,
         )
     }
 

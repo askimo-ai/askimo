@@ -80,7 +80,6 @@ fun manageDirectivesDialog(
 
     val exportFilename = stringResource("directive.export.filename")
     val importErrorText = stringResource("directive.import.error")
-    val importDialogTitle = stringResource("directive.import")
 
     if (showNewDirectiveDialog) {
         newDirectiveDialog(
@@ -317,7 +316,6 @@ fun manageDirectivesDialog(
                             importError = false
                             scope.launch {
                                 val path = FileDialogUtils.pickFilePath(
-                                    title = importDialogTitle,
                                     extensions = listOf("json"),
                                 ) ?: return@launch
                                 try {

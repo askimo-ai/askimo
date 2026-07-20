@@ -4,15 +4,20 @@
  */
 package io.askimo.desktop.project
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -23,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -52,20 +58,12 @@ fun addReferenceMaterialDialog(
     var showUrlInputDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    val browseFolderTitle = stringResource("project.new.dialog.folder.browse")
     val browseFileTitle = stringResource("project.new.dialog.file.browse")
-    val folderApproveButtonText = stringResource("file.chooser.folder.select")
-    val folderNavigationHint = stringResource("file.chooser.folder.hint")
-    val fileApproveButtonText = stringResource("file.chooser.file.select")
 
     // Shared knowledge source browser helper
-    val sourceBrowser = remember(browseFolderTitle, browseFileTitle, folderApproveButtonText, folderNavigationHint, fileApproveButtonText) {
+    val sourceBrowser = remember(browseFileTitle) {
         KnowledgeSourceBrowser(
-            browseFolderTitle = browseFolderTitle,
             browseFileTitle = browseFileTitle,
-            folderApproveButtonText = folderApproveButtonText,
-            folderNavigationHint = folderNavigationHint,
-            fileApproveButtonText = fileApproveButtonText,
         )
     }
 
@@ -103,34 +101,44 @@ fun addReferenceMaterialDialog(
                     onClick = { showAddSourceMenu = true },
                     modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowDropDown,
-                        contentDescription = null,
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(Spacing.small))
                     Text(stringResource("projects.sources.add.button"))
+                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
                 }
 
                 AppComponents.dropdownMenu(
                     expanded = showAddSourceMenu,
                     onDismissRequest = { showAddSourceMenu = false },
                 ) {
-                    KnowledgeSourceItem.availableTypes.forEach { typeInfo ->
-                        DropdownMenuItem(
-                            text = { Text(stringResource(typeInfo.typeLabelKey)) },
-                            onClick = {
-                                handleAddSource(typeInfo)
-                                showAddSourceMenu = false
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = typeInfo.icon,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                )
-                            },
-                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                        )
+                    KnowledgeSourceItem.availableTypes.forEachIndexed { index, typeInfo ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    showAddSourceMenu = false
+                                    handleAddSource(typeInfo)
+                                }
+                                .pointerHoverIcon(PointerIcon.Hand)
+                                .padding(horizontal = Spacing.medium, vertical = Spacing.small),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                        ) {
+                            Icon(
+                                typeInfo.icon,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(20.dp),
+                            )
+                            Text(
+                                text = stringResource(typeInfo.typeLabelKey),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                        if (index < KnowledgeSourceItem.availableTypes.lastIndex) {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        }
                     }
                 }
             }

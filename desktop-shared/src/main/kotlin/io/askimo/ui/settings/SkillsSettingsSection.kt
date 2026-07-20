@@ -1758,7 +1758,6 @@ private fun importFromZipDialog(
 ) {
     val scope = rememberCoroutineScope()
     val importSuccessTemplate = stringResource("settings.skills.import.success.message")
-    val zipPickerTitle = stringResource("settings.skills.import.zip.picker.title")
     var selectedZipPath by remember { mutableStateOf<String?>(null) }
     var isImporting by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -1780,7 +1779,6 @@ private fun importFromZipDialog(
                             if (isImporting) return@launch
                             errorMessage = null
                             val path = FileDialogUtils.pickFilePath(
-                                title = zipPickerTitle,
                                 extensions = listOf("zip"),
                             ) ?: return@launch
                             selectedZipPath = path
