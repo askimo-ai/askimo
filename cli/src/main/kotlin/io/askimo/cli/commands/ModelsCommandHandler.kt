@@ -41,7 +41,13 @@ class ModelsCommandHandler(
         val instanceLabel = instance?.displayName ?: provider.name.lowercase()
 
         @Suppress("UNCHECKED_CAST")
-        val models = (factory as ChatModelFactory<ProviderSettings>).availableModels(settings)
+        val models = try {
+            (factory as ChatModelFactory<ProviderSettings>).availableModels(settings)
+        } catch (e: Exception) {
+            log.display("❌ No models available for '$instanceLabel'")
+            log.display("\n💡 ${factory.getNoModelsHelpText()}")
+            return
+        }
 
         if (models.isEmpty()) {
             log.display("❌ No models available for '$instanceLabel'")
