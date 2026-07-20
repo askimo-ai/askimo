@@ -7,19 +7,14 @@ package io.askimo.ui.mcp
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
@@ -27,11 +22,9 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,8 +38,6 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import io.askimo.core.mcp.McpServerDefinition
 import io.askimo.core.mcp.McpServerTemplateRegistry
 import io.askimo.ui.common.components.primaryButton
@@ -62,7 +53,6 @@ import io.askimo.ui.common.theme.Spacing
  * @param onManualSetup     Called when the user wants to configure a server from scratch.
  * @param onDismiss         Called when the dialog is closed without a selection.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun mcpServerCatalogDialog(
     onSelectTemplate: (McpServerDefinition) -> Unit,
@@ -88,146 +78,98 @@ fun mcpServerCatalogDialog(
             }
     }
 
-    Dialog(
+    AppComponents.scaffoldDialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        onCloseRequest = onDismiss,
+        width = 800.dp,
+        title = {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+                Text(
+                    text = stringResource("mcp.catalog.dialog.title"),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = stringResource("mcp.catalog.dialog.description"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        stickyHeader = {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text(stringResource("mcp.catalog.search.placeholder")) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                colors = AppComponents.outlinedTextFieldColors(),
+            )
+
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+            ) {
+                McpServerTemplateRegistry.CATEGORIES.forEach { cat ->
+                    FilterChip(
+                        selected = cat == selectedCategory,
+                        onClick = { selectedCategory = cat },
+                        label = { Text(cat, style = MaterialTheme.typography.labelSmall) },
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                    )
+                }
+            }
+        },
+        actions = {
+            secondaryButton(
+                onClick = onDismiss,
+                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+            ) {
+                Text(stringResource("mcp.catalog.action.cancel"))
+            }
+
+            Spacer(Modifier.weight(1f))
+
+            secondaryButton(
+                onClick = onManualSetup,
+                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+            ) {
+                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(Spacing.small))
+                Text(stringResource("mcp.catalog.action.manual"))
+            }
+        },
     ) {
-        Surface(
-            modifier = Modifier
-                .widthIn(min = 700.dp, max = 900.dp)
-                .heightIn(min = 700.dp, max = 900.dp),
-            shape = MaterialTheme.shapes.large,
-            tonalElevation = 8.dp,
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                // ── Header ────────────────────────────────────────────────────
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = Spacing.extraLarge, end = Spacing.extraLarge, top = Spacing.extraLarge, bottom = 0.dp),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.small),
-                ) {
-                    Text(
-                        text = stringResource("mcp.catalog.dialog.title"),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = stringResource("mcp.catalog.dialog.description"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.medium))
-
-                // ── Search + category filters ──────────────────────────────────
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.small),
-                ) {
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        placeholder = { Text(stringResource("mcp.catalog.search.placeholder")) },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        colors = AppComponents.outlinedTextFieldColors(),
-                    )
-
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-                    ) {
-                        McpServerTemplateRegistry.CATEGORIES.forEach { cat ->
-                            FilterChip(
-                                selected = cat == selectedCategory,
-                                onClick = { selectedCategory = cat },
-                                label = { Text(cat, style = MaterialTheme.typography.labelSmall) },
-                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                            )
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(Spacing.small))
-
-                // ── Template grid ─────────────────────────────────────────────
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp),
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.small),
-                    ) {
-                        if (visibleTemplates.isEmpty()) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    text = stringResource("mcp.catalog.search.empty"),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        } else {
-                            // Two-column layout
-                            visibleTemplates.chunked(2).forEach { row ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                                ) {
-                                    row.forEach { template ->
-                                        mcpTemplateCatalogCard(
-                                            template = template,
-                                            modifier = Modifier.weight(1f),
-                                            onSelect = { onSelectTemplate(template) },
-                                        )
-                                    }
-                                    // Pad the last row if odd number of cards
-                                    if (row.size == 1) Spacer(Modifier.weight(1f))
-                                }
-                            }
-                        }
-
-                        Spacer(Modifier.height(Spacing.small))
-                    }
-                }
-
-                // ── Footer ────────────────────────────────────────────────────
-                HorizontalDivider()
+        // ── Template grid ─────────────────────────────────────────────────────
+        if (visibleTemplates.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = stringResource("mcp.catalog.search.empty"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        } else {
+            // Two-column layout
+            visibleTemplates.chunked(2).forEach { row ->
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Spacing.extraLarge, vertical = Spacing.large),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                 ) {
-                    secondaryButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                    ) {
-                        Text(stringResource("mcp.catalog.action.cancel"))
+                    row.forEach { template ->
+                        mcpTemplateCatalogCard(
+                            template = template,
+                            modifier = Modifier.weight(1f),
+                            onSelect = { onSelectTemplate(template) },
+                        )
                     }
-
-                    secondaryButton(
-                        onClick = onManualSetup,
-                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                    ) {
-                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(Spacing.small))
-                        Text(stringResource("mcp.catalog.action.manual"))
-                    }
+                    // Pad the last row if odd number of cards
+                    if (row.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
         }

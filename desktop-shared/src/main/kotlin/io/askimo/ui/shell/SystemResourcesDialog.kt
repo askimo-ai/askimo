@@ -9,14 +9,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -30,11 +28,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.monitoring.SystemResourceMonitor
+import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.Spacing
 import org.koin.java.KoinJavaComponent.get
 
@@ -66,101 +63,79 @@ fun systemResourcesDialog(
         monitor.startMonitoring(intervalMillis = 1000)
     }
 
-    Dialog(
+    AppComponents.scaffoldDialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Surface(
-            modifier = Modifier.width(900.dp),
-            shape = MaterialTheme.shapes.large,
-            tonalElevation = 8.dp,
-        ) {
-            Column(modifier = Modifier.padding(Spacing.extraLarge)) {
-                // ── Header ──────────────────────────────────────────────────
-                Text(
-                    text = stringResource("system.diagnostics.title"),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.SemiBold,
+        onCloseRequest = onDismiss,
+        width = 900.dp,
+        title = {
+            Text(
+                text = stringResource("system.diagnostics.title"),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+        },
+        stickyHeader = {
+            // ── Resources section ────────────────────────────────────
+            Text(
+                text = stringResource("system.diagnostics.resources"),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.large),
+            ) {
+                resourceMetricCard(
+                    icon = {
+                        Icon(
+                            Icons.Default.Memory,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    label = stringResource("system.diagnostics.jvm.memory"),
+                    value = "$memoryUsage MB",
+                    modifier = Modifier.weight(1f),
                 )
-
-                Spacer(Modifier.height(Spacing.large))
-
-                // ── Resources section ────────────────────────────────────
-                Text(
-                    text = stringResource("system.diagnostics.resources"),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                resourceMetricCard(
+                    icon = {
+                        Icon(
+                            Icons.Default.Speed,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    label = stringResource("system.diagnostics.cpu.usage"),
+                    value = "%.1f%%".format(cpuUsage),
+                    modifier = Modifier.weight(1f),
                 )
-
-                Spacer(Modifier.height(Spacing.medium))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.large),
-                ) {
-                    resourceMetricCard(
-                        icon = {
-                            Icon(
-                                Icons.Default.Memory,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        },
-                        label = stringResource("system.diagnostics.jvm.memory"),
-                        value = "$memoryUsage MB",
-                        modifier = Modifier.weight(1f),
-                    )
-                    resourceMetricCard(
-                        icon = {
-                            Icon(
-                                Icons.Default.Speed,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        },
-                        label = stringResource("system.diagnostics.cpu.usage"),
-                        value = "%.1f%%".format(cpuUsage),
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-
-                Spacer(Modifier.height(Spacing.large))
-                HorizontalDivider()
-                Spacer(Modifier.height(Spacing.large))
-
-                // ── Telemetry section ────────────────────────────────────
-                Text(
-                    text = stringResource("system.diagnostics.telemetry"),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-
-                Spacer(Modifier.height(Spacing.small))
-
-                telemetryContent()
-
-                Spacer(Modifier.height(Spacing.large))
-
-                // ── Action buttons ────────────────────────────────────────
-                Row(
-                    modifier = Modifier.align(Alignment.End),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                ) {
-                    if (onExportTelemetry != null) {
-                        secondaryButton(onClick = onExportTelemetry) {
-                            Text(stringResource("telemetry.export.csv"))
-                        }
-                    }
-                    secondaryButton(onClick = onDismiss) {
-                        Text(stringResource("action.close"))
-                    }
-                }
             }
-        }
+        },
+        actions = {
+            if (onExportTelemetry != null) {
+                secondaryButton(onClick = onExportTelemetry) {
+                    Text(stringResource("telemetry.export.csv"))
+                }
+                Spacer(Modifier.width(Spacing.small))
+            }
+            secondaryButton(onClick = onDismiss) {
+                Text(stringResource("action.close"))
+            }
+        },
+    ) {
+        // ── Telemetry section ────────────────────────────────────
+        Text(
+            text = stringResource("system.diagnostics.telemetry"),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+
+        telemetryContent()
     }
 }
 

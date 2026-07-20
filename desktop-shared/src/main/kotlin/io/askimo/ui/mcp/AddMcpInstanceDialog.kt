@@ -7,17 +7,13 @@ package io.askimo.ui.mcp
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -31,7 +27,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SecondaryTabRow
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,7 +41,6 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import dev.langchain4j.agent.tool.ToolSpecification
 import io.askimo.core.mcp.HttpConfig
@@ -351,342 +345,299 @@ fun addMcpInstanceDialog(
         }
     }
 
-    Dialog(
+    AppComponents.scaffoldDialog(
         onDismissRequest = { /* modal: do not dismiss on outside click */ },
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        properties = DialogProperties(dismissOnClickOutside = false, dismissOnBackPress = false),
+        onCloseRequest = onDismiss,
+        width = 800.dp,
+        title = {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+                Text(
+                    text = stringResource(
+                        if (existingInstance != null) {
+                            "mcp.instance.edit.dialog.title"
+                        } else {
+                            "mcp.instance.add.dialog.title"
+                        },
+                    ),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = stringResource(
+                        if (existingInstance != null) {
+                            "mcp.instance.edit.dialog.description"
+                        } else {
+                            "mcp.instance.add.dialog.description"
+                        },
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        stickyHeader = {
+            OutlinedTextField(
+                value = instanceName,
+                onValueChange = { instanceName = it },
+                label = { Text(stringResource("mcp.instance.name")) },
+                placeholder = { Text(stringResource("mcp.instance.name.placeholder")) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                colors = AppComponents.outlinedTextFieldColors(),
+            )
+
+            OutlinedTextField(
+                value = description,
+                onValueChange = { description = it },
+                label = { Text(stringResource("mcp.instance.field.description")) },
+                placeholder = { Text(stringResource("mcp.instance.field.description.placeholder")) },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                maxLines = 3,
+                colors = AppComponents.outlinedTextFieldColors(),
+            )
+        },
+        actions = {
+            secondaryButton(onClick = onDismiss) {
+                Text(stringResource("dialog.cancel"))
+            }
+            Spacer(Modifier.width(Spacing.small))
+            secondaryButton(
+                onClick = {
+                    dialogState.clearError()
+                    isTesting = true
+                    scope.launch {
+                        try {
+                            testConnection()
+                                .onSuccess {
+                                    testSuccess = true
+                                }
+                                .onFailure { e ->
+                                    testSuccess = false
+                                    dialogState.setError(e, "Failed to connect to MCP server. Check your configuration.")
+                                }
+                        } catch (e: Exception) {
+                            testSuccess = false
+                            dialogState.setError(e, "Connection test failed")
+                        } finally {
+                            isTesting = false
+                        }
+                    }
+                },
+            ) {
+                Text(stringResource("mcp.instance.test.connection"))
+            }
+            Spacer(Modifier.width(Spacing.small))
+            primaryButton(
+                onClick = {
+                    dialogState.clearError()
+                    isTesting = true
+                    scope.launch {
+                        try {
+                            testConnection()
+                                .onSuccess { serverId ->
+                                    testSuccess = true
+                                    // Connection successful, save permanently with protected secrets
+                                    val serverDef = buildServerDefinition(serverId)
+                                    val (protectedDef, _) = ServerDefinitionSecretManager.protectSecrets(serverDef)
+                                    McpServersConfig.add(protectedDef)
+                                    onSave(serverId, instanceName, emptyMap())
+                                }
+                                .onFailure { e ->
+                                    testSuccess = false
+                                    dialogState.setError(e, "Failed to connect to MCP server. Check your configuration.")
+                                }
+                        } catch (e: Exception) {
+                            testSuccess = false
+                            dialogState.setError(e, "Failed to save MCP instance")
+                        } finally {
+                            isTesting = false
+                        }
+                    }
+                },
+            ) {
+                Text(stringResource("action.save"))
+            }
+        },
     ) {
-        Surface(
-            modifier = Modifier
-                .width(800.dp)
-                .heightIn(min = 600.dp, max = 800.dp),
-            shape = MaterialTheme.shapes.large,
-            tonalElevation = 8.dp,
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
+        if (isTemplateMode) {
+            // ── Toggle row (always visible in template mode) ───────────────
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showAdvanced = !showAdvanced }
+                    .pointerHoverIcon(PointerIcon.Hand)
+                    .padding(vertical = Spacing.extraSmall),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.End,
+            ) {
+                Text(
+                    text = stringResource(
+                        if (showAdvanced) {
+                            "mcp.instance.template.advanced.hide"
+                        } else {
+                            "mcp.instance.template.advanced.show"
+                        },
+                    ),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Icon(
+                    imageVector = if (showAdvanced) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+
+            if (!showAdvanced) {
+                // ── Simple view: labeled parameter fields ─────────────────
+                templateParameterFields(
+                    template = templateDefinition,
+                    paramValues = templateParamValues.value,
+                    onParamChange = { key, value ->
+                        templateParamValues.value += (key to value)
+                    },
+                )
+            } else {
+                // ── Advanced view: full manual dialog fields ──────────────
+                advancedTransportFields(
+                    selectedTab = selectedTab,
+                    onTabChange = { selectedTab = it },
+                    command = command, onCommandChange = { command = it },
+                    args = args, onArgsChange = { args = it },
+                    workingDir = workingDir, onWorkingDirChange = { workingDir = it },
+                    envVars = envVars, onEnvVarsChange = { envVars = it },
+                    url = url, onUrlChange = { url = it },
+                    headers = headers, onHeadersChange = { headers = it },
+                    timeoutMs = timeoutMs, onTimeoutMsChange = { timeoutMs = it },
+                )
+            }
+        } else {
+            advancedTransportFields(
+                selectedTab = selectedTab,
+                onTabChange = { selectedTab = it },
+                command = command, onCommandChange = { command = it },
+                args = args, onArgsChange = { args = it },
+                workingDir = workingDir, onWorkingDirChange = { workingDir = it },
+                envVars = envVars, onEnvVarsChange = { envVars = it },
+                url = url, onUrlChange = { url = it },
+                headers = headers, onHeadersChange = { headers = it },
+                timeoutMs = timeoutMs, onTimeoutMsChange = { timeoutMs = it },
+            )
+        }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.medium))
+
+        // Connection Status Section
+        Text(
+            text = stringResource("mcp.instance.connection.status"),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+
+        Text(
+            text = stringResource("mcp.instance.connection.info"),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        // Show test result
+        testSuccess?.let { success ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                modifier = Modifier.padding(vertical = Spacing.small),
+            ) {
+                Text(
+                    text = if (success) "✅" else "❌",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = stringResource(
+                        if (success) {
+                            "mcp.instance.test.success"
+                        } else {
+                            "mcp.instance.test.failed"
+                        },
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (success) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+        }
+
+        // Display available tools — no nested scroll; the scaffold dialog scrollbar handles it
+        if (availableTools.isNotEmpty()) {
+            HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.medium))
+
+            Text(
+                text = stringResource("mcp.instance.tools.title"),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+
+            Text(
+                text = stringResource("mcp.instance.tools.count", availableTools.size.toString()),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = Spacing.small),
+            )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                ),
+            ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 24.dp, end = 32.dp, top = 24.dp, bottom = 0.dp),
+                        .padding(Spacing.medium),
                     verticalArrangement = Arrangement.spacedBy(Spacing.small),
                 ) {
-                    Text(
-                        text = stringResource(
-                            if (existingInstance != null) {
-                                "mcp.instance.edit.dialog.title"
-                            } else {
-                                "mcp.instance.add.dialog.title"
-                            },
-                        ),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = stringResource(
-                            if (existingInstance != null) {
-                                "mcp.instance.edit.dialog.description"
-                            } else {
-                                "mcp.instance.add.dialog.description"
-                            },
-                        ),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.medium))
-
-                // Scrollable content
-                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                    val scrollState = rememberScrollState()
-
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 24.dp, end = 32.dp, top = 0.dp, bottom = 16.dp)
-                            .verticalScroll(scrollState),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.large),
-                    ) {
-                        // Instance Name
-                        OutlinedTextField(
-                            value = instanceName,
-                            onValueChange = { instanceName = it },
-                            label = { Text(stringResource("mcp.instance.name")) },
-                            placeholder = { Text(stringResource("mcp.instance.name.placeholder")) },
+                    availableTools.forEach { toolSpec ->
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            colors = AppComponents.outlinedTextFieldColors(),
-                        )
-
-                        // Description (optional)
-                        OutlinedTextField(
-                            value = description,
-                            onValueChange = { description = it },
-                            label = { Text(stringResource("mcp.instance.field.description")) },
-                            placeholder = { Text(stringResource("mcp.instance.field.description.placeholder")) },
-                            modifier = Modifier.fillMaxWidth(),
-                            minLines = 2,
-                            maxLines = 3,
-                            colors = AppComponents.outlinedTextFieldColors(),
-                        )
-
-                        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.small))
-
-                        if (isTemplateMode) {
-                            // ── Toggle row (always visible in template mode) ───────────────
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { showAdvanced = !showAdvanced }
-                                    .pointerHoverIcon(PointerIcon.Hand)
-                                    .padding(vertical = Spacing.extraSmall),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.End,
-                            ) {
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = stringResource(
-                                        if (showAdvanced) {
-                                            "mcp.instance.template.advanced.hide"
-                                        } else {
-                                            "mcp.instance.template.advanced.show"
-                                        },
-                                    ),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Icon(
-                                    imageVector = if (showAdvanced) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(16.dp),
-                                )
-                            }
-
-                            if (!showAdvanced) {
-                                // ── Simple view: labeled parameter fields ─────────────────
-                                templateParameterFields(
-                                    template = templateDefinition,
-                                    paramValues = templateParamValues.value,
-                                    onParamChange = { key, value ->
-                                        templateParamValues.value += (key to value)
-                                    },
-                                )
-                            } else {
-                                // ── Advanced view: full manual dialog fields ──────────────
-                                advancedTransportFields(
-                                    selectedTab = selectedTab,
-                                    onTabChange = { selectedTab = it },
-                                    command = command, onCommandChange = { command = it },
-                                    args = args, onArgsChange = { args = it },
-                                    workingDir = workingDir, onWorkingDirChange = { workingDir = it },
-                                    envVars = envVars, onEnvVarsChange = { envVars = it },
-                                    url = url, onUrlChange = { url = it },
-                                    headers = headers, onHeadersChange = { headers = it },
-                                    timeoutMs = timeoutMs, onTimeoutMsChange = { timeoutMs = it },
-                                )
-                            }
-                        } else {
-                            advancedTransportFields(
-                                selectedTab = selectedTab,
-                                onTabChange = { selectedTab = it },
-                                command = command, onCommandChange = { command = it },
-                                args = args, onArgsChange = { args = it },
-                                workingDir = workingDir, onWorkingDirChange = { workingDir = it },
-                                envVars = envVars, onEnvVarsChange = { envVars = it },
-                                url = url, onUrlChange = { url = it },
-                                headers = headers, onHeadersChange = { headers = it },
-                                timeoutMs = timeoutMs, onTimeoutMsChange = { timeoutMs = it },
-                            )
-                        }
-
-                        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.medium))
-
-                        // Connection Status Section
-                        Text(
-                            text = stringResource("mcp.instance.connection.status"),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-
-                        Text(
-                            text = stringResource("mcp.instance.connection.info"),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-
-                        // Show test result
-                        testSuccess?.let { success ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                                modifier = Modifier.padding(vertical = Spacing.small),
-                            ) {
-                                Text(
-                                    text = if (success) "✅" else "❌",
+                                    text = toolSpec.name(),
                                     style = MaterialTheme.typography.bodyMedium,
-                                )
-                                Text(
-                                    text = stringResource(
-                                        if (success) {
-                                            "mcp.instance.test.success"
-                                        } else {
-                                            "mcp.instance.test.failed"
-                                        },
-                                    ),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = if (success) {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    } else {
-                                        MaterialTheme.colorScheme.error
-                                    },
                                     fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                 )
-                            }
-                        }
-
-                        // Display available tools
-                        if (availableTools.isNotEmpty()) {
-                            HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.medium))
-
-                            Text(
-                                text = stringResource("mcp.instance.tools.title"),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-
-                            Text(
-                                text = stringResource("mcp.instance.tools.count", availableTools.size.toString()),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(vertical = Spacing.small),
-                            )
-
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                                ),
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(Spacing.medium)
-                                        .heightIn(max = 200.dp)
-                                        .verticalScroll(rememberScrollState()),
-                                    verticalArrangement = Arrangement.spacedBy(Spacing.small),
-                                ) {
-                                    availableTools.forEach { toolSpec ->
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            Column(modifier = Modifier.weight(1f)) {
-                                                Text(
-                                                    text = toolSpec.name(),
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    fontWeight = FontWeight.Medium,
-                                                    color = MaterialTheme.colorScheme.onSurface,
-                                                )
-                                                toolSpec.description()?.let { desc ->
-                                                    Text(
-                                                        text = desc,
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    )
-                                                }
-                                            }
-                                        }
-                                        if (toolSpec != availableTools.last()) {
-                                            HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.extraSmall))
-                                        }
-                                    }
+                                toolSpec.description()?.let { desc ->
+                                    Text(
+                                        text = desc,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
                                 }
                             }
                         }
-
-                        // Show error message if any
-                        dialogState.errorMessage?.let { error ->
-                            inlineErrorMessage(errorMessage = error)
+                        if (toolSpec != availableTools.last()) {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.extraSmall))
                         }
-                    }
-                }
-
-                // Action buttons (pinned at bottom)
-                HorizontalDivider()
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 16.dp),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    secondaryButton(
-                        onClick = onDismiss,
-                    ) {
-                        Text(stringResource("dialog.cancel"))
-                    }
-                    Spacer(Modifier.width(Spacing.small))
-                    secondaryButton(
-                        onClick = {
-                            dialogState.clearError()
-                            isTesting = true
-                            scope.launch {
-                                try {
-                                    testConnection()
-                                        .onSuccess {
-                                            testSuccess = true
-                                        }
-                                        .onFailure { e ->
-                                            testSuccess = false
-                                            dialogState.setError(e, "Failed to connect to MCP server. Check your configuration.")
-                                        }
-                                } catch (e: Exception) {
-                                    testSuccess = false
-                                    dialogState.setError(e, "Connection test failed")
-                                } finally {
-                                    isTesting = false
-                                }
-                            }
-                        },
-                    ) {
-                        Text(stringResource("mcp.instance.test.connection"))
-                    }
-                    Spacer(Modifier.width(Spacing.small))
-                    primaryButton(
-                        onClick = {
-                            dialogState.clearError()
-                            isTesting = true
-                            scope.launch {
-                                try {
-                                    testConnection()
-                                        .onSuccess { serverId ->
-                                            testSuccess = true
-                                            // Connection successful, save permanently with protected secrets
-                                            val serverDef = buildServerDefinition(serverId)
-                                            val (protectedDef, _) = ServerDefinitionSecretManager.protectSecrets(serverDef)
-                                            McpServersConfig.add(protectedDef)
-                                            onSave(serverId, instanceName, emptyMap())
-                                        }
-                                        .onFailure { e ->
-                                            testSuccess = false
-                                            dialogState.setError(e, "Failed to connect to MCP server. Check your configuration.")
-                                        }
-                                } catch (e: Exception) {
-                                    testSuccess = false
-                                    dialogState.setError(e, "Failed to save MCP instance")
-                                } finally {
-                                    isTesting = false
-                                }
-                            }
-                        },
-                    ) {
-                        Text(stringResource("action.save"))
                     }
                 }
             }
+        }
+
+        // Show error message if any
+        dialogState.errorMessage?.let { error ->
+            inlineErrorMessage(errorMessage = error)
         }
     }
 }
