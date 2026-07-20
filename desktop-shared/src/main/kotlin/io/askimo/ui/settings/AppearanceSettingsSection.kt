@@ -336,7 +336,7 @@ fun appearanceSettingsSection() {
                     )
                 }
 
-                // AI Avatar Section
+                // AI Avatar Sectattion
                 aiAvatarSettingsSection()
 
                 // Display Scale Section — macOS manages its own HiDPI scaling; skip on Mac
@@ -1168,6 +1168,36 @@ private fun uiScaleSection() {
                     text = stringResource("settings.ui.scale.restart.notice"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
+                )
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+            ) {
+                Icon(
+                    Icons.Default.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp),
+                )
+                Text(
+                    text = buildAnnotatedString {
+                        withLink(
+                            LinkAnnotation.Url(
+                                url = "https://askimo.chat/docs/desktop/hidpi/",
+                                styles = TextLinkStyles(
+                                    style = SpanStyle(
+                                        color = MaterialTheme.colorScheme.primary,
+                                        textDecoration = TextDecoration.Underline,
+                                    ),
+                                ),
+                            ),
+                        ) {
+                            append(stringResource("settings.ui.scale.learn.more"))
+                        }
+                    },
+                    style = MaterialTheme.typography.bodySmall,
                 )
             }
         }
