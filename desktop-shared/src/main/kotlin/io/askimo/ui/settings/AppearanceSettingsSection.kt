@@ -165,6 +165,11 @@ private val accentPresets = listOf(
     AccentPreset(label = "Indigo", hex = "#818CF8", color = Color(0xFF818CF8)),
 )
 
+private val dropdownCompactMinWidth = 140.dp
+private val dropdownCompactMaxWidth = 240.dp
+private val dropdownRegularMinWidth = 180.dp
+private val dropdownRegularMaxWidth = 320.dp
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun appearanceSettingsSection() {
@@ -1069,11 +1074,12 @@ private fun backgroundImageCustomOption(
 
 @Composable
 private fun uiScaleSection() {
-    data class ScaleOption(val label: String, val value: Float)
+    data class ScaleOption(val label: String, val value: Float?)
+    val systemDefaultLabel = stringResource("settings.ui.scale.option.system.default")
 
     // Linux (X11/XRender) only honours integer UI-scale values; fractional values are
     // silently rounded to 1 by Java2D, so we only expose options that actually work.
-    val scaleOptions = if (Platform.isLinux) {
+    val numericScaleOptions = if (Platform.isLinux) {
         listOf(
             ScaleOption("100%", 1.0f),
             ScaleOption("200%", 2.0f),
@@ -1089,12 +1095,17 @@ private fun uiScaleSection() {
             ScaleOption("200%", 2.0f),
         )
     }
+    val scaleOptions = listOf(ScaleOption(systemDefaultLabel, null)) + numericScaleOptions
 
-    var currentScale by remember { mutableStateOf(AccountPreferences.device().getUiScale() ?: 1.0f) }
+    var currentScale by remember { mutableStateOf(AccountPreferences.device().getUiScale()) }
     var dropdownExpanded by remember { mutableStateOf(false) }
     var showRestartNotice by remember { mutableStateOf(false) }
 
-    val selectedOption = scaleOptions.minByOrNull { kotlin.math.abs(it.value - currentScale) }
+    val selectedOption =
+        scaleOptions.firstOrNull { it.value == currentScale } ?: run {
+            val scale = currentScale ?: 1.0f
+            numericScaleOptions.minByOrNull { option -> kotlin.math.abs((option.value ?: 1.0f) - scale) }
+        }
 
     Text(
         text = stringResource("settings.ui.scale.title"),
@@ -1119,7 +1130,7 @@ private fun uiScaleSection() {
                     modifier = Modifier.weight(1f).padding(end = Spacing.large),
                 )
 
-                Box(modifier = Modifier.widthIn(min = 100.dp, max = 160.dp)) {
+                Box(modifier = Modifier.widthIn(min = dropdownCompactMinWidth, max = dropdownCompactMaxWidth)) {
                     Card(
                         modifier = Modifier.fillMaxWidth().clickableCard { dropdownExpanded = true },
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -1130,9 +1141,12 @@ private fun uiScaleSection() {
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                text = selectedOption?.label ?: "${currentScale * 100}%",
+                                text = selectedOption?.label ?: currentScale?.let { "${it * 100}%" } ?: systemDefaultLabel,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f).padding(end = Spacing.small),
                             )
                             Icon(
                                 Icons.Default.Edit,
@@ -1283,7 +1297,7 @@ private fun languageSelectionCard() {
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.weight(1f).padding(end = Spacing.large),
                 )
-                Box(modifier = Modifier.widthIn(min = 160.dp, max = 280.dp)) {
+                Box(modifier = Modifier.widthIn(min = dropdownRegularMinWidth, max = dropdownRegularMaxWidth)) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1303,6 +1317,9 @@ private fun languageSelectionCard() {
                                 text = availableLanguages[currentLocale] ?: currentLocale.displayName,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f).padding(end = Spacing.small),
                             )
                             Icon(
                                 Icons.Default.Edit,
@@ -1393,7 +1410,7 @@ private fun preferredAIResponseLanguageField(availableLanguages: Map<Locale, Str
                     )
                 }
             }
-            Box(modifier = Modifier.widthIn(min = 160.dp, max = 280.dp)) {
+            Box(modifier = Modifier.widthIn(min = dropdownRegularMinWidth, max = dropdownRegularMaxWidth)) {
                 val aiLangDisplayText = if (currentAILocale == null) {
                     stringResource("settings.ai.response.language.auto")
                 } else {
@@ -1506,7 +1523,7 @@ private fun fontSettingsCard() {
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.weight(1f).padding(end = Spacing.large),
                 )
-                Box(modifier = Modifier.widthIn(min = 120.dp, max = 200.dp)) {
+                Box(modifier = Modifier.widthIn(min = dropdownCompactMinWidth, max = dropdownCompactMaxWidth)) {
                     Card(
                         modifier = Modifier.fillMaxWidth().clickableCard { fontSizeDropdownExpanded = true },
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -1516,7 +1533,14 @@ private fun fontSettingsCard() {
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(currentFontSettings.fontSize.displayName, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                            Text(
+                                currentFontSettings.fontSize.displayName,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f).padding(end = Spacing.small),
+                            )
                             Icon(Icons.Default.Edit, contentDescription = "Change size", tint = MaterialTheme.colorScheme.onSurface)
                         }
                     }
@@ -1547,7 +1571,7 @@ private fun fontSettingsCard() {
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.weight(1f).padding(end = Spacing.large),
                 )
-                Box(modifier = Modifier.widthIn(min = 120.dp, max = 200.dp)) {
+                Box(modifier = Modifier.widthIn(min = dropdownCompactMinWidth, max = dropdownCompactMaxWidth)) {
                     Card(
                         modifier = Modifier.fillMaxWidth().clickableCard { lineSpacingDropdownExpanded = true },
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -1557,7 +1581,14 @@ private fun fontSettingsCard() {
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(currentFontSettings.lineSpacing.displayName, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                            Text(
+                                currentFontSettings.lineSpacing.displayName,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f).padding(end = Spacing.small),
+                            )
                             Icon(Icons.Default.Edit, contentDescription = "Change line spacing", tint = MaterialTheme.colorScheme.onSurface)
                         }
                     }
@@ -1600,7 +1631,7 @@ private fun fontFamilySelector(
             color = MaterialTheme.colorScheme.onSecondaryContainer,
             modifier = Modifier.weight(1f).padding(end = Spacing.large),
         )
-        Box(modifier = Modifier.widthIn(min = 160.dp, max = 260.dp)) {
+        Box(modifier = Modifier.widthIn(min = dropdownRegularMinWidth, max = dropdownRegularMaxWidth)) {
             Card(
                 modifier = Modifier.fillMaxWidth().clickableCard { dropdownExpanded = true },
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -1610,7 +1641,14 @@ private fun fontFamilySelector(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(selectedFontFamily, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                    Text(
+                        selectedFontFamily,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f).padding(end = Spacing.small),
+                    )
                     Icon(Icons.Default.Edit, contentDescription = "Change font", tint = MaterialTheme.colorScheme.onSurface)
                 }
             }

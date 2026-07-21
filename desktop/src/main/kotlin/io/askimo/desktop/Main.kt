@@ -178,6 +178,7 @@ import org.koin.core.parameter.parametersOf
 import java.awt.Cursor
 import java.awt.Desktop
 import java.awt.GraphicsEnvironment
+import java.awt.Toolkit
 import java.net.URI
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -190,21 +191,47 @@ import kotlin.time.Duration.Companion.milliseconds
 
 private val log = currentFileLogger()
 
-fun main() {
+fun main(args: Array<String>) {
+    AskimoHome.register(PersonalAskimoHome)
+
+    // Reconfigure the FILE log appender to use the resolved Askimo home path.
+    // logback.xml cannot reliably resolve ASKIMO_HOME at parse time (before JVM startup),
+    // so we redirect the appender programmatically here, after AskimoHome is registered.
+    LogbackConfigurator.configureLogDirectory(AskimoHome.base().resolve("logs"))
+
     // UI scale is user-controlled via preferences.
+    // Explicit JVM flags (-Dsun.java2d.uiScale, -Dskiko.uiScale) take precedence; otherwise fall
+    // back to the saved user preference, then the Linux HiDPI auto-detector.
     val explicitSun = System.getProperty("sun.java2d.uiScale")?.toFloatOrNull()
     val explicitSkiko = System.getProperty("skiko.uiScale")?.toFloatOrNull()
     val savedScale = AccountPreferences.device().getUiScale()
     val effectiveScale = explicitSun ?: explicitSkiko ?: savedScale
+
+    log.info(
+        "UI scale startup: os='{}', sun='{}', skiko='{}', saved='{}', effective='{}'",
+        System.getProperty("os.name"),
+        explicitSun,
+        explicitSkiko,
+        savedScale,
+        effectiveScale,
+    )
+
     if (effectiveScale != null) {
         val scaleText = effectiveScale.toString()
+        // Keep both Java2D and Skiko scale properties in sync.
         if (explicitSun == null) System.setProperty("sun.java2d.uiScale", scaleText)
         if (explicitSkiko == null) System.setProperty("skiko.uiScale", scaleText)
         System.setProperty("sun.java2d.uiScale.enabled", "true")
-        log.info("UI scale: {} (source={})", scaleText, if (explicitSun != null || explicitSkiko != null) "jvm" else "preferences")
+        val source = if (explicitSun != null || explicitSkiko != null) "jvm" else "preferences"
+        log.info("UI scale: {} (source={})", scaleText, source)
     } else if (System.getProperty("os.name")?.contains("Linux", ignoreCase = true) == true) {
         // No user preference or JVM flag set — auto-detect from environment/DRM on Linux.
         val decision = LinuxUiScaleResolver.resolve()
+        log.info(
+            "UI scale: no explicit/saved scale, linux resolver scale='{}', source='{}'",
+            decision.scale,
+            decision.source,
+        )
         if (decision.scale != 1.0f) {
             val scaleText = decision.scale.toString()
             System.setProperty("sun.java2d.uiScale", scaleText)
@@ -214,6 +241,11 @@ fun main() {
             log.info("Linux HiDPI: no scale hint detected (source={}); using platform default", decision.source)
         }
     }
+
+    // Force AWT to initialize NOW so it picks up the uiScale properties we just set.
+    // On Wayland/XWayland, AWT initializes lazily — if Skiko starts first it reads scale
+    // from the Wayland compositor and ignores our JVM properties.
+    runCatching { Toolkit.getDefaultToolkit() }
 
     // Apply software rendering flags BEFORE any Compose/Skia initialisation.
     // These properties have no effect once the JVM has started, so they must be
@@ -226,13 +258,6 @@ fun main() {
         System.setProperty("sun.java2d.opengl", "false")
         log.info("Hardware acceleration disabled — running in software rendering mode")
     }
-
-    AskimoHome.register(PersonalAskimoHome)
-
-    // Reconfigure the FILE log appender to use the resolved Askimo home path.
-    // logback.xml cannot reliably resolve ASKIMO_HOME at parse time (before JVM startup),
-    // so we redirect the appender programmatically here, after AskimoHome is registered.
-    LogbackConfigurator.configureLogDirectory(AskimoHome.base().resolve("logs"))
 
     AppContext.initialize(ExecutionMode.STATEFUL_TOOLS_MODE)
 
