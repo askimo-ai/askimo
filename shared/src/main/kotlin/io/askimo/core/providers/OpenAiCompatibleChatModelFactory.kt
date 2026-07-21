@@ -197,6 +197,12 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
             ModelCapabilitiesCache.setToolSupport(getProvider(), settings.defaultModel, supportsTools)
         }
 
+        // Probe image generation capability once — result is persisted in ModelCapabilitiesCache
+        if (!ModelCapabilitiesCache.hasTestedImageSupport(getProvider(), settings.defaultModel)) {
+            val supportsImage = probeImageCapability(getProvider(), settings.defaultModel, streamingModel)
+            ModelCapabilitiesCache.setImageSupport(getProvider(), settings.defaultModel, supportsImage)
+        }
+
         return AiServiceBuilder.buildChatClient(
             sessionId = sessionId,
             settings = settings,

@@ -86,6 +86,12 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
             ModelCapabilitiesCache.setToolSupport(GEMINI, settings.defaultModel, supportsTools)
         }
 
+        // Probe image generation capability once — result is persisted in ModelCapabilitiesCache
+        if (!ModelCapabilitiesCache.hasTestedImageSupport(GEMINI, settings.defaultModel)) {
+            val supportsImage = probeImageCapability(GEMINI, settings.defaultModel, streamingModel)
+            ModelCapabilitiesCache.setImageSupport(GEMINI, settings.defaultModel, supportsImage)
+        }
+
         return AiServiceBuilder.buildChatClient(
             sessionId = sessionId,
             settings = settings,

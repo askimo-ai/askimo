@@ -87,6 +87,12 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
             ModelCapabilitiesCache.setToolSupport(ANTHROPIC, settings.defaultModel, supportsTools)
         }
 
+        // Probe image generation capability once — result is persisted in ModelCapabilitiesCache
+        if (!ModelCapabilitiesCache.hasTestedImageSupport(ANTHROPIC, settings.defaultModel)) {
+            val supportsImage = probeImageCapability(ANTHROPIC, settings.defaultModel, streamingModel)
+            ModelCapabilitiesCache.setImageSupport(ANTHROPIC, settings.defaultModel, supportsImage)
+        }
+
         return AiServiceBuilder.buildChatClient(
             sessionId = sessionId,
             settings = settings,

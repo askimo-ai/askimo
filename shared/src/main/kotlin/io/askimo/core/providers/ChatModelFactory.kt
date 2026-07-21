@@ -17,6 +17,7 @@ import dev.langchain4j.service.tool.ToolProvider
 import io.askimo.core.context.ExecutionMode
 import io.askimo.tools.fs.LocalFsTools
 import org.slf4j.LoggerFactory
+import java.util.Base64
 
 /**
  * Factory interface for creating chat model instances for a specific AI provider.
@@ -222,6 +223,95 @@ interface ChatModelFactory<T : ProviderSettings> {
             } else {
                 log.warn("Error testing tool support for model '$modelName': ${e.message}. Assuming tools are NOT supported", e)
             }
+            false
+        }
+    }
+
+    /**
+     * Probes whether a model supports native image generation (in-chat).
+     * Tests by asking the chat model directly to generate an image.
+     *
+     * - Success: Model supports native image generation (multi-modal)
+     * - Failure: Model requires explicit toggle to image mode (DALL-E, Stable Diffusion, etc.)
+     *
+     * @param provider The model provider
+     * @param modelName The model name/identifier
+     * @param streamingChatModel The streaming model instance to probe
+     * @return true if model supports native image generation, false otherwise
+     */
+    fun probeImageCapability(
+        provider: ModelProvider,
+        modelName: String,
+        streamingChatModel: StreamingChatModel,
+    ): Boolean {
+        val log = LoggerFactory.getLogger(this::class.java)
+        return try {
+            val testClient = AiServices.builder(ChatClient::class.java)
+                .streamingChatModel(streamingChatModel)
+                .build()
+
+            // Ask for a strict data URI response so plain SVG/text does not pass.
+            val testPrompt =
+                "Generate a tiny 64x64 PNG image of a red circle on white background. " +
+                    "Return ONLY a single data URI in this exact format: data:image/png;base64,<base64>. " +
+                    "Do not return SVG, markdown, code blocks, or explanations."
+            val response = testClient.sendStreamingMessageWithCallback(null, UserMessage(testPrompt)).trim()
+
+            // Extract first data:image/*;base64,... token from raw or markdown text.
+            val dataUriRegex = Regex("""data:image/([a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=\r\n]+)""")
+            val match = dataUriRegex.find(response)
+            if (match == null) {
+                log.info(
+                    "Model '{}' on provider '{}' returned no valid image data URI in probe; treating as non-native image model",
+                    modelName,
+                    provider.providerKey(),
+                )
+                return false
+            }
+
+            val mimeSubtype = match.groupValues[1].lowercase()
+            val base64Payload = match.groupValues[2].replace("\n", "").replace("\r", "")
+            val decoded = try {
+                Base64.getDecoder().decode(base64Payload)
+            } catch (_: IllegalArgumentException) {
+                ByteArray(0)
+            }
+
+            fun startsWith(bytes: ByteArray, signature: IntArray): Boolean = bytes.size >= signature.size && signature.indices.all { i -> (bytes[i].toInt() and 0xFF) == signature[i] }
+
+            // Verify real binary image signatures to avoid text-only hallucinations.
+            val matchesSignature = when {
+                mimeSubtype.contains("png") -> startsWith(decoded, intArrayOf(0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A))
+
+                mimeSubtype.contains("jpeg") || mimeSubtype.contains("jpg") -> startsWith(decoded, intArrayOf(0xFF, 0xD8, 0xFF))
+
+                mimeSubtype.contains("gif") -> startsWith(decoded, intArrayOf(0x47, 0x49, 0x46, 0x38))
+
+                mimeSubtype.contains("webp") ->
+                    startsWith(decoded, intArrayOf(0x52, 0x49, 0x46, 0x46)) &&
+                        decoded.size >= 12 &&
+                        (decoded[8].toInt() and 0xFF) == 0x57 &&
+                        (decoded[9].toInt() and 0xFF) == 0x45 &&
+                        (decoded[10].toInt() and 0xFF) == 0x42 &&
+                        (decoded[11].toInt() and 0xFF) == 0x50
+
+                else -> false
+            }
+
+            if (matchesSignature) {
+                log.info("Model '{}' on provider '{}' supports native in-chat image generation", modelName, provider.providerKey())
+                true
+            } else {
+                log.info(
+                    "Model '{}' on provider '{}' returned non-image/invalid binary payload in probe; treating as non-native image model",
+                    modelName,
+                    provider.providerKey(),
+                )
+                false
+            }
+        } catch (e: Exception) {
+            // Any exception means model doesn't support native generation
+            log.debug("Model '{}' on provider '{}' does not support native image generation: {}", modelName, provider.providerKey(), e.message)
             false
         }
     }
