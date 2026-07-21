@@ -91,6 +91,7 @@ import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.error.AppErrorEvent
+import io.askimo.core.event.internal.ImageCapabilityDetectedEvent
 import io.askimo.core.event.internal.ReasoningEffortChangedEvent
 import io.askimo.core.event.internal.ThinkingSupportDetectedEvent
 import io.askimo.core.i18n.LocalizationManager
@@ -196,6 +197,36 @@ fun chatInputField(
                 event.model == currentModel
             ) {
                 supportsReasoning = event.supportsThinking
+            }
+        }
+    }
+
+    // Whether the current model supports native image generation (in-chat).
+    var supportsNativeImageGeneration by remember(resolvedProvider, currentModel) {
+        mutableStateOf(
+            if (resolvedProvider != null && currentModel.isNotBlank()) {
+                ModelCapabilitiesCache.supportsImage(resolvedProvider, currentModel)
+            } else {
+                false
+            },
+        )
+    }
+
+    val configuredImageModel = resolvedProvider?.let { provider ->
+        AppConfig.models[provider].imageModel
+    }.orEmpty()
+    val hasConfiguredImageModel = configuredImageModel.isNotBlank()
+    val providerNotSetLabel = stringResource("provider.not.set")
+    val missingImageModelTitle = stringResource("chat.image.model.missing.title")
+
+    // Listen for image capability probe results and update when it arrives for the active model.
+    LaunchedEffect(resolvedProvider, currentModel) {
+        EventBus.internalEvents.collect { event ->
+            if (event is ImageCapabilityDetectedEvent &&
+                event.provider == resolvedProvider &&
+                event.model == currentModel
+            ) {
+                supportsNativeImageGeneration = event.supportsNativeImage
             }
         }
     }
@@ -623,41 +654,55 @@ fun chatInputField(
 
                         Spacer(modifier = Modifier.width(2.dp))
 
-                        themedTooltip(
-                            text = stringResource("chat.create.image.menu"),
-                        ) {
-                            IconButton(
-                                onClick = {
-                                    creationMode = if (creationMode is CreationMode.Image) {
-                                        CreationMode.Chat
-                                    } else {
-                                        CreationMode.Image
-                                    }
-                                },
-                                enabled = !isLoading,
-                                colors = if (creationMode is CreationMode.Image) {
-                                    AppComponents.primaryIconButtonColors()
-                                } else {
-                                    IconButtonDefaults.iconButtonColors()
-                                },
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .pointerHoverIcon(PointerIcon.Hand),
+                        // Image button — only show if model requires explicit toggle mode
+                        // For multi-modal models (native image generation), hide this button
+                        if (!supportsNativeImageGeneration) {
+                            themedTooltip(
+                                text = stringResource("chat.create.image.menu"),
                             ) {
-                                Icon(
-                                    Icons.Default.Image,
-                                    contentDescription = stringResource("chat.create.image.menu"),
-                                    tint = if (creationMode is CreationMode.Image) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurface
+                                IconButton(
+                                    onClick = {
+                                        if (creationMode is CreationMode.Image) {
+                                            creationMode = CreationMode.Chat
+                                        } else if (!hasConfiguredImageModel) {
+                                            // Keep icon visible but prevent toggling into image mode
+                                            creationMode = CreationMode.Chat
+                                            val providerName = resolvedProvider?.name ?: providerNotSetLabel
+                                            EventBus.post(
+                                                AppErrorEvent(
+                                                    title = missingImageModelTitle,
+                                                    message = LocalizationManager.getString("chat.image.model.missing.message", providerName),
+                                                ),
+                                            )
+                                        } else {
+                                            creationMode = CreationMode.Image
+                                        }
                                     },
-                                    modifier = Modifier.size(16.dp),
-                                )
+                                    enabled = !isLoading,
+                                    colors = if (creationMode is CreationMode.Image) {
+                                        AppComponents.primaryIconButtonColors()
+                                    } else {
+                                        IconButtonDefaults.iconButtonColors()
+                                    },
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .pointerHoverIcon(PointerIcon.Hand),
+                                ) {
+                                    Icon(
+                                        Icons.Default.Image,
+                                        contentDescription = stringResource("chat.create.image.menu"),
+                                        tint = if (creationMode is CreationMode.Image) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurface
+                                        },
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                }
                             }
-                        }
 
-                        Spacer(modifier = Modifier.width(2.dp))
+                            Spacer(modifier = Modifier.width(2.dp))
+                        }
 
                         toolsIndicatorButton(
                             sessionId = sessionId,
@@ -670,8 +715,9 @@ fun chatInputField(
                             iconSize = 28.dp,
                         )
 
-                        // Image mode chip — contextually tied to the image toggle above
-                        if (creationMode is CreationMode.Image) {
+                        // Image mode chip — only show when user explicitly toggles to Image mode
+                        // and the model requires explicit toggle (not native image generation)
+                        if (creationMode is CreationMode.Image && !supportsNativeImageGeneration) {
                             Spacer(modifier = Modifier.width(4.dp))
                             Surface(
                                 shape = RoundedCornerShape(12.dp),

@@ -5,6 +5,7 @@
 package io.askimo.core.providers
 
 import io.askimo.core.event.EventBus
+import io.askimo.core.event.internal.ImageCapabilityDetectedEvent
 import io.askimo.core.event.internal.ThinkingSupportDetectedEvent
 import io.askimo.core.event.system.InvalidateCacheEvent
 import io.askimo.core.logging.logger
@@ -315,6 +316,53 @@ object ModelCapabilitiesCache {
     }
 
     /**
+     * Check if a model supports native image generation (in-chat).
+     * Returns false if not yet tested (null), indicating the client should test.
+     *
+     * @param provider The model provider
+     * @param model The model name/identifier
+     * @return true if native image generation supported, false if explicit toggle required OR not yet tested
+     */
+    fun supportsImage(provider: ModelProvider, model: String): Boolean {
+        val modelKey = modelKey(provider, model)
+        return get(modelKey).supportsImage ?: false // null means not tested yet, return false
+    }
+
+    /**
+     * Check if image support has been tested for a model.
+     *
+     * @param provider The model provider
+     * @param model The model name/identifier
+     * @return true if tested (value is true or false), false if not yet tested (null)
+     */
+    fun hasTestedImageSupport(provider: ModelProvider, model: String): Boolean {
+        val modelKey = modelKey(provider, model)
+        return get(modelKey).supportsImage != null
+    }
+
+    /**
+     * Update the cache with image generation support information.
+     * Typically called after probing:
+     * - Successfully generating image directly in model (supported = true)
+     * - Getting API error about unsupported generation (supported = false)
+     *
+     * @param provider The model provider
+     * @param model The model name/identifier
+     * @param supportsNativeImage true = native in-chat generation, false = requires explicit toggle
+     */
+    fun setImageSupport(provider: ModelProvider, model: String, supportsNativeImage: Boolean) {
+        if (model.isBlank()) {
+            log.warn("Cannot set image support for empty model name (provider: ${provider.providerKey()})")
+            return
+        }
+        val modelKey = modelKey(provider, model)
+        update(modelKey) { it.copy(supportsImage = supportsNativeImage) }
+        log.debug("Updated image support for $modelKey: $supportsNativeImage (native=$supportsNativeImage)")
+        // Broadcast so UI components (e.g. ChatInputField) can reactively update
+        EventBus.post(ImageCapabilityDetectedEvent(provider = provider, model = model, supportsNativeImage = supportsNativeImage))
+    }
+
+    /**
      * Get the reasoning effort level for a model.
      * Returns the cached reasoning level, or MEDIUM if not yet set.
      *
@@ -446,6 +494,7 @@ data class ModelCapabilities(
     val supportsStreaming: Boolean = true, // Non-nullable - always known
     val supportsSampling: Boolean = true, // Non-nullable - always known
     val supportsThinking: Boolean? = null, // null = not tested yet
+    val supportsImage: Boolean? = null, // null = not tested yet; true = native in-chat, false = explicit toggle
     val reasoningLevel: ReasoningEffort = ReasoningEffort.MEDIUM, // Default reasoning effort
     // For future extensibility
     val customAttributes: Map<String, String> = emptyMap(),
