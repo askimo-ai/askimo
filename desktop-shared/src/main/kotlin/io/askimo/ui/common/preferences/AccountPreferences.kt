@@ -5,17 +5,16 @@
 package io.askimo.ui.common.preferences
 
 import io.askimo.core.logging.logger
+import io.askimo.core.util.AskimoHome
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import java.util.prefs.Preferences
 
 /**
  * Per-account preferences scoped to a specific authenticated user.
  *
- * Stored under the Java Preferences path:
- *   `io/askimo/app/accounts/<accountId>/`
+ * Stored under `<AskimoHome>/prefs/accounts/<accountId>.properties`.
  *
  * Keeps sync cursors, default model, plan inputs, and user-behavior tracking
  * fully isolated between users on the same machine. These are NOT reset when
@@ -23,24 +22,21 @@ import java.util.prefs.Preferences
  *
  * Obtain via [AccountPreferences.forAccount].
  */
-class AccountPreferences private constructor(private val prefs: Preferences) {
+class AccountPreferences private constructor(private val prefs: PropertyFilePreferences) {
 
     companion object {
-        private const val ROOT_NODE = "io/askimo/app/accounts"
-
         private const val MINIMUM_DAYS_BEFORE_PROMPT = 7L
         private const val MINIMUM_MESSAGES_BEFORE_PROMPT = 20
         private const val SNOOZE_DAYS = 30L
 
         /**
          * Returns [AccountPreferences] scoped to [accountId] (typically the user's email,
-         * lowercased and sanitized for use as a Preferences path segment).
-         * Safe to call multiple times — Preferences nodes are singletons per path.
+         * lowercased and sanitized for use as a file name).
          */
         fun forAccount(accountId: String): AccountPreferences {
             val safeId = accountId.trim().lowercase()
                 .replace(Regex("[^a-z0-9._@-]"), "_")
-            return AccountPreferences(Preferences.userRoot().node("$ROOT_NODE/$safeId"))
+            return AccountPreferences(PropertyFilePreferences(AskimoHome.base().resolve("prefs/accounts/$safeId.properties")))
         }
 
         /**
@@ -48,7 +44,7 @@ class AccountPreferences private constructor(private val prefs: Preferences) {
          * that must persist even before the user logs in (e.g. first-use date,
          * launch count, analytics consent).
          */
-        fun device(): AccountPreferences = AccountPreferences(Preferences.userRoot().node("$ROOT_NODE/__device__"))
+        fun device(): AccountPreferences = AccountPreferences(PropertyFilePreferences(AskimoHome.base().resolve("prefs/accounts/__device__.properties")))
     }
 
     private val log = logger<AccountPreferences>()
@@ -61,26 +57,17 @@ class AccountPreferences private constructor(private val prefs: Preferences) {
         .onFailure { log.warn("AccountPreferences.get failed key='$key': ${it.message}") }
         .getOrDefault(default)
 
-    private fun safePutBoolean(key: String, value: Boolean) = runCatching { prefs.putBoolean(key, value) }
-        .onFailure { log.warn("AccountPreferences.putBoolean failed key='$key': ${it.message}") }
+    private fun safePutBoolean(key: String, value: Boolean) = safePut(key, value.toString())
 
-    private fun safeGetBoolean(key: String, default: Boolean): Boolean = runCatching { prefs.getBoolean(key, default) }
-        .onFailure { log.warn("AccountPreferences.getBoolean failed key='$key': ${it.message}") }
-        .getOrDefault(default)
+    private fun safeGetBoolean(key: String, default: Boolean): Boolean = safeGet(key, null)?.toBooleanStrictOrNull() ?: default
 
-    private fun safePutInt(key: String, value: Int) = runCatching { prefs.putInt(key, value) }
-        .onFailure { log.warn("AccountPreferences.putInt failed key='$key': ${it.message}") }
+    private fun safePutInt(key: String, value: Int) = safePut(key, value.toString())
 
-    private fun safeGetInt(key: String, default: Int): Int = runCatching { prefs.getInt(key, default) }
-        .onFailure { log.warn("AccountPreferences.getInt failed key='$key': ${it.message}") }
-        .getOrDefault(default)
+    private fun safeGetInt(key: String, default: Int): Int = safeGet(key, null)?.toIntOrNull() ?: default
 
-    private fun safePutLong(key: String, value: Long) = runCatching { prefs.putLong(key, value) }
-        .onFailure { log.warn("AccountPreferences.putLong failed key='$key': ${it.message}") }
+    private fun safePutLong(key: String, value: Long) = safePut(key, value.toString())
 
-    private fun safeGetLong(key: String, default: Long): Long = runCatching { prefs.getLong(key, default) }
-        .onFailure { log.warn("AccountPreferences.getLong failed key='$key': ${it.message}") }
-        .getOrDefault(default)
+    private fun safeGetLong(key: String, default: Long): Long = safeGet(key, null)?.toLongOrNull() ?: default
 
     // ── Conversation sync ─────────────────────────────────────────────────────
 
@@ -132,11 +119,7 @@ class AccountPreferences private constructor(private val prefs: Preferences) {
         }
         safePut(
             "plan.inputs.$planId",
-            if (raw.length > Preferences.MAX_VALUE_LENGTH) {
-                raw.substring(0, Preferences.MAX_VALUE_LENGTH)
-            } else {
-                raw
-            },
+            raw,
         )
     }
 
