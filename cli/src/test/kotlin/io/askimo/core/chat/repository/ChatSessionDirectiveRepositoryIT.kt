@@ -111,15 +111,23 @@ class ChatSessionDirectiveRepositoryIT {
             directiveId = legacyDirectiveId,
         )
         sessionRepository.upsertFromServer(listOf(session))
-        directiveRepository.save(ChatDirective(id = legacyDirectiveId, name = "Legacy", content = "Legacy"))
         val additional = directiveRepository.save(ChatDirective(name = "Additional", content = "Additional"))
 
         sessionRepository.setSessionDirectiveActive(session.id, additional.id, true)
 
-        assertEquals(
-            setOf(legacyDirectiveId, additional.id),
-            sessionRepository.getActiveDirectiveIds(session.id),
+        assertEquals(setOf(additional.id), sessionRepository.getActiveDirectiveIds(session.id))
+        assertEquals(legacyDirectiveId, sessionRepository.getSession(session.id)?.directiveId)
+
+        directiveRepository.upsertFromServer(
+            listOf(ChatDirective(id = legacyDirectiveId, name = "Legacy", content = "Legacy")),
         )
+
+        val expectedDirectiveIds = listOf(legacyDirectiveId, additional.id).sorted()
+        assertEquals(
+            expectedDirectiveIds,
+            sessionRepository.getActiveDirectiveIds(session.id).toList(),
+        )
+        assertEquals(expectedDirectiveIds.first(), sessionRepository.getSession(session.id)?.directiveId)
     }
 
     companion object {

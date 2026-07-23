@@ -294,6 +294,41 @@ class ChatDirectiveRepository internal constructor(
                     }
                 }
             }
+
+            reconcilePendingSessionRelations(ids)
+        }
+    }
+
+    /**
+     * Restore legacy session selections whose directives arrived after their sessions.
+     * The legacy column remains available while the directive is missing, allowing this
+     * reconciliation to preserve any relations the user activated in the meantime.
+     */
+    private fun reconcilePendingSessionRelations(directiveIds: List<String>) {
+        val pendingSessions = ChatSessionsTable
+            .selectAll()
+            .where { ChatSessionsTable.directiveId inList directiveIds }
+            .mapNotNull { row ->
+                row[ChatSessionsTable.directiveId]?.let { directiveId ->
+                    row[ChatSessionsTable.id] to directiveId
+                }
+            }
+
+        pendingSessions.forEach { (sessionId, legacyDirectiveId) ->
+            ChatSessionDirectivesTable.upsert {
+                it[ChatSessionDirectivesTable.sessionId] = sessionId
+                it[ChatSessionDirectivesTable.directiveId] = legacyDirectiveId
+            }
+
+            val projectedDirectiveId = ChatSessionDirectivesTable
+                .selectAll()
+                .where { ChatSessionDirectivesTable.sessionId eq sessionId }
+                .orderBy(ChatSessionDirectivesTable.directiveId, SortOrder.ASC)
+                .limit(1)
+                .single()[ChatSessionDirectivesTable.directiveId]
+            ChatSessionsTable.update({ ChatSessionsTable.id eq sessionId }) {
+                it[directiveId] = projectedDirectiveId
+            }
         }
     }
 

@@ -310,7 +310,7 @@ class ChatSessionRepository internal constructor(
         if (!sessionExists) {
             false
         } else {
-            populateRelationFromLegacyIfEmpty(sessionId)
+            val hasUnresolvedLegacyDirective = populateMissingRelationFromLegacy(sessionId)
             if (active) {
                 ChatSessionDirectivesTable.upsert {
                     it[ChatSessionDirectivesTable.sessionId] = sessionId
@@ -323,34 +323,53 @@ class ChatSessionRepository internal constructor(
                 }
             }
 
-            updateLegacyDirectiveProjection(sessionId)
+            if (hasUnresolvedLegacyDirective) {
+                // Keep the unresolved legacy ID until its directive arrives so it can
+                // still be migrated into the relation table. The toggle is still a
+                // local session change, so advance updatedAt without replacing it.
+                ChatSessionsTable.update({ ChatSessionsTable.id eq sessionId }) {
+                    it[updatedAt] = Instant.now()
+                }
+            } else {
+                updateLegacyDirectiveProjection(sessionId)
+            }
             true
         }
     }.also { if (it) EventBus.post(PushDataToServerEvent(reason = "session directives changed")) }
 
-    private fun populateRelationFromLegacyIfEmpty(sessionId: String) {
-        val hasRelations = ChatSessionDirectivesTable
-            .selectAll()
-            .where { ChatSessionDirectivesTable.sessionId eq sessionId }
-            .any()
-        if (hasRelations) return
-
+    /**
+     * Populate the legacy directive relation if it is missing.
+     *
+     * @return true when the legacy ID cannot be linked yet because its directive
+     * has not arrived locally. Callers must preserve that ID in chat_sessions.
+     */
+    private fun populateMissingRelationFromLegacy(sessionId: String): Boolean {
         val legacyDirectiveId = ChatSessionsTable
             .selectAll()
             .where { ChatSessionsTable.id eq sessionId }
             .singleOrNull()
             ?.get(ChatSessionsTable.directiveId)
-            ?: return
+            ?: return false
+        val alreadyLinked = ChatSessionDirectivesTable
+            .selectAll()
+            .where {
+                ChatSessionDirectivesTable.sessionId eq sessionId and
+                    (ChatSessionDirectivesTable.directiveId eq legacyDirectiveId)
+            }
+            .any()
+        if (alreadyLinked) return false
+
         val directiveExists = ChatDirectivesTable
             .selectAll()
             .where { ChatDirectivesTable.id eq legacyDirectiveId }
             .any()
-        if (directiveExists) {
-            ChatSessionDirectivesTable.insert {
-                it[ChatSessionDirectivesTable.sessionId] = sessionId
-                it[ChatSessionDirectivesTable.directiveId] = legacyDirectiveId
-            }
+        if (!directiveExists) return true
+
+        ChatSessionDirectivesTable.insert {
+            it[ChatSessionDirectivesTable.sessionId] = sessionId
+            it[ChatSessionDirectivesTable.directiveId] = legacyDirectiveId
         }
+        return false
     }
 
     private fun replaceSessionDirectivesInTransaction(sessionId: String, directiveIds: Set<String>): Boolean {
