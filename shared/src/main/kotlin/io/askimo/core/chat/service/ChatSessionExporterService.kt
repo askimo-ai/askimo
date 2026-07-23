@@ -308,6 +308,7 @@ class ChatSessionExporterService(
      */
     private fun writeJsonHeader(writer: BufferedWriter, session: ChatSession, activeDirectiveIds: Set<String>) {
         val sortedDirectiveIds = activeDirectiveIds.sorted()
+        val directiveIdJson = sortedDirectiveIds.firstOrNull()?.let { "\"${escapeJson(it)}\"" } ?: "null"
         val directiveIdsJson = sortedDirectiveIds.joinToString(", ") { "\"${escapeJson(it)}\"" }
         writer.apply {
             appendLine("{")
@@ -315,7 +316,7 @@ class ChatSessionExporterService(
             appendLine("  \"title\": \"${escapeJson(session.title)}\",")
             appendLine("  \"createdAt\": \"${session.createdAt.atOffset(ZoneOffset.UTC).format(timestampFormatter)}\",")
             appendLine("  \"lastUpdated\": \"${session.updatedAt.atOffset(java.time.ZoneOffset.UTC).format(timestampFormatter)}\",")
-            appendLine("  \"directiveId\": ${if (session.directiveId != null) "\"${escapeJson(session.directiveId)}\"" else "null"},")
+            appendLine("  \"directiveId\": $directiveIdJson,")
             appendLine("  \"directiveIds\": [$directiveIdsJson],")
             appendLine("  \"messages\": [")
         }
