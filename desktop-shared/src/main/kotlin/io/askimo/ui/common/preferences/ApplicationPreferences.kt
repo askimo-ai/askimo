@@ -5,44 +5,38 @@
 package io.askimo.ui.common.preferences
 
 import io.askimo.core.logging.logger
-import java.util.prefs.Preferences
-import kotlin.jvm.java
+import io.askimo.core.util.AskimoHome
 
 /**
  * Resettable application preferences — UI layout, onboarding state, and device identity.
  */
 object ApplicationPreferences {
-    private val prefs = Preferences.userNodeForPackage(ApplicationPreferences::class.java)
     private val log = logger<ApplicationPreferences>()
+
+    private fun prefs() = PropertyFilePreferences(AskimoHome.base().resolve("prefs/app.properties"))
 
     // ── Safe preference accessors ─────────────────────────────────────────────
 
     private fun safePut(key: String, value: String) {
-        runCatching { prefs.put(key, value) }
+        runCatching { prefs().put(key, value) }
             .onFailure { log.warn("Preferences.put failed for key='$key': ${it.message}") }
     }
 
-    private fun safeGet(key: String, default: String?): String? = runCatching { prefs.get(key, default) }
+    private fun safeGet(key: String, default: String?): String? = runCatching { prefs().get(key, default) }
         .onFailure { log.warn("Preferences.get failed for key='$key': ${it.message}") }
         .getOrDefault(default)
 
     private fun safePutBoolean(key: String, value: Boolean) {
-        runCatching { prefs.putBoolean(key, value) }
-            .onFailure { log.warn("Preferences.putBoolean failed for key='$key': ${it.message}") }
+        safePut(key, value.toString())
     }
 
-    private fun safeGetBoolean(key: String, default: Boolean): Boolean = runCatching { prefs.getBoolean(key, default) }
-        .onFailure { log.warn("Preferences.getBoolean failed for key='$key': ${it.message}") }
-        .getOrDefault(default)
+    private fun safeGetBoolean(key: String, default: Boolean): Boolean = safeGet(key, null)?.toBooleanStrictOrNull() ?: default
 
     private fun safePutInt(key: String, value: Int) {
-        runCatching { prefs.putInt(key, value) }
-            .onFailure { log.warn("Preferences.putInt failed for key='$key': ${it.message}") }
+        safePut(key, value.toString())
     }
 
-    private fun safeGetInt(key: String, default: Int): Int = runCatching { prefs.getInt(key, default) }
-        .onFailure { log.warn("Preferences.getInt failed for key='$key': ${it.message}") }
-        .getOrDefault(default)
+    private fun safeGetInt(key: String, default: Int): Int = safeGet(key, null)?.toIntOrNull() ?: default
 
     // ============================================================
     // TUTORIAL & ONBOARDING  (resettable — re-shows on clearAll)
@@ -136,7 +130,7 @@ object ApplicationPreferences {
      * update dismissals) are stored in [AccountPreferences] and are NOT affected.
      */
     fun clearAll() {
-        runCatching { prefs.clear() }
+        runCatching { prefs().clear() }
             .onFailure { log.warn("Preferences.clear() failed: ${it.message}") }
         log.info("All resettable application preferences cleared")
     }
