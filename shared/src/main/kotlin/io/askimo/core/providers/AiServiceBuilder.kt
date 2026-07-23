@@ -82,7 +82,8 @@ object AiServiceBuilder {
             }
 
         if (toolProvider != null) {
-            builder.toolProvider(toolProvider).maxToolCallingRoundTrips(10)
+            builder.toolProvider(toolProvider)
+                .maxToolCallingRoundTrips(AppConfig.models.maxToolCallingRoundTrips)
         }
 
         if (retriever != null) {
