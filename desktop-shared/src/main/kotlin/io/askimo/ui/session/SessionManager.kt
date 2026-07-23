@@ -165,7 +165,7 @@ class SessionManager(
         userMessage: ChatMessageDTO,
         willSaveUserMessage: Boolean,
         enabledServerIds: Set<String> = emptySet(),
-        directiveId: String? = null,
+        directiveIds: Set<String> = emptySet(),
     ): String? {
         // Create session lazily on first message (only once per session)
         if (!createdSessions.contains(sessionId)) {
@@ -182,10 +182,10 @@ class SessionManager(
                     createdSessions.add(sessionId)
                     log.debug("Created new session: $sessionId")
 
-                    // Persist the selected directive (if any) to the newly created session
-                    if (directiveId != null) {
-                        chatSessionService.updateSessionDirective(sessionId, directiveId)
-                        log.debug("Applied directive $directiveId to new session $sessionId")
+                    // Persist active directives before the first model request reads them.
+                    if (directiveIds.isNotEmpty()) {
+                        chatSessionService.updateSessionDirectives(sessionId, directiveIds)
+                        log.debug("Applied ${directiveIds.size} directives to new session $sessionId")
                     }
                 }
             }

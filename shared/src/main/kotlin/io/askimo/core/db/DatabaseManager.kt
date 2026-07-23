@@ -105,6 +105,7 @@ class DatabaseManager private constructor(
         createAttachmentsTable(connection)
         createSummariesTable(connection)
         createDirectivesTable(connection)
+        createSessionDirectivesTable(connection)
         createSessionMemoryTable(connection)
         createUserMemoryTable(connection)
         createFileSegmentsTable(connection)
@@ -474,6 +475,42 @@ class DatabaseManager private constructor(
             } catch (_: Exception) {
                 // Column already exists — safe to ignore.
             }
+        }
+    }
+
+    private fun createSessionDirectivesTable(conn: Connection) {
+        conn.createStatement().use { stmt ->
+            stmt.execute("PRAGMA foreign_keys = ON")
+            stmt.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS chat_session_directives (
+                    session_id TEXT NOT NULL,
+                    directive_id TEXT NOT NULL,
+                    PRIMARY KEY (session_id, directive_id),
+                    FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE,
+                    FOREIGN KEY (directive_id) REFERENCES chat_directives(id) ON DELETE CASCADE
+                )
+                """.trimIndent(),
+            )
+            stmt.executeUpdate(
+                """
+                CREATE INDEX IF NOT EXISTS idx_session_directives_directive
+                ON chat_session_directives (directive_id)
+                """.trimIndent(),
+            )
+
+            // Migrate the legacy single directive selection. INSERT OR IGNORE makes
+            // this safe on every startup, while regular updates keep directive_id in
+            // sync with the active set so disabled directives are not resurrected.
+            stmt.executeUpdate(
+                """
+                INSERT OR IGNORE INTO chat_session_directives (session_id, directive_id)
+                SELECT sessions.id, sessions.directive_id
+                FROM chat_sessions sessions
+                INNER JOIN chat_directives directives ON directives.id = sessions.directive_id
+                WHERE sessions.directive_id IS NOT NULL
+                """.trimIndent(),
+            )
         }
     }
 

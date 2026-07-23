@@ -217,12 +217,13 @@ class ChatSessionExporterService(
         return try {
             val session = sessionRepository.getSession(sessionId)
                 ?: return Result.failure(Exception("Session not found: $sessionId"))
+            val activeDirectiveIds = sessionRepository.getActiveDirectiveIds(sessionId)
 
             val file = File(filename)
             file.parentFile?.mkdirs()
 
             file.bufferedWriter().use { writer ->
-                writeMarkdownHeader(writer, session)
+                writeMarkdownHeader(writer, session, activeDirectiveIds)
                 streamMessagesToMarkdownFile(writer, sessionId)
                 writeMarkdownFooter(writer)
             }
@@ -248,12 +249,13 @@ class ChatSessionExporterService(
         return try {
             val session = sessionRepository.getSession(sessionId)
                 ?: return Result.failure(Exception("Session not found: $sessionId"))
+            val activeDirectiveIds = sessionRepository.getActiveDirectiveIds(sessionId)
 
             val file = File(filename)
             file.parentFile?.mkdirs()
 
             file.bufferedWriter().use { writer ->
-                writeJsonHeader(writer, session)
+                writeJsonHeader(writer, session, activeDirectiveIds)
                 streamMessagesToJsonFile(writer, sessionId)
                 writeJsonFooter(writer)
             }
@@ -279,12 +281,13 @@ class ChatSessionExporterService(
         return try {
             val session = sessionRepository.getSession(sessionId)
                 ?: return Result.failure(Exception("Session not found: $sessionId"))
+            val activeDirectiveIds = sessionRepository.getActiveDirectiveIds(sessionId)
 
             val file = File(filename)
             file.parentFile?.mkdirs()
 
             file.bufferedWriter().use { writer ->
-                writeHtmlHeader(writer, session)
+                writeHtmlHeader(writer, session, activeDirectiveIds)
                 streamMessagesToHtmlFile(writer, sessionId)
                 writeHtmlFooter(writer)
             }
@@ -301,8 +304,11 @@ class ChatSessionExporterService(
      *
      * @param writer The buffered writer to write to
      * @param session The chat session metadata
+     * @param activeDirectiveIds IDs of all active session directives
      */
-    private fun writeJsonHeader(writer: BufferedWriter, session: ChatSession) {
+    private fun writeJsonHeader(writer: BufferedWriter, session: ChatSession, activeDirectiveIds: Set<String>) {
+        val sortedDirectiveIds = activeDirectiveIds.sorted()
+        val directiveIdsJson = sortedDirectiveIds.joinToString(", ") { "\"${escapeJson(it)}\"" }
         writer.apply {
             appendLine("{")
             appendLine("  \"sessionId\": \"${escapeJson(session.id)}\",")
@@ -310,6 +316,7 @@ class ChatSessionExporterService(
             appendLine("  \"createdAt\": \"${session.createdAt.atOffset(ZoneOffset.UTC).format(timestampFormatter)}\",")
             appendLine("  \"lastUpdated\": \"${session.updatedAt.atOffset(java.time.ZoneOffset.UTC).format(timestampFormatter)}\",")
             appendLine("  \"directiveId\": ${if (session.directiveId != null) "\"${escapeJson(session.directiveId)}\"" else "null"},")
+            appendLine("  \"directiveIds\": [$directiveIdsJson],")
             appendLine("  \"messages\": [")
         }
     }
@@ -404,15 +411,16 @@ class ChatSessionExporterService(
      *
      * @param writer The buffered writer to write to
      * @param session The chat session metadata
+     * @param activeDirectiveIds IDs of all active session directives
      */
-    private fun writeMarkdownHeader(writer: BufferedWriter, session: ChatSession) {
+    private fun writeMarkdownHeader(writer: BufferedWriter, session: ChatSession, activeDirectiveIds: Set<String>) {
         writer.appendLine("# Chat Session: ${session.title}")
         writer.appendLine()
         writer.appendLine("**Session ID**: ${session.id}")
         writer.appendLine("**Created**: ${session.createdAt.atOffset(ZoneOffset.UTC).format(timestampFormatter)}")
         writer.appendLine("**Last Updated**: ${session.updatedAt.atOffset(java.time.ZoneOffset.UTC).format(timestampFormatter)}")
-        if (session.directiveId != null) {
-            writer.appendLine("**Directive**: ${session.directiveId}")
+        if (activeDirectiveIds.isNotEmpty()) {
+            writer.appendLine("**Directives**: ${activeDirectiveIds.sorted().joinToString()}")
         }
         writer.appendLine()
         writer.appendLine("---")
@@ -485,23 +493,25 @@ class ChatSessionExporterService(
      *
      * @param writer The buffered writer to write to
      * @param session The chat session metadata
+     * @param activeDirectiveIds IDs of all active session directives
      */
-    private fun writeHtmlHeader(writer: BufferedWriter, session: ChatSession) {
-        writer.appendLine(buildHtmlDocumentStart(session))
+    private fun writeHtmlHeader(writer: BufferedWriter, session: ChatSession, activeDirectiveIds: Set<String>) {
+        writer.appendLine(buildHtmlDocumentStart(session, activeDirectiveIds))
     }
 
     /**
      * Build the HTML document start (DOCTYPE, head, and header section).
      *
      * @param session The chat session metadata
+     * @param activeDirectiveIds IDs of all active session directives
      * @return The HTML string for document start
      */
-    private fun buildHtmlDocumentStart(session: ChatSession): String = buildString {
+    private fun buildHtmlDocumentStart(session: ChatSession, activeDirectiveIds: Set<String>): String = buildString {
         appendLine(HTML_DOCTYPE)
         appendLine(HTML_OPEN)
         appendLine(buildHtmlHead(session.title))
         appendLine(BODY_OPEN)
-        append(buildHeaderDiv(session))
+        append(buildHeaderDiv(session, activeDirectiveIds))
     }
 
     /**
@@ -523,17 +533,18 @@ class ChatSessionExporterService(
      * Build the header div HTML with session metadata.
      *
      * @param session The chat session metadata
+     * @param activeDirectiveIds IDs of all active session directives
      * @return The HTML string for the header section
      */
-    private fun buildHeaderDiv(session: ChatSession): String = buildString {
+    private fun buildHeaderDiv(session: ChatSession, activeDirectiveIds: Set<String>): String = buildString {
         appendLine("    <div class=\"header\">")
         appendLine("        <h1>${escapeHtml(session.title)}</h1>")
         appendLine("        <div class=\"metadata\">")
         appendLine("            <p><strong>Session ID:</strong> ${session.id}</p>")
         appendLine("            <p><strong>Created:</strong> ${session.createdAt.atOffset(ZoneOffset.UTC).format(timestampFormatter)}</p>")
         appendLine("            <p><strong>Last Updated:</strong> ${session.updatedAt.atOffset(java.time.ZoneOffset.UTC).format(timestampFormatter)}</p>")
-        if (session.directiveId != null) {
-            appendLine("            <p><strong>Directive:</strong> ${escapeHtml(session.directiveId)}</p>")
+        if (activeDirectiveIds.isNotEmpty()) {
+            appendLine("            <p><strong>Directives:</strong> ${escapeHtml(activeDirectiveIds.sorted().joinToString())}</p>")
         }
         appendLine("        </div>")
         appendLine("    </div>")

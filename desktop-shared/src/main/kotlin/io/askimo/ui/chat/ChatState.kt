@@ -35,7 +35,7 @@ data class ChatState(
     val isSearching: Boolean,
 
     // Directive state
-    val selectedDirective: String?,
+    val activeDirectiveIds: Set<String>,
 
     // Session state
     val sessionTitle: String,

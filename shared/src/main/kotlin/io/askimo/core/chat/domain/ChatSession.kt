@@ -44,3 +44,22 @@ object ChatSessionsTable : Table("chat_sessions") {
         foreignKey(projectId to ProjectsTable.id, onDelete = ReferenceOption.CASCADE)
     }
 }
+
+/**
+ * Many-to-many association between chat sessions and their active directives.
+ *
+ * [ChatSessionsTable.directiveId] remains as a compatibility projection for older
+ * databases and sync payloads, while this table is the source of truth for the
+ * complete active directive set.
+ */
+object ChatSessionDirectivesTable : Table("chat_session_directives") {
+    val sessionId = varchar("session_id", 36)
+    val directiveId = varchar("directive_id", 36)
+
+    override val primaryKey = PrimaryKey(sessionId, directiveId)
+
+    init {
+        foreignKey(sessionId to ChatSessionsTable.id, onDelete = ReferenceOption.CASCADE)
+        foreignKey(directiveId to ChatDirectivesTable.id, onDelete = ReferenceOption.CASCADE)
+    }
+}

@@ -10,6 +10,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import io.askimo.core.chat.domain.ChatDirective
 import io.askimo.core.chat.domain.ChatDirectivesTable
+import io.askimo.core.chat.domain.ChatSessionDirectivesTable
 import io.askimo.core.chat.domain.ChatSessionsTable
 import io.askimo.core.chat.domain.DIRECTIVE_CONTENT_MAX_LENGTH
 import io.askimo.core.chat.domain.DIRECTIVE_NAME_MAX_LENGTH
@@ -135,9 +136,7 @@ class ChatDirectiveRepository internal constructor(
      * Delete a directive by id.
      * @return true if deleted, false if directive doesn't exist
      */
-    fun delete(id: String): Boolean = transaction(database) {
-        ChatDirectivesTable.deleteWhere { ChatDirectivesTable.id eq id } > 0
-    }
+    fun delete(id: String): Boolean = deleteAndRefreshSessionProjections(id)
 
     /**
      * Check if a directive exists by id.
@@ -183,6 +182,39 @@ class ChatDirectiveRepository internal constructor(
             .where { ChatSessionsTable.id eq sessionId }
             .singleOrNull()
             ?.toChatDirective()
+    }
+
+    /**
+     * Find every active directive for a session, ordered by name for deterministic
+     * system-message construction.
+     */
+    fun findDirectivesBySessionId(sessionId: String): List<ChatDirective> = transaction(database) {
+        val activeDirectives = ChatDirectivesTable
+            .join(
+                ChatSessionDirectivesTable,
+                JoinType.INNER,
+                ChatDirectivesTable.id,
+                ChatSessionDirectivesTable.directiveId,
+            )
+            .selectAll()
+            .where { ChatSessionDirectivesTable.sessionId eq sessionId }
+            .orderBy(ChatDirectivesTable.name to SortOrder.ASC)
+            .map { it.toChatDirective() }
+
+        if (activeDirectives.isNotEmpty()) {
+            activeDirectives
+        } else {
+            // Compatibility fallback for older synchronized sessions that only
+            // contain chat_sessions.directive_id.
+            ChatDirectivesTable
+                .join(ChatSessionsTable, JoinType.INNER, ChatDirectivesTable.id, ChatSessionsTable.directiveId)
+                .selectAll()
+                .where { ChatSessionsTable.id eq sessionId }
+                .singleOrNull()
+                ?.toChatDirective()
+                ?.let(::listOf)
+                .orEmpty()
+        }
     }
 
     /**
@@ -269,8 +301,36 @@ class ChatDirectiveRepository internal constructor(
      * Permanently removes a directive from the local database.
      * Called when the server signals that a directive has been soft-deleted.
      */
-    fun hardDelete(directiveId: String): Boolean = transaction(database) {
-        ChatDirectivesTable.deleteWhere { ChatDirectivesTable.id eq directiveId } > 0
+    fun hardDelete(directiveId: String): Boolean = deleteAndRefreshSessionProjections(directiveId)
+
+    private fun deleteAndRefreshSessionProjections(directiveId: String): Boolean = transaction(database) {
+        val affectedSessionIds = buildSet {
+            ChatSessionDirectivesTable
+                .selectAll()
+                .where { ChatSessionDirectivesTable.directiveId eq directiveId }
+                .mapTo(this) { it[ChatSessionDirectivesTable.sessionId] }
+            ChatSessionsTable
+                .selectAll()
+                .where { ChatSessionsTable.directiveId eq directiveId }
+                .mapTo(this) { it[ChatSessionsTable.id] }
+        }
+
+        val deleted = ChatDirectivesTable.deleteWhere { ChatDirectivesTable.id eq directiveId } > 0
+        if (deleted) {
+            affectedSessionIds.forEach { sessionId ->
+                val remainingDirectiveId = ChatSessionDirectivesTable
+                    .selectAll()
+                    .where { ChatSessionDirectivesTable.sessionId eq sessionId }
+                    .map { it[ChatSessionDirectivesTable.directiveId] }
+                    .minOrNull()
+                ChatSessionsTable.update({ ChatSessionsTable.id eq sessionId }) {
+                    it[ChatSessionsTable.directiveId] = remainingDirectiveId
+                    it[ChatSessionsTable.updatedAt] = Instant.now()
+                    it[ChatSessionsTable.syncedAt] = null
+                }
+            }
+        }
+        deleted
     }
 
     /**

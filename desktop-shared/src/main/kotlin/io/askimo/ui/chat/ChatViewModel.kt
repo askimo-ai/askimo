@@ -101,7 +101,7 @@ class ChatViewModel(
     var isSearchMode by mutableStateOf(false)
         private set
 
-    var selectedDirective by mutableStateOf<String?>(null)
+    var activeDirectiveIds by mutableStateOf<Set<String>>(emptySet())
         private set
 
     var sessionTitle by mutableStateOf<String?>(null)
@@ -126,7 +126,7 @@ class ChatViewModel(
             searchResults = searchResults,
             currentSearchResultIndex = currentSearchResultIndex,
             isSearching = isSearching,
-            selectedDirective = selectedDirective,
+            activeDirectiveIds = activeDirectiveIds,
             sessionTitle = sessionTitle ?: "",
             project = project,
         )
@@ -526,7 +526,7 @@ class ChatViewModel(
                 // 6. Resend the user message
                 currentJob = scope.launch {
                     try {
-                        if (selectedDirective != null) {
+                        if (activeDirectiveIds.isNotEmpty()) {
                             Analytics.track(AnalyticsEvent.DIRECTIVE_USED)
                         }
                         val threadId = sessionManager.sendMessage(
@@ -536,7 +536,7 @@ class ChatViewModel(
                             userMessage = userMessage,
                             willSaveUserMessage = false,
                             enabledServerIds = enabledServerIds,
-                            directiveId = selectedDirective,
+                            directiveIds = activeDirectiveIds,
                         )
 
                         if (threadId == null) {
@@ -634,7 +634,7 @@ class ChatViewModel(
 
         currentJob = scope.launch {
             try {
-                if (selectedDirective != null) {
+                if (activeDirectiveIds.isNotEmpty()) {
                     Analytics.track(AnalyticsEvent.DIRECTIVE_USED)
                 }
                 val threadId = sessionManager.sendMessage(
@@ -644,7 +644,7 @@ class ChatViewModel(
                     userMessage = userMessage,
                     willSaveUserMessage = true,
                     enabledServerIds = enabledServerIds,
-                    directiveId = selectedDirective,
+                    directiveIds = activeDirectiveIds,
                 )
 
                 if (threadId == null) {
@@ -802,8 +802,8 @@ class ChatViewModel(
                         }
                     }
 
-                    // Load directive from the resumed session
-                    selectedDirective = result.directiveId
+                    // Load active directives from the resumed session
+                    activeDirectiveIds = result.activeDirectiveIds
 
                     // Load session title and project
                     sessionTitle = result.title
@@ -1141,27 +1141,30 @@ class ChatViewModel(
         // Clear search state
         clearSearch()
 
-        // Reset directive to null for new chat session
-        selectedDirective = null
+        // Reset directives for a new chat session
+        activeDirectiveIds = emptySet()
     }
 
     /**
-     * Set the directive for the current or next chat session.
-     * @param directiveId The directive ID to set (null to clear directive)
+     * Activate or deactivate a directive for the current or next chat session.
      */
-    override fun setDirective(directiveId: String?) {
-        selectedDirective = directiveId
+    override fun setDirectiveActive(directiveId: String, active: Boolean) {
+        activeDirectiveIds = if (active) {
+            activeDirectiveIds + directiveId
+        } else {
+            activeDirectiveIds - directiveId
+        }
 
         val sessionId = currentSessionId.value
         if (sessionId != null) {
             scope.launch {
                 try {
                     withContext(Dispatchers.IO) {
-                        chatSessionService.updateSessionDirective(sessionId, directiveId)
+                        chatSessionService.setSessionDirectiveActive(sessionId, directiveId, active)
                     }
-                    log.debug("Updated directive for session $sessionId to $directiveId")
+                    log.debug("Set directive $directiveId active=$active for session $sessionId")
                 } catch (e: Exception) {
-                    log.error("Failed to update session directive: ${e.message}", e)
+                    log.error("Failed to update session directive state: ${e.message}", e)
                 }
             }
         }

@@ -415,6 +415,25 @@ class ChatSessionServiceIT {
     }
 
     @Test
+    fun `resumeSessionPaginated should return all active directives`() {
+        val firstDirective = directiveRepository.save(
+            ChatDirective(name = "First Directive", content = "First instruction"),
+        )
+        val secondDirective = directiveRepository.save(
+            ChatDirective(name = "Second Directive", content = "Second instruction"),
+        )
+        val session = sessionRepository.createSession(
+            ChatSession(id = "", title = "Session with multiple directives"),
+        )
+        service.updateSessionDirectives(session.id, setOf(firstDirective.id, secondDirective.id))
+
+        val result = service.resumeSessionPaginated(session.id, limit = 10)
+
+        assertTrue(result.success)
+        assertEquals(setOf(firstDirective.id, secondDirective.id), result.activeDirectiveIds)
+    }
+
+    @Test
     fun `resumeSessionPaginated should handle limit of 1`() {
         // Given
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Single Message"))

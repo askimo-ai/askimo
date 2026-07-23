@@ -9,6 +9,8 @@ import dev.langchain4j.data.message.ChatMessage
 import dev.langchain4j.data.message.SystemMessage
 import dev.langchain4j.data.message.UserMessage
 import dev.langchain4j.model.chat.request.ChatRequest
+import io.askimo.core.chat.domain.ChatDirective
+import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.context.AppContext
 import io.askimo.core.context.ExecutionMode
 import io.askimo.core.db.DatabaseManager
@@ -352,6 +354,62 @@ class ChatRequestTransformersTest {
             // Then - should handle without errors
             assertNotNull(result)
             assertTrue(result.messages().isNotEmpty())
+        }
+    }
+
+    @Nested
+    @DisplayName("Session Directives")
+    inner class SessionDirectiveTests {
+
+        @Test
+        fun `should add every active session directive in name order`() {
+            val directiveRepository = DatabaseManager.getInstance().getChatDirectiveRepository()
+            val sessionRepository = DatabaseManager.getInstance().getChatSessionRepository()
+            val second = directiveRepository.save(ChatDirective(name = "Beta", content = "Second instruction"))
+            val first = directiveRepository.save(ChatDirective(name = "Alpha", content = "First instruction"))
+            val session = sessionRepository.createSession(ChatSession(id = "", title = "Multiple directives"))
+            sessionRepository.replaceSessionDirectives(session.id, setOf(second.id, first.id))
+            val request = ChatRequest.builder().messages(listOf(UserMessage.from("Hello"))).build()
+
+            val result = ChatRequestTransformers.addCustomSystemMessagesAndRemoveDuplicates(
+                sessionId = session.id,
+                chatRequest = request,
+                memoryId = null,
+                provider = ModelProvider.OPENAI,
+                settings = OpenAiSettings(defaultModel = "gpt-4"),
+            )
+
+            val systemTexts = result.messages().filterIsInstance<SystemMessage>().map { it.text() }
+            assertEquals(listOf("First instruction", "Second instruction"), systemTexts)
+        }
+
+        @Test
+        fun `should skip blank and duplicate active directive content`() {
+            val directiveRepository = DatabaseManager.getInstance().getChatDirectiveRepository()
+            val sessionRepository = DatabaseManager.getInstance().getChatSessionRepository()
+            val duplicate = directiveRepository.save(ChatDirective(name = "Duplicate", content = "Existing instruction"))
+            val blank = directiveRepository.save(ChatDirective(name = "Blank", content = ""))
+            val session = sessionRepository.createSession(ChatSession(id = "", title = "Filtered directives"))
+            sessionRepository.replaceSessionDirectives(session.id, setOf(duplicate.id, blank.id))
+            val request = ChatRequest.builder()
+                .messages(
+                    listOf(
+                        SystemMessage.from("Existing instruction"),
+                        UserMessage.from("Hello"),
+                    ),
+                )
+                .build()
+
+            val result = ChatRequestTransformers.addCustomSystemMessagesAndRemoveDuplicates(
+                sessionId = session.id,
+                chatRequest = request,
+                memoryId = null,
+                provider = ModelProvider.OPENAI,
+                settings = OpenAiSettings(defaultModel = "gpt-4"),
+            )
+
+            val systemTexts = result.messages().filterIsInstance<SystemMessage>().map { it.text() }
+            assertEquals(listOf("Existing instruction"), systemTexts)
         }
     }
 

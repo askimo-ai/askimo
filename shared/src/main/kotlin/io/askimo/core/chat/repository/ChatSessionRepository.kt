@@ -4,7 +4,9 @@
  */
 package io.askimo.core.chat.repository
 
+import io.askimo.core.chat.domain.ChatDirectivesTable
 import io.askimo.core.chat.domain.ChatSession
+import io.askimo.core.chat.domain.ChatSessionDirectivesTable
 import io.askimo.core.chat.domain.ChatSessionsTable
 import io.askimo.core.chat.domain.SESSION_TITLE_MAX_LENGTH
 import io.askimo.core.db.AbstractSQLiteRepository
@@ -29,6 +31,7 @@ import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
+import org.jetbrains.exposed.v1.jdbc.upsert
 import java.time.Instant
 import java.util.UUID
 
@@ -71,6 +74,12 @@ class ChatSessionRepository internal constructor(
                 it[ChatSessionsTable.projectId] = sessionWithInjectedFields.projectId
                 it[ChatSessionsTable.directiveId] = sessionWithInjectedFields.directiveId
                 it[ChatSessionsTable.isStarred] = if (sessionWithInjectedFields.isStarred) 1 else 0
+            }
+            sessionWithInjectedFields.directiveId?.let { directiveId ->
+                ChatSessionDirectivesTable.upsert {
+                    it[sessionId] = sessionWithInjectedFields.id
+                    it[ChatSessionDirectivesTable.directiveId] = directiveId
+                }
             }
         }
 
@@ -254,18 +263,125 @@ class ChatSessionRepository internal constructor(
         return title
     }
 
-    /**
-     * Update the directive for a chat session.
-     * @param sessionId The session ID
-     * @param directiveId The directive ID to set (null to clear directive)
-     * @return true if updated successfully
-     */
+    /** Compatibility helper that replaces the active set with zero or one directive. */
     fun updateSessionDirective(sessionId: String, directiveId: String?): Boolean = transaction(database) {
+        replaceSessionDirectivesInTransaction(sessionId, setOfNotNull(directiveId))
+    }.also { if (it) EventBus.post(PushDataToServerEvent(reason = "session directives changed")) }
+
+    /**
+     * Return all active directive IDs for a session.
+     */
+    fun getActiveDirectiveIds(sessionId: String): Set<String> = transaction(database) {
+        val activeIds = ChatSessionDirectivesTable
+            .selectAll()
+            .where { ChatSessionDirectivesTable.sessionId eq sessionId }
+            .mapTo(linkedSetOf()) { it[ChatSessionDirectivesTable.directiveId] }
+
+        if (activeIds.isNotEmpty()) {
+            activeIds
+        } else {
+            // Compatibility fallback for sessions pulled from an older sync payload.
+            ChatSessionsTable
+                .selectAll()
+                .where { ChatSessionsTable.id eq sessionId }
+                .singleOrNull()
+                ?.get(ChatSessionsTable.directiveId)
+                ?.let(::setOf)
+                .orEmpty()
+        }
+    }
+
+    /**
+     * Replace the complete active directive set for a session atomically.
+     */
+    fun replaceSessionDirectives(sessionId: String, directiveIds: Set<String>): Boolean = transaction(database) {
+        replaceSessionDirectivesInTransaction(sessionId, directiveIds)
+    }.also { if (it) EventBus.post(PushDataToServerEvent(reason = "session directives changed")) }
+
+    /**
+     * Activate or deactivate one directive without replacing other selections.
+     */
+    fun setSessionDirectiveActive(sessionId: String, directiveId: String, active: Boolean): Boolean = transaction(database) {
+        val sessionExists = ChatSessionsTable
+            .selectAll()
+            .where { ChatSessionsTable.id eq sessionId }
+            .any()
+        if (!sessionExists) {
+            false
+        } else {
+            populateRelationFromLegacyIfEmpty(sessionId)
+            if (active) {
+                ChatSessionDirectivesTable.upsert {
+                    it[ChatSessionDirectivesTable.sessionId] = sessionId
+                    it[ChatSessionDirectivesTable.directiveId] = directiveId
+                }
+            } else {
+                ChatSessionDirectivesTable.deleteWhere {
+                    (ChatSessionDirectivesTable.sessionId eq sessionId) and
+                        (ChatSessionDirectivesTable.directiveId eq directiveId)
+                }
+            }
+
+            updateLegacyDirectiveProjection(sessionId)
+            true
+        }
+    }.also { if (it) EventBus.post(PushDataToServerEvent(reason = "session directives changed")) }
+
+    private fun populateRelationFromLegacyIfEmpty(sessionId: String) {
+        val hasRelations = ChatSessionDirectivesTable
+            .selectAll()
+            .where { ChatSessionDirectivesTable.sessionId eq sessionId }
+            .any()
+        if (hasRelations) return
+
+        val legacyDirectiveId = ChatSessionsTable
+            .selectAll()
+            .where { ChatSessionsTable.id eq sessionId }
+            .singleOrNull()
+            ?.get(ChatSessionsTable.directiveId)
+            ?: return
+        val directiveExists = ChatDirectivesTable
+            .selectAll()
+            .where { ChatDirectivesTable.id eq legacyDirectiveId }
+            .any()
+        if (directiveExists) {
+            ChatSessionDirectivesTable.insert {
+                it[ChatSessionDirectivesTable.sessionId] = sessionId
+                it[ChatSessionDirectivesTable.directiveId] = legacyDirectiveId
+            }
+        }
+    }
+
+    private fun replaceSessionDirectivesInTransaction(sessionId: String, directiveIds: Set<String>): Boolean {
+        val sessionExists = ChatSessionsTable
+            .selectAll()
+            .where { ChatSessionsTable.id eq sessionId }
+            .any()
+        if (!sessionExists) return false
+
+        ChatSessionDirectivesTable.deleteWhere { ChatSessionDirectivesTable.sessionId eq sessionId }
+        directiveIds.forEach { directiveId ->
+            ChatSessionDirectivesTable.insert {
+                it[ChatSessionDirectivesTable.sessionId] = sessionId
+                it[ChatSessionDirectivesTable.directiveId] = directiveId
+            }
+        }
+        updateLegacyDirectiveProjection(sessionId)
+        return true
+    }
+
+    private fun updateLegacyDirectiveProjection(sessionId: String) {
+        val legacyDirectiveId = ChatSessionDirectivesTable
+            .selectAll()
+            .where { ChatSessionDirectivesTable.sessionId eq sessionId }
+            .map { it[ChatSessionDirectivesTable.directiveId] }
+            .minOrNull()
+
         ChatSessionsTable.update({ ChatSessionsTable.id eq sessionId }) {
-            it[ChatSessionsTable.directiveId] = directiveId
+            it[directiveId] = legacyDirectiveId
             it[updatedAt] = Instant.now()
-        } > 0
-    }.also { if (it) EventBus.post(PushDataToServerEvent(reason = "session directive changed")) }
+        }
+    }
 
     /**
      * Delete a chat session.
@@ -483,6 +599,7 @@ class ChatSessionRepository internal constructor(
                         it[isStarred] = if (session.isStarred) 1 else 0
                         it[syncedAt] = nowStr
                     }
+                    replaceRelationsFromLegacyProjection(session)
                     log.debug("upsertFromServer: inserted session {}", session.id)
                 } else if (session.updatedAt.isAfter(storedUpdatedAt)) {
                     // Server version is newer — overwrite
@@ -494,10 +611,26 @@ class ChatSessionRepository internal constructor(
                         it[isStarred] = if (session.isStarred) 1 else 0
                         it[syncedAt] = nowStr
                     }
+                    replaceRelationsFromLegacyProjection(session)
                     log.debug("upsertFromServer: updated session {} (server newer)", session.id)
                 } else {
                     log.debug("upsertFromServer: skipped session {} (local is same age or newer)", session.id)
                 }
+            }
+        }
+    }
+
+    private fun replaceRelationsFromLegacyProjection(session: ChatSession) {
+        ChatSessionDirectivesTable.deleteWhere { ChatSessionDirectivesTable.sessionId eq session.id }
+        val directiveId = session.directiveId ?: return
+        val directiveExists = ChatDirectivesTable
+            .selectAll()
+            .where { ChatDirectivesTable.id eq directiveId }
+            .any()
+        if (directiveExists) {
+            ChatSessionDirectivesTable.insert {
+                it[sessionId] = session.id
+                it[ChatSessionDirectivesTable.directiveId] = directiveId
             }
         }
     }

@@ -23,13 +23,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
@@ -81,9 +85,17 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
+import io.askimo.core.chat.domain.ChatDirective
+import io.askimo.core.chat.domain.DirectiveScope
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
 import io.askimo.core.chat.util.FileContentExtractor
@@ -146,6 +158,14 @@ private val log = currentFileLogger()
  * @param onCancelEdit Callback to cancel edit mode
  * @param sessionId Optional session ID for file attachments
  * @param placeholder Optional placeholder text
+ * @param onEnabledServerIdsChange Callback when enabled MCP servers change
+ * @param onNavigateToMcpSettings Optional callback that opens MCP settings
+ * @param directives Directives available to the current chat session
+ * @param activeDirectiveIds IDs of directives currently shaping the next message
+ * @param onToggleDirective Callback that toggles one directive
+ * @param onAddDirective Callback that opens the new-directive flow
+ * @param onEditDirective Callback that opens the editor for a directive
+ * @param onManageDirectives Optional callback that opens directive management
  * @param modifier Optional modifier for the component
  */
 @Composable
@@ -165,6 +185,12 @@ fun chatInputField(
     placeholder: String = stringResource("chat.input.placeholder"),
     onEnabledServerIdsChange: ((Set<String>) -> Unit)? = null,
     onNavigateToMcpSettings: (() -> Unit)? = null,
+    directives: List<ChatDirective> = emptyList(),
+    activeDirectiveIds: Set<String> = emptySet(),
+    onToggleDirective: (String) -> Unit = {},
+    onAddDirective: () -> Unit = {},
+    onEditDirective: (ChatDirective) -> Unit = {},
+    onManageDirectives: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val inputFocusRequester = remember { FocusRequester() }
@@ -271,13 +297,16 @@ fun chatInputField(
     // State for resizable text field.
     val fontScale = LocalFontScale.current
     val inlineControlsBottomPadding = 44.dp
+    val hasDirectives = directives.isNotEmpty()
+    val directiveRowHeight = if (hasDirectives) 40.dp else 0.dp
+    val inputChromeHeight = inlineControlsBottomPadding + directiveRowHeight
     val lineHeight = 24.dp * fontScale
     val padding = 36.dp
-    val defaultTextFieldHeight = (padding + lineHeight + inlineControlsBottomPadding)
+    val defaultTextFieldHeight = (padding + lineHeight + inputChromeHeight)
         .coerceAtLeast(104.dp)
     // Re-key on fontScale so the height resets when the user changes font size mid-session.
-    var textFieldHeight by remember(sessionId, fontScale) { mutableStateOf(defaultTextFieldHeight) }
-    var manuallyResized by remember(sessionId, fontScale) { mutableStateOf(false) }
+    var textFieldHeight by remember(sessionId, fontScale, hasDirectives) { mutableStateOf(defaultTextFieldHeight) }
+    var manuallyResized by remember(sessionId, fontScale, hasDirectives) { mutableStateOf(false) }
 
     // Track the actual width of the text field for accurate wrapping calculation
     var textFieldWidthPx by remember { mutableStateOf(0f) }
@@ -323,8 +352,8 @@ fun chatInputField(
     }
 
     // Approximate height per line (can be adjusted based on your text style)
-    val calculatedHeight = (lineHeight * estimatedLineCount) + padding + inlineControlsBottomPadding
-    val maxVisibleInputLines = ((textFieldHeight - inlineControlsBottomPadding - 1.dp - 32.dp) / lineHeight)
+    val calculatedHeight = (lineHeight * estimatedLineCount) + padding + inputChromeHeight
+    val maxVisibleInputLines = ((textFieldHeight - inputChromeHeight - 1.dp - 32.dp) / lineHeight)
         .toInt()
         .coerceAtLeast(1)
 
@@ -549,6 +578,7 @@ fun chatInputField(
 
                 // Custom two-section input container:
                 // ┌─────────────────────────────────────────┐
+                // │  Directives chip (when available)       │
                 // │  Text area  (weight 1f, scrollable)     │
                 // ├─────────────────────────────────────────┤
                 // │  Controls row  (fixed height)           │
@@ -570,6 +600,25 @@ fun chatInputField(
                         .border(containerBorderWidth, containerBorderColor, RoundedCornerShape(4.dp))
                         .clip(RoundedCornerShape(4.dp)),
                 ) {
+                    if (hasDirectives) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(directiveRowHeight)
+                                .padding(start = 12.dp, end = 12.dp, top = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            directivesChip(
+                                directives = directives,
+                                activeDirectiveIds = activeDirectiveIds,
+                                onToggleDirective = onToggleDirective,
+                                onAddDirective = onAddDirective,
+                                onEditDirective = onEditDirective,
+                                onManageDirectives = onManageDirectives,
+                            )
+                        }
+                    }
+
                     // ── Text area ──────────────────────────────────────────────────
                     OutlinedTextField(
                         value = inputText,
@@ -895,6 +944,298 @@ fun chatInputField(
                         modifier = Modifier.padding(start = 16.dp, top = 4.dp),
                     )
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Compact session-directive control shown inside the message composer.
+ */
+@Composable
+private fun directivesChip(
+    directives: List<ChatDirective>,
+    activeDirectiveIds: Set<String>,
+    onToggleDirective: (String) -> Unit,
+    onAddDirective: () -> Unit,
+    onEditDirective: (ChatDirective) -> Unit,
+    onManageDirectives: (() -> Unit)?,
+) {
+    var showPopup by remember { mutableStateOf(false) }
+    val density = LocalDensity.current
+    val popupGapPx = with(density) { 8.dp.roundToPx() }
+    val popupPositionProvider = remember(popupGapPx) { DirectivePopupPositionProvider(popupGapPx) }
+
+    Box {
+        directivesChipButton(activeCount = activeDirectiveIds.size, onClick = { showPopup = true })
+
+        if (showPopup) {
+            directivesPopup(
+                popupPositionProvider = popupPositionProvider,
+                directives = directives,
+                activeDirectiveIds = activeDirectiveIds,
+                onToggleDirective = onToggleDirective,
+                onAddDirective = onAddDirective,
+                onEditDirective = onEditDirective,
+                onManageDirectives = onManageDirectives,
+                onDismiss = { showPopup = false },
+            )
+        }
+    }
+}
+
+private class DirectivePopupPositionProvider(private val gapPx: Int) : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        val maxX = (windowSize.width - popupContentSize.width).coerceAtLeast(0)
+        val preferredX = if (layoutDirection == LayoutDirection.Ltr) {
+            anchorBounds.left
+        } else {
+            anchorBounds.right - popupContentSize.width
+        }
+        val x = preferredX.coerceIn(0, maxX)
+        val above = anchorBounds.top - popupContentSize.height - gapPx
+        val maxY = (windowSize.height - popupContentSize.height).coerceAtLeast(0)
+        val y = if (above >= 0) above else (anchorBounds.bottom + gapPx).coerceIn(0, maxY)
+        return IntOffset(x, y)
+    }
+}
+
+@Composable
+private fun directivesChipButton(activeCount: Int, onClick: () -> Unit) {
+    val isActive = activeCount > 0
+    themedTooltip(text = stringResource("chat.directives.tooltip", activeCount.toString())) {
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = if (isActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+            tonalElevation = 2.dp,
+            modifier = Modifier
+                .height(28.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClick,
+                )
+                .pointerHoverIcon(PointerIcon.Hand),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    modifier = Modifier.size(15.dp),
+                    tint = if (isActive) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+                Text(
+                    text = stringResource("chat.directives.label"),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Medium,
+                )
+                if (isActive) Badge { Text(activeCount.toString()) }
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = stringResource("chat.directives.open"),
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun directivesPopup(
+    popupPositionProvider: PopupPositionProvider,
+    directives: List<ChatDirective>,
+    activeDirectiveIds: Set<String>,
+    onToggleDirective: (String) -> Unit,
+    onAddDirective: () -> Unit,
+    onEditDirective: (ChatDirective) -> Unit,
+    onManageDirectives: (() -> Unit)?,
+    onDismiss: () -> Unit,
+) {
+    Popup(
+        popupPositionProvider = popupPositionProvider,
+        onDismissRequest = onDismiss,
+        properties = PopupProperties(focusable = true),
+    ) {
+        Surface(
+            modifier = Modifier
+                .widthIn(min = 300.dp, max = 400.dp)
+                .heightIn(max = 380.dp),
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 3.dp,
+            shadowElevation = 10.dp,
+        ) {
+            Column(modifier = Modifier.padding(vertical = 12.dp)) {
+                directivesPopupHeader()
+                directivesPopupList(
+                    directives = directives,
+                    activeDirectiveIds = activeDirectiveIds,
+                    onToggleDirective = onToggleDirective,
+                    onEditDirective = { directive ->
+                        onDismiss()
+                        onEditDirective(directive)
+                    },
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                directivesPopupFooter(onAddDirective, onManageDirectives, onDismiss)
+            }
+        }
+    }
+}
+
+@Composable
+private fun directivesPopupHeader() {
+    Text(
+        text = stringResource("chat.directives.popup.title"),
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+    Text(
+        text = stringResource("chat.directives.popup.description"),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+    HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
+}
+
+@Composable
+private fun directivesPopupList(
+    directives: List<ChatDirective>,
+    activeDirectiveIds: Set<String>,
+    onToggleDirective: (String) -> Unit,
+    onEditDirective: (ChatDirective) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LazyColumn(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(max = 260.dp),
+    ) {
+        items(directives, key = { it.id }) { directive ->
+            directivePopupRow(
+                directive = directive,
+                isActive = directive.id in activeDirectiveIds,
+                onToggle = { onToggleDirective(directive.id) },
+                onEdit = { onEditDirective(directive) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun directivePopupRow(
+    directive: ChatDirective,
+    isActive: Boolean,
+    onToggle: () -> Unit,
+    onEdit: () -> Unit,
+) {
+    themedTooltip(text = directive.content) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggle)
+                .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Checkbox(
+                checked = isActive,
+                onCheckedChange = null,
+                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+            )
+            Text(
+                text = directive.name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (isActive) FontWeight.Medium else FontWeight.Normal,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            directivePopupTrailingAction(directive, onEdit)
+        }
+    }
+}
+
+@Composable
+private fun directivePopupTrailingAction(directive: ChatDirective, onEdit: () -> Unit) {
+    if (directive.scope == DirectiveScope.TEAM) {
+        Surface(
+            shape = MaterialTheme.shapes.extraSmall,
+            color = MaterialTheme.colorScheme.tertiaryContainer,
+        ) {
+            Text(
+                text = stringResource("directive.scope.team"),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+            )
+        }
+    } else {
+        IconButton(
+            onClick = onEdit,
+            modifier = Modifier
+                .size(32.dp)
+                .pointerHoverIcon(PointerIcon.Hand),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Edit,
+                contentDescription = stringResource("chat.directives.edit", directive.name),
+                modifier = Modifier.size(16.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun directivesPopupFooter(
+    onAddDirective: () -> Unit,
+    onManageDirectives: (() -> Unit)?,
+    onDismiss: () -> Unit,
+) {
+    HorizontalDivider()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TextButton(
+            onClick = {
+                onDismiss()
+                onAddDirective()
+            },
+            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+        ) {
+            Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(stringResource("chat.directive.new"))
+        }
+        if (onManageDirectives != null) {
+            TextButton(
+                onClick = {
+                    onDismiss()
+                    onManageDirectives()
+                },
+                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+            ) {
+                Text(stringResource("chat.directive.manage"))
             }
         }
     }

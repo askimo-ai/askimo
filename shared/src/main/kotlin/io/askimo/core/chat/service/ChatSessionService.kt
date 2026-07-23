@@ -78,13 +78,17 @@ data class ResumeSessionPaginatedResult(
     val success: Boolean,
     val sessionId: String,
     val title: String? = null,
-    val directiveId: String?,
+    val activeDirectiveIds: Set<String> = emptySet(),
     val project: Project? = null,
     val messages: List<ChatMessageDTO> = emptyList(),
     val cursor: Instant? = null,
     val hasMore: Boolean = false,
     val errorMessage: String? = null,
-)
+) {
+    /** Compatibility accessor for callers that still expect one directive. */
+    val directiveId: String?
+        get() = activeDirectiveIds.firstOrNull()
+}
 
 /**
  * Service for managing chat sessions with common logic shared between CLI and desktop.
@@ -411,14 +415,17 @@ class ChatSessionService(
      */
     fun renameTitle(sessionId: String, newTitle: String): Boolean = sessionRepository.updateSessionTitle(sessionId, newTitle)
 
-    /**
-     * Update the directive for a chat session.
-     *
-     * @param sessionId The ID of the session to update
-     * @param directiveId The directive ID to set (null to clear directive)
-     * @return true if the session was updated, false if it didn't exist
-     */
+    /** Compatibility helper that replaces the active set with zero or one directive. */
     fun updateSessionDirective(sessionId: String, directiveId: String?): Boolean = sessionRepository.updateSessionDirective(sessionId, directiveId)
+
+    /** Replace every active directive for a session. */
+    fun updateSessionDirectives(sessionId: String, directiveIds: Set<String>): Boolean = sessionRepository.replaceSessionDirectives(sessionId, directiveIds)
+
+    /** Activate or deactivate one directive for a session. */
+    fun setSessionDirectiveActive(sessionId: String, directiveId: String, active: Boolean): Boolean = sessionRepository.setSessionDirectiveActive(sessionId, directiveId, active)
+
+    /** Return all active directive IDs for a session. */
+    fun getActiveDirectiveIds(sessionId: String): Set<String> = sessionRepository.getActiveDirectiveIds(sessionId)
 
     /**
      * Add a message to a session and update the session's timestamp.
@@ -581,7 +588,7 @@ class ChatSessionService(
                 success = true,
                 sessionId = sessionId,
                 title = existingSession.title,
-                directiveId = existingSession.directiveId,
+                activeDirectiveIds = sessionRepository.getActiveDirectiveIds(sessionId),
                 project = project,
                 messages = messages.toDTOs(),
                 cursor = cursor,
@@ -592,7 +599,7 @@ class ChatSessionService(
                 success = true,
                 sessionId = sessionId,
                 title = null,
-                directiveId = null,
+                activeDirectiveIds = emptySet(),
                 project = null,
                 messages = emptyList(),
                 cursor = null,

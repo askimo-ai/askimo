@@ -18,7 +18,6 @@ import io.askimo.core.logging.logger
  */
 object ChatRequestTransformers {
 
-    private val directiveRepository by lazy { DatabaseManager.getInstance().getChatDirectiveRepository() }
     private val log = logger<ChatRequestTransformers>()
 
     /**
@@ -93,12 +92,11 @@ object ChatRequestTransformers {
         }
 
         if (sessionId != null) {
-            val directive = directiveRepository.findDirectiveBySessionId(sessionId)
-            if (directive != null &&
-                directive.content.isNotBlank() &&
-                directive.content !in existingSystemMessageTexts
-            ) {
-                additionalSystemMessages.add(SystemMessage.from(directive.content))
+            val addedDirectiveTexts = existingSystemMessageTexts.toMutableSet()
+            DatabaseManager.getInstance().getChatDirectiveRepository().findDirectivesBySessionId(sessionId).forEach { directive ->
+                if (directive.content.isNotBlank() && addedDirectiveTexts.add(directive.content)) {
+                    additionalSystemMessages.add(SystemMessage.from(directive.content))
+                }
             }
         }
 
