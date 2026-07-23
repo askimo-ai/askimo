@@ -34,8 +34,9 @@ class ChatSessionDirectiveRepositoryIT {
 
         assertTrue(sessionRepository.replaceSessionDirectives(session.id, setOf(first.id, second.id)))
 
-        assertEquals(setOf(first.id, second.id), sessionRepository.getActiveDirectiveIds(session.id))
-        assertTrue(sessionRepository.getSession(session.id)?.directiveId in setOf(first.id, second.id))
+        val expectedIds = listOf(first.id, second.id).sorted()
+        assertEquals(expectedIds, sessionRepository.getActiveDirectiveIds(session.id).toList())
+        assertEquals(expectedIds.first(), sessionRepository.getSession(session.id)?.directiveId)
     }
 
     @Test

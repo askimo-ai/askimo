@@ -87,7 +87,7 @@ data class ResumeSessionPaginatedResult(
 ) {
     /** Compatibility accessor for callers that still expect one directive. */
     val directiveId: String?
-        get() = activeDirectiveIds.firstOrNull()
+        get() = activeDirectiveIds.minOrNull()
 }
 
 /**

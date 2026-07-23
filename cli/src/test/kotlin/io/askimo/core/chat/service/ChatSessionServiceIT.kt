@@ -430,7 +430,9 @@ class ChatSessionServiceIT {
         val result = service.resumeSessionPaginated(session.id, limit = 10)
 
         assertTrue(result.success)
-        assertEquals(setOf(firstDirective.id, secondDirective.id), result.activeDirectiveIds)
+        val expectedDirectiveIds = listOf(firstDirective.id, secondDirective.id).sorted()
+        assertEquals(expectedDirectiveIds, result.activeDirectiveIds.toList())
+        assertEquals(expectedDirectiveIds.first(), result.directiveId)
     }
 
     @Test

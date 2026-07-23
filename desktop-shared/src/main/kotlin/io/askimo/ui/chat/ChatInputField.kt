@@ -609,6 +609,7 @@ fun chatInputField(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             directivesChip(
+                                sessionId = sessionId,
                                 directives = directives,
                                 activeDirectiveIds = activeDirectiveIds,
                                 onToggleDirective = onToggleDirective,
@@ -954,6 +955,7 @@ fun chatInputField(
  */
 @Composable
 private fun directivesChip(
+    sessionId: String?,
     directives: List<ChatDirective>,
     activeDirectiveIds: Set<String>,
     onToggleDirective: (String) -> Unit,
@@ -961,7 +963,7 @@ private fun directivesChip(
     onEditDirective: (ChatDirective) -> Unit,
     onManageDirectives: (() -> Unit)?,
 ) {
-    var showPopup by remember { mutableStateOf(false) }
+    var showPopup by remember(sessionId) { mutableStateOf(false) }
     val density = LocalDensity.current
     val popupGapPx = with(density) { 8.dp.roundToPx() }
     val popupPositionProvider = remember(popupGapPx) { DirectivePopupPositionProvider(popupGapPx) }

@@ -275,6 +275,7 @@ class ChatSessionRepository internal constructor(
         val activeIds = ChatSessionDirectivesTable
             .selectAll()
             .where { ChatSessionDirectivesTable.sessionId eq sessionId }
+            .orderBy(ChatSessionDirectivesTable.directiveId, SortOrder.ASC)
             .mapTo(linkedSetOf()) { it[ChatSessionDirectivesTable.directiveId] }
 
         if (activeIds.isNotEmpty()) {
@@ -374,8 +375,10 @@ class ChatSessionRepository internal constructor(
         val legacyDirectiveId = ChatSessionDirectivesTable
             .selectAll()
             .where { ChatSessionDirectivesTable.sessionId eq sessionId }
-            .map { it[ChatSessionDirectivesTable.directiveId] }
-            .minOrNull()
+            .orderBy(ChatSessionDirectivesTable.directiveId, SortOrder.ASC)
+            .limit(1)
+            .singleOrNull()
+            ?.get(ChatSessionDirectivesTable.directiveId)
 
         ChatSessionsTable.update({ ChatSessionsTable.id eq sessionId }) {
             it[directiveId] = legacyDirectiveId
