@@ -318,6 +318,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     var showPlansInSidebar by remember { mutableStateOf(ApplicationPreferences.getShowPlansInSidebar()) }
     var showSkillsInSidebar by remember { mutableStateOf(ApplicationPreferences.getShowSkillsInSidebar()) }
     var showProjectsInSidebar by remember { mutableStateOf(ApplicationPreferences.getShowProjectsInSidebar()) }
+    var showTokenUsageCard by remember { mutableStateOf(ApplicationPreferences.getShowTokenUsageCard()) }
     var selectedProjectId by remember { mutableStateOf<String?>(null) }
     var sidebarWidthFraction by remember { mutableStateOf(ThemePreferences.getMainSidebarWidthFraction()) }
     var showQuitDialog by remember { mutableStateOf(false) }
@@ -1140,6 +1141,14 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                         userAvatarPath = userProfile?.preferences?.get("avatarPath"),
                                                         userProfile = userProfile,
                                                         discoverViewModel = discoverViewModel,
+                                                        showTokenUsageCard = showTokenUsageCard,
+                                                        onToggleTokenUsageCard = { enabled ->
+                                                            showTokenUsageCard = enabled
+                                                            ApplicationPreferences.setShowTokenUsageCard(enabled)
+                                                        },
+                                                        onOpenSystemDiagnostics = {
+                                                            showSystemDiagnosticsDialog = true
+                                                        },
                                                         onNavigateToMcpSettings = {
                                                             settingsSection = SettingsSection.MCP_SERVERS
                                                             previousView = currentView
@@ -1961,7 +1970,11 @@ fun mainContent(
     userAvatarPath: String? = null,
     userProfile: UserProfile? = null,
     discoverViewModel: DiscoverViewModel,
+    showTokenUsageCard: Boolean = true,
+    onToggleTokenUsageCard: (Boolean) -> Unit = {},
+    onOpenSystemDiagnostics: () -> Unit = {},
 ) {
+    val discoverMetrics by appContext.telemetry.metricsFlow.collectAsState()
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1985,6 +1998,10 @@ fun mainContent(
                 onNavigateToPlans = onNavigateToPlans,
                 onNavigateToSkills = onNavigateToSkills,
                 onNavigateToMcpSettings = onNavigateToMcpSettings,
+                showTokenUsageCard = showTokenUsageCard,
+                onToggleTokenUsageCard = onToggleTokenUsageCard,
+                onOpenSystemDiagnostics = onOpenSystemDiagnostics,
+                telemetryMetrics = discoverMetrics,
                 modifier = Modifier.fillMaxSize(),
             )
 
