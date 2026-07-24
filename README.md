@@ -54,14 +54,15 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Skills-Gemini_CLI-4285F4" alt="Gemini CLI Skills">
-  <img src="https://img.shields.io/badge/Skills-Claude_Code-542683" alt="Claude Code Skills">
-</p>
-
-<p align="center">
   <a href="https://github.com/askimo-ai/askimo/releases/latest"><strong>📥 Download</strong></a> •
   <a href="https://askimo.chat/docs/"><strong>📖 Documentation</strong></a> •
   <a href="https://github.com/askimo-ai/askimo/discussions"><strong>💬 Discussions</strong></a>
+</p>
+
+<p align="center">
+  <a href="https://trendshift.io/repositories/25584?utm_source=repository-badge&utm_medium=badge&utm_campaign=badge-repository-25584" target="_blank" rel="noopener noreferrer">
+    <img src="https://trendshift.io/api/badge/repositories/25584" alt="askimo-ai/askimo | Trendshift" width="250" height="55"/>
+  </a>
 </p>
 
 ---
