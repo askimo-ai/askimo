@@ -40,6 +40,30 @@ import io.askimo.core.providers.xai.XAiSettings
 interface ProviderSettings {
     val defaultModel: String
 
+    /**
+     * Per-instance override for the utility/secondary model.
+     * Blank means "use the provider-type default from AppConfig.models".
+     */
+    val utilityModel: String get() = ""
+
+    /**
+     * Per-instance override for the vision model.
+     * Blank means "use the provider-type default from AppConfig.models".
+     */
+    val visionModel: String get() = ""
+
+    /**
+     * Per-instance override for the image-generation model.
+     * Blank means "use the provider-type default from AppConfig.models".
+     */
+    val imageModel: String get() = ""
+
+    /**
+     * Per-instance override for the embedding model.
+     * Blank means "use the provider-type default from AppConfig.models".
+     */
+    val embeddingModel: String get() = ""
+
     @JsonIgnore
     fun describe(): List<String>
 

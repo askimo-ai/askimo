@@ -14,6 +14,10 @@ import kotlinx.serialization.Serializable
 data class DockerAiSettings(
     override var baseUrl: String = "http://localhost:12434/v1",
     override val defaultModel: String = "",
+    override val utilityModel: String = "",
+    override val visionModel: String = "",
+    override val imageModel: String = "",
+    override val embeddingModel: String = "",
 ) : ProviderSettings,
     HasBaseUrl {
     override fun describe(): List<String> = listOf(
@@ -32,6 +36,10 @@ data class DockerAiSettings(
     override fun updateField(fieldName: String, value: String): ProviderSettings = when (fieldName) {
         SettingField.BASE_URL -> copy(baseUrl = value)
         SettingField.DEFAULT_MODEL -> copy(defaultModel = value)
+        SettingField.UTILITY_MODEL -> copy(utilityModel = value)
+        SettingField.VISION_MODEL -> copy(visionModel = value)
+        SettingField.IMAGE_MODEL -> copy(imageModel = value)
+        SettingField.EMBEDDING_MODEL -> copy(embeddingModel = value)
         else -> this
     }
 

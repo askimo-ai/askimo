@@ -17,6 +17,10 @@ data class OpenAiCompatibleSettings(
     override var apiKey: String = "",
     override var baseUrl: String = "http://localhost:8000/v1",
     override val defaultModel: String = "",
+    override val utilityModel: String = "",
+    override val visionModel: String = "",
+    override val imageModel: String = "",
+    override val embeddingModel: String = "",
 ) : ProviderSettings,
     HasApiKey,
     HasBaseUrl {
@@ -47,6 +51,10 @@ data class OpenAiCompatibleSettings(
         SettingField.BASE_URL -> copy(baseUrl = value)
         SettingField.API_KEY -> copy(apiKey = value)
         SettingField.DEFAULT_MODEL -> copy(defaultModel = value)
+        SettingField.UTILITY_MODEL -> copy(utilityModel = value)
+        SettingField.VISION_MODEL -> copy(visionModel = value)
+        SettingField.IMAGE_MODEL -> copy(imageModel = value)
+        SettingField.EMBEDDING_MODEL -> copy(embeddingModel = value)
         else -> this
     }
 

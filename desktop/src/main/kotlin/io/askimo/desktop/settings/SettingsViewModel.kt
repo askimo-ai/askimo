@@ -74,6 +74,14 @@ class SettingsViewModel(
     /** The currently active [ProviderInstance], or null if none is configured. */
     val activeInstance get() = providerInstanceService.findById(instanceId)
 
+    /**
+     * Observable snapshot of the active [ProviderInstance].
+     * Updated by [loadConfiguration] and [updateInstanceModelOverride] so that
+     * Compose can recompose when instance settings change without switching instances.
+     */
+    var activeInstanceState by mutableStateOf<ProviderInstance?>(null)
+        private set
+
     var settingsDescription by mutableStateOf<List<String>>(emptyList())
         private set
 
@@ -212,28 +220,31 @@ class SettingsViewModel(
         instanceDisplayName = configInfo.instanceDisplayName
         instanceId = configInfo.instanceId
         settingsDescription = configInfo.settingsDescription
+        activeInstanceState = providerInstanceService.findById(configInfo.instanceId)
     }
 
     // ── Instance switching (from manage dialog, no wizard) ───────────────────────────────────
 
-    fun switchToInstance(targetInstanceId: String) {
-        scope.launch {
-            withContext(Dispatchers.IO) {
-                providerInstanceService.setActive(targetInstanceId)
-            }
-            loadConfiguration()
-        }
-    }
+    /**
+     * Persists a per-instance special model override (utility / vision / image / embedding)
+     * immediately in memory and asynchronously to disk.
+     *
+     * @param instanceId The ID of the instance to update.
+     * @param fieldName  One of [SettingField.UTILITY_MODEL], [SettingField.VISION_MODEL],
+     *                   [SettingField.IMAGE_MODEL], or [SettingField.EMBEDDING_MODEL].
+     * @param value      The model name to store, or blank to clear the override.
+     */
+    fun updateInstanceModelOverride(instanceId: String, fieldName: String, value: String) {
+        val instance = providerInstanceService.findById(instanceId) ?: return
+        val updatedSettings = instance.settings.updateField(fieldName, value)
 
-    fun deleteInstance(targetInstanceId: String) {
+        appContext.setInstanceSettings(instanceId, updatedSettings)
+        activeInstanceState = instance.copy(settings = updatedSettings)
+
         scope.launch {
             withContext(Dispatchers.IO) {
-                providerInstanceService.delete(targetInstanceId)
+                appContext.save()
             }
-            availableInstances = providerInstanceService.all
-            loadConfiguration()
-            successMessage = "Provider instance removed"
-            showSuccessMessage = true
         }
     }
 
@@ -516,11 +527,16 @@ class SettingsViewModel(
         scope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
+                    // Resolve the embedding model: prefer instance-level override, then AppConfig type-level default.
+                    fun resolveEmbeddingModel(p: ModelProvider): String {
+                        val instanceModel = editingInstance?.settings?.embeddingModel?.takeIf { it.isNotBlank() }
+                        return instanceModel ?: AppConfig.models[p].embeddingModel
+                    }
                     when (provider) {
-                        ModelProvider.OLLAMA -> LocalModelValidator.checkModelExists(provider, baseUrl, AppConfig.models[ModelProvider.OLLAMA].embeddingModel)
-                        ModelProvider.DOCKER -> LocalModelValidator.checkModelExists(provider, baseUrl, AppConfig.models[ModelProvider.DOCKER].embeddingModel)
-                        ModelProvider.LOCALAI -> LocalModelValidator.checkModelExists(provider, baseUrl, AppConfig.models[ModelProvider.LOCALAI].embeddingModel)
-                        ModelProvider.LMSTUDIO -> LocalModelValidator.checkModelExists(provider, baseUrl, AppConfig.models[ModelProvider.LMSTUDIO].embeddingModel)
+                        ModelProvider.OLLAMA -> LocalModelValidator.checkModelExists(provider, baseUrl, resolveEmbeddingModel(ModelProvider.OLLAMA))
+                        ModelProvider.DOCKER -> LocalModelValidator.checkModelExists(provider, baseUrl, resolveEmbeddingModel(ModelProvider.DOCKER))
+                        ModelProvider.LOCALAI -> LocalModelValidator.checkModelExists(provider, baseUrl, resolveEmbeddingModel(ModelProvider.LOCALAI))
+                        ModelProvider.LMSTUDIO -> LocalModelValidator.checkModelExists(provider, baseUrl, resolveEmbeddingModel(ModelProvider.LMSTUDIO))
                         ModelProvider.ANTHROPIC -> ModelAvailabilityResult.NotAvailable(reason = LocalizationManager.getString("settings.embedding.anthropic_no_embedding"), canAutoPull = false)
                         ModelProvider.XAI -> ModelAvailabilityResult.NotAvailable(reason = LocalizationManager.getString("settings.embedding.xai_no_embedding"), canAutoPull = false)
                         else -> ModelAvailabilityResult.Available
