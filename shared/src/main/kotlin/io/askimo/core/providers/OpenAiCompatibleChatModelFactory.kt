@@ -236,11 +236,14 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
 
     override fun createSecondaryModel(settings: T): ChatModel {
         val listener = createTelemetryListener()
+        val modelName = settings.utilityModel
+            .ifBlank { AppConfig.models[getProvider()].utilityModel }
+            .ifBlank { utilityModelFallback(settings) }
         return OpenAiResponsesChatModel.builder()
             .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener))
             .baseUrl(settings.baseUrl)
             .apiKey(resolveApiKey(settings))
-            .modelName(AppConfig.models[getProvider()].utilityModel.ifBlank { utilityModelFallback(settings) })
+            .modelName(modelName)
             .listeners(listOf(listener))
             .build()
     }
@@ -266,7 +269,7 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
     override fun createImageModel(settings: T): ImageModel = OpenAiImageModel.builder()
         .baseUrl(settings.baseUrl)
         .apiKey(resolveApiKey(settings))
-        .modelName(AppConfig.models[getProvider()].imageModel)
+        .modelName(settings.imageModel.ifBlank { AppConfig.models[getProvider()].imageModel })
         .logger(log)
         .logRequests(log.isDebugEnabled)
         .logResponses(log.isTraceEnabled)
@@ -280,7 +283,7 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
 
     override fun createEmbeddingModel(settings: T): EmbeddingModel {
         val baseUrl = settings.baseUrl.removeSuffix("/")
-        val modelName = AppConfig.models[getProvider()].embeddingModel
+        val modelName = settings.embeddingModel.ifBlank { AppConfig.models[getProvider()].embeddingModel }
         checkEmbeddingAvailability(baseUrl, modelName)
         return customizeEmbeddingBuilder(
             settings,
@@ -291,5 +294,7 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
         ).build()
     }
 
-    override fun getEmbeddingTokenLimit(settings: T): Int = LocalEmbeddingTokenLimits.resolve(AppConfig.models[getProvider()].embeddingModel)
+    override fun getEmbeddingTokenLimit(settings: T): Int = LocalEmbeddingTokenLimits.resolve(
+        settings.embeddingModel.ifBlank { AppConfig.models[getProvider()].embeddingModel },
+    )
 }

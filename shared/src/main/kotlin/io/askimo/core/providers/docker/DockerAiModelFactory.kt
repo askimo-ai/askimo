@@ -51,7 +51,11 @@ class DockerAiModelFactory : OpenAiCompatibleChatModelFactory<DockerAiSettings>(
         .httpClientBuilder(createHttpClientBuilder(settings.baseUrl))
         .baseUrl(settings.baseUrl)
         .apiKey(resolveApiKey(settings))
-        .modelName(AppConfig.models[getProvider()].utilityModel.ifBlank { utilityModelFallback(settings) })
+        .modelName(
+            settings.utilityModel
+                .ifBlank { AppConfig.models[getProvider()].utilityModel }
+                .ifBlank { utilityModelFallback(settings) },
+        )
         .logRequests(log.isDebugEnabled)
         .build()
 

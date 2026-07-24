@@ -13,6 +13,10 @@ data class AnthropicSettings(
     val baseUrl: String = "https://api.anthropic.com/v1",
     override var apiKey: String = "",
     override val defaultModel: String = "",
+    override val utilityModel: String = "",
+    override val visionModel: String = "",
+    override val imageModel: String = "",
+    override val embeddingModel: String = "",
 ) : ProviderSettings,
     HasApiKey {
     override fun describe(): List<String> = listOf(
@@ -42,6 +46,10 @@ data class AnthropicSettings(
         SettingField.API_KEY -> copy(apiKey = value)
         SettingField.BASE_URL -> copy(baseUrl = value)
         SettingField.DEFAULT_MODEL -> copy(defaultModel = value)
+        SettingField.UTILITY_MODEL -> copy(utilityModel = value)
+        SettingField.VISION_MODEL -> copy(visionModel = value)
+        SettingField.IMAGE_MODEL -> copy(imageModel = value)
+        SettingField.EMBEDDING_MODEL -> copy(embeddingModel = value)
         else -> this
     }
 

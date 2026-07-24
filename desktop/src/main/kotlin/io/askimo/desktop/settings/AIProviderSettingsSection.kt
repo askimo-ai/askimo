@@ -44,13 +44,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.AppConstants.DOMAIN
-import io.askimo.core.config.AppConfig
-import io.askimo.core.context.AppContext
 import io.askimo.core.providers.ChatModelFactory
 import io.askimo.core.providers.ModelDTO
 import io.askimo.core.providers.ModelProvider
+import io.askimo.core.providers.ProviderInstance
 import io.askimo.core.providers.ProviderRegistry
 import io.askimo.core.providers.ProviderSettings
+import io.askimo.core.providers.SettingField
 import io.askimo.core.providers.SpecialModelType
 import io.askimo.core.providers.filterModelsForType
 import io.askimo.ui.common.components.linkButton
@@ -151,9 +151,9 @@ fun aiProviderSettingsSection(viewModel: SettingsViewModel) {
                     }
                 }
 
-                // Model Config Card — only shown when a provider is selected
-                viewModel.provider?.let { provider ->
-                    providerModelConfigCard(provider)
+                // Model Config Card — only shown when a provider instance is active
+                viewModel.activeInstanceState?.let { instance ->
+                    providerModelConfigCard(instance, viewModel)
                 }
             } // end inner content Column
         } // end scrollable outer Column
@@ -169,7 +169,8 @@ fun aiProviderSettingsSection(viewModel: SettingsViewModel) {
 }
 
 @Composable
-private fun providerModelConfigCard(provider: ModelProvider) {
+private fun providerModelConfigCard(instance: ProviderInstance, viewModel: SettingsViewModel) {
+    val provider = instance.providerType
     val isLocalProvider = provider in setOf(
         ModelProvider.OLLAMA,
         ModelProvider.DOCKER,
@@ -244,7 +245,7 @@ private fun providerModelConfigCard(provider: ModelProvider) {
                 } else {
                     stringResource("settings.provider.model.utility.hint")
                 },
-                value = getProviderUtilityModel(provider),
+                value = instance.settings.utilityModel,
                 placeholder = if (isLocalProvider) {
                     stringResource("settings.utility.models.uses.selected")
                 } else {
@@ -255,12 +256,12 @@ private fun providerModelConfigCard(provider: ModelProvider) {
 
             if (showUtilityModelDialog) {
                 providerModelTypePickerDialog(
-                    provider = provider,
+                    instance = instance,
                     modelType = SpecialModelType.UTILITY,
-                    currentValue = getProviderUtilityModel(provider),
+                    currentValue = instance.settings.utilityModel,
                     onDismiss = { showUtilityModelDialog = false },
                     onSelect = { model ->
-                        AppConfig.updateField("models.${provider.name.lowercase()}.utilityModel", model)
+                        viewModel.updateInstanceModelOverride(instance.id, SettingField.UTILITY_MODEL, model)
                         showUtilityModelDialog = false
                     },
                 )
@@ -273,19 +274,19 @@ private fun providerModelConfigCard(provider: ModelProvider) {
             providerModelSelectorField(
                 label = stringResource("settings.vision.models.title"),
                 hint = stringResource("settings.provider.model.vision.hint"),
-                value = getProviderVisionModel(provider),
+                value = instance.settings.visionModel,
                 placeholder = stringResource("settings.model.placeholder.enter", "vision"),
                 onClick = { showVisionModelDialog = true },
             )
 
             if (showVisionModelDialog) {
                 providerModelTypePickerDialog(
-                    provider = provider,
+                    instance = instance,
                     modelType = SpecialModelType.VISION,
-                    currentValue = getProviderVisionModel(provider),
+                    currentValue = instance.settings.visionModel,
                     onDismiss = { showVisionModelDialog = false },
                     onSelect = { model ->
-                        AppConfig.updateField("models.${provider.name.lowercase()}.visionModel", model)
+                        viewModel.updateInstanceModelOverride(instance.id, SettingField.VISION_MODEL, model)
                         showVisionModelDialog = false
                     },
                 )
@@ -298,19 +299,19 @@ private fun providerModelConfigCard(provider: ModelProvider) {
             providerModelSelectorField(
                 label = stringResource("settings.image.models.title"),
                 hint = stringResource("settings.provider.model.image.hint"),
-                value = getProviderImageModel(provider),
+                value = instance.settings.imageModel,
                 placeholder = stringResource("settings.model.placeholder.enter", "image"),
                 onClick = { showImageModelDialog = true },
             )
 
             if (showImageModelDialog) {
                 providerModelTypePickerDialog(
-                    provider = provider,
+                    instance = instance,
                     modelType = SpecialModelType.IMAGE,
-                    currentValue = getProviderImageModel(provider),
+                    currentValue = instance.settings.imageModel,
                     onDismiss = { showImageModelDialog = false },
                     onSelect = { model ->
-                        AppConfig.updateField("models.${provider.name.lowercase()}.imageModel", model)
+                        viewModel.updateInstanceModelOverride(instance.id, SettingField.IMAGE_MODEL, model)
                         showImageModelDialog = false
                     },
                 )
@@ -324,19 +325,19 @@ private fun providerModelConfigCard(provider: ModelProvider) {
                 providerModelSelectorField(
                     label = stringResource("settings.rag.embedding.models"),
                     hint = stringResource("settings.provider.model.embedding.hint"),
-                    value = getProviderEmbeddingModel(provider),
+                    value = instance.settings.embeddingModel,
                     placeholder = stringResource("settings.model.placeholder.enter", "embedding"),
                     onClick = { showEmbeddingModelDialog = true },
                 )
 
                 if (showEmbeddingModelDialog) {
                     providerModelTypePickerDialog(
-                        provider = provider,
+                        instance = instance,
                         modelType = SpecialModelType.EMBEDDING,
-                        currentValue = getProviderEmbeddingModel(provider),
+                        currentValue = instance.settings.embeddingModel,
                         onDismiss = { showEmbeddingModelDialog = false },
                         onSelect = { model ->
-                            AppConfig.updateField("models.${provider.name.lowercase()}.embeddingModel", model)
+                            viewModel.updateInstanceModelOverride(instance.id, SettingField.EMBEDDING_MODEL, model)
                             showEmbeddingModelDialog = false
                         },
                     )
@@ -345,14 +346,6 @@ private fun providerModelConfigCard(provider: ModelProvider) {
         }
     }
 }
-
-private fun getProviderUtilityModel(provider: ModelProvider): String = AppConfig.models[provider].utilityModel
-
-private fun getProviderVisionModel(provider: ModelProvider): String = AppConfig.models[provider].visionModel
-
-private fun getProviderImageModel(provider: ModelProvider): String = AppConfig.models[provider].imageModel
-
-private fun getProviderEmbeddingModel(provider: ModelProvider): String = AppConfig.models[provider].embeddingModel
 
 @Composable
 private fun providerModelSelectorField(
@@ -420,12 +413,13 @@ private fun providerModelSelectorField(
 
 @Composable
 private fun providerModelTypePickerDialog(
-    provider: ModelProvider,
+    instance: ProviderInstance,
     modelType: SpecialModelType,
     currentValue: String,
     onDismiss: () -> Unit,
     onSelect: (String) -> Unit,
 ) {
+    val provider = instance.providerType
     var selectedModel by remember(currentValue) { mutableStateOf(currentValue.takeIf { it.isNotBlank() }) }
     var searchQuery by remember { mutableStateOf("") }
     var availableModels by remember { mutableStateOf<List<ModelDTO>>(emptyList()) }
@@ -433,8 +427,6 @@ private fun providerModelTypePickerDialog(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var errorHelp by remember { mutableStateOf<String?>(null) }
     var showAll by remember { mutableStateOf(false) }
-
-    val appContext = remember { AppContext.getInstance() }
 
     LaunchedEffect(Unit) {
         isLoading = true
@@ -448,8 +440,8 @@ private fun providerModelTypePickerDialog(
                     isLoading = false
                     return@withContext
                 }
-                val settings = appContext.params.instancesForType(provider).firstOrNull()?.settings
-                    ?: factory.defaultSettings()
+                // Use this specific instance's settings (not the first instance of the type).
+                val settings = instance.settings
 
                 @Suppress("UNCHECKED_CAST")
                 val models = (factory as ChatModelFactory<ProviderSettings>).availableModels(settings)

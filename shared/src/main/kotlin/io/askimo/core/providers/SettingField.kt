@@ -16,6 +16,10 @@ sealed class SettingField {
         const val API_KEY = "apiKey"
         const val BASE_URL = "baseUrl"
         const val DEFAULT_MODEL = "defaultModel"
+        const val UTILITY_MODEL = "utilityModel"
+        const val VISION_MODEL = "visionModel"
+        const val IMAGE_MODEL = "imageModel"
+        const val EMBEDDING_MODEL = "embeddingModel"
     }
 
     data class TextField(

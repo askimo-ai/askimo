@@ -188,7 +188,11 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
         return AnthropicChatModel.builder()
             .httpClientBuilder(jdkHttpClientBuilder)
             .apiKey(safeApiKey(settings.apiKey))
-            .modelName(AppConfig.models[ANTHROPIC].utilityModel.ifBlank { settings.defaultModel })
+            .modelName(
+                settings.utilityModel
+                    .ifBlank { AppConfig.models[ANTHROPIC].utilityModel }
+                    .ifBlank { settings.defaultModel },
+            )
             .baseUrl(settings.baseUrl)
             .timeout(Duration.ofSeconds(AppConfig.models.timeouts.utilityModelTimeoutSeconds))
             .build()
