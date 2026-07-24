@@ -29,16 +29,16 @@ fi
 
 echo "✅ Detekt passed."
 
-#echo "🔍 Checking i18n keys..."
-#./gradlew desktop:checkI18nKeys
-#
-## Check if i18n check failed
-#if [ $? -ne 0 ]; then
-#    echo "❌ i18n key check failed! Please fix missing or inconsistent keys before committing."
-#    exit 1
-#fi
-#
-#echo "✅ i18n keys check passed."
+echo "🔍 Checking i18n keys..."
+./gradlew desktop:checkI18nKeys
+
+# Check if i18n check failed
+if [ $? -ne 0 ]; then
+    echo "❌ i18n key check failed! Please fix missing or inconsistent keys before committing."
+    exit 1
+fi
+
+echo "✅ i18n keys check passed."
 EOF
 
 # Make the hook executable
