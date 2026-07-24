@@ -94,6 +94,7 @@ import io.askimo.core.event.error.AppErrorEvent
 import io.askimo.core.event.internal.ImageCapabilityDetectedEvent
 import io.askimo.core.event.internal.ReasoningEffortChangedEvent
 import io.askimo.core.event.internal.ThinkingSupportDetectedEvent
+import io.askimo.core.event.internal.ToolSupportDetectedEvent
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.intent.ToolConfig
 import io.askimo.core.intent.ToolRegistry
@@ -191,14 +192,16 @@ fun chatInputField(
 
     // Whether the current model supports tool calling.
     // Only disabled when the probe has run AND returned false — unknown (null) stays enabled.
-    val modelSupportsTools = remember(resolvedProvider, currentModel) {
-        if (resolvedProvider != null && currentModel.isNotBlank() &&
-            ModelCapabilitiesCache.hasTestedToolSupport(resolvedProvider, currentModel)
-        ) {
-            ModelCapabilitiesCache.supportsTools(resolvedProvider, currentModel)
-        } else {
-            true // Not yet probed — optimistically keep enabled
-        }
+    var modelSupportsTools by remember(resolvedProvider, currentModel) {
+        mutableStateOf(
+            if (resolvedProvider != null && currentModel.isNotBlank() &&
+                ModelCapabilitiesCache.hasTestedToolSupport(resolvedProvider, currentModel)
+            ) {
+                ModelCapabilitiesCache.supportsTools(resolvedProvider, currentModel)
+            } else {
+                true // Not yet probed — optimistically keep enabled
+            },
+        )
     }
 
     // Listen for the probe result and update when it arrives for the active model.
@@ -209,6 +212,18 @@ fun chatInputField(
                 event.model == currentModel
             ) {
                 supportsReasoning = event.supportsThinking
+            }
+        }
+    }
+
+    // Listen for tool support probe result and update reactively.
+    LaunchedEffect(resolvedProvider, currentModel) {
+        EventBus.internalEvents.collect { event ->
+            if (event is ToolSupportDetectedEvent &&
+                event.provider == resolvedProvider &&
+                event.model == currentModel
+            ) {
+                modelSupportsTools = event.supportsTools
             }
         }
     }

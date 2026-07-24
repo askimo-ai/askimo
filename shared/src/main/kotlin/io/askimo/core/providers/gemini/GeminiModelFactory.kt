@@ -39,6 +39,10 @@ import io.askimo.core.providers.sendStreamingMessageWithCallback
 import io.askimo.core.telemetry.TelemetryChatModelListener
 import io.askimo.core.util.ApiKeyUtils.safeApiKey
 import io.askimo.core.util.ProxyUtil
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.net.http.HttpClient
 import java.time.Duration
 
@@ -78,18 +82,35 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
         // Create streaming model once — reused for both the tool probe and the real client
         val streamingModel = createStreamingModel(settings)
 
-        // Probe tool support once — result is persisted in ModelCapabilitiesCache
+        // Probe tool support once — run async so it never blocks the caller.
+        // Optimistically mark as true (supported) so tools are available immediately;
+        // the background probe will call setToolSupport() with the real result,
+        // which fires ToolSupportDetectedEvent so the UI reacts if the model rejects tools.
         if (executionMode.isToolEnabled() &&
             !ModelCapabilitiesCache.hasTestedToolSupport(GEMINI, settings.defaultModel)
         ) {
-            val supportsTools = probeToolSupport(settings.defaultModel, streamingModel, executionMode)
-            ModelCapabilitiesCache.setToolSupport(GEMINI, settings.defaultModel, supportsTools)
+            ModelCapabilitiesCache.setToolSupport(GEMINI, settings.defaultModel, true)
+            val modelName = settings.defaultModel
+            val capturedModel = streamingModel
+            val capturedMode = executionMode
+            CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+                val supportsTools = probeToolSupport(modelName, capturedModel, capturedMode)
+                ModelCapabilitiesCache.setToolSupport(GEMINI, modelName, supportsTools)
+            }
         }
 
-        // Probe image generation capability once — result is persisted in ModelCapabilitiesCache
+        // Probe image generation capability once — run async so it never blocks the caller.
+        // Optimistically mark as false (not supported) so the UI is usable immediately;
+        // the background probe will call setImageSupport() again with the real result,
+        // which fires ImageCapabilityDetectedEvent so the UI reacts without a restart.
         if (!ModelCapabilitiesCache.hasTestedImageSupport(GEMINI, settings.defaultModel)) {
-            val supportsImage = probeImageCapability(GEMINI, settings.defaultModel, streamingModel)
-            ModelCapabilitiesCache.setImageSupport(GEMINI, settings.defaultModel, supportsImage)
+            ModelCapabilitiesCache.setImageSupport(GEMINI, settings.defaultModel, false)
+            val modelName = settings.defaultModel
+            val capturedModel = streamingModel
+            CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+                val supportsImage = probeImageCapability(GEMINI, modelName, capturedModel)
+                ModelCapabilitiesCache.setImageSupport(GEMINI, modelName, supportsImage)
+            }
         }
 
         return AiServiceBuilder.buildChatClient(

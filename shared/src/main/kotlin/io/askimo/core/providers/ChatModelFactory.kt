@@ -191,8 +191,8 @@ interface ChatModelFactory<T : ProviderSettings> {
                 testClientBuilder.tools(LocalFsTools)
             }
 
-            val testClient = testClientBuilder.build()
-            testClient.sendStreamingMessageWithCallback(null, UserMessage("Capability probe — reply with 'ok'."))
+            val testClient = testClientBuilder.maxToolCallingRoundTrips(1).build()
+            testClient.sendStreamingMessageWithCallback(null, UserMessage("Capability tool probe — reply with 'ok'."))
             true
         } catch (e: Exception) {
             val errorMessage = e.message?.lowercase() ?: ""

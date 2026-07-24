@@ -7,6 +7,7 @@ package io.askimo.core.providers
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.ImageCapabilityDetectedEvent
 import io.askimo.core.event.internal.ThinkingSupportDetectedEvent
+import io.askimo.core.event.internal.ToolSupportDetectedEvent
 import io.askimo.core.event.system.InvalidateCacheEvent
 import io.askimo.core.logging.logger
 import io.askimo.core.util.AskimoHome
@@ -271,6 +272,8 @@ object ModelCapabilitiesCache {
         val modelKey = modelKey(provider, model)
         update(modelKey) { it.copy(supportsTools = supported) }
         log.debug("Updated tool support for $modelKey: $supported")
+        // Broadcast so UI components (e.g. ChatInputField) can reactively update
+        EventBus.post(ToolSupportDetectedEvent(provider = provider, model = model, supportsTools = supported))
     }
 
     /**

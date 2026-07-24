@@ -34,6 +34,10 @@ import io.askimo.core.util.ApiKeyUtils.safeApiKey
 import io.askimo.core.util.ProxyUtil
 import io.askimo.core.util.appJson
 import io.askimo.core.util.httpGet
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -79,18 +83,32 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
         // Create streaming model once — reused for both the tool probe and the real client
         val streamingModel = createStreamingModel(settings)
 
-        // Probe tool support once — result is persisted in ModelCapabilitiesCache
+        // Probe tool support once — run async so it never blocks the caller.
+        // Optimistically mark as true (supported) so tools are available immediately;
+        // the background probe will call setToolSupport() with the real result,
+        // which fires ToolSupportDetectedEvent so the UI reacts if the model rejects tools.
         if (executionMode.isToolEnabled() &&
             !ModelCapabilitiesCache.hasTestedToolSupport(ANTHROPIC, settings.defaultModel)
         ) {
-            val supportsTools = probeToolSupport(settings.defaultModel, streamingModel, executionMode)
-            ModelCapabilitiesCache.setToolSupport(ANTHROPIC, settings.defaultModel, supportsTools)
+            ModelCapabilitiesCache.setToolSupport(ANTHROPIC, settings.defaultModel, true)
+            val modelName = settings.defaultModel
+            CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+                val supportsTools = probeToolSupport(modelName, streamingModel, executionMode)
+                ModelCapabilitiesCache.setToolSupport(ANTHROPIC, modelName, supportsTools)
+            }
         }
 
-        // Probe image generation capability once — result is persisted in ModelCapabilitiesCache
+        // Probe image generation capability once — run async so it never blocks the caller.
+        // Optimistically mark as false (not supported) so the UI is usable immediately;
+        // the background probe will call setImageSupport() again with the real result,
+        // which fires ImageCapabilityDetectedEvent so the UI reacts without a restart.
         if (!ModelCapabilitiesCache.hasTestedImageSupport(ANTHROPIC, settings.defaultModel)) {
-            val supportsImage = probeImageCapability(ANTHROPIC, settings.defaultModel, streamingModel)
-            ModelCapabilitiesCache.setImageSupport(ANTHROPIC, settings.defaultModel, supportsImage)
+            ModelCapabilitiesCache.setImageSupport(ANTHROPIC, settings.defaultModel, false)
+            val modelName = settings.defaultModel
+            CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+                val supportsImage = probeImageCapability(ANTHROPIC, modelName, streamingModel)
+                ModelCapabilitiesCache.setImageSupport(ANTHROPIC, modelName, supportsImage)
+            }
         }
 
         return AiServiceBuilder.buildChatClient(
