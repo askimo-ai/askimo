@@ -34,11 +34,18 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
      * OpenAI-compatible servers can be remote — skip the local model availability check.
      * Also uses the settings API key (via [resolveApiKey]) for the embedding request itself.
      */
-    override fun createEmbeddingModel(settings: OpenAiCompatibleSettings): EmbeddingModel = OpenAiEmbeddingModelBuilder()
-        .baseUrl(settings.baseUrl)
-        .apiKey(resolveApiKey(settings))
-        .modelName(AppConfig.models[ModelProvider.OPENAI_COMPATIBLE].embeddingModel)
-        .build()
+    override fun createEmbeddingModel(settings: OpenAiCompatibleSettings): EmbeddingModel {
+        val modelName = AppConfig.models[ModelProvider.OPENAI_COMPATIBLE].embeddingModel
+        check(modelName.isNotBlank()) {
+            "No embedding model is configured for ${ModelProvider.OPENAI_COMPATIBLE.name}. " +
+                "Go to Settings > AI Provider and select an embedding model under the provider configuration card."
+        }
+        return OpenAiEmbeddingModelBuilder()
+            .baseUrl(settings.baseUrl)
+            .apiKey(resolveApiKey(settings))
+            .modelName(modelName)
+            .build()
+    }
 
     override fun getEmbeddingTokenLimit(settings: OpenAiCompatibleSettings): Int {
         val modelName = AppConfig.models[ModelProvider.OPENAI_COMPATIBLE].embeddingModel.lowercase()
