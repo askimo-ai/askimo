@@ -116,6 +116,9 @@ fun advancedSettingsSection() {
                 // RAG Configuration Section
                 ragConfigurationSection()
 
+                // Models Configuration Section
+                modelsConfigurationSection()
+
                 // Analytics Section
                 analyticsSection()
 
@@ -622,6 +625,42 @@ private fun ragConfigurationSection() {
                 value = AppConfig.indexing.embeddingBatchSize.toLong(),
                 onValueChange = { newValue ->
                     AppConfig.updateField("indexing.embeddingBatchSize", newValue.toInt())
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun modelsConfigurationSection() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = AppComponents.bannerCardColors(),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.large),
+            verticalArrangement = Arrangement.spacedBy(Spacing.large),
+        ) {
+            Text(
+                text = stringResource("settings.models.title"),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+
+            Text(
+                text = stringResource("settings.models.description"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+            )
+
+            ragIntField(
+                label = stringResource("settings.models.max.tool.calling.round.trips"),
+                hint = stringResource("settings.models.max.tool.calling.round.trips.hint"),
+                value = AppConfig.models.maxToolCallingRoundTrips,
+                onValueChange = { newValue ->
+                    AppConfig.updateField("models.maxToolCallingRoundTrips", newValue)
                 },
             )
         }

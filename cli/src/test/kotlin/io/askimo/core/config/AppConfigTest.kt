@@ -99,6 +99,20 @@ class AppConfigTest {
     }
 
     @Test
+    fun `updateModelsField should handle maxToolCallingRoundTrips`() {
+        val config = ModelsConfig()
+
+        val withInt = updateModelsFieldHelper(config, "maxToolCallingRoundTrips", 25)
+        assertEquals(25, withInt.maxToolCallingRoundTrips)
+
+        val withString = updateModelsFieldHelper(config, "maxToolCallingRoundTrips", "5")
+        assertEquals(5, withString.maxToolCallingRoundTrips)
+
+        val withInvalid = updateModelsFieldHelper(config, "maxToolCallingRoundTrips", "invalid")
+        assertEquals(config.maxToolCallingRoundTrips, withInvalid.maxToolCallingRoundTrips)
+    }
+
+    @Test
     fun `updateModelsField should handle all provider vision models`() {
         val config = ModelsConfig()
 

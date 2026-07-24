@@ -296,6 +296,7 @@ data class ModelTimeoutsConfig(
 )
 
 data class ModelsConfig(
+    val maxToolCallingRoundTrips: Int = 10,
     val timeouts: ModelTimeoutsConfig = ModelTimeoutsConfig(),
     val anthropic: ProviderModelConfig = ProviderModelConfig(),
     val gemini: ProviderModelConfig = ProviderModelConfig(),
@@ -1158,6 +1159,13 @@ object AppConfig {
     }
 
     private fun updateModelsField(config: ModelsConfig, field: String, value: Any): ModelsConfig {
+        // Handle top-level scalar fields on ModelsConfig (no nested dot)
+        if (field == "maxToolCallingRoundTrips") {
+            return config.copy(
+                maxToolCallingRoundTrips = (value as? Int) ?: value.toString().toIntOrNull() ?: config.maxToolCallingRoundTrips,
+            )
+        }
+
         val parts = field.split(".")
         if (parts.size != 2) {
             log.displayError("Models config requires nested path format: provider.field or timeouts.field", null)
