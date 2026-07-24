@@ -284,6 +284,10 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
     override fun createEmbeddingModel(settings: T): EmbeddingModel {
         val baseUrl = settings.baseUrl.removeSuffix("/")
         val modelName = settings.embeddingModel.ifBlank { AppConfig.models[getProvider()].embeddingModel }
+        check(modelName.isNotBlank()) {
+            "No embedding model is configured for ${getProvider().name}. " +
+                "Go to Settings > AI Provider and select an embedding model under the provider configuration card."
+        }
         checkEmbeddingAvailability(baseUrl, modelName)
         return customizeEmbeddingBuilder(
             settings,
