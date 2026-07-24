@@ -74,6 +74,7 @@ object ApplicationPreferences {
     private const val SHOW_PLANS_IN_SIDEBAR_KEY = "ui.show_plans_in_sidebar"
     private const val SHOW_SKILLS_IN_SIDEBAR_KEY = "ui.show_skills_in_sidebar"
     private const val SHOW_PROJECTS_IN_SIDEBAR_KEY = "ui.show_projects_in_sidebar"
+    private const val SHOW_TOKEN_USAGE_CARD_KEY = "ui.show_token_usage_card"
 
     fun getProjectSidePanelWidth(): Int = safeGetInt(PROJECT_SIDE_PANEL_WIDTH_KEY, DEFAULT_PROJECT_SIDE_PANEL_WIDTH)
     fun setProjectSidePanelWidth(width: Int) = safePutInt(PROJECT_SIDE_PANEL_WIDTH_KEY, width)
@@ -119,6 +120,9 @@ object ApplicationPreferences {
 
     fun getShowProjectsInSidebar(): Boolean = safeGetBoolean(SHOW_PROJECTS_IN_SIDEBAR_KEY, true)
     fun setShowProjectsInSidebar(show: Boolean) = safePutBoolean(SHOW_PROJECTS_IN_SIDEBAR_KEY, show)
+
+    fun getShowTokenUsageCard(): Boolean = safeGetBoolean(SHOW_TOKEN_USAGE_CARD_KEY, true)
+    fun setShowTokenUsageCard(show: Boolean) = safePutBoolean(SHOW_TOKEN_USAGE_CARD_KEY, show)
 
     // ============================================================
     // LIFECYCLE
