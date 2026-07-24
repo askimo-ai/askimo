@@ -6,6 +6,7 @@ package io.askimo.ui.chat
 
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.dto.ChatMessageDTO
+import io.askimo.core.chat.dto.ToolCallInfo
 
 /**
  * State for the chat view.
@@ -40,4 +41,7 @@ data class ChatState(
     // Session state
     val sessionTitle: String,
     val project: Project?,
+
+    // Tool call state — ephemeral, populated only during active streaming
+    val activeToolCalls: List<ToolCallInfo> = emptyList(),
 )

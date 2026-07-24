@@ -10,6 +10,7 @@ import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -26,13 +27,19 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
@@ -72,6 +79,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
+import io.askimo.core.chat.dto.ToolCallInfo
+import io.askimo.core.chat.dto.ToolCallStatus
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.RunCodeEvent
 import io.askimo.core.event.internal.parseFilePreviewRequestEvent
@@ -124,6 +133,7 @@ fun messageList(
     onRetryMessage: ((String) -> Unit)? = null,
     viewportTopY: Float? = null,
     projectId: String? = null,
+    activeToolCalls: List<ToolCallInfo> = emptyList(),
 ) {
     // Retry confirmation dialog state
     var showRetryConfirmDialog by remember { mutableStateOf(false) }
@@ -187,6 +197,16 @@ fun messageList(
                     val isActiveResult = searchQuery.isNotBlank() && messageIndex == currentSearchResultIndex
                     // A message is streaming when it's the last AI message still without a persisted ID
                     val isStreamingMessage = !group.message.isUser && group.message.id == null
+                    // Show tool chips on the last AI message whether streaming (id=null) or already
+                    // persisted (real id). Matching by id covers both cases:
+                    //   • streaming  → both ids are null        → matched
+                    //   • completed  → real id matches          → matched
+                    //   • older msg  → id differs               → emptyList
+                    val lastAiMessageId = messages.lastOrNull { !it.isUser }?.id
+                    val isLastAiMsg = !group.message.isUser && (
+                        (group.message.id != null && group.message.id == lastAiMessageId) ||
+                            (group.message.id == null && lastAiMessageId == null)
+                        )
                     messageBubble(
                         message = group.message,
                         searchQuery = searchQuery,
@@ -206,6 +226,7 @@ fun messageList(
                         },
                         isStreaming = isStreamingMessage,
                         projectId = projectId,
+                        toolCalls = if (isLastAiMsg) activeToolCalls else emptyList(),
                     )
                     isFirstMessage = false
                     messageIndex++
@@ -300,6 +321,7 @@ fun messageBubble(
     isOutdatedMessage: Boolean = false,
     isStreaming: Boolean = false,
     projectId: String? = null,
+    toolCalls: List<ToolCallInfo> = emptyList(),
 ) {
     Box(
         modifier = Modifier
@@ -333,6 +355,7 @@ fun messageBubble(
                 isOutdatedMessage = isOutdatedMessage,
                 isStreaming = isStreaming,
                 projectId = projectId,
+                toolCalls = toolCalls,
             )
         }
     }
@@ -588,6 +611,7 @@ private fun aiMessageBubble(
     isOutdatedMessage: Boolean = false,
     isStreaming: Boolean = false,
     projectId: String? = null,
+    toolCalls: List<ToolCallInfo> = emptyList(),
 ) {
     val clipboardManager = LocalClipboardManager.current
     var showCopyFeedback by remember { mutableStateOf(false) }
@@ -600,6 +624,13 @@ private fun aiMessageBubble(
         MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
     } else {
         MaterialTheme.colorScheme.onSurface
+    }
+
+    // Tool call collapsible state — auto-expand when any tool starts running
+    var toolCallsExpanded by remember { mutableStateOf(false) }
+    val hasRunningTool = toolCalls.any { it.status == ToolCallStatus.RUNNING }
+    LaunchedEffect(hasRunningTool) {
+        if (hasRunningTool) toolCallsExpanded = true
     }
 
     Column(
@@ -650,6 +681,15 @@ private fun aiMessageBubble(
                             ),
                     ) {
                         Column {
+                            // Tool call collapsible section — shown only during streaming
+                            if (toolCalls.isNotEmpty()) {
+                                toolCallsSection(
+                                    toolCalls = toolCalls,
+                                    isExpanded = toolCallsExpanded,
+                                    onToggle = { toolCallsExpanded = !toolCallsExpanded },
+                                )
+                            }
+
                             if (message.attachments.isNotEmpty()) {
                                 Column(
                                     modifier = Modifier.padding(start = Spacing.medium, end = Spacing.medium, top = Spacing.medium),
@@ -999,7 +1039,213 @@ private fun aiMessageBubble(
     }
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
+/**
+ * Collapsible section that displays AI tool calls above the response text.
+ * Shows "▶ Running tool…" when any tool is active, "▶ Used N tool(s)" when all are done.
+ * Expands automatically when a tool starts running; collapses manually by the user.
+ */
+@Composable
+private fun toolCallsSection(
+    toolCalls: List<ToolCallInfo>,
+    isExpanded: Boolean,
+    onToggle: () -> Unit,
+) {
+    val hasRunning = toolCalls.any { it.status == ToolCallStatus.RUNNING }
+    val headerText = if (hasRunning) {
+        stringResource("tool.call.header.running")
+    } else {
+        stringResource("tool.call.header.done", toolCalls.size)
+    }
+    val headerColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = Spacing.medium, end = Spacing.medium, top = Spacing.small),
+    ) {
+        // Collapsed / expanded header row — full width, hand cursor
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggle)
+                .pointerHoverIcon(PointerIcon.Hand)
+                .padding(vertical = Spacing.extraSmall),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+        ) {
+            Icon(
+                imageVector = if (isExpanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = headerColor,
+            )
+            Text(
+                text = headerText,
+                style = MaterialTheme.typography.labelSmall,
+                color = headerColor,
+            )
+        }
+
+        // Expanded: one row per tool call
+        if (isExpanded) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = Spacing.extraSmall, bottom = Spacing.extraSmall),
+                verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+            ) {
+                toolCalls.forEach { toolCall ->
+                    toolCallRow(toolCall)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Single row showing a tool name, its running/done/failed status icon, and an optional
+ * expandable section with the raw arguments and result.
+ */
+@Composable
+private fun toolCallRow(toolCall: ToolCallInfo) {
+    val isDone = toolCall.status == ToolCallStatus.DONE
+    val hasFailed = toolCall.hasFailed
+    val hasDetails = !toolCall.arguments.isNullOrBlank() || !toolCall.result.isNullOrBlank()
+
+    var detailsExpanded by remember { mutableStateOf(false) }
+
+    val statusColor = when {
+        hasFailed -> MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
+        isDone -> MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+    }
+
+    Column(
+        modifier = Modifier
+            .background(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(6.dp),
+            )
+            .padding(horizontal = Spacing.small, vertical = 3.dp),
+    ) {
+        // Header row: icon + name + status indicator (+ expand chevron if details exist)
+        Row(
+            modifier = if (hasDetails && isDone) {
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() },
+                        onClick = { detailsExpanded = !detailsExpanded },
+                    )
+                    .pointerHoverIcon(PointerIcon.Hand)
+            } else {
+                Modifier.fillMaxWidth()
+            },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Build,
+                contentDescription = null,
+                modifier = Modifier.size(12.dp),
+                tint = statusColor,
+            )
+            Text(
+                text = toolCall.toolName,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            // Status indicator
+            when {
+                !isDone -> Text(
+                    text = "⏳",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = statusColor,
+                )
+
+                hasFailed -> Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = stringResource("tool.call.status.failed"),
+                    modifier = Modifier.size(12.dp),
+                    tint = statusColor,
+                )
+
+                else -> Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = stringResource("tool.call.status.done"),
+                    modifier = Modifier.size(12.dp),
+                    tint = statusColor,
+                )
+            }
+            // Expand chevron (only when done and has details)
+            if (hasDetails && isDone) {
+                Icon(
+                    imageVector = if (detailsExpanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    modifier = Modifier.size(12.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                )
+            }
+        }
+
+        // Expandable details: arguments + result
+        if (detailsExpanded && hasDetails) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = Spacing.extraSmall),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                if (!toolCall.arguments.isNullOrBlank()) {
+                    toolCallDetailSection(
+                        label = stringResource("tool.call.detail.arguments"),
+                        content = toolCall.arguments!!,
+                    )
+                }
+                if (!toolCall.result.isNullOrBlank()) {
+                    toolCallDetailSection(
+                        label = stringResource("tool.call.detail.result"),
+                        content = toolCall.result!!,
+                        labelColor = if (hasFailed) MaterialTheme.colorScheme.error.copy(alpha = 0.8f) else null,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * A small labelled text block used inside an expanded tool-call row.
+ */
+@Composable
+private fun toolCallDetailSection(
+    label: String,
+    content: String,
+    labelColor: Color? = null,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = labelColor ?: MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+        )
+        Text(
+            text = content,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(4.dp),
+                )
+                .padding(horizontal = Spacing.extraSmall, vertical = 2.dp),
+        )
+    }
+}
+
 @Composable
 private fun fileAttachmentChip(
     attachment: FileAttachmentDTO,

@@ -179,6 +179,7 @@ fun chatView(
     val selectedDirective = state.selectedDirective
     val sessionTitle = state.sessionTitle
     val project = state.project
+    val activeToolCalls = state.activeToolCalls
 
     // Internal state management for ChatView
     val scope = rememberCoroutineScope()
@@ -1222,6 +1223,7 @@ fun chatView(
                                         onRetryMessage = { messageId -> actions.retryMessage(messageId, currentEnabledServerIds) },
                                         viewportTopY = viewportBounds?.top,
                                         projectId = project?.id,
+                                        activeToolCalls = activeToolCalls,
                                     )
                                 }
                             }

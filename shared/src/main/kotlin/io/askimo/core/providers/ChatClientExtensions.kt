@@ -69,6 +69,8 @@ fun ChatClient.sendStreamingMessageWithCallback(
     onToken: (String) -> Unit = {},
     onFollowUpSuggestion: ((FollowUpSuggestion) -> Unit)? = null,
     onTokenUsage: ((inputTokens: Int, outputTokens: Int, totalTokens: Int, durationMs: Long) -> Unit)? = null,
+    onToolStarted: ((toolName: String, arguments: String?) -> Unit)? = null,
+    onToolFinished: ((toolName: String, arguments: String?, result: String?, hasFailed: Boolean) -> Unit)? = null,
 ): String {
     val log = logger<ChatClient>()
 
@@ -133,8 +135,18 @@ fun ChatClient.sendStreamingMessageWithCallback(
                                 }
                             }
                             done.countDown()
+                        }.beforeToolExecution { before ->
+                            val toolName = before.request().name()
+                            val arguments = before.request().arguments()
+                            log.debug("Tool starting: {}", toolName)
+                            onToolStarted?.invoke(toolName, arguments)
                         }.onToolExecuted { tool ->
-                            log.debug("Tool executed: {}", tool)
+                            val toolName = tool.request().name()
+                            val arguments = tool.request().arguments()
+                            val result = tool.result()
+                            val hasFailed = tool.hasFailed()
+                            log.debug("Tool executed: {}", toolName)
+                            onToolFinished?.invoke(toolName, arguments, result, hasFailed)
                         }
                         .onError { e ->
                             errorOccurred = true

@@ -12,6 +12,7 @@ import io.askimo.core.analytics.AnalyticsEvent
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
+import io.askimo.core.chat.dto.ToolCallInfo
 import io.askimo.core.chat.mapper.ChatMessageMapper.toDTO
 import io.askimo.core.chat.repository.PaginationDirection
 import io.askimo.core.chat.service.ChatSessionService
@@ -110,6 +111,9 @@ class ChatViewModel(
     var project by mutableStateOf<Project?>(null)
         private set
 
+    var activeToolCalls by mutableStateOf<List<ToolCallInfo>>(emptyList())
+        private set
+
     val state: ChatState
         get() = ChatState(
             messages = messages,
@@ -129,6 +133,7 @@ class ChatViewModel(
             selectedDirective = selectedDirective,
             sessionTitle = sessionTitle ?: "",
             project = project,
+            activeToolCalls = activeToolCalls,
         )
 
     /**
@@ -352,6 +357,38 @@ class ChatViewModel(
             // Track this subscription by sessionId
             activeSubscriptions[sessionId] = subscriptionJob
 
+            // Subscribe to tool call state for the streaming message.
+            // When a tool fires before any text token arrives (no id=null message exists yet),
+            // inject a placeholder AI message so the bubble appears and can render tool chips.
+            scope.launch {
+                activeThread.toolCalls.collect { calls ->
+                    if (currentSessionId.value == sessionId) {
+                        activeToolCalls = calls
+                        // No streaming bubble yet — create placeholder so tool chips are visible
+                        if (calls.isNotEmpty() && messages.none { !it.isUser && it.id == null }) {
+                            isThinking = false
+                            stopThinkingTimer()
+                            val placeholder = ChatMessageDTO(
+                                content = "",
+                                isUser = false,
+                                id = null,
+                                timestamp = null,
+                            )
+                            messages = if (retryInsertPosition != null) {
+                                messages.toMutableList().apply { add(retryInsertPosition!!, placeholder) }
+                            } else {
+                                val lastMsg = messages.lastOrNull()
+                                if (lastMsg != null && !lastMsg.isUser) {
+                                    messages.dropLast(1) + placeholder
+                                } else {
+                                    messages + placeholder
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Monitor completion in a separate job
             scope.launch {
                 activeThread.isComplete.collect { isComplete ->
@@ -402,6 +439,9 @@ class ChatViewModel(
                         // Clear retry position tracker
                         retryInsertPosition = null
 
+                        // NOTE: activeToolCalls is NOT cleared here — chips stay visible on the
+                        // completed message until the user sends the next message.
+
                         // Refresh session title (in case it was auto-generated from first message)
                         refreshSessionTitle()
 
@@ -440,7 +480,7 @@ class ChatViewModel(
 
         val currentSessionId = currentSessionId.value
 
-        if (editingMessage != null && editingMessage.id != null) {
+        if (editingMessage?.id != null) {
             val originalMessageId = editingMessage.id ?: return currentSessionId
 
             scope.launch {
@@ -521,6 +561,9 @@ class ChatViewModel(
                 isThinking = true
                 thinkingElapsedSeconds = 0
 
+                // Clear tool chips from the previous response before retrying
+                activeToolCalls = emptyList()
+
                 startThinkingTimer()
 
                 // 6. Resend the user message
@@ -597,6 +640,9 @@ class ChatViewModel(
      */
     fun sendMessage(projectId: String?, mode: CreationMode, message: String, attachments: List<FileAttachmentDTO> = emptyList(), enabledServerIds: Set<String> = emptySet()) {
         if (message.isBlank() || isLoading) return
+
+        // Clear tool chips from the previous response now that a new message is starting
+        activeToolCalls = emptyList()
 
         // Session ID must be set by this point (from resumeSession)
         val sessionId = currentSessionId.value ?: run {
@@ -1137,6 +1183,9 @@ class ChatViewModel(
         // Clear session title and project
         sessionTitle = null
         project = null
+
+        // Clear ephemeral tool call state
+        activeToolCalls = emptyList()
 
         // Clear search state
         clearSearch()

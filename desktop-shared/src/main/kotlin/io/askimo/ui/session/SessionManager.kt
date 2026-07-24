@@ -11,6 +11,8 @@ import io.askimo.core.chat.domain.ChatMessage
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
+import io.askimo.core.chat.dto.ToolCallInfo
+import io.askimo.core.chat.dto.ToolCallStatus
 import io.askimo.core.chat.service.ChatSessionService
 import io.askimo.core.context.AppContext
 import io.askimo.core.event.EventBus
@@ -120,10 +122,12 @@ class SessionManager(
         private val _isComplete: MutableStateFlow<Boolean>,
         private val _hasFailed: MutableStateFlow<Boolean>,
         private val _savedMessage: MutableStateFlow<ChatMessage?> = MutableStateFlow(null),
+        private val _toolCalls: MutableStateFlow<List<ToolCallInfo>> = MutableStateFlow(emptyList()),
     ) {
         val chunks: StateFlow<List<String>> = _chunks.asStateFlow()
         val isComplete: StateFlow<Boolean> = _isComplete.asStateFlow()
         val savedMessage: StateFlow<ChatMessage?> = _savedMessage.asStateFlow()
+        val toolCalls: StateFlow<List<ToolCallInfo>> = _toolCalls.asStateFlow()
 
         private val mutex = Mutex()
 
@@ -148,6 +152,39 @@ class SessionManager(
         suspend fun setSavedMessage(message: ChatMessage) {
             mutex.withLock {
                 _savedMessage.value = message
+            }
+        }
+
+        /** Mark a tool as RUNNING. Deduplicates: no-op if already tracked. */
+        suspend fun markToolRunning(toolName: String, arguments: String?) {
+            mutex.withLock {
+                if (_toolCalls.value.none { it.toolName == toolName }) {
+                    _toolCalls.value = _toolCalls.value + ToolCallInfo(
+                        toolName = toolName,
+                        status = ToolCallStatus.RUNNING,
+                        arguments = arguments,
+                    )
+                }
+            }
+        }
+
+        /** Mark a tool as DONE. Replaces existing RUNNING entry, or appends if not found. */
+        suspend fun markToolDone(toolName: String, arguments: String?, result: String?, hasFailed: Boolean) {
+            mutex.withLock {
+                val existing = _toolCalls.value
+                val idx = existing.indexOfFirst { it.toolName == toolName }
+                val updated = ToolCallInfo(
+                    toolName = toolName,
+                    status = ToolCallStatus.DONE,
+                    arguments = arguments,
+                    result = result,
+                    hasFailed = hasFailed,
+                )
+                _toolCalls.value = if (idx >= 0) {
+                    existing.toMutableList().also { it[idx] = updated }
+                } else {
+                    existing + updated
+                }
             }
         }
 
@@ -258,6 +295,16 @@ class SessionManager(
                                 capturedTotalTokens = total
                                 capturedDurationMs = durationMs
                                 log.debug("Token usage for session $sessionId: input=$input, output=$output, total=$total, duration=${durationMs}ms")
+                            },
+                            onToolStarted = { toolName, arguments ->
+                                streamingScope.launch {
+                                    thread.markToolRunning(toolName, arguments)
+                                }
+                            },
+                            onToolFinished = { toolName, arguments, result, hasFailed ->
+                                streamingScope.launch {
+                                    thread.markToolDone(toolName, arguments, result, hasFailed)
+                                }
                             },
                         )
 
