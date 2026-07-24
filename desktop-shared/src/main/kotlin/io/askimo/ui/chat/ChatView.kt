@@ -13,27 +13,21 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Search
@@ -41,7 +35,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -82,9 +75,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.chat.domain.ChatDirective
-import io.askimo.core.chat.domain.DirectiveScope
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
@@ -107,16 +98,12 @@ import io.askimo.ui.common.keymap.KeyMapManager
 import io.askimo.ui.common.keymap.KeyMapManager.AppShortcut
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents
-import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.LocalBackgroundActive
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
-import io.askimo.ui.common.ui.TooltipPlacement
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.common.ui.util.FileDialogUtils
 import io.askimo.ui.service.AvatarService
-import io.askimo.ui.session.manageDirectivesDialog
-import io.askimo.ui.session.newDirectiveDialog
 import io.askimo.ui.session.sessionActionsMenu
 import io.askimo.ui.session.sessionMemoryDialog
 import kotlinx.coroutines.Dispatchers
@@ -281,7 +268,6 @@ fun chatView(
 
     // Load all directives
     var availableDirectives by remember { mutableStateOf<List<ChatDirective>>(emptyList()) }
-    var showNewDirectiveDialog by remember { mutableStateOf(false) }
 
     // Session memory dialog state
     var showSessionMemoryDialog by remember { mutableStateOf(false) }
@@ -438,27 +424,6 @@ fun chatView(
         userAvatarPainter = withContext(Dispatchers.IO) {
             avatarService.getUserAvatarPainter(userAvatarPath, serverBaseUrl)
         }
-    }
-
-    // Show new directive dialog
-    if (showNewDirectiveDialog) {
-        newDirectiveDialog(
-            onDismiss = { showNewDirectiveDialog = false },
-            onConfirm = { name, content, applyToCurrent ->
-                // Create the new directive
-                val newDirective = directiveService.createDirective(name, content)
-
-                // Reload directives
-                availableDirectives = directiveService.listAllDirectives()
-
-                // Apply to current session if requested
-                if (applyToCurrent) {
-                    actions.setDirective(newDirective.id)
-                }
-
-                showNewDirectiveDialog = false
-            },
-        )
     }
 
     Box(
@@ -662,273 +627,11 @@ fun chatView(
                                 }
                             }
 
-                            // Right side: Directive selector and session actions
+                            // Right side: session actions
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                var showManageDirectivesDialog by remember { mutableStateOf(false) }
-                                var directiveDropdownExpanded by remember { mutableStateOf(false) }
-
-                                // Get the selected directive details
-                                val selectedDirectiveObj = remember(selectedDirective, availableDirectives) {
-                                    selectedDirective?.let { id ->
-                                        availableDirectives.find { it.id == id }
-                                    }
-                                }
-
-                                Box {
-                                    themedTooltip(
-                                        text = if (selectedDirectiveObj != null) {
-                                            "${stringResource("chat.directive")}: ${selectedDirectiveObj.name}\n${selectedDirectiveObj.content}"
-                                        } else {
-                                            "${stringResource("chat.directive")}: ${stringResource("chat.directive.none")}"
-                                        },
-                                    ) {
-                                        TextButton(
-                                            onClick = { directiveDropdownExpanded = true },
-                                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                            colors = ButtonDefaults.textButtonColors(
-                                                contentColor = if (selectedDirectiveObj != null) {
-                                                    MaterialTheme.colorScheme.onSurface
-                                                } else {
-                                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                                },
-                                            ),
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.AutoAwesome,
-                                                contentDescription = stringResource("chat.directive"),
-                                                modifier = Modifier.size(16.dp),
-                                            )
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text(
-                                                text = selectedDirectiveObj?.name?.take(30)?.let {
-                                                    if (selectedDirectiveObj.name.length > 30) "$it..." else it
-                                                } ?: stringResource("chat.directive.none"),
-                                                style = MaterialTheme.typography.bodyMedium,
-                                            )
-                                            Icon(
-                                                imageVector = Icons.Default.ArrowDropDown,
-                                                contentDescription = "Select directive",
-                                                modifier = Modifier.size(20.dp),
-                                            )
-                                        }
-                                    }
-
-                                    dropdownMenu(
-                                        expanded = directiveDropdownExpanded,
-                                        onDismissRequest = { directiveDropdownExpanded = false },
-                                        modifier = Modifier.fillMaxWidth(0.3f),
-                                    ) {
-                                        // "None" option to clear directive
-                                        DropdownMenuItem(
-                                            text = {
-                                                Text(
-                                                    text = stringResource("chat.directive.none"),
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                )
-                                            },
-                                            onClick = {
-                                                actions.setDirective(null)
-                                                directiveDropdownExpanded = false
-                                            },
-                                            leadingIcon = if (selectedDirective == null) {
-                                                {
-                                                    Icon(
-                                                        Icons.Default.Check,
-                                                        contentDescription = "Selected",
-                                                        tint = MaterialTheme.colorScheme.onSurface,
-                                                    )
-                                                }
-                                            } else {
-                                                null
-                                            },
-                                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                        )
-
-                                        // Show available directives in a scrollable section
-                                        if (availableDirectives.isNotEmpty()) {
-                                            HorizontalDivider()
-
-                                            availableDirectives.forEach { directive ->
-                                                themedTooltip(
-                                                    text = "${directive.name}\n${directive.content}",
-                                                    placement = TooltipPlacement.LEFT,
-                                                ) {
-                                                    DropdownMenuItem(
-                                                        text = {
-                                                            Row(
-                                                                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                                                                verticalAlignment = Alignment.CenterVertically,
-                                                            ) {
-                                                                Text(
-                                                                    text = directive.name,
-                                                                    style = MaterialTheme.typography.bodyMedium,
-                                                                    modifier = Modifier.weight(1f, fill = false),
-                                                                )
-                                                                if (directive.scope == DirectiveScope.TEAM) {
-                                                                    Surface(
-                                                                        shape = MaterialTheme.shapes.extraSmall,
-                                                                        color = MaterialTheme.colorScheme.tertiaryContainer,
-                                                                    ) {
-                                                                        Text(
-                                                                            text = stringResource("directive.scope.team"),
-                                                                            style = MaterialTheme.typography.labelSmall,
-                                                                            color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                                                                        )
-                                                                    }
-                                                                }
-                                                            }
-                                                        },
-                                                        onClick = {
-                                                            actions.setDirective(directive.id)
-                                                            directiveDropdownExpanded = false
-                                                        },
-                                                        leadingIcon = if (selectedDirective == directive.id) {
-                                                            {
-                                                                Icon(
-                                                                    Icons.Default.Check,
-                                                                    contentDescription = "Selected",
-                                                                    tint = MaterialTheme.colorScheme.onSurface,
-                                                                )
-                                                            }
-                                                        } else {
-                                                            null
-                                                        },
-                                                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                                    )
-                                                }
-                                            }
-                                        }
-
-                                        // Action items section
-                                        HorizontalDivider(
-                                            modifier = Modifier.padding(vertical = 4.dp),
-                                        )
-
-                                        // New Directive action
-                                        DropdownMenuItem(
-                                            text = {
-                                                Row(
-                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                ) {
-                                                    Icon(
-                                                        Icons.Default.Add,
-                                                        contentDescription = "New directive",
-                                                        tint = MaterialTheme.colorScheme.onSurface,
-                                                        modifier = Modifier.size(20.dp),
-                                                    )
-                                                    Text(
-                                                        text = stringResource("chat.directive.new"),
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        color = MaterialTheme.colorScheme.onSurface,
-                                                    )
-                                                }
-                                            },
-                                            onClick = {
-                                                showNewDirectiveDialog = true
-                                                directiveDropdownExpanded = false
-                                            },
-                                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                        )
-
-                                        // Manage Directives action
-                                        DropdownMenuItem(
-                                            text = {
-                                                Row(
-                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                ) {
-                                                    Icon(
-                                                        Icons.Default.Edit,
-                                                        contentDescription = "Manage directives",
-                                                        tint = MaterialTheme.colorScheme.onSurface,
-                                                        modifier = Modifier.size(20.dp),
-                                                    )
-                                                    Text(
-                                                        text = stringResource("chat.directive.manage"),
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        color = MaterialTheme.colorScheme.onSurface,
-                                                    )
-                                                }
-                                            },
-                                            onClick = {
-                                                showManageDirectivesDialog = true
-                                                directiveDropdownExpanded = false
-                                            },
-                                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                        )
-
-                                        // Learn more link
-                                        HorizontalDivider(
-                                            modifier = Modifier.padding(vertical = 4.dp),
-                                        )
-                                        val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
-                                        DropdownMenuItem(
-                                            text = {
-                                                Row(
-                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                ) {
-                                                    Icon(
-                                                        Icons.Default.ChevronRight,
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        modifier = Modifier.size(16.dp),
-                                                    )
-                                                    Text(
-                                                        text = stringResource("chat.directive.learn.more"),
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    )
-                                                }
-                                            },
-                                            onClick = {
-                                                uriHandler.openUri("https://$DOMAIN/docs/desktop/directives/")
-                                                directiveDropdownExpanded = false
-                                            },
-                                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                        )
-                                    }
-
-                                    // Show manage directives dialog
-                                    if (showManageDirectivesDialog) {
-                                        manageDirectivesDialog(
-                                            directives = availableDirectives,
-                                            onDismiss = { showManageDirectivesDialog = false },
-                                            onAdd = { name, content, applyToCurrent ->
-                                                val newDirective = directiveService.createDirective(name, content)
-                                                availableDirectives = directiveService.listAllDirectives()
-                                                if (applyToCurrent) {
-                                                    actions.setDirective(newDirective.id)
-                                                }
-                                            },
-                                            onUpdate = { id, newName, newContent ->
-                                                directiveService.updateDirective(id, newName, newContent)
-                                                availableDirectives = directiveService.listAllDirectives()
-                                            },
-                                            onDelete = { id ->
-                                                directiveService.deleteDirective(id)
-                                                if (selectedDirective == id) {
-                                                    actions.setDirective(null)
-                                                }
-                                                availableDirectives = directiveService.listAllDirectives()
-                                            },
-                                            onExport = {
-                                                directiveService.exportToJson()
-                                            },
-                                            onImport = { json ->
-                                                val result = directiveService.importFromJson(json)
-                                                availableDirectives = directiveService.listAllDirectives()
-                                                result
-                                            },
-                                        )
-                                    }
-                                }
-
                                 if (sessionId != null && messages.isNotEmpty()) {
                                     sessionActionsMenu(
                                         sessionId = sessionId,
@@ -1275,6 +978,30 @@ fun chatView(
                         sessionId = sessionId,
                         onEnabledServerIdsChange = { currentEnabledServerIds = it },
                         onNavigateToMcpSettings = onNavigateToMcpSettings,
+                        // Directives chip
+                        availableDirectives = availableDirectives,
+                        selectedDirective = selectedDirective,
+                        onToggleDirective = { id -> actions.setDirective(id) },
+                        onDirectiveCreated = { name, content, applyToCurrent ->
+                            val newDirective = directiveService.createDirective(name, content)
+                            availableDirectives = directiveService.listAllDirectives()
+                            if (applyToCurrent) actions.setDirective(newDirective.id)
+                        },
+                        onDirectiveUpdated = { id, newName, newContent ->
+                            directiveService.updateDirective(id, newName, newContent)
+                            availableDirectives = directiveService.listAllDirectives()
+                        },
+                        onDirectiveDeleted = { id ->
+                            directiveService.deleteDirective(id)
+                            if (selectedDirective == id) actions.setDirective(null)
+                            availableDirectives = directiveService.listAllDirectives()
+                        },
+                        onDirectiveExported = { directiveService.exportToJson() },
+                        onDirectiveImported = { json ->
+                            val result = directiveService.importFromJson(json)
+                            availableDirectives = directiveService.listAllDirectives()
+                            result
+                        },
                         modifier = Modifier
                             .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                             .fillMaxWidth()
