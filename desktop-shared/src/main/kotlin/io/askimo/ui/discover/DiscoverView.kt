@@ -75,6 +75,7 @@ import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
+import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.session.sessionTooltip
 import java.awt.Desktop
 import java.net.URI
@@ -486,23 +487,25 @@ private fun tokenBarRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
     ) {
-        // Model + provider name
-        Column(modifier = Modifier.width(160.dp)) {
-            Text(
-                text = model,
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = provider,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+        // Model + provider name — tooltip shows full names if truncated
+        themedTooltip(text = "$model · $provider") {
+            Column(modifier = Modifier.width(160.dp)) {
+                Text(
+                    text = model,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = provider,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
 
         // Horizontal bar (track + fill)
@@ -512,7 +515,6 @@ private fun tokenBarRow(
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp)),
             )
-            // Clamp to 2% min so tiny values stay visible
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
@@ -521,17 +523,19 @@ private fun tokenBarRow(
             )
         }
 
-        // Abbreviated token count — locale-aware decimal separator via abbreviateTokens()
-        Text(
-            text = abbreviateTokens(tokens),
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.End,
-            modifier = Modifier.width(52.dp),
-        )
+        // Abbreviated token count — tooltip shows exact locale-formatted number
+        themedTooltip(text = LocalizationManager.formatNumber(tokens)) {
+            Text(
+                text = abbreviateTokens(tokens),
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.End,
+                modifier = Modifier.width(52.dp),
+            )
+        }
 
-        // Percentage — locale-aware via LocalizationManager.formatNumber
+        // Percentage
         Text(
             text = pctFormatted,
             style = MaterialTheme.typography.labelSmall,
