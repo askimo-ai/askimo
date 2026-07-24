@@ -161,6 +161,20 @@ object ExceptionMapper {
                 combinedMessage.contains("upgrade or purchase credits", ignoreCase = true) ->
                 InsufficientCreditsException(cause = rootCause)
 
+            // Context window exceeded (checked before generic 400 to avoid misclassification)
+            (
+                combinedMessage.contains("context", ignoreCase = true) && (
+                    combinedMessage.contains("length", ignoreCase = true) ||
+                        combinedMessage.contains("limit", ignoreCase = true) ||
+                        combinedMessage.contains("exceeded", ignoreCase = true) ||
+                        combinedMessage.contains("too long", ignoreCase = true) ||
+                        combinedMessage.contains("maximum context", ignoreCase = true) ||
+                        combinedMessage.contains("token limit", ignoreCase = true) ||
+                        combinedMessage.contains("exceed", ignoreCase = true)
+                    )
+                ) || combinedMessage.contains("413", ignoreCase = true) ->
+                ContextLengthException(cause = rootCause)
+
             // Invalid request
             combinedMessage.contains("400", ignoreCase = true) ||
                 combinedMessage.contains("bad request", ignoreCase = true) ||

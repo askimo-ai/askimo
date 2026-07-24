@@ -189,6 +189,18 @@ fun chatInputField(
         )
     }
 
+    // Whether the current model supports tool calling.
+    // Only disabled when the probe has run AND returned false — unknown (null) stays enabled.
+    val modelSupportsTools = remember(resolvedProvider, currentModel) {
+        if (resolvedProvider != null && currentModel.isNotBlank() &&
+            ModelCapabilitiesCache.hasTestedToolSupport(resolvedProvider, currentModel)
+        ) {
+            ModelCapabilitiesCache.supportsTools(resolvedProvider, currentModel)
+        } else {
+            true // Not yet probed — optimistically keep enabled
+        }
+    }
+
     // Listen for the probe result and update when it arrives for the active model.
     LaunchedEffect(resolvedProvider, currentModel) {
         EventBus.internalEvents.collect { event ->
@@ -713,6 +725,7 @@ fun chatInputField(
                             },
                             onNavigateToMcpSettings = onNavigateToMcpSettings,
                             iconSize = 28.dp,
+                            modelSupportsTools = modelSupportsTools,
                         )
 
                         // Image mode chip — only show when user explicitly toggles to Image mode
@@ -915,6 +928,7 @@ private fun toolsIndicatorButton(
     onEnabledServerIdsChange: (Set<String>) -> Unit,
     onNavigateToMcpSettings: (() -> Unit)? = null,
     iconSize: Dp = 36.dp,
+    modelSupportsTools: Boolean = false,
 ) {
     var showToolsPopup by remember { mutableStateOf(false) }
     var mcpServers by remember { mutableStateOf<List<McpServerInfo>>(emptyList()) }
@@ -985,31 +999,32 @@ private fun toolsIndicatorButton(
 
     Box {
         themedTooltip(
-            text = if (hasDisabled) {
-                stringResource("chat.tools.button.disabled", (totalServers - enabledServers).toString())
-            } else {
-                stringResource("chat.tools.button")
+            text = when {
+                !modelSupportsTools -> stringResource("chat.tools.button.model.no.support")
+                hasDisabled -> stringResource("chat.tools.button.disabled", (totalServers - enabledServers).toString())
+                else -> stringResource("chat.tools.button")
             },
         ) {
             // Inline chip: [🔧 3] or [🔧 3/5] — avoids all badge clipping issues
             Surface(
                 shape = RoundedCornerShape(8.dp),
                 color = when {
+                    !modelSupportsTools -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                     totalServers == 0 -> Color.Transparent
                     hasDisabled -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
                     else -> MaterialTheme.colorScheme.secondaryContainer
                 },
-                tonalElevation = if (totalServers > 0) 2.dp else 0.dp,
+                tonalElevation = if (totalServers > 0 && modelSupportsTools) 2.dp else 0.dp,
                 modifier = Modifier
                     .height(iconSize)
                     .clip(RoundedCornerShape(8.dp))
                     .clickable(
-                        enabled = !isLoading,
+                        enabled = !isLoading && modelSupportsTools,
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = { showToolsPopup = true },
                     )
-                    .pointerHoverIcon(PointerIcon.Hand),
+                    .pointerHoverIcon(if (modelSupportsTools) PointerIcon.Hand else PointerIcon.Default),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -1020,13 +1035,14 @@ private fun toolsIndicatorButton(
                         Icons.Default.Build,
                         contentDescription = stringResource("chat.tools.button"),
                         tint = when {
+                            !modelSupportsTools -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
                             hasDisabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                             totalServers > 0 -> MaterialTheme.colorScheme.onSecondaryContainer
                             else -> MaterialTheme.colorScheme.onSurface
                         },
                         modifier = Modifier.size(16.dp),
                     )
-                    if (totalServers > 0) {
+                    if (totalServers > 0 && modelSupportsTools) {
                         Text(
                             text = if (hasDisabled) "$enabledServers/$totalServers" else "$enabledServers",
                             style = MaterialTheme.typography.labelSmall,

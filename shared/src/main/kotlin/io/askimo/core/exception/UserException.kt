@@ -129,6 +129,17 @@ class InsufficientCreditsException(
 }
 
 /**
+ * Context window exceeded after all automatic retries have been exhausted.
+ * Triggered when the total input (history + message + attachments) is too large for the model.
+ */
+class ContextLengthException(
+    cause: Throwable? = null,
+) : UserException("Context window exceeded", cause) {
+    override fun getMessageKey() = "error.context_length"
+    override fun getMessageArgs() = emptyMap<String, String>()
+}
+
+/**
  * No AI provider has been configured yet (currentProvider == UNKNOWN).
  */
 class ProviderNotConfiguredException :

@@ -25,7 +25,6 @@ import java.util.Locale
  * - [calculateDateDiff]: Number of days between two dates.
  * - [addDaysToDate]: Add or subtract days from a date.
  */
-@Suppress("unused")
 object DateTimeTools {
 
     private const val CLASS_NAME = "io.askimo.tools.datetime.DateTimeTools"

@@ -17,9 +17,11 @@ import io.askimo.core.chat.service.ChatSessionService
 import io.askimo.core.context.AppContext
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.SessionCreatedEvent
+import io.askimo.core.exception.ContextLengthException
 import io.askimo.core.exception.ExceptionHandler
 import io.askimo.core.logging.logger
 import io.askimo.core.providers.ConfigurationErrorException
+import io.askimo.core.providers.isContextLengthError
 import io.askimo.core.providers.sendStreamingMessageWithCallback
 import io.askimo.core.vision.ImageProcessor
 import io.askimo.ui.chat.ChatViewModel
@@ -366,6 +368,12 @@ class SessionManager(
                 val partialResponse = thread.getCurrentContent()
                 val failedResponse = if (e is ConfigurationErrorException) {
                     e.displayMessage
+                } else if (e.isContextLengthError()) {
+                    ExceptionHandler.handleWithPartialContent(
+                        throwable = ContextLengthException(cause = e),
+                        partialContent = partialResponse,
+                        contextId = sessionId,
+                    )
                 } else {
                     ExceptionHandler.handleWithPartialContent(
                         throwable = e,
