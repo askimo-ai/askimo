@@ -258,30 +258,6 @@ class AppContext private constructor(
     }
 
     /**
-     * Updates the settings of the first instance of [provider] type, or creates a new
-     * instance if none exists for that type.
-     *
-     * When there is an active instance of a different type, this does **not** change
-     * [params.currentInstanceId] — call [setCurrentInstance] explicitly if needed.
-     */
-    fun setProviderSetting(
-        provider: ModelProvider,
-        settings: ProviderSettings,
-    ) {
-        val existing = params.providerInstances.firstOrNull { it.providerType == provider }
-        if (existing != null) {
-            params.replaceInstance(existing.copy(settings = settings))
-        } else {
-            val newInstance = ProviderInstance.create(
-                displayName = provider.providerKey(),
-                providerType = provider,
-                settings = settings,
-            )
-            params.upsertInstance(newInstance)
-        }
-    }
-
-    /**
      * Persists the current [params] to the YAML config file via [AppConfig].
      */
     fun save() {

@@ -28,7 +28,7 @@ class ProviderInstanceService(private val appContext: AppContext) {
         get() = appContext.params.activeInstance
 
     /** Finds an instance by its stable [id], or null if not found. */
-    fun findById(id: String): ProviderInstance? = appContext.params.providerInstances.firstOrNull { it.id == id }
+    fun findById(id: String): ProviderInstance? = appContext.params.providerInstances.firstOrNull { it.id == id }.also { if (it == null) log.warn("Could not find provider instance with id {}", id) }
 
     /**
      * Returns `true` when [displayName] (trimmed, case-insensitive) is not already taken by
