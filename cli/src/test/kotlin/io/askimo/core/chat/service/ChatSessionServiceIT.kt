@@ -760,21 +760,24 @@ class ChatSessionServiceIT {
     fun `forkSession should not copy outdated messages`() {
         val baseTime = Instant.now()
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Outdated Test"))
-        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q1", createdAt = baseTime))
-        val outdatedAi = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "Old answer", createdAt = baseTime.plusSeconds(1)))
-        // Mark the outdated branch
-        service.markMessagesAsOutdatedAfter(session.id, outdatedAi.id)
-        messageRepository.markMessageAsOutdated(outdatedAi.id)
-        // New active branch
+        // Simulate a user edit: Q1 is sent, AI replies "Old answer", user edits Q1 which
+        // marks Q1 and everything after it (including "Old answer") as outdated via greaterEq.
+        val q1 = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q1", createdAt = baseTime))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "Old answer", createdAt = baseTime.plusSeconds(1)))
+        // Mark the outdated branch: calling with q1.id marks Q1 (createdAt = baseTime) AND
+        // "Old answer" (createdAt > baseTime) as outdated — matching the real edit flow.
+        service.markMessagesAsOutdatedAfter(session.id, q1.id)
+        // New active branch after the edit
         service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q2", createdAt = baseTime.plusSeconds(2)))
         val activeAi = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "New answer", createdAt = baseTime.plusSeconds(3)))
 
         val forked = service.forkSession(session.id, activeAi.id)
         val forkedMessages = service.getMessages(forked.id)
 
-        // Only the two active messages should be copied
+        // Only the two active messages should be copied (Q1 and "Old answer" are both outdated)
         assertEquals(2, forkedMessages.size)
         assertFalse(forkedMessages.any { it.content == "Old answer" })
+        assertFalse(forkedMessages.any { it.content == "Q1" })
         assertTrue(forkedMessages.any { it.content == "Q2" })
         assertTrue(forkedMessages.any { it.content == "New answer" })
     }

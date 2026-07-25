@@ -277,7 +277,7 @@ private fun statCardsSection(
         statCard(
             label = stringResource("discover.stat.chats"),
             value = totalChats?.let { LocalizationManager.formatNumber(it) } ?: "—",
-            icon = { Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) },
+            icon = { Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer) },
             onClick = onNavigateToSessions,
             modifier = Modifier.weight(1f),
         )
@@ -286,7 +286,7 @@ private fun statCardsSection(
             statCard(
                 label = stringResource("discover.stat.projects"),
                 value = totalProjects?.let { LocalizationManager.formatNumber(it) } ?: "—",
-                icon = { Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) },
+                icon = { Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer) },
                 onClick = onNavigateToProjects,
                 modifier = Modifier.weight(1f),
             )
@@ -296,7 +296,7 @@ private fun statCardsSection(
             statCard(
                 label = stringResource("discover.stat.mcp"),
                 value = LocalizationManager.formatNumber(totalMcpServers),
-                icon = { Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) },
+                icon = { Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer) },
                 onClick = onNavigateToMcpSettings,
                 modifier = Modifier.weight(1f),
             )
@@ -306,7 +306,7 @@ private fun statCardsSection(
             statCard(
                 label = stringResource("discover.stat.plans"),
                 value = totalPlans?.let { LocalizationManager.formatNumber(it) } ?: "—",
-                icon = { Icon(Icons.Default.PlayCircle, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) },
+                icon = { Icon(Icons.Default.PlayCircle, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer) },
                 onClick = onNavigateToPlans,
                 modifier = Modifier.weight(1f),
             )
@@ -316,7 +316,7 @@ private fun statCardsSection(
             statCard(
                 label = stringResource("discover.stat.skills"),
                 value = totalSkills?.let { LocalizationManager.formatNumber(it) } ?: "—",
-                icon = { Icon(Icons.Default.Extension, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) },
+                icon = { Icon(Icons.Default.Extension, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer) },
                 onClick = onNavigateToSkills,
                 modifier = Modifier.weight(1f),
             )
@@ -332,7 +332,7 @@ private fun statCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
 ) {
-    clickableCard(onClick = onClick, modifier = modifier, colors = AppComponents.primaryCardColors()) {
+    clickableCard(onClick = onClick, modifier = modifier, colors = AppComponents.secondaryCardColors()) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(Spacing.large),
             verticalArrangement = Arrangement.spacedBy(Spacing.medium),
@@ -342,12 +342,12 @@ private fun statCard(
                 text = value,
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f),
+                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f),
             )
         }
     }
@@ -573,7 +573,7 @@ private fun exploreFeaturesSection() {
         ) {
             enabledCards.forEach { card ->
                 exploreCard(
-                    icon = { Icon(card.icon, contentDescription = null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer) },
+                    icon = { Icon(card.icon, contentDescription = null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                     title = stringResource(card.titleKey),
                     description = stringResource(card.descKey),
                     url = card.url,
@@ -595,7 +595,7 @@ private fun exploreCard(
     clickableCard(
         onClick = { runCatching { Desktop.getDesktop().browse(URI(url)) } },
         modifier = modifier,
-        colors = AppComponents.secondaryCardColors(),
+        colors = AppComponents.surfaceVariantCardColors(),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().fillMaxHeight().padding(Spacing.large),
@@ -607,10 +607,10 @@ private fun exploreCard(
                 verticalAlignment = Alignment.Top,
             ) {
                 icon()
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f))
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
             }
-            Text(text = title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
-            Text(text = description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f))
+            Text(text = title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(text = description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.82f))
         }
     }
 }

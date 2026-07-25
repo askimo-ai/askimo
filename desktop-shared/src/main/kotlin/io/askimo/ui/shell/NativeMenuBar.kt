@@ -92,11 +92,13 @@ object NativeMenuBar {
         isProjectsVisible: Boolean = true,
         onShowSystemDiagnostics: () -> Unit = {},
         onNavigateToBookmarks: () -> Unit,
+        onSupportAskimo: () -> Unit = {},
+        onShareFeedback: () -> Unit = {},
     ) {
         val window = frameWindowScope.window
 
         // Setup AWT menu bar for all platforms (includes Documentation)
-        setupAWTMenuBar(window, onShowAbout, onNewChat, onNewProject, onSearchInSessions, onShowSettings, onShowEventLog, onCheckForUpdates, onEnterFullScreen, onNavigateToSessions, onNavigateToProjects, onNavigateToDiscover, onToggleSidebar, onInvalidateCaches, onExportBackup, onImportBackup, onShowGettingStarted, onOpenTerminal, onClearPreferences, onClearAccountPreferences, onTogglePlans, onToggleSkills, onToggleProjects, isPlansVisible, isSkillsVisible, isProjectsVisible, onShowSystemDiagnostics, onNavigateToBookmarks)
+        setupAWTMenuBar(window, onShowAbout, onNewChat, onNewProject, onSearchInSessions, onShowSettings, onShowEventLog, onCheckForUpdates, onEnterFullScreen, onNavigateToSessions, onNavigateToProjects, onNavigateToDiscover, onToggleSidebar, onInvalidateCaches, onExportBackup, onImportBackup, onShowGettingStarted, onOpenTerminal, onClearPreferences, onClearAccountPreferences, onTogglePlans, onToggleSkills, onToggleProjects, isPlansVisible, isSkillsVisible, isProjectsVisible, onShowSystemDiagnostics, onNavigateToBookmarks, onSupportAskimo, onShareFeedback)
 
         // On macOS, also register the About handler for the app menu
         if (Platform.isMac) {
@@ -147,6 +149,8 @@ object NativeMenuBar {
         isProjectsVisible: Boolean,
         onShowSystemDiagnostics: () -> Unit,
         onNavigateToBookmarks: () -> Unit,
+        onSupportAskimo: () -> Unit,
+        onShareFeedback: () -> Unit,
     ) {
         if (window is Frame) {
             val menuBar = MenuBar()
@@ -395,14 +399,10 @@ object NativeMenuBar {
             }
             helpMenu.add(gettingStartedItem)
 
-            // Share Feedback — moved here from the footer status bar for better discoverability
+            // Share Feedback — opens the inline feedback dialog
             val shareFeedbackItem = MenuItem(menuLabel("system.share.feedback"))
             shareFeedbackItem.addActionListener {
-                runCatching {
-                    if (Desktop.isDesktopSupported()) {
-                        Desktop.getDesktop().browse(URI("https://$DOMAIN/contact/"))
-                    }
-                }
+                onShareFeedback()
             }
             helpMenu.add(shareFeedbackItem)
 
@@ -420,18 +420,6 @@ object NativeMenuBar {
             }
             helpMenu.add(releaseNotesItem)
 
-            // Star on GitHub
-            val starGitHubItem = MenuItem(menuLabel("menu.help.star.github"))
-            starGitHubItem.addActionListener {
-                runCatching {
-                    if (Desktop.isDesktopSupported()) {
-                        Desktop.getDesktop()
-                            .browse(URI("https://github.com/askimo-ai/askimo"))
-                    }
-                }
-            }
-            helpMenu.add(starGitHubItem)
-
             // Join Discord Community
             val discordItem = MenuItem(menuLabel("menu.help.discord"))
             discordItem.addActionListener {
@@ -441,16 +429,10 @@ object NativeMenuBar {
             }
             helpMenu.add(discordItem)
 
-            // Share Askimo submenu
-            val shareMenu = Menu(menuLabel("menu.help.share"))
-
-            ShareTarget.entries.forEach { target ->
-                val item = MenuItem(ShareUtils.labelFor(target))
-                item.addActionListener { ShareUtils.share(target) }
-                shareMenu.add(item)
-            }
-
-            helpMenu.add(shareMenu)
+            // Support Askimo — opens the star/share prompt (star + share in one place)
+            val supportAskimoItem = MenuItem(menuLabel("menu.help.support.askimo"))
+            supportAskimoItem.addActionListener { onSupportAskimo() }
+            helpMenu.add(supportAskimoItem)
 
             helpMenu.addSeparator()
 

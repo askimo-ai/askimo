@@ -132,6 +132,56 @@ object Analytics {
         }, "askimo-install-ping").also { it.isDaemon = true }.start()
     }
 
+    /**
+     * Sends [AnalyticsEvent.USER_FEEDBACK_SUBMITTED] directly
+     *
+     * @param sentiment  "neutral" | "unhappy" | "direct"
+     * @param reasons    Comma-separated lowercase reason names (e.g. "slow,broken")
+     * @param hasComment Whether the user wrote an optional comment (text itself is never sent)
+     * @param email      Optional follow-up email address; empty string → omitted from payload
+     */
+    fun sendFeedbackDirect(
+        sentiment: String,
+        reasons: String,
+        hasComment: Boolean,
+        email: String,
+    ) {
+        val endpoint = runCatching { AppConfig.analytics.endpoint }.getOrNull() ?: return
+        val payload = buildFeedbackPayload(sentiment, reasons, hasComment, email)
+        Thread({
+            runCatching {
+                val (status, _) = httpPost(
+                    url = endpoint,
+                    body = payload,
+                    connectTimeoutMs = 10_000,
+                    readTimeoutMs = 15_000,
+                    httpVersion = HttpClient.Version.HTTP_2,
+                )
+                if (status in 200..299) {
+                    log.debug("Feedback submitted (HTTP $status)")
+                } else {
+                    log.trace("Feedback HTTP $status — not retried")
+                }
+            }.onFailure { log.trace("Feedback submission failed: ${it.message}") }
+        }, "askimo-feedback").also { it.isDaemon = true }.start()
+    }
+
+    private fun buildFeedbackPayload(
+        sentiment: String,
+        reasons: String,
+        hasComment: Boolean,
+        email: String,
+    ): String {
+        fun String.jsonSafe() = replace("\\", "\\\\").replace("\"", "\\\"")
+        val (os, version) = osAndVersion()
+        val installId = AnalyticsDeviceInfo.installId.jsonSafe()
+        val safeEmail = email.trim().jsonSafe()
+        val hasEmail = safeEmail.isNotEmpty()
+        // Email appended only when the user provided it — their act of entering it is consent
+        val emailField = if (hasEmail) ""","email":"$safeEmail"""" else ""
+        return """[{"event":"${AnalyticsEvent.USER_FEEDBACK_SUBMITTED.eventName}","appVersion":"$version","os":"$os","installId":"$installId","properties":{"sentiment":"$sentiment","reasons":"$reasons","has_comment":"$hasComment","has_email":"$hasEmail"$emailField}}]"""
+    }
+
     private fun buildInstallPingPayload(): String {
         val (os, version) = osAndVersion()
         return """[{"event":"${AnalyticsEvent.INSTALL_PING.eventName}","appVersion":"$version","os":"$os"}]"""

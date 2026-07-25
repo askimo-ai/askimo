@@ -334,6 +334,15 @@ enum class AnalyticsEvent(
         "User indicated they are unhappy with Askimo in the happiness gate.",
     ),
 
+    /**
+     * User submitted inline feedback from [feedbackPromptDialog].
+     * Properties: `sentiment` (neutral|unhappy), `reasons` (comma-separated reason keys), `has_comment` (true|false).
+     */
+    USER_FEEDBACK_SUBMITTED(
+        "user_feedback_submitted",
+        "User submitted inline feedback. Properties: sentiment (neutral|unhappy), reasons (comma-separated), has_comment (true|false).",
+    ),
+
     // ── Consent ──────────────────────────────────────────────────────────────
 
     /** User explicitly opted in via the consent dialog or flag. */

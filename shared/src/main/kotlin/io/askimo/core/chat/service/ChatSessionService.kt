@@ -432,8 +432,17 @@ class ChatSessionService(
         // Update the session's updatedAt timestamp to reflect the bulk write.
         sessionRepository.touchSession(forkedSession.id)
 
-        // Warm up a chat client for the new session so it is ready immediately.
-        getOrCreateClientForSession(forkedSession.id)
+        // Warm up a chat client for the new session in the background.
+        // This is optional and doesn't block the fork — if it fails (e.g., no model
+        // configured in tests), the client will be created on-demand when needed.
+        eventScope.launch {
+            try {
+                getOrCreateClientForSession(forkedSession.id)
+                log.debug("Pre-created chat client for forked session ${forkedSession.id} in background")
+            } catch (e: Exception) {
+                log.debug("Could not pre-create chat client for forked session ${forkedSession.id}: ${e.message}")
+            }
+        }
 
         eventScope.launch {
             EventBus.emit(

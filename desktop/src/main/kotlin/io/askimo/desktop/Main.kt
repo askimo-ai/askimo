@@ -55,7 +55,6 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
-import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.analytics.Analytics
 import io.askimo.core.analytics.AnalyticsEvent
 import io.askimo.core.backup.BackupManager
@@ -338,9 +337,11 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     var terminalPanelSize by remember { mutableStateOf(300.dp) } // Default size
     var pendingTerminalCommand by remember { mutableStateOf<PendingTerminalCommand?>(null) }
     var showStarPromptDialog by remember { mutableStateOf(false) }
+    var starPromptOpenedFromMenu by remember { mutableStateOf(false) }
     var showHappinessGateDialog by remember { mutableStateOf(false) }
     var showFeedbackPromptDialog by remember { mutableStateOf(false) }
     var feedbackSentiment by remember { mutableStateOf("neutral") }
+    var feedbackOpenedFromMenu by remember { mutableStateOf(false) }
     var showNewProjectDialog by remember { mutableStateOf(false) }
     var showEditProjectDialog by remember { mutableStateOf(false) }
     var showGlobalSearchDialog by remember { mutableStateOf(false) }
@@ -729,6 +730,15 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                 isProjectsVisible = showProjectsInSidebar,
                 onShowSystemDiagnostics = { showSystemDiagnosticsDialog = true },
                 onNavigateToBookmarks = { currentView = View.BOOKMARKS },
+                onSupportAskimo = {
+                    starPromptOpenedFromMenu = true
+                    showStarPromptDialog = true
+                },
+                onShareFeedback = {
+                    feedbackSentiment = "direct"
+                    feedbackOpenedFromMenu = true
+                    showFeedbackPromptDialog = true
+                },
             )
         }
     }
@@ -1730,13 +1740,15 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                         starPromptDialog(
                             onDismiss = {
                                 Analytics.track(AnalyticsEvent.STAR_PROMPT_DISMISSED)
-                                AccountPreferences.device().snoozeStarPrompt()
+                                if (!starPromptOpenedFromMenu) {
+                                    AccountPreferences.device().snoozeStarPrompt()
+                                }
+                                starPromptOpenedFromMenu = false
                                 showStarPromptDialog = false
                             },
                             onStar = {
                                 Analytics.track(AnalyticsEvent.STAR_PROMPT_ACCEPTED)
                                 AccountPreferences.device().dismissStarPromptPermanently()
-                                showStarPromptDialog = false
                                 runCatching {
                                     if (Desktop.isDesktopSupported()) {
                                         Desktop.getDesktop().browse(
@@ -1748,8 +1760,10 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                             onAlreadyStarred = {
                                 Analytics.track(AnalyticsEvent.STAR_PROMPT_ACCEPTED)
                                 AccountPreferences.device().dismissStarPromptPermanently()
+                                starPromptOpenedFromMenu = false
                                 showStarPromptDialog = false
                             },
+                            showReminderOnMaybeLater = !starPromptOpenedFromMenu,
                         )
                     }
 
@@ -1758,6 +1772,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                         happinessGateDialog(
                             onHappy = {
                                 showHappinessGateDialog = false
+                                starPromptOpenedFromMenu = false
                                 showStarPromptDialog = true
                                 Analytics.track(AnalyticsEvent.STAR_PROMPT_SHOWN)
                             },
@@ -1774,24 +1789,28 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                         )
                     }
 
-                    // Feedback prompt — shown after neutral/unhappy; user opts in to open contact form
+                    // Feedback prompt — shown after neutral/unhappy; user picks reasons and optionally adds a comment
                     if (showFeedbackPromptDialog) {
                         feedbackPromptDialog(
-                            onConfirm = {
-                                AccountPreferences.device().dismissStarPromptPermanently()
-                                showFeedbackPromptDialog = false
-                                runCatching {
-                                    if (Desktop.isDesktopSupported()) {
-                                        Desktop.getDesktop().browse(
-                                            URI("https://$DOMAIN/feedback/?sentiment=$feedbackSentiment"),
-                                        )
-                                    }
-                                }.onFailure { log.error("Cannot open browser for feedback", it) }
+                            onSubmit = { reasons, comment, email ->
+                                Analytics.sendFeedbackDirect(
+                                    sentiment = feedbackSentiment,
+                                    reasons = reasons.joinToString(",") { it.name.lowercase() },
+                                    hasComment = comment.isNotBlank(),
+                                    email = email.trim(),
+                                )
                             },
-                            onDecline = {
+                            onClose = {
                                 AccountPreferences.device().dismissStarPromptPermanently()
+                                feedbackOpenedFromMenu = false
                                 showFeedbackPromptDialog = false
                             },
+                            onSnooze = {
+                                AccountPreferences.device().snoozeStarPrompt()
+                                feedbackOpenedFromMenu = false
+                                showFeedbackPromptDialog = false
+                            },
+                            showReminderOnSkip = !feedbackOpenedFromMenu,
                         )
                     }
 
