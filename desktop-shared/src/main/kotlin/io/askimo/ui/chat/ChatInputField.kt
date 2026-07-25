@@ -47,16 +47,19 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -758,7 +761,7 @@ fun chatInputField(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.width(2.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                         }
 
                         toolsIndicatorButton(
@@ -776,7 +779,7 @@ fun chatInputField(
                         // ── Directive chip — inline in controls row ─────────────────
                         // Shown whenever directives exist; styled to match toolsIndicatorButton.
                         if (availableDirectives.isNotEmpty()) {
-                            Spacer(modifier = Modifier.width(2.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             directiveChip(
                                 availableDirectives = availableDirectives,
                                 selectedDirective = selectedDirective,
@@ -1326,18 +1329,21 @@ private fun mcpServerItem(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Checkbox(
-                    checked = isEnabled,
-                    onCheckedChange = { onToggle() },
-                    modifier = Modifier
-                        .size(36.dp)
-                        .pointerHoverIcon(PointerIcon.Hand)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = { /* Handled by onCheckedChange */ },
-                        ),
-                )
+                @OptIn(ExperimentalMaterial3Api::class)
+                CompositionLocalProvider(LocalRippleConfiguration provides null) {
+                    Checkbox(
+                        checked = isEnabled,
+                        onCheckedChange = { onToggle() },
+                        modifier = Modifier
+                            .size(36.dp)
+                            .pointerHoverIcon(PointerIcon.Hand)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = { /* Handled by onCheckedChange */ },
+                            ),
+                    )
+                }
 
                 // Server info
                 Column(modifier = Modifier.weight(1f)) {
@@ -1895,15 +1901,18 @@ private fun directiveChip(
                                             .pointerHoverIcon(PointerIcon.Hand),
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
-                                        Checkbox(
-                                            checked = isSelected,
-                                            onCheckedChange = { checked ->
-                                                onToggleDirective(if (checked) directive.id else null)
-                                            },
-                                            modifier = Modifier
-                                                .size(36.dp)
-                                                .pointerHoverIcon(PointerIcon.Hand),
-                                        )
+                                        @OptIn(ExperimentalMaterial3Api::class)
+                                        CompositionLocalProvider(LocalRippleConfiguration provides null) {
+                                            Checkbox(
+                                                checked = isSelected,
+                                                onCheckedChange = { checked ->
+                                                    onToggleDirective(if (checked) directive.id else null)
+                                                },
+                                                modifier = Modifier
+                                                    .size(36.dp)
+                                                    .pointerHoverIcon(PointerIcon.Hand),
+                                            )
+                                        }
                                         Text(
                                             text = directive.name,
                                             style = MaterialTheme.typography.bodyMedium,
