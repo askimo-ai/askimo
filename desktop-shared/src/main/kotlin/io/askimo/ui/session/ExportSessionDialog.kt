@@ -12,13 +12,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Code
@@ -31,7 +28,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PlainTooltip
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
@@ -50,8 +46,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.export.ExportFormat
@@ -93,7 +87,6 @@ fun exportSessionDialog(
             val homeDir = System.getProperty("user.home")
             filePath = "$homeDir/$defaultFilename"
         } else {
-            // Update extension only
             val directory = filePath.substringBeforeLast('/')
             val baseFilename = filePath.substringAfterLast('/').substringBeforeLast('.')
             filePath = "$directory/$baseFilename.${selectedFormat.extension}"
@@ -115,137 +108,101 @@ fun exportSessionDialog(
             showFileBrowser = false
         }
     }
-    Dialog(
+
+    AppComponents.scaffoldDialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Surface(
-            modifier = Modifier
-                .width(600.dp)
-                .padding(Spacing.large),
-            shape = MaterialTheme.shapes.large,
-            tonalElevation = 8.dp,
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(Spacing.extraLarge)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(Spacing.large),
-            ) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-                ) {
-                    Text(
-                        text = stringResource("session.export.title"),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = sessionTitle,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-
-                // Description
+        width = 700.dp,
+        title = {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
                 Text(
-                    text = stringResource("session.export.description"),
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = stringResource("session.export.title"),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = sessionTitle,
+                    style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                // Format selection title
-                Text(
-                    text = stringResource("session.export.select.format"),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-
-                // Markdown format card
-                formatCard(
-                    format = ExportFormat.MARKDOWN,
-                    isSelected = selectedFormat == ExportFormat.MARKDOWN,
-                    icon = Icons.Default.Description,
-                    onClick = { onFormatChange(ExportFormat.MARKDOWN) },
-                )
-
-                // JSON format card
-                formatCard(
-                    format = ExportFormat.JSON,
-                    isSelected = selectedFormat == ExportFormat.JSON,
-                    icon = Icons.Default.Code,
-                    onClick = { onFormatChange(ExportFormat.JSON) },
-                )
-
-                // HTML format card
-                formatCard(
-                    format = ExportFormat.HTML,
-                    isSelected = selectedFormat == ExportFormat.HTML,
-                    icon = Icons.Default.Language,
-                    onClick = { onFormatChange(ExportFormat.HTML) },
-                )
-
-                Spacer(modifier = Modifier.height(Spacing.extraSmall))
-
-                // File path selection
-                Text(
-                    text = stringResource("session.export.location"),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-
-                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    OutlinedTextField(
-                        value = filePath,
-                        onValueChange = { filePath = it },
-                        label = { Text(stringResource("session.export.file.path")) },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        colors = AppComponents.outlinedTextFieldColors(),
-                    )
+                )
+            }
+        },
+        actions = {
+            secondaryButton(onClick = onDismiss) {
+                Text(stringResource("action.cancel"))
+            }
+            Spacer(modifier = Modifier.width(Spacing.small))
+            primaryButton(
+                onClick = { if (filePath.isNotBlank()) onExport(filePath) },
+                enabled = filePath.isNotBlank(),
+            ) {
+                Text(stringResource("session.export.button.export"))
+            }
+        },
+    ) {
+        // Description
+        Text(
+            text = stringResource("session.export.description"),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
 
-                    IconButton(
-                        onClick = { showFileBrowser = true },
-                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.FolderOpen,
-                            contentDescription = stringResource("session.export.browse"),
-                            tint = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                }
+        // Format selection title
+        Text(
+            text = stringResource("session.export.select.format"),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
 
-                Spacer(modifier = Modifier.height(Spacing.small))
+        // Format cards
+        formatCard(
+            format = ExportFormat.MARKDOWN,
+            isSelected = selectedFormat == ExportFormat.MARKDOWN,
+            icon = Icons.Default.Description,
+            onClick = { onFormatChange(ExportFormat.MARKDOWN) },
+        )
+        formatCard(
+            format = ExportFormat.JSON,
+            isSelected = selectedFormat == ExportFormat.JSON,
+            icon = Icons.Default.Code,
+            onClick = { onFormatChange(ExportFormat.JSON) },
+        )
+        formatCard(
+            format = ExportFormat.HTML,
+            isSelected = selectedFormat == ExportFormat.HTML,
+            icon = Icons.Default.Language,
+            onClick = { onFormatChange(ExportFormat.HTML) },
+        )
 
-                // Action buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.small, Alignment.End),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    secondaryButton(
-                        onClick = onDismiss,
-                    ) {
-                        Text(stringResource("action.cancel"))
-                    }
+        // File path section
+        Text(
+            text = stringResource("session.export.location"),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
 
-                    primaryButton(
-                        onClick = {
-                            if (filePath.isNotBlank()) {
-                                onExport(filePath)
-                            }
-                        },
-                        enabled = filePath.isNotBlank(),
-                    ) {
-                        Text(stringResource("session.export.button.export"))
-                    }
-                }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OutlinedTextField(
+                value = filePath,
+                onValueChange = { filePath = it },
+                label = { Text(stringResource("session.export.file.path")) },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                colors = AppComponents.outlinedTextFieldColors(),
+            )
+            IconButton(
+                onClick = { showFileBrowser = true },
+                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.FolderOpen,
+                    contentDescription = stringResource("session.export.browse"),
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
             }
         }
     }

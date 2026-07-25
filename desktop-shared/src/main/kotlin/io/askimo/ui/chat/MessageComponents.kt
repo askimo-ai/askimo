@@ -1107,42 +1107,38 @@ private fun aiMessageBubble(
     // Run code dialog — outside SelectionContainer
     val runRequest = pendingRunRequest
     if (runRequest != null) {
-        Dialog(onDismissRequest = { pendingRunRequest = null }) {
-            Surface(
-                shape = MaterialTheme.shapes.medium,
-                tonalElevation = 8.dp,
-                color = MaterialTheme.colorScheme.surface,
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp).width(360.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    Text(text = stringResource("code.run.dialog.title"), style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        text = stringResource("code.run.dialog.message"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                    ) {
-                        secondaryButton(onClick = {
-                            pendingRunRequest = null
-                            EventBus.post(RunCodeEvent(code = runRequest.first, language = runRequest.second, couldExecute = false))
-                        }) {
-                            Text(stringResource("code.run.dialog.paste"))
-                        }
-                        primaryButton(onClick = {
-                            pendingRunRequest = null
-                            EventBus.post(RunCodeEvent(code = runRequest.first, language = runRequest.second, couldExecute = true))
-                        }) {
-                            Text(stringResource("code.run.dialog.execute"))
-                        }
-                    }
+        AppComponents.alertDialog(
+            onDismissRequest = { pendingRunRequest = null },
+            title = {
+                Text(
+                    text = stringResource("code.run.dialog.title"),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource("code.run.dialog.message"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            dismissButton = {
+                secondaryButton(onClick = {
+                    pendingRunRequest = null
+                    EventBus.post(RunCodeEvent(code = runRequest.first, language = runRequest.second, couldExecute = false))
+                }) {
+                    Text(stringResource("code.run.dialog.paste"))
                 }
-            }
-        }
+            },
+            confirmButton = {
+                primaryButton(onClick = {
+                    pendingRunRequest = null
+                    EventBus.post(RunCodeEvent(code = runRequest.first, language = runRequest.second, couldExecute = true))
+                }) {
+                    Text(stringResource("code.run.dialog.execute"))
+                }
+            },
+        )
     }
 }
 
