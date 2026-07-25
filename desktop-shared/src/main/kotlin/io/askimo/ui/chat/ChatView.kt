@@ -178,6 +178,7 @@ fun chatView(
     val sessionTitle = state.sessionTitle
     val project = state.project
     val activeToolCalls = state.activeToolCalls
+    val activeThinkingContent = state.activeThinkingContent
     val bookmarkedMessageIds = state.bookmarkedMessageIds
     val pendingScrollToMessageId = state.pendingScrollToMessageId
 
@@ -1141,6 +1142,7 @@ fun chatView(
                                         viewportTopY = viewportBounds?.top,
                                         projectId = project?.id,
                                         activeToolCalls = activeToolCalls,
+                                        activeThinkingContent = activeThinkingContent,
                                         bookmarkedMessageIds = bookmarkedMessageIds,
                                         onToggleBookmark = { messageId -> actions.toggleBookmark(messageId) },
                                         onForkFromMessage = { messageId -> actions.forkFromMessage(messageId) },

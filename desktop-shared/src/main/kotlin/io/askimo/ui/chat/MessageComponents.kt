@@ -14,11 +14,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,6 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CallSplit
 import androidx.compose.material.icons.filled.AttachFile
@@ -73,7 +76,9 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
@@ -133,6 +138,7 @@ fun messageList(
     viewportTopY: Float? = null,
     projectId: String? = null,
     activeToolCalls: List<ToolCallInfo> = emptyList(),
+    activeThinkingContent: String = "",
     bookmarkedMessageIds: Set<String> = emptySet(),
     onToggleBookmark: ((String) -> Unit)? = null,
     onForkFromMessage: ((String) -> Unit)? = null,
@@ -227,6 +233,7 @@ fun messageList(
                         isStreaming = isStreamingMessage,
                         projectId = projectId,
                         toolCalls = if (isLastAiMsg) activeToolCalls else emptyList(),
+                        thinkingContent = if (isLastAiMsg) activeThinkingContent else "",
                         bookmarkedMessageIds = bookmarkedMessageIds,
                         onToggleBookmark = onToggleBookmark,
                         onForkFromMessage = onForkFromMessage,
@@ -325,6 +332,7 @@ fun messageBubble(
     isStreaming: Boolean = false,
     projectId: String? = null,
     toolCalls: List<ToolCallInfo> = emptyList(),
+    thinkingContent: String = "",
     bookmarkedMessageIds: Set<String> = emptySet(),
     onToggleBookmark: ((String) -> Unit)? = null,
     onForkFromMessage: ((String) -> Unit)? = null,
@@ -364,6 +372,7 @@ fun messageBubble(
                 isStreaming = isStreaming,
                 projectId = projectId,
                 toolCalls = toolCalls,
+                thinkingContent = thinkingContent,
                 isBookmarked = message.id != null && message.id in bookmarkedMessageIds,
                 onToggleBookmark = if (message.id != null) onToggleBookmark else null,
                 onForkFromMessage = if (message.id != null) onForkFromMessage else null,
@@ -633,6 +642,7 @@ private fun aiMessageBubble(
     isStreaming: Boolean = false,
     projectId: String? = null,
     toolCalls: List<ToolCallInfo> = emptyList(),
+    thinkingContent: String = "",
     isBookmarked: Boolean = false,
     onToggleBookmark: ((String) -> Unit)? = null,
     onForkFromMessage: ((String) -> Unit)? = null,
@@ -655,6 +665,14 @@ private fun aiMessageBubble(
     val hasRunningTool = toolCalls.any { it.status == ToolCallStatus.RUNNING }
     LaunchedEffect(hasRunningTool) {
         if (hasRunningTool) toolCallsExpanded = true
+    }
+
+    // Thinking section collapsible state — auto-expand when thinking tokens start arriving,
+    // keep expanded so user can review the full trace after streaming completes.
+    var thinkingExpanded by remember { mutableStateOf(false) }
+    val hasThinkingContent = thinkingContent.isNotEmpty()
+    LaunchedEffect(hasThinkingContent) {
+        if (hasThinkingContent) thinkingExpanded = true
     }
 
     Column(
@@ -705,6 +723,16 @@ private fun aiMessageBubble(
                             ),
                     ) {
                         Column {
+                            // Thinking/reasoning collapsible section — shown when the model exposes reasoning
+                            if (thinkingContent.isNotEmpty()) {
+                                thinkingSection(
+                                    thinkingContent = thinkingContent,
+                                    isStreaming = isStreaming,
+                                    isExpanded = thinkingExpanded,
+                                    onToggle = { thinkingExpanded = !thinkingExpanded },
+                                )
+                            }
+
                             // Tool call collapsible section — shown only during streaming
                             if (toolCalls.isNotEmpty()) {
                                 toolCallsSection(
@@ -1119,6 +1147,119 @@ private fun aiMessageBubble(
 }
 
 /**
+ * Collapsible section that displays AI thinking/reasoning tokens above the response text.
+ *
+ * Auto-expands as soon as the first thinking token arrives during streaming; stays expanded
+ * so the user can review the full trace after the response completes. Can be collapsed
+ * manually by clicking the header.
+ *
+ * Displays a "💭 Thinking…" header while streaming and "💭 Thought" when complete.
+ * The body uses a muted italic style visually distinct from the main response.
+ */
+@Composable
+private fun thinkingSection(
+    thinkingContent: String,
+    isStreaming: Boolean,
+    isExpanded: Boolean,
+    onToggle: () -> Unit,
+) {
+    val headerColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+    val headerText = if (isStreaming) {
+        stringResource("message.thinking.section.streaming")
+    } else {
+        stringResource("message.thinking.section.done")
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = Spacing.medium, end = Spacing.medium, top = Spacing.small),
+    ) {
+        // Header row — clickable to toggle expand/collapse
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggle)
+                .pointerHoverIcon(PointerIcon.Hand)
+                .padding(vertical = Spacing.extraSmall),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+        ) {
+            Icon(
+                imageVector = if (isExpanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = headerColor,
+            )
+            Text(
+                text = headerText,
+                style = MaterialTheme.typography.labelSmall,
+                color = headerColor,
+                fontStyle = FontStyle.Italic,
+            )
+        }
+
+        // Expanded body — blockquote style: left accent bar + scrollable muted text
+        if (isExpanded && thinkingContent.isNotEmpty()) {
+            val scrollState = rememberScrollState()
+            val density = LocalDensity.current
+            var viewportHeightPx by remember { mutableStateOf(0) }
+
+            LaunchedEffect(thinkingContent) {
+                if (isStreaming) scrollState.animateScrollTo(scrollState.maxValue)
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min)
+                    .padding(top = Spacing.extraSmall)
+                    .onSizeChanged { viewportHeightPx = it.height },
+            ) {
+                // Left accent bar — blockquote-style vertical line, stretches to match content height
+                Box(
+                    modifier = Modifier
+                        .width(3.dp)
+                        .fillMaxHeight()
+                        .background(
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                            shape = RoundedCornerShape(2.dp),
+                        ),
+                )
+
+                // Scrollable content next to the bar
+                Box(modifier = Modifier.weight(1f)) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 300.dp)
+                            .verticalScroll(scrollState)
+                            .padding(start = Spacing.small, end = Spacing.medium, top = 2.dp, bottom = 2.dp),
+                    ) {
+                        Text(
+                            text = thinkingContent,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                            fontStyle = FontStyle.Italic,
+                        )
+                    }
+                    // Only render once we know the viewport height (after the first layout pass).
+                    if (viewportHeightPx > 0) {
+                        VerticalScrollbar(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .height(with(density) { viewportHeightPx.toDp() }),
+                            adapter = rememberScrollbarAdapter(scrollState),
+                            style = AppComponents.scrollbarStyle(),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
  * Collapsible section that displays AI tool calls above the response text.
  * Shows "▶ Running tool…" when any tool is active, "▶ Used N tool(s)" when all are done.
  * Expands automatically when a tool starts running; collapses manually by the user.
@@ -1184,6 +1325,11 @@ private fun toolCallsSection(
 /**
  * Single row showing a tool name, its running/done/failed status icon, and an optional
  * expandable section with the raw arguments and result.
+ *
+ * Uses a blockquote-style left accent bar whose colour reflects the call's status:
+ *   • running  → onSurfaceVariant (neutral)
+ *   • done     → primary (success)
+ *   • failed   → error (destructive)
  */
 @Composable
 private fun toolCallRow(toolCall: ToolCallInfo) {
@@ -1193,102 +1339,119 @@ private fun toolCallRow(toolCall: ToolCallInfo) {
 
     var detailsExpanded by remember { mutableStateOf(false) }
 
-    val statusColor = when {
+    val barColor = when {
+        hasFailed -> MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+        isDone -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+        else -> MaterialTheme.colorScheme.outlineVariant
+    }
+    val statusIconColor = when {
         hasFailed -> MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
         isDone -> MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
         else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
     }
 
-    Column(
+    Row(
         modifier = Modifier
-            .background(
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(6.dp),
-            )
-            .padding(horizontal = Spacing.small, vertical = 3.dp),
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min),
     ) {
-        // Header row: icon + name + status indicator (+ expand chevron if details exist)
-        Row(
-            modifier = if (hasDetails && isDone) {
-                Modifier
-                    .fillMaxWidth()
-                    .clickable(
-                        indication = null,
-                        interactionSource = remember { MutableInteractionSource() },
-                        onClick = { detailsExpanded = !detailsExpanded },
-                    )
-                    .pointerHoverIcon(PointerIcon.Hand)
-            } else {
-                Modifier.fillMaxWidth()
-            },
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+        // Left accent bar — colour reflects tool status
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .fillMaxHeight()
+                .background(color = barColor, shape = RoundedCornerShape(2.dp)),
+        )
+
+        // Content column — header + optional expandable details
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = Spacing.small),
         ) {
-            Icon(
-                imageVector = Icons.Default.Build,
-                contentDescription = null,
-                modifier = Modifier.size(12.dp),
-                tint = statusColor,
-            )
-            Text(
-                text = toolCall.toolName,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f),
-            )
-            // Status indicator
-            when {
-                !isDone -> Text(
-                    text = "⏳",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = statusColor,
-                )
-
-                hasFailed -> Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = stringResource("tool.call.status.failed"),
-                    modifier = Modifier.size(12.dp),
-                    tint = statusColor,
-                )
-
-                else -> Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = stringResource("tool.call.status.done"),
-                    modifier = Modifier.size(12.dp),
-                    tint = statusColor,
-                )
-            }
-            // Expand chevron (only when done and has details)
-            if (hasDetails && isDone) {
+            // Header row: icon + name + status indicator (+ expand chevron if details exist)
+            Row(
+                modifier = if (hasDetails && isDone) {
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() },
+                            onClick = { detailsExpanded = !detailsExpanded },
+                        )
+                        .pointerHoverIcon(PointerIcon.Hand)
+                } else {
+                    Modifier.fillMaxWidth()
+                },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+            ) {
                 Icon(
-                    imageVector = if (detailsExpanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
+                    imageVector = Icons.Default.Build,
                     contentDescription = null,
                     modifier = Modifier.size(12.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    tint = statusIconColor,
                 )
-            }
-        }
+                Text(
+                    text = toolCall.toolName,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                // Status indicator
+                when {
+                    !isDone -> Text(
+                        text = "⏳",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = statusIconColor,
+                    )
 
-        // Expandable details: arguments + result
-        if (detailsExpanded && hasDetails) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = Spacing.extraSmall),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                if (!toolCall.arguments.isNullOrBlank()) {
-                    toolCallDetailSection(
-                        label = stringResource("tool.call.detail.arguments"),
-                        content = toolCall.arguments!!,
+                    hasFailed -> Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = stringResource("tool.call.status.failed"),
+                        modifier = Modifier.size(12.dp),
+                        tint = statusIconColor,
+                    )
+
+                    else -> Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = stringResource("tool.call.status.done"),
+                        modifier = Modifier.size(12.dp),
+                        tint = statusIconColor,
                     )
                 }
-                if (!toolCall.result.isNullOrBlank()) {
-                    toolCallDetailSection(
-                        label = stringResource("tool.call.detail.result"),
-                        content = toolCall.result!!,
-                        labelColor = if (hasFailed) MaterialTheme.colorScheme.error.copy(alpha = 0.8f) else null,
+                // Expand chevron (only when done and has details)
+                if (hasDetails && isDone) {
+                    Icon(
+                        imageVector = if (detailsExpanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        modifier = Modifier.size(12.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     )
+                }
+            }
+
+            // Expandable details: arguments + result
+            if (detailsExpanded && hasDetails) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = Spacing.extraSmall),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    if (!toolCall.arguments.isNullOrBlank()) {
+                        toolCallDetailSection(
+                            label = stringResource("tool.call.detail.arguments"),
+                            content = toolCall.arguments!!,
+                        )
+                    }
+                    if (!toolCall.result.isNullOrBlank()) {
+                        toolCallDetailSection(
+                            label = stringResource("tool.call.detail.result"),
+                            content = toolCall.result!!,
+                            labelColor = if (hasFailed) MaterialTheme.colorScheme.error.copy(alpha = 0.8f) else null,
+                        )
+                    }
                 }
             }
         }

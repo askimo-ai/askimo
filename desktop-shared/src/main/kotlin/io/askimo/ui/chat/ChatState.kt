@@ -45,6 +45,11 @@ data class ChatState(
     // Tool call state — ephemeral, populated only during active streaming
     val activeToolCalls: List<ToolCallInfo> = emptyList(),
 
+    // Thinking/reasoning content — ephemeral, streamed from models that expose reasoning.
+    // Populated during active streaming; cleared when a new message starts.
+    // Not persisted to the database — visible for the current session only.
+    val activeThinkingContent: String = "",
+
     // Bookmark state — IDs of messages pinned by the user in this session
     val bookmarkedMessageIds: Set<String> = emptySet(),
 

@@ -71,6 +71,7 @@ fun ChatClient.sendStreamingMessageWithCallback(
     onTokenUsage: ((inputTokens: Int, outputTokens: Int, totalTokens: Int, durationMs: Long) -> Unit)? = null,
     onToolStarted: ((toolName: String, arguments: String?) -> Unit)? = null,
     onToolFinished: ((toolName: String, arguments: String?, result: String?, hasFailed: Boolean) -> Unit)? = null,
+    onThinkingToken: ((String) -> Unit)? = null,
 ): String {
     val log = logger<ChatClient>()
 
@@ -107,7 +108,13 @@ fun ChatClient.sendStreamingMessageWithCallback(
                         .onPartialResponse { chunk ->
                             sb.append(chunk)
                             onToken(chunk)
-                        }.onCompleteResponse { response ->
+                        }.onPartialThinking { thinking ->
+                            val text = thinking.text()
+                            if (!text.isNullOrEmpty()) {
+                                onThinkingToken?.invoke(text)
+                            }
+                        }
+                        .onCompleteResponse { response ->
                             val aiMessage = response.aiMessage()
                             val tokenUsage = response.tokenUsage()
 

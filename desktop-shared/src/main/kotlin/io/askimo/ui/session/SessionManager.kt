@@ -125,17 +125,25 @@ class SessionManager(
         private val _hasFailed: MutableStateFlow<Boolean>,
         private val _savedMessage: MutableStateFlow<ChatMessage?> = MutableStateFlow(null),
         private val _toolCalls: MutableStateFlow<List<ToolCallInfo>> = MutableStateFlow(emptyList()),
+        private val _thinkingChunks: MutableStateFlow<List<String>> = MutableStateFlow(emptyList()),
     ) {
         val chunks: StateFlow<List<String>> = _chunks.asStateFlow()
         val isComplete: StateFlow<Boolean> = _isComplete.asStateFlow()
         val savedMessage: StateFlow<ChatMessage?> = _savedMessage.asStateFlow()
         val toolCalls: StateFlow<List<ToolCallInfo>> = _toolCalls.asStateFlow()
+        val thinkingChunks: StateFlow<List<String>> = _thinkingChunks.asStateFlow()
 
         private val mutex = Mutex()
 
         suspend fun appendChunk(chunk: String) {
             mutex.withLock {
                 _chunks.value += chunk
+            }
+        }
+
+        suspend fun appendThinkingChunk(chunk: String) {
+            mutex.withLock {
+                _thinkingChunks.value += chunk
             }
         }
 
@@ -306,6 +314,11 @@ class SessionManager(
                             onToolFinished = { toolName, arguments, result, hasFailed ->
                                 streamingScope.launch {
                                     thread.markToolDone(toolName, arguments, result, hasFailed)
+                                }
+                            },
+                            onThinkingToken = { token ->
+                                streamingScope.launch {
+                                    thread.appendThinkingChunk(token)
                                 }
                             },
                         )

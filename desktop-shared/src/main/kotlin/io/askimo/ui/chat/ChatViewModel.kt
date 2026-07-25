@@ -114,6 +114,9 @@ class ChatViewModel(
     var activeToolCalls by mutableStateOf<List<ToolCallInfo>>(emptyList())
         private set
 
+    var activeThinkingContent by mutableStateOf("")
+        private set
+
     var bookmarkedMessageIds by mutableStateOf<Set<String>>(emptySet())
         private set
 
@@ -140,6 +143,7 @@ class ChatViewModel(
             sessionTitle = sessionTitle ?: "",
             project = project,
             activeToolCalls = activeToolCalls,
+            activeThinkingContent = activeThinkingContent,
             bookmarkedMessageIds = bookmarkedMessageIds,
             pendingScrollToMessageId = pendingScrollToMessageId,
         )
@@ -397,6 +401,38 @@ class ChatViewModel(
                 }
             }
 
+            // Subscribe to thinking/reasoning tokens streamed by models that expose reasoning.
+            // Accumulate chunks into a single string; UI renders them in a collapsible section.
+            scope.launch {
+                activeThread.thinkingChunks.collect { chunks ->
+                    if (currentSessionId.value == sessionId) {
+                        activeThinkingContent = chunks.joinToString("")
+                        // Ensure a placeholder bubble exists so the thinking section is visible
+                        // even before the first response token arrives.
+                        if (chunks.isNotEmpty() && messages.none { !it.isUser && it.id == null }) {
+                            isThinking = false
+                            stopThinkingTimer()
+                            val placeholder = ChatMessageDTO(
+                                content = "",
+                                isUser = false,
+                                id = null,
+                                timestamp = null,
+                            )
+                            messages = if (retryInsertPosition != null) {
+                                messages.toMutableList().apply { add(retryInsertPosition!!, placeholder) }
+                            } else {
+                                val lastMsg = messages.lastOrNull()
+                                if (lastMsg != null && !lastMsg.isUser) {
+                                    messages.dropLast(1) + placeholder
+                                } else {
+                                    messages + placeholder
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Monitor completion in a separate job
             scope.launch {
                 activeThread.isComplete.collect { isComplete ->
@@ -569,8 +605,9 @@ class ChatViewModel(
                 isThinking = true
                 thinkingElapsedSeconds = 0
 
-                // Clear tool chips from the previous response before retrying
+                // Clear tool chips and thinking content from the previous response before retrying
                 activeToolCalls = emptyList()
+                activeThinkingContent = ""
 
                 startThinkingTimer()
 
@@ -649,8 +686,9 @@ class ChatViewModel(
     fun sendMessage(projectId: String?, mode: CreationMode, message: String, attachments: List<FileAttachmentDTO> = emptyList(), enabledServerIds: Set<String> = emptySet()) {
         if (message.isBlank() || isLoading) return
 
-        // Clear tool chips from the previous response now that a new message is starting
+        // Clear tool chips and thinking content from the previous response now that a new message is starting
         activeToolCalls = emptyList()
+        activeThinkingContent = ""
 
         // Session ID must be set by this point (from resumeSession)
         val sessionId = currentSessionId.value ?: run {
