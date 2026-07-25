@@ -23,8 +23,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -42,9 +40,9 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Badge
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -58,7 +56,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -1161,20 +1158,23 @@ private fun toolsIndicatorButton(
             ) {
                 Surface(
                     modifier = Modifier
-                        .widthIn(min = 300.dp, max = 420.dp)
-                        .heightIn(max = 400.dp),
+                        .widthIn(min = 300.dp, max = 420.dp),
                     shape = MaterialTheme.shapes.medium,
                     shadowElevation = 8.dp,
                     color = MaterialTheme.colorScheme.surface,
                     tonalElevation = 2.dp,
                 ) {
-                    Column(
-                        modifier = Modifier.padding(Spacing.large),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.medium),
-                    ) {
-                        // Header
+                    Column {
+                        // Header: title on left, settings icon button on right
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    start = Spacing.medium,
+                                    end = Spacing.extraSmall,
+                                    top = Spacing.small,
+                                    bottom = Spacing.small,
+                                ),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -1183,6 +1183,26 @@ private fun toolsIndicatorButton(
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                             )
+                            if (onNavigateToMcpSettings != null) {
+                                themedTooltip(text = stringResource("chat.tools.popup.manage")) {
+                                    IconButton(
+                                        onClick = {
+                                            showToolsPopup = false
+                                            onNavigateToMcpSettings()
+                                        },
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .pointerHoverIcon(PointerIcon.Hand),
+                                    ) {
+                                        Icon(
+                                            Icons.Outlined.Settings,
+                                            contentDescription = stringResource("chat.tools.popup.manage"),
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            }
                         }
 
                         HorizontalDivider()
@@ -1191,8 +1211,11 @@ private fun toolsIndicatorButton(
                         when {
                             isLoadingServers -> {
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = Spacing.medium, vertical = Spacing.medium),
                                     horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(24.dp),
@@ -1208,17 +1231,22 @@ private fun toolsIndicatorButton(
                                     text = stringResource("chat.tools.popup.no.servers.global"),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(
+                                        horizontal = Spacing.medium,
+                                        vertical = Spacing.medium,
+                                    ),
                                 )
                             }
 
                             else -> {
-                                // List MCP servers
+                                // Server list — scrollable, capped at max height; popup expands freely
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .heightIn(max = 300.dp)
-                                        .verticalScroll(rememberScrollState()),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                        .verticalScroll(rememberScrollState())
+                                        .padding(Spacing.small),
+                                    verticalArrangement = Arrangement.spacedBy(Spacing.small),
                                 ) {
                                     mcpServers.forEach { server ->
                                         mcpServerItem(
@@ -1236,37 +1264,6 @@ private fun toolsIndicatorButton(
                                             onCloseAll = { showToolsPopup = false },
                                         )
                                     }
-                                }
-                            }
-                        }
-
-                        // Footer link to MCP settings
-                        if (onNavigateToMcpSettings != null) {
-                            HorizontalDivider()
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End,
-                            ) {
-                                TextButton(
-                                    onClick = {
-                                        showToolsPopup = false
-                                        onNavigateToMcpSettings()
-                                    },
-                                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                    colors = ButtonDefaults.textButtonColors(
-                                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    ),
-                                ) {
-                                    Icon(
-                                        Icons.Outlined.Settings,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(14.dp),
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = stringResource("chat.tools.popup.manage"),
-                                        style = MaterialTheme.typography.labelMedium,
-                                    )
                                 }
                             }
                         }
@@ -1653,6 +1650,7 @@ private fun directiveChip(
 ) {
     val activeDirective = availableDirectives.find { it.id == selectedDirective }
     val activeDirectiveName = activeDirective?.name
+    val uriHandler = LocalUriHandler.current
 
     val chipAnchor: @Composable (@Composable () -> Unit) -> Unit =
         if (activeDirective != null) {
@@ -1699,9 +1697,9 @@ private fun directiveChip(
                 color = if (selectedDirective != null) {
                     MaterialTheme.colorScheme.secondaryContainer
                 } else {
-                    Color.Transparent
+                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
                 },
-                tonalElevation = if (selectedDirective != null) 2.dp else 0.dp,
+                tonalElevation = 2.dp,
                 modifier = Modifier
                     .height(28.dp)
                     .clip(RoundedCornerShape(8.dp))
@@ -1724,7 +1722,7 @@ private fun directiveChip(
                         tint = if (selectedDirective != null) {
                             MaterialTheme.colorScheme.onSecondaryContainer
                         } else {
-                            MaterialTheme.colorScheme.onSurface
+                            MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f)
                         },
                         modifier = Modifier.size(16.dp),
                     )
@@ -1735,7 +1733,7 @@ private fun directiveChip(
                         color = if (selectedDirective != null) {
                             MaterialTheme.colorScheme.onSecondaryContainer
                         } else {
-                            MaterialTheme.colorScheme.onSurface
+                            MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f)
                         },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -1764,26 +1762,92 @@ private fun directiveChip(
             ) {
                 Surface(
                     modifier = Modifier.widthIn(min = 350.dp, max = 420.dp),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = MaterialTheme.shapes.medium,
                     shadowElevation = 8.dp,
-                    tonalElevation = 2.dp,
                     color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 2.dp,
                 ) {
                     Column {
-                        Text(
-                            text = stringResource("chat.directive"),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(
-                                horizontal = Spacing.medium,
-                                vertical = Spacing.small,
-                            ),
-                        )
+                        // Header: title on left, action icon buttons on right
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    start = Spacing.medium,
+                                    end = Spacing.extraSmall,
+                                    top = Spacing.small,
+                                    bottom = Spacing.small,
+                                ),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = stringResource("chat.directive"),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
+                                themedTooltip(text = stringResource("chat.directive.new")) {
+                                    IconButton(
+                                        onClick = {
+                                            onShowNewDirectiveDialog()
+                                            onDirectivePopupExpandedChange(false)
+                                        },
+                                        modifier = Modifier.size(32.dp).pointerHoverIcon(PointerIcon.Hand),
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Add,
+                                            contentDescription = stringResource("chat.directive.new"),
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                                themedTooltip(text = stringResource("chat.directive.manage")) {
+                                    IconButton(
+                                        onClick = {
+                                            onShowManageDirectivesDialog()
+                                            onDirectivePopupExpandedChange(false)
+                                        },
+                                        modifier = Modifier.size(32.dp).pointerHoverIcon(PointerIcon.Hand),
+                                    ) {
+                                        Icon(
+                                            Icons.Outlined.Settings,
+                                            contentDescription = stringResource("chat.directive.manage"),
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                                themedTooltip(text = stringResource("chat.directive.learn.more")) {
+                                    IconButton(
+                                        onClick = {
+                                            uriHandler.openUri("https://$DOMAIN/docs/desktop/directives/")
+                                            onDirectivePopupExpandedChange(false)
+                                        },
+                                        modifier = Modifier.size(32.dp).pointerHoverIcon(PointerIcon.Hand),
+                                    ) {
+                                        Icon(
+                                            Icons.Outlined.Info,
+                                            contentDescription = stringResource("chat.directive.learn.more"),
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
                         HorizontalDivider()
 
-                        // Directive rows — scrollable list, footer items always visible below
-                        LazyColumn(modifier = Modifier.heightIn(max = 192.dp)) {
-                            items(availableDirectives) { directive ->
+                        // Directive rows — scrollable list capped at max height; popup expands freely
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 280.dp)
+                                .verticalScroll(rememberScrollState()),
+                        ) {
+                            availableDirectives.forEach { directive ->
                                 val isSelected = selectedDirective == directive.id
                                 themedRichTooltip(
                                     placement = TooltipPlacement.RIGHT,
@@ -1865,86 +1929,6 @@ private fun directiveChip(
                                 }
                             }
                         }
-
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-
-                        DropdownMenuItem(
-                            text = {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Icon(
-                                        Icons.Default.Add,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.size(20.dp),
-                                    )
-                                    Text(
-                                        text = stringResource("chat.directive.new"),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                    )
-                                }
-                            },
-                            onClick = {
-                                onShowNewDirectiveDialog()
-                                onDirectivePopupExpandedChange(false)
-                            },
-                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                        )
-
-                        DropdownMenuItem(
-                            text = {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Icon(
-                                        Icons.Default.Edit,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.size(20.dp),
-                                    )
-                                    Text(
-                                        text = stringResource("chat.directive.manage"),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                    )
-                                }
-                            },
-                            onClick = {
-                                onShowManageDirectivesDialog()
-                                onDirectivePopupExpandedChange(false)
-                            },
-                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                        )
-
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                        val uriHandler = LocalUriHandler.current
-                        DropdownMenuItem(
-                            text = {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Icon(
-                                        Icons.Default.ChevronRight,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(16.dp),
-                                    )
-                                    Text(
-                                        text = stringResource("chat.directive.learn.more"),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            },
-                            onClick = {
-                                uriHandler.openUri("https://$DOMAIN/docs/desktop/directives/")
-                                onDirectivePopupExpandedChange(false)
-                            },
-                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                        )
                     }
                 }
             }
