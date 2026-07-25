@@ -117,7 +117,6 @@ interface ProjectsSidebarState {
  *
  * This keeps the sidebar decoupled from module-specific View enums and auth concerns
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun navigationSidebar(
     isExpanded: Boolean,

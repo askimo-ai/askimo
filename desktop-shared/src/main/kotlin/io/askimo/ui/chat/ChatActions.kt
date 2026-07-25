@@ -26,4 +26,11 @@ interface ChatActions {
     fun retryMessage(messageId: String, enabledServerIds: Set<String> = emptySet())
     fun toggleBookmark(messageId: String)
     fun clearPendingScroll()
+
+    /**
+     * Fork the current session from the given AI message, creating a new independent
+     * session pre-populated with all active messages up to and including [messageId],
+     * then navigate to the new session immediately.
+     */
+    fun forkFromMessage(messageId: String)
 }

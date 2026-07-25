@@ -1105,6 +1105,7 @@ fun chatView(
                                         onRetryMessage = { messageId -> actions.retryMessage(messageId, currentEnabledServerIds) },
                                         viewportTopY = viewportBounds?.top,
                                         projectId = project?.id,
+                                        onForkFromMessage = { messageId -> actions.forkFromMessage(messageId) },
                                     )
                                 }
 
@@ -1142,6 +1143,7 @@ fun chatView(
                                         activeToolCalls = activeToolCalls,
                                         bookmarkedMessageIds = bookmarkedMessageIds,
                                         onToggleBookmark = { messageId -> actions.toggleBookmark(messageId) },
+                                        onForkFromMessage = { messageId -> actions.forkFromMessage(messageId) },
                                     )
                                 }
                             }

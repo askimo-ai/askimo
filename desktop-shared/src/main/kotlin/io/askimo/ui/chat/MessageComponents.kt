@@ -30,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CallSplit
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
@@ -134,6 +135,7 @@ fun messageList(
     activeToolCalls: List<ToolCallInfo> = emptyList(),
     bookmarkedMessageIds: Set<String> = emptySet(),
     onToggleBookmark: ((String) -> Unit)? = null,
+    onForkFromMessage: ((String) -> Unit)? = null,
 ) {
     // Retry confirmation dialog state
     var showRetryConfirmDialog by remember { mutableStateOf(false) }
@@ -227,6 +229,7 @@ fun messageList(
                         toolCalls = if (isLastAiMsg) activeToolCalls else emptyList(),
                         bookmarkedMessageIds = bookmarkedMessageIds,
                         onToggleBookmark = onToggleBookmark,
+                        onForkFromMessage = onForkFromMessage,
                     )
                     isFirstMessage = false
                     messageIndex++
@@ -324,6 +327,7 @@ fun messageBubble(
     toolCalls: List<ToolCallInfo> = emptyList(),
     bookmarkedMessageIds: Set<String> = emptySet(),
     onToggleBookmark: ((String) -> Unit)? = null,
+    onForkFromMessage: ((String) -> Unit)? = null,
 ) {
     Box(
         modifier = Modifier
@@ -362,6 +366,7 @@ fun messageBubble(
                 toolCalls = toolCalls,
                 isBookmarked = message.id != null && message.id in bookmarkedMessageIds,
                 onToggleBookmark = if (message.id != null) onToggleBookmark else null,
+                onForkFromMessage = if (message.id != null) onForkFromMessage else null,
             )
         }
     }
@@ -630,6 +635,7 @@ private fun aiMessageBubble(
     toolCalls: List<ToolCallInfo> = emptyList(),
     isBookmarked: Boolean = false,
     onToggleBookmark: ((String) -> Unit)? = null,
+    onForkFromMessage: ((String) -> Unit)? = null,
 ) {
     val clipboardManager = LocalClipboardManager.current
     var showCopyFeedback by remember { mutableStateOf(false) }
@@ -965,6 +971,24 @@ private fun aiMessageBubble(
                                     } else {
                                         MaterialTheme.colorScheme.onSurfaceVariant
                                     },
+                                )
+                            }
+                        }
+                    }
+
+                    // Fork session from here
+                    if (onForkFromMessage != null && message.id != null && !isStreaming) {
+                        val msgId = message.id!!
+                        themedTooltip(text = stringResource("message.ai.fork")) {
+                            IconButton(
+                                onClick = { onForkFromMessage.invoke(msgId) },
+                                modifier = Modifier.size(32.dp).pointerHoverIcon(PointerIcon.Hand),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.CallSplit,
+                                    contentDescription = stringResource("message.ai.fork.description"),
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }

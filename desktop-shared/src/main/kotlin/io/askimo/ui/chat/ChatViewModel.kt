@@ -1327,4 +1327,32 @@ class ChatViewModel(
     override fun clearPendingScroll() {
         pendingScrollToMessageId = null
     }
+
+    /**
+     * Fork the current session from [messageId], creating a new independent session
+     * pre-populated with all active messages up to and including that message, then
+     * switching to the new session immediately.
+     *
+     * The operation runs on [Dispatchers.IO] and is fire-and-forget from the UI's
+     * perspective — no loading state is shown because forking is fast and non-blocking
+     * to the current conversation.
+     */
+    override fun forkFromMessage(messageId: String) {
+        val sourceSessionId = currentSessionId.value ?: return
+
+        scope.launch {
+            try {
+                val forkedSession = withContext(Dispatchers.IO) {
+                    chatSessionService.forkSession(sourceSessionId, messageId)
+                }
+                // switchToSession updates activeSessionId and resumes the ViewModel
+                // for the new session — runs on the calling (main) dispatcher.
+                sessionManager.switchToSession(forkedSession.id)
+                log.debug("Forked session {} → navigated to {}", sourceSessionId, forkedSession.id)
+            } catch (e: Exception) {
+                log.error("Failed to fork session from message {}", messageId, e)
+                errorMessage = "Failed to fork conversation. Please try again."
+            }
+        }
+    }
 }

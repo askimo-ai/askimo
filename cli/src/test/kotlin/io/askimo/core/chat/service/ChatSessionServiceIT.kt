@@ -18,11 +18,14 @@ import io.askimo.core.util.AskimoHome
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertNotNull
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import java.time.Instant
@@ -671,5 +674,285 @@ class ChatSessionServiceIT {
 
         service.toggleBookmark(msg.id) // bookmark off
         assertTrue(service.getAllBookmarkGroups().isEmpty())
+    }
+
+    // -------------------------------------------------------------------------
+    // forkSession
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `forkSession should create a new session with 'Fork of' prefix in title`() {
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "My Conversation"))
+        val baseTime = Instant.now()
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Hello", createdAt = baseTime))
+        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "World", createdAt = baseTime.plusSeconds(1)))
+
+        val forked = service.forkSession(session.id, aiMsg.id)
+
+        assertEquals("Fork of: My Conversation", forked.title)
+    }
+
+    @Test
+    fun `forkSession should inherit directiveId and projectId from source session`() {
+        val directive = directiveRepository.save(ChatDirective(id = "", name = "Directive", content = "Instructions"))
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "With Meta", directiveId = directive.id))
+        val baseTime = Instant.now()
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q", createdAt = baseTime))
+        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A", createdAt = baseTime.plusSeconds(1)))
+
+        val forked = service.forkSession(session.id, aiMsg.id)
+
+        assertEquals(directive.id, forked.directiveId)
+        assertNull(forked.projectId)
+    }
+
+    @Test
+    fun `forkSession should copy all active messages up to and including the target AI message`() {
+        val baseTime = Instant.now()
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "Copy Test"))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q1", createdAt = baseTime))
+        val aiMsg1 = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A1", createdAt = baseTime.plusSeconds(1)))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q2", createdAt = baseTime.plusSeconds(2)))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A2", createdAt = baseTime.plusSeconds(3)))
+
+        val forked = service.forkSession(session.id, aiMsg1.id)
+        val forkedMessages = service.getMessages(forked.id)
+
+        assertEquals(2, forkedMessages.size)
+        assertEquals("Q1", forkedMessages[0].content)
+        assertEquals("A1", forkedMessages[1].content)
+    }
+
+    @Test
+    fun `forkSession on the last AI message copies all messages in the session`() {
+        val baseTime = Instant.now()
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "Full Fork"))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q1", createdAt = baseTime))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A1", createdAt = baseTime.plusSeconds(1)))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q2", createdAt = baseTime.plusSeconds(2)))
+        val lastAiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A2", createdAt = baseTime.plusSeconds(3)))
+
+        val forked = service.forkSession(session.id, lastAiMsg.id)
+        val forkedMessages = service.getMessages(forked.id)
+
+        assertEquals(4, forkedMessages.size)
+        assertEquals(listOf("Q1", "A1", "Q2", "A2"), forkedMessages.map { it.content })
+    }
+
+    @Test
+    fun `forkSession on the first AI message copies only first two messages`() {
+        val baseTime = Instant.now()
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "Shallow Fork"))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q1", createdAt = baseTime))
+        val firstAiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A1", createdAt = baseTime.plusSeconds(1)))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q2", createdAt = baseTime.plusSeconds(2)))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A2", createdAt = baseTime.plusSeconds(3)))
+
+        val forked = service.forkSession(session.id, firstAiMsg.id)
+        val forkedMessages = service.getMessages(forked.id)
+
+        assertEquals(2, forkedMessages.size)
+        assertEquals("Q1", forkedMessages[0].content)
+        assertEquals("A1", forkedMessages[1].content)
+    }
+
+    @Test
+    fun `forkSession should not copy outdated messages`() {
+        val baseTime = Instant.now()
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "Outdated Test"))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q1", createdAt = baseTime))
+        val outdatedAi = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "Old answer", createdAt = baseTime.plusSeconds(1)))
+        // Mark the outdated branch
+        service.markMessagesAsOutdatedAfter(session.id, outdatedAi.id)
+        messageRepository.markMessageAsOutdated(outdatedAi.id)
+        // New active branch
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q2", createdAt = baseTime.plusSeconds(2)))
+        val activeAi = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "New answer", createdAt = baseTime.plusSeconds(3)))
+
+        val forked = service.forkSession(session.id, activeAi.id)
+        val forkedMessages = service.getMessages(forked.id)
+
+        // Only the two active messages should be copied
+        assertEquals(2, forkedMessages.size)
+        assertFalse(forkedMessages.any { it.content == "Old answer" })
+        assertTrue(forkedMessages.any { it.content == "Q2" })
+        assertTrue(forkedMessages.any { it.content == "New answer" })
+    }
+
+    @Test
+    fun `forkSession should assign new unique IDs to all copied messages`() {
+        val baseTime = Instant.now()
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "ID Test"))
+        val userMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q", createdAt = baseTime))
+        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A", createdAt = baseTime.plusSeconds(1)))
+
+        val forked = service.forkSession(session.id, aiMsg.id)
+        val forkedMessages = service.getMessages(forked.id)
+
+        val originalIds = setOf(userMsg.id, aiMsg.id)
+        forkedMessages.forEach { msg ->
+            assertNotEquals(null, msg.id)
+            assertFalse(originalIds.contains(msg.id), "Forked message should have a new ID, not ${msg.id}")
+        }
+    }
+
+    @Test
+    fun `forkSession should not transfer bookmarks to forked messages`() {
+        val baseTime = Instant.now()
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "Bookmark Test"))
+        val userMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q", createdAt = baseTime))
+        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A", createdAt = baseTime.plusSeconds(1)))
+        service.toggleBookmark(userMsg.id)
+        service.toggleBookmark(aiMsg.id)
+
+        val forked = service.forkSession(session.id, aiMsg.id)
+        val forkedMessages = service.getMessages(forked.id)
+
+        forkedMessages.forEach { msg ->
+            assertFalse(msg.isBookmarked, "Forked message '${msg.content}' should not be bookmarked")
+        }
+    }
+
+    @Test
+    fun `forkSession should not transfer editParentId to forked messages`() {
+        val baseTime = Instant.now()
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "EditParent Test"))
+        val parentMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Original Q", createdAt = baseTime))
+        val aiMsg = service.addMessage(
+            ChatMessage(
+                id = "",
+                sessionId = session.id,
+                role = MessageRole.ASSISTANT,
+                content = "A",
+                createdAt = baseTime.plusSeconds(1),
+                editParentId = parentMsg.id,
+            ),
+        )
+
+        val forked = service.forkSession(session.id, aiMsg.id)
+        val forkedMessages = service.getMessages(forked.id)
+
+        forkedMessages.forEach { msg ->
+            assertNull(msg.editParentId, "Forked message should not carry editParentId")
+        }
+    }
+
+    @Test
+    fun `forkSession should preserve message content and roles`() {
+        val baseTime = Instant.now()
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "Content Test"))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "User question", createdAt = baseTime))
+        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "AI answer", createdAt = baseTime.plusSeconds(1)))
+
+        val forked = service.forkSession(session.id, aiMsg.id)
+        val forkedMessages = service.getMessages(forked.id)
+
+        assertEquals(2, forkedMessages.size)
+        assertEquals("User question", forkedMessages[0].content)
+        assertTrue(forkedMessages[0].isUser)
+        assertEquals("AI answer", forkedMessages[1].content)
+        assertFalse(forkedMessages[1].isUser)
+    }
+
+    @Test
+    fun `forkSession should leave the source session completely untouched`() {
+        val baseTime = Instant.now()
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "Source Untouched"))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q1", createdAt = baseTime))
+        val aiMsg1 = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A1", createdAt = baseTime.plusSeconds(1)))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q2", createdAt = baseTime.plusSeconds(2)))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A2", createdAt = baseTime.plusSeconds(3)))
+
+        service.forkSession(session.id, aiMsg1.id)
+
+        val sourceMessages = service.getMessages(session.id)
+        assertEquals(4, sourceMessages.size)
+        assertEquals(listOf("Q1", "A1", "Q2", "A2"), sourceMessages.map { it.content })
+    }
+
+    @Test
+    fun `forkSession should produce a new session independent from the source`() {
+        val baseTime = Instant.now()
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "Independence"))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q", createdAt = baseTime))
+        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A", createdAt = baseTime.plusSeconds(1)))
+
+        val forked = service.forkSession(session.id, aiMsg.id)
+
+        assertNotEquals(session.id, forked.id)
+
+        // Adding a message to the fork must not appear in the source
+        service.addMessage(ChatMessage(id = "", sessionId = forked.id, role = MessageRole.USER, content = "Fork follow-up", createdAt = baseTime.plusSeconds(2)))
+
+        val sourceMessages = service.getMessages(session.id)
+        assertFalse(sourceMessages.any { it.content == "Fork follow-up" })
+
+        val forkedMessages = service.getMessages(forked.id)
+        assertTrue(forkedMessages.any { it.content == "Fork follow-up" })
+    }
+
+    @Test
+    fun `forkSession throws IllegalArgumentException for unknown source session`() {
+        assertThrows<IllegalArgumentException> {
+            service.forkSession("non-existent-session-id", "any-message-id")
+        }
+    }
+
+    @Test
+    fun `forkSession throws IllegalArgumentException when message ID is not in active messages`() {
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "Bad Message ID"))
+        val baseTime = Instant.now()
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q", createdAt = baseTime))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A", createdAt = baseTime.plusSeconds(1)))
+
+        assertThrows<IllegalArgumentException> {
+            service.forkSession(session.id, "message-id-that-does-not-exist")
+        }
+    }
+
+    @Test
+    fun `forkSession throws IllegalArgumentException when target message ID belongs to an outdated message`() {
+        val baseTime = Instant.now()
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "Outdated Target"))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q", createdAt = baseTime))
+        val outdatedAi = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "Old A", createdAt = baseTime.plusSeconds(1)))
+        // Mark the AI message itself as outdated
+        messageRepository.markMessageAsOutdated(outdatedAi.id)
+
+        // The outdated message ID must not be found in the active message list
+        assertThrows<IllegalArgumentException> {
+            service.forkSession(session.id, outdatedAi.id)
+        }
+    }
+
+    @Test
+    fun `forkSession forked messages all belong to the new session`() {
+        val baseTime = Instant.now()
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "Session Ownership"))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q1", createdAt = baseTime))
+        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A1", createdAt = baseTime.plusSeconds(1)))
+
+        val forked = service.forkSession(session.id, aiMsg.id)
+        // Use the domain-level repository to access sessionId on the raw ChatMessage
+        val forkedDomainMessages = messageRepository.getMessages(forked.id)
+
+        forkedDomainMessages.forEach { msg ->
+            assertEquals(forked.id, msg.sessionId, "Every copied message must belong to the forked session")
+        }
+    }
+
+    @Test
+    fun `forkSession forked session is retrievable via resumeSession`() {
+        val baseTime = Instant.now()
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "Resumable Fork"))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Hello", createdAt = baseTime))
+        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "Hi there", createdAt = baseTime.plusSeconds(1)))
+
+        val forked = service.forkSession(session.id, aiMsg.id)
+        val result = service.resumeSession(forked.id)
+
+        assertTrue(result.success)
+        assertEquals(forked.id, result.sessionId)
+        assertEquals(2, result.messages.size)
     }
 }

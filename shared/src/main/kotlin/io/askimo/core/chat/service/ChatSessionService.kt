@@ -380,6 +380,82 @@ class ChatSessionService(
     }
 
     /**
+     * Fork a session from a specific AI message.
+     *
+     * Creates a new independent session pre-populated with all active (non-outdated)
+     * messages from [sourceSessionId] up to and including [upToMessageId].
+     * The forked session inherits the source session's [ChatSession.directiveId] and
+     * [ChatSession.projectId]. All messages are given fresh IDs; the source session is
+     * left completely untouched.
+     *
+     * @param sourceSessionId The ID of the session to fork from.
+     * @param upToMessageId   The ID of the AI message to fork from (inclusive).
+     * @return The newly created (forked) [ChatSession].
+     * @throws IllegalArgumentException if [sourceSessionId] does not exist or
+     *   [upToMessageId] is not found among its active messages.
+     */
+    fun forkSession(sourceSessionId: String, upToMessageId: String): ChatSession {
+        val sourceSession = sessionRepository.getSession(sourceSessionId)
+            ?: throw IllegalArgumentException("Source session $sourceSessionId not found")
+
+        // Collect active messages up to and including the target message (chronological order).
+        val allMessages = messageRepository.getMessages(sourceSessionId)
+        val activeMessages = allMessages.filter { !it.isOutdated }
+        val targetIndex = activeMessages.indexOfFirst { it.id == upToMessageId }
+        require(targetIndex >= 0) {
+            "Message $upToMessageId not found in active messages of session $sourceSessionId"
+        }
+        val messagesToCopy = activeMessages.subList(0, targetIndex + 1)
+
+        // Create the forked session (no AI title generation — title is already descriptive).
+        val forkedSession = sessionRepository.createSession(
+            ChatSession(
+                id = "",
+                title = "Fork of: ${sourceSession.title}",
+                directiveId = sourceSession.directiveId,
+                projectId = sourceSession.projectId,
+            ),
+        )
+
+        // Bulk-insert all copied messages under the new session ID with fresh UUIDs.
+        val copiedMessages = messagesToCopy.map { msg ->
+            msg.copy(
+                id = "", // auto-UUID in addMessages()
+                sessionId = forkedSession.id,
+                isOutdated = false,
+                isBookmarked = false,
+                editParentId = null,
+            )
+        }
+        messageRepository.addMessages(copiedMessages)
+
+        // Update the session's updatedAt timestamp to reflect the bulk write.
+        sessionRepository.touchSession(forkedSession.id)
+
+        // Warm up a chat client for the new session so it is ready immediately.
+        getOrCreateClientForSession(forkedSession.id)
+
+        eventScope.launch {
+            EventBus.emit(
+                SessionCreatedEvent(
+                    sessionId = forkedSession.id,
+                    projectId = forkedSession.projectId,
+                ),
+            )
+        }
+
+        log.info(
+            "Forked session {} from session {} up to message {} ({} messages copied)",
+            forkedSession.id,
+            sourceSessionId,
+            upToMessageId,
+            copiedMessages.size,
+        )
+
+        return forkedSession
+    }
+
+    /**
      * Delete a session and all its related data (messages and summaries).
      * This method coordinates the deletion across multiple repositories.
      *

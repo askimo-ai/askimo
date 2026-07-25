@@ -132,6 +132,56 @@ class ChatMessageRepository internal constructor(
         return messageWithInjectedFields
     }
 
+    /**
+     * Bulk-insert a list of messages in a single transaction.
+     * Intended for operations like session forking where all messages must be
+     * written atomically.
+     *
+     * @param messages The messages to insert. Empty IDs are replaced with new UUIDs.
+     * @return The inserted messages with their generated IDs.
+     */
+    fun addMessages(messages: List<ChatMessage>): List<ChatMessage> {
+        if (messages.isEmpty()) return emptyList()
+
+        val messagesWithIds = messages.map { message ->
+            message.copy(id = message.id.ifBlank { UUID.randomUUID().toString() })
+        }
+
+        transaction(database) {
+            messagesWithIds.forEach { msg ->
+                ChatMessagesTable.insert {
+                    it[id] = msg.id
+                    it[ChatMessagesTable.sessionId] = msg.sessionId
+                    it[ChatMessagesTable.role] = msg.role.value
+                    it[ChatMessagesTable.content] = msg.content
+                    it[createdAt] = msg.createdAt
+                    it[ChatMessagesTable.isOutdated] = if (msg.isOutdated) 1 else 0
+                    it[ChatMessagesTable.editParentId] = msg.editParentId
+                    it[ChatMessagesTable.isEdited] = if (msg.isEdited) 1 else 0
+                    it[ChatMessagesTable.isFailed] = if (msg.isFailed) 1 else 0
+                    it[ChatMessagesTable.inputTokens] = msg.inputTokens
+                    it[ChatMessagesTable.outputTokens] = msg.outputTokens
+                    it[ChatMessagesTable.totalTokens] = msg.totalTokens
+                    it[ChatMessagesTable.durationMs] = msg.durationMs
+                }
+
+                if (msg.attachments.isNotEmpty()) {
+                    attachmentRepository.addAttachments(
+                        msg.attachments.map { attachment ->
+                            attachment.copy(
+                                id = attachment.id.ifEmpty { UUID.randomUUID().toString() },
+                                messageId = msg.id,
+                                sessionId = msg.sessionId,
+                            )
+                        },
+                    )
+                }
+            }
+        }
+
+        return messagesWithIds
+    }
+
     fun getMessages(sessionId: String): List<ChatMessage> = transaction(database) {
         val messages = ChatMessagesTable
             .selectAll()
