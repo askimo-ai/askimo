@@ -40,7 +40,7 @@ import io.askimo.ui.common.ui.themedRichTooltip
 @Composable
 fun sessionTooltip(
     session: ChatSession,
-    placement: TooltipPlacement = TooltipPlacement.AUTO,
+    placement: TooltipPlacement = TooltipPlacement.RIGHT,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
