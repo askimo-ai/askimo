@@ -24,4 +24,5 @@ data class ChatMessageDTO(
     val outputTokens: Int? = null,
     val totalTokens: Int? = null,
     val durationMs: Long? = null,
+    val isBookmarked: Boolean = false,
 )

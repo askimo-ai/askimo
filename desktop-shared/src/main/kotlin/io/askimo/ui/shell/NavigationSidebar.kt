@@ -27,6 +27,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuOpen
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
@@ -972,6 +973,7 @@ private fun sessionsList(
                     onShowSessionSummary = onShowSessionSummary,
                     availableProjects = availableProjects,
                     onMoveSessionToNewProject = onMoveSessionToNewProject,
+                    bookmarkCount = sessionsViewModel.bookmarkCountsBySession[session.id] ?: 0,
                 )
             }
 
@@ -1016,6 +1018,7 @@ private fun sessionItemWithMenu(
     onShowSessionSummary: (String) -> Unit = {},
     availableProjects: List<Project>,
     onMoveSessionToNewProject: (sessionId: String) -> Unit,
+    bookmarkCount: Int = 0,
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -1047,6 +1050,7 @@ private fun sessionItemWithMenu(
             isHovered = isHovered || showMenu,
             onResumeSession = onResumeSession,
             onMenuClick = { showMenu = true },
+            bookmarkCount = bookmarkCount,
         )
 
         Box(modifier = Modifier.align(Alignment.CenterEnd).padding(end = Spacing.small)) {
@@ -1093,6 +1097,7 @@ private fun sessionDrawerItemContent(
     isHovered: Boolean,
     onResumeSession: (String) -> Unit,
     onMenuClick: () -> Unit,
+    bookmarkCount: Int = 0,
 ) {
     val fontScale = LocalFontScale.current
 
@@ -1114,6 +1119,7 @@ private fun sessionDrawerItemContent(
                     text = session.title,
                     onMenuClick = onMenuClick,
                     isHovered = isHovered,
+                    bookmarkCount = bookmarkCount,
                 )
             },
             selected = isSelected,
@@ -1131,6 +1137,7 @@ private fun navigationItemLabelWithMenu(
     text: String,
     onMenuClick: () -> Unit,
     isHovered: Boolean,
+    bookmarkCount: Int = 0,
 ) {
     val fontScale = LocalFontScale.current
     Row(
@@ -1160,6 +1167,25 @@ private fun navigationItemLabelWithMenu(
                         modifier = Modifier.size((18 * fontScale).dp),
                     )
                 }
+            }
+        } else if (bookmarkCount > 0) {
+            // Bookmark badge — visible when not hovered, hidden when menu button appears
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = Spacing.extraSmall),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Bookmark,
+                    contentDescription = null,
+                    modifier = Modifier.size((10 * fontScale).dp),
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                )
+                Text(
+                    text = "$bookmarkCount",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                )
             }
         }
     }

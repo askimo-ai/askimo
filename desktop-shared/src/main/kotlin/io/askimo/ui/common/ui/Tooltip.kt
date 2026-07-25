@@ -242,18 +242,22 @@ private class SmartTooltipPositionProvider(
         TooltipPlacement.LEFT -> {
             val xPos = anchorBounds.left - popupContentSize.width - TOOLTIP_ANCHOR_SPACING
             val constrainedX = maxOf(0, xPos) // Ensure not off-screen left
+            val rawY = anchorBounds.top + (anchorBounds.height - popupContentSize.height) / 2
+            val constrainedY = rawY.coerceIn(0, maxOf(0, maxHeightPx.toInt() - popupContentSize.height))
             IntOffset(
                 x = constrainedX,
-                y = anchorBounds.top + (anchorBounds.height - popupContentSize.height) / 2,
+                y = constrainedY,
             )
         }
 
         TooltipPlacement.RIGHT -> {
             val xPos = anchorBounds.right + TOOLTIP_ANCHOR_SPACING
             val constrainedX = minOf(xPos, maxWidthPx.toInt() - popupContentSize.width) // Ensure not off-screen right
+            val rawY = anchorBounds.top + (anchorBounds.height - popupContentSize.height) / 2
+            val constrainedY = rawY.coerceIn(0, maxOf(0, maxHeightPx.toInt() - popupContentSize.height))
             IntOffset(
                 x = constrainedX,
-                y = anchorBounds.top + (anchorBounds.height - popupContentSize.height) / 2,
+                y = constrainedY,
             )
         }
 

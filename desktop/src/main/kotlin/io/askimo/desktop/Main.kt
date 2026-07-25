@@ -99,6 +99,8 @@ import io.askimo.desktop.shell.footerBar
 import io.askimo.desktop.shell.navigationSidebar
 import io.askimo.desktop.shell.telemetryPanel
 import io.askimo.desktop.user.userProfileDialog
+import io.askimo.ui.bookmarks.BookmarksViewModel
+import io.askimo.ui.bookmarks.bookmarksView
 import io.askimo.ui.chat.ChatViewModel
 import io.askimo.ui.chat.chatView
 import io.askimo.ui.common.components.dangerButton
@@ -473,6 +475,8 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     val appContext = remember { koin.get<AppContext>() }
     val chatSessionService = remember { koin.get<ChatSessionService>() }
 
+    val bookmarksViewModel = remember { BookmarksViewModel(chatSessionService, scope) }
+
     val sessionManager = remember { koin.get<SessionManager>() }
     val sessionsViewModel = remember {
         koin.get<SessionsViewModel> {
@@ -724,6 +728,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                 isSkillsVisible = showSkillsInSidebar,
                 isProjectsVisible = showProjectsInSidebar,
                 onShowSystemDiagnostics = { showSystemDiagnosticsDialog = true },
+                onNavigateToBookmarks = { currentView = View.BOOKMARKS },
             )
         }
     }
@@ -1141,6 +1146,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                         userAvatarPath = userProfile?.preferences?.get("avatarPath"),
                                                         userProfile = userProfile,
                                                         discoverViewModel = discoverViewModel,
+                                                        bookmarksViewModel = bookmarksViewModel,
                                                         showTokenUsageCard = showTokenUsageCard,
                                                         onToggleTokenUsageCard = { enabled ->
                                                             showTokenUsageCard = enabled
@@ -1973,6 +1979,7 @@ fun mainContent(
     showTokenUsageCard: Boolean = true,
     onToggleTokenUsageCard: (Boolean) -> Unit = {},
     onOpenSystemDiagnostics: () -> Unit = {},
+    bookmarksViewModel: BookmarksViewModel? = null,
 ) {
     val discoverMetrics by appContext.telemetry.metricsFlow.collectAsState()
     Box(
@@ -2176,6 +2183,20 @@ fun mainContent(
             View.SKILLS -> skillsView(
                 onNavigateToSkillsSettings = onNavigateToSkillsSettings,
             )
+
+            View.BOOKMARKS -> {
+                val vm = bookmarksViewModel
+                if (vm != null) {
+                    LaunchedEffect(Unit) { vm.load() }
+                    bookmarksView(
+                        viewModel = vm,
+                        onNavigateToSession = { sessionId ->
+                            onResumeSession(sessionId)
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
         }
     }
 }

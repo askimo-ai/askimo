@@ -7,8 +7,12 @@ package io.askimo.ui.chat
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.draganddrop.dragAndDropTarget
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +30,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -35,6 +41,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -101,6 +109,9 @@ import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.LocalBackgroundActive
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
+import io.askimo.ui.common.ui.TooltipPlacement
+import io.askimo.ui.common.ui.markdownText
+import io.askimo.ui.common.ui.themedRichTooltip
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.common.ui.util.FileDialogUtils
 import io.askimo.ui.service.AvatarService
@@ -167,6 +178,8 @@ fun chatView(
     val sessionTitle = state.sessionTitle
     val project = state.project
     val activeToolCalls = state.activeToolCalls
+    val bookmarkedMessageIds = state.bookmarkedMessageIds
+    val pendingScrollToMessageId = state.pendingScrollToMessageId
 
     // Internal state management for ChatView
     val scope = rememberCoroutineScope()
@@ -632,6 +645,190 @@ fun chatView(
                                 horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
+                                // Bookmark popover — always visible
+                                var showBookmarksPopover by remember { mutableStateOf(false) }
+                                val pinnedMessages = messages.filter {
+                                    it.id != null && it.id in bookmarkedMessageIds
+                                }
+                                // Auto-close popover when the last pinned message is removed
+                                LaunchedEffect(pinnedMessages.isEmpty()) {
+                                    if (pinnedMessages.isEmpty()) {
+                                        showBookmarksPopover = false
+                                    }
+                                }
+                                Box {
+                                    themedTooltip(
+                                        text = if (pinnedMessages.isNotEmpty()) {
+                                            "${stringResource("chat.bookmarks.button.tooltip")} (${pinnedMessages.size})"
+                                        } else {
+                                            stringResource("chat.bookmarks.button.tooltip")
+                                        },
+                                    ) {
+                                        IconButton(
+                                            onClick = { showBookmarksPopover = true },
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .pointerHoverIcon(PointerIcon.Hand),
+                                        ) {
+                                            Icon(
+                                                imageVector = if (pinnedMessages.isNotEmpty()) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                                                contentDescription = stringResource("chat.bookmarks.button.tooltip"),
+                                                modifier = Modifier.size(20.dp),
+                                                tint = if (pinnedMessages.isNotEmpty()) {
+                                                    MaterialTheme.colorScheme.primary
+                                                } else {
+                                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                                },
+                                            )
+                                        }
+                                    }
+
+                                    DropdownMenu(
+                                        expanded = showBookmarksPopover,
+                                        onDismissRequest = { showBookmarksPopover = false },
+                                        modifier = Modifier.widthIn(min = 480.dp),
+                                    ) {
+                                        if (pinnedMessages.isEmpty()) {
+                                            // Empty state
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Column(
+                                                        modifier = Modifier
+                                                            .widthIn(min = 220.dp, max = 320.dp)
+                                                            .padding(vertical = Spacing.small),
+                                                        verticalArrangement = Arrangement.spacedBy(Spacing.small),
+                                                    ) {
+                                                        Row(
+                                                            horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.BookmarkBorder,
+                                                                contentDescription = null,
+                                                                modifier = Modifier.size(16.dp),
+                                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            )
+                                                            Text(
+                                                                text = stringResource("chat.bookmarks.popover.empty.title"),
+                                                                style = MaterialTheme.typography.bodyMedium,
+                                                                color = MaterialTheme.colorScheme.onSurface,
+                                                            )
+                                                        }
+                                                        Text(
+                                                            text = stringResource("chat.bookmarks.popover.empty.hint"),
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        )
+                                                    }
+                                                },
+                                                onClick = {},
+                                                enabled = false,
+                                                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                                    horizontal = Spacing.large,
+                                                    vertical = Spacing.medium,
+                                                ),
+                                            )
+                                        } else {
+                                            Text(
+                                                text = "${stringResource("chat.bookmarks.popover.title")} (${pinnedMessages.size})",
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.padding(horizontal = Spacing.large, vertical = Spacing.medium),
+                                            )
+                                            HorizontalDivider()
+                                            pinnedMessages.forEachIndexed { index, msg ->
+                                                if (index > 0) HorizontalDivider()
+                                                themedRichTooltip(
+                                                    placement = TooltipPlacement.LEFT,
+                                                    tooltipContent = {
+                                                        markdownText(
+                                                            markdown = msg.content.take(600),
+                                                            modifier = Modifier
+                                                                .widthIn(max = 360.dp)
+                                                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                                                        )
+                                                    },
+                                                ) {
+                                                    DropdownMenuItem(
+                                                        text = {
+                                                            Row(
+                                                                modifier = Modifier
+                                                                    .widthIn(min = 400.dp, max = 560.dp)
+                                                                    .padding(vertical = Spacing.small),
+                                                                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                                                                verticalAlignment = Alignment.Top,
+                                                            ) {
+                                                                // Bookmark icon — top-aligned, clicking removes pin
+                                                                val bookmarkIconHoverSource = remember { MutableInteractionSource() }
+                                                                val isBookmarkIconHovered by bookmarkIconHoverSource.collectIsHoveredAsState()
+                                                                Box(
+                                                                    modifier = Modifier
+                                                                        .padding(top = 4.dp)
+                                                                        .size(24.dp)
+                                                                        .hoverable(bookmarkIconHoverSource)
+                                                                        .pointerHoverIcon(PointerIcon.Hand)
+                                                                        .clickable(
+                                                                            interactionSource = remember { MutableInteractionSource() },
+                                                                            indication = null,
+                                                                        ) {
+                                                                            val id = msg.id
+                                                                            if (id != null) {
+                                                                                actions.toggleBookmark(id)
+                                                                            }
+                                                                        },
+                                                                    contentAlignment = Alignment.Center,
+                                                                ) {
+                                                                    Icon(
+                                                                        imageVector = if (isBookmarkIconHovered) {
+                                                                            Icons.Default.BookmarkBorder
+                                                                        } else {
+                                                                            Icons.Default.Bookmark
+                                                                        },
+                                                                        contentDescription = stringResource("message.bookmark.remove"),
+                                                                        modifier = Modifier.size(16.dp),
+                                                                        tint = MaterialTheme.colorScheme.primary,
+                                                                    )
+                                                                }
+                                                                // Message preview + timestamp
+                                                                Column(
+                                                                    modifier = Modifier
+                                                                        .weight(1f),
+                                                                    verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                                                                ) {
+                                                                    markdownText(
+                                                                        markdown = msg.content.take(120),
+                                                                        modifier = Modifier.fillMaxWidth(),
+                                                                    )
+                                                                    msg.timestamp?.let { ts ->
+                                                                        Text(
+                                                                            text = formatDisplay(ts),
+                                                                            style = MaterialTheme.typography.labelSmall,
+                                                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                                                        )
+                                                                    }
+                                                                }
+                                                            }
+                                                        },
+                                                        onClick = {
+                                                            val id = msg.id
+                                                            val ts = msg.timestamp
+                                                            if (id != null && ts != null) {
+                                                                onJumpToMessage(id, ts)
+                                                            }
+                                                            showBookmarksPopover = false
+                                                        },
+                                                        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                                            horizontal = Spacing.large,
+                                                            vertical = Spacing.medium,
+                                                        ),
+                                                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand, overrideDescendants = true),
+                                                    )
+                                                } // end themedRichTooltip
+                                            }
+                                        }
+                                    }
+                                }
+
                                 if (sessionId != null && messages.isNotEmpty()) {
                                     sessionActionsMenu(
                                         sessionId = sessionId,
@@ -833,6 +1030,22 @@ fun chatView(
                     }
                 }
 
+                // Scroll to a bookmarked or jump-target message after jumpToMessage loads context
+                LaunchedEffect(pendingScrollToMessageId) {
+                    val targetId = pendingScrollToMessageId ?: return@LaunchedEffect
+                    if (messages.isNotEmpty() && messagesScrollState.maxValue > 0) {
+                        val targetIndex = messages.indexOfFirst { it.id == targetId }
+                        if (targetIndex >= 0) {
+                            val estimatedPosition = (
+                                targetIndex.toFloat() / messages.size *
+                                    messagesScrollState.maxValue
+                                ).toInt().coerceIn(0, messagesScrollState.maxValue)
+                            messagesScrollState.animateScrollTo(estimatedPosition)
+                        }
+                    }
+                    actions.clearPendingScroll()
+                }
+
                 // ── Messages area ────────────────────────────────────────────────
                 // The outer Box is the scroll container — the full chat area scrolls,
                 // not just the inner column. This means scroll works regardless of
@@ -927,6 +1140,8 @@ fun chatView(
                                         viewportTopY = viewportBounds?.top,
                                         projectId = project?.id,
                                         activeToolCalls = activeToolCalls,
+                                        bookmarkedMessageIds = bookmarkedMessageIds,
+                                        onToggleBookmark = { messageId -> actions.toggleBookmark(messageId) },
                                     )
                                 }
                             }

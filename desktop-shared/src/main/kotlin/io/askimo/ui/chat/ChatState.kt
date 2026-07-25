@@ -44,4 +44,11 @@ data class ChatState(
 
     // Tool call state — ephemeral, populated only during active streaming
     val activeToolCalls: List<ToolCallInfo> = emptyList(),
+
+    // Bookmark state — IDs of messages pinned by the user in this session
+    val bookmarkedMessageIds: Set<String> = emptySet(),
+
+    // Set by jumpToMessage so ChatView can scroll to the target after messages reload.
+    // Cleared by ChatView after consuming via actions.clearPendingScroll().
+    val pendingScrollToMessageId: String? = null,
 )

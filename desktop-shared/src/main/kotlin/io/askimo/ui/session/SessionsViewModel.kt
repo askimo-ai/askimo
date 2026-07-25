@@ -30,6 +30,7 @@ import java.io.File
 import java.io.FileNotFoundException
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * ViewModel for managing sessions view state and operations.
@@ -61,6 +62,10 @@ class SessionsViewModel(
         private set
 
     var totalSessionCount by mutableStateOf(0)
+        private set
+
+    /** sessionId → number of bookmarked messages. Only populated for sessions that have ≥1 bookmark. */
+    var bookmarkCountsBySession by mutableStateOf<Map<String, Int>>(emptyMap())
         private set
 
     var searchQuery by mutableStateOf("")
@@ -176,13 +181,15 @@ class SessionsViewModel(
     fun loadRecentSessions() {
         scope.launch {
             try {
-                val (sessions, total) = withContext(Dispatchers.IO) {
+                val (sessions, total, bookmarkCounts) = withContext(Dispatchers.IO) {
                     val sessions = sessionService.getSessionsWithoutProject(MAX_SIDEBAR_SESSIONS)
                     val total = sessionService.countSessionsWithoutProject()
-                    sessions to total
+                    val bookmarkCounts = sessionService.getBookmarkCountsBySession()
+                    Triple(sessions, total, bookmarkCounts)
                 }
                 recentSessions = sessions
                 totalSessionCount = total
+                bookmarkCountsBySession = bookmarkCounts
 
                 log.debug("Loaded ${sessions.size} sessions without projects (showing ${sessions.size} in sidebar, total: $total)")
             } catch (e: Exception) {
@@ -227,7 +234,7 @@ class SessionsViewModel(
         searchQuery = query
         searchDebounceJob?.cancel()
         searchDebounceJob = scope.launch {
-            delay(300)
+            delay(300.milliseconds)
             loadSessions(1)
         }
     }

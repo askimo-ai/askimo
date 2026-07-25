@@ -114,6 +114,12 @@ class ChatViewModel(
     var activeToolCalls by mutableStateOf<List<ToolCallInfo>>(emptyList())
         private set
 
+    var bookmarkedMessageIds by mutableStateOf<Set<String>>(emptySet())
+        private set
+
+    var pendingScrollToMessageId by mutableStateOf<String?>(null)
+        private set
+
     val state: ChatState
         get() = ChatState(
             messages = messages,
@@ -134,6 +140,8 @@ class ChatViewModel(
             sessionTitle = sessionTitle ?: "",
             project = project,
             activeToolCalls = activeToolCalls,
+            bookmarkedMessageIds = bookmarkedMessageIds,
+            pendingScrollToMessageId = pendingScrollToMessageId,
         )
 
     /**
@@ -855,6 +863,13 @@ class ChatViewModel(
                     sessionTitle = result.title
                     project = result.project
 
+                    // Load bookmark IDs for this session so the UI can mark pinned messages
+                    bookmarkedMessageIds = withContext(Dispatchers.IO) {
+                        chatSessionService.getBookmarkedMessages(sessionId)
+                            .mapNotNull { it.id }
+                            .toSet()
+                    }
+
                     // Reset thinking state
                     isThinking = false
                     stopThinkingTimer()
@@ -1083,6 +1098,8 @@ class ChatViewModel(
                 hasMoreMessages = currentCursor != null
 
                 isLoading = false
+                // Signal ChatView to scroll to the target message after recomposition
+                pendingScrollToMessageId = messageId
             } catch (e: Exception) {
                 errorMessage = ErrorHandler.getUserFriendlyError(e, "jumping to message", "Failed to navigate to message. Please try again.")
                 isLoading = false
@@ -1273,5 +1290,41 @@ class ChatViewModel(
         searchResults = emptyList()
 
         log.debug("Cleaned up ChatViewModel for session: ${currentSessionId.value}")
+    }
+
+    /**
+     * Toggle the bookmark state of a message.
+     * Updates the DB on a background thread and reflects the change immediately in UI state
+     * for instant feedback (optimistic update).
+     */
+    override fun toggleBookmark(messageId: String) {
+        bookmarkedMessageIds = if (messageId in bookmarkedMessageIds) {
+            bookmarkedMessageIds - messageId
+        } else {
+            bookmarkedMessageIds + messageId
+        }
+
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    chatSessionService.toggleBookmark(messageId)
+                }
+            } catch (e: Exception) {
+                // Roll back the optimistic update on failure
+                bookmarkedMessageIds = if (messageId in bookmarkedMessageIds) {
+                    bookmarkedMessageIds - messageId
+                } else {
+                    bookmarkedMessageIds + messageId
+                }
+                log.error("Failed to toggle bookmark for message {}", messageId, e)
+            }
+        }
+    }
+
+    /**
+     * Consume the pending scroll target after ChatView has scrolled to it.
+     */
+    override fun clearPendingScroll() {
+        pendingScrollToMessageId = null
     }
 }

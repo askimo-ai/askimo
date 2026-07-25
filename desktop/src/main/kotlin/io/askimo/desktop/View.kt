@@ -16,4 +16,5 @@ enum class View {
     PLAN_EDITOR,
     SKILLS,
     SETTINGS,
+    BOOKMARKS,
 }

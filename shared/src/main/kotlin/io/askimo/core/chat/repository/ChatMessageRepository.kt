@@ -7,6 +7,7 @@ package io.askimo.core.chat.repository
 import io.askimo.core.chat.domain.ChatMessage
 import io.askimo.core.chat.domain.ChatMessageAttachmentsTable
 import io.askimo.core.chat.domain.ChatMessagesTable
+import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.domain.ChatSessionsTable
 import io.askimo.core.chat.domain.FileAttachment
 import io.askimo.core.context.MessageRole
@@ -15,6 +16,7 @@ import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.PushDataToServerEvent
 import io.askimo.core.logging.logger
+import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
@@ -68,6 +70,7 @@ private fun ResultRow.toChatMessage(): ChatMessage = ChatMessage(
     outputTokens = this[ChatMessagesTable.outputTokens],
     totalTokens = this[ChatMessagesTable.totalTokens],
     durationMs = this[ChatMessagesTable.durationMs],
+    isBookmarked = this[ChatMessagesTable.isBookmarked] == 1,
 )
 
 /**
@@ -553,5 +556,94 @@ class ChatMessageRepository internal constructor(
             .orderBy(ChatMessagesTable.createdAt, SortOrder.ASC)
             .limit(limit)
             .map { it.toChatMessage() }
+    }
+
+    /**
+     * Toggle the bookmark state of a message.
+     * @return true if the message is now bookmarked, false if it is now un-bookmarked.
+     */
+    fun toggleBookmark(messageId: String): Boolean = transaction(database) {
+        val current = ChatMessagesTable
+            .selectAll()
+            .where { ChatMessagesTable.id eq messageId }
+            .firstOrNull()
+            ?.get(ChatMessagesTable.isBookmarked) ?: 0
+
+        val next = if (current == 1) 0 else 1
+        ChatMessagesTable.update({ ChatMessagesTable.id eq messageId }) {
+            it[isBookmarked] = next
+        }
+        next == 1
+    }
+
+    /**
+     * Return all bookmarked messages for a single session, ordered by creation time.
+     */
+    fun getBookmarkedMessages(sessionId: String): List<ChatMessage> = transaction(database) {
+        ChatMessagesTable
+            .selectAll()
+            .where {
+                (ChatMessagesTable.sessionId eq sessionId) and
+                    (ChatMessagesTable.isBookmarked eq 1)
+            }
+            .orderBy(ChatMessagesTable.createdAt, SortOrder.ASC)
+            .map { it.toChatMessage() }
+    }
+
+    /**
+     * Return all bookmarked messages across every session, ordered newest-first.
+     * Used by the global Bookmarks view.
+     */
+    fun getAllBookmarkedMessages(): List<ChatMessage> = transaction(database) {
+        ChatMessagesTable
+            .selectAll()
+            .where { ChatMessagesTable.isBookmarked eq 1 }
+            .orderBy(ChatMessagesTable.createdAt, SortOrder.DESC)
+            .map { it.toChatMessage() }
+    }
+
+    /**
+     * Return all bookmarked messages joined with their parent sessions in a **single** query,
+     * ordered by session.updated_at DESC then message.created_at ASC.
+     *
+     * This avoids the two-round-trip pattern of fetching messages first and then fetching
+     * sessions by ID. The caller can group the flat list in-memory while retaining the
+     * DB-provided ordering.
+     */
+    fun getAllBookmarkedWithSessions(): List<Pair<ChatMessage, ChatSession>> = transaction(database) {
+        ChatMessagesTable
+            .join(ChatSessionsTable, JoinType.INNER, ChatMessagesTable.sessionId, ChatSessionsTable.id)
+            .selectAll()
+            .where { ChatMessagesTable.isBookmarked eq 1 }
+            .orderBy(
+                ChatSessionsTable.updatedAt to SortOrder.DESC,
+                ChatMessagesTable.createdAt to SortOrder.ASC,
+            )
+            .map { row ->
+                val message = row.toChatMessage()
+                val session = ChatSession(
+                    id = row[ChatSessionsTable.id],
+                    title = row[ChatSessionsTable.title],
+                    createdAt = row[ChatSessionsTable.createdAt],
+                    updatedAt = row[ChatSessionsTable.updatedAt],
+                    projectId = row[ChatSessionsTable.projectId],
+                    directiveId = row[ChatSessionsTable.directiveId],
+                    isStarred = row[ChatSessionsTable.isStarred] == 1,
+                )
+                message to session
+            }
+    }
+
+    /**
+     * Return a map of sessionId → bookmark count for every session that has at least one
+     * bookmarked message. Uses a single query + in-memory grouping.
+     * Used by the sidebar to render the 🔖 N badge efficiently.
+     */
+    fun getBookmarkCountsBySession(): Map<String, Int> = transaction(database) {
+        ChatMessagesTable
+            .selectAll()
+            .where { ChatMessagesTable.isBookmarked eq 1 }
+            .groupBy { it[ChatMessagesTable.sessionId] }
+            .mapValues { it.value.size }
     }
 }

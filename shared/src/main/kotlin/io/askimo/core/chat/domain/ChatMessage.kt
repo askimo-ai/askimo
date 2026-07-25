@@ -25,6 +25,7 @@ data class ChatMessage(
     val outputTokens: Int? = null,
     val totalTokens: Int? = null,
     val durationMs: Long? = null,
+    val isBookmarked: Boolean = false,
 )
 
 /**
@@ -52,6 +53,7 @@ object ChatMessagesTable : Table("chat_messages") {
     val outputTokens = integer("output_tokens").nullable()
     val totalTokens = integer("total_tokens").nullable()
     val durationMs = long("duration_ms").nullable()
+    val isBookmarked = integer("is_bookmarked").default(0)
 
     val syncedAt = varchar("synced_at", 32).nullable()
 

@@ -24,4 +24,6 @@ interface ChatActions {
     fun setDirective(directiveId: String?)
     fun updateAIMessage(messageId: String, newContent: String)
     fun retryMessage(messageId: String, enabledServerIds: Set<String> = emptySet())
+    fun toggleBookmark(messageId: String)
+    fun clearPendingScroll()
 }

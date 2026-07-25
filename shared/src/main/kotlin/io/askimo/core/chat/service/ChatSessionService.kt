@@ -13,6 +13,7 @@ import io.askimo.core.chat.domain.ChatMessage
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.dto.ChatMessageDTO
+import io.askimo.core.chat.mapper.ChatMessageMapper.toDTO
 import io.askimo.core.chat.mapper.ChatMessageMapper.toDTOs
 import io.askimo.core.chat.mapper.ChatMessageMapper.toDomain
 import io.askimo.core.chat.repository.ChatMessageRepository
@@ -59,6 +60,14 @@ import kotlin.time.toJavaDuration
 data class SessionChatContext(
     val chatClient: ChatClient,
     val memory: TokenAwareSummarizingMemory,
+)
+
+/**
+ * A single conversation's worth of bookmarked messages, used by the global Bookmarks view.
+ */
+data class BookmarkGroup(
+    val session: ChatSession,
+    val messages: List<ChatMessageDTO>,
 )
 
 /**
@@ -727,11 +736,45 @@ class ChatSessionService(
     }
 
     /**
-     * Constructs a formatted message with both file attachments and extracted URL contents.
-     *
-     * @param userMessage The original user message
-     * @return Formatted message with attachments and URL contents appended
+     * Toggle bookmark state for a message.
+     * @return true if the message is now bookmarked, false if un-bookmarked.
      */
+    fun toggleBookmark(messageId: String): Boolean = messageRepository.toggleBookmark(messageId)
+
+    /**
+     * Return all bookmarked messages for a given session, ordered by creation time.
+     */
+    fun getBookmarkedMessages(sessionId: String): List<ChatMessageDTO> = messageRepository.getBookmarkedMessages(sessionId).toDTOs()
+
+    /**
+     * Return all bookmarked messages across all sessions, ordered newest-first.
+     * Used by the global Bookmarks view.
+     */
+    fun getAllBookmarkedMessages(): List<ChatMessageDTO> = messageRepository.getAllBookmarkedMessages().toDTOs()
+
+    /**
+     * Return a map of sessionId → bookmark count for sessions with at least one bookmark.
+     * Used by the sidebar to show 🔖 N badges without per-row queries.
+     */
+    fun getBookmarkCountsBySession(): Map<String, Int> = messageRepository.getBookmarkCountsBySession()
+
+    /**
+     * Return all bookmarked messages across all sessions grouped by their conversation,
+     * ordered by session's most recent activity descending.
+     * Used by the global Bookmarks view.
+     */
+    fun getAllBookmarkGroups(): List<BookmarkGroup> {
+        val rows = messageRepository.getAllBookmarkedWithSessions()
+        if (rows.isEmpty()) return emptyList()
+
+        // groupBy on a LinkedHashMap preserves the insertion order from the DB result,
+        // so sessions remain sorted by updatedAt DESC and messages within each group
+        // remain sorted by createdAt ASC — exactly the DB ORDER BY clause.
+        return rows
+            .groupBy({ it.second }, { it.first })
+            .map { (session, messages) -> BookmarkGroup(session, messages.map { it.toDTO() }) }
+    }
+
     private fun constructMessageWithAttachmentsAndUrls(
         userMessage: ChatMessageDTO,
     ): String = buildString {

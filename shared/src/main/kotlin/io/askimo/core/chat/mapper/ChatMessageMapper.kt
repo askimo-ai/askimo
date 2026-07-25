@@ -33,6 +33,7 @@ object ChatMessageMapper {
         outputTokens = this.outputTokens,
         totalTokens = this.totalTokens,
         durationMs = this.durationMs,
+        isBookmarked = this.isBookmarked,
     )
 
     /**

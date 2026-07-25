@@ -4,7 +4,6 @@
  */
 package io.askimo.ui.chat
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
@@ -32,6 +31,8 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
@@ -110,9 +111,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
-import java.util.Locale
 import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -134,6 +132,8 @@ fun messageList(
     viewportTopY: Float? = null,
     projectId: String? = null,
     activeToolCalls: List<ToolCallInfo> = emptyList(),
+    bookmarkedMessageIds: Set<String> = emptySet(),
+    onToggleBookmark: ((String) -> Unit)? = null,
 ) {
     // Retry confirmation dialog state
     var showRetryConfirmDialog by remember { mutableStateOf(false) }
@@ -176,8 +176,6 @@ fun messageList(
 
         // Group messages into active and outdated branches
         val messageGroups = groupMessagesWithOutdatedBranches(messages)
-        val locale = LocalizationManager.getCurrentLocale()
-
         var messageIndex = 0
         var isFirstMessage = true
         var lastDayLabel: String? = null
@@ -187,7 +185,7 @@ fun messageList(
                     // Day separator — show when the message date is different from the previous one
                     val ts = group.message.timestamp
                     if (ts != null) {
-                        val dayLabel = formatDayLabel(ts, locale, currentDate)
+                        val dayLabel = LocalizationManager.formatDayLabel(ts, currentDate)
                         if (dayLabel != lastDayLabel) {
                             messageDaySeparator(label = dayLabel)
                             lastDayLabel = dayLabel
@@ -227,6 +225,8 @@ fun messageList(
                         isStreaming = isStreamingMessage,
                         projectId = projectId,
                         toolCalls = if (isLastAiMsg) activeToolCalls else emptyList(),
+                        bookmarkedMessageIds = bookmarkedMessageIds,
+                        onToggleBookmark = onToggleBookmark,
                     )
                     isFirstMessage = false
                     messageIndex++
@@ -322,6 +322,8 @@ fun messageBubble(
     isStreaming: Boolean = false,
     projectId: String? = null,
     toolCalls: List<ToolCallInfo> = emptyList(),
+    bookmarkedMessageIds: Set<String> = emptySet(),
+    onToggleBookmark: ((String) -> Unit)? = null,
 ) {
     Box(
         modifier = Modifier
@@ -338,6 +340,8 @@ fun messageBubble(
                 onDownloadAttachment = onDownloadAttachment,
                 userAvatarPainter = userAvatarPainter,
                 isOutdatedMessage = isOutdatedMessage,
+                isBookmarked = message.id != null && message.id in bookmarkedMessageIds,
+                onToggleBookmark = if (message.id != null) onToggleBookmark else null,
             )
         } else {
             aiMessageBubble(
@@ -356,6 +360,8 @@ fun messageBubble(
                 isStreaming = isStreaming,
                 projectId = projectId,
                 toolCalls = toolCalls,
+                isBookmarked = message.id != null && message.id in bookmarkedMessageIds,
+                onToggleBookmark = if (message.id != null) onToggleBookmark else null,
             )
         }
     }
@@ -372,6 +378,8 @@ private fun userMessageBubble(
     onDownloadAttachment: ((FileAttachmentDTO) -> Unit)? = null,
     userAvatarPainter: BitmapPainter? = null,
     isOutdatedMessage: Boolean = false,
+    isBookmarked: Boolean = false,
+    onToggleBookmark: ((String) -> Unit)? = null,
 ) {
     val clipboardManager = LocalClipboardManager.current
     var isHovered by remember { mutableStateOf(false) }
@@ -541,7 +549,7 @@ private fun userMessageBubble(
                                             clipboardManager.setText(AnnotatedString(message.content))
                                             showCopyFeedback = true
                                             coroutineScope.launch {
-                                                delay(2000)
+                                                delay(2000.milliseconds)
                                                 showCopyFeedback = false
                                             }
                                         },
@@ -572,12 +580,20 @@ private fun userMessageBubble(
                                     }
                                 }
 
+                                if (onToggleBookmark != null && message.id != null) {
+                                    bookmarkToggleButton(
+                                        msgId = message.id!!,
+                                        isBookmarked = isBookmarked,
+                                        onToggleBookmark = onToggleBookmark,
+                                    )
+                                }
+
                                 // Timestamp — visible on hover, right side of action bar
                                 message.timestamp?.let { ts ->
                                     Spacer(modifier = Modifier.width(Spacing.small))
                                     themedTooltip(text = TimeUtil.formatFullDateTime(ts, LocalizationManager.getCurrentLocale())) {
                                         Text(
-                                            text = formatMessageTime(ts),
+                                            text = LocalizationManager.formatMessageTime(ts),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                         )
@@ -612,6 +628,8 @@ private fun aiMessageBubble(
     isStreaming: Boolean = false,
     projectId: String? = null,
     toolCalls: List<ToolCallInfo> = emptyList(),
+    isBookmarked: Boolean = false,
+    onToggleBookmark: ((String) -> Unit)? = null,
 ) {
     val clipboardManager = LocalClipboardManager.current
     var showCopyFeedback by remember { mutableStateOf(false) }
@@ -789,6 +807,19 @@ private fun aiMessageBubble(
                         }
                     }
                 }
+
+                // Bookmark badge — always visible on pinned messages
+                if (isBookmarked) {
+                    Icon(
+                        imageVector = Icons.Default.Bookmark,
+                        contentDescription = stringResource("message.bookmark.description"),
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 4.dp, end = 4.dp)
+                            .size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
         }
 
@@ -914,6 +945,30 @@ private fun aiMessageBubble(
                             )
                         }
                     }
+
+                    // Bookmark toggle
+                    if (onToggleBookmark != null && message.id != null) {
+                        val msgId = message.id!!
+                        themedTooltip(
+                            text = if (isBookmarked) stringResource("message.bookmark.remove") else stringResource("message.bookmark"),
+                        ) {
+                            IconButton(
+                                onClick = { onToggleBookmark.invoke(msgId) },
+                                modifier = Modifier.size(32.dp).pointerHoverIcon(PointerIcon.Hand),
+                            ) {
+                                Icon(
+                                    imageVector = if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                                    contentDescription = stringResource("message.bookmark.description"),
+                                    modifier = Modifier.size(16.dp),
+                                    tint = if (isBookmarked) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -972,7 +1027,7 @@ private fun aiMessageBubble(
                     val timestampPrefix = if (total != null && total > 0) "· " else ""
                     themedTooltip(text = TimeUtil.formatFullDateTime(ts, LocalizationManager.getCurrentLocale())) {
                         Text(
-                            text = "$timestampPrefix${formatMessageTime(ts)}",
+                            text = "$timestampPrefix${LocalizationManager.formatMessageTime(ts)}",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                         )
@@ -1307,7 +1362,6 @@ private fun fileAttachmentChip(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun aiMessageEditDialog(
     message: ChatMessageDTO,
@@ -1396,28 +1450,6 @@ fun aiMessageEditDialog(
     }
 }
 
-/** Formats an [Instant] as "HH:mm" in the system default time zone using the current locale. */
-private fun formatMessageTime(timestamp: Instant): String {
-    val formatter = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
-        .withLocale(LocalizationManager.getCurrentLocale())
-        .withZone(ZoneId.systemDefault())
-    return formatter.format(timestamp)
-}
-
-/** Formats an [Instant] as a day label relative to today (Today / Yesterday / full date). */
-private fun formatDayLabel(timestamp: Instant, locale: Locale, currentDate: LocalDate): String {
-    val zone = ZoneId.systemDefault()
-    return when (val msgDate = timestamp.atZone(zone).toLocalDate()) {
-        currentDate -> LocalizationManager.getString("message.date.today")
-
-        currentDate.minusDays(1) -> LocalizationManager.getString("message.date.yesterday")
-
-        else -> DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
-            .withLocale(locale)
-            .format(msgDate)
-    }
-}
-
 /** Day separator shown between messages from different calendar days. */
 @Composable
 private fun messageDaySeparator(label: String) {
@@ -1441,5 +1473,32 @@ private fun messageDaySeparator(label: String) {
             modifier = Modifier.weight(1f),
             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
         )
+    }
+}
+
+@Composable
+private fun bookmarkToggleButton(
+    msgId: String,
+    isBookmarked: Boolean,
+    onToggleBookmark: (String) -> Unit,
+) {
+    themedTooltip(
+        text = if (isBookmarked) stringResource("message.bookmark.remove") else stringResource("message.bookmark"),
+    ) {
+        IconButton(
+            onClick = { onToggleBookmark(msgId) },
+            modifier = Modifier.size(32.dp).pointerHoverIcon(PointerIcon.Hand),
+        ) {
+            Icon(
+                imageVector = if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                contentDescription = stringResource("message.bookmark.description"),
+                modifier = Modifier.size(16.dp),
+                tint = if (isBookmarked) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+        }
     }
 }

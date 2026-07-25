@@ -91,11 +91,12 @@ object NativeMenuBar {
         isSkillsVisible: Boolean = true,
         isProjectsVisible: Boolean = true,
         onShowSystemDiagnostics: () -> Unit = {},
+        onNavigateToBookmarks: () -> Unit,
     ) {
         val window = frameWindowScope.window
 
         // Setup AWT menu bar for all platforms (includes Documentation)
-        setupAWTMenuBar(window, onShowAbout, onNewChat, onNewProject, onSearchInSessions, onShowSettings, onShowEventLog, onCheckForUpdates, onEnterFullScreen, onNavigateToSessions, onNavigateToProjects, onNavigateToDiscover, onToggleSidebar, onInvalidateCaches, onExportBackup, onImportBackup, onShowGettingStarted, onOpenTerminal, onClearPreferences, onClearAccountPreferences, onTogglePlans, onToggleSkills, onToggleProjects, isPlansVisible, isSkillsVisible, isProjectsVisible, onShowSystemDiagnostics)
+        setupAWTMenuBar(window, onShowAbout, onNewChat, onNewProject, onSearchInSessions, onShowSettings, onShowEventLog, onCheckForUpdates, onEnterFullScreen, onNavigateToSessions, onNavigateToProjects, onNavigateToDiscover, onToggleSidebar, onInvalidateCaches, onExportBackup, onImportBackup, onShowGettingStarted, onOpenTerminal, onClearPreferences, onClearAccountPreferences, onTogglePlans, onToggleSkills, onToggleProjects, isPlansVisible, isSkillsVisible, isProjectsVisible, onShowSystemDiagnostics, onNavigateToBookmarks)
 
         // On macOS, also register the About handler for the app menu
         if (Platform.isMac) {
@@ -145,6 +146,7 @@ object NativeMenuBar {
         isSkillsVisible: Boolean,
         isProjectsVisible: Boolean,
         onShowSystemDiagnostics: () -> Unit,
+        onNavigateToBookmarks: () -> Unit,
     ) {
         if (window is Frame) {
             val menuBar = MenuBar()
@@ -349,6 +351,15 @@ object NativeMenuBar {
                 onEnterFullScreen()
             }
             viewMenu.add(fullScreenItem)
+
+            // Bookmarks — navigate to the global Bookmarks view
+            viewMenu.addSeparator()
+            val bookmarksItem = MenuItem(
+                LocalizationManager.getString("menu.view.bookmarks"),
+                MenuShortcut(KeyEvent.VK_B, true), // Shift+Cmd+B on Mac, Shift+Ctrl+B on others
+            )
+            bookmarksItem.addActionListener { onNavigateToBookmarks() }
+            viewMenu.add(bookmarksItem)
 
             menuBar.add(viewMenu)
 

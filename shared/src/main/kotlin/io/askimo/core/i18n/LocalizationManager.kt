@@ -6,6 +6,11 @@ package io.askimo.core.i18n
 
 import java.text.MessageFormat
 import java.text.NumberFormat
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import java.util.Locale
 import java.util.Properties
 
@@ -253,6 +258,34 @@ object LocalizationManager {
             }
         } catch (_: Exception) {
             // Silently ignore missing files — not all layers are required
+        }
+    }
+
+    /**
+     * Formats an [Instant] as a short time string (e.g. "14:35") in the system default
+     * time zone using the current locale.
+     */
+    fun formatMessageTime(timestamp: Instant): String {
+        val formatter = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
+            .withLocale(currentLocale)
+            .withZone(ZoneId.systemDefault())
+        return formatter.format(timestamp)
+    }
+
+    /**
+     * Formats an [Instant] as a day label relative to [currentDate]:
+     * "Today", "Yesterday", or a medium-length date string in the current locale.
+     */
+    fun formatDayLabel(timestamp: Instant, currentDate: LocalDate): String {
+        val zone = ZoneId.systemDefault()
+        return when (val msgDate = timestamp.atZone(zone).toLocalDate()) {
+            currentDate -> getString("message.date.today")
+
+            currentDate.minusDays(1) -> getString("message.date.yesterday")
+
+            else -> DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
+                .withLocale(currentLocale)
+                .format(msgDate)
         }
     }
 }

@@ -341,6 +341,14 @@ class DatabaseManager private constructor(
                 stmt.executeUpdate("ALTER TABLE chat_messages ADD COLUMN duration_ms INTEGER")
             } catch (_: Exception) {}
 
+            // Migration: Add is_bookmarked column for message pinning feature.
+            // 0 = not bookmarked (default), 1 = bookmarked.
+            try {
+                stmt.executeUpdate("ALTER TABLE chat_messages ADD COLUMN is_bookmarked INTEGER DEFAULT 0")
+            } catch (_: Exception) {
+                // Column already exists — safe to ignore.
+            }
+
             // Create composite index for efficient session-based queries with time ordering
             stmt.executeUpdate(
                 """
