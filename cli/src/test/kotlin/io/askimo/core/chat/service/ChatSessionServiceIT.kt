@@ -526,4 +526,150 @@ class ChatSessionServiceIT {
             secondResult.messages.map { it.content },
         )
     }
+
+    // -------------------------------------------------------------------------
+    // getAllBookmarkGroups
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `getAllBookmarkGroups should return empty list when no bookmarks exist`() {
+        sessionRepository.createSession(ChatSession(id = "", title = "No Bookmarks"))
+
+        val groups = service.getAllBookmarkGroups()
+
+        assertTrue(groups.isEmpty())
+    }
+
+    @Test
+    fun `getAllBookmarkGroups should return empty list when messages exist but none are bookmarked`() {
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "Unbookmarked"))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Not bookmarked"))
+
+        val groups = service.getAllBookmarkGroups()
+
+        assertTrue(groups.isEmpty())
+    }
+
+    @Test
+    fun `getAllBookmarkGroups should return one group with bookmarked message`() {
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "Single Bookmark"))
+        val msg = service.addMessage(
+            ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Bookmarked"),
+        )
+        service.toggleBookmark(msg.id)
+
+        val groups = service.getAllBookmarkGroups()
+
+        assertEquals(1, groups.size)
+        assertEquals(session.id, groups[0].session.id)
+        assertEquals(1, groups[0].messages.size)
+        assertEquals("Bookmarked", groups[0].messages[0].content)
+    }
+
+    @Test
+    fun `getAllBookmarkGroups should exclude non-bookmarked messages from the group`() {
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "Mixed"))
+        val bookmarked = service.addMessage(
+            ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Bookmarked", createdAt = Instant.now()),
+        )
+        service.addMessage(
+            ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "Not bookmarked", createdAt = Instant.now().plusSeconds(1)),
+        )
+        service.toggleBookmark(bookmarked.id)
+
+        val groups = service.getAllBookmarkGroups()
+
+        assertEquals(1, groups.size)
+        assertEquals(1, groups[0].messages.size)
+        assertEquals("Bookmarked", groups[0].messages[0].content)
+    }
+
+    @Test
+    fun `getAllBookmarkGroups should order messages within a group by createdAt ascending`() {
+        val baseTime = Instant.now()
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "Message Order"))
+
+        val first = service.addMessage(
+            ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "First", createdAt = baseTime),
+        )
+        val second = service.addMessage(
+            ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "Second", createdAt = baseTime.plusSeconds(1)),
+        )
+        val third = service.addMessage(
+            ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Third", createdAt = baseTime.plusSeconds(2)),
+        )
+        service.toggleBookmark(first.id)
+        service.toggleBookmark(second.id)
+        service.toggleBookmark(third.id)
+
+        val groups = service.getAllBookmarkGroups()
+
+        assertEquals(1, groups.size)
+        val contents = groups[0].messages.map { it.content }
+        assertEquals(listOf("First", "Second", "Third"), contents)
+    }
+
+    @Test
+    fun `getAllBookmarkGroups should return multiple sessions ordered by updatedAt descending`() {
+        val baseTime = Instant.now()
+
+        val olderSession = sessionRepository.createSession(ChatSession(id = "", title = "Older Session"))
+        val msg1 = service.addMessage(
+            ChatMessage(id = "", sessionId = olderSession.id, role = MessageRole.USER, content = "Older bookmark", createdAt = baseTime),
+        )
+        service.toggleBookmark(msg1.id)
+
+        Thread.sleep(50)
+
+        val newerSession = sessionRepository.createSession(ChatSession(id = "", title = "Newer Session"))
+        val msg2 = service.addMessage(
+            ChatMessage(id = "", sessionId = newerSession.id, role = MessageRole.USER, content = "Newer bookmark", createdAt = baseTime.plusSeconds(1)),
+        )
+        service.toggleBookmark(msg2.id)
+
+        val groups = service.getAllBookmarkGroups()
+
+        assertEquals(2, groups.size)
+        // Newer session (more recently updated) must come first
+        assertEquals(newerSession.id, groups[0].session.id)
+        assertEquals(olderSession.id, groups[1].session.id)
+    }
+
+    @Test
+    fun `getAllBookmarkGroups should group bookmarks correctly across multiple sessions`() {
+        val session1 = sessionRepository.createSession(ChatSession(id = "", title = "Session 1"))
+        val session2 = sessionRepository.createSession(ChatSession(id = "", title = "Session 2"))
+
+        val a = service.addMessage(ChatMessage(id = "", sessionId = session1.id, role = MessageRole.USER, content = "S1-A"))
+        val b = service.addMessage(ChatMessage(id = "", sessionId = session1.id, role = MessageRole.ASSISTANT, content = "S1-B"))
+        val c = service.addMessage(ChatMessage(id = "", sessionId = session2.id, role = MessageRole.USER, content = "S2-A"))
+        service.addMessage(ChatMessage(id = "", sessionId = session2.id, role = MessageRole.ASSISTANT, content = "S2-B-not-bookmarked"))
+
+        service.toggleBookmark(a.id)
+        service.toggleBookmark(b.id)
+        service.toggleBookmark(c.id)
+
+        val groups = service.getAllBookmarkGroups()
+
+        assertEquals(2, groups.size)
+        val groupBySessionId = groups.associateBy { it.session.id }
+
+        assertEquals(2, groupBySessionId[session1.id]!!.messages.size)
+        assertEquals(1, groupBySessionId[session2.id]!!.messages.size)
+        assertEquals("S2-A", groupBySessionId[session2.id]!!.messages[0].content)
+    }
+
+    @Test
+    fun `getAllBookmarkGroups should reflect toggle — removed bookmark disappears from group`() {
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "Toggle Test"))
+        val msg = service.addMessage(
+            ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Toggle me"),
+        )
+
+        service.toggleBookmark(msg.id) // bookmark on
+        assertEquals(1, service.getAllBookmarkGroups().size)
+
+        service.toggleBookmark(msg.id) // bookmark off
+        assertTrue(service.getAllBookmarkGroups().isEmpty())
+    }
 }

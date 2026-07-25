@@ -13,6 +13,7 @@ import io.askimo.core.util.AskimoHome
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
@@ -760,5 +761,382 @@ class ChatMessageRepositoryIT {
         val fileNames = messages[0].attachments.map { it.fileName }.toSet()
         val expectedFileNames = (1..10).map { "file$it.txt" }.toSet()
         assertEquals(expectedFileNames, fileNames)
+    }
+
+    // ===== Bookmark Tests =====
+
+    @Test
+    fun `toggleBookmark should return true when bookmarking a message`() {
+        val msg = messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.USER, content = "Bookmark me"),
+        )
+
+        val result = messageRepository.toggleBookmark(msg.id)
+
+        assertTrue(result)
+    }
+
+    @Test
+    fun `toggleBookmark should return false when un-bookmarking a message`() {
+        val msg = messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.USER, content = "Toggle off"),
+        )
+        messageRepository.toggleBookmark(msg.id) // on
+
+        val result = messageRepository.toggleBookmark(msg.id) // off
+
+        assertFalse(result)
+    }
+
+    @Test
+    fun `toggleBookmark should persist isBookmarked flag correctly`() {
+        val msg = messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.USER, content = "Check flag"),
+        )
+
+        messageRepository.toggleBookmark(msg.id)
+        assertTrue(messageRepository.getMessages(testSession.id).first { it.id == msg.id }.isBookmarked)
+
+        messageRepository.toggleBookmark(msg.id)
+        assertFalse(messageRepository.getMessages(testSession.id).first { it.id == msg.id }.isBookmarked)
+    }
+
+    @Test
+    fun `toggleBookmark should only affect the targeted message`() {
+        val baseTime = Instant.now()
+        val target = messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.USER, content = "Target", createdAt = baseTime),
+        )
+        messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.ASSISTANT, content = "Bystander", createdAt = baseTime.plusSeconds(1)),
+        )
+
+        messageRepository.toggleBookmark(target.id)
+
+        val messages = messageRepository.getMessages(testSession.id)
+        assertTrue(messages.first { it.id == target.id }.isBookmarked)
+        assertFalse(messages.first { it.content == "Bystander" }.isBookmarked)
+    }
+
+    // ===== getBookmarkedMessages =====
+
+    @Test
+    fun `getBookmarkedMessages should return empty list when no bookmarks in session`() {
+        messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.USER, content = "Not bookmarked"),
+        )
+
+        val result = messageRepository.getBookmarkedMessages(testSession.id)
+
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun `getBookmarkedMessages should return only bookmarked messages for the session`() {
+        val baseTime = Instant.now()
+        val bookmarked = messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.USER, content = "Bookmarked", createdAt = baseTime),
+        )
+        messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.ASSISTANT, content = "Not bookmarked", createdAt = baseTime.plusSeconds(1)),
+        )
+        messageRepository.toggleBookmark(bookmarked.id)
+
+        val result = messageRepository.getBookmarkedMessages(testSession.id)
+
+        assertEquals(1, result.size)
+        assertEquals(bookmarked.id, result[0].id)
+        assertEquals("Bookmarked", result[0].content)
+    }
+
+    @Test
+    fun `getBookmarkedMessages should return messages ordered by createdAt ascending`() {
+        val baseTime = Instant.now()
+        val first = messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.USER, content = "First", createdAt = baseTime),
+        )
+        val third = messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.ASSISTANT, content = "Third", createdAt = baseTime.plusSeconds(2)),
+        )
+        val second = messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.USER, content = "Second", createdAt = baseTime.plusSeconds(1)),
+        )
+        messageRepository.toggleBookmark(first.id)
+        messageRepository.toggleBookmark(second.id)
+        messageRepository.toggleBookmark(third.id)
+
+        val result = messageRepository.getBookmarkedMessages(testSession.id)
+
+        assertEquals(listOf("First", "Second", "Third"), result.map { it.content })
+    }
+
+    @Test
+    fun `getBookmarkedMessages should not return bookmarks from other sessions`() {
+        val otherSession = sessionRepository.createSession(ChatSession(id = "", title = "Other Session"))
+        try {
+            val otherMsg = messageRepository.addMessage(
+                ChatMessage(id = "", sessionId = otherSession.id, role = MessageRole.USER, content = "Other session bookmark"),
+            )
+            messageRepository.toggleBookmark(otherMsg.id)
+
+            val result = messageRepository.getBookmarkedMessages(testSession.id)
+
+            assertTrue(result.isEmpty())
+        } finally {
+            sessionRepository.deleteSession(otherSession.id)
+        }
+    }
+
+    // ===== getAllBookmarkedMessages =====
+
+    @Test
+    fun `getAllBookmarkedMessages should return empty list when no bookmarks exist`() {
+        messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.USER, content = "Not bookmarked"),
+        )
+
+        val result = messageRepository.getAllBookmarkedMessages()
+
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun `getAllBookmarkedMessages should return bookmarks from all sessions`() {
+        val otherSession = sessionRepository.createSession(ChatSession(id = "", title = "Other Session"))
+        try {
+            val baseTime = Instant.now()
+            val msg1 = messageRepository.addMessage(
+                ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.USER, content = "Session 1 bookmark", createdAt = baseTime),
+            )
+            val msg2 = messageRepository.addMessage(
+                ChatMessage(id = "", sessionId = otherSession.id, role = MessageRole.USER, content = "Session 2 bookmark", createdAt = baseTime.plusSeconds(1)),
+            )
+            messageRepository.toggleBookmark(msg1.id)
+            messageRepository.toggleBookmark(msg2.id)
+
+            val result = messageRepository.getAllBookmarkedMessages()
+
+            assertEquals(2, result.size)
+            assertTrue(result.any { it.id == msg1.id })
+            assertTrue(result.any { it.id == msg2.id })
+        } finally {
+            sessionRepository.deleteSession(otherSession.id)
+        }
+    }
+
+    @Test
+    fun `getAllBookmarkedMessages should not include non-bookmarked messages`() {
+        val bookmarked = messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.USER, content = "Bookmarked"),
+        )
+        messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.ASSISTANT, content = "Not bookmarked"),
+        )
+        messageRepository.toggleBookmark(bookmarked.id)
+
+        val result = messageRepository.getAllBookmarkedMessages()
+
+        assertEquals(1, result.size)
+        assertEquals(bookmarked.id, result[0].id)
+    }
+
+    // ===== getBookmarkCountsBySession =====
+
+    @Test
+    fun `getBookmarkCountsBySession should return empty map when no bookmarks exist`() {
+        messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.USER, content = "Not bookmarked"),
+        )
+
+        val result = messageRepository.getBookmarkCountsBySession()
+
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun `getBookmarkCountsBySession should return correct count for single session`() {
+        val baseTime = Instant.now()
+        val msg1 = messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.USER, content = "A", createdAt = baseTime),
+        )
+        val msg2 = messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.ASSISTANT, content = "B", createdAt = baseTime.plusSeconds(1)),
+        )
+        messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.USER, content = "C (not bookmarked)", createdAt = baseTime.plusSeconds(2)),
+        )
+        messageRepository.toggleBookmark(msg1.id)
+        messageRepository.toggleBookmark(msg2.id)
+
+        val result = messageRepository.getBookmarkCountsBySession()
+
+        assertEquals(1, result.size)
+        assertEquals(2, result[testSession.id])
+    }
+
+    @Test
+    fun `getBookmarkCountsBySession should return counts for multiple sessions`() {
+        val otherSession = sessionRepository.createSession(ChatSession(id = "", title = "Other Session"))
+        try {
+            val baseTime = Instant.now()
+            val m1 = messageRepository.addMessage(ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.USER, content = "S1-1", createdAt = baseTime))
+            val m2 = messageRepository.addMessage(ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.ASSISTANT, content = "S1-2", createdAt = baseTime.plusSeconds(1)))
+            val m3 = messageRepository.addMessage(ChatMessage(id = "", sessionId = otherSession.id, role = MessageRole.USER, content = "S2-1", createdAt = baseTime.plusSeconds(2)))
+            messageRepository.toggleBookmark(m1.id)
+            messageRepository.toggleBookmark(m2.id)
+            messageRepository.toggleBookmark(m3.id)
+
+            val result = messageRepository.getBookmarkCountsBySession()
+
+            assertEquals(2, result.size)
+            assertEquals(2, result[testSession.id])
+            assertEquals(1, result[otherSession.id])
+        } finally {
+            sessionRepository.deleteSession(otherSession.id)
+        }
+    }
+
+    @Test
+    fun `getBookmarkCountsBySession should not include sessions with zero bookmarks`() {
+        val otherSession = sessionRepository.createSession(ChatSession(id = "", title = "Unbookmarked Session"))
+        try {
+            val bookmarked = messageRepository.addMessage(
+                ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.USER, content = "Bookmarked"),
+            )
+            messageRepository.addMessage(
+                ChatMessage(id = "", sessionId = otherSession.id, role = MessageRole.USER, content = "Not bookmarked"),
+            )
+            messageRepository.toggleBookmark(bookmarked.id)
+
+            val result = messageRepository.getBookmarkCountsBySession()
+
+            assertEquals(1, result.size)
+            assertTrue(result.containsKey(testSession.id))
+            assertFalse(result.containsKey(otherSession.id))
+        } finally {
+            sessionRepository.deleteSession(otherSession.id)
+        }
+    }
+
+    // ===== getAllBookmarkedWithSessions =====
+
+    @Test
+    fun `getAllBookmarkedWithSessions should return empty list when no bookmarks exist`() {
+        messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.USER, content = "Not bookmarked"),
+        )
+
+        val result = messageRepository.getAllBookmarkedWithSessions()
+
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun `getAllBookmarkedWithSessions should return message paired with its session`() {
+        val msg = messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.USER, content = "Bookmarked"),
+        )
+        messageRepository.toggleBookmark(msg.id)
+
+        val result = messageRepository.getAllBookmarkedWithSessions()
+
+        assertEquals(1, result.size)
+        assertEquals(msg.id, result[0].first.id)
+        assertEquals(testSession.id, result[0].second.id)
+        assertEquals(testSession.title, result[0].second.title)
+    }
+
+    @Test
+    fun `getAllBookmarkedWithSessions should not include non-bookmarked messages`() {
+        val bookmarked = messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.USER, content = "Bookmarked"),
+        )
+        messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.ASSISTANT, content = "Not bookmarked"),
+        )
+        messageRepository.toggleBookmark(bookmarked.id)
+
+        val result = messageRepository.getAllBookmarkedWithSessions()
+
+        assertEquals(1, result.size)
+        assertEquals(bookmarked.id, result[0].first.id)
+    }
+
+    @Test
+    fun `getAllBookmarkedWithSessions should order by session updatedAt descending then message createdAt ascending`() {
+        val baseTime = Instant.now()
+
+        val olderSession = sessionRepository.createSession(ChatSession(id = "", title = "Older Session"))
+        try {
+            val olderMsg = messageRepository.addMessage(
+                ChatMessage(id = "", sessionId = olderSession.id, role = MessageRole.USER, content = "Older", createdAt = baseTime),
+            )
+            messageRepository.toggleBookmark(olderMsg.id)
+
+            Thread.sleep(50)
+
+            // testSession gets touched last because we add a message to it after olderSession
+            val newerMsg1 = messageRepository.addMessage(
+                ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.USER, content = "Newer-1", createdAt = baseTime.plusSeconds(1)),
+            )
+            val newerMsg2 = messageRepository.addMessage(
+                ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.ASSISTANT, content = "Newer-2", createdAt = baseTime.plusSeconds(2)),
+            )
+            messageRepository.toggleBookmark(newerMsg1.id)
+            messageRepository.toggleBookmark(newerMsg2.id)
+            // touch testSession so its updatedAt is after olderSession
+            sessionRepository.touchSession(testSession.id)
+
+            val result = messageRepository.getAllBookmarkedWithSessions()
+
+            assertEquals(3, result.size)
+            // First two rows belong to testSession (more recently updated)
+            assertEquals(testSession.id, result[0].second.id)
+            assertEquals("Newer-1", result[0].first.content)
+            assertEquals(testSession.id, result[1].second.id)
+            assertEquals("Newer-2", result[1].first.content)
+            // Last row belongs to olderSession
+            assertEquals(olderSession.id, result[2].second.id)
+            assertEquals("Older", result[2].first.content)
+        } finally {
+            sessionRepository.deleteSession(olderSession.id)
+        }
+    }
+
+    @Test
+    fun `getAllBookmarkedWithSessions should include rows from multiple sessions`() {
+        val otherSession = sessionRepository.createSession(ChatSession(id = "", title = "Other Session"))
+        try {
+            val baseTime = Instant.now()
+            val msg1 = messageRepository.addMessage(
+                ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.USER, content = "S1", createdAt = baseTime),
+            )
+            val msg2 = messageRepository.addMessage(
+                ChatMessage(id = "", sessionId = otherSession.id, role = MessageRole.USER, content = "S2", createdAt = baseTime.plusSeconds(1)),
+            )
+            messageRepository.toggleBookmark(msg1.id)
+            messageRepository.toggleBookmark(msg2.id)
+
+            val result = messageRepository.getAllBookmarkedWithSessions()
+
+            assertEquals(2, result.size)
+            val sessionIds = result.map { it.second.id }.toSet()
+            assertTrue(sessionIds.contains(testSession.id))
+            assertTrue(sessionIds.contains(otherSession.id))
+        } finally {
+            sessionRepository.deleteSession(otherSession.id)
+        }
+    }
+
+    @Test
+    fun `getAllBookmarkedWithSessions should reflect un-bookmarking immediately`() {
+        val msg = messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.USER, content = "Toggle"),
+        )
+        messageRepository.toggleBookmark(msg.id) // on
+        assertEquals(1, messageRepository.getAllBookmarkedWithSessions().size)
+
+        messageRepository.toggleBookmark(msg.id) // off
+        assertTrue(messageRepository.getAllBookmarkedWithSessions().isEmpty())
     }
 }
