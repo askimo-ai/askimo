@@ -78,7 +78,7 @@ enum class SettingsSection {
 @Composable
 fun settingsViewWithSidebar(
     onClose: () -> Unit,
-    settingsViewModel: SettingsViewModel,
+    settingsViewModel: AIProviderViewModel,
     selectedSection: SettingsSection = SettingsSection.APPEARANCE,
     onSectionChange: (SettingsSection) -> Unit = {},
 ) {
@@ -291,8 +291,9 @@ fun settingsViewWithSidebar(
 
     // Dialogs
 
-    if (settingsViewModel.showProviderWizard) {
-        providerWizardDialog(viewModel = settingsViewModel)
+    val wizard = settingsViewModel.wizardViewModel
+    if (wizard != null) {
+        providerWizardDialog(viewModel = wizard)
     }
 
     if (settingsViewModel.showSettingsDialog) {

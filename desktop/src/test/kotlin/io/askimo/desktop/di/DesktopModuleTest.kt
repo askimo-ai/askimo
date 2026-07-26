@@ -9,7 +9,7 @@ import io.askimo.core.chat.service.ChatSessionExporterService
 import io.askimo.core.chat.service.ChatSessionService
 import io.askimo.core.context.AppContext
 import io.askimo.core.context.ExecutionMode
-import io.askimo.desktop.settings.SettingsViewModel
+import io.askimo.desktop.settings.AIProviderViewModel
 import io.askimo.test.extensions.AskimoTestHome
 import io.askimo.ui.session.SessionManager
 import io.askimo.ui.session.SessionsViewModel
@@ -89,6 +89,6 @@ class DesktopModuleTest : KoinTest {
                 )
             },
         )
-        assertNotNull(koin.get<SettingsViewModel> { parametersOf(scope) })
+        assertNotNull(koin.get<AIProviderViewModel> { parametersOf(scope) })
     }
 }

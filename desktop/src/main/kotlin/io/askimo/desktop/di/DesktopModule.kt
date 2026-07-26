@@ -17,7 +17,7 @@ import io.askimo.core.providers.ProviderInstanceService
 import io.askimo.core.tools.ToolProviderImpl
 import io.askimo.desktop.project.ProjectViewModel
 import io.askimo.desktop.project.ProjectsViewModel
-import io.askimo.desktop.settings.SettingsViewModel
+import io.askimo.desktop.settings.AIProviderViewModel
 import io.askimo.ui.chat.ProjectIndexStateManager
 import io.askimo.ui.common.monitoring.SystemResourceMonitor
 import io.askimo.ui.discover.DiscoverViewModel
@@ -126,7 +126,7 @@ val desktopModule = module {
     }
 
     factory { (scope: CoroutineScope) ->
-        SettingsViewModel(scope = scope, appContext = get<AppContext>(), providerInstanceService = get<ProviderInstanceService>())
+        AIProviderViewModel(scope = scope, appContext = get<AppContext>(), providerInstanceService = get<ProviderInstanceService>())
     }
 
     // Commands

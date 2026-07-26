@@ -68,7 +68,7 @@ import java.awt.Desktop
 import java.net.URI
 
 @Composable
-fun aiProviderSettingsSection(viewModel: SettingsViewModel) {
+fun aiProviderSettingsSection(viewModel: AIProviderViewModel) {
     val scrollState = rememberScrollState()
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -169,7 +169,7 @@ fun aiProviderSettingsSection(viewModel: SettingsViewModel) {
 }
 
 @Composable
-private fun providerModelConfigCard(instance: ProviderInstance, viewModel: SettingsViewModel) {
+private fun providerModelConfigCard(instance: ProviderInstance, viewModel: AIProviderViewModel) {
     val provider = instance.providerType
     val isLocalProvider = provider in setOf(
         ModelProvider.OLLAMA,
@@ -533,6 +533,13 @@ private fun providerModelTypePickerDialog(
             null
         },
         actions = {
+            // "Use default" is only relevant when an override is already set
+            if (currentValue.isNotBlank()) {
+                secondaryButton(onClick = { onSelect("") }) {
+                    Text(stringResource("settings.model.use.default"))
+                }
+                Spacer(modifier = Modifier.weight(1f))
+            }
             secondaryButton(onClick = onDismiss) { Text(stringResource("action.cancel")) }
             Spacer(modifier = Modifier.width(Spacing.small))
             primaryButton(

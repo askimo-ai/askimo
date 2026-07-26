@@ -46,7 +46,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.providers.ModelDTO
-import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ProviderConfigField
 import io.askimo.core.providers.ProviderRegistry
 import io.askimo.core.providers.filterChatModels
@@ -63,7 +62,7 @@ import java.net.URI
 // ── Dialog: Provider wizard (add & edit) ──────────────────────────────────────────────────
 
 @Composable
-fun providerWizardDialog(viewModel: SettingsViewModel) {
+fun providerWizardDialog(viewModel: ProviderWizardViewModel) {
     val title = when (viewModel.wizardStep) {
         WizardStep.MODEL -> stringResource("settings.model.select.title")
 
@@ -251,7 +250,7 @@ fun providerWizardDialog(viewModel: SettingsViewModel) {
 // ── Screen 2: Provider type picker ────────────────────────────────────────────────────────
 
 @Composable
-private fun providerTypePickerScreen(viewModel: SettingsViewModel) {
+private fun providerTypePickerScreen(viewModel: ProviderWizardViewModel) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Spacing.small),
@@ -303,7 +302,7 @@ private fun providerTypePickerScreen(viewModel: SettingsViewModel) {
 // ── Screen 3: Instance config form ────────────────────────────────────────────────────────
 
 @Composable
-private fun instanceConfigScreen(viewModel: SettingsViewModel) {
+private fun instanceConfigScreen(viewModel: ProviderWizardViewModel) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Spacing.large),
@@ -451,18 +450,6 @@ private fun instanceConfigScreen(viewModel: SettingsViewModel) {
                                 Text(text = viewModel.embeddingModelWarning ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.9f))
                             }
                         }
-                        if (viewModel.canPullEmbeddingModel && viewModel.embeddingModelProvider == "OLLAMA") {
-                            primaryButton(onClick = {
-                                val baseUrl = viewModel.providerFieldValues["baseUrl"] ?: ""
-                                if (baseUrl.isNotBlank()) viewModel.pullEmbeddingModel(ModelProvider.OLLAMA, baseUrl)
-                            }, enabled = !viewModel.isCheckingEmbeddingModel) {
-                                if (viewModel.isCheckingEmbeddingModel) {
-                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                                    Spacer(Modifier.width(8.dp))
-                                }
-                                Text(stringResource("settings.embedding.download_model"))
-                            }
-                        }
                     }
                 }
             }
@@ -474,7 +461,7 @@ private fun instanceConfigScreen(viewModel: SettingsViewModel) {
 
 @Composable
 private fun modelPickerScreen(
-    viewModel: SettingsViewModel,
+    viewModel: ProviderWizardViewModel,
     filteredModels: List<ModelDTO>,
     searchQuery: String,
     isFiltered: Boolean,

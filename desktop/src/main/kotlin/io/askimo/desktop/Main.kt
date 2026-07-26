@@ -1461,8 +1461,9 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                         )
                     }
 
-                    if (settingsViewModel.showProviderWizard) {
-                        providerWizardDialog(viewModel = settingsViewModel)
+                    val wizard = settingsViewModel.wizardViewModel
+                    if (wizard != null) {
+                        providerWizardDialog(viewModel = wizard)
                     }
 
                     // About Dialog

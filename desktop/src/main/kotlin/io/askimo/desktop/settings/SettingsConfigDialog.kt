@@ -38,7 +38,7 @@ import io.askimo.ui.common.theme.Spacing
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun settingsConfigDialog(
-    viewModel: SettingsViewModel,
+    viewModel: AIProviderViewModel,
     onDismiss: () -> Unit,
 ) {
     AppComponents.alertDialog(
