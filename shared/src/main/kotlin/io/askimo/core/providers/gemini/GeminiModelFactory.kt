@@ -91,10 +91,8 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
         ) {
             ModelCapabilitiesCache.setToolSupport(GEMINI, settings.defaultModel, true)
             val modelName = settings.defaultModel
-            val capturedModel = streamingModel
-            val capturedMode = executionMode
             CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
-                val supportsTools = probeToolSupport(modelName, capturedModel, capturedMode)
+                val supportsTools = probeToolSupport(modelName, streamingModel, executionMode)
                 ModelCapabilitiesCache.setToolSupport(GEMINI, modelName, supportsTools)
             }
         }
@@ -106,9 +104,8 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
         if (!ModelCapabilitiesCache.hasTestedImageSupport(GEMINI, settings.defaultModel)) {
             ModelCapabilitiesCache.setImageSupport(GEMINI, settings.defaultModel, false)
             val modelName = settings.defaultModel
-            val capturedModel = streamingModel
             CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
-                val supportsImage = probeImageCapability(GEMINI, modelName, capturedModel)
+                val supportsImage = probeImageCapability(GEMINI, modelName, streamingModel)
                 ModelCapabilitiesCache.setImageSupport(GEMINI, modelName, supportsImage)
             }
         }

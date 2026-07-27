@@ -183,7 +183,7 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
             .cacheTools(true)
             .logger(log)
             .logRequests(log.isDebugEnabled)
-            .logResponses(log.isTraceEnabled)
+            .logResponses(log.isDebugEnabled)
             .listeners(listOf(TelemetryChatModelListener(telemetry, ANTHROPIC.name.lowercase())))
             .apply {
                 if (supportsThinking) {
@@ -191,10 +191,14 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
                         thinkingType("adaptive")
                         sendThinking(true)
                         returnThinking(true)
+                            .maxTokens(32_000)
                     } else {
                         // OFF — explicitly disable extended thinking
                         thinkingType("disabled")
+                        maxTokens(8192)
                     }
+                } else {
+                    maxTokens(8192)
                 }
             }
             .build()
