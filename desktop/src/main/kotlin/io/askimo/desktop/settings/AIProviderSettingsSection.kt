@@ -4,6 +4,9 @@
  */
 package io.askimo.desktop.settings
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +26,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
@@ -66,9 +70,11 @@ import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.clickableCard
 import io.askimo.ui.common.ui.themedTooltip
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.awt.Desktop
 import java.net.URI
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun aiProviderSettingsSection(viewModel: AIProviderViewModel) {
@@ -139,13 +145,13 @@ fun aiProviderSettingsSection(viewModel: AIProviderViewModel) {
                         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {
                             val active = viewModel.activeInstance
                             if (active != null) {
-                                secondaryButton(onClick = { viewModel.openEditProviderWizard(active) }) {
+                                primaryButton(onClick = { viewModel.openEditProviderWizard(active) }) {
                                     Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(Spacing.extraSmall))
                                     Text(stringResource("settings.change.button"))
                                 }
                             }
-                            secondaryButton(onClick = { viewModel.openAddProviderWizard() }) {
+                            primaryButton(onClick = { viewModel.openAddProviderWizard() }) {
                                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(Spacing.extraSmall))
                                 Text(stringResource("provider.add.new"))
@@ -619,6 +625,15 @@ private fun providerConfigurableField(
     field: SettingField,
     onValueChange: (String) -> Unit,
 ) {
+    var showSavedIndicator by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showSavedIndicator) {
+        if (showSavedIndicator) {
+            delay(2000.milliseconds)
+            showSavedIndicator = false
+        }
+    }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -647,14 +662,25 @@ private fun providerConfigurableField(
                     value = text,
                     onValueChange = { newVal ->
                         text = newVal
-                        newVal.toIntOrNull()?.let { onValueChange(it.toString()) }
+                        newVal.toIntOrNull()?.let {
+                            onValueChange(it.toString())
+                            showSavedIndicator = true
+                        }
                     },
                     modifier = Modifier.widthIn(min = 100.dp, max = 160.dp),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    colors = AppComponents.outlinedTextFieldColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                    ),
+                    trailingIcon = {
+                        AnimatedVisibility(visible = showSavedIndicator, enter = fadeIn(), exit = fadeOut()) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = "Saved",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    },
+                    colors = AppComponents.outlinedTextFieldColors(),
                 )
             }
 
@@ -665,12 +691,21 @@ private fun providerConfigurableField(
                     onValueChange = { newVal ->
                         text = newVal
                         onValueChange(newVal)
+                        showSavedIndicator = true
                     },
                     modifier = Modifier.widthIn(min = 100.dp, max = 200.dp),
                     singleLine = true,
-                    colors = AppComponents.outlinedTextFieldColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                    ),
+                    trailingIcon = {
+                        AnimatedVisibility(visible = showSavedIndicator, enter = fadeIn(), exit = fadeOut()) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = "Saved",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    },
+                    colors = AppComponents.outlinedTextFieldColors(),
                 )
             }
 

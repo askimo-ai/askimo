@@ -12,7 +12,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -170,7 +169,6 @@ private val dropdownCompactMaxWidth = 240.dp
 private val dropdownRegularMinWidth = 180.dp
 private val dropdownRegularMaxWidth = 320.dp
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun appearanceSettingsSection() {
     val currentThemeMode by ThemePreferences.themeMode.collectAsState()

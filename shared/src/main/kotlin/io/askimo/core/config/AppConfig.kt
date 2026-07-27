@@ -42,21 +42,18 @@ import kotlin.io.path.isRegularFile
 private object AppConfigObject
 private val log = logger<AppConfigObject>()
 
-// TODO: Remove @JsonAlias camelCase aliases in v1.2.30 — kept for backward compatibility with pre-snake_case config files
 data class EmbeddingConfig(
-    @field:JsonAlias("maxCharsPerChunk") val maxCharsPerChunk: Int = 3000,
-    @field:JsonAlias("chunkOverlap") val chunkOverlap: Int = 100,
+    val maxCharsPerChunk: Int = 3000,
+    val chunkOverlap: Int = 100,
 )
 
-// TODO: Remove @JsonAlias camelCase aliases in v1.2.30 — kept for backward compatibility with pre-snake_case config files
 data class RetryConfig(
     val attempts: Int = 4,
-    @field:JsonAlias("baseDelayMs") val baseDelayMs: Long = 150,
+    val baseDelayMs: Long = 150,
 )
 
-// TODO: Remove @JsonAlias camelCase aliases in v1.2.30 — kept for backward compatibility with pre-snake_case config files
 data class ThrottleConfig(
-    @field:JsonAlias("perRequestSleepMs") val perRequestSleepMs: Long = 30,
+    val perRequestSleepMs: Long = 30,
 )
 
 data class ProjectType(
@@ -103,19 +100,16 @@ private class CommaSeparatedSetDeserializer : StdDeserializer<Set<String>>(Set::
 
 // TODO: Remove @JsonAlias camelCase aliases in v1.2.30 — kept for backward compatibility with pre-snake_case config files
 data class IndexingConfig(
-    @field:JsonAlias("maxFileBytes") val maxFileBytes: Long = 5_000_000,
-    @field:JsonAlias("concurrentIndexingThreads") val concurrentIndexingThreads: Int = 3,
-    @field:JsonAlias("embeddingBatchSize") val embeddingBatchSize: Int = 50,
+    val maxFileBytes: Long = 5_000_000,
+    val concurrentIndexingThreads: Int = 3,
+    val embeddingBatchSize: Int = 50,
     val filters: FilterConfig = FilterConfig(),
     val customExcludes: Set<String> = emptySet(),
     @field:JsonDeserialize(using = CommaSeparatedSetDeserializer::class)
-    @field:JsonAlias("supportedExtensions")
     val supportedExtensions: Set<String> = setOf(),
     @field:JsonDeserialize(using = CommaSeparatedSetDeserializer::class)
-    @field:JsonAlias("binaryExtensions")
     val binaryExtensions: Set<String> = setOf(),
     @field:JsonDeserialize(using = CommaSeparatedSetDeserializer::class)
-    @field:JsonAlias("excludeFileNames")
     val excludeFileNames: Set<String> = setOf(),
     val projectTypes: List<ProjectType> = listOf(
         ProjectType(
@@ -246,40 +240,37 @@ data class ProxyConfig(
     }
 }
 
-// TODO: Remove @field:JsonAlias camelCase aliases in v1.2.30 - kept for backward compatibility with pre-snake_case config files
 data class ChatConfig(
-    @field:JsonAlias("maxTokens") val maxTokens: Int = 8000,
-    @field:JsonAlias("summarizationThreshold") val summarizationThreshold: Double = 0.75,
-    @field:JsonAlias("enableAsyncSummarization") val enableAsyncSummarization: Boolean = true,
-    @field:JsonAlias("summarizationTimeoutSeconds") val summarizationTimeoutSeconds: Long = 300,
-    @field:JsonAlias("defaultResponseAILocale") val defaultResponseAILocale: String? = null,
+    val maxTokens: Int = 8000,
+    val summarizationThreshold: Double = 0.75,
+    val enableAsyncSummarization: Boolean = true,
+    val summarizationTimeoutSeconds: Long = 300,
+    val defaultResponseAILocale: String? = null,
 )
 
 /**
  * RAG (Retrieval-Augmented Generation) configuration.
  * Controls how relevant documents are retrieved from the knowledge base.
  */
-// TODO: Remove @field:JsonAlias camelCase aliases in v1.2.30 - kept for backward compatibility with pre-snake_case config files
 data class RagConfig(
     /** Maximum number of documents to retrieve from vector search */
-    @field:JsonAlias("vectorSearchMaxResults") val vectorSearchMaxResults: Int = 20,
+    val vectorSearchMaxResults: Int = 20,
     /** Minimum similarity score for vector search results (0.0 to 1.0) */
-    @field:JsonAlias("vectorSearchMinScore") val vectorSearchMinScore: Double = 0.3,
+    val vectorSearchMinScore: Double = 0.3,
     /** Maximum number of final documents to return after hybrid fusion */
-    @field:JsonAlias("hybridMaxResults") val hybridMaxResults: Int = 15,
+    val hybridMaxResults: Int = 15,
     /** RRF constant for rank fusion algorithm (standard value is 60) */
-    @field:JsonAlias("rankFusionConstant") val rankFusionConstant: Int = 60,
+    val rankFusionConstant: Int = 60,
     /** Use absolute file paths in citations (true) or relative filenames (false) */
-    @field:JsonAlias("useAbsolutePathInCitations") val useAbsolutePathInCitations: Boolean = true,
+    val useAbsolutePathInCitations: Boolean = true,
 )
 
-// TODO: Remove @field:JsonAlias camelCase aliases in v1.2.30 - kept for backward compatibility with pre-snake_case config files
 data class ProviderModelConfig(
-    @field:JsonAlias("defaultModel") val defaultModel: String = "",
-    @field:JsonAlias("utilityModel") val utilityModel: String = "",
-    @field:JsonAlias("embeddingModel") val embeddingModel: String = "",
-    @field:JsonAlias("visionModel") val visionModel: String = "",
-    @field:JsonAlias("imageModel") val imageModel: String = "",
+    val defaultModel: String = "",
+    val utilityModel: String = "",
+    val embeddingModel: String = "",
+    val visionModel: String = "",
+    val imageModel: String = "",
 )
 
 /**
@@ -291,8 +282,8 @@ data class ProviderModelConfig(
  *   accommodate slow local models and cloud reasoning models with extended thinking.
  */
 data class ModelTimeoutsConfig(
-    @field:JsonAlias("utilityModelTimeoutSeconds") val utilityModelTimeoutSeconds: Long = 600,
-    @field:JsonAlias("defaultModelTimeoutSeconds") val defaultModelTimeoutSeconds: Long = 600,
+    val utilityModelTimeoutSeconds: Long = 600,
+    val defaultModelTimeoutSeconds: Long = 600,
 )
 
 data class ModelsConfig(
@@ -1289,13 +1280,13 @@ object AppConfig {
             if (WebSearchConfig.isActualKey(key)) {
                 val result = WebSearchConfig.setSecureBraveKey(key)
                 when (result.method) {
-                    SecureKeyManager.StorageMethod.KEYCHAIN ->
+                    StorageMethod.KEYCHAIN ->
                         log.debug("Brave Search API key stored securely in keychain")
 
-                    SecureKeyManager.StorageMethod.ENCRYPTED ->
+                    StorageMethod.ENCRYPTED ->
                         log.warn("Brave Search API key stored with encryption ({})", result.warningMessage)
 
-                    SecureKeyManager.StorageMethod.INSECURE_FALLBACK ->
+                    StorageMethod.INSECURE_FALLBACK ->
                         log.warn("⚠️ Brave Search API key storage: {}", result.warningMessage)
                 }
                 config.copy(braveApiKey = WebSearchConfig.getKeyPlaceholder())
@@ -1309,13 +1300,13 @@ object AppConfig {
             if (WebSearchConfig.isActualKey(key)) {
                 val result = WebSearchConfig.setSecureTavilyKey(key)
                 when (result.method) {
-                    SecureKeyManager.StorageMethod.KEYCHAIN ->
+                    StorageMethod.KEYCHAIN ->
                         log.debug("Tavily API key stored securely in keychain")
 
-                    SecureKeyManager.StorageMethod.ENCRYPTED ->
+                    StorageMethod.ENCRYPTED ->
                         log.warn("Tavily API key stored with encryption ({})", result.warningMessage)
 
-                    SecureKeyManager.StorageMethod.INSECURE_FALLBACK ->
+                    StorageMethod.INSECURE_FALLBACK ->
                         log.warn("⚠️ Tavily API key storage: {}", result.warningMessage)
                 }
                 config.copy(tavilyApiKey = WebSearchConfig.getKeyPlaceholder())
