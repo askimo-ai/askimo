@@ -191,6 +191,7 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
                     thinkingConfig(
                         GeminiThinkingConfig.builder()
                             .thinkingLevel(geminiLevel)
+                            .includeThoughts(true)
                             .build(),
                     )
                     sendThinking(true)

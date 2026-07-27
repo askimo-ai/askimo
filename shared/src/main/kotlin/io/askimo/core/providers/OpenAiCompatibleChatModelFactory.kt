@@ -248,6 +248,7 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
                 val reasoningLevel = ModelCapabilitiesCache.getReasoningLevel(getProvider(), settings.defaultModel)
                 if (supportsThinking && reasoningLevel.isEnabled) {
                     reasoningEffort(reasoningLevel.value)
+                    reasoningSummary("detailed")
                 }
             }
             .strictTools(true)
