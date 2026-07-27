@@ -230,6 +230,7 @@ object AppComponents {
         focusedTextColor: Color = MaterialTheme.colorScheme.onSurface,
         unfocusedTextColor: Color = MaterialTheme.colorScheme.onSurface,
         cursorColor: Color = MaterialTheme.colorScheme.onSurface,
+        containerColor: Color = MaterialTheme.colorScheme.surface,
     ): TextFieldColors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = focusedBorderColor,
         unfocusedBorderColor = unfocusedBorderColor,
@@ -238,6 +239,9 @@ object AppComponents {
         focusedTextColor = focusedTextColor,
         unfocusedTextColor = unfocusedTextColor,
         cursorColor = cursorColor,
+        focusedContainerColor = containerColor,
+        unfocusedContainerColor = containerColor,
+        disabledContainerColor = containerColor,
     )
 
     /**

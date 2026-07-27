@@ -140,9 +140,8 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
             .apiKey(safeApiKey(settings.apiKey))
             .modelName(settings.defaultModel)
             .baseUrl(settings.baseUrl)
-            .thinkingType("enabled") // adaptive, enable, disabled
-            .thinkingBudgetTokens(1024)
-            .maxTokens(1025) // must be > thinkingBudgetTokens to properly test
+            .thinkingType("adaptive") // adaptive, disabled
+            .maxTokens(1024)
             .sendThinking(true)
             .returnThinking(true)
             .build()
@@ -155,7 +154,7 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
         log.info("Model '${settings.defaultModel}' supports thinking — thinking enabled")
         true
     } catch (e: Exception) {
-        log.info("Model '${settings.defaultModel}' does not support thinking: ${e.message} — thinking disabled")
+        log.info("Model '${settings.defaultModel}' does not support thinking: ${e.message} — thinking disabled", e)
         false
     }
 
@@ -189,16 +188,22 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
                 if (supportsThinking) {
                     if (reasoningLevel.isEnabled) {
                         thinkingType("adaptive")
+                        // Only set explicit budget if user configured one (0 = let Anthropic decide)
+                        if (settings.thinkingBudgetTokens > 0) {
+                            thinkingBudgetTokens(settings.thinkingBudgetTokens)
+                        }
+                        // Use thinkingMaxTokens if set, otherwise fall back to maxTokens
+                        val effectiveMaxTokens = if (settings.thinkingMaxTokens > 0) settings.thinkingMaxTokens else settings.maxTokens
+                        maxTokens(effectiveMaxTokens)
                         sendThinking(true)
                         returnThinking(true)
-                            .maxTokens(32_000)
                     } else {
                         // OFF — explicitly disable extended thinking
                         thinkingType("disabled")
-                        maxTokens(8192)
+                        maxTokens(settings.maxTokens)
                     }
                 } else {
-                    maxTokens(8192)
+                    maxTokens(settings.maxTokens)
                 }
             }
             .build()

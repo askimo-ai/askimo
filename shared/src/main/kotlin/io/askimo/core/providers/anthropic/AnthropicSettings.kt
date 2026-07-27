@@ -17,6 +17,9 @@ data class AnthropicSettings(
     override val visionModel: String = "",
     override val imageModel: String = "",
     override val embeddingModel: String = "",
+    val maxTokens: Int = 16_000,
+    val thinkingBudgetTokens: Int = 0,
+    val thinkingMaxTokens: Int = 0,
 ) : ProviderSettings,
     HasApiKey {
     override fun describe(): List<String> = listOf(
@@ -42,6 +45,27 @@ data class AnthropicSettings(
         ),
     )
 
+    override fun getConfigurableFields(messageResolver: (String) -> String): List<SettingField> = listOf(
+        SettingField.NumberField(
+            name = SettingField.MAX_TOKENS,
+            label = messageResolver("provider.anthropic.max_tokens.label"),
+            description = messageResolver("provider.anthropic.max_tokens.description"),
+            value = maxTokens,
+        ),
+        SettingField.NumberField(
+            name = SettingField.THINKING_BUDGET_TOKENS,
+            label = messageResolver("provider.anthropic.thinking_budget_tokens.label"),
+            description = messageResolver("provider.anthropic.thinking_budget_tokens.description"),
+            value = thinkingBudgetTokens,
+        ),
+        SettingField.NumberField(
+            name = SettingField.THINKING_MAX_TOKENS,
+            label = messageResolver("provider.anthropic.thinking_max_tokens.label"),
+            description = messageResolver("provider.anthropic.thinking_max_tokens.description"),
+            value = thinkingMaxTokens,
+        ),
+    )
+
     override fun updateField(fieldName: String, value: String): ProviderSettings = when (fieldName) {
         SettingField.API_KEY -> copy(apiKey = value)
         SettingField.BASE_URL -> copy(baseUrl = value)
@@ -50,6 +74,9 @@ data class AnthropicSettings(
         SettingField.VISION_MODEL -> copy(visionModel = value)
         SettingField.IMAGE_MODEL -> copy(imageModel = value)
         SettingField.EMBEDDING_MODEL -> copy(embeddingModel = value)
+        SettingField.MAX_TOKENS -> copy(maxTokens = value.toIntOrNull() ?: maxTokens)
+        SettingField.THINKING_BUDGET_TOKENS -> copy(thinkingBudgetTokens = value.toIntOrNull() ?: thinkingBudgetTokens)
+        SettingField.THINKING_MAX_TOKENS -> copy(thinkingMaxTokens = value.toIntOrNull() ?: thinkingMaxTokens)
         else -> this
     }
 

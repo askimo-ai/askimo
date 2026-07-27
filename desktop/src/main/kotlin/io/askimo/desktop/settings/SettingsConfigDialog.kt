@@ -122,6 +122,18 @@ fun settingsConfigDialog(
                                 }
                             }
                         }
+
+                        is SettingField.NumberField -> {
+                            OutlinedTextField(
+                                value = field.value.toString(),
+                                onValueChange = { viewModel.updateSettingsField(field.name, it) },
+                                label = { Text(field.label) },
+                                placeholder = { Text(field.description) },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                colors = AppComponents.outlinedTextFieldColors(),
+                            )
+                        }
                     }
                 }
             }

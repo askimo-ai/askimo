@@ -70,6 +70,18 @@ interface ProviderSettings {
     @JsonIgnore
     fun getFields(): List<SettingField>
 
+    /**
+     * Returns provider-specific tuning fields that users can configure per instance
+     * (e.g. maxTokens, thinkingBudgetTokens for Anthropic).
+     *
+     * Default is empty — only providers with extra tuneable params need to override this.
+     * The UI renders these generically in the model config card without any per-provider branching.
+     *
+     * @param messageResolver resolves i18n keys to localized strings (same contract as [getConfigFields]).
+     */
+    @JsonIgnore
+    fun getConfigurableFields(messageResolver: (String) -> String): List<SettingField> = emptyList()
+
     fun updateField(fieldName: String, value: String): ProviderSettings
 
     @JsonIgnore

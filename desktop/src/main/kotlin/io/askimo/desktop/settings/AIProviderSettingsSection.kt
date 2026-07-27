@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -41,9 +42,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.AppConstants.DOMAIN
+import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.providers.ChatModelFactory
 import io.askimo.core.providers.ModelDTO
 import io.askimo.core.providers.ModelProvider
@@ -317,6 +320,20 @@ private fun providerModelConfigCard(instance: ProviderInstance, viewModel: AIPro
                 )
             }
 
+            // Provider-specific configurable fields (e.g. maxTokens for Anthropic)
+            val configurableFields = instance.settings.getConfigurableFields { key -> LocalizationManager.getString(key) }
+            if (configurableFields.isNotEmpty()) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.15f))
+                configurableFields.forEach { field ->
+                    providerConfigurableField(
+                        field = field,
+                        onValueChange = { newValue ->
+                            viewModel.updateInstanceModelOverride(instance.id, field.name, newValue)
+                        },
+                    )
+                }
+            }
+
             // Embedding model — only for supported providers
             if (supportsEmbedding) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.15f))
@@ -588,6 +605,76 @@ private fun providerModelTypePickerDialog(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Renders a single provider-specific configurable field (NumberField or TextField).
+ * Called generically for every entry in [ProviderSettings.getConfigurableFields] —
+ * no per-provider branching needed in the UI.
+ */
+@Composable
+private fun providerConfigurableField(
+    field: SettingField,
+    onValueChange: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            modifier = Modifier.weight(1f).padding(end = Spacing.large),
+            verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+        ) {
+            Text(
+                text = field.label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+            Text(
+                text = field.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
+            )
+        }
+
+        when (field) {
+            is SettingField.NumberField -> {
+                var text by remember(field.value) { mutableStateOf(field.value.toString()) }
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { newVal ->
+                        text = newVal
+                        newVal.toIntOrNull()?.let { onValueChange(it.toString()) }
+                    },
+                    modifier = Modifier.widthIn(min = 100.dp, max = 160.dp),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = AppComponents.outlinedTextFieldColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ),
+                )
+            }
+
+            is SettingField.TextField -> {
+                var text by remember(field.value) { mutableStateOf(field.value) }
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { newVal ->
+                        text = newVal
+                        onValueChange(newVal)
+                    },
+                    modifier = Modifier.widthIn(min = 100.dp, max = 200.dp),
+                    singleLine = true,
+                    colors = AppComponents.outlinedTextFieldColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ),
+                )
+            }
+
+            else -> Unit
         }
     }
 }

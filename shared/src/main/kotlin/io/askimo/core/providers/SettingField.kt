@@ -20,6 +20,11 @@ sealed class SettingField {
         const val VISION_MODEL = "visionModel"
         const val IMAGE_MODEL = "imageModel"
         const val EMBEDDING_MODEL = "embeddingModel"
+
+        // Provider-specific configurable fields
+        const val MAX_TOKENS = "maxTokens"
+        const val THINKING_BUDGET_TOKENS = "thinkingBudgetTokens"
+        const val THINKING_MAX_TOKENS = "thinkingMaxTokens"
     }
 
     data class TextField(
@@ -28,6 +33,13 @@ sealed class SettingField {
         override val description: String,
         val value: String,
         val isPassword: Boolean = false,
+    ) : SettingField()
+
+    data class NumberField(
+        override val name: String,
+        override val label: String,
+        override val description: String,
+        val value: Int,
     ) : SettingField()
 
     data class EnumField(
