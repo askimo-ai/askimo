@@ -28,6 +28,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -152,6 +153,11 @@ internal fun providerModelPanel(
         }
     }
 
+    val pendingDefaultModel = remember(state.pendingInstanceId, state.availableInstances) {
+        state.availableInstances.firstOrNull { it.id == state.pendingInstanceId }
+            ?.settings?.defaultModel ?: ""
+    }
+
     dropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
@@ -216,7 +222,12 @@ internal fun providerModelPanel(
                                     instance = instance,
                                     isActive = instance.id == currentInstanceId,
                                     isPending = instance.id == state.pendingInstanceId,
-                                    onSelect = { state.selectInstanceForPreview(instance.id) },
+                                    onSelect = {
+                                        state.selectInstanceForPreview(instance.id)
+                                        if (instance.settings.defaultModel.isNotBlank()) {
+                                            state.commitSelection(instance.id, instance.settings.defaultModel)
+                                        }
+                                    },
                                     onEditOpen = { state.openEditForm(instance.id) },
                                     onDelete = { state.deleteInstance(instance.id) },
                                 )
@@ -300,6 +311,7 @@ internal fun providerModelPanel(
                                     state = state,
                                     searchQuery = searchQuery,
                                     filteredModels = filteredModels,
+                                    pendingDefaultModel = pendingDefaultModel,
                                     currentInstanceId = currentInstanceId,
                                     currentModel = currentModel,
                                     totalModelCount = pendingModels.size,
@@ -325,6 +337,7 @@ private fun modelListColumn(
     state: ProviderModelPanelState,
     searchQuery: String,
     filteredModels: List<ModelDTO>,
+    pendingDefaultModel: String,
     currentInstanceId: String,
     currentModel: String,
     totalModelCount: Int,
@@ -415,16 +428,30 @@ private fun modelListColumn(
 
                 val modelListState = rememberLazyListState()
 
-                // Scroll to the active model when first browsing the active instance
+                // Pin the default model to the top when not actively searching
+                val pinnedModel = remember(filteredModels, pendingDefaultModel, searchQuery) {
+                    if (pendingDefaultModel.isNotBlank() && searchQuery.isBlank()) {
+                        filteredModels.firstOrNull { it.modelId == pendingDefaultModel }
+                    } else {
+                        null
+                    }
+                }
+                val groupedModels = remember(filteredModels, pinnedModel) {
+                    val remaining = if (pinnedModel != null) filteredModels.filter { it.modelId != pinnedModel.modelId } else filteredModels
+                    remaining.groupBy { it.provider }
+                }
+
+                // Scroll to pinned (index 0) or find currentModel in grouped list
                 val isActiveInstance = state.pendingInstanceId == currentInstanceId
                 LaunchedEffect(state.pendingInstanceId, filteredModels) {
-                    if (isActiveInstance && currentModel.isNotBlank() && filteredModels.isNotEmpty()) {
-                        val groupedModels = filteredModels.groupBy { it.provider }
+                    if (pinnedModel != null) {
+                        modelListState.scrollToItem(0)
+                    } else if (isActiveInstance && currentModel.isNotBlank() && filteredModels.isNotEmpty()) {
                         val showHeaders = groupedModels.size > 1
                         var flatIndex = 0
                         var found = false
                         for ((_, providerModels) in groupedModels) {
-                            if (showHeaders) flatIndex++ // header item
+                            if (showHeaders) flatIndex++
                             for (dto in providerModels) {
                                 if (dto.modelId == currentModel) {
                                     found = true
@@ -450,8 +477,49 @@ private fun modelListColumn(
                         }
                     } else {
                         LazyColumn(state = modelListState, modifier = Modifier.fillMaxWidth()) {
-                            val groupedModels = filteredModels.groupBy { it.provider }
                             val showHeaders = groupedModels.size > 1
+
+                            // ── Pinned default model ──────────────────────────────────────
+                            if (pinnedModel != null) {
+                                item(key = "pinned_${pinnedModel.modelId}") {
+                                    val isCurrent = pinnedModel.modelId == currentModel &&
+                                        state.pendingInstanceId == currentInstanceId
+                                    AppComponents.themedDropdownMenuItem(
+                                        text = {
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                            ) {
+                                                Text(pinnedModel.displayName, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f, fill = false))
+                                                Box(
+                                                    modifier = Modifier
+                                                        .background(
+                                                            MaterialTheme.colorScheme.tertiaryContainer,
+                                                            RoundedCornerShape(4.dp),
+                                                        )
+                                                        .padding(horizontal = 4.dp, vertical = 1.dp),
+                                                ) {
+                                                    Text(
+                                                        text = stringResource("provider.model.default.badge"),
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        onClick = {
+                                            state.commitSelection(state.pendingInstanceId, pinnedModel.modelId)
+                                            onModelSelected()
+                                        },
+                                        isSelected = isCurrent,
+                                    )
+                                }
+                                item(key = "pinned_divider") {
+                                    HorizontalDivider(modifier = Modifier.padding(horizontal = 8.dp))
+                                }
+                            }
+
+                            // ── Grouped remaining models ──────────────────────────────────
                             groupedModels.forEach { (provider, providerModels) ->
                                 if (showHeaders && providerModels.isNotEmpty()) {
                                     item(key = "mhdr_${provider.name}") {
