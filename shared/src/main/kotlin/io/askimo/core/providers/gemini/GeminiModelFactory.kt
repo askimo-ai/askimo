@@ -39,6 +39,7 @@ import io.askimo.core.providers.sendStreamingMessageWithCallback
 import io.askimo.core.telemetry.TelemetryChatModelListener
 import io.askimo.core.util.ApiKeyUtils.safeApiKey
 import io.askimo.core.util.ProxyUtil
+import io.askimo.core.util.withLoggingIfDebug
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -69,8 +70,7 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
         executionMode: ExecutionMode,
         chatMemory: ChatMemory?,
     ): ChatClient {
-        // Configure HTTP client for thinking probe (probe needs its own builder)
-        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder())
+        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder()).withLoggingIfDebug()
         val jdkHttpClientBuilder = JdkHttpClient.builder().httpClientBuilder(httpClientBuilder)
 
         // Probe thinking support once — result is persisted in ModelCapabilitiesCache
@@ -165,13 +165,10 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
         .apiKey(safeApiKey(settings.apiKey))
         .baseUrl(settings.baseUrl)
         .modelName(settings.imageModel.ifBlank { AppConfig.models[GEMINI].imageModel })
-        .logger(log)
-        .logRequests(log.isDebugEnabled)
-        .logResponses(log.isTraceEnabled)
         .build()
 
     override fun createStreamingModel(settings: GeminiSettings): StreamingChatModel {
-        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder())
+        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder()).withLoggingIfDebug()
         val jdkHttpClientBuilder = JdkHttpClient.builder().httpClientBuilder(httpClientBuilder)
         val telemetry = AppContext.getInstance().telemetry
 
@@ -204,7 +201,7 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
     }
 
     override fun createSecondaryModel(settings: GeminiSettings): ChatModel {
-        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder())
+        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder()).withLoggingIfDebug()
         val jdkHttpClientBuilder = JdkHttpClient.builder().httpClientBuilder(httpClientBuilder)
         return GoogleAiGeminiChatModel.builder()
             .httpClientBuilder(jdkHttpClientBuilder)
@@ -220,7 +217,7 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
     }
 
     override fun createModel(settings: GeminiSettings): ChatModel {
-        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder())
+        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder()).withLoggingIfDebug()
         val jdkHttpClientBuilder = JdkHttpClient.builder().httpClientBuilder(httpClientBuilder)
 
         return GoogleAiGeminiChatModel.builder()

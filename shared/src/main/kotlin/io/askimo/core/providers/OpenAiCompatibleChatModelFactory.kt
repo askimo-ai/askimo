@@ -23,6 +23,7 @@ import io.askimo.core.context.AppContext
 import io.askimo.core.context.ExecutionMode
 import io.askimo.core.telemetry.TelemetryChatModelListener
 import io.askimo.core.util.ProxyUtil
+import io.askimo.core.util.withLoggingIfDebug
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -155,7 +156,7 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
         ProxyUtil.configureProxy(
             HttpClient.newBuilder().version(httpVersion()),
             baseUrl,
-        ),
+        ).withLoggingIfDebug(),
     ).readTimeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
         .connectTimeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
 
@@ -290,9 +291,6 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
         .baseUrl(settings.baseUrl)
         .apiKey(resolveApiKey(settings))
         .modelName(settings.imageModel.ifBlank { AppConfig.models[getProvider()].imageModel })
-        .logger(log)
-        .logRequests(log.isDebugEnabled)
-        .logResponses(log.isTraceEnabled)
         .build()
 
     override fun createUtilityClient(settings: T): ChatClient = AiServices.builder(ChatClient::class.java)

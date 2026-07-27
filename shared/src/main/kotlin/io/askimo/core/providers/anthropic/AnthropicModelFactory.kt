@@ -34,6 +34,7 @@ import io.askimo.core.util.ApiKeyUtils.safeApiKey
 import io.askimo.core.util.ProxyUtil
 import io.askimo.core.util.appJson
 import io.askimo.core.util.httpGet
+import io.askimo.core.util.withLoggingIfDebug
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -71,7 +72,7 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
         chatMemory: ChatMemory?,
     ): ChatClient {
         // Configure HTTP client for thinking probe (probe needs its own builder)
-        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder())
+        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder()).withLoggingIfDebug()
         val jdkHttpClientBuilder = JdkHttpClient.builder().httpClientBuilder(httpClientBuilder)
 
         // Probe thinking support once — result is persisted in ModelCapabilitiesCache
@@ -165,7 +166,7 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
     }
 
     override fun createStreamingModel(settings: AnthropicSettings): StreamingChatModel {
-        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder())
+        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder()).withLoggingIfDebug()
         val jdkHttpClientBuilder = JdkHttpClient.builder().httpClientBuilder(httpClientBuilder)
         val telemetry = AppContext.getInstance().telemetry
 
@@ -210,7 +211,7 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
     }
 
     override fun createSecondaryModel(settings: AnthropicSettings): ChatModel {
-        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder())
+        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder()).withLoggingIfDebug()
         val jdkHttpClientBuilder = JdkHttpClient.builder().httpClientBuilder(httpClientBuilder)
         return AnthropicChatModel.builder()
             .httpClientBuilder(jdkHttpClientBuilder)
@@ -226,7 +227,7 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
     }
 
     override fun createModel(settings: AnthropicSettings): ChatModel {
-        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder())
+        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder()).withLoggingIfDebug()
         val jdkHttpClientBuilder = JdkHttpClient.builder().httpClientBuilder(httpClientBuilder)
 
         return AnthropicChatModel.builder()
