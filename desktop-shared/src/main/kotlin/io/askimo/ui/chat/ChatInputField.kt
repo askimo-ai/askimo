@@ -412,8 +412,6 @@ fun chatInputField(
     // the input is empty and the AI is not responding.
     val placeholderHints = listOf(
         placeholder,
-        stringResource("chat.input.placeholder.hint.search"),
-        placeholder,
         stringResource("chat.input.placeholder.hint.attach", Platform.modifierKey),
     )
     var placeholderIndex by remember { mutableStateOf(0) }
