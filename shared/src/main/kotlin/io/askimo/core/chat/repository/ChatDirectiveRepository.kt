@@ -31,6 +31,7 @@ import org.jetbrains.exposed.v1.jdbc.update
 import org.jetbrains.exposed.v1.jdbc.upsert
 import java.nio.file.Files
 import java.time.Instant
+import java.util.UUID
 
 /** Simple DTO for deserializing the bundled directive YAML files. */
 private data class DirectiveYaml(val name: String = "", val content: String = "")
@@ -275,8 +276,7 @@ class ChatDirectiveRepository internal constructor(
 
     /**
      * Seeds built-in default directives from `/directives/` classpath resources
-     * into the local database. Only runs when the directives table is empty, so it
-     * executes once on first launch and never overwrites user-created directives.
+     * into the local database.
      */
     fun seedDefaultDirectives() {
         val log = logger<ChatDirectiveRepository>()
@@ -292,7 +292,10 @@ class ChatDirectiveRepository internal constructor(
                 val yaml = Files.readString(path)
                 val dto = directiveYamlMapper.readValue(yaml, DirectiveYaml::class.java)
                 if (dto.name.isBlank() || dto.content.isBlank()) return@runCatching
-                save(ChatDirective(name = dto.name.trim(), content = dto.content.trim()))
+                val stableId = UUID.nameUUIDFromBytes(
+                    "default:${dto.name.trim().lowercase()}".toByteArray(Charsets.UTF_8)
+                ).toString()
+                save(ChatDirective(id = stableId, name = dto.name.trim(), content = dto.content.trim()))
                 seeded++
             }.onFailure { e ->
                 log.warn("Skipped default directive '{}': {}", path.fileName, e.message)
