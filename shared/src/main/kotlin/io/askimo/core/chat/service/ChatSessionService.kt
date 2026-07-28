@@ -511,6 +511,32 @@ class ChatSessionService(
     }
 
     /**
+     * Force an immediate blocking compression cycle on the memory for [sessionId].
+     *
+     * Delegates to [TokenAwareSummarizingMemory.compressNow] which waits for any
+     * in-progress async summarisation before running its own cycle with an elevated
+     * prune fraction. This method blocks the caller — always dispatch to
+     * [kotlinx.coroutines.Dispatchers.IO] from the ViewModel layer.
+     *
+     * @param sessionId The session whose memory should be compressed.
+     */
+    fun compressMemory(sessionId: String) {
+        getOrCreateSharedMemory(sessionId).compressNow()
+    }
+
+    /**
+     * Returns the [kotlinx.coroutines.flow.StateFlow] of [io.askimo.core.memory.MemoryPressureLevel]
+     * for [sessionId]. ChatViewModel subscribes to this to drive the in-chat pressure banner.
+     */
+    fun getMemoryPressureFlow(sessionId: String) = getOrCreateSharedMemory(sessionId).pressureFlow
+
+    /**
+     * Returns the [StateFlow] of utilisation percentage (0–100) for [sessionId].
+     * Intended for developer-mode display alongside the pressure banner.
+     */
+    fun getMemoryUtilizationFlow(sessionId: String) = getOrCreateSharedMemory(sessionId).utilizationPercentFlow
+
+    /**
      * Delete a session and all its related data (messages and summaries).
      * This method coordinates the deletion across multiple repositories.
      *

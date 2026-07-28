@@ -21,6 +21,9 @@ import io.askimo.core.providers.ModelCapabilitiesCache
 import io.askimo.core.providers.getSummary
 import io.askimo.core.providers.getUserMemoryFacts
 import io.askimo.core.util.JsonUtils.json
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import java.time.Instant
@@ -86,6 +89,17 @@ data class UserMemorySummary(
         const val MAX_USER_FACTS = 20
     }
 }
+
+/**
+ * Memory utilisation level emitted by [TokenAwareSummarizingMemory.pressureFlow].
+ *
+ * - [NORMAL]   — below [AppConfig.MemoryConfig.warningFraction] of the effective token budget.
+ * - [WARNING]  — at or above [AppConfig.MemoryConfig.warningFraction]; summarisation has fired
+ *                but headroom is shrinking. A dismissible banner is shown in the chat UI.
+ * - [CRITICAL] — at or above [AppConfig.MemoryConfig.criticalFraction]; immediate compression
+ *                is needed. A persistent banner with a "Compress" action is shown.
+ */
+enum class MemoryPressureLevel { NORMAL, WARNING, CRITICAL }
 
 /**
  * Token-aware summarizing memory that keeps recent messages verbatim while compressing
@@ -184,6 +198,23 @@ class TokenAwareSummarizingMemory(
 
     private val log = logger<TokenAwareSummarizingMemory>()
 
+    private val _pressureFlow = MutableStateFlow(MemoryPressureLevel.NORMAL)
+
+    /**
+     * Reactive memory utilisation level. Updated after every [add], [loadFromFilteredMemory],
+     * [compressNow], and post-summarisation. Subscribe from [ChatViewModel] to drive the
+     * in-chat pressure banner.
+     */
+    val pressureFlow: StateFlow<MemoryPressureLevel> = _pressureFlow.asStateFlow()
+
+    private val _utilizationPercentFlow = MutableStateFlow(0)
+
+    /**
+     * Reactive utilisation percentage (0–100) of the effective token budget.
+     * Updated in lock-step with [pressureFlow]. Exposed for developer-mode display.
+     */
+    val utilizationPercentFlow: StateFlow<Int> = _utilizationPercentFlow.asStateFlow()
+
     init {
         loadFromDatabase()
     }
@@ -218,6 +249,35 @@ class TokenAwareSummarizingMemory(
         )
 
         return memoryAllocation
+    }
+
+    /**
+     * Effective token ceiling after shaving off [EMERGENCY_RESERVE_FRACTION] from [maxTokens].
+     * The reserve ensures that messages arriving while a summarisation cycle is in progress
+     * never push the total past the hard model limit.
+     */
+    private val effectiveMaxTokens: Int
+        get() = (maxTokens * (1.0 - EMERGENCY_RESERVE_FRACTION)).toInt()
+
+    /**
+     * Recomputes the current [MemoryPressureLevel] from the live token count and emits it on
+     * [pressureFlow]. Called after every mutation that changes token count.
+     */
+    private fun updatePressure() {
+        val tokens = estimateTotalTokens()
+        val cap = effectiveMaxTokens
+        val percent = if (cap > 0) ((tokens.toDouble() / cap) * 100).toInt().coerceIn(0, 100) else 0
+        _utilizationPercentFlow.value = percent
+        val level = when {
+            cap <= 0 -> MemoryPressureLevel.NORMAL
+            tokens.toDouble() / cap >= AppConfig.memory.criticalFraction -> MemoryPressureLevel.CRITICAL
+            tokens.toDouble() / cap >= AppConfig.memory.warningFraction -> MemoryPressureLevel.WARNING
+            else -> MemoryPressureLevel.NORMAL
+        }
+        if (_pressureFlow.value != level) {
+            log.debug("Memory pressure: {} -> {} ({}/{} effective tokens, {}%)", _pressureFlow.value, level, tokens, cap, percent)
+            _pressureFlow.value = level
+        }
     }
 
     override fun id(): Any = this.hashCode()
@@ -255,6 +315,8 @@ class TokenAwareSummarizingMemory(
             log.info("Token count ($totalTokens) exceeded threshold ($threshold). Triggering async summarization.")
             triggerAsyncSummarization()
         }
+
+        updatePressure()
     }
 
     override fun messages(): List<ChatMessage> = buildList {
@@ -343,6 +405,8 @@ class TokenAwareSummarizingMemory(
             )
             triggerAsyncSummarization()
         }
+
+        updatePressure()
     }
 
     /**
@@ -439,13 +503,65 @@ class TokenAwareSummarizingMemory(
     }
 
     /**
+     * Force an immediate, blocking compression cycle with an elevated prune fraction.
+     *
+     * If an async summarisation is already running this call **waits** for it to finish
+     * (up to [summarizationTimeoutSeconds]) before running its own cycle, so the two
+     * cycles never overlap.
+     *
+     * The prune fraction is clamped to [COMPRESS_NOW_MIN_PRUNE_FRACTION] regardless of
+     * the configured [AppConfig.MemoryConfig.summarizationPruneFraction], maximising the
+     * headroom recovered per call.
+     *
+     * This method runs on the **caller's thread** — always dispatch to [kotlinx.coroutines.Dispatchers.IO]
+     * from the ViewModel layer.
+     */
+    fun compressNow() {
+        // Wait for any in-progress async cycle to finish before we start our own.
+        val waitStart = System.currentTimeMillis()
+        while (summarizationInProgress.get()) {
+            val elapsed = System.currentTimeMillis() - waitStart
+            if (elapsed > summarizationTimeoutSeconds * 1000) {
+                log.warn("compressNow: timed out waiting for in-progress summarization after {}s", summarizationTimeoutSeconds)
+                return
+            }
+            Thread.sleep(100)
+        }
+
+        if (!summarizationInProgress.compareAndSet(false, true)) {
+            log.debug("compressNow: another cycle grabbed the lock just now, skipping")
+            return
+        }
+
+        val startTime = System.currentTimeMillis()
+        try {
+            log.info("compressNow: starting forced compression (pruneFraction clamped to {})", COMPRESS_NOW_MIN_PRUNE_FRACTION)
+            summarizeAndPruneWithFraction(COMPRESS_NOW_MIN_PRUNE_FRACTION)
+            val elapsed = (System.currentTimeMillis() - startTime) / 1000.0
+            log.info("compressNow: completed in {}s", String.format("%.1f", elapsed))
+        } catch (e: Exception) {
+            log.error("compressNow: compression failed", e)
+        } finally {
+            summarizationInProgress.set(false)
+            updatePressure()
+        }
+    }
+
+    /**
      * Summarizes the oldest portion of the conversation and removes those messages
      * to free up token space while preserving context.
      *
      * System messages are excluded from summarization as they contain instructions,
      * not conversation content. They are preserved in the message list.
      */
-    private fun summarizeAndPrune() {
+    private fun summarizeAndPrune() = summarizeAndPruneWithFraction(AppConfig.memory.summarizationPruneFraction)
+
+    /**
+     * Core summarise-and-prune logic parameterised by [pruneFraction].
+     * [summarizeAndPrune] delegates here with the configured fraction;
+     * [compressNow] calls with [COMPRESS_NOW_MIN_PRUNE_FRACTION].
+     */
+    private fun summarizeAndPruneWithFraction(pruneFraction: Double) {
         // Get only user and AI messages (exclude system messages from conversation)
         val conversationMessages = synchronized(messages) {
             messages.filterNot { it.type() == ChatMessageType.SYSTEM }
@@ -457,7 +573,7 @@ class TokenAwareSummarizingMemory(
         // remaining candidates (oldest first) so each cycle creates significant
         // breathing room before the next trigger fires.
         val summarizableCandidates = (conversationMessages.size - AppConfig.memory.protectedRecentTurns).coerceAtLeast(0)
-        val messagesToSummarizeCount = (summarizableCandidates * AppConfig.memory.summarizationPruneFraction).toInt().coerceAtLeast(
+        val messagesToSummarizeCount = (summarizableCandidates * pruneFraction).toInt().coerceAtLeast(
             if (summarizableCandidates > 0) 1 else 0,
         )
 
@@ -486,6 +602,7 @@ class TokenAwareSummarizingMemory(
         messagesSinceLastSummary.set(0)
 
         log.info("Summarization complete. Remaining: ${messages.size}, Tokens: ${estimateTotalTokens()}")
+        updatePressure()
     }
 
     /**
@@ -748,6 +865,19 @@ class TokenAwareSummarizingMemory(
     }
 
     companion object {
+
+        /**
+         * Fraction shaved off [maxTokens] to form the effective token ceiling.
+         * Provides a small buffer for messages that arrive while summarisation is in progress.
+         */
+        private const val EMERGENCY_RESERVE_FRACTION = 0.05
+
+        /**
+         * Minimum prune fraction used by [compressNow] regardless of
+         * [AppConfig.MemoryConfig.summarizationPruneFraction]. Ensures each forced
+         * compression cycle reclaims substantial headroom.
+         */
+        private const val COMPRESS_NOW_MIN_PRUNE_FRACTION = 0.85
 
         /**
          * Default token estimator: word count × 1.75.

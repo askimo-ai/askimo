@@ -34,4 +34,11 @@ interface ChatActions {
      * then navigate to the new session immediately.
      */
     fun forkFromMessage(messageId: String)
+
+    /**
+     * Force an immediate compression cycle on the current session's memory.
+     * Runs on a background thread — the caller should show a spinner while [ChatState.isCompressing]
+     * is true. No-op when compression is already in progress.
+     */
+    fun compressMemory()
 }

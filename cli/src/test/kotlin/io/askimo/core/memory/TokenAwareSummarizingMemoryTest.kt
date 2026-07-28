@@ -547,6 +547,117 @@ class TokenAwareSummarizingMemoryTest {
         }
     }
 
+    // ── Memory pressure ──────────────────────────────────────────────────────
+
+    /**
+     * With OPENAI provider default contextSize = 1_048_576:
+     *   maxTokens          = 1_048_576 × 0.40         = 419_430
+     *   effectiveMaxTokens = 419_430   × 0.95 (reserve) = 398_459
+     *
+     * Test-specific thresholds:
+     *   warningFraction  = 0.003  → warning  at ≥ 1_195 tokens  (6 × 200)
+     *   criticalFraction = 0.004  → critical at ≥ 1_594 tokens  (8 × 200)
+     *
+     * protectedRecentTurns = 2 so that compress runs with only a handful of messages.
+     */
+    private fun createPressureMemory(): TokenAwareSummarizingMemory {
+        AppConfig.updateField("memory.summarizationThreshold", 1.0) // never auto-summarize
+        AppConfig.updateField("memory.warningFraction", 0.003)
+        AppConfig.updateField("memory.criticalFraction", 0.004)
+        AppConfig.updateField("memory.protectedRecentTurns", 2)
+        return TokenAwareSummarizingMemory(
+            appContext = mockAppContext,
+            sessionId = sessionId,
+            sessionMemoryRepository = mockRepository,
+            tokenEstimator = { 200 }, // every message = 200 tokens
+            asyncSummarization = false,
+        )
+    }
+
+    @Test
+    fun `pressure starts at NORMAL on empty memory`() {
+        memory = createPressureMemory()
+        assertEquals(MemoryPressureLevel.NORMAL, memory.pressureFlow.value)
+    }
+
+    @Test
+    fun `pressure transitions to WARNING when tokens exceed warningFraction`() {
+        memory = createPressureMemory()
+        // 5 messages × 200 = 1_000 tokens → below warning threshold (1_195) → NORMAL
+        repeat(5) { i -> memory.add(UserMessage.from("message $i")) }
+        assertEquals(MemoryPressureLevel.NORMAL, memory.pressureFlow.value)
+
+        // 6th message → 1_200 tokens ≥ 1_195 → WARNING
+        memory.add(UserMessage.from("sixth message"))
+        assertEquals(MemoryPressureLevel.WARNING, memory.pressureFlow.value)
+    }
+
+    @Test
+    fun `pressure transitions to CRITICAL when tokens exceed criticalFraction`() {
+        memory = createPressureMemory()
+        // 7 messages × 200 = 1_400 → WARNING but not CRITICAL
+        repeat(7) { i -> memory.add(UserMessage.from("message $i")) }
+        assertEquals(MemoryPressureLevel.WARNING, memory.pressureFlow.value)
+
+        // 8th message → 1_600 tokens ≥ 1_594 → CRITICAL
+        memory.add(UserMessage.from("eighth message"))
+        assertEquals(MemoryPressureLevel.CRITICAL, memory.pressureFlow.value)
+    }
+
+    @Test
+    fun `compressNow prunes messages and reduces pressure to NORMAL`() {
+        memory = createPressureMemory()
+        whenever(mockChatClient.sendMessage(any())).thenReturn(
+            """{"keyFacts":{},"mainTopics":[],"recentContext":"compressed"}""",
+        )
+
+        // 8 messages × 200 = 1_600 → CRITICAL
+        repeat(8) { i -> memory.add(UserMessage.from("message $i word ".repeat(5))) }
+        assertEquals(MemoryPressureLevel.CRITICAL, memory.pressureFlow.value)
+
+        // compressNow: 8 messages, protectedRecentTurns=2 → 6 candidates,
+        // 0.85 × 6 = 5 pruned → 3 remain → 600 tokens < 1_195 threshold → NORMAL
+        memory.compressNow()
+
+        assertEquals(MemoryPressureLevel.NORMAL, memory.pressureFlow.value)
+        // Only 3 messages (2 protected + the last deferred candidate) should remain
+        val remaining = memory.messages().filterNot { it is SystemMessage }
+        assertTrue(remaining.size <= 3, "Expected ≤ 3 messages after compression, got ${remaining.size}")
+    }
+
+    @Test
+    fun `compressNow uses elevated prune fraction regardless of configured fraction`() {
+        // Configured fraction is very conservative — compressNow should ignore it
+        AppConfig.updateField("memory.summarizationPruneFraction", 0.10)
+        AppConfig.updateField("memory.summarizationThreshold", 1.0)
+        AppConfig.updateField("memory.protectedRecentTurns", 2)
+        memory = TokenAwareSummarizingMemory(
+            appContext = mockAppContext,
+            sessionId = sessionId,
+            sessionMemoryRepository = mockRepository,
+            tokenEstimator = { 200 },
+            asyncSummarization = false,
+        )
+        whenever(mockChatClient.sendMessage(any())).thenReturn(
+            """{"keyFacts":{},"mainTopics":[],"recentContext":"compressed"}""",
+        )
+
+        // 20 messages; with 10% fraction only 1-2 would be pruned.
+        // compressNow should prune ≥ 85% of 18 candidates = ~15 messages.
+        repeat(20) { i -> memory.add(UserMessage.from("message $i")) }
+        val beforeCount = memory.messages().filterNot { it is SystemMessage }.size
+
+        memory.compressNow()
+
+        val afterCount = memory.messages().filterNot { it is SystemMessage }.size
+        assertTrue(
+            afterCount < beforeCount,
+            "Expected fewer messages after compressNow, before=$beforeCount after=$afterCount",
+        )
+        // With 0.85 fraction: 18 candidates × 0.85 = ~15 pruned → ≤ 5 messages remain (2 protected + deferred)
+        assertTrue(afterCount <= 5, "Expected ≤ 5 messages after aggressive compression, got $afterCount")
+    }
+
     // ── Helper ───────────────────────────────────────────────────────────────
 
     private fun createMemory(

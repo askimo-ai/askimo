@@ -25,6 +25,7 @@ import io.askimo.core.event.internal.DiagramFixedEvent
 import io.askimo.core.event.internal.ProjectRefreshEvent
 import io.askimo.core.event.internal.SessionTitleUpdatedEvent
 import io.askimo.core.logging.logger
+import io.askimo.core.memory.MemoryPressureLevel
 import io.askimo.ui.session.SessionManager
 import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
@@ -32,6 +33,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -123,6 +125,20 @@ class ChatViewModel(
     var pendingScrollToMessageId by mutableStateOf<String?>(null)
         private set
 
+    var memoryPressureLevel by mutableStateOf(MemoryPressureLevel.NORMAL)
+        private set
+
+    var isCompressing by mutableStateOf(false)
+        private set
+
+    var memoryUtilizationPercent by mutableStateOf(0)
+        private set
+
+    // Job that collects pressureFlow and utilizationPercentFlow from the current session's memory.
+    // Cancelled and re-created each time resumeSession() is called so we never
+    // leak a collector from a previous session.
+    private var pressureSubscriptionJob: Job? = null
+
     val state: ChatState
         get() = ChatState(
             messages = messages,
@@ -146,6 +162,9 @@ class ChatViewModel(
             activeThinkingContent = activeThinkingContent,
             bookmarkedMessageIds = bookmarkedMessageIds,
             pendingScrollToMessageId = pendingScrollToMessageId,
+            memoryPressureLevel = memoryPressureLevel,
+            isCompressing = isCompressing,
+            memoryUtilizationPercent = memoryUtilizationPercent,
         )
 
     /**
@@ -850,6 +869,19 @@ class ChatViewModel(
     fun resumeSession(sessionId: String): Boolean {
         currentSessionId.value = sessionId
 
+        // Cancel any collector from a previous session and start a fresh one for this session.
+        pressureSubscriptionJob?.cancel()
+        pressureSubscriptionJob = scope.launch {
+            combine(
+                chatSessionService.getMemoryPressureFlow(sessionId),
+                chatSessionService.getMemoryUtilizationFlow(sessionId),
+            ) { level, percent -> level to percent }
+                .collect { (level, percent) ->
+                    memoryPressureLevel = level
+                    memoryUtilizationPercent = percent
+                }
+        }
+
         scope.launch {
             try {
                 activeSubscriptions.values.forEach { it.cancel() }
@@ -1405,6 +1437,33 @@ class ChatViewModel(
             } catch (e: Exception) {
                 log.error("Failed to fork session from message {}", messageId, e)
                 errorMessage = "Failed to fork conversation. Please try again."
+            }
+        }
+    }
+
+    /**
+     * Force an immediate compression cycle on the current session's memory.
+     *
+     * Dispatches the blocking [ChatSessionService.compressMemory] call to [Dispatchers.IO].
+     * Sets [isCompressing] to true for the duration so the banner button can show a spinner
+     * and disable itself, preventing double-invocation.
+     */
+    override fun compressMemory() {
+        val sessionId = currentSessionId.value ?: return
+        if (isCompressing) return
+
+        scope.launch {
+            isCompressing = true
+            try {
+                withContext(Dispatchers.IO) {
+                    chatSessionService.compressMemory(sessionId)
+                }
+                log.debug("compressMemory: completed for session {}", sessionId)
+            } catch (e: Exception) {
+                log.error("compressMemory: failed for session {}", sessionId, e)
+                errorMessage = "Compression failed. Please try again."
+            } finally {
+                isCompressing = false
             }
         }
     }

@@ -94,6 +94,7 @@ import io.askimo.core.event.user.IndexingInProgressEvent
 import io.askimo.core.event.user.IndexingQueuedEvent
 import io.askimo.core.event.user.IndexingStartedEvent
 import io.askimo.core.logging.currentFileLogger
+import io.askimo.core.memory.MemoryPressureLevel
 import io.askimo.core.rag.ProjectIndexer
 import io.askimo.core.util.TimeUtil.formatDisplay
 import io.askimo.core.util.formatFileSize
@@ -113,6 +114,7 @@ import io.askimo.ui.common.ui.util.FileDialogUtils
 import io.askimo.ui.service.AvatarService
 import io.askimo.ui.session.sessionActionsMenu
 import io.askimo.ui.session.sessionMemoryDialog
+import io.askimo.ui.shell.DeveloperModePreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -177,6 +179,9 @@ fun chatView(
     val activeThinkingContent = state.activeThinkingContent
     val bookmarkedMessageIds = state.bookmarkedMessageIds
     val pendingScrollToMessageId = state.pendingScrollToMessageId
+    val memoryPressureLevel = state.memoryPressureLevel
+    val isCompressing = state.isCompressing
+    val memoryUtilizationPercent = state.memoryUtilizationPercent
 
     // Internal state management for ChatView
     val scope = rememberCoroutineScope()
@@ -275,6 +280,13 @@ fun chatView(
     // Session memory dialog state
     var showSessionMemoryDialog by remember { mutableStateOf(false) }
     var sessionMemorySessionId by remember { mutableStateOf<String?>(null) }
+
+    // Memory pressure banner — WARNING is dismissible; CRITICAL is always visible.
+    // Resets when the session changes or when pressure drops back to NORMAL.
+    var warningDismissed by remember(sessionId) { mutableStateOf(false) }
+    LaunchedEffect(memoryPressureLevel) {
+        if (memoryPressureLevel == MemoryPressureLevel.NORMAL) warningDismissed = false
+    }
 
     // Hoisted scroll state — owned here so the whole messages area responds to scroll
     // regardless of mouse position within the chat panel.
@@ -1151,6 +1163,20 @@ fun chatView(
                 }
 
                 // Input area
+                memoryPressureBanner(
+                    pressureLevel = memoryPressureLevel,
+                    isCompressing = isCompressing,
+                    warningDismissed = warningDismissed,
+                    onDismissWarning = { warningDismissed = true },
+                    onCompress = { actions.compressMemory() },
+                )
+                // Developer-mode memory utilisation indicator
+                if (DeveloperModePreferences.isActive.collectAsState().value) {
+                    memoryUtilizationIndicator(
+                        utilizationPercent = memoryUtilizationPercent,
+                        pressureLevel = memoryPressureLevel,
+                    )
+                }
                 Box(
                     modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center,
@@ -1296,6 +1322,146 @@ fun chatView(
                 showSessionMemoryDialog = false
                 sessionMemorySessionId = null
             },
+        )
+    }
+}
+
+/**
+ * Banner rendered above the chat input field when the session's memory is under pressure.
+ *
+ * - **WARNING** (amber, dismissible): context is getting full; background summarisation has
+ *   already fired. The user can dismiss the banner or compress immediately.
+ * - **CRITICAL** (red, persistent): context is almost full — responses may degrade.
+ *   The banner cannot be dismissed; the user must compress or start a new session.
+ *
+ * Both levels expose a "Compress" button that calls [onCompress] and shows a spinner
+ * ([CircularProgressIndicator]) while [isCompressing] is true.
+ */
+@Composable
+private fun memoryPressureBanner(
+    pressureLevel: MemoryPressureLevel,
+    isCompressing: Boolean,
+    warningDismissed: Boolean,
+    onDismissWarning: () -> Unit,
+    onCompress: () -> Unit,
+) {
+    if (pressureLevel == MemoryPressureLevel.NORMAL) return
+    if (pressureLevel == MemoryPressureLevel.WARNING && warningDismissed) return
+
+    val isCritical = pressureLevel == MemoryPressureLevel.CRITICAL
+
+    val bannerColor = if (isCritical) {
+        MaterialTheme.colorScheme.errorContainer
+    } else {
+        Color(0xFFFFF3CD) // amber-100 — visible on both light and dark surfaces
+    }
+    val contentColor = if (isCritical) {
+        MaterialTheme.colorScheme.onErrorContainer
+    } else {
+        Color(0xFF856404) // amber-800 text on amber-100
+    }
+    val messageKey = if (isCritical) {
+        "memory.pressure.critical.message"
+    } else {
+        "memory.pressure.warning.message"
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = bannerColor,
+        tonalElevation = 0.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(messageKey),
+                style = MaterialTheme.typography.bodySmall,
+                color = contentColor,
+                modifier = Modifier.weight(1f),
+            )
+
+            // Compress button
+            TextButton(
+                onClick = onCompress,
+                enabled = !isCompressing,
+                colors = ButtonDefaults.textButtonColors(contentColor = contentColor),
+            ) {
+                if (isCompressing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        strokeWidth = 2.dp,
+                        color = contentColor,
+                    )
+                } else {
+                    Text(
+                        text = stringResource("memory.pressure.action.compress"),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+
+            // Dismiss button — only on WARNING
+            if (!isCritical) {
+                IconButton(
+                    onClick = onDismissWarning,
+                    modifier = Modifier.size(24.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = stringResource("memory.pressure.dismiss"),
+                        modifier = Modifier.size(14.dp),
+                        tint = contentColor,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Developer-mode only: a compact single-line row that shows the exact memory
+ * utilisation percentage and the current pressure level.
+ *
+ * Only rendered when [DeveloperModePreferences.isActive] is true — the caller is
+ * responsible for checking before composing this function.
+ */
+@Composable
+private fun memoryUtilizationIndicator(
+    utilizationPercent: Int,
+    pressureLevel: MemoryPressureLevel,
+) {
+    val indicatorColor = when (pressureLevel) {
+        MemoryPressureLevel.CRITICAL -> MaterialTheme.colorScheme.error
+
+        MemoryPressureLevel.WARNING -> Color(0xFFF59E0B)
+
+        // amber-500
+        MemoryPressureLevel.NORMAL -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .padding(horizontal = 16.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = "🧠 DEV",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = "Memory: $utilizationPercent% (${pressureLevel.name})",
+            style = MaterialTheme.typography.labelSmall,
+            color = indicatorColor,
         )
     }
 }

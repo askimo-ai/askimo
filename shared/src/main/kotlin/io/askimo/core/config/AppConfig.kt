@@ -272,6 +272,8 @@ enum class MemoryMode { COMPACT, BALANCED, DETAIL }
  * maxMainTopics              |    8    |    15    |   25
  * maxSummaryLength (chars)   |  1000   |  2000    | 4000
  * memoryBudgetFraction       |  0.30   |   0.40   |  0.50
+ * warningFraction            |  0.70   |   0.70   |  0.70
+ * criticalFraction           |  0.90   |   0.90   |  0.90
  * ```
  *
  * Preset trade-offs:
@@ -317,6 +319,17 @@ data class MemoryConfig(
      * Range: 0.0–1.0.
      */
     val memoryBudgetFraction: Double = 0.40,
+    /**
+     * Fraction of the effective token budget at which memory pressure transitions to WARNING
+     * and the "Compress" banner is shown. Same across all modes — this is a UI signal, not a
+     * per-mode tuning knob. Range: 0.0–1.0.
+     */
+    val warningFraction: Double = 0.70,
+    /**
+     * Fraction of the effective token budget at which memory pressure transitions to CRITICAL
+     * and the persistent banner is shown. Must be greater than [warningFraction]. Range: 0.0–1.0.
+     */
+    val criticalFraction: Double = 0.90,
 ) {
     companion object {
         /** Returns the full preset [MemoryConfig] for the given [mode]. */
@@ -336,6 +349,8 @@ data class MemoryConfig(
             maxMainTopics = 8,
             maxSummaryLength = 1000,
             memoryBudgetFraction = 0.30,
+            warningFraction = 0.70,
+            criticalFraction = 0.90,
         )
 
         /** Current defaults — good quality/cost trade-off. */
@@ -348,6 +363,8 @@ data class MemoryConfig(
             maxMainTopics = 15,
             maxSummaryLength = 2000,
             memoryBudgetFraction = 0.40,
+            warningFraction = 0.70,
+            criticalFraction = 0.90,
         )
 
         /** Minimal summarization — high fidelity, more tokens consumed. */
@@ -360,6 +377,8 @@ data class MemoryConfig(
             maxMainTopics = 25,
             maxSummaryLength = 4000,
             memoryBudgetFraction = 0.50,
+            warningFraction = 0.70,
+            criticalFraction = 0.90,
         )
     }
 }
@@ -952,6 +971,8 @@ object AppConfig {
             maxMainTopics = System.getenv("ASKIMO_MEMORY_MAX_MAIN_TOPICS")?.toIntOrNull() ?: memoryBase.maxMainTopics,
             maxSummaryLength = System.getenv("ASKIMO_MEMORY_MAX_SUMMARY_LENGTH")?.toIntOrNull() ?: memoryBase.maxSummaryLength,
             memoryBudgetFraction = System.getenv("ASKIMO_MEMORY_BUDGET_FRACTION")?.toDoubleOrNull() ?: memoryBase.memoryBudgetFraction,
+            warningFraction = System.getenv("ASKIMO_MEMORY_WARNING_FRACTION")?.toDoubleOrNull() ?: memoryBase.warningFraction,
+            criticalFraction = System.getenv("ASKIMO_MEMORY_CRITICAL_FRACTION")?.toDoubleOrNull() ?: memoryBase.criticalFraction,
         )
 
         return AppConfigData(emb, r, t, idx, dev, chat, memory = memory, rag = rag, models = models, proxy = proxy, webSearch = webSearch)
@@ -1093,7 +1114,9 @@ object AppConfig {
             memory.maxKeyFacts == balanced.maxKeyFacts &&
             memory.maxMainTopics == balanced.maxMainTopics &&
             memory.maxSummaryLength == balanced.maxSummaryLength &&
-            memory.memoryBudgetFraction == balanced.memoryBudgetFraction
+            memory.memoryBudgetFraction == balanced.memoryBudgetFraction &&
+            memory.warningFraction == balanced.warningFraction &&
+            memory.criticalFraction == balanced.criticalFraction
         return if (looksDefaulted) {
             val resolved = MemoryConfig.preset(memory.mode)
             log.warn("Memory config fields appear unset (defaulted to BALANCED) but mode=${memory.mode}. Auto-resolving to ${memory.mode} preset.")
@@ -1170,6 +1193,10 @@ object AppConfig {
         "maxSummaryLength" -> config.copy(maxSummaryLength = (value as Number).toInt())
 
         "memoryBudgetFraction" -> config.copy(memoryBudgetFraction = (value as Number).toDouble())
+
+        "warningFraction" -> config.copy(warningFraction = (value as Number).toDouble())
+
+        "criticalFraction" -> config.copy(criticalFraction = (value as Number).toDouble())
 
         else -> config
     }

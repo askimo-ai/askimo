@@ -7,6 +7,7 @@ package io.askimo.ui.chat
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.ToolCallInfo
+import io.askimo.core.memory.MemoryPressureLevel
 
 /**
  * State for the chat view.
@@ -56,4 +57,16 @@ data class ChatState(
     // Set by jumpToMessage so ChatView can scroll to the target after messages reload.
     // Cleared by ChatView after consuming via actions.clearPendingScroll().
     val pendingScrollToMessageId: String? = null,
+
+    // Memory pressure level — drives the in-chat compression banner.
+    // Updated reactively from TokenAwareSummarizingMemory.pressureFlow via ChatViewModel.
+    val memoryPressureLevel: MemoryPressureLevel = MemoryPressureLevel.NORMAL,
+
+    // True while a compressMemory() call is running on a background thread.
+    // The banner button observes this to show a spinner and prevent double-invocation.
+    val isCompressing: Boolean = false,
+
+    // Utilisation percentage (0–100) of the effective token budget.
+    // Only shown in the UI when developer mode is active.
+    val memoryUtilizationPercent: Int = 0,
 )

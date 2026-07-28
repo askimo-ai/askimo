@@ -143,6 +143,12 @@ class AppConfigTest {
 
         config = updateMemoryFieldHelper(config, "memoryBudgetFraction", 0.45)
         assertEquals(0.45, config.memoryBudgetFraction, 0.001)
+
+        config = updateMemoryFieldHelper(config, "warningFraction", 0.65)
+        assertEquals(0.65, config.warningFraction, 0.001)
+
+        config = updateMemoryFieldHelper(config, "criticalFraction", 0.85)
+        assertEquals(0.85, config.criticalFraction, 0.001)
     }
 
     @Test
@@ -152,18 +158,33 @@ class AppConfigTest {
         assertEquals(0.25, compact.summarizationThreshold, 0.001)
         assertEquals(3, compact.protectedRecentTurns)
         assertEquals(0.30, compact.memoryBudgetFraction, 0.001)
+        assertEquals(0.70, compact.warningFraction, 0.001)
+        assertEquals(0.90, compact.criticalFraction, 0.001)
 
         val balanced = MemoryConfig.BALANCED
         assertEquals(MemoryMode.BALANCED, balanced.mode)
         assertEquals(0.40, balanced.summarizationThreshold, 0.001)
         assertEquals(6, balanced.protectedRecentTurns)
         assertEquals(0.40, balanced.memoryBudgetFraction, 0.001)
+        assertEquals(0.70, balanced.warningFraction, 0.001)
+        assertEquals(0.90, balanced.criticalFraction, 0.001)
 
         val detail = MemoryConfig.DETAIL
         assertEquals(MemoryMode.DETAIL, detail.mode)
         assertEquals(0.60, detail.summarizationThreshold, 0.001)
         assertEquals(10, detail.protectedRecentTurns)
         assertEquals(0.50, detail.memoryBudgetFraction, 0.001)
+        assertEquals(0.70, detail.warningFraction, 0.001)
+        assertEquals(0.90, detail.criticalFraction, 0.001)
+    }
+
+    @Test
+    fun `warningFraction and criticalFraction defaults are consistent across all presets`() {
+        // These are UI-level signals — intentionally the same regardless of mode
+        assertEquals(MemoryConfig.COMPACT.warningFraction, MemoryConfig.BALANCED.warningFraction, 0.001)
+        assertEquals(MemoryConfig.BALANCED.warningFraction, MemoryConfig.DETAIL.warningFraction, 0.001)
+        assertEquals(MemoryConfig.COMPACT.criticalFraction, MemoryConfig.BALANCED.criticalFraction, 0.001)
+        assertEquals(MemoryConfig.BALANCED.criticalFraction, MemoryConfig.DETAIL.criticalFraction, 0.001)
     }
 
     @Test
