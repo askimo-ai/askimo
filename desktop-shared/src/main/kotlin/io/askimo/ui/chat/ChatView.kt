@@ -274,7 +274,6 @@ fun chatView(
         onStateChange(inputText, attachments, editingMessage)
     }
 
-
     // Session memory dialog state
     var showSessionMemoryDialog by remember { mutableStateOf(false) }
     var sessionMemorySessionId by remember { mutableStateOf<String?>(null) }
@@ -380,7 +379,6 @@ fun chatView(
             projectIndexStateManager.refreshActiveProject()
         }
     }
-
 
     // Focus requester for search field
     val searchFocusRequester = remember { FocusRequester() }
