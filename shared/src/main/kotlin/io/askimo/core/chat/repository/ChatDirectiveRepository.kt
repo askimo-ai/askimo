@@ -293,7 +293,7 @@ class ChatDirectiveRepository internal constructor(
                 val dto = directiveYamlMapper.readValue(yaml, DirectiveYaml::class.java)
                 if (dto.name.isBlank() || dto.content.isBlank()) return@runCatching
                 val stableId = UUID.nameUUIDFromBytes(
-                    "default:${dto.name.trim().lowercase()}".toByteArray(Charsets.UTF_8)
+                    "default:${dto.name.trim().lowercase()}".toByteArray(Charsets.UTF_8),
                 ).toString()
                 save(ChatDirective(id = stableId, name = dto.name.trim(), content = dto.content.trim()))
                 seeded++
