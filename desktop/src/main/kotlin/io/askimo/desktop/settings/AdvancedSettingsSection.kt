@@ -51,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.analytics.Analytics
 import io.askimo.core.config.AppConfig
+import io.askimo.core.config.MemoryMode
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.LogLevel
 import io.askimo.core.logging.LoggingService
@@ -118,6 +119,9 @@ fun advancedSettingsSection() {
 
                 // Models Configuration Section
                 modelsConfigurationSection()
+
+                // Memory Configuration Section
+                memoryConfigurationSection()
 
                 // Analytics Section
                 analyticsSection()
@@ -661,6 +665,113 @@ private fun modelsConfigurationSection() {
                     AppConfig.updateField("models.maxToolCallingRoundTrips", newValue)
                 },
             )
+        }
+    }
+}
+
+@Composable
+private fun memoryConfigurationSection() {
+    var currentMode by remember { mutableStateOf(AppConfig.memory.mode) }
+    var dropdownExpanded by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = AppComponents.bannerCardColors(),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.large),
+            verticalArrangement = Arrangement.spacedBy(Spacing.large),
+        ) {
+            Text(
+                text = stringResource("settings.memory.title"),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+
+            Text(
+                text = stringResource("settings.memory.description"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+            )
+
+            // Mode selector — label + dropdown (same pattern as web search backend)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource("settings.memory.mode"),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.weight(1f).padding(end = Spacing.large),
+                )
+
+                Box(modifier = Modifier.widthIn(min = 160.dp, max = 240.dp)) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickableCard { dropdownExpanded = true },
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                        ),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = stringResource("settings.memory.mode.${currentMode.name.lowercase()}"),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f).padding(end = Spacing.small),
+                            )
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = "Change memory mode",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+
+                    AppComponents.dropdownMenu(
+                        expanded = dropdownExpanded,
+                        onDismissRequest = { dropdownExpanded = false },
+                    ) {
+                        MemoryMode.entries.forEachIndexed { index, mode ->
+                            AppComponents.themedDropdownMenuItem(
+                                text = {
+                                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+                                        Text(
+                                            text = stringResource("settings.memory.mode.${mode.name.lowercase()}"),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                        )
+                                        Text(
+                                            text = stringResource("settings.memory.mode.${mode.name.lowercase()}.description"),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    currentMode = mode
+                                    AppConfig.updateField("memory.mode", mode)
+                                    dropdownExpanded = false
+                                },
+                                isSelected = mode == currentMode,
+                                showDivider = index < MemoryMode.entries.lastIndex,
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

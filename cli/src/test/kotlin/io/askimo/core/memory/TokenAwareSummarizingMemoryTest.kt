@@ -10,6 +10,7 @@ import dev.langchain4j.data.message.SystemMessage
 import dev.langchain4j.data.message.UserMessage
 import io.askimo.core.chat.domain.SessionMemory
 import io.askimo.core.chat.repository.SessionMemoryRepository
+import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
 import io.askimo.core.providers.ChatClient
 import io.askimo.test.extensions.AskimoTestHome
@@ -542,17 +543,20 @@ class TokenAwareSummarizingMemoryTest {
     // ── Helper ───────────────────────────────────────────────────────────────
 
     private fun createMemory(
-        summarizationThreshold: Double = 0.4, // matches updated default
+        summarizationThreshold: Double = 0.4,
         asyncSummarization: Boolean = true,
         tokenEstimator: (ChatMessage) -> Int = TokenAwareSummarizingMemory.defaultTokenEstimator(),
         summarizationTimeoutSeconds: Long = 30,
-    ): TokenAwareSummarizingMemory = TokenAwareSummarizingMemory(
-        appContext = mockAppContext,
-        sessionId = sessionId,
-        sessionMemoryRepository = mockRepository,
-        tokenEstimator = tokenEstimator,
-        summarizationThreshold = summarizationThreshold,
-        asyncSummarization = asyncSummarization,
-        summarizationTimeoutSeconds = summarizationTimeoutSeconds,
-    )
+    ): TokenAwareSummarizingMemory {
+        // Drive threshold through AppConfig — @AskimoTestHome resets config between tests
+        AppConfig.updateField("memory.summarizationThreshold", summarizationThreshold)
+        return TokenAwareSummarizingMemory(
+            appContext = mockAppContext,
+            sessionId = sessionId,
+            sessionMemoryRepository = mockRepository,
+            tokenEstimator = tokenEstimator,
+            asyncSummarization = asyncSummarization,
+            summarizationTimeoutSeconds = summarizationTimeoutSeconds,
+        )
+    }
 }

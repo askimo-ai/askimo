@@ -181,20 +181,79 @@ class AppConfigTest {
     fun `updateChatField should handle all fields`() {
         var config = ChatConfig()
 
-        // Test top-level fields
         config = updateChatFieldHelper(config, "maxTokens", 10000)
         assertEquals(10000, config.maxTokens)
+    }
 
-        config = updateChatFieldHelper(config, "summarizationThreshold", 0.8)
-        assertEquals(0.8, config.summarizationThreshold, 0.001)
+    @Test
+    fun `updateMemoryField should handle mode - swaps to full preset`() {
+        var config = MemoryConfig()
 
-        config = updateChatFieldHelper(config, "enableAsyncSummarization", false)
-        assertFalse(config.enableAsyncSummarization)
+        config = updateMemoryFieldHelper(config, "mode", MemoryMode.COMPACT)
+        assertEquals(MemoryMode.COMPACT, config.mode)
+        assertEquals(0.25, config.summarizationThreshold, 0.001)
+        assertEquals(3, config.protectedRecentTurns)
+        assertEquals(0.30, config.memoryBudgetFraction, 0.001)
 
-        // Verify all fields are correct after multiple updates
-        assertEquals(10000, config.maxTokens)
-        assertEquals(0.8, config.summarizationThreshold, 0.001)
-        assertFalse(config.enableAsyncSummarization)
+        config = updateMemoryFieldHelper(config, "mode", "DETAIL")
+        assertEquals(MemoryMode.DETAIL, config.mode)
+        assertEquals(0.60, config.summarizationThreshold, 0.001)
+        assertEquals(10, config.protectedRecentTurns)
+        assertEquals(0.50, config.memoryBudgetFraction, 0.001)
+    }
+
+    @Test
+    fun `updateMemoryField should handle all numeric fields`() {
+        var config = MemoryConfig()
+
+        config = updateMemoryFieldHelper(config, "summarizationThreshold", 0.5)
+        assertEquals(0.5, config.summarizationThreshold, 0.001)
+
+        config = updateMemoryFieldHelper(config, "protectedRecentTurns", 8)
+        assertEquals(8, config.protectedRecentTurns)
+
+        config = updateMemoryFieldHelper(config, "summarizationPruneFraction", 0.7)
+        assertEquals(0.7, config.summarizationPruneFraction, 0.001)
+
+        config = updateMemoryFieldHelper(config, "maxKeyFacts", 40)
+        assertEquals(40, config.maxKeyFacts)
+
+        config = updateMemoryFieldHelper(config, "maxMainTopics", 20)
+        assertEquals(20, config.maxMainTopics)
+
+        config = updateMemoryFieldHelper(config, "maxSummaryLength", 3000)
+        assertEquals(3000, config.maxSummaryLength)
+
+        config = updateMemoryFieldHelper(config, "memoryBudgetFraction", 0.45)
+        assertEquals(0.45, config.memoryBudgetFraction, 0.001)
+    }
+
+    @Test
+    fun `MemoryConfig preset values should be correct`() {
+        val compact = MemoryConfig.COMPACT
+        assertEquals(MemoryMode.COMPACT, compact.mode)
+        assertEquals(0.25, compact.summarizationThreshold, 0.001)
+        assertEquals(3, compact.protectedRecentTurns)
+        assertEquals(0.30, compact.memoryBudgetFraction, 0.001)
+
+        val balanced = MemoryConfig.BALANCED
+        assertEquals(MemoryMode.BALANCED, balanced.mode)
+        assertEquals(0.40, balanced.summarizationThreshold, 0.001)
+        assertEquals(6, balanced.protectedRecentTurns)
+        assertEquals(0.40, balanced.memoryBudgetFraction, 0.001)
+
+        val detail = MemoryConfig.DETAIL
+        assertEquals(MemoryMode.DETAIL, detail.mode)
+        assertEquals(0.60, detail.summarizationThreshold, 0.001)
+        assertEquals(10, detail.protectedRecentTurns)
+        assertEquals(0.50, detail.memoryBudgetFraction, 0.001)
+    }
+
+    @Test
+    fun `MemoryConfig preset factory should return correct preset`() {
+        assertEquals(MemoryConfig.preset(MemoryMode.COMPACT), MemoryConfig.COMPACT)
+        assertEquals(MemoryConfig.preset(MemoryMode.BALANCED), MemoryConfig.BALANCED)
+        assertEquals(MemoryConfig.preset(MemoryMode.DETAIL), MemoryConfig.DETAIL)
     }
 
     @Test
@@ -250,6 +309,17 @@ class AppConfigTest {
         )
         method.isAccessible = true
         return method.invoke(AppConfig, config, field, value) as ChatConfig
+    }
+
+    private fun updateMemoryFieldHelper(config: MemoryConfig, field: String, value: Any): MemoryConfig {
+        val method = AppConfig::class.java.getDeclaredMethod(
+            "updateMemoryField",
+            MemoryConfig::class.java,
+            String::class.java,
+            Any::class.java,
+        )
+        method.isAccessible = true
+        return method.invoke(AppConfig, config, field, value) as MemoryConfig
     }
 
     private fun updateDeveloperFieldHelper(config: DeveloperConfig, field: String, value: Any): DeveloperConfig {

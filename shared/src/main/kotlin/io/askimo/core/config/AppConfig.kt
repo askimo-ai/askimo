@@ -242,11 +242,128 @@ data class ProxyConfig(
 
 data class ChatConfig(
     val maxTokens: Int = 8000,
-    val summarizationThreshold: Double = 0.75,
-    val enableAsyncSummarization: Boolean = true,
     val summarizationTimeoutSeconds: Long = 300,
     val defaultResponseAILocale: String? = null,
 )
+
+/**
+ * Memory quality/cost preset modes.
+ *
+ * - [COMPACT]  – Aggressive summarization. Fires early, prunes hard, keeps small summaries.
+ *               Best for long sessions or cost-sensitive models.
+ * - [BALANCED] – Current defaults. Good quality/cost trade-off for general use.
+ * - [DETAIL]   – Minimal summarization. Keeps more verbatim turns and richer summaries.
+ *               Best for short sessions, coding, or precise recall tasks.
+ */
+enum class MemoryMode { COMPACT, BALANCED, DETAIL }
+
+/**
+ * Memory configuration. All fields are required and non-null.
+ * Select a [mode] to load the full preset via [MemoryConfig.preset]; the mode field is
+ * kept alongside the values so it can be persisted and displayed in settings.
+ *
+ * Preset values by mode:
+ * ```
+ * Field                      | COMPACT | BALANCED | DETAIL
+ * ---------------------------|---------|----------|-------
+ * summarizationThreshold     |  0.25   |   0.40   |  0.60
+ * protectedRecentTurns       |    3    |     6    |   10
+ * summarizationPruneFraction |  0.80   |   0.65   |  0.50
+ * maxKeyFacts                |   15    |    30    |   50
+ * maxMainTopics              |    8    |    15    |   25
+ * maxSummaryLength (chars)   |  1000   |  2000    | 4000
+ * memoryBudgetFraction       |  0.30   |   0.40   |  0.50
+ * ```
+ *
+ * Preset trade-offs:
+ * ```
+ * Mode     | Token cost | Context quality | Best for
+ * ---------|------------|-----------------|---------------------------
+ * COMPACT  | Low        | Less detail     | Long sessions, cheap models
+ * BALANCED | Medium     | Medium          | General use (default)
+ * DETAIL   | High       | High fidelity   | Short sessions, coding
+ * ```
+ */
+data class MemoryConfig(
+    val mode: MemoryMode = MemoryMode.BALANCED,
+    /**
+     * Fraction of [memoryBudgetFraction] × context-window tokens at which summarization
+     * is triggered. Lower values fire earlier. Range: 0.0–1.0.
+     */
+    val summarizationThreshold: Double = 0.40,
+    /**
+     * Number of the most-recent conversation messages always kept verbatim and
+     * never included in a summarization batch.
+     */
+    val protectedRecentTurns: Int = 6,
+    /**
+     * Fraction of eligible (non-protected) messages pruned in each summarization cycle,
+     * oldest first. Range: 0.0–1.0.
+     */
+    val summarizationPruneFraction: Double = 0.65,
+    /**
+     * Maximum number of distinct key facts retained in the structured conversation summary.
+     */
+    val maxKeyFacts: Int = 30,
+    /**
+     * Maximum number of distinct topic labels tracked across summary merges.
+     */
+    val maxMainTopics: Int = 15,
+    /**
+     * Character cap for the fallback extractive summary when AI summarization is unavailable.
+     */
+    val maxSummaryLength: Int = 2000,
+    /**
+     * Fraction of the model's total context window reserved for conversation history.
+     * Range: 0.0–1.0.
+     */
+    val memoryBudgetFraction: Double = 0.40,
+) {
+    companion object {
+        /** Returns the full preset [MemoryConfig] for the given [mode]. */
+        fun preset(mode: MemoryMode): MemoryConfig = when (mode) {
+            MemoryMode.COMPACT -> COMPACT
+            MemoryMode.BALANCED -> BALANCED
+            MemoryMode.DETAIL -> DETAIL
+        }
+
+        /** Aggressive summarization — lower token cost, less detail. */
+        val COMPACT = MemoryConfig(
+            mode = MemoryMode.COMPACT,
+            summarizationThreshold = 0.25,
+            protectedRecentTurns = 3,
+            summarizationPruneFraction = 0.80,
+            maxKeyFacts = 15,
+            maxMainTopics = 8,
+            maxSummaryLength = 1000,
+            memoryBudgetFraction = 0.30,
+        )
+
+        /** Current defaults — good quality/cost trade-off. */
+        val BALANCED = MemoryConfig(
+            mode = MemoryMode.BALANCED,
+            summarizationThreshold = 0.40,
+            protectedRecentTurns = 6,
+            summarizationPruneFraction = 0.65,
+            maxKeyFacts = 30,
+            maxMainTopics = 15,
+            maxSummaryLength = 2000,
+            memoryBudgetFraction = 0.40,
+        )
+
+        /** Minimal summarization — high fidelity, more tokens consumed. */
+        val DETAIL = MemoryConfig(
+            mode = MemoryMode.DETAIL,
+            summarizationThreshold = 0.60,
+            protectedRecentTurns = 10,
+            summarizationPruneFraction = 0.50,
+            maxKeyFacts = 50,
+            maxMainTopics = 25,
+            maxSummaryLength = 4000,
+            memoryBudgetFraction = 0.50,
+        )
+    }
+}
 
 /**
  * RAG (Retrieval-Augmented Generation) configuration.
@@ -398,6 +515,7 @@ data class AppConfigData(
     val indexing: IndexingConfig = IndexingConfig(),
     val developer: DeveloperConfig = DeveloperConfig(),
     val chat: ChatConfig = ChatConfig(),
+    val memory: MemoryConfig = MemoryConfig(),
     val rag: RagConfig = RagConfig(),
     val models: ModelsConfig = ModelsConfig(),
     val proxy: ProxyConfig = ProxyConfig(),
@@ -413,6 +531,7 @@ object AppConfig {
     val indexing: IndexingConfig get() = delegate.indexing
     val developer: DeveloperConfig get() = delegate.developer
     val chat: ChatConfig get() = delegate.chat
+    val memory: MemoryConfig get() = delegate.memory
     val rag: RagConfig get() = delegate.rag
     val models: ModelsConfig get() = delegate.models
     val context: AppContextParams get() = delegate.context
@@ -570,10 +689,18 @@ object AppConfig {
 
         chat:
           max_tokens:                    ${'$'}{ASKIMO_CHAT_MAX_TOKENS:8000}
-          summarization_threshold:       ${'$'}{ASKIMO_CHAT_SUMMARIZATION_THRESHOLD:0.75}
           summarization_timeout_seconds: ${'$'}{ASKIMO_CHAT_SUMMARIZATION_TIMEOUT:60}
-          enable_async_summarization:    ${'$'}{ASKIMO_CHAT_ENABLE_ASYNC_SUMMARIZATION:true}
           default_response_ai_locale:    ${'$'}{ASKIMO_CHAT_DEFAULT_RESPONSE_LOCALE:}
+
+        memory:
+          mode:                          ${'$'}{ASKIMO_MEMORY_MODE:BALANCED}
+          summarization_threshold:       ${'$'}{ASKIMO_MEMORY_SUMMARIZATION_THRESHOLD:0.40}
+          protected_recent_turns:        ${'$'}{ASKIMO_MEMORY_PROTECTED_RECENT_TURNS:6}
+          summarization_prune_fraction:  ${'$'}{ASKIMO_MEMORY_SUMMARIZATION_PRUNE_FRACTION:0.65}
+          max_key_facts:                 ${'$'}{ASKIMO_MEMORY_MAX_KEY_FACTS:30}
+          max_main_topics:               ${'$'}{ASKIMO_MEMORY_MAX_MAIN_TOPICS:15}
+          max_summary_length:            ${'$'}{ASKIMO_MEMORY_MAX_SUMMARY_LENGTH:2000}
+          memory_budget_fraction:        ${'$'}{ASKIMO_MEMORY_BUDGET_FRACTION:0.40}
 
         rag:
           vector_search_max_results:      ${'$'}{ASKIMO_RAG_VECTOR_SEARCH_MAX_RESULTS:20}
@@ -688,7 +815,8 @@ object AppConfig {
             }
             val interpolated = interpolateEnv(migrated)
             try {
-                mapper.readValue<AppConfigData>(interpolated)
+                val loaded = mapper.readValue<AppConfigData>(interpolated)
+                loaded.copy(memory = normalizeMemoryConfig(loaded.memory))
             } catch (e: Exception) {
                 log.displayError("Config parse failed at $path ", e)
                 envFallback()
@@ -724,8 +852,6 @@ object AppConfig {
             "projectTypes:" to "project_types:",
             "excludePaths:" to "exclude_paths:",
             "maxTokens:" to "max_tokens:",
-            "summarizationThreshold:" to "summarization_threshold:",
-            "enableAsyncSummarization:" to "enable_async_summarization:",
             "summarizationTimeoutSeconds:" to "summarization_timeout_seconds:",
             "defaultResponseAILocale:" to "default_response_ai_locale:",
             "vectorSearchMaxResults:" to "vector_search_max_results:",
@@ -817,8 +943,6 @@ object AppConfig {
 
         fun envList(k: String, def: String): Set<String> = System.getenv(k)?.split(",")?.map { it.trim() }?.toSet() ?: def.split(",").map { it.trim() }.toSet()
 
-        fun envNullableInt(k: String) = System.getenv(k)?.toIntOrNull()
-
         val emb =
             EmbeddingConfig(
                 maxCharsPerChunk = envInt("ASKIMO_EMBED_MAX_CHARS_PER_CHUNK", 4000),
@@ -861,9 +985,7 @@ object AppConfig {
         val chat =
             ChatConfig(
                 maxTokens = envInt("ASKIMO_CHAT_MAX_TOKENS", 8000),
-                summarizationThreshold = envDouble("ASKIMO_CHAT_SUMMARIZATION_THRESHOLD", 0.75),
                 summarizationTimeoutSeconds = envLong("ASKIMO_CHAT_SUMMARIZATION_TIMEOUT", 300L),
-                enableAsyncSummarization = System.getenv("ASKIMO_CHAT_ENABLE_ASYNC_SUMMARIZATION")?.toBoolean() ?: true,
                 defaultResponseAILocale = System.getenv("ASKIMO_CHAT_DEFAULT_RESPONSE_LOCALE")?.takeIf { it.isNotBlank() },
             )
 
@@ -956,7 +1078,21 @@ object AppConfig {
             enabled = System.getenv("ASKIMO_WEB_SEARCH_ENABLED")?.toBoolean() ?: true,
         )
 
-        return AppConfigData(emb, r, t, idx, dev, chat, rag, models, proxy, webSearch = webSearch)
+        val memoryMode = System.getenv("ASKIMO_MEMORY_MODE")
+            ?.let { runCatching { MemoryMode.valueOf(it) }.getOrNull() }
+            ?: MemoryMode.BALANCED
+        val memoryBase = MemoryConfig.preset(memoryMode)
+        val memory = memoryBase.copy(
+            summarizationThreshold = System.getenv("ASKIMO_MEMORY_SUMMARIZATION_THRESHOLD")?.toDoubleOrNull() ?: memoryBase.summarizationThreshold,
+            protectedRecentTurns = System.getenv("ASKIMO_MEMORY_PROTECTED_RECENT_TURNS")?.toIntOrNull() ?: memoryBase.protectedRecentTurns,
+            summarizationPruneFraction = System.getenv("ASKIMO_MEMORY_SUMMARIZATION_PRUNE_FRACTION")?.toDoubleOrNull() ?: memoryBase.summarizationPruneFraction,
+            maxKeyFacts = System.getenv("ASKIMO_MEMORY_MAX_KEY_FACTS")?.toIntOrNull() ?: memoryBase.maxKeyFacts,
+            maxMainTopics = System.getenv("ASKIMO_MEMORY_MAX_MAIN_TOPICS")?.toIntOrNull() ?: memoryBase.maxMainTopics,
+            maxSummaryLength = System.getenv("ASKIMO_MEMORY_MAX_SUMMARY_LENGTH")?.toIntOrNull() ?: memoryBase.maxSummaryLength,
+            memoryBudgetFraction = System.getenv("ASKIMO_MEMORY_BUDGET_FRACTION")?.toDoubleOrNull() ?: memoryBase.memoryBudgetFraction,
+        )
+
+        return AppConfigData(emb, r, t, idx, dev, chat, memory = memory, rag = rag, models = models, proxy = proxy, webSearch = webSearch)
     }
 
     /**
@@ -1061,6 +1197,8 @@ object AppConfig {
 
                 "chat" -> current.copy(chat = updateChatField(current.chat, field, value))
 
+                "memory" -> current.copy(memory = updateMemoryField(current.memory, field, value))
+
                 "rag" -> current.copy(rag = updateRagField(current.rag, field, value))
 
                 "models" -> current.copy(models = updateModelsField(current.models, field, value))
@@ -1090,6 +1228,31 @@ object AppConfig {
                     log.displayError("Failed to persist $path to config file", e)
                 }
             }
+        }
+    }
+
+    /**
+     * After YAML deserialization, checks whether [MemoryConfig] fields are consistent with
+     * the selected [MemoryMode]. If a non-BALANCED mode is selected but all numeric fields
+     * still hold the BALANCED defaults (e.g. the YAML had `null` values that Jackson defaulted),
+     * the config is auto-resolved to the correct mode preset and a warning is logged.
+     */
+    private fun normalizeMemoryConfig(memory: MemoryConfig): MemoryConfig {
+        if (memory.mode == MemoryMode.BALANCED) return memory
+        val balanced = MemoryConfig.BALANCED
+        val looksDefaulted = memory.summarizationThreshold == balanced.summarizationThreshold &&
+            memory.protectedRecentTurns == balanced.protectedRecentTurns &&
+            memory.summarizationPruneFraction == balanced.summarizationPruneFraction &&
+            memory.maxKeyFacts == balanced.maxKeyFacts &&
+            memory.maxMainTopics == balanced.maxMainTopics &&
+            memory.maxSummaryLength == balanced.maxSummaryLength &&
+            memory.memoryBudgetFraction == balanced.memoryBudgetFraction
+        return if (looksDefaulted) {
+            val resolved = MemoryConfig.preset(memory.mode)
+            log.warn("Memory config fields appear unset (defaulted to BALANCED) but mode=${memory.mode}. Auto-resolving to ${memory.mode} preset.")
+            resolved
+        } else {
+            memory
         }
     }
 
@@ -1125,10 +1288,6 @@ object AppConfig {
     private fun updateChatField(config: ChatConfig, field: String, value: Any): ChatConfig = when (field) {
         "maxTokens" -> config.copy(maxTokens = value as Int)
 
-        "summarizationThreshold" -> config.copy(summarizationThreshold = (value as Number).toDouble())
-
-        "enableAsyncSummarization" -> config.copy(enableAsyncSummarization = value as Boolean)
-
         "defaultResponseAILocale" -> {
             val newLocale = if (value is String && value.isBlank()) null else value as? String
             EventBus.post(
@@ -1136,6 +1295,34 @@ object AppConfig {
             )
             config.copy(defaultResponseAILocale = newLocale)
         }
+
+        else -> config
+    }
+
+    private fun updateMemoryField(config: MemoryConfig, field: String, value: Any): MemoryConfig = when (field) {
+        "mode" -> {
+            val newMode = when (value) {
+                is MemoryMode -> value
+                else -> runCatching { MemoryMode.valueOf(value.toString()) }.getOrElse { config.mode }
+            }
+            // Swapping mode replaces the entire config with the mode's preset.
+            // Individual fields can still be overridden afterwards via separate updateField calls.
+            MemoryConfig.preset(newMode)
+        }
+
+        "summarizationThreshold" -> config.copy(summarizationThreshold = (value as Number).toDouble())
+
+        "protectedRecentTurns" -> config.copy(protectedRecentTurns = (value as Number).toInt())
+
+        "summarizationPruneFraction" -> config.copy(summarizationPruneFraction = (value as Number).toDouble())
+
+        "maxKeyFacts" -> config.copy(maxKeyFacts = (value as Number).toInt())
+
+        "maxMainTopics" -> config.copy(maxMainTopics = (value as Number).toInt())
+
+        "maxSummaryLength" -> config.copy(maxSummaryLength = (value as Number).toInt())
+
+        "memoryBudgetFraction" -> config.copy(memoryBudgetFraction = (value as Number).toDouble())
 
         else -> config
     }

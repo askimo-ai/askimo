@@ -13,6 +13,7 @@ import dev.langchain4j.memory.ChatMemory
 import io.askimo.core.chat.domain.SessionMemory
 import io.askimo.core.chat.repository.SessionMemoryRepository
 import io.askimo.core.chat.repository.UserMemoryRepository
+import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
 import io.askimo.core.context.MessageRole
 import io.askimo.core.logging.logger
@@ -111,9 +112,9 @@ data class UserMemorySummary(
  *
  * ## What gets summarized
  *
- * The last [PROTECTED_RECENT_TURNS] messages are always kept verbatim so the AI
+ * The last `protectedRecentTurns` messages are always kept verbatim so the AI
  * always sees full-fidelity context for the most recent exchanges. Of the
- * remaining candidates, [SUMMARIZATION_PRUNE_FRACTION] (65 %) are compressed
+ * remaining candidates, `summarizationPruneFraction` are compressed
  * and pruned oldest-first each cycle, creating generous breathing room before
  * the next trigger fires.
  *
@@ -139,8 +140,7 @@ data class UserMemorySummary(
  * @param sessionId The session ID this memory belongs to (required for persistence)
  * @param sessionMemoryRepository Repository for persisting memory state (required)
  * @param tokenEstimator Function to estimate token count for a message (default: words × 1.75)
- * @param summarizationThreshold Fraction (0.0–1.0) of maxTokens at which summarization fires (default 0.4)
- * @param asyncSummarization Whether to run summarization asynchronously (default true)
+ * @param asyncSummarization Whether to run summarization asynchronously (default true; set false in tests only)
  * @param summarizationTimeoutSeconds Timeout for summarization operations in seconds (default 300)
  */
 class TokenAwareSummarizingMemory(
@@ -149,7 +149,6 @@ class TokenAwareSummarizingMemory(
     private val sessionMemoryRepository: SessionMemoryRepository,
     private val userMemoryRepository: UserMemoryRepository? = null,
     private val tokenEstimator: (ChatMessage) -> Int = defaultTokenEstimator(),
-    private val summarizationThreshold: Double = 0.4,
     asyncSummarization: Boolean = true,
     private val summarizationTimeoutSeconds: Long = 300,
 ) : ChatMemory,
@@ -187,9 +186,8 @@ class TokenAwareSummarizingMemory(
      * reflects the latest context size from ModelCapabilitiesCache (which may be updated
      * as the system learns the actual model capabilities).
      *
-     * Uses 40% of the model's context window, leaving room for:
-     * - Current conversation in request (~40%)
-     * - AI response (20% reserved in ChatRequestTransformers)
+     * Uses `AppConfig.memory.memoryBudgetFraction` of the model's context window,
+     * leaving room for the current request and AI response.
      */
     private val maxTokens: Int
         get() = calculateMaxTokensFromCurrentModel()
@@ -200,11 +198,13 @@ class TokenAwareSummarizingMemory(
         val modelKey = ModelCapabilitiesCache.modelKey(provider, model)
         val contextSize = ModelCapabilitiesCache.get(modelKey).contextSize
 
-        val memoryAllocation = (contextSize * 0.4).toInt()
+        val budgetFraction = AppConfig.memory.memoryBudgetFraction
+        val memoryAllocation = (contextSize * budgetFraction).toInt()
 
         log.debug(
-            "Calculated maxTokens for memory: {} (40% of {} tokens from {})",
+            "Calculated maxTokens for memory: {} ({}% of {} tokens from {})",
             memoryAllocation,
+            (budgetFraction * 100).toInt(),
             contextSize,
             modelKey,
         )
@@ -232,7 +232,7 @@ class TokenAwareSummarizingMemory(
         persistToDatabase()
 
         val totalTokens = estimateTotalTokens()
-        val threshold = (maxTokens * summarizationThreshold).toInt()
+        val threshold = (maxTokens * AppConfig.memory.summarizationThreshold).toInt()
 
         log.debug("Current tokens: $totalTokens, Threshold: $threshold, Max: $maxTokens")
 
@@ -306,7 +306,7 @@ class TokenAwareSummarizingMemory(
         )
 
         val totalTokens = estimateTotalTokens()
-        val threshold = (maxTokens * summarizationThreshold).toInt()
+        val threshold = (maxTokens * AppConfig.memory.summarizationThreshold).toInt()
 
         log.debug(
             "After batch load - Total tokens: {}, Threshold: {}, Max: {}",
@@ -398,8 +398,8 @@ class TokenAwareSummarizingMemory(
                         messages.filterNot { it.type() == ChatMessageType.SYSTEM }
                     }
                     if (conversationMessages.isNotEmpty()) {
-                        val summarizableCandidates = (conversationMessages.size - PROTECTED_RECENT_TURNS).coerceAtLeast(0)
-                        val messagesToSummarizeCount = (summarizableCandidates * SUMMARIZATION_PRUNE_FRACTION).toInt().coerceAtLeast(if (summarizableCandidates > 0) 1 else conversationMessages.size)
+                        val summarizableCandidates = (conversationMessages.size - AppConfig.memory.protectedRecentTurns).coerceAtLeast(0)
+                        val messagesToSummarizeCount = (summarizableCandidates * AppConfig.memory.summarizationPruneFraction).toInt().coerceAtLeast(if (summarizableCandidates > 0) 1 else conversationMessages.size)
                         val messagesToSummarize = conversationMessages.take(messagesToSummarizeCount)
                         generateBasicSummary(messagesToSummarize)
                         pruneMessages(messagesToSummarize)
@@ -435,23 +435,23 @@ class TokenAwareSummarizingMemory(
 
         if (conversationMessages.isEmpty()) return
 
-        // Always protect the most recent turns verbatim. Summarize 65% of the
+        // Always protect the most recent turns verbatim. Summarize the configured fraction of the
         // remaining candidates (oldest first) so each cycle creates significant
         // breathing room before the next trigger fires.
-        val summarizableCandidates = (conversationMessages.size - PROTECTED_RECENT_TURNS).coerceAtLeast(0)
-        val messagesToSummarizeCount = (summarizableCandidates * SUMMARIZATION_PRUNE_FRACTION).toInt().coerceAtLeast(
+        val summarizableCandidates = (conversationMessages.size - AppConfig.memory.protectedRecentTurns).coerceAtLeast(0)
+        val messagesToSummarizeCount = (summarizableCandidates * AppConfig.memory.summarizationPruneFraction).toInt().coerceAtLeast(
             if (summarizableCandidates > 0) 1 else 0,
         )
 
         if (messagesToSummarizeCount == 0) {
-            log.debug("Not enough non-protected messages to summarize yet (total: ${conversationMessages.size}, protected: $PROTECTED_RECENT_TURNS)")
+            log.debug("Not enough non-protected messages to summarize yet (total: ${conversationMessages.size}, protected: ${AppConfig.memory.protectedRecentTurns})")
             return
         }
 
         // Copy messages to avoid holding lock during AI call
         val messagesToSummarize = conversationMessages.take(messagesToSummarizeCount)
 
-        log.info("Summarizing $messagesToSummarizeCount out of ${conversationMessages.size} conversation messages (protected last $PROTECTED_RECENT_TURNS)")
+        log.info("Summarizing $messagesToSummarizeCount out of ${conversationMessages.size} conversation messages (protected last ${AppConfig.memory.protectedRecentTurns})")
 
         try {
             generateStructuredSummary(messagesToSummarize)
@@ -515,20 +515,15 @@ class TokenAwareSummarizingMemory(
     private fun mergeWithExistingSummary(newSummary: SessionConversationSummary): SessionConversationSummary {
         val existing = structuredSummary ?: return newSummary
 
-        // Merge keyFacts using LRU-by-relevance: existing facts come first, then new
-        // facts are re-inserted at the end (removing the old entry first so that
-        // updating an existing key refreshes its "recency" position). When the total
-        // exceeds MAX_KEY_FACTS the oldest entries at the front are dropped — these are
-        // facts that have not appeared in any recent summarization cycle and are
-        // therefore the least likely to still be relevant.
+        // Merge keyFacts using LRU-by-relevance
         val mergedFacts = LinkedHashMap<String, String>(existing.keyFacts)
         newSummary.keyFacts.forEach { (k, v) ->
-            mergedFacts.remove(k) // reset insertion order so updated keys move to back
+            mergedFacts.remove(k)
             mergedFacts[k] = v
         }
-        val cappedFacts = if (mergedFacts.size > MAX_KEY_FACTS) {
+        val cappedFacts = if (mergedFacts.size > AppConfig.memory.maxKeyFacts) {
             mergedFacts.entries
-                .drop(mergedFacts.size - MAX_KEY_FACTS)
+                .drop(mergedFacts.size - AppConfig.memory.maxKeyFacts)
                 .associate { it.toPair() }
         } else {
             mergedFacts.toMap()
@@ -537,7 +532,7 @@ class TokenAwareSummarizingMemory(
         // Cap mainTopics — takeLast keeps the most recently observed topics.
         val mergedTopics = (existing.mainTopics + newSummary.mainTopics)
             .distinct()
-            .takeLast(MAX_MAIN_TOPICS)
+            .takeLast(AppConfig.memory.maxMainTopics)
 
         return SessionConversationSummary(
             keyFacts = cappedFacts,
@@ -569,7 +564,7 @@ class TokenAwareSummarizingMemory(
             if (messagesToSummarize.size > 6) {
                 appendLine("... (${messagesToSummarize.size - 4} more messages)")
             }
-        }.take(MAX_SUMMARY_LENGTH)
+        }.take(AppConfig.memory.maxSummaryLength)
 
         basicSummary = newSummary
         log.info("Generated basic summary (${newSummary.length} chars)")
@@ -730,35 +725,6 @@ class TokenAwareSummarizingMemory(
     }
 
     companion object {
-        private const val MAX_SUMMARY_LENGTH = 2000
-
-        /**
-         * Number of most-recent conversation messages always kept verbatim.
-         * These are never included in a summarization batch, ensuring the AI
-         * always sees full-fidelity context for the latest exchanges.
-         */
-        private const val PROTECTED_RECENT_TURNS = 6
-
-        /**
-         * Fraction of the summarizable (non-protected) messages to compress
-         * and prune each summarization cycle. 0.65 means 65% of candidates are
-         * removed, leaving more breathing room before the next cycle fires.
-         */
-        private const val SUMMARIZATION_PRUNE_FRACTION = 0.65
-
-        /**
-         * Maximum number of key facts retained in the merged structured summary.
-         * Uses LRU-by-relevance eviction: facts that appear in recent summarization
-         * cycles are refreshed to the back of the map; facts not seen recently drift
-         * to the front and are dropped when this cap is exceeded.
-         */
-        private const val MAX_KEY_FACTS = 30
-
-        /**
-         * Maximum number of distinct main topics retained across summary merges.
-         * The most recently observed topics are kept (takeLast semantics).
-         */
-        private const val MAX_MAIN_TOPICS = 15
 
         /**
          * Default token estimator: word count × 1.75.

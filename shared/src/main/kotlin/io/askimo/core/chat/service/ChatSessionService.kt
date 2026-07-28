@@ -198,7 +198,6 @@ class ChatSessionService(
             sessionId = sessionId,
             sessionMemoryRepository = sessionMemoryRepository,
             userMemoryRepository = DatabaseManager.getInstance().getUserMemoryRepository(),
-            asyncSummarization = true,
             summarizationTimeoutSeconds = AppConfig.chat.summarizationTimeoutSeconds,
         )
     }
