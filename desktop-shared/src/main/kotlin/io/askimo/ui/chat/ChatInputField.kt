@@ -100,7 +100,7 @@ import io.askimo.core.chat.domain.ChatDirective
 import io.askimo.core.chat.domain.DirectiveScope
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
-import io.askimo.core.chat.service.DirectiveImportResult
+import io.askimo.core.chat.service.ChatDirectiveService
 import io.askimo.core.chat.util.FileContentExtractor
 import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
@@ -185,15 +185,8 @@ fun chatInputField(
     placeholder: String = stringResource("chat.input.placeholder"),
     onEnabledServerIdsChange: ((Set<String>) -> Unit)? = null,
     onNavigateToMcpSettings: (() -> Unit)? = null,
-    // Directives chip
-    availableDirectives: List<ChatDirective> = emptyList(),
     selectedDirective: String? = null,
     onToggleDirective: (String?) -> Unit = {},
-    onDirectiveCreated: ((name: String, content: String, applyToCurrent: Boolean) -> Unit)? = null,
-    onDirectiveUpdated: ((id: String, newName: String, newContent: String) -> Unit)? = null,
-    onDirectiveDeleted: ((id: String) -> Unit)? = null,
-    onDirectiveExported: (() -> String)? = null,
-    onDirectiveImported: ((json: String) -> DirectiveImportResult)? = null,
     modifier: Modifier = Modifier,
 ) {
     val inputFocusRequester = remember { FocusRequester() }
@@ -327,6 +320,14 @@ fun chatInputField(
     var directivePopupExpanded by remember { mutableStateOf(false) }
     var showNewDirectiveDialog by remember { mutableStateOf(false) }
     var showManageDirectivesDialog by remember { mutableStateOf(false) }
+
+    val directiveService = remember {
+        KoinJavaComponent.get<ChatDirectiveService>(ChatDirectiveService::class.java)
+    }
+    var availableDirectives by remember { mutableStateOf<List<ChatDirective>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        availableDirectives = directiveService.listAllDirectives()
+    }
 
     // State for resizable text field.
     val fontScale = LocalFontScale.current
@@ -980,28 +981,37 @@ fun chatInputField(
         newDirectiveDialog(
             onDismiss = { showNewDirectiveDialog = false },
             onConfirm = { name, content, applyToCurrent ->
-                onDirectiveCreated?.invoke(name, content, applyToCurrent)
+                val newDirective = directiveService.createDirective(name, content)
+                availableDirectives = directiveService.listAllDirectives()
+                if (applyToCurrent) onToggleDirective(newDirective.id)
                 showNewDirectiveDialog = false
             },
         )
     }
 
-    if (showManageDirectivesDialog && onDirectiveUpdated != null) {
+    if (showManageDirectivesDialog) {
         manageDirectivesDialog(
             directives = availableDirectives,
             onDismiss = { showManageDirectivesDialog = false },
             onAdd = { name, content, applyToCurrent ->
-                onDirectiveCreated?.invoke(name, content, applyToCurrent)
+                val newDirective = directiveService.createDirective(name, content)
+                availableDirectives = directiveService.listAllDirectives()
+                if (applyToCurrent) onToggleDirective(newDirective.id)
             },
             onUpdate = { id, newName, newContent ->
-                onDirectiveUpdated.invoke(id, newName, newContent)
+                directiveService.updateDirective(id, newName, newContent)
+                availableDirectives = directiveService.listAllDirectives()
             },
             onDelete = { id ->
-                onDirectiveDeleted?.invoke(id)
+                directiveService.deleteDirective(id)
+                if (selectedDirective == id) onToggleDirective(null)
+                availableDirectives = directiveService.listAllDirectives()
             },
-            onExport = { onDirectiveExported?.invoke() ?: "" },
+            onExport = { directiveService.exportToJson() },
             onImport = { json ->
-                onDirectiveImported?.invoke(json) ?: DirectiveImportResult(0, 0, 0)
+                val result = directiveService.importFromJson(json)
+                availableDirectives = directiveService.listAllDirectives()
+                result
             },
         )
     }

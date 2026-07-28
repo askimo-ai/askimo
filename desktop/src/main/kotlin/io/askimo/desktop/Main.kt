@@ -2100,13 +2100,14 @@ fun mainContent(
                         projectView(
                             project = project,
                             onBack = onNavigateToProjects,
-                            onStartChat = { projId, mode, message, attachments, enabledServerIds ->
+                            onStartChat = { projId, mode, message, attachments, enabledServerIds, directiveId ->
                                 sessionManager.createProjectSessionAndSendMessage(
                                     projectId = projId,
                                     mode = mode,
                                     message = message,
                                     attachments = attachments,
                                     enabledServerIds = enabledServerIds,
+                                    directiveId = directiveId,
                                     onComplete = { onNavigateToChat() },
                                 )
                             },

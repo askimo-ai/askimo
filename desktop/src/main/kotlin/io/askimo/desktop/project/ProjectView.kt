@@ -111,7 +111,7 @@ import kotlin.let
 fun projectView(
     project: Project,
     onBack: () -> Unit,
-    onStartChat: (projectId: String, mode: CreationMode, message: String, attachments: List<FileAttachmentDTO>, enabledServerIds: Set<String>) -> Unit,
+    onStartChat: (projectId: String, mode: CreationMode, message: String, attachments: List<FileAttachmentDTO>, enabledServerIds: Set<String>, directiveId: String?) -> Unit,
     onResumeSession: (String) -> Unit,
     onDeleteSession: (sessionId: String, projectId: String) -> Unit,
     onRenameSession: (String, String) -> Unit,
@@ -131,6 +131,7 @@ fun projectView(
     var inputText by remember { mutableStateOf(TextFieldValue("")) }
     var attachments by remember { mutableStateOf<List<FileAttachmentDTO>>(emptyList()) }
     var currentEnabledServerIds by remember { mutableStateOf(emptySet<String>()) }
+    var selectedDirective by remember { mutableStateOf<String?>(null) }
     var showProjectMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showReIndexConfirmDialog by remember { mutableStateOf(false) }
@@ -377,13 +378,15 @@ fun projectView(
                         onAttachmentsChange = { attachments = it },
                         onSendMessage = { mode ->
                             if (inputText.text.isNotBlank()) {
-                                onStartChat(currentProject.id, mode, inputText.text, attachments, currentEnabledServerIds)
+                                onStartChat(currentProject.id, mode, inputText.text, attachments, currentEnabledServerIds, selectedDirective)
                                 inputText = TextFieldValue("")
                                 attachments = emptyList()
                             }
                         },
                         onEnabledServerIdsChange = { currentEnabledServerIds = it },
                         onNavigateToMcpSettings = onNavigateToMcpSettings,
+                        selectedDirective = selectedDirective,
+                        onToggleDirective = { selectedDirective = it },
                         sessionId = currentProject.id,
                         placeholder = stringResource("project.new.chat.placeholder", currentProject.name),
                         modifier = Modifier.padding(top = Spacing.large),

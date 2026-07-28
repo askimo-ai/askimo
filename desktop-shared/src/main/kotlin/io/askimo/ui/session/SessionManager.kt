@@ -531,6 +531,7 @@ class SessionManager(
         message: String,
         attachments: List<FileAttachmentDTO> = emptyList(),
         enabledServerIds: Set<String> = emptySet(),
+        directiveId: String? = null,
         onComplete: () -> Unit,
     ) {
         scope.launch {
@@ -540,7 +541,7 @@ class SessionManager(
                     ChatSession(
                         id = "",
                         title = message,
-                        directiveId = null,
+                        directiveId = directiveId,
                         projectId = projectId,
                     ),
                 )
@@ -556,6 +557,7 @@ class SessionManager(
 
                 // Now send the message - ViewModel is ready
                 val viewModel = getOrCreateChatViewModel(newSession.id)
+                if (directiveId != null) viewModel.setDirective(directiveId)
                 viewModel.sendMessage(projectId, mode, message, attachments, enabledServerIds)
             } catch (e: Exception) {
                 log.error("Failed to create project session and send message", e)
