@@ -57,6 +57,21 @@ fun globalErrorHandler(onStateChange: (ErrorDialogState) -> Unit) {
                             )
                         }
 
+                        IndexingErrorType.EMBEDDING_INPUT_TOO_LARGE -> {
+                            val files = event.details["files"] ?: "unknown"
+                            onStateChange(
+                                ErrorDialogState(
+                                    show = true,
+                                    title = LocalizationManager.getString("error.indexing.input_too_large.title"),
+                                    message = LocalizationManager.getString(
+                                        "error.indexing.input_too_large.message",
+                                        files,
+                                    ),
+                                    details = event.details["message"],
+                                ),
+                            )
+                        }
+
                         IndexingErrorType.IO_ERROR -> {
                             onStateChange(
                                 ErrorDialogState(

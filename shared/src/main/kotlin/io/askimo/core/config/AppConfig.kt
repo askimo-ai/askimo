@@ -98,7 +98,6 @@ private class CommaSeparatedSetDeserializer : StdDeserializer<Set<String>>(Set::
     override fun deserialize(p: JsonParser, ctxt: DeserializationContext): Set<String> = parseCommaSeparated(p).toSet()
 }
 
-// TODO: Remove @JsonAlias camelCase aliases in v1.2.30 — kept for backward compatibility with pre-snake_case config files
 data class IndexingConfig(
     val maxFileBytes: Long = 5_000_000,
     val concurrentIndexingThreads: Int = 3,

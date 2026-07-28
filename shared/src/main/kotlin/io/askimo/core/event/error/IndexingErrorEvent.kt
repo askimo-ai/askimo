@@ -30,6 +30,17 @@ data class IndexingErrorEvent(
  */
 enum class IndexingErrorType {
     EMBEDDING_MODEL_NOT_FOUND,
+
+    /**
+     * The embedding server rejected a segment because its token count exceeds the
+     * model's configured physical batch size (e.g. "input (767 tokens) is too large
+     * to process. increase the physical batch size (current batch size: 512)").
+     *
+     * The [IndexingErrorEvent.details] map contains:
+     * - `"files"` – comma-separated list of affected file names
+     * - `"message"` – the raw server error message
+     */
+    EMBEDDING_INPUT_TOO_LARGE,
     IO_ERROR,
     UNKNOWN_ERROR,
 }

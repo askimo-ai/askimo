@@ -12,6 +12,8 @@ import io.askimo.core.chat.repository.ResourceSegmentRepository
 import io.askimo.core.config.AppConfig
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
+import io.askimo.core.event.error.IndexingErrorEvent
+import io.askimo.core.event.error.IndexingErrorType
 import io.askimo.core.event.system.ShellErrorEvent
 import io.askimo.core.logging.logger
 import io.askimo.core.rag.LuceneIndexer
@@ -70,7 +72,7 @@ class HybridIndexer(
             }
         }
 
-        return if (snapshot != null) flushSnapshot(snapshot) else true
+        return snapshot == null || flushSnapshot(snapshot)
     }
 
     /**
@@ -190,6 +192,23 @@ class HybridIndexer(
             } else {
                 "${fileNames.take(3).joinToString()} and ${fileNames.size - 3} more"
             }
+
+            if (e.isInputTooLargeError()) {
+                // Surface as a prominent dialog (ERROR channel) so the user sees it
+                // immediately, not just as a passive notification-bell entry.
+                EventBus.emit(
+                    IndexingErrorEvent(
+                        projectId = projectId,
+                        errorType = IndexingErrorType.EMBEDDING_INPUT_TOO_LARGE,
+                        details = mapOf(
+                            "files" to displayNames,
+                            "message" to (e.message ?: ""),
+                        ),
+                    ),
+                )
+            }
+            // Always keep a ShellErrorEvent so the notification-bell retains history
+            // even after the dialog is dismissed.
             EventBus.emit(
                 ShellErrorEvent(
                     cause = e,
@@ -245,6 +264,23 @@ class HybridIndexer(
 
     private fun Exception.isForeignKeyViolation(): Boolean = message?.contains("SQLITE_CONSTRAINT_FOREIGNKEY") == true ||
         cause?.message?.contains("SQLITE_CONSTRAINT_FOREIGNKEY") == true
+
+    /**
+     * Returns true when the embedding server rejects a segment because its token count
+     * exceeds the model's physical batch/context size.
+     *
+     * Matches error messages like:
+     * - "input (767 tokens) is too large to process. increase the physical batch size (current batch size: 512)"
+     * - "input is too large" / "too many tokens"
+     */
+    private fun Exception.isInputTooLargeError(): Boolean {
+        val msg = message?.lowercase() ?: ""
+        val causeMsg = cause?.message?.lowercase() ?: ""
+        return (
+            msg.contains("too large") || msg.contains("too many tokens") ||
+                causeMsg.contains("too large") || causeMsg.contains("too many tokens")
+            )
+    }
 
     /**
      * Remove all segments for a file from both the embedding store, keyword index, and tracking database
