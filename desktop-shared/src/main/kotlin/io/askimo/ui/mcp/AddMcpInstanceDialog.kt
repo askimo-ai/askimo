@@ -407,6 +407,8 @@ fun addMcpInstanceDialog(
             secondaryButton(
                 onClick = {
                     dialogState.clearError()
+                    testSuccess = null
+                    availableTools = emptyList()
                     isTesting = true
                     scope.launch {
                         try {
@@ -416,10 +418,12 @@ fun addMcpInstanceDialog(
                                 }
                                 .onFailure { e ->
                                     testSuccess = false
+                                    availableTools = emptyList()
                                     dialogState.setError(e, "Failed to connect to MCP server. Check your configuration.")
                                 }
                         } catch (e: Exception) {
                             testSuccess = false
+                            availableTools = emptyList()
                             dialogState.setError(e, "Connection test failed")
                         } finally {
                             isTesting = false
@@ -433,6 +437,8 @@ fun addMcpInstanceDialog(
             primaryButton(
                 onClick = {
                     dialogState.clearError()
+                    testSuccess = null
+                    availableTools = emptyList()
                     isTesting = true
                     scope.launch {
                         try {
@@ -447,10 +453,12 @@ fun addMcpInstanceDialog(
                                 }
                                 .onFailure { e ->
                                     testSuccess = false
+                                    availableTools = emptyList()
                                     dialogState.setError(e, "Failed to connect to MCP server. Check your configuration.")
                                 }
                         } catch (e: Exception) {
                             testSuccess = false
+                            availableTools = emptyList()
                             dialogState.setError(e, "Failed to save MCP instance")
                         } finally {
                             isTesting = false
