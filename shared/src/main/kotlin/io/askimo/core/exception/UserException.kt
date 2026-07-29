@@ -46,19 +46,6 @@ class AuthenticationException(
 }
 
 /**
- * Model configuration issues (no model selected, invalid model).
- */
-class ModelConfigurationException(
-    val issue: String,
-    cause: Throwable? = null,
-) : UserException("Model configuration error", cause) {
-
-    override fun getMessageKey() = "error.model_configuration"
-
-    override fun getMessageArgs() = mapOf("issue" to issue)
-}
-
-/**
  * Rate limit or quota exceeded.
  */
 class RateLimitException(
@@ -153,6 +140,17 @@ class LocalServerException(
 ) : UserException("Local AI server error", cause) {
     override fun getMessageKey() = "error.local_server"
     override fun getMessageArgs() = mapOf("details" to details)
+}
+
+/**
+ * Model not found — the selected model has been deprecated or removed by the provider.
+ */
+class ModelNotFoundChatException(
+    val model: String,
+    cause: Throwable? = null,
+) : UserException("Model not found: $model", cause) {
+    override fun getMessageKey() = "error.model_not_found"
+    override fun getMessageArgs() = mapOf("model" to model)
 }
 
 /**

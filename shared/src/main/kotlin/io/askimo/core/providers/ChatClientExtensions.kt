@@ -6,11 +6,14 @@ package io.askimo.core.providers
 
 import dev.langchain4j.data.message.UserMessage
 import dev.langchain4j.exception.InternalServerException
+import dev.langchain4j.exception.ModelNotFoundException
 import dev.langchain4j.model.googleai.GeneratedImageHelper
 import io.askimo.core.context.AppContext
 import io.askimo.core.context.ChatContext
+import io.askimo.core.exception.AuthenticationException
 import io.askimo.core.exception.ExceptionHandler
 import io.askimo.core.exception.LocalServerException
+import io.askimo.core.exception.ModelNotFoundChatException
 import io.askimo.core.exception.ToolExecutionException
 import io.askimo.core.intent.DetectAiResponseIntentCommand
 import io.askimo.core.intent.FollowUpSuggestion
@@ -237,10 +240,22 @@ fun ChatClient.sendStreamingMessageWithCallback(
                                 return@onError
                             }
 
-                            val isModelError = errorMessage.contains("model is required") ||
-                                errorMessage.contains("No model provided") ||
-                                errorMessage.contains("model not found") ||
-                                errorMessage.contains("invalid model")
+                            // Check for model not found (e.g. deprecated or removed model)
+                            if (e is ModelNotFoundException) {
+                                isConfigurationError = true
+                                val modelNotFoundMsg = ExceptionHandler.handle(
+                                    ModelNotFoundChatException(model = model, cause = e),
+                                )
+                                sb.append(modelNotFoundMsg)
+                                onToken(modelNotFoundMsg)
+                                done.countDown()
+                                return@onError
+                            }
+
+                            val isModelError = errorMessage.contains("model is required", ignoreCase = true) ||
+                                errorMessage.contains("No model provided", ignoreCase = true) ||
+                                errorMessage.contains("model not found", ignoreCase = true) ||
+                                errorMessage.contains("invalid model", ignoreCase = true)
 
                             val isApiKeyError = errorMessage.contains("api key") ||
                                 errorMessage.contains("authentication") ||
@@ -253,24 +268,13 @@ fun ChatClient.sendStreamingMessageWithCallback(
                             if (isModelError || isApiKeyError) {
                                 isConfigurationError = true
                                 val helpMessage = when {
-                                    isModelError -> """
-                                    ⚠️  Model configuration required!
+                                    isModelError -> ExceptionHandler.handle(
+                                        ModelNotFoundChatException(model = model, cause = e),
+                                    )
 
-                                    It looks like you haven't selected a model yet. Please configure your setup:
-
-                                    1. Set a provider: :set-provider openai
-                                    2. Check available models: :models
-                                    3. Select a model from the list
-                                    """.trimIndent()
-
-                                    else -> """
-                                    ⚠️  API key configuration required!
-
-                                    Your API key is missing or invalid. Please configure it:
-
-                                    Interactive mode: :set-param api_key YOUR_API_KEY
-                                    Command line: --set-param api_key YOUR_API_KEY
-                                    """.trimIndent()
+                                    else -> ExceptionHandler.handle(
+                                        AuthenticationException(cause = e),
+                                    )
                                 }
 
                                 sb.append(helpMessage)

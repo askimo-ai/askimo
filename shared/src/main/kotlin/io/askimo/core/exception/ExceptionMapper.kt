@@ -94,8 +94,8 @@ object ExceptionMapper {
         is java.util.concurrent.TimeoutException,
         -> TimeoutException(timeoutSeconds = 30, cause = exception)
 
-        is ModelNotFoundException -> ModelConfigurationException(
-            issue = "Specified model not found",
+        is ModelNotFoundException -> ModelNotFoundChatException(
+            model = exception.message?.substringAfterLast(" ") ?: "unknown",
             cause = exception,
         )
 
@@ -153,8 +153,8 @@ object ExceptionMapper {
                 combinedMessage.contains("model not found", ignoreCase = true) ||
                 combinedMessage.contains("invalid model", ignoreCase = true) ||
                 combinedMessage.contains("does not exist", ignoreCase = true) ->
-                ModelConfigurationException(
-                    issue = "No model selected or invalid model specified",
+                ModelNotFoundChatException(
+                    model = "",
                     cause = rootCause,
                 )
 
