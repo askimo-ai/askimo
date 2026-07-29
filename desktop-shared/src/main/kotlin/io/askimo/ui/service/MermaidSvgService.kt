@@ -18,6 +18,9 @@ import java.util.concurrent.TimeUnit
  */
 class MermaidCliNotAvailableException(message: String) : Exception(message)
 
+/** Maximum time to wait for `npm install -g @mermaid-js/mermaid-cli` to finish. */
+private const val INSTALL_TIMEOUT_MINUTES = 10L
+
 /**
  * Service for converting Mermaid diagrams to SVG using local Mermaid CLI.
  *
@@ -109,6 +112,94 @@ class MermaidSvgService {
 
         cachedAvailability = result
         return result
+    }
+
+    /**
+     * Clears the cached CLI availability so the next call to [isMermaidCliAvailable]
+     * performs a fresh check. Used by the setup screen's "Check Again" flow and after
+     * an in-app installation completes.
+     */
+    fun resetAvailabilityCache() {
+        cachedAvailability = null
+    }
+
+    /**
+     * Checks if npm is available on the system. Not cached — the setup screen calls
+     * this once to decide whether the one-click install button can be offered.
+     *
+     * @return true if npm is installed and accessible
+     */
+    fun isNpmAvailable(): Boolean = try {
+        val process = ProcessBuilderExt("npm", "--version")
+            .redirectErrorStream(true)
+            .start()
+        val output = process.inputStream.bufferedReader().readText().trim()
+        val available = process.waitFor(10, TimeUnit.SECONDS) && process.exitValue() == 0
+        if (available) {
+            log.debug("npm found ({})", output)
+        } else {
+            log.warn("npm not found on PATH")
+        }
+        available
+    } catch (e: Exception) {
+        log.warn("npm availability check threw an exception: {}", e.message)
+        false
+    }
+
+    /**
+     * Installs Mermaid CLI globally by running `npm install -g @mermaid-js/mermaid-cli`,
+     * streaming the installer output line by line.
+     *
+     * On success the cached availability is reset so the next
+     * [isMermaidCliAvailable] call re-checks and finds the freshly installed CLI.
+     *
+     * @param onOutput Invoked for each line of installer output (stdout and stderr merged).
+     *                 May be called from a background thread.
+     * @return true if the installation completed successfully
+     */
+    suspend fun installMermaidCli(onOutput: (String) -> Unit): Boolean = withContext(Dispatchers.IO) {
+        try {
+            log.info("Installing Mermaid CLI: npm install -g @mermaid-js/mermaid-cli")
+            val process = ProcessBuilderExt("npm", "install", "-g", "@mermaid-js/mermaid-cli")
+                .redirectErrorStream(true)
+                .start()
+
+            // Read output in a separate thread so a hung installer cannot block us;
+            // destroying the process on timeout closes the stream and unblocks the reader
+            val outputReader = Thread {
+                try {
+                    process.inputStream.bufferedReader().useLines { lines ->
+                        lines.forEach { line -> onOutput(line) }
+                    }
+                } catch (e: Exception) {
+                    log.debug("Installer output stream closed: {}", e.message)
+                }
+            }
+            outputReader.start()
+
+            val completed = process.waitFor(INSTALL_TIMEOUT_MINUTES, TimeUnit.MINUTES)
+            if (!completed) {
+                log.warn("Mermaid CLI installation timed out after {} minutes", INSTALL_TIMEOUT_MINUTES)
+                process.destroyForcibly()
+                outputReader.join(1_000)
+                onOutput("Installation timed out after $INSTALL_TIMEOUT_MINUTES minutes.")
+                return@withContext false
+            }
+            outputReader.join(1_000)
+
+            val success = process.exitValue() == 0
+            if (success) {
+                log.info("Mermaid CLI installed successfully")
+                resetAvailabilityCache()
+            } else {
+                log.warn("Mermaid CLI installation failed with exit code {}", process.exitValue())
+            }
+            success
+        } catch (e: Exception) {
+            log.warn("Mermaid CLI installation threw an exception: {}", e.message)
+            onOutput(e.message ?: "Unknown installation error")
+            false
+        }
     }
 
     /**

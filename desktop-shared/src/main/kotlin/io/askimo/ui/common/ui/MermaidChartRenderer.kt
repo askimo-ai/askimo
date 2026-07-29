@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -30,6 +31,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
@@ -42,6 +45,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -397,6 +401,15 @@ fun mermaidChart(
                 log.debug("Showing setup instructions (CLI not available)")
                 mermaidSetupInstructions(
                     diagram = data.diagram,
+                    mermaidService = mermaidService,
+                    onRecheck = {
+                        // Reset the cached availability and re-run the existing
+                        // LaunchedEffect so the CLI check happens again without a restart
+                        mermaidService.resetAvailabilityCache()
+                        isMermaidCliAvailable = null
+                        error = null
+                        manualRetryTrigger++
+                    },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -516,14 +529,32 @@ fun mermaidChart(
 
 /**
  * Composable that displays setup instructions when Mermaid CLI is not available.
+ *
+ * Offers a one-click install (when npm is available), a "Check Again" button that
+ * re-runs the CLI availability check without restarting the app, and a collapsible
+ * view of the raw diagram source.
  */
 @Composable
 private fun mermaidSetupInstructions(
     diagram: String,
+    mermaidService: MermaidSvgService,
+    onRecheck: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val clipboardManager = LocalClipboardManager.current
     val setupLink = stringResource("mermaid.setup.instructions.link")
+    val coroutineScope = rememberCoroutineScope()
+
+    var isNpmAvailable by remember { mutableStateOf<Boolean?>(null) }
+    var isInstalling by remember { mutableStateOf(false) }
+    var installFailed by remember { mutableStateOf(false) }
+    var installLog by remember { mutableStateOf("") }
+    var showDiagramSource by remember { mutableStateOf(false) }
+
+    // Detect npm up front so the one-click install button is only offered when it can run
+    LaunchedEffect(Unit) {
+        isNpmAvailable = withContext(Dispatchers.IO) { mermaidService.isNpmAvailable() }
+    }
 
     Column(
         modifier = modifier
@@ -598,6 +629,54 @@ private fun mermaidSetupInstructions(
 
         Spacer(modifier = Modifier.height(Spacing.extraLarge))
 
+        // npm missing — point the user to Node.js first
+        if (isNpmAvailable == false) {
+            Text(
+                text = stringResource("mermaid.setup.node.required"),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+
+            Spacer(modifier = Modifier.height(Spacing.medium))
+        }
+
+        mermaidSetupActions(
+            isNpmAvailable = isNpmAvailable,
+            isInstalling = isInstalling,
+            onInstall = {
+                isInstalling = true
+                installFailed = false
+                installLog = ""
+                coroutineScope.launch {
+                    val success = mermaidService.installMermaidCli { line ->
+                        installLog += line + "\n"
+                    }
+                    isInstalling = false
+                    if (success) {
+                        // Re-check availability and proceed to render
+                        onRecheck()
+                    } else {
+                        installFailed = true
+                    }
+                }
+            },
+            onRecheck = onRecheck,
+        )
+
+        // Install progress spinner, failure message, and installer output
+        if (isInstalling || installFailed) {
+            Spacer(modifier = Modifier.height(Spacing.large))
+
+            mermaidInstallProgress(
+                isInstalling = isInstalling,
+                installFailed = installFailed,
+                installLog = installLog,
+            )
+        }
+
+        Spacer(modifier = Modifier.height(Spacing.extraLarge))
+
         Row(
             horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
         ) {
@@ -626,27 +705,161 @@ private fun mermaidSetupInstructions(
 
         Spacer(modifier = Modifier.height(Spacing.extraLarge))
 
-        // Show raw diagram
-        Text(
-            text = stringResource("mermaid.diagram.source.label"),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        // Collapsible raw diagram source — useful but secondary, so hidden by default
+        TextButton(
+            onClick = { showDiagramSource = !showDiagramSource },
+            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+        ) {
+            Icon(
+                imageVector = if (showDiagramSource) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(modifier = Modifier.width(Spacing.small))
+            Text(
+                stringResource(
+                    if (showDiagramSource) "mermaid.diagram.source.hide" else "mermaid.diagram.source.show",
+                ),
+            )
+        }
 
-        Spacer(modifier = Modifier.height(Spacing.small))
+        if (showDiagramSource) {
+            Spacer(modifier = Modifier.height(Spacing.small))
 
-        Text(
-            text = diagram,
-            style = MaterialTheme.typography.bodySmall,
-            fontFamily = FontFamily.Monospace,
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    MaterialTheme.colorScheme.surfaceVariant,
-                    shape = MaterialTheme.shapes.small,
+            Text(
+                text = diagram,
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant,
+                        shape = MaterialTheme.shapes.small,
+                    )
+                    .padding(Spacing.medium),
+            )
+        }
+    }
+}
+
+/**
+ * Action buttons for the Mermaid setup screen: one-click install (npm present),
+ * Node.js download (npm missing), and "Check Again" to re-run the CLI check.
+ */
+@Composable
+private fun mermaidSetupActions(
+    isNpmAvailable: Boolean?,
+    isInstalling: Boolean,
+    onInstall: () -> Unit,
+    onRecheck: () -> Unit,
+) {
+    val nodeDownloadLink = stringResource("mermaid.setup.node.link")
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
+    ) {
+        if (isNpmAvailable == true) {
+            Button(
+                onClick = onInstall,
+                enabled = !isInstalling,
+                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+            ) {
+                Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(Spacing.small))
+                Text(stringResource("mermaid.setup.button.install"))
+            }
+        }
+
+        if (isNpmAvailable == false) {
+            Button(
+                onClick = {
+                    try {
+                        Desktop.getDesktop().browse(URI(nodeDownloadLink))
+                    } catch (_: Exception) {
+                        // Ignore browser open failures
+                    }
+                },
+                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+            ) {
+                Text(stringResource("mermaid.setup.button.download.node"))
+            }
+        }
+
+        Button(
+            onClick = onRecheck,
+            enabled = !isInstalling,
+            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+        ) {
+            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(Spacing.small))
+            Text(stringResource("mermaid.setup.button.check.again"))
+        }
+    }
+}
+
+/**
+ * Progress indicator and installer log output shown while (or after) installing
+ * Mermaid CLI from the setup screen.
+ */
+@Composable
+private fun mermaidInstallProgress(
+    isInstalling: Boolean,
+    installFailed: Boolean,
+    installLog: String,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        if (isInstalling) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
-                .padding(Spacing.medium),
-        )
+                Spacer(modifier = Modifier.width(Spacing.small))
+                Text(
+                    text = stringResource("mermaid.setup.installing"),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+
+        if (installFailed) {
+            Text(
+                text = stringResource("mermaid.setup.install.failed"),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+            )
+        }
+
+        if (installLog.isNotBlank()) {
+            Spacer(modifier = Modifier.height(Spacing.small))
+
+            val logScrollState = rememberScrollState()
+
+            // Keep the newest installer output visible
+            LaunchedEffect(installLog) {
+                logScrollState.scrollTo(logScrollState.maxValue)
+            }
+
+            Text(
+                text = installLog,
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 160.dp)
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant,
+                        shape = MaterialTheme.shapes.small,
+                    )
+                    .verticalScroll(logScrollState)
+                    .padding(Spacing.medium),
+            )
+        }
     }
 }
 
