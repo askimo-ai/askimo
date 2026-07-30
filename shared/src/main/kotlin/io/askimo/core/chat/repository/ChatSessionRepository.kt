@@ -44,6 +44,7 @@ private fun ResultRow.toChatSession(): ChatSession = ChatSession(
     projectId = this[ChatSessionsTable.projectId],
     directiveId = this[ChatSessionsTable.directiveId],
     isStarred = this[ChatSessionsTable.isStarred] == 1,
+    isUserRenamed = this[ChatSessionsTable.isUserRenamed] == 1,
 )
 
 /**
@@ -315,6 +316,18 @@ class ChatSessionRepository internal constructor(
                 it[updatedAt] = Instant.now()
             } > 0
         }.also { if (it) EventBus.post(PushDataToServerEvent(reason = "session title updated")) }
+    }
+
+    /**
+     * Mark a session as user-renamed, suppressing future auto title-refresh from summarization.
+     *
+     * @param sessionId The ID of the session
+     * @return true if the session was updated
+     */
+    fun markAsUserRenamed(sessionId: String): Boolean = transaction(database) {
+        ChatSessionsTable.update({ ChatSessionsTable.id eq sessionId }) {
+            it[isUserRenamed] = 1
+        } > 0
     }
 
     /**

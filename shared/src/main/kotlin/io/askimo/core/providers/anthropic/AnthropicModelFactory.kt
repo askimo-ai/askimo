@@ -10,6 +10,7 @@ import dev.langchain4j.http.client.jdk.JdkHttpClientBuilder
 import dev.langchain4j.memory.ChatMemory
 import dev.langchain4j.model.anthropic.AnthropicChatModel
 import dev.langchain4j.model.anthropic.AnthropicStreamingChatModel
+import dev.langchain4j.model.chat.Capability
 import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.StreamingChatModel
 import dev.langchain4j.model.image.ImageModel
@@ -176,6 +177,7 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
         return AnthropicStreamingChatModel.builder()
             .httpClientBuilder(jdkHttpClientBuilder)
             .apiKey(safeApiKey(settings.apiKey))
+            .supportedCapabilities(Capability.RESPONSE_FORMAT_JSON_SCHEMA)
             .modelName(settings.defaultModel)
             .baseUrl(settings.baseUrl)
             .timeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
@@ -216,6 +218,7 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
         return AnthropicChatModel.builder()
             .httpClientBuilder(jdkHttpClientBuilder)
             .apiKey(safeApiKey(settings.apiKey))
+            .supportedCapabilities(Capability.RESPONSE_FORMAT_JSON_SCHEMA)
             .modelName(
                 settings.utilityModel
                     .ifBlank { AppConfig.models[ANTHROPIC].utilityModel }

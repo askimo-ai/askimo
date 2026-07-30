@@ -7,6 +7,14 @@ package io.askimo.core.providers
 import dev.langchain4j.data.message.UserMessage
 import dev.langchain4j.exception.InternalServerException
 import dev.langchain4j.exception.ModelNotFoundException
+import dev.langchain4j.model.chat.ChatModel
+import dev.langchain4j.model.chat.request.ChatRequest
+import dev.langchain4j.model.chat.request.ResponseFormat
+import dev.langchain4j.model.chat.request.ResponseFormatType
+import dev.langchain4j.model.chat.request.json.JsonArraySchema
+import dev.langchain4j.model.chat.request.json.JsonObjectSchema
+import dev.langchain4j.model.chat.request.json.JsonSchema
+import dev.langchain4j.model.chat.request.json.JsonStringSchema
 import dev.langchain4j.model.googleai.GeneratedImageHelper
 import io.askimo.core.context.AppContext
 import io.askimo.core.context.ChatContext
@@ -373,38 +381,77 @@ private inline fun <reified T> parseStructuredOutput(
 }
 
 /**
- * Generates a structured summary of a conversation.
+ * Generates a structured summary of a conversation using LangChain4j's native
+ * [ResponseFormat] + JSON-schema enforcement so the model is forced to return
+ * well-formed JSON without relying on prompt-only instructions.
  *
- * This extension function analyzes conversation text and extracts:
- * - Key facts as name-value pairs
- * - Main topics discussed
- * - Recent context summary
+ * After summarization, the caller derives a title candidate from [SessionConversationSummary.recentContext]
+ * and [SessionConversationSummary.mainTopics] — no extra AI call needed.
  *
- * The AI model is instructed to respond with JSON only, which is then parsed
- * into a [SessionConversationSummary] object using structured output parsing.
+ * Falls back to prompt-only parsing if schema enforcement fails (e.g. older local models).
  *
  * @param conversationText The conversation text to summarize
- * @return A SessionConversationSummary containing key facts, main topics, and recent context
+ * @return A [SessionConversationSummary] containing key facts, main topics, and recent context
  */
-fun ChatClient.getSummary(conversationText: String): SessionConversationSummary {
-    val log = logger<ChatClient>()
+fun ChatModel.getSummary(conversationText: String): SessionConversationSummary {
+    val log = logger<ChatModel>()
 
-    val prompt = buildSummaryPrompt(conversationText)
+    // Build JSON-schema that enforces the exact shape of SessionConversationSummary
+    val responseFormat = ResponseFormat.builder()
+        .type(ResponseFormatType.JSON)
+        .jsonSchema(
+            JsonSchema.builder()
+                .name("SessionConversationSummary")
+                .rootElement(
+                    JsonObjectSchema.builder()
+                        .addProperty(
+                            "keyFacts",
+                            JsonObjectSchema.builder()
+                                .description("Key facts as name-value pairs extracted from the conversation")
+                                .additionalProperties(true)
+                                .build(),
+                        )
+                        .addProperty(
+                            "mainTopics",
+                            JsonArraySchema.builder()
+                                .description("List of main topics discussed")
+                                .items(JsonStringSchema.builder().build())
+                                .build(),
+                        )
+                        .addStringProperty("recentContext", "1-3 sentence summary of the latest state and immediate goal")
+                        .required("keyFacts", "mainTopics", "recentContext")
+                        .build(),
+                )
+                .build(),
+        )
+        .build()
+
+    val chatRequest = ChatRequest.builder()
+        .messages(UserMessage.from(buildSummaryPrompt(conversationText)))
+        .responseFormat(responseFormat)
+        .build()
 
     return try {
-        val rawResponse = this.sendMessage(prompt)
-        parseStructuredOutput<SessionConversationSummary>(
-            rawResponse,
-            arrayKeys = setOf("mainTopics"), // must be array
-            stringKeys = setOf("recentContext"), // must be string
-        )
+        val rawJson = this.chat(chatRequest).aiMessage().text() ?: "{}"
+        json.decodeFromString<SessionConversationSummary>(rawJson)
     } catch (e: Exception) {
-        log.error("Failed to generate conversation summary. Response was likely malformed.", e)
-        SessionConversationSummary(
-            keyFacts = emptyMap(),
-            mainTopics = emptyList(),
-            recentContext = conversationText.takeLast(500),
-        )
+        log.warn("Native-schema summary failed ({}), retrying with prompt-only fallback", e.message)
+        // Fallback: send without ResponseFormat, parse manually
+        try {
+            val rawResponse = this.chat(ChatRequest.builder().messages(UserMessage.from(buildSummaryPrompt(conversationText))).build()).aiMessage().text() ?: "{}"
+            parseStructuredOutput<SessionConversationSummary>(
+                rawResponse,
+                arrayKeys = setOf("mainTopics"),
+                stringKeys = setOf("recentContext"),
+            )
+        } catch (fallback: Exception) {
+            log.error("Summary fallback also failed. Returning minimal context summary.", fallback)
+            SessionConversationSummary(
+                keyFacts = emptyMap(),
+                mainTopics = emptyList(),
+                recentContext = conversationText.takeLast(500),
+            )
+        }
     }
 }
 

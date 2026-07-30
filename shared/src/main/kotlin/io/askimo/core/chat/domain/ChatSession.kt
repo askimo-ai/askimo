@@ -17,6 +17,8 @@ data class ChatSession(
     val projectId: String? = null, // null = no project (general chat)
     val directiveId: String? = null,
     val isStarred: Boolean = false,
+    /** True when the user has manually renamed this session — suppresses auto title-refresh. */
+    val isUserRenamed: Boolean = false,
 )
 
 const val SESSION_TITLE_MAX_LENGTH = 256
@@ -35,6 +37,9 @@ object ChatSessionsTable : Table("chat_sessions") {
 
     val directiveId = varchar("directive_id", 36).nullable()
     val isStarred = integer("is_starred").default(0)
+
+    /** 1 = user manually renamed; auto title-refresh is suppressed. */
+    val isUserRenamed = integer("is_user_renamed").default(0)
 
     val syncedAt = varchar("synced_at", 32).nullable()
 

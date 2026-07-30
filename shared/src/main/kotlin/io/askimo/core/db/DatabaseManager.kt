@@ -262,6 +262,16 @@ class DatabaseManager private constructor(
                 // Column already exists — safe to ignore.
             }
 
+            // Migration: Add is_user_renamed column — tracks whether the user manually renamed
+            // the session. When 1, automatic title refresh from summarization is suppressed.
+            try {
+                stmt.executeUpdate(
+                    "ALTER TABLE chat_sessions ADD COLUMN is_user_renamed INTEGER DEFAULT 0",
+                )
+            } catch (_: Exception) {
+                // Column already exists — safe to ignore.
+            }
+
             try {
                 stmt.executeUpdate(
                     "ALTER TABLE chat_sessions DROP COLUMN sort_order",

@@ -131,6 +131,9 @@ class AppContext private constructor(
     @Volatile
     private var cachedUtilityClient: ChatClient? = null
 
+    @Volatile
+    private var cachedSecondaryModel: ChatModel? = null
+
     private var cachedImageModel: ImageModel? = null
     private var cachedEmbeddingModel: EmbeddingModel? = null
 
@@ -161,6 +164,7 @@ class AppContext private constructor(
         log.info("Model changed to ${event.newModel} for instance ${event.instanceId} (${event.provider}), clearing cached utility client")
         synchronized(this) {
             cachedUtilityClient = null
+            cachedSecondaryModel = null
             cachedImageModel = null
             cachedEmbeddingModel = null
         }
@@ -331,6 +335,37 @@ class AppContext private constructor(
             cachedUtilityClient = client
             log.debug("Created and cached utility client for provider {} with model {}", instance.providerType, params.model)
             return client
+        }
+    }
+
+    /**
+     * Creates (or returns the cached) secondary [ChatModel] for the active provider.
+     *
+     * The secondary model is the cheap, non-streaming model used for utility tasks
+     * such as conversation summarization. It supports [ResponseFormat] / JSON-schema
+     * structured output on all providers that declare [Capability.RESPONSE_FORMAT_JSON_SCHEMA].
+     *
+     * The returned instance is cached and invalidated on model/provider change.
+     *
+     * @return ChatModel configured with the provider's utility/cheap model
+     */
+    fun createSecondaryModel(): ChatModel {
+        cachedSecondaryModel?.let { return it }
+
+        synchronized(this) {
+            cachedSecondaryModel?.let { return it }
+
+            val instance = requireActiveInstance()
+            val factory = getModelFactory(instance.providerType)
+
+            @Suppress("UNCHECKED_CAST")
+            val model = (factory as ChatModelFactory<ProviderSettings>).createSecondaryModel(
+                settings = instance.settings,
+            )
+
+            cachedSecondaryModel = model
+            log.debug("Created and cached secondary model for provider {}", instance.providerType)
+            return model
         }
     }
 
