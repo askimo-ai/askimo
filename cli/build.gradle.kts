@@ -63,6 +63,10 @@ tasks.test {
             "--add-modules",
             "jdk.incubator.vector",
         )
+
+    if (project.hasProperty("agent")) {
+        finalizedBy("metadataCopy")
+    }
 }
 
 kotlin {
@@ -139,7 +143,7 @@ tasks.named<ProcessResources>("processResources") {
 
 graalvmNative {
     agent {
-        enabled.set(true)
+        enabled.set(project.hasProperty("agent"))
         defaultMode.set("standard")
 
         callerFilterFiles.from("src/main/resources/graal-caller-filter.json")
