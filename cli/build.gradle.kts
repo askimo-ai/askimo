@@ -46,8 +46,6 @@ dependencies {
     testImplementation(testFixtures(project(":shared")))
 }
 
-val traceAgent = (findProperty("traceAgent") as String?) == "true"
-
 tasks.test {
     useJUnitPlatform {
         excludeTags("native")
@@ -65,32 +63,6 @@ tasks.test {
             "--add-modules",
             "jdk.incubator.vector",
         )
-
-    if (traceAgent) {
-        val mergeDir = "$projectDir/src/main/resources/META-INF/native-image"
-        val accessFilter = "$projectDir/src/main/resources/graal-access-filter.json"
-        val callerFilter = "$projectDir/src/main/resources/graal-caller-filter.json"
-        val outDir =
-            layout.buildDirectory
-                .dir("graal-agent")
-                .get()
-                .asFile
-
-        jvmArgs(
-            "-XX:+EnableDynamicAgentLoading",
-            "-agentlib:native-image-agent=" +
-                "config-output-dir=$outDir," +
-                "access-filter-file=$accessFilter," +
-                "caller-filter-file=$callerFilter",
-        )
-
-        doFirst {
-            println("🔎 Graal tracing agent ON")
-            println("   Merge -> $mergeDir")
-            println("   Filters: access=$accessFilter ; caller=$callerFilter")
-        }
-        finalizedBy("syncGraalMetadata")
-    }
 }
 
 kotlin {
@@ -165,14 +137,32 @@ tasks.named<ProcessResources>("processResources") {
     from(aboutDir)
 }
 
-tasks.register<Sync>("syncGraalMetadata") {
-    from(layout.buildDirectory.dir("graal-agent"))
-    include("**/*-config.json")
-    exclude("**/agent-extracted-predefined-classes/**", "**/predefined-classes-*.json")
-    into("src/main/resources/META-INF/native-image")
-}
-
 graalvmNative {
+    agent {
+        enabled.set(true)
+        defaultMode.set("standard")
+
+        callerFilterFiles.from("src/main/resources/graal-caller-filter.json")
+        accessFilterFiles.from("src/main/resources/graal-access-filter.json")
+        builtinCallerFilter.set(true)
+        builtinHeuristicFilter.set(true)
+        enableExperimentalPredefinedClasses.set(false)
+        enableExperimentalUnsafeAllocationTracing.set(false)
+        trackReflectionMetadata.set(true)
+
+        modes {
+            standard {}
+        }
+
+        metadataCopy {
+            inputTaskNames.add("test")
+            outputDirectories.add("src/main/resources/META-INF/native-image/io.askimo/cli")
+            mergeWithExisting.set(true)
+        }
+
+        tasksToInstrumentPredicate.set { t -> t.name == "test" }
+    }
+
     metadataRepository {
         enabled.set(true)
     }
@@ -190,6 +180,7 @@ graalvmNative {
                 listOf(
                     "-J-Xmx$graalvmMemory",
                     "--enable-url-protocols=https",
+                    "--enable-native-access=ALL-UNNAMED",
                     "--report-unsupported-elements-at-runtime",
                     "--features=io.askimo.cli.graal.AskimoFeature",
                     "-Dorg.apache.lucene.store.MMapDirectory.enableMemorySegments=false",
@@ -201,7 +192,7 @@ graalvmNative {
                 ),
             )
             resources.autodetect()
-            configurationFileDirectories.from(file("src/main/resources/META-INF/native-image"))
+            configurationFileDirectories.from(file("src/main/resources/META-INF/native-image/io.askimo/cli"))
         }
     }
 }

@@ -30,6 +30,8 @@ class AppConfigTest {
         // should reflect the YAML defaults, not the empty ProviderModelConfig() defaults.
         val models = AppConfig.models
 
+        assertEquals(10, models.maxToolCallingRoundTrips)
+
         // Ollama — the field that was failing in EmbeddingModelFactoryOllamaTest
         assertEquals("", models[ModelProvider.OLLAMA].embeddingModel)
         assertEquals("", models[ModelProvider.OLLAMA].visionModel)

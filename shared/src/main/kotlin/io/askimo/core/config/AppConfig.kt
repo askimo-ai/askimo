@@ -709,6 +709,7 @@ object AppConfig {
           use_absolute_path_in_citations: ${'$'}{ASKIMO_RAG_USE_ABSOLUTE_PATH:true}
 
         models:
+          max_tool_calling_round_trips: ${'$'}{ASKIMO_MAX_TOOL_CALLING_ROUND_TRIPS:10}
           timeouts:
             utility_model_timeout_seconds: ${'$'}{ASKIMO_UTILITY_MODEL_TIMEOUT:45}
             default_model_timeout_seconds: ${'$'}{ASKIMO_DEFAULT_MODEL_TIMEOUT:300}
