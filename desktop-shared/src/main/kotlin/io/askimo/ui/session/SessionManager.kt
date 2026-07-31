@@ -532,6 +532,7 @@ class SessionManager(
         attachments: List<FileAttachmentDTO> = emptyList(),
         enabledServerIds: Set<String> = emptySet(),
         directiveId: String? = null,
+        useWebSearch: Boolean = false,
         onComplete: () -> Unit,
     ) {
         scope.launch {
@@ -558,6 +559,8 @@ class SessionManager(
                 // Now send the message - ViewModel is ready
                 val viewModel = getOrCreateChatViewModel(newSession.id)
                 if (directiveId != null) viewModel.setDirective(directiveId)
+                // Apply web search flag before sendMessage so the retriever is built correctly
+                if (useWebSearch) chatSessionService.setWebSearchForSession(newSession.id, true)
                 viewModel.sendMessage(projectId, mode, message, attachments, enabledServerIds)
             } catch (e: Exception) {
                 log.error("Failed to create project session and send message", e)

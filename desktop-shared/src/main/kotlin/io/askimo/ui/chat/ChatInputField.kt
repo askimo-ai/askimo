@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
@@ -187,6 +188,8 @@ fun chatInputField(
     onNavigateToMcpSettings: (() -> Unit)? = null,
     selectedDirective: String? = null,
     onToggleDirective: (String?) -> Unit = {},
+    isProjectSession: Boolean = false,
+    onWebSearchInRagChange: ((Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val inputFocusRequester = remember { FocusRequester() }
@@ -310,6 +313,9 @@ fun chatInputField(
     // Session-scoped set of server IDs enabled by the user via the tools popup.
     // Empty by default — all tools are off until the user opts in.
     var enabledServerIds by remember(sessionId) { mutableStateOf(emptySet<String>()) }
+
+    // Session-scoped web-search-in-RAG toggle. Resets when the session changes.
+    var webSearchInRag by remember(sessionId) { mutableStateOf(false) }
 
     // Notify caller whenever the user changes the enabled server selection.
     LaunchedEffect(enabledServerIds) {
@@ -788,6 +794,19 @@ fun chatInputField(
                                 onDirectivePopupExpandedChange = { directivePopupExpanded = it },
                                 onShowNewDirectiveDialog = { showNewDirectiveDialog = true },
                                 onShowManageDirectivesDialog = { showManageDirectivesDialog = true },
+                            )
+                        }
+
+                        // ── Web search in RAG chip — only in project sessions when web search is configured ──
+                        if (isProjectSession && AppConfig.webSearch.enabled) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            webSearchRagChip(
+                                active = webSearchInRag,
+                                isLoading = isLoading,
+                                onToggle = {
+                                    webSearchInRag = !webSearchInRag
+                                    onWebSearchInRagChange?.invoke(webSearchInRag)
+                                },
                             )
                         }
 
@@ -1948,6 +1967,74 @@ private fun directiveChip(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Chip that toggles live web search inclusion in the RAG retrieval pipeline.
+ *
+ * Shown in project chat sessions when [AppConfig.webSearch.enabled] is true.
+ * When active the chip is highlighted and the [HybridContentRetriever] will
+ * include live web results (via the configured [SearchBackend]) in its RRF fusion.
+ */
+@Composable
+private fun webSearchRagChip(
+    active: Boolean,
+    isLoading: Boolean,
+    onToggle: () -> Unit,
+) {
+    themedTooltip(
+        text = if (active) {
+            stringResource("chat.rag.web_search.tooltip.on")
+        } else {
+            stringResource("chat.rag.web_search.tooltip.off")
+        },
+    ) {
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = if (active) {
+                MaterialTheme.colorScheme.secondaryContainer
+            } else {
+                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
+            },
+            tonalElevation = if (active) 2.dp else 0.dp,
+            modifier = Modifier
+                .height(28.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .clickable(
+                    enabled = !isLoading,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onToggle,
+                )
+                .pointerHoverIcon(PointerIcon.Hand),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(horizontal = 8.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Language,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = if (active) {
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    },
+                )
+                Text(
+                    text = stringResource("chat.rag.web_search.chip"),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (active) {
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    },
+                )
             }
         }
     }

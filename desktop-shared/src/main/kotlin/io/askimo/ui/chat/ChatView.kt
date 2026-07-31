@@ -1187,6 +1187,8 @@ fun chatView(
                         // Directives chip — selection controlled here; CRUD managed inside chatInputField
                         selectedDirective = selectedDirective,
                         onToggleDirective = { id -> actions.setDirective(id) },
+                        isProjectSession = project != null,
+                        onWebSearchInRagChange = { enabled -> actions.setWebSearchInRag(enabled) },
                         modifier = Modifier
                             .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                             .fillMaxWidth()

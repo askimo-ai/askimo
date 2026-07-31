@@ -1272,6 +1272,21 @@ class ChatViewModel(
     }
 
     /**
+     * Enable or disable live web search in the RAG retrieval pipeline for the current session.
+     *
+     * @param enabled true to include web results in RAG context, false to exclude them.
+     */
+    override fun setWebSearchInRag(enabled: Boolean) {
+        val sessionId = currentSessionId.value ?: return
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                chatSessionService.setWebSearchForSession(sessionId, enabled)
+            }
+            log.debug("Web search in RAG set to $enabled for session $sessionId")
+        }
+    }
+
+    /**
      * Update the content of an AI message and mark it as edited.
      * This allows users to edit AI responses after they are generated.
      *

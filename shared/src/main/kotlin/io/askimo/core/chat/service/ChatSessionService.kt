@@ -50,6 +50,7 @@ import kotlinx.coroutines.launch
 import org.jetbrains.exposed.v1.core.SortOrder
 import java.io.File
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.toJavaDuration
 
@@ -151,6 +152,38 @@ class ChatSessionService(
         }
         .build()
 
+    /**
+     * Per-session web-search-in-RAG toggle.
+     * Keyed by sessionId; absent = false (disabled by default).
+     * Changing the value invalidates the session context cache so that
+     * the next [getOrCreateClientForSession] call rebuilds the retriever
+     * pipeline. The memory cache is deliberately left untouched so that
+     * conversation history is preserved across the rebuild.
+     */
+    private val sessionWebSearchState = ConcurrentHashMap<String, Boolean>()
+
+    /**
+     * Enable or disable live web search in the RAG pipeline for a specific session.
+     *
+     * When the value changes the cached [SessionChatContext] for that session is
+     * evicted so the next send recreates the [ContentRetriever] with the updated
+     * flag. The conversation memory is preserved.
+     *
+     * @param sessionId The session to update.
+     * @param enabled   true to include web results in RAG retrieval, false to exclude them.
+     */
+    fun setWebSearchForSession(sessionId: String, enabled: Boolean) {
+        val previous = sessionWebSearchState.put(sessionId, enabled)
+        if (previous != enabled) {
+            sessionContextCache.invalidate(sessionId)
+            log.debug(
+                "Web search in RAG {} for session {}, context cache invalidated",
+                if (enabled) "enabled" else "disabled",
+                sessionId,
+            )
+        }
+    }
+
     init {
         eventScope.launch {
             EventBus.internalEvents
@@ -217,10 +250,12 @@ class ChatSessionService(
         // Get or create shared memory - REUSE across both regular and vision clients
         val sharedMemory = getOrCreateSharedMemory(sessionId)
 
+        val useWebSearch = sessionWebSearchState[sessionId] ?: false
+
         // Create content retriever if project has indexed paths
         val retriever = if (project != null) {
-            log.debug("Session $sessionId belongs to project: ${project.id}")
-            createRetrieverForProject(appContext.createUtilityClient(), project)
+            log.debug("Session $sessionId belongs to project: ${project.id}, useWebSearch=$useWebSearch")
+            createRetrieverForProject(appContext.createUtilityClient(), project, useWebSearch)
         } else {
             null
         }
@@ -253,11 +288,17 @@ class ChatSessionService(
      * - JVector for semantic similarity (vector embeddings)
      * - Lucene for keyword matching (BM25)
      * - Reciprocal Rank Fusion to merge results
+     * - Optionally live web search when [useWebSearch] is true
      *
      * @param project The project to create a retriever for
+     * @param useWebSearch Whether to include live web search results in the RAG pipeline
      * @return Content retriever if project has indexed paths, null otherwise
      */
-    private fun createRetrieverForProject(classifierChatClient: ChatClient, project: Project): ContentRetriever? {
+    private fun createRetrieverForProject(
+        classifierChatClient: ChatClient,
+        project: Project,
+        useWebSearch: Boolean = false,
+    ): ContentRetriever? {
         try {
             val embeddingModel = appContext.getEmbeddingModel()
 
@@ -275,6 +316,7 @@ class ChatSessionService(
                     .minScore(ragConfig.vectorSearchMinScore)
                     .build(),
                 project.knowledgeSources.map { it.resourceIdentifier },
+                useWebSearch = useWebSearch,
             )
 
             return vectorRetriever
@@ -475,6 +517,7 @@ class ChatSessionService(
         sessionContextCache.invalidate(sessionId)
         sessionContextCache.invalidate("${sessionId}_vision")
         memoryCache.invalidate(sessionId)
+        sessionWebSearchState.remove(sessionId)
 
         messageRepository.deleteMessagesBySession(sessionId)
         sessionMemoryRepository.deleteBySessionId(sessionId)

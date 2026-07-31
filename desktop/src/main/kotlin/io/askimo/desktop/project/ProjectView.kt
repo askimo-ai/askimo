@@ -111,7 +111,7 @@ import kotlin.let
 fun projectView(
     project: Project,
     onBack: () -> Unit,
-    onStartChat: (projectId: String, mode: CreationMode, message: String, attachments: List<FileAttachmentDTO>, enabledServerIds: Set<String>, directiveId: String?) -> Unit,
+    onStartChat: (projectId: String, mode: CreationMode, message: String, attachments: List<FileAttachmentDTO>, enabledServerIds: Set<String>, directiveId: String?, useWebSearch: Boolean) -> Unit,
     onResumeSession: (String) -> Unit,
     onDeleteSession: (sessionId: String, projectId: String) -> Unit,
     onRenameSession: (String, String) -> Unit,
@@ -132,6 +132,7 @@ fun projectView(
     var attachments by remember { mutableStateOf<List<FileAttachmentDTO>>(emptyList()) }
     var currentEnabledServerIds by remember { mutableStateOf(emptySet<String>()) }
     var selectedDirective by remember { mutableStateOf<String?>(null) }
+    var webSearchInRag by remember { mutableStateOf(false) }
     var showProjectMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showReIndexConfirmDialog by remember { mutableStateOf(false) }
@@ -378,7 +379,7 @@ fun projectView(
                         onAttachmentsChange = { attachments = it },
                         onSendMessage = { mode ->
                             if (inputText.text.isNotBlank()) {
-                                onStartChat(currentProject.id, mode, inputText.text, attachments, currentEnabledServerIds, selectedDirective)
+                                onStartChat(currentProject.id, mode, inputText.text, attachments, currentEnabledServerIds, selectedDirective, webSearchInRag)
                                 inputText = TextFieldValue("")
                                 attachments = emptyList()
                             }
@@ -387,6 +388,8 @@ fun projectView(
                         onNavigateToMcpSettings = onNavigateToMcpSettings,
                         selectedDirective = selectedDirective,
                         onToggleDirective = { selectedDirective = it },
+                        isProjectSession = true,
+                        onWebSearchInRagChange = { webSearchInRag = it },
                         sessionId = currentProject.id,
                         placeholder = stringResource("project.new.chat.placeholder", currentProject.name),
                         modifier = Modifier.padding(top = Spacing.large),

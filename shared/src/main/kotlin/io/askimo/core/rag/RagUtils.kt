@@ -14,6 +14,7 @@ import io.askimo.core.context.AppContext
 import io.askimo.core.logging.logger
 import io.askimo.core.providers.ChatClient
 import io.askimo.core.util.AskimoHome
+import io.askimo.tools.web.WebSearchDispatcher
 import java.nio.file.Path
 import java.util.Properties
 
@@ -110,9 +111,18 @@ object RagUtils {
         projectId: String,
         retriever: ContentRetriever,
         knowledgeSourcePaths: List<String> = emptyList(),
+        useWebSearch: Boolean = false,
     ): ContentRetriever {
         val ragConfig = AppConfig.rag
         val telemetry = AppContext.getInstance().telemetry
+
+        val webRetriever: ContentRetriever? = if (useWebSearch && AppConfig.webSearch.enabled) {
+            val backend = WebSearchDispatcher.activeBackend(AppConfig.webSearch)
+            log.debug("Web search enabled for RAG pipeline using backend: {}", backend.name)
+            WebSearchContentRetriever(backend, maxResults = 3)
+        } else {
+            null
+        }
 
         return RAGContentProcessor(
             HybridContentRetriever(
@@ -120,6 +130,7 @@ object RagUtils {
                 keywordRetriever = LuceneKeywordRetriever(projectId),
                 maxResults = ragConfig.hybridMaxResults,
                 k = ragConfig.rankFusionConstant,
+                webRetriever = webRetriever,
             ),
             classifierChatClient,
             telemetry,
