@@ -8,6 +8,9 @@ import dev.langchain4j.data.message.AiMessage
 import dev.langchain4j.data.message.ChatMessage
 import dev.langchain4j.data.message.SystemMessage
 import dev.langchain4j.data.message.UserMessage
+import dev.langchain4j.model.chat.ChatModel
+import dev.langchain4j.model.chat.request.ChatRequest
+import dev.langchain4j.model.chat.response.ChatResponse
 import io.askimo.core.chat.domain.SessionMemory
 import io.askimo.core.chat.repository.SessionMemoryRepository
 import io.askimo.core.config.AppConfig
@@ -50,20 +53,26 @@ class TokenAwareSummarizingMemoryTest {
 
     private lateinit var mockAppContext: AppContext
     private lateinit var mockChatClient: ChatClient
+    private lateinit var mockSecondaryModel: ChatModel
     private lateinit var mockRepository: SessionMemoryRepository
     private lateinit var mockParams: io.askimo.core.context.AppContextParams
     private lateinit var memory: TokenAwareSummarizingMemory
 
     private val sessionId = "test-session-123"
 
+    /** Builds a [ChatResponse] whose AI message contains [jsonText]. */
+    private fun chatResponseOf(jsonText: String): ChatResponse = ChatResponse.builder().aiMessage(AiMessage.from(jsonText)).build()
+
     @BeforeEach
     fun setup() {
         mockAppContext = mock()
         mockChatClient = mock()
+        mockSecondaryModel = mock()
         mockRepository = mock()
         mockParams = mock()
 
         whenever(mockAppContext.createUtilityClient()).thenReturn(mockChatClient)
+        whenever(mockAppContext.createSecondaryModel()).thenReturn(mockSecondaryModel)
         whenever(mockAppContext.getActiveProvider()).thenReturn(io.askimo.core.providers.ModelProvider.OPENAI)
         whenever(mockAppContext.params).thenReturn(mockParams)
         whenever(mockParams.model).thenReturn("gpt-4")
@@ -135,8 +144,8 @@ class TokenAwareSummarizingMemoryTest {
     fun `should trigger summarization above threshold`() {
         memory = createMemory(summarizationThreshold = 0.01, asyncSummarization = false)
 
-        whenever(mockChatClient.sendMessage(any())).thenReturn(
-            """{"keyFacts":{"topic":"testing"},"mainTopics":["memory"],"recentContext":"test"}""",
+        whenever(mockSecondaryModel.chat(any<ChatRequest>())).thenReturn(
+            chatResponseOf("""{"keyFacts":{"topic":"testing"},"mainTopics":["memory"],"recentContext":"test"}"""),
         )
 
         repeat(100) { i ->
@@ -147,7 +156,7 @@ class TokenAwareSummarizingMemoryTest {
         Thread.sleep(2000)
         memory.close()
 
-        verify(mockChatClient, atLeastOnce()).sendMessage(any())
+        verify(mockSecondaryModel, atLeastOnce()).chat(any<ChatRequest>())
     }
 
     // ── Protected recent turns ───────────────────────────────────────────────
@@ -216,8 +225,8 @@ class TokenAwareSummarizingMemoryTest {
         memory.importState(TokenAwareSummarizingMemory.MemoryState(messages = emptyList(), summary = initialSummary))
 
         // Simulate a new summarization that adds 5 more facts (should evict oldest)
-        whenever(mockChatClient.sendMessage(any())).thenReturn(
-            """{"keyFacts":{"fact31":"v31","fact32":"v32","fact33":"v33","fact34":"v34","fact35":"v35"},"mainTopics":[],"recentContext":"new"}""",
+        whenever(mockSecondaryModel.chat(any<ChatRequest>())).thenReturn(
+            chatResponseOf("""{"keyFacts":{"fact31":"v31","fact32":"v32","fact33":"v33","fact34":"v34","fact35":"v35"},"mainTopics":[],"recentContext":"new"}"""),
         )
 
         repeat(50) { i -> memory.add(UserMessage.from("msg $i " + "word ".repeat(30))) }
@@ -246,8 +255,8 @@ class TokenAwareSummarizingMemoryTest {
         memory.importState(TokenAwareSummarizingMemory.MemoryState(messages = emptyList(), summary = initialSummary))
 
         // Simulate a new cycle that updates fact1 (refreshes it) and adds 5 new facts
-        whenever(mockChatClient.sendMessage(any())).thenReturn(
-            """{"keyFacts":{"fact1":"updated","fact31":"v31","fact32":"v32","fact33":"v33","fact34":"v34","fact35":"v35"},"mainTopics":[],"recentContext":"ctx"}""",
+        whenever(mockSecondaryModel.chat(any<ChatRequest>())).thenReturn(
+            chatResponseOf("""{"keyFacts":{"fact1":"updated","fact31":"v31","fact32":"v32","fact33":"v33","fact34":"v34","fact35":"v35"},"mainTopics":[],"recentContext":"ctx"}"""),
         )
 
         repeat(50) { i -> memory.add(UserMessage.from("msg $i " + "word ".repeat(30))) }
@@ -274,8 +283,8 @@ class TokenAwareSummarizingMemoryTest {
         memory.importState(TokenAwareSummarizingMemory.MemoryState(messages = emptyList(), summary = initialSummary))
 
         // New cycle adds 5 more distinct topics
-        whenever(mockChatClient.sendMessage(any())).thenReturn(
-            """{"keyFacts":{},"mainTopics":["topic16","topic17","topic18","topic19","topic20"],"recentContext":"ctx"}""",
+        whenever(mockSecondaryModel.chat(any<ChatRequest>())).thenReturn(
+            chatResponseOf("""{"keyFacts":{},"mainTopics":["topic16","topic17","topic18","topic19","topic20"],"recentContext":"ctx"}"""),
         )
 
         repeat(50) { i -> memory.add(UserMessage.from("msg $i " + "word ".repeat(30))) }
@@ -298,14 +307,14 @@ class TokenAwareSummarizingMemoryTest {
     fun `should merge summaries when multiple summarizations occur`() {
         memory = createMemory(summarizationThreshold = 0.01, asyncSummarization = false)
 
-        whenever(mockChatClient.sendMessage(any())).thenReturn(
-            """{"keyFacts":{"fact1":"value1"},"mainTopics":["topic1"],"recentContext":"First context"}""",
+        whenever(mockSecondaryModel.chat(any<ChatRequest>())).thenReturn(
+            chatResponseOf("""{"keyFacts":{"fact1":"value1"},"mainTopics":["topic1"],"recentContext":"First context"}"""),
         )
         repeat(100) { i -> memory.add(UserMessage.from("Batch 1 msg $i " + "word ".repeat(30))) }
         Thread.sleep(2000)
 
-        whenever(mockChatClient.sendMessage(any())).thenReturn(
-            """{"keyFacts":{"fact2":"value2"},"mainTopics":["topic2"],"recentContext":"Second context"}""",
+        whenever(mockSecondaryModel.chat(any<ChatRequest>())).thenReturn(
+            chatResponseOf("""{"keyFacts":{"fact2":"value2"},"mainTopics":["topic2"],"recentContext":"Second context"}"""),
         )
         repeat(100) { i -> memory.add(UserMessage.from("Batch 2 msg $i " + "word ".repeat(30))) }
         Thread.sleep(2000)
@@ -325,8 +334,8 @@ class TokenAwareSummarizingMemoryTest {
     fun `should preserve system messages during summarization`() {
         memory = createMemory(summarizationThreshold = 0.01, asyncSummarization = false)
 
-        whenever(mockChatClient.sendMessage(any())).thenReturn(
-            """{"keyFacts":{},"mainTopics":[],"recentContext":"test"}""",
+        whenever(mockSecondaryModel.chat(any<ChatRequest>())).thenReturn(
+            chatResponseOf("""{"keyFacts":{},"mainTopics":[],"recentContext":"test"}"""),
         )
 
         memory.add(SystemMessage.from("You are a helpful assistant"))
@@ -439,7 +448,7 @@ class TokenAwareSummarizingMemoryTest {
     @Test
     fun `should handle summarization failure gracefully with fallback`() {
         memory = createMemory(summarizationThreshold = 0.01, asyncSummarization = false)
-        whenever(mockChatClient.sendMessage(any())).thenThrow(RuntimeException("API Error"))
+        whenever(mockSecondaryModel.chat(any<ChatRequest>())).thenThrow(RuntimeException("API Error"))
 
         repeat(100) { i -> memory.add(UserMessage.from("Message $i " + "word ".repeat(30))) }
 
