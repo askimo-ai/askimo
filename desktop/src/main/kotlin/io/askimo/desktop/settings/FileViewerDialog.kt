@@ -49,6 +49,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Dialog for viewing text file contents.
@@ -157,7 +158,7 @@ fun fileViewerDialog(
                                     val clipboard = Toolkit.getDefaultToolkit().systemClipboard
                                     clipboard.setContents(StringSelection(content), null)
                                     isCopied = true
-                                    delay(2000)
+                                    delay(2000.milliseconds)
                                     isCopied = false
                                 } catch (_: Exception) {
                                     // Ignore clipboard errors

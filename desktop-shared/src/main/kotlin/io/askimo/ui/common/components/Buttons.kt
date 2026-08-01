@@ -47,7 +47,7 @@ fun primaryButton(
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
         ),
-        modifier = modifier.pointerHoverIcon(PointerIcon.Hand),
+        modifier = modifier.pointerHoverIcon(PointerIcon.Hand, overrideDescendants = true),
         content = content,
     )
 }
@@ -88,7 +88,7 @@ fun secondaryButton(
                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
             },
         ),
-        modifier = modifier.pointerHoverIcon(PointerIcon.Hand),
+        modifier = modifier.pointerHoverIcon(PointerIcon.Hand, overrideDescendants = true),
         content = content,
     )
 }
@@ -122,7 +122,7 @@ fun dangerButton(
             containerColor = MaterialTheme.colorScheme.error,
             contentColor = MaterialTheme.colorScheme.onError,
         ),
-        modifier = modifier.pointerHoverIcon(PointerIcon.Hand),
+        modifier = modifier.pointerHoverIcon(PointerIcon.Hand, overrideDescendants = true),
         content = content,
     )
 }
@@ -155,7 +155,7 @@ fun linkButton(
         colors = ButtonDefaults.textButtonColors(
             contentColor = MaterialTheme.colorScheme.onSurface,
         ),
-        modifier = modifier.pointerHoverIcon(PointerIcon.Hand),
+        modifier = modifier.pointerHoverIcon(PointerIcon.Hand, overrideDescendants = true),
         content = content,
     )
 }

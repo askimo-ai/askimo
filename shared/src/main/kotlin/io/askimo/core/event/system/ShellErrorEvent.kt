@@ -18,6 +18,9 @@ import java.time.Instant
  * swallowed. The original exception is preserved via [cause] for debugging.
  *
  * @property cause The original exception that triggered this error event.
+ * @property title Optional short unlocalized title shown as the card header in the
+ *   notification popup (e.g. "MCP Tool Error"). Falls back to the generic i18n key
+ *   `event.shell.error` when not provided.
  * @property errorMessage Optional unlocalized human-readable context message describing
  *   what operation failed (e.g. "Could not load available models"). Localization should
  *   be applied in the UI rendering layer, not here. Falls back to [cause].message in
@@ -26,6 +29,7 @@ import java.time.Instant
 class ShellErrorEvent(
     override val timestamp: Instant = Instant.now(),
     val cause: Throwable,
+    val title: String? = null,
     val errorMessage: String? = null,
 ) : Event {
     override val source: EventSource = EventSource.SYSTEM

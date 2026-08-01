@@ -57,7 +57,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.providers.ModelDTO
-import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ProviderConfigField
 import io.askimo.core.providers.ProviderEntry
 import io.askimo.core.providers.ProviderRegistry
@@ -119,6 +118,7 @@ fun providerWizardDialog(viewModel: ProviderWizardViewModel) {
     AppComponents.scaffoldDialog(
         onDismissRequest = { viewModel.closeProviderWizard() },
         onCloseRequest = { viewModel.closeProviderWizard() },
+        width = 780.dp,
         showSectionDividers = true,
         title = {
             Text(text = title, style = MaterialTheme.typography.headlineSmall)
@@ -283,7 +283,7 @@ private fun providerTypePickerScreen(viewModel: ProviderWizardViewModel) {
     ) {
         // ── Left column: scrollable provider list ─────────────────────────────────────────
         val listState = rememberLazyListState()
-        Box(modifier = Modifier.width(220.dp).fillMaxHeight()) {
+        Box(modifier = Modifier.width(260.dp).fillMaxHeight()) {
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 items(mainEntries, key = { entry ->
                     when (entry) {
@@ -357,20 +357,6 @@ private fun providerTypePickerScreen(viewModel: ProviderWizardViewModel) {
 
 // ── Provider picker — entry badge ─────────────────────────────────────────────────────────
 
-private fun providerInitialsForPicker(provider: ModelProvider): String = when (provider) {
-    ModelProvider.OPENAI -> "OA"
-    ModelProvider.ANTHROPIC -> "AN"
-    ModelProvider.GEMINI -> "GM"
-    ModelProvider.XAI -> "xA"
-    ModelProvider.OLLAMA -> "OL"
-    ModelProvider.DOCKER -> "DA"
-    ModelProvider.LOCALAI -> "LA"
-    ModelProvider.LMSTUDIO -> "LM"
-    ModelProvider.OPENAI_COMPATIBLE -> "OC"
-    ModelProvider.ASKIMO_PRO -> "AP"
-    ModelProvider.UNKNOWN -> "?"
-}
-
 @Composable
 private fun entryBadge(entry: ProviderEntry) {
     val bg = when (entry) {
@@ -384,7 +370,7 @@ private fun entryBadge(entry: ProviderEntry) {
         is ProviderEntry.Custom -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     val initials = when (entry) {
-        is ProviderEntry.Native -> providerInitialsForPicker(entry.provider)
+        is ProviderEntry.Native -> entry.provider.initials
         is ProviderEntry.Template -> entry.template.initials
         is ProviderEntry.Custom -> "+"
     }

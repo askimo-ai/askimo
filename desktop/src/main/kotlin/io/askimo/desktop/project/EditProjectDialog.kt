@@ -28,7 +28,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -46,7 +45,6 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
 import io.askimo.core.chat.domain.Project
@@ -104,17 +102,18 @@ fun editProjectDialog(
 
     when {
         isLoading -> {
-            Dialog(
+            AppComponents.scaffoldDialog(
                 onDismissRequest = onDismiss,
-                properties = DialogProperties(usePlatformDefaultWidth = false),
-            ) {
-                Surface(
-                    modifier = Modifier
-                        .width(800.dp)
-                        .padding(Spacing.large),
-                    shape = MaterialTheme.shapes.large,
-                    tonalElevation = 8.dp,
-                ) {
+                onCloseRequest = onDismiss,
+                width = 800.dp,
+                title = {
+                    Text(
+                        text = stringResource("project.edit.dialog.title"),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                },
+                content = {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -123,41 +122,29 @@ fun editProjectDialog(
                     ) {
                         CircularProgressIndicator()
                     }
-                }
-            }
+                },
+                actions = {},
+            )
         }
 
         dialogState.errorMessage != null -> {
-            Dialog(
+            AppComponents.alertDialog(
                 onDismissRequest = onDismiss,
-                properties = DialogProperties(usePlatformDefaultWidth = false),
-            ) {
-                Surface(
-                    modifier = Modifier
-                        .width(800.dp)
-                        .padding(Spacing.large),
-                    shape = MaterialTheme.shapes.large,
-                    tonalElevation = 8.dp,
-                ) {
-                    Column(
-                        modifier = Modifier.padding(Spacing.extraLarge),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.large),
-                    ) {
-                        Text(
-                            text = "Error",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                        inlineErrorMessage(errorMessage = dialogState.errorMessage)
-                        primaryButton(
-                            onClick = onDismiss,
-                            modifier = Modifier.align(Alignment.End),
-                        ) {
-                            Text(stringResource("dialog.close"))
-                        }
+                icon = {
+                    Icon(
+                        Icons.Default.Error,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                    )
+                },
+                title = { Text("Error") },
+                text = { inlineErrorMessage(errorMessage = dialogState.errorMessage) },
+                confirmButton = {
+                    primaryButton(onClick = onDismiss) {
+                        Text(stringResource("dialog.close"))
                     }
-                }
-            }
+                },
+            )
         }
 
         project != null -> {
@@ -273,6 +260,7 @@ private fun editProjectFormDialog(
         onCloseRequest = onDismiss,
         width = 800.dp,
         properties = DialogProperties(usePlatformDefaultWidth = false),
+        showSectionDividers = true,
         title = {
             Text(
                 text = stringResource("project.edit.dialog.title"),
@@ -280,7 +268,7 @@ private fun editProjectFormDialog(
                 color = MaterialTheme.colorScheme.onSurface,
             )
         },
-        content = {
+        stickyHeader = {
             OutlinedTextField(
                 value = projectName,
                 onValueChange = {
@@ -310,7 +298,8 @@ private fun editProjectFormDialog(
                 colors = AppComponents.outlinedTextFieldColors(),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
             )
-
+        },
+        content = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(Spacing.small),
             ) {

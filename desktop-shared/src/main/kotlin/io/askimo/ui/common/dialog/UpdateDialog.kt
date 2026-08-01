@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.askimo.core.service.UpdateChecker.Companion.MAX_VERSIONS_BEHIND_CAP
 import io.askimo.core.service.UpdateInfo
+import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
@@ -101,6 +102,7 @@ private fun newVersionDialog(
 
     AppComponents.alertDialog(
         onDismissRequest = onLater,
+        modifier = Modifier.widthIn(min = 800.dp, max = 900.dp),
         title = {
             Text(
                 text = stringResource("update.dialog.title"),
@@ -110,7 +112,7 @@ private fun newVersionDialog(
         text = {
             Column(
                 modifier = Modifier
-                    .widthIn(max = 500.dp)
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(Spacing.large),
             ) {
@@ -232,20 +234,26 @@ private fun newVersionDialog(
             }
         },
         confirmButton = {
-            primaryButton(onClick = onDownload) {
-                Text(stringResource("update.dialog.download"))
-            }
-        },
-        dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {
-                secondaryButton(onClick = onHowToUpdate) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+            ) {
+                linkButton(onClick = onHowToUpdate) {
                     Text(stringResource("update.dialog.how.to.update"))
                 }
-                secondaryButton(onClick = onSkipVersion) {
-                    Text(stringResource("update.dialog.skip.version"))
-                }
-                secondaryButton(onClick = onLater) {
-                    Text(stringResource("update.dialog.later"))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.small, Alignment.End),
+                ) {
+                    secondaryButton(onClick = onLater) {
+                        Text(stringResource("update.dialog.later"))
+                    }
+                    secondaryButton(onClick = onSkipVersion) {
+                        Text(stringResource("update.dialog.skip.version"))
+                    }
+                    primaryButton(onClick = onDownload) {
+                        Text(stringResource("update.dialog.download"))
+                    }
                 }
             }
         },

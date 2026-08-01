@@ -26,6 +26,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -105,6 +107,10 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
             ) {
                 showEventPopup = true
             }
+
+            if (event is ShellErrorEvent) {
+                showEventPopup = true
+            }
         }
     }
 
@@ -169,9 +175,10 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
                 Card(
                     modifier = Modifier.padding(Spacing.small),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
+                        containerColor = AppComponents.popupContainerColor(),
                     ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                    border = AppComponents.popupBorderStroke(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = AppComponents.popupElevation),
                 ) {
                     notificationPopup(
                         events = events,
@@ -363,19 +370,19 @@ fun notificationEventCard(
 
     val eventName = when (event) {
         is UpdateAvailableEvent -> stringResource("event.update.available")
-        is ShellErrorEvent -> stringResource("event.shell.error")
+
+        // Use the caller-supplied title when available; fall back to the generic i18n key.
+        is ShellErrorEvent -> event.title ?: stringResource("event.shell.error")
+
         else -> event::class.simpleName ?: "Unknown"
     }
 
+    // ShellErrorEvent uses a neutral card so the background matches the theme rather than
+    // always rendering a harsh red. The error colour is conveyed through the icon instead.
     val cardColors = when {
         isUpdateEvent -> CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.secondaryContainer,
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-        )
-
-        isShellError -> CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer,
-            contentColor = MaterialTheme.colorScheme.onErrorContainer,
         )
 
         else -> AppComponents.surfaceVariantCardColors()
@@ -383,8 +390,7 @@ fun notificationEventCard(
 
     val contentColor = when {
         isUpdateEvent -> MaterialTheme.colorScheme.onSecondaryContainer
-        isShellError -> MaterialTheme.colorScheme.onErrorContainer
-        else -> MaterialTheme.colorScheme.onSurface
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     Card(
@@ -402,12 +408,33 @@ fun notificationEventCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = eventName,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = contentColor,
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    when {
+                        isShellError -> Icon(
+                            imageVector = Icons.Outlined.ErrorOutline,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(16.dp),
+                        )
+
+                        isUpdateEvent -> Icon(
+                            imageVector = Icons.Outlined.SystemUpdate,
+                            contentDescription = null,
+                            tint = contentColor,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                    Text(
+                        text = eventName,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = contentColor,
+                    )
+                }
 
                 TextButton(
                     onClick = onRemoveEvent,
@@ -479,7 +506,7 @@ fun notificationEventCard(
                             stringResource("event.shell.error.cause.show")
                         },
                         style = MaterialTheme.typography.labelSmall,
-                        color = contentColor,
+                        color = MaterialTheme.colorScheme.error,
                     )
                 }
 

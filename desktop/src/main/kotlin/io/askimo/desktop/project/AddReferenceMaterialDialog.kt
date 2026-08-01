@@ -83,7 +83,6 @@ fun addReferenceMaterialDialog(
         onDismissRequest = onDismiss,
         onCloseRequest = onDismiss,
         width = 650.dp,
-        tonalElevation = 6.dp,
         title = {
             Text(
                 text = stringResource("projects.sources.add.dialog.title"),

@@ -4,19 +4,14 @@
  */
 package io.askimo.desktop.project
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,13 +20,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import io.askimo.core.logging.logger
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
@@ -137,88 +130,74 @@ fun urlInputDialog(
         }
     }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier.width(500.dp),
-            shape = MaterialTheme.shapes.large,
-            tonalElevation = 8.dp,
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+    AppComponents.scaffoldDialog(
+        onDismissRequest = onDismiss,
+        onCloseRequest = onDismiss,
+        width = 600.dp,
+        title = {
+            Text(
+                text = stringResource("project.dialog.url.title"),
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        },
+        content = {
+            Text(
+                text = stringResource("project.dialog.url.description"),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            OutlinedTextField(
+                value = urlInput,
+                onValueChange = {
+                    urlInput = it
+                    urlError = null
+                },
+                label = { Text(stringResource("project.dialog.url.label")) },
+                placeholder = { Text("https://example.com/docs") },
+                isError = urlError != null,
+                supportingText = urlError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                singleLine = true,
+                enabled = !isValidating,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester),
+                colors = AppComponents.outlinedTextFieldColors(),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { handleAdd() }),
+            )
+        },
+        actions = {
+            secondaryButton(
+                onClick = onDismiss,
+                enabled = !isValidating,
             ) {
-                // Title
-                Text(
-                    text = stringResource("project.dialog.url.title"),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-
-                // Description
-                Text(
-                    text = stringResource("project.dialog.url.description"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                // URL Input Field
-                OutlinedTextField(
-                    value = urlInput,
-                    onValueChange = {
-                        urlInput = it
-                        urlError = null
-                    },
-                    label = { Text(stringResource("project.dialog.url.label")) },
-                    placeholder = { Text("https://example.com/docs") },
-                    isError = urlError != null,
-                    supportingText = urlError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
-                    singleLine = true,
-                    enabled = !isValidating,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(focusRequester),
-                    colors = AppComponents.outlinedTextFieldColors(),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { handleAdd() }),
-                )
-
-                // Action buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    secondaryButton(
-                        onClick = onDismiss,
-                        enabled = !isValidating,
-                    ) {
-                        Text(stringResource("project.dialog.url.button.cancel"))
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    primaryButton(
-                        onClick = { handleAdd() },
-                        enabled = !isValidating,
-                    ) {
-                        if (isValidating) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.width(16.dp),
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                strokeWidth = 2.dp,
-                            )
-                            Spacer(Modifier.width(8.dp))
-                        }
-                        Text(
-                            if (isValidating) {
-                                stringResource("project.dialog.url.button.validating")
-                            } else {
-                                stringResource("project.dialog.url.button.add")
-                            },
-                        )
-                    }
-                }
+                Text(stringResource("project.dialog.url.button.cancel"))
             }
-        }
-    }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            primaryButton(
+                onClick = { handleAdd() },
+                enabled = !isValidating,
+            ) {
+                if (isValidating) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.width(16.dp),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        strokeWidth = 2.dp,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(
+                    if (isValidating) {
+                        stringResource("project.dialog.url.button.validating")
+                    } else {
+                        stringResource("project.dialog.url.button.add")
+                    },
+                )
+            }
+        },
+    )
 }

@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,7 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -40,9 +38,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import io.askimo.core.chat.service.ProjectService
 import io.askimo.core.logging.logger
 import io.askimo.ui.common.components.inlineErrorMessage
@@ -144,16 +141,13 @@ fun newProjectDialog(
 
     // Validate and create project
     fun handleCreate() {
-        // Validate project name
         if (projectName.isBlank()) {
             nameError = errorEmptyName
             return
         }
 
-        // Save project to database
         scope.launch {
             try {
-                // Build knowledge source configurations from UI items
                 val knowledgeSourceConfigs = buildKnowledgeSourceConfigs(knowledgeSources)
 
                 val createdProject = projectService.createProject(
@@ -162,17 +156,14 @@ fun newProjectDialog(
                     knowledgeSources = knowledgeSourceConfigs,
                 )
 
-                // Show success message
                 createdProjectName = projectName.trim()
                 showSuccess = true
 
-                // Call callback with project info
                 onCreateProject(
                     createdProject.name,
                     createdProject.description,
                 )
 
-                // Navigate immediately if handler provided (skips countdown screen)
                 if (onNavigateToProject != null) {
                     onDismiss()
                     onNavigateToProject(createdProject.id)
@@ -185,61 +176,58 @@ fun newProjectDialog(
     }
 
     if (showSuccess) {
-        Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-            Surface(
-                modifier = Modifier.width(650.dp),
-                shape = MaterialTheme.shapes.large,
-                tonalElevation = 8.dp,
-            ) {
-                Column(
-                    modifier = Modifier.padding(Spacing.extraLarge),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.large),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Success",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(64.dp),
-                    )
-
-                    Text(
-                        text = stringResource("project.new.dialog.success.title"),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-
-                    Text(
-                        text = stringResource("project.new.dialog.success.message", createdProjectName),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-
-                    Text(
-                        text = stringResource(
-                            "project.new.dialog.success.countdown",
-                            countdown,
-                            if (countdown != 1) "s" else "",
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-
-                    Spacer(modifier = Modifier.height(Spacing.small))
-
-                    primaryButton(
-                        onClick = onDismiss,
-                    ) {
-                        Text(stringResource("project.new.dialog.success.close"))
-                    }
+        // ── Success screen ──────────────────────────────────────────────────────
+        AppComponents.scaffoldDialog(
+            onDismissRequest = onDismiss,
+            width = 500.dp,
+            actions = {
+                primaryButton(onClick = onDismiss) {
+                    Text(stringResource("project.new.dialog.success.close"))
                 }
+            },
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.large),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(Spacing.medium),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(56.dp),
+                )
+                Text(
+                    text = stringResource("project.new.dialog.success.title"),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = stringResource("project.new.dialog.success.message", createdProjectName),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = stringResource(
+                        "project.new.dialog.success.countdown",
+                        countdown,
+                        if (countdown != 1) "s" else "",
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
             }
         }
     } else {
+        // ── Create form ─────────────────────────────────────────────────────────
         AppComponents.scaffoldDialog(
             onDismissRequest = onDismiss,
             onCloseRequest = onDismiss,
             width = 800.dp,
+            showSectionDividers = true,
             title = {
                 Text(
                     text = stringResource("project.new.dialog.title"),
@@ -247,7 +235,9 @@ fun newProjectDialog(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
             },
-            content = {
+            // Name + description are pinned above the scroll viewport so they're
+            // always visible even when a long list of knowledge sources is added.
+            stickyHeader = {
                 OutlinedTextField(
                     value = projectName,
                     onValueChange = {
@@ -276,10 +266,10 @@ fun newProjectDialog(
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { handleCreate() }),
                 )
-
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(Spacing.small),
-                ) {
+            },
+            content = {
+                // ── Knowledge sources ───────────────────────────────────────────
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
                     Text(
                         text = stringResource("project.new.dialog.sources.label"),
                         style = MaterialTheme.typography.bodyMedium,
@@ -334,7 +324,9 @@ fun newProjectDialog(
                                     )
                                 }
                                 if (index < KnowledgeSourceItem.availableTypes.lastIndex) {
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                    HorizontalDivider(
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                    )
                                 }
                             }
                         }
@@ -344,17 +336,11 @@ fun newProjectDialog(
                 inlineErrorMessage(errorMessage = dialogState.errorMessage)
             },
             actions = {
-                secondaryButton(
-                    onClick = onDismiss,
-                ) {
+                secondaryButton(onClick = onDismiss) {
                     Text(stringResource("project.new.dialog.button.cancel"))
                 }
-
                 Spacer(modifier = Modifier.width(8.dp))
-
-                primaryButton(
-                    onClick = { handleCreate() },
-                ) {
+                primaryButton(onClick = { handleCreate() }) {
                     Text(stringResource("project.new.dialog.button.create"))
                 }
             },

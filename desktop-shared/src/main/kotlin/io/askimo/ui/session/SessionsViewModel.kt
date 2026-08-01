@@ -18,6 +18,7 @@ import io.askimo.core.event.internal.SessionsRefreshEvent
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
 import io.askimo.ui.common.export.ExportFormat
+import io.askimo.ui.shell.PinnedSidebarState
 import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -41,7 +42,7 @@ class SessionsViewModel(
     private val sessionManager: SessionManager,
     private val onCreateNewSession: () -> String,
     private val onRenameComplete: () -> Unit = {}, // Callback when rename completes
-) {
+) : PinnedSidebarState {
     private val log = logger<SessionsViewModel>()
     companion object {
         const val MAX_SIDEBAR_SESSIONS = 50
@@ -59,6 +60,14 @@ class SessionsViewModel(
         private set
 
     var recentSessions by mutableStateOf<List<ChatSession>>(emptyList())
+        private set
+
+    /**
+     * All starred sessions, loaded independently via [ChatSessionService.getStarredSessions].
+     * This covers sessions of any age, not just the recent-sessions window.
+     * Implements [PinnedSidebarState].
+     */
+    override var starredSessions by mutableStateOf<List<ChatSession>>(emptyList())
         private set
 
     var totalSessionCount by mutableStateOf(0)
@@ -119,6 +128,7 @@ class SessionsViewModel(
     init {
         loadSessions(1)
         loadRecentSessions()
+        loadStarredSessions()
         subscribeToSessionEvents()
     }
 
@@ -169,6 +179,7 @@ class SessionsViewModel(
                 .collect { event ->
                     log.debug("Sessions refresh requested: ${event.reason ?: "no reason specified"}")
                     loadRecentSessions()
+                    loadStarredSessions()
                 }
         }
     }
@@ -194,6 +205,23 @@ class SessionsViewModel(
                 log.debug("Loaded ${sessions.size} sessions without projects (showing ${sessions.size} in sidebar, total: $total)")
             } catch (e: Exception) {
                 log.error("Failed to load recent sessions: ${e.message}", e)
+            }
+        }
+    }
+
+    /**
+     * Load ALL starred sessions for the pinned sidebar section.
+     */
+    fun loadStarredSessions() {
+        scope.launch {
+            try {
+                val sessions = withContext(Dispatchers.IO) {
+                    sessionService.getStarredSessions()
+                }
+                starredSessions = sessions
+                log.debug("Loaded ${sessions.size} starred sessions for pinned section")
+            } catch (e: Exception) {
+                log.error("Failed to load starred sessions: ${e.message}", e)
             }
         }
     }
@@ -254,6 +282,7 @@ class SessionsViewModel(
     fun refresh() {
         loadSessions(pagedSessions?.currentPage ?: 1)
         loadRecentSessions()
+        loadStarredSessions()
     }
 
     /**

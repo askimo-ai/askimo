@@ -4,37 +4,29 @@
  */
 package io.askimo.ui.shell
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -59,10 +51,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.DialogWindow
-import androidx.compose.ui.window.rememberDialogState
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.search.DateFilter
 import io.askimo.core.search.SearchResult
@@ -76,9 +65,6 @@ import io.askimo.ui.common.theme.Spacing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.awt.Cursor
-import java.awt.Dimension
-import java.awt.Toolkit
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -88,7 +74,6 @@ import java.time.format.DateTimeFormatter
  * @param onDismiss Called when the dialog is dismissed
  * @param onNavigateToMessage Called when user clicks on a search result (sessionId, messageId)
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun globalSearchDialog(
     onDismiss: () -> Unit,
@@ -98,7 +83,6 @@ fun globalSearchDialog(
     var dateFilterExpanded by remember { mutableStateOf(false) }
     var sortByExpanded by remember { mutableStateOf(false) }
 
-    // Initialize localized strings
     val allTime = stringResource("global.search.date.all.time")
     val today = stringResource("global.search.date.today")
     val last7Days = stringResource("global.search.date.last.7.days")
@@ -120,25 +104,8 @@ fun globalSearchDialog(
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
 
-    // Calculate responsive dialog size based on screen dimensions
-    val defaultSize = remember {
-        val screenSize = Toolkit.getDefaultToolkit().screenSize
-        val width = (screenSize.width * 0.6).toInt().coerceIn(700, 1200)
-        val height = (screenSize.height * 0.55).toInt().coerceIn(500, 800)
-        DpSize(width.dp, height.dp)
-    }
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
-    // Dialog state for resizable window
-    val dialogState = rememberDialogState(
-        size = defaultSize,
-    )
-
-    // Auto-focus the search field when dialog opens
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-    }
-
-    // Initialize search service
     val searchService = remember {
         val dbManager = DatabaseManager.getInstance()
         SessionSearchService(
@@ -150,7 +117,6 @@ fun globalSearchDialog(
     val dateFilterOptions = listOf(allTime, today, last7Days, last30Days, last3Months, lastYear)
     val sortByOptions = listOf(relevance, dateNewest, dateOldest)
 
-    // Map UI strings to enum values
     fun mapDateFilter(uiString: String): DateFilter = when (uiString) {
         today -> DateFilter.TODAY
         last7Days -> DateFilter.LAST_7_DAYS
@@ -168,17 +134,15 @@ fun globalSearchDialog(
 
     fun performSearch() {
         if (searchQuery.isBlank()) return
-
         isSearching = true
         hasSearched = true
-
         scope.launch {
             try {
                 val results = withContext(Dispatchers.IO) {
                     searchService.searchSessions(
                         query = searchQuery,
                         dateFilter = mapDateFilter(selectedDateFilter),
-                        projectId = null, // TODO: Map project filter when implemented
+                        projectId = null,
                         sortBy = mapSortBy(selectedSortBy),
                         limit = 100,
                     )
@@ -193,323 +157,263 @@ fun globalSearchDialog(
         }
     }
 
-    DialogWindow(
+    AppComponents.scaffoldDialogLazyColumn(
+        onDismissRequest = onDismiss,
         onCloseRequest = onDismiss,
-        state = dialogState,
-        resizable = true,
-        title = stringResource("global.search.title"),
-    ) {
-        // Set dynamic minimum and maximum window size based on screen dimensions
-        val screenSize = Toolkit.getDefaultToolkit().screenSize
+        width = 800.dp,
+        maxHeightFraction = 0.85f,
+        title = {
+            Text(
+                text = stringResource("global.search.title"),
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        },
+        stickyHeader = {
+            // Search Query Input
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                label = { Text(stringResource("global.search.query")) },
+                placeholder = { Text(stringResource("global.search.query.placeholder")) },
+                leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = null) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester)
+                    .onKeyEvent { keyEvent ->
+                        if (keyEvent.key == Key.Enter && searchQuery.isNotBlank() && !isSearching) {
+                            performSearch()
+                            true
+                        } else {
+                            false
+                        }
+                    },
+                singleLine = true,
+                colors = AppComponents.outlinedTextFieldColors(),
+            )
 
-        // Minimum: 50% of screen width, 40% of screen height (but at least 600x400)
-        val minWidth = maxOf(600, (screenSize.width * 0.5).toInt())
-        val minHeight = maxOf(400, (screenSize.height * 0.4).toInt())
-
-        // Maximum: 90% of screen width, 85% of screen height
-        val maxWidth = (screenSize.width * 0.9).toInt()
-        val maxHeight = (screenSize.height * 0.85).toInt()
-
-        window.minimumSize = Dimension(minWidth, minHeight)
-        window.maximumSize = Dimension(maxWidth, maxHeight)
-
-        Surface(
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp,
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            Column(
-                modifier = Modifier.fillMaxSize().padding(Spacing.extraLarge),
-                verticalArrangement = Arrangement.spacedBy(Spacing.large),
+            // Filters Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
             ) {
-                // Header
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+                // Date Filter
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                 ) {
                     Text(
-                        text = stringResource("global.search.title"),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        text = stringResource("global.search.filter.date"),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR))),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = stringResource("dialog.close"),
-                        )
-                    }
-                }
-
-                // Search Query Input
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    label = { Text(stringResource("global.search.query")) },
-                    placeholder = { Text(stringResource("global.search.query.placeholder")) },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = null,
-                        )
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(focusRequester)
-                        .onKeyEvent { keyEvent ->
-                            if (keyEvent.key == Key.Enter && searchQuery.isNotBlank() && !isSearching) {
-                                performSearch()
-                                true
-                            } else {
-                                false
-                            }
-                        },
-                    singleLine = true,
-                    colors = AppComponents.outlinedTextFieldColors(),
-                )
-
-                // Filters Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
-                ) {
-                    // Date Filter
-                    ExposedDropdownMenuBox(
-                        expanded = dateFilterExpanded,
-                        onExpandedChange = { dateFilterExpanded = it },
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        OutlinedTextField(
-                            value = selectedDateFilter,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text(stringResource("global.search.filter.date")) },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dateFilterExpanded) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                                .pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR))),
-                            colors = AppComponents.outlinedTextFieldColors(),
-                        )
-
-                        MaterialTheme(
-                            colorScheme = MaterialTheme.colorScheme.copy(
-                                surfaceContainerLowest = MaterialTheme.colorScheme.surface,
-                                surfaceContainerLow = MaterialTheme.colorScheme.surface,
-                                surfaceContainer = MaterialTheme.colorScheme.surface,
-                                surfaceContainerHigh = MaterialTheme.colorScheme.surface,
-                                surfaceContainerHighest = MaterialTheme.colorScheme.surface,
-                            ),
+                    Box {
+                        Card(
+                            onClick = { dateFilterExpanded = true },
+                            modifier = Modifier.fillMaxWidth().pointerHoverIcon(PointerIcon.Hand),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                         ) {
-                            ExposedDropdownMenu(
-                                expanded = dateFilterExpanded,
-                                onDismissRequest = { dateFilterExpanded = false },
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(Spacing.medium),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                dateFilterOptions.forEach { option ->
-                                    DropdownMenuItem(
-                                        text = { Text(option) },
-                                        onClick = {
-                                            selectedDateFilter = option
-                                            dateFilterExpanded = false
-                                        },
-                                        colors = AppComponents.menuItemColors(),
-                                        modifier = Modifier.pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR))),
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // Sort By
-                    ExposedDropdownMenuBox(
-                        expanded = sortByExpanded,
-                        onExpandedChange = { sortByExpanded = it },
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        OutlinedTextField(
-                            value = selectedSortBy,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text(stringResource("global.search.sort.by")) },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = sortByExpanded) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                                .pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR))),
-                            colors = AppComponents.outlinedTextFieldColors(),
-                        )
-                        // Override surfaceContainer so the popup background matches the theme surface
-                        MaterialTheme(
-                            colorScheme = MaterialTheme.colorScheme.copy(
-                                surfaceContainerLowest = MaterialTheme.colorScheme.surface,
-                                surfaceContainerLow = MaterialTheme.colorScheme.surface,
-                                surfaceContainer = MaterialTheme.colorScheme.surface,
-                                surfaceContainerHigh = MaterialTheme.colorScheme.surface,
-                                surfaceContainerHighest = MaterialTheme.colorScheme.surface,
-                            ),
-                        ) {
-                            ExposedDropdownMenu(
-                                expanded = sortByExpanded,
-                                onDismissRequest = { sortByExpanded = false },
-                            ) {
-                                sortByOptions.forEach { option ->
-                                    DropdownMenuItem(
-                                        text = { Text(option) },
-                                        onClick = {
-                                            selectedSortBy = option
-                                            sortByExpanded = false
-                                        },
-                                        colors = AppComponents.menuItemColors(),
-                                        modifier = Modifier.pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR))),
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Search Results Area
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                ) {
-                    when {
-                        isSearching -> {
-                            // Loading state
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    CircularProgressIndicator(
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
-                                    )
-                                    Spacer(modifier = Modifier.height(Spacing.large))
-                                    Text(
-                                        text = stringResource("global.search.searching"),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                        }
-
-                        hasSearched && searchResults.isEmpty() -> {
-                            // No results state
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(
-                                        imageVector = Icons.Default.Search,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(64.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                    )
-                                    Spacer(modifier = Modifier.height(Spacing.large))
-                                    Text(
-                                        text = stringResource("global.search.no.results"),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    Spacer(modifier = Modifier.height(Spacing.small))
-                                    Text(
-                                        text = stringResource("global.search.no.results.hint"),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                    )
-                                }
-                            }
-                        }
-
-                        searchResults.isNotEmpty() -> {
-                            Column(modifier = Modifier.fillMaxSize()) {
                                 Text(
-                                    text = if (searchResults.size == 1) {
-                                        stringResource("global.search.results.count", searchResults.size)
-                                    } else {
-                                        stringResource("global.search.results.count.plural", searchResults.size)
-                                    },
+                                    text = selectedDateFilter,
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(bottom = Spacing.small),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f).padding(end = Spacing.small),
                                 )
-
-                                LazyColumn(
-                                    modifier = Modifier.fillMaxSize(),
-                                    verticalArrangement = Arrangement.spacedBy(Spacing.small),
-                                ) {
-                                    items(searchResults) { result ->
-                                        searchResultItem(
-                                            result = result,
-                                            searchQuery = searchQuery,
-                                            onClick = {
-                                                onNavigateToMessage(result.sessionId, result.messageId)
-                                            },
-                                        )
-                                    }
-                                }
+                                Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
                             }
                         }
-
-                        else -> {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(
-                                        imageVector = Icons.Default.Search,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(64.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                    )
-                                    Spacer(modifier = Modifier.height(Spacing.large))
-                                    Text(
-                                        text = stringResource("global.search.initial.message"),
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                    )
-                                }
+                        AppComponents.dropdownMenu(
+                            expanded = dateFilterExpanded,
+                            onDismissRequest = { dateFilterExpanded = false },
+                        ) {
+                            dateFilterOptions.forEachIndexed { index, option ->
+                                AppComponents.themedDropdownMenuItem(
+                                    text = { Text(option, style = MaterialTheme.typography.bodyMedium) },
+                                    onClick = {
+                                        selectedDateFilter = option
+                                        dateFilterExpanded = false
+                                    },
+                                    isSelected = option == selectedDateFilter,
+                                    showDivider = index < dateFilterOptions.lastIndex,
+                                )
                             }
                         }
                     }
                 }
 
-                // Action Buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.medium, Alignment.End),
-                    verticalAlignment = Alignment.CenterVertically,
+                // Sort By
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                 ) {
-                    secondaryButton(
-                        onClick = onDismiss,
-                    ) {
-                        Text(stringResource("dialog.cancel"))
-                    }
-
-                    primaryButton(
-                        onClick = { performSearch() },
-                        enabled = searchQuery.isNotBlank() && !isSearching,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = null,
-                            modifier = Modifier.padding(end = Spacing.small),
-                        )
-                        Text(stringResource("global.search.button"))
+                    Text(
+                        text = stringResource("global.search.sort.by"),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Box {
+                        Card(
+                            onClick = { sortByExpanded = true },
+                            modifier = Modifier.fillMaxWidth().pointerHoverIcon(PointerIcon.Hand),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(Spacing.medium),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = selectedSortBy,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f).padding(end = Spacing.small),
+                                )
+                                Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+                            }
+                        }
+                        AppComponents.dropdownMenu(
+                            expanded = sortByExpanded,
+                            onDismissRequest = { sortByExpanded = false },
+                        ) {
+                            sortByOptions.forEachIndexed { index, option ->
+                                AppComponents.themedDropdownMenuItem(
+                                    text = { Text(option, style = MaterialTheme.typography.bodyMedium) },
+                                    onClick = {
+                                        selectedSortBy = option
+                                        sortByExpanded = false
+                                    },
+                                    isSelected = option == selectedSortBy,
+                                    showDivider = index < sortByOptions.lastIndex,
+                                )
+                            }
+                        }
                     }
                 }
             }
-        }
-    }
+        },
+        content = {
+            when {
+                isSearching -> item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(200.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(
+                                color = MaterialTheme.colorScheme.onSurface,
+                                trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                            )
+                            Spacer(modifier = Modifier.height(Spacing.large))
+                            Text(
+                                text = stringResource("global.search.searching"),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+
+                hasSearched && searchResults.isEmpty() -> item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(200.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            )
+                            Spacer(modifier = Modifier.height(Spacing.large))
+                            Text(
+                                text = stringResource("global.search.no.results"),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(modifier = Modifier.height(Spacing.small))
+                            Text(
+                                text = stringResource("global.search.no.results.hint"),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            )
+                        }
+                    }
+                }
+
+                searchResults.isNotEmpty() -> {
+                    item {
+                        Text(
+                            text = if (searchResults.size == 1) {
+                                stringResource("global.search.results.count", searchResults.size)
+                            } else {
+                                stringResource("global.search.results.count.plural", searchResults.size)
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    items(searchResults) { result ->
+                        searchResultItem(
+                            result = result,
+                            searchQuery = searchQuery,
+                            onClick = { onNavigateToMessage(result.sessionId, result.messageId) },
+                        )
+                    }
+                }
+
+                else -> item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(200.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            )
+                            Spacer(modifier = Modifier.height(Spacing.large))
+                            Text(
+                                text = stringResource("global.search.initial.message"),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        actions = {
+            secondaryButton(onClick = onDismiss) {
+                Text(stringResource("dialog.cancel"))
+            }
+            Spacer(Modifier.width(Spacing.small))
+            primaryButton(
+                onClick = { performSearch() },
+                enabled = searchQuery.isNotBlank() && !isSearching,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = null,
+                    modifier = Modifier.padding(end = Spacing.small),
+                )
+                Text(stringResource("global.search.button"))
+            }
+        },
+    )
 }
 
 @Composable
@@ -539,7 +443,7 @@ private fun searchResultItem(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR))),
+            .pointerHoverIcon(PointerIcon.Hand),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
         ),

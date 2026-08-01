@@ -87,20 +87,6 @@ internal val MODEL_PANEL_WIDTH = 800.dp
 
 // ── Provider badge ─────────────────────────────────────────────────────────────────────────
 
-private fun providerInitials(provider: ModelProvider): String = when (provider) {
-    ModelProvider.OPENAI -> "OA"
-    ModelProvider.ANTHROPIC -> "AN"
-    ModelProvider.GEMINI -> "GM"
-    ModelProvider.XAI -> "xA"
-    ModelProvider.OLLAMA -> "OL"
-    ModelProvider.DOCKER -> "DA"
-    ModelProvider.LOCALAI -> "LA"
-    ModelProvider.LMSTUDIO -> "LM"
-    ModelProvider.OPENAI_COMPATIBLE -> "OC"
-    ModelProvider.ASKIMO_PRO -> "AP"
-    ModelProvider.UNKNOWN -> "?"
-}
-
 @Composable
 private fun providerBadge(provider: ModelProvider, size: Int = 26) {
     Box(
@@ -110,7 +96,7 @@ private fun providerBadge(provider: ModelProvider, size: Int = 26) {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = providerInitials(provider),
+            text = provider.initials,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -846,8 +832,7 @@ internal fun instanceRow(
         (apiKey == "***keychain***" || apiKey.startsWith("encrypted:") || apiKey.isNotBlank())
 
     // Plain multi-line string — themedTooltip is width-constrained and flicker-free inside
-    // LazyColumn/popup. AUTO placement picks above/below the row, never overlapping the
-    // edit/delete buttons that appear on the right side on hover.
+    // LazyColumn/popup.
     val tooltipText = buildString {
         append(instance.displayName)
         append("\nType: $providerDisplayName")
@@ -858,7 +843,7 @@ internal fun instanceRow(
 
     themedTooltip(
         text = tooltipText,
-        placement = TooltipPlacement.AUTO,
+        placement = TooltipPlacement.LEFT,
     ) {
         Row(
             modifier = Modifier

@@ -109,6 +109,13 @@ interface ProjectsSidebarState {
 }
 
 /**
+ * Read-only state contract for the sidebar's pinned (starred) sessions section.
+ */
+interface PinnedSidebarState {
+    val starredSessions: List<ChatSession>
+}
+
+/**
  * Shared navigation sidebar component with collapsible/expandable functionality.
  *
  * The caller is responsible for two variable parts:
@@ -133,6 +140,7 @@ fun navigationSidebar(
     // Session/project state
     isSessionsExpanded: Boolean,
     projectsState: ProjectsSidebarState,
+    pinnedState: PinnedSidebarState,
     sessionsViewModel: SessionsViewModel,
     currentSessionId: String?,
     // Actions
@@ -176,6 +184,7 @@ fun navigationSidebar(
             showProjectsInSidebar = showProjectsInSidebar,
             isSessionsExpanded = isSessionsExpanded,
             projectsState = projectsState,
+            pinnedState = pinnedState,
             sessionsViewModel = sessionsViewModel,
             currentSessionId = currentSessionId,
             onToggleExpand = onToggleExpand,
@@ -236,6 +245,7 @@ private fun expandedNavigationSidebar(
     showProjectsInSidebar: Boolean,
     isSessionsExpanded: Boolean,
     projectsState: ProjectsSidebarState,
+    pinnedState: PinnedSidebarState,
     sessionsViewModel: SessionsViewModel,
     currentSessionId: String?,
     onToggleExpand: () -> Unit,
@@ -395,7 +405,7 @@ private fun expandedNavigationSidebar(
             // Pinned section (starred projects + starred sessions)
             pinnedSection(
                 starredProjects = projectsState.starredProjects,
-                starredSessions = sessionsViewModel.recentSessions.filter { it.isStarred },
+                starredSessions = pinnedState.starredSessions,
                 currentSessionId = currentSessionId,
                 inProgressSessionIds = inProgressSessionIds,
                 onSelectProject = onSelectProject,

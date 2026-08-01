@@ -95,6 +95,65 @@ object AppComponents {
     val dialogActionBarMinHeight: Dp = 56.dp
     val dialogScrollbarPadding: Dp = 12.dp
 
+    // ── Popup / Overlay Surface tokens ────────────────────────────────────────
+    // Single source of truth for every floating surface: dialogs, dropdowns,
+    // notification panels, popup cards.  Centralised here so the visual language
+    // of all overlays can be changed in one place.
+
+    /** Background color for all floating surfaces (dialogs, popups, dropdowns). */
+    @Composable
+    fun popupContainerColor(): Color = MaterialTheme.colorScheme.surface
+
+    /**
+     * Consistent 1 dp border for all floating surfaces.
+     * Provides subtle depth definition without relying on elevation alone, and
+     * ensures popups read clearly against any window background.
+     */
+    @Composable
+    fun popupBorderStroke(): BorderStroke = BorderStroke(
+        width = 1.dp,
+        color = MaterialTheme.colorScheme.outlineVariant,
+    )
+
+    /**
+     * Drop-shadow elevation for floating Card surfaces (e.g. notification popup).
+     * Controls visible shadow only — kept separate from [popupSurfaceTonalElevation]
+     * so shadow depth and tonal colour are independently adjustable.
+     */
+    val popupElevation: Dp = 8.dp
+
+    /**
+     * Tonal elevation for dialog/popup [Surface]s — intentionally **0.dp**.
+     *
+     * M3 tonal elevation blends a primary-colour overlay into the Surface
+     * background, making [scaffoldDialog] and [alertDialog] appear slightly
+     * different from [dropdownMenu] (which forces all surfaceContainer tonal slots
+     * to plain [surface] via [popupColorScheme]).  Keeping this at zero ensures
+     * every popup background resolves to the same pure [popupContainerColor]
+     * regardless of the active theme seed colour.
+     */
+    val popupSurfaceTonalElevation: Dp = 0.dp
+
+    /**
+     * Shared MaterialTheme colorScheme override for all popup surfaces.
+     *
+     * Forces every M3 surfaceContainer tonal slot to [popupContainerColor] so
+     * that Material3 components rendered inside (DropdownMenu, AlertDialog, etc.)
+     * pick up the canonical popup background rather than their own tonal slot.
+     * Combine with [popupSurfaceTonalElevation] = 0 for a fully consistent look.
+     */
+    @Composable
+    fun popupColorScheme() = MaterialTheme.colorScheme.let { cs ->
+        val bg = popupContainerColor()
+        cs.copy(
+            surfaceContainerLowest = bg,
+            surfaceContainerLow = bg,
+            surfaceContainer = bg,
+            surfaceContainerHigh = bg,
+            surfaceContainerHighest = bg,
+        )
+    }
+
     // ── Navigation ───────────────────────────────────────────────────────────
 
     @Composable
@@ -485,22 +544,15 @@ object AppComponents {
         offset: DpOffset = DpOffset.Zero,
         content: @Composable ColumnScope.() -> Unit,
     ) {
-        MaterialTheme(
-            colorScheme = MaterialTheme.colorScheme.copy(
-                surfaceContainerLowest = MaterialTheme.colorScheme.surface,
-                surfaceContainerLow = MaterialTheme.colorScheme.surface,
-                surfaceContainer = MaterialTheme.colorScheme.surface,
-                surfaceContainerHigh = MaterialTheme.colorScheme.surface,
-                surfaceContainerHighest = MaterialTheme.colorScheme.surface,
-            ),
-        ) {
+        val border = popupBorderStroke()
+        MaterialTheme(colorScheme = popupColorScheme()) {
             DropdownMenu(
                 expanded = expanded,
                 onDismissRequest = onDismissRequest,
                 offset = offset,
                 modifier = modifier.border(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant,
+                    width = border.width,
+                    brush = border.brush,
                     shape = RoundedCornerShape(4.dp),
                 ),
                 content = content,
@@ -522,22 +574,15 @@ object AppComponents {
         iconContentColor: Color = AlertDialogDefaults.iconContentColor,
         titleContentColor: Color = AlertDialogDefaults.titleContentColor,
         textContentColor: Color = AlertDialogDefaults.textContentColor,
-        tonalElevation: Dp = AlertDialogDefaults.TonalElevation,
-        properties: DialogProperties = DialogProperties(),
+        tonalElevation: Dp = popupSurfaceTonalElevation,
+        properties: DialogProperties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        MaterialTheme(
-            colorScheme = MaterialTheme.colorScheme.copy(
-                surfaceContainerLowest = MaterialTheme.colorScheme.surface,
-                surfaceContainerLow = MaterialTheme.colorScheme.surface,
-                surfaceContainer = MaterialTheme.colorScheme.surface,
-                surfaceContainerHigh = MaterialTheme.colorScheme.surface,
-                surfaceContainerHighest = MaterialTheme.colorScheme.surface,
-            ),
-        ) {
+        val border = popupBorderStroke()
+        MaterialTheme(colorScheme = popupColorScheme()) {
             AlertDialog(
                 onDismissRequest = onDismissRequest,
                 confirmButton = confirmButton,
-                modifier = modifier,
+                modifier = modifier.border(border.width, border.brush, shape),
                 dismissButton = dismissButton,
                 icon = icon,
                 title = title,
@@ -626,11 +671,11 @@ object AppComponents {
         properties: DialogProperties = DialogProperties(),
         shape: Shape = MaterialTheme.shapes.large,
         containerColor: Color = MaterialTheme.colorScheme.surface,
-        tonalElevation: Dp = 8.dp,
+        tonalElevation: Dp = popupSurfaceTonalElevation,
         contentPadding: Dp = dialogContentPadding,
         sectionSpacing: Dp = dialogSectionSpacing,
         onCloseRequest: (() -> Unit)? = null,
-        title: (@Composable () -> Unit)? = null,
+        title: @Composable (() -> Unit)? = null,
         stickyHeader: (@Composable ColumnScope.() -> Unit)? = null,
         showSectionDividers: Boolean = false,
         content: @Composable ColumnScope.() -> Unit,
@@ -641,62 +686,66 @@ object AppComponents {
             dismissOnClickOutside = properties.dismissOnClickOutside,
             usePlatformDefaultWidth = false,
         )
+        val border = popupBorderStroke()
         Dialog(onDismissRequest = onDismissRequest, properties = resolvedProperties) {
-            BoxWithConstraints {
-                Surface(
-                    modifier = modifier
-                        .width(width)
-                        .heightIn(max = maxHeight * safeMaxHeightFraction),
-                    shape = shape,
-                    color = containerColor,
-                    tonalElevation = tonalElevation,
-                ) {
-                    val scrollState = rememberScrollState()
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(contentPadding),
-                        verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+            MaterialTheme(colorScheme = popupColorScheme()) {
+                BoxWithConstraints {
+                    Surface(
+                        modifier = modifier
+                            .width(width)
+                            .heightIn(max = maxHeight * safeMaxHeightFraction)
+                            .border(border.width, border.brush, shape),
+                        shape = shape,
+                        color = containerColor,
+                        tonalElevation = tonalElevation,
                     ) {
-                        scaffoldDialogHeader(title, onCloseRequest, stickyHeader, sectionSpacing)
-
-                        if (showSectionDividers) HorizontalDivider()
-
-                        Box(
+                        val scrollState = rememberScrollState()
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(1f, fill = false),
+                                .padding(contentPadding),
+                            verticalArrangement = Arrangement.spacedBy(sectionSpacing),
                         ) {
-                            Column(
+                            scaffoldDialogHeader(title, onCloseRequest, stickyHeader, sectionSpacing)
+
+                            if (showSectionDividers) HorizontalDivider()
+
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(end = dialogScrollbarPadding)
-                                    .verticalScroll(scrollState),
-                                verticalArrangement = Arrangement.spacedBy(sectionSpacing),
-                                content = content,
-                            )
-
-                            if (scrollState.maxValue > 0) {
-                                VerticalScrollbar(
-                                    adapter = rememberScrollbarAdapter(scrollState),
+                                    .weight(1f, fill = false),
+                            ) {
+                                Column(
                                     modifier = Modifier
-                                        .align(androidx.compose.ui.Alignment.CenterEnd)
-                                        .fillMaxHeight(),
-                                    style = scrollbarStyle(),
+                                        .fillMaxWidth()
+                                        .padding(end = dialogScrollbarPadding)
+                                        .verticalScroll(scrollState),
+                                    verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+                                    content = content,
                                 )
+
+                                if (scrollState.maxValue > 0) {
+                                    VerticalScrollbar(
+                                        adapter = rememberScrollbarAdapter(scrollState),
+                                        modifier = Modifier
+                                            .align(androidx.compose.ui.Alignment.CenterEnd)
+                                            .fillMaxHeight(),
+                                        style = scrollbarStyle(),
+                                    )
+                                }
                             }
+
+                            if (showSectionDividers) HorizontalDivider()
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = dialogActionBarMinHeight),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                content = actions,
+                            )
                         }
-
-                        if (showSectionDividers) HorizontalDivider()
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = dialogActionBarMinHeight),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                            content = actions,
-                        )
                     }
                 }
             }
@@ -713,12 +762,12 @@ object AppComponents {
         properties: DialogProperties = DialogProperties(),
         shape: Shape = MaterialTheme.shapes.large,
         containerColor: Color = MaterialTheme.colorScheme.surface,
-        tonalElevation: Dp = 8.dp,
+        tonalElevation: Dp = popupSurfaceTonalElevation,
         contentPadding: Dp = dialogContentPadding,
         sectionSpacing: Dp = dialogSectionSpacing,
         onCloseRequest: (() -> Unit)? = null,
         listState: LazyListState = rememberLazyListState(),
-        title: (@Composable () -> Unit)? = null,
+        title: @Composable (() -> Unit)? = null,
         stickyHeader: (@Composable ColumnScope.() -> Unit)? = null,
         content: LazyListScope.() -> Unit,
     ) {
@@ -728,55 +777,59 @@ object AppComponents {
             dismissOnClickOutside = properties.dismissOnClickOutside,
             usePlatformDefaultWidth = false,
         )
+        val border = popupBorderStroke()
         Dialog(onDismissRequest = onDismissRequest, properties = resolvedProperties) {
-            BoxWithConstraints {
-                Surface(
-                    modifier = modifier
-                        .width(width)
-                        .heightIn(max = maxHeight * safeMaxHeightFraction),
-                    shape = shape,
-                    color = containerColor,
-                    tonalElevation = tonalElevation,
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(contentPadding),
-                        verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+            MaterialTheme(colorScheme = popupColorScheme()) {
+                BoxWithConstraints {
+                    Surface(
+                        modifier = modifier
+                            .width(width)
+                            .heightIn(max = maxHeight * safeMaxHeightFraction)
+                            .border(border.width, border.brush, shape),
+                        shape = shape,
+                        color = containerColor,
+                        tonalElevation = tonalElevation,
                     ) {
-                        scaffoldDialogHeader(title, onCloseRequest, stickyHeader, sectionSpacing)
-
-                        Box(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(1f, fill = false),
+                                .padding(contentPadding),
+                            verticalArrangement = Arrangement.spacedBy(sectionSpacing),
                         ) {
-                            LazyColumn(
-                                state = listState,
+                            scaffoldDialogHeader(title, onCloseRequest, stickyHeader, sectionSpacing)
+
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(end = dialogScrollbarPadding),
-                                verticalArrangement = Arrangement.spacedBy(sectionSpacing),
-                                content = content,
-                            )
+                                    .weight(1f, fill = false),
+                            ) {
+                                LazyColumn(
+                                    state = listState,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(end = dialogScrollbarPadding),
+                                    verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+                                    content = content,
+                                )
 
-                            VerticalScrollbar(
-                                adapter = rememberScrollbarAdapter(listState),
+                                VerticalScrollbar(
+                                    adapter = rememberScrollbarAdapter(listState),
+                                    modifier = Modifier
+                                        .align(androidx.compose.ui.Alignment.CenterEnd)
+                                        .fillMaxHeight(),
+                                    style = scrollbarStyle(),
+                                )
+                            }
+
+                            Row(
                                 modifier = Modifier
-                                    .align(androidx.compose.ui.Alignment.CenterEnd)
-                                    .fillMaxHeight(),
-                                style = scrollbarStyle(),
+                                    .fillMaxWidth()
+                                    .heightIn(min = dialogActionBarMinHeight),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                content = actions,
                             )
                         }
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = dialogActionBarMinHeight),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                            content = actions,
-                        )
                     }
                 }
             }

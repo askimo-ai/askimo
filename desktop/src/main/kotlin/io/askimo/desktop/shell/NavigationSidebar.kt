@@ -98,6 +98,7 @@ fun navigationSidebar(
         showProjectsInSidebar = showProjectsInSidebar,
         isSessionsExpanded = isSessionsExpanded,
         projectsState = projectsViewModel,
+        pinnedState = sessionsViewModel,
         sessionsViewModel = sessionsViewModel,
         currentSessionId = currentSessionId,
         onToggleExpand = onToggleExpand,

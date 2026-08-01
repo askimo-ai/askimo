@@ -155,6 +155,7 @@ class HybridIndexer(
             EventBus.emit(
                 ShellErrorEvent(
                     cause = e,
+                    title = "Embedding Timeout",
                     errorMessage = "Embedding timed out for [$displayNames] — the embedding model may be overloaded. Try re-indexing.",
                 ),
             )
@@ -212,6 +213,7 @@ class HybridIndexer(
             EventBus.emit(
                 ShellErrorEvent(
                     cause = e,
+                    title = "Indexing Failed",
                     errorMessage = "Failed to index files [$displayNames]: ${e.message}",
                 ),
             )

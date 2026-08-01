@@ -111,6 +111,7 @@ import io.askimo.core.event.internal.ImageCapabilityDetectedEvent
 import io.askimo.core.event.internal.ReasoningEffortChangedEvent
 import io.askimo.core.event.internal.ThinkingSupportDetectedEvent
 import io.askimo.core.event.internal.ToolSupportDetectedEvent
+import io.askimo.core.event.system.ShellErrorEvent
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.intent.ToolConfig
 import io.askimo.core.intent.ToolRegistry
@@ -1097,9 +1098,9 @@ private fun toolsIndicatorButton(
                     .getOrElse { e ->
                         log.error("Error loading tools for global server ${instance.name}", e)
                         EventBus.emit(
-                            AppErrorEvent(
-                                title = LocalizationManager.getString("error.app.title"),
-                                message = LocalizationManager.getString(
+                            ShellErrorEvent(
+                                title = "MCP Tool Error",
+                                errorMessage = LocalizationManager.getString(
                                     "error.app.message",
                                     e.message ?: instance.name,
                                 ),

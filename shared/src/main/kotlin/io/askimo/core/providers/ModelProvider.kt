@@ -99,4 +99,21 @@ enum class ModelProvider {
         ASKIMO_PRO -> "askimo-pro"
         UNKNOWN -> "unknown"
     }
+
+    /**
+     * Two-letter initials shown in provider badge circles across the UI.
+     */
+    val initials: String get() = when (this) {
+        OPENAI -> "OA"
+        ANTHROPIC -> "AN"
+        GEMINI -> "GM"
+        XAI -> "xA"
+        OLLAMA -> "OL"
+        DOCKER -> "DA"
+        LOCALAI -> "LA"
+        LMSTUDIO -> "LM"
+        OPENAI_COMPATIBLE -> "OC"
+        ASKIMO_PRO -> "AP"
+        UNKNOWN -> "?"
+    }
 }
