@@ -33,8 +33,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.RadioButtonChecked
@@ -780,24 +778,12 @@ private fun instanceEditForm(
             horizontalArrangement = Arrangement.spacedBy(Spacing.small, Alignment.End),
         ) {
             secondaryButton(onClick = onCancel, enabled = !state.isTestingEdit) {
-                Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(Spacing.extraSmall))
                 Text(stringResource("settings.cancel"), style = MaterialTheme.typography.bodySmall)
             }
             primaryButton(
                 onClick = onSave,
                 enabled = !state.isTestingEdit && state.editDisplayNameError == null,
             ) {
-                if (state.isTestingEdit) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(14.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                    )
-                } else {
-                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp))
-                }
-                Spacer(Modifier.width(Spacing.extraSmall))
                 Text(stringResource("settings.save"), style = MaterialTheme.typography.bodySmall)
             }
         }

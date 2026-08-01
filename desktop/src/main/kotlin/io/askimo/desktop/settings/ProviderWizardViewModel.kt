@@ -7,7 +7,6 @@ package io.askimo.desktop.settings
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
 import io.askimo.core.error.AppError
 import io.askimo.core.event.EventBus
@@ -15,8 +14,6 @@ import io.askimo.core.event.internal.ProviderInstanceSavedEvent
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
 import io.askimo.core.providers.ChatModelFactory
-import io.askimo.core.providers.LocalModelValidator
-import io.askimo.core.providers.ModelAvailabilityResult
 import io.askimo.core.providers.ModelDTO
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ProviderConfigField
@@ -430,17 +427,10 @@ class ProviderWizardViewModel(
 
             val result = withContext(Dispatchers.IO) {
                 try {
-                    val baseSettings = editingInstance?.settings
-                        ?: ProviderRegistry.getFactory(provider)?.defaultSettings()
-
-                    val newSettings = baseSettings?.applyConfigFields(providerFieldValues)
-                        ?: return@withContext ProviderTestResult.Failure("Failed to create settings")
-
-                    if (!newSettings.validate()) {
-                        return@withContext ProviderTestResult.Failure(
-                            message = "Cannot connect to ${provider.name.lowercase()} provider",
-                            helpText = newSettings.getSetupHelpText(LocalizationManager.messageResolver),
-                        )
+                    val newSettings = try {
+                        buildValidatedSettings(provider)
+                    } catch (e: SettingsValidationException) {
+                        return@withContext e.failure
                     }
 
                     val pendingModel = pendingModelForNewProvider?.takeIf { it.isNotBlank() }
@@ -511,79 +501,34 @@ class ProviderWizardViewModel(
         }
     }
 
-    // ── Embedding model availability ──────────────────────────────────────────────────────────
-
-    fun checkEmbeddingModelAvailability(provider: ModelProvider, baseUrl: String) {
-        isCheckingEmbeddingModel = true
-        embeddingModelWarning = null
-        embeddingModelProvider = null
-        canPullEmbeddingModel = false
-
-        scope.launch {
-            try {
-                val result = withContext(Dispatchers.IO) {
-                    fun resolveEmbeddingModel(p: ModelProvider): String {
-                        val instanceModel = editingInstance?.settings?.embeddingModel?.takeIf { it.isNotBlank() }
-                        return instanceModel ?: AppConfig.models[p].embeddingModel
-                    }
-                    when (provider) {
-                        ModelProvider.OLLAMA -> LocalModelValidator.checkModelExists(provider, baseUrl, resolveEmbeddingModel(ModelProvider.OLLAMA))
-                        ModelProvider.DOCKER -> LocalModelValidator.checkModelExists(provider, baseUrl, resolveEmbeddingModel(ModelProvider.DOCKER))
-                        ModelProvider.LOCALAI -> LocalModelValidator.checkModelExists(provider, baseUrl, resolveEmbeddingModel(ModelProvider.LOCALAI))
-                        ModelProvider.LMSTUDIO -> LocalModelValidator.checkModelExists(provider, baseUrl, resolveEmbeddingModel(ModelProvider.LMSTUDIO))
-                        ModelProvider.ANTHROPIC -> ModelAvailabilityResult.NotAvailable(reason = LocalizationManager.getString("settings.embedding.anthropic_no_embedding"), canAutoPull = false)
-                        ModelProvider.XAI -> ModelAvailabilityResult.NotAvailable(reason = LocalizationManager.getString("settings.embedding.xai_no_embedding"), canAutoPull = false)
-                        else -> ModelAvailabilityResult.Available
-                    }
-                }
-                when (result) {
-                    is ModelAvailabilityResult.Available -> embeddingModelWarning = null
-
-                    is ModelAvailabilityResult.NotAvailable -> {
-                        embeddingModelWarning = LocalizationManager.getString("settings.embedding.not_available_rag_only", result.reason)
-                        embeddingModelProvider = provider.name
-                        canPullEmbeddingModel = result.canAutoPull
-                    }
-
-                    is ModelAvailabilityResult.ProviderUnreachable -> {
-                        embeddingModelWarning = LocalizationManager.getString("settings.embedding.provider_unreachable", result.error)
-                        embeddingModelProvider = provider.name
-                        canPullEmbeddingModel = false
-                    }
-                }
-            } catch (e: Exception) {
-                log.error("Error checking embedding model availability", e)
-                embeddingModelWarning = LocalizationManager.getString("settings.embedding.check_failed", e.message ?: "Unknown error")
-            } finally {
-                isCheckingEmbeddingModel = false
-            }
-        }
-    }
-
-    fun pullEmbeddingModel(provider: ModelProvider, baseUrl: String) {
-        if (provider != ModelProvider.OLLAMA) return
-        isCheckingEmbeddingModel = true
-        scope.launch {
-            try {
-                val modelName = AppConfig.models[ModelProvider.OLLAMA].embeddingModel
-                val success = withContext(Dispatchers.IO) { LocalModelValidator.pullOllamaModel(baseUrl, modelName) }
-                if (success) {
-                    embeddingModelWarning = null
-                    successMessage = LocalizationManager.getString("settings.embedding.download_success", modelName)
-                    showSuccessMessage = true
-                } else {
-                    embeddingModelWarning = LocalizationManager.getString("settings.embedding.download_failed", modelName)
-                }
-            } catch (e: Exception) {
-                log.error("Error pulling embedding model", e)
-                embeddingModelWarning = LocalizationManager.getString("settings.embedding.download_error", e.message ?: "Unknown error")
-            } finally {
-                isCheckingEmbeddingModel = false
-            }
-        }
-    }
-
     // ── Private helpers ───────────────────────────────────────────────────────────────────────
+
+    /** Thrown by [buildValidatedSettings] when settings cannot be created or fail validation. */
+    private class SettingsValidationException(val failure: ProviderTestResult.Failure) : Exception()
+
+    /**
+     * Resolves the base settings for [provider], applies the current [providerFieldValues],
+     * and validates the result. Throws [SettingsValidationException] on any failure so that
+     * callers inside a `withContext` block can simply `return@withContext e.failure`.
+     */
+    private fun buildValidatedSettings(provider: ModelProvider): ProviderSettings {
+        val baseSettings = editingInstance?.settings
+            ?: ProviderRegistry.getFactory(provider)?.defaultSettings()
+
+        val settings = baseSettings?.applyConfigFields(providerFieldValues)
+            ?: throw SettingsValidationException(ProviderTestResult.Failure("Failed to create settings"))
+
+        if (!settings.validate()) {
+            throw SettingsValidationException(
+                ProviderTestResult.Failure(
+                    message = "Cannot connect to ${provider.name.lowercase()} provider",
+                    helpText = settings.getSetupHelpText(LocalizationManager.messageResolver),
+                ),
+            )
+        }
+
+        return settings
+    }
 
     /** Debounced model fetch triggered on field changes; validates connection and loads models. */
     private fun scheduleAutoModelFetch() {
@@ -606,15 +551,10 @@ class ProviderWizardViewModel(
 
             val result = withContext(Dispatchers.IO) {
                 try {
-                    val baseSettings = editingInstance?.settings ?: ProviderRegistry.getFactory(provider)?.defaultSettings()
-                    val newSettings = baseSettings?.applyConfigFields(providerFieldValues)
-                        ?: return@withContext ProviderTestResult.Failure("Failed to create settings")
-
-                    if (!newSettings.validate()) {
-                        return@withContext ProviderTestResult.Failure(
-                            message = "Cannot connect to ${provider.name.lowercase()} provider",
-                            helpText = newSettings.getSetupHelpText(LocalizationManager.messageResolver),
-                        )
+                    try {
+                        buildValidatedSettings(provider)
+                    } catch (e: SettingsValidationException) {
+                        return@withContext e.failure
                     }
 
                     val factory = ProviderRegistry.getFactory(provider)
@@ -646,8 +586,6 @@ class ProviderWizardViewModel(
                     connectionErrorHelp = null
                     connectionTestSuccess = true
                     loadModelsForSelectedProvider()
-                    val baseUrl = providerFieldValues[SettingField.BASE_URL]
-                    if (!baseUrl.isNullOrBlank()) checkEmbeddingModelAvailability(provider, baseUrl)
                 }
 
                 is ProviderTestResult.Failure -> {

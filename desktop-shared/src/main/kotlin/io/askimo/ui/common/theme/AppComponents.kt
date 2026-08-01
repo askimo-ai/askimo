@@ -667,7 +667,7 @@ object AppComponents {
     @Composable
     fun scaffoldDialog(
         onDismissRequest: () -> Unit,
-        actions: @Composable RowScope.() -> Unit,
+        actions: (@Composable RowScope.() -> Unit)? = null,
         modifier: Modifier = Modifier,
         width: Dp = 650.dp,
         maxHeightFraction: Float = 0.85f,
@@ -740,14 +740,16 @@ object AppComponents {
 
                             if (showSectionDividers) HorizontalDivider()
 
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = dialogActionBarMinHeight),
-                                horizontalArrangement = Arrangement.End,
-                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                                content = actions,
-                            )
+                            if (actions != null) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = dialogActionBarMinHeight),
+                                    horizontalArrangement = Arrangement.End,
+                                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                    content = actions,
+                                )
+                            }
                         }
                     }
                 }

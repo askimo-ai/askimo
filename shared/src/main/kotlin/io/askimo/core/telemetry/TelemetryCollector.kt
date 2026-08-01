@@ -38,11 +38,11 @@ class TelemetryCollector {
     private val ragRetrievalTotalTime = AtomicLong(0L)
     private val ragChunksRetrievedTotal = AtomicInteger(0)
 
-    // LLM Call Metrics (per provider)
-    private val llmCallsByProvider = ConcurrentHashMap<String, AtomicInteger>()
-    private val llmTokensByProvider = ConcurrentHashMap<String, AtomicLong>()
-    private val llmDurationByProvider = ConcurrentHashMap<String, AtomicLong>()
-    private val llmErrorsByProvider = ConcurrentHashMap<String, AtomicInteger>()
+    // LLM Call Metrics — keyed by "$instanceId:$model" or "$provider:$model" (legacy fallback)
+    private val llmCallsByInstance = ConcurrentHashMap<String, AtomicInteger>()
+    private val llmTokensByInstance = ConcurrentHashMap<String, AtomicLong>()
+    private val llmDurationByInstance = ConcurrentHashMap<String, AtomicLong>()
+    private val llmErrorsByInstance = ConcurrentHashMap<String, AtomicInteger>()
 
     init {
         // Load persisted telemetry data on initialization
@@ -60,29 +60,25 @@ class TelemetryCollector {
         ragTriggered.set(loaded.ragTriggered)
         ragSkipped.set(loaded.ragSkipped)
         ragClassificationTotalTime.set(loaded.ragAvgClassificationTimeMs * loaded.ragClassificationTotal)
-
         ragRetrievalTotal.set(loaded.ragRetrievalTotal)
         ragRetrievalTotalTime.set(loaded.ragAvgRetrievalTimeMs * loaded.ragRetrievalTotal)
         ragChunksRetrievedTotal.set((loaded.ragAvgChunksRetrieved * loaded.ragRetrievalTotal).toInt())
 
         // Restore LLM metrics
-        loaded.llmCallsByProvider.forEach { (key, calls) ->
-            llmCallsByProvider[key] = AtomicInteger(calls)
+        loaded.llmCallsByInstance.forEach { (key, calls) ->
+            llmCallsByInstance[key] = AtomicInteger(calls)
         }
-        loaded.llmTokensByProvider.forEach { (key, tokens) ->
-            llmTokensByProvider[key] = AtomicLong(tokens)
+        loaded.llmTokensByInstance.forEach { (key, tokens) ->
+            llmTokensByInstance[key] = AtomicLong(tokens)
         }
-        loaded.llmAvgDurationMsByProvider.forEach { (key, avgDuration) ->
-            val calls = loaded.llmCallsByProvider[key] ?: 0
-            if (calls > 0) {
-                llmDurationByProvider[key] = AtomicLong(avgDuration * calls)
-            }
+        loaded.llmAvgDurationMsByInstance.forEach { (key, avgDuration) ->
+            val calls = loaded.llmCallsByInstance[key] ?: 0
+            if (calls > 0) llmDurationByInstance[key] = AtomicLong(avgDuration * calls)
         }
-        loaded.llmErrorsByProvider.forEach { (key, errors) ->
-            llmErrorsByProvider[key] = AtomicInteger(errors)
+        loaded.llmErrorsByInstance.forEach { (key, errors) ->
+            llmErrorsByInstance[key] = AtomicInteger(errors)
         }
 
-        // Update the flow with loaded data
         updateMetricsFlow()
 
         if (loaded != TelemetryMetrics.empty()) {
@@ -119,20 +115,23 @@ class TelemetryCollector {
 
     /**
      * Records an LLM call (from LangChain4J listener).
+     *
+     * The aggregation key is `"$instanceId:$model"` when [instanceId] is supplied,
+     * or `"$provider:$model"` as a legacy fallback when no instance is known.
      */
     fun recordLLMCall(
         provider: String,
         model: String,
         tokenUsage: TokenUsage?,
         durationMs: Long,
+        instanceId: String? = null,
     ) {
-        val key = "$provider:$model"
+        val key = "${instanceId ?: provider}:$model"
 
-        llmCallsByProvider.getOrPut(key) { AtomicInteger(0) }.incrementAndGet()
-        llmDurationByProvider.getOrPut(key) { AtomicLong(0L) }.addAndGet(durationMs)
-
+        llmCallsByInstance.getOrPut(key) { AtomicInteger(0) }.incrementAndGet()
+        llmDurationByInstance.getOrPut(key) { AtomicLong(0L) }.addAndGet(durationMs)
         tokenUsage?.let {
-            llmTokensByProvider.getOrPut(key) { AtomicLong(0L) }.addAndGet(it.totalTokenCount().toLong())
+            llmTokensByInstance.getOrPut(key) { AtomicLong(0L) }.addAndGet(it.totalTokenCount().toLong())
         }
 
         log.debug("LLM call to $key: ${tokenUsage?.totalTokenCount() ?: 0} tokens in ${durationMs}ms")
@@ -141,10 +140,17 @@ class TelemetryCollector {
 
     /**
      * Records an LLM error.
+     *
+     * Uses the same key scheme as [recordLLMCall].
      */
-    fun recordLLMError(provider: String, model: String, error: Throwable) {
-        val key = "$provider:$model"
-        llmErrorsByProvider.getOrPut(key) { AtomicInteger(0) }.incrementAndGet()
+    fun recordLLMError(
+        provider: String,
+        model: String,
+        error: Throwable,
+        instanceId: String? = null,
+    ) {
+        val key = "${instanceId ?: provider}:$model"
+        llmErrorsByInstance.getOrPut(key) { AtomicInteger(0) }.incrementAndGet()
         log.warn("LLM error for $key: ${error.message}")
     }
 
@@ -160,36 +166,20 @@ class TelemetryCollector {
             ragClassificationTotal = classificationCount,
             ragTriggered = ragTriggered.get(),
             ragSkipped = ragSkipped.get(),
-            ragTriggeredPercent = if (classificationCount > 0) {
-                (ragTriggered.get() * 100.0 / classificationCount)
-            } else {
-                0.0
-            },
-            ragAvgClassificationTimeMs = if (classificationCount > 0) {
-                ragClassificationTotalTime.get() / classificationCount
-            } else {
-                0L
-            },
+            ragTriggeredPercent = if (classificationCount > 0) ragTriggered.get() * 100.0 / classificationCount else 0.0,
+            ragAvgClassificationTimeMs = if (classificationCount > 0) ragClassificationTotalTime.get() / classificationCount else 0L,
             // RAG Retrieval
             ragRetrievalTotal = retrievalCount,
-            ragAvgRetrievalTimeMs = if (retrievalCount > 0) {
-                ragRetrievalTotalTime.get() / retrievalCount
-            } else {
-                0L
-            },
-            ragAvgChunksRetrieved = if (retrievalCount > 0) {
-                ragChunksRetrievedTotal.get().toDouble() / retrievalCount
-            } else {
-                0.0
-            },
+            ragAvgRetrievalTimeMs = if (retrievalCount > 0) ragRetrievalTotalTime.get() / retrievalCount else 0L,
+            ragAvgChunksRetrieved = if (retrievalCount > 0) ragChunksRetrievedTotal.get().toDouble() / retrievalCount else 0.0,
             // LLM Calls
-            llmCallsByProvider = llmCallsByProvider.mapValues { it.value.get() },
-            llmTokensByProvider = llmTokensByProvider.mapValues { it.value.get() },
-            llmAvgDurationMsByProvider = llmDurationByProvider.mapValues { (key, totalDuration) ->
-                val calls = llmCallsByProvider[key]?.get() ?: 0
+            llmCallsByInstance = llmCallsByInstance.mapValues { it.value.get() },
+            llmTokensByInstance = llmTokensByInstance.mapValues { it.value.get() },
+            llmAvgDurationMsByInstance = llmDurationByInstance.mapValues { (key, totalDuration) ->
+                val calls = llmCallsByInstance[key]?.get() ?: 0
                 if (calls > 0) totalDuration.get() / calls else 0L
             },
-            llmErrorsByProvider = llmErrorsByProvider.mapValues { it.value.get() },
+            llmErrorsByInstance = llmErrorsByInstance.mapValues { it.value.get() },
         )
     }
 
@@ -212,19 +202,14 @@ class TelemetryCollector {
         ragTriggered.set(0)
         ragSkipped.set(0)
         ragClassificationTotalTime.set(0L)
-
         ragRetrievalTotal.set(0)
         ragRetrievalTotalTime.set(0L)
         ragChunksRetrievedTotal.set(0)
-
-        llmCallsByProvider.clear()
-        llmTokensByProvider.clear()
-        llmDurationByProvider.clear()
-        llmErrorsByProvider.clear()
-
+        llmCallsByInstance.clear()
+        llmTokensByInstance.clear()
+        llmDurationByInstance.clear()
+        llmErrorsByInstance.clear()
         log.info("Telemetry metrics reset")
-
-        // Update flow and delete persisted file
         updateMetricsFlow()
         TelemetryPersistenceManager.delete()
     }
@@ -247,14 +232,14 @@ data class TelemetryMetrics(
     val ragAvgRetrievalTimeMs: Long,
     val ragAvgChunksRetrieved: Double,
 
-    // LLM Calls
-    val llmCallsByProvider: Map<String, Int>,
-    val llmTokensByProvider: Map<String, Long>,
-    val llmAvgDurationMsByProvider: Map<String, Long>,
-    val llmErrorsByProvider: Map<String, Int>,
+    // LLM Calls — key is "$instanceId:$model" or "$provider:$model" (legacy)
+    val llmCallsByInstance: Map<String, Int>,
+    val llmTokensByInstance: Map<String, Long>,
+    val llmAvgDurationMsByInstance: Map<String, Long>,
+    val llmErrorsByInstance: Map<String, Int>,
 ) {
     val totalTokensUsed: Long
-        get() = llmTokensByProvider.values.sum()
+        get() = llmTokensByInstance.values.sum()
 
     companion object {
         fun empty() = TelemetryMetrics(
@@ -266,10 +251,10 @@ data class TelemetryMetrics(
             ragRetrievalTotal = 0,
             ragAvgRetrievalTimeMs = 0L,
             ragAvgChunksRetrieved = 0.0,
-            llmCallsByProvider = emptyMap(),
-            llmTokensByProvider = emptyMap(),
-            llmAvgDurationMsByProvider = emptyMap(),
-            llmErrorsByProvider = emptyMap(),
+            llmCallsByInstance = emptyMap(),
+            llmTokensByInstance = emptyMap(),
+            llmAvgDurationMsByInstance = emptyMap(),
+            llmErrorsByInstance = emptyMap(),
         )
     }
 }

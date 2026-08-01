@@ -88,8 +88,8 @@ import io.askimo.desktop.project.editProjectDialog
 import io.askimo.desktop.project.newProjectDialog
 import io.askimo.desktop.project.projectView
 import io.askimo.desktop.project.projectsView
+import io.askimo.desktop.settings.AIProviderViewModel
 import io.askimo.desktop.settings.SettingsSection
-import io.askimo.desktop.settings.SettingsViewModel
 import io.askimo.desktop.settings.aboutDialog
 import io.askimo.desktop.settings.fileViewerDialog
 import io.askimo.desktop.settings.providerWizardDialog
@@ -290,7 +290,7 @@ fun main(args: Array<String>) {
             icon = icon,
             onCloseRequest = {
                 val messageCount = runCatching {
-                    AppContext.getInstance().telemetry.metricsFlow.value.llmCallsByProvider.values.sum()
+                    AppContext.getInstance().telemetry.metricsFlow.value.llmCallsByInstance.values.sum()
                 }.getOrDefault(0)
                 Analytics.trackSessionEnd(messageCount)
                 Analytics.shutdown()
@@ -504,7 +504,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     val projectsViewModel = remember { koin.get<ProjectsViewModel> { parametersOf(scope) } }
     val plansViewModel = remember { koin.get<PlansViewModel> { parametersOf(scope) } }
     val discoverViewModel = remember { koin.get<DiscoverViewModel> { parametersOf(scope) } }
-    val settingsViewModel = remember { koin.get<SettingsViewModel> { parametersOf(scope) } }
+    val settingsViewModel = remember { koin.get<AIProviderViewModel> { parametersOf(scope) } }
     val updateViewModel = remember { koin.get<UpdateViewModel> { parametersOf(scope) } }
 
     val deleteSessionCommand = remember {

@@ -367,7 +367,7 @@ private fun tokenUsageSection(
     onOpenSystemDiagnostics: () -> Unit,
 ) {
     val totalTokens = telemetryMetrics.totalTokensUsed
-    val topModels = telemetryMetrics.llmTokensByProvider
+    val topModels = telemetryMetrics.llmTokensByInstance
         .entries
         .sortedByDescending { it.value }
         .take(5)

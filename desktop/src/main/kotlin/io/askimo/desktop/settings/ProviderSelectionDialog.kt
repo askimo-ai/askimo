@@ -220,7 +220,7 @@ fun providerWizardDialog(viewModel: ProviderWizardViewModel) {
                             enabled = viewModel.connectionTestSuccess && !viewModel.isFetchingModelsForConfig,
                         ) {
                             if (viewModel.isFetchingModelsForConfig) {
-                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.surface)
                                 Spacer(Modifier.width(Spacing.small))
                             }
                             Text(stringResource("action.next"))
@@ -232,7 +232,7 @@ fun providerWizardDialog(viewModel: ProviderWizardViewModel) {
                             enabled = !viewModel.isTestingConnection && !viewModel.isFetchingModelsForConfig,
                         ) {
                             if (viewModel.isTestingConnection) {
-                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.surface)
                                 Spacer(Modifier.width(Spacing.small))
                             }
                             Text(stringResource("settings.save"))
@@ -711,22 +711,6 @@ private fun instanceConfigScreen(viewModel: ProviderWizardViewModel) {
                             viewModel.connectionErrorHelp?.let {
                                 Spacer(Modifier.height(Spacing.extraSmall))
                                 Text(text = it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f))
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Embedding model warning
-            if (viewModel.embeddingModelWarning != null) {
-                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(Spacing.medium), verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small), verticalAlignment = Alignment.Top) {
-                            Icon(Icons.Default.Info, contentDescription = "Info", tint = MaterialTheme.colorScheme.tertiary)
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(text = stringResource("settings.embedding.rag_feature_only"), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
-                                Spacer(Modifier.height(Spacing.extraSmall))
-                                Text(text = viewModel.embeddingModelWarning ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.9f))
                             }
                         }
                     }

@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
@@ -45,8 +44,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import io.askimo.core.analytics.Analytics
 import io.askimo.core.analytics.AnalyticsEvent
 import io.askimo.core.service.StatsService
@@ -82,70 +79,64 @@ fun happinessGateDialog(
     onNeutral: () -> Unit,
     onUnhappy: () -> Unit,
 ) {
-    Dialog(
+    AppComponents.scaffoldDialog(
         onDismissRequest = {},
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        width = 480.dp,
     ) {
-        Surface(
-            modifier = Modifier.width(480.dp),
-            shape = MaterialTheme.shapes.large,
-            tonalElevation = 8.dp,
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            Text(
+                text = "😊",
+                style = MaterialTheme.typography.displaySmall,
+            )
             Column(
-                modifier = Modifier.padding(28.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(Spacing.small),
             ) {
                 Text(
-                    text = "😊",
-                    style = MaterialTheme.typography.displaySmall,
+                    text = stringResource("happiness.gate.title"),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
                 )
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(Spacing.small),
-                ) {
-                    Text(
-                        text = stringResource("happiness.gate.title"),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.Center,
-                    )
-                    Text(
-                        text = stringResource("happiness.gate.subtitle"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.small),
-                ) {
-                    sentimentButton(
-                        label = stringResource("happiness.gate.happy"),
-                        onClick = {
-                            Analytics.track(AnalyticsEvent.USER_SENTIMENT_HAPPY)
-                            onHappy()
-                        },
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                    sentimentButton(
-                        label = stringResource("happiness.gate.neutral"),
-                        onClick = {
-                            Analytics.track(AnalyticsEvent.USER_SENTIMENT_NEUTRAL)
-                            onNeutral()
-                        },
-                    )
-                    sentimentButton(
-                        label = stringResource("happiness.gate.unhappy"),
-                        onClick = {
-                            Analytics.track(AnalyticsEvent.USER_SENTIMENT_UNHAPPY)
-                            onUnhappy()
-                        },
-                    )
-                }
+                Text(
+                    text = stringResource("happiness.gate.subtitle"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(Spacing.small),
+            ) {
+                sentimentButton(
+                    label = stringResource("happiness.gate.happy"),
+                    onClick = {
+                        Analytics.track(AnalyticsEvent.USER_SENTIMENT_HAPPY)
+                        onHappy()
+                    },
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+                sentimentButton(
+                    label = stringResource("happiness.gate.neutral"),
+                    onClick = {
+                        Analytics.track(AnalyticsEvent.USER_SENTIMENT_NEUTRAL)
+                        onNeutral()
+                    },
+                )
+                sentimentButton(
+                    label = stringResource("happiness.gate.unhappy"),
+                    onClick = {
+                        Analytics.track(AnalyticsEvent.USER_SENTIMENT_UNHAPPY)
+                        onUnhappy()
+                    },
+                )
             }
         }
     }
@@ -205,188 +196,182 @@ fun feedbackPromptDialog(
     var submitted by remember { mutableStateOf(false) }
     var showReminder by remember { mutableStateOf(false) }
 
-    Dialog(
+    AppComponents.scaffoldDialog(
         onDismissRequest = {},
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        width = 700.dp,
     ) {
-        Surface(
-            modifier = Modifier.width(700.dp),
-            shape = MaterialTheme.shapes.large,
-            tonalElevation = 8.dp,
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Column(
-                modifier = Modifier.padding(28.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                when {
-                    submitted -> {
-                        // ── Thank-you screen ───────────────────────────────────
-                        Text(text = "🙏", style = MaterialTheme.typography.displaySmall)
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(Spacing.small),
-                        ) {
-                            Text(
-                                text = stringResource("feedback.thanks.title"),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                textAlign = TextAlign.Center,
-                            )
-                            Text(
-                                text = stringResource("feedback.thanks.message"),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                            )
-                        }
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                            TextButton(onClick = onClose, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
-                                Text(text = stringResource("feedback.thanks.close"), style = MaterialTheme.typography.bodySmall)
-                            }
+            when {
+                submitted -> {
+                    // ── Thank-you screen ───────────────────────────────────
+                    Text(text = "🙏", style = MaterialTheme.typography.displaySmall)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(Spacing.small),
+                    ) {
+                        Text(
+                            text = stringResource("feedback.thanks.title"),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center,
+                        )
+                        Text(
+                            text = stringResource("feedback.thanks.message"),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = onClose, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+                            Text(text = stringResource("feedback.thanks.close"), style = MaterialTheme.typography.bodySmall)
                         }
                     }
+                }
 
-                    showReminder -> {
-                        // ── Skip reminder screen ───────────────────────────────
-                        Text(text = "💡", style = MaterialTheme.typography.displaySmall)
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(Spacing.small),
-                        ) {
-                            Text(
-                                text = stringResource("feedback.remind.title"),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                textAlign = TextAlign.Center,
-                            )
-                            Text(
-                                text = stringResource("feedback.remind.message"),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                            )
-                        }
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                            TextButton(onClick = onSnooze, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
-                                Text(text = stringResource("feedback.remind.got.it"), style = MaterialTheme.typography.bodySmall)
-                            }
+                showReminder -> {
+                    // ── Skip reminder screen ───────────────────────────────
+                    Text(text = "💡", style = MaterialTheme.typography.displaySmall)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(Spacing.small),
+                    ) {
+                        Text(
+                            text = stringResource("feedback.remind.title"),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center,
+                        )
+                        Text(
+                            text = stringResource("feedback.remind.message"),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = onSnooze, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+                            Text(text = stringResource("feedback.remind.got.it"), style = MaterialTheme.typography.bodySmall)
                         }
                     }
+                }
 
-                    else -> {
-                        // ── Input screen ───────────────────────────────────────
-                        Text(text = "💬", style = MaterialTheme.typography.displaySmall)
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(Spacing.small),
-                        ) {
-                            Text(
-                                text = stringResource("feedback.dialog.title"),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                textAlign = TextAlign.Center,
-                            )
-                            Text(
-                                text = stringResource("feedback.dialog.subtitle"),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                            )
-                        }
-                        // ── Reason chips (2-column grid) ───────────────────────
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(Spacing.small),
-                        ) {
-                            FeedbackReason.entries.chunked(2).forEach { row ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                                ) {
-                                    row.forEach { reason ->
-                                        feedbackReasonChip(
-                                            reason = reason,
-                                            selected = reason in selectedReasons,
-                                            onToggle = {
-                                                selectedReasons = if (reason in selectedReasons) {
-                                                    selectedReasons - reason
-                                                } else {
-                                                    selectedReasons + reason
-                                                }
-                                            },
-                                            modifier = Modifier.weight(1f),
-                                        )
-                                    }
-                                    if (row.size == 1) Spacer(modifier = Modifier.weight(1f))
+                else -> {
+                    // ── Input screen ───────────────────────────────────────
+                    Text(text = "💬", style = MaterialTheme.typography.displaySmall)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(Spacing.small),
+                    ) {
+                        Text(
+                            text = stringResource("feedback.dialog.title"),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center,
+                        )
+                        Text(
+                            text = stringResource("feedback.dialog.subtitle"),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                    // ── Reason chips (2-column grid) ───────────────────────
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.small),
+                    ) {
+                        FeedbackReason.entries.chunked(2).forEach { row ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                            ) {
+                                row.forEach { reason ->
+                                    feedbackReasonChip(
+                                        reason = reason,
+                                        selected = reason in selectedReasons,
+                                        onToggle = {
+                                            selectedReasons = if (reason in selectedReasons) {
+                                                selectedReasons - reason
+                                            } else {
+                                                selectedReasons + reason
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                    )
                                 }
+                                if (row.size == 1) Spacer(modifier = Modifier.weight(1f))
                             }
                         }
-                        // ── Optional comment ───────────────────────────────────
-                        OutlinedTextField(
-                            value = comment,
-                            onValueChange = { comment = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = {
-                                Text(text = stringResource("feedback.comment.label"), style = MaterialTheme.typography.bodySmall)
-                            },
-                            placeholder = {
-                                Text(text = stringResource("feedback.comment.placeholder"), style = MaterialTheme.typography.bodySmall)
-                            },
-                            minLines = 3,
-                            maxLines = 5,
-                            shape = MaterialTheme.shapes.medium,
-                        )
-                        // ── Optional email ─────────────────────────────────────
-                        OutlinedTextField(
-                            value = email,
-                            onValueChange = { email = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = {
-                                Text(text = stringResource("feedback.email.label"), style = MaterialTheme.typography.bodySmall)
-                            },
-                            placeholder = {
-                                Text(text = stringResource("feedback.email.placeholder"), style = MaterialTheme.typography.bodySmall)
-                            },
-                            supportingText = {
-                                Text(
-                                    text = stringResource("feedback.email.hint"),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            },
-                            singleLine = true,
-                            shape = MaterialTheme.shapes.medium,
-                        )
-                        // ── Action buttons ─────────────────────────────────────
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
+                    }
+                    // ── Optional comment ───────────────────────────────────
+                    OutlinedTextField(
+                        value = comment,
+                        onValueChange = { comment = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = {
+                            Text(text = stringResource("feedback.comment.label"), style = MaterialTheme.typography.bodySmall)
+                        },
+                        placeholder = {
+                            Text(text = stringResource("feedback.comment.placeholder"), style = MaterialTheme.typography.bodySmall)
+                        },
+                        minLines = 3,
+                        maxLines = 5,
+                        shape = MaterialTheme.shapes.medium,
+                    )
+                    // ── Optional email ─────────────────────────────────────
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = {
+                            Text(text = stringResource("feedback.email.label"), style = MaterialTheme.typography.bodySmall)
+                        },
+                        placeholder = {
+                            Text(text = stringResource("feedback.email.placeholder"), style = MaterialTheme.typography.bodySmall)
+                        },
+                        supportingText = {
+                            Text(
+                                text = stringResource("feedback.email.hint"),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                        singleLine = true,
+                        shape = MaterialTheme.shapes.medium,
+                    )
+                    // ── Action buttons ─────────────────────────────────────
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TextButton(
+                            onClick = { if (showReminderOnSkip) showReminder = true else onSnooze() },
+                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         ) {
-                            TextButton(
-                                onClick = { if (showReminderOnSkip) showReminder = true else onSnooze() },
-                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                            ) {
-                                Text(
-                                    text = stringResource("feedback.action.skip"),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            Button(
-                                onClick = {
-                                    onSubmit(selectedReasons, comment.trim(), email.trim())
-                                    submitted = true
-                                },
-                                enabled = selectedReasons.isNotEmpty() || comment.isNotBlank(),
-                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                            ) {
-                                Text(text = stringResource("feedback.action.send"), style = MaterialTheme.typography.labelLarge)
-                            }
+                            Text(
+                                text = stringResource("feedback.action.skip"),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Button(
+                            onClick = {
+                                onSubmit(selectedReasons, comment.trim(), email.trim())
+                                submitted = true
+                            },
+                            enabled = selectedReasons.isNotEmpty() || comment.isNotBlank(),
+                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                        ) {
+                            Text(text = stringResource("feedback.action.send"), style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
@@ -455,168 +440,162 @@ fun starPromptDialog(
         }
     }
 
-    Dialog(
+    AppComponents.scaffoldDialog(
         onDismissRequest = {},
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        width = 700.dp,
     ) {
-        Surface(
-            modifier = Modifier.width(700.dp),
-            shape = MaterialTheme.shapes.large,
-            tonalElevation = 8.dp,
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            Column(
-                modifier = Modifier.padding(Spacing.extraLarge),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
-            ) {
-                if (thanked) {
-                    // ── Thank-you screen ───────────────────────────────────
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(Spacing.medium),
+            if (thanked) {
+                // ── Thank-you screen ───────────────────────────────────
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(Spacing.medium),
+                ) {
+                    Text(
+                        text = "🙏",
+                        style = MaterialTheme.typography.displaySmall,
+                    )
+                    Text(
+                        text = stringResource("star.prompt.thanks.title"),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = stringResource("star.prompt.thanks.message"),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextButton(
+                        onClick = onAlreadyStarred,
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                     ) {
                         Text(
-                            text = "🙏",
-                            style = MaterialTheme.typography.displaySmall,
-                        )
-                        Text(
-                            text = stringResource("star.prompt.thanks.title"),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center,
-                        )
-                        Text(
-                            text = stringResource("star.prompt.thanks.message"),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
+                            text = stringResource("star.prompt.thanks.done"),
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
+                }
+            } else if (showReminder) {
+                // ── Maybe-later reminder screen ────────────────────────
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(Spacing.medium),
+                ) {
+                    Text(
+                        text = "💡",
+                        style = MaterialTheme.typography.displaySmall,
+                    )
+                    Text(
+                        text = stringResource("star.prompt.remind.title"),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = stringResource("star.prompt.remind.message"),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                     ) {
-                        TextButton(
-                            onClick = onAlreadyStarred,
-                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                        ) {
-                            Text(
-                                text = stringResource("star.prompt.thanks.done"),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                    }
-                } else if (showReminder) {
-                    // ── Maybe-later reminder screen ────────────────────────
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(Spacing.medium),
-                    ) {
                         Text(
-                            text = "💡",
-                            style = MaterialTheme.typography.displaySmall,
-                        )
-                        Text(
-                            text = stringResource("star.prompt.remind.title"),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center,
-                        )
-                        Text(
-                            text = stringResource("star.prompt.remind.message"),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
+                            text = stringResource("star.prompt.remind.got.it"),
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                    ) {
-                        TextButton(
-                            onClick = onDismiss,
-                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                        ) {
-                            Text(
-                                text = stringResource("star.prompt.remind.got.it"),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                    }
-                } else {
-                    // ── Default screen ─────────────────────────────────────
-                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+                }
+            } else {
+                // ── Default screen ─────────────────────────────────────
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+                    Text(
+                        text = stringResource("star.prompt.title"),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = stringResource("star.prompt.message"),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    val count = starCount
+                    if (count != null) {
                         Text(
-                            text = stringResource("star.prompt.title"),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            text = stringResource("star.prompt.social.proof", count),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.secondary,
                         )
-                        Text(
-                            text = stringResource("star.prompt.message"),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        val count = starCount
-                        if (count != null) {
-                            Text(
-                                text = stringResource("star.prompt.social.proof", count),
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.secondary,
-                            )
-                        }
                     }
+                }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
+                ) {
+                    supportActionCard(
+                        icon = Icons.Default.Star,
+                        iconTint = Color(0xFFFFC107),
+                        label = stringResource("star.prompt.star.button"),
+                        description = stringResource("star.prompt.star.description"),
+                        onClick = {
+                            onStar()
+                            thanked = true
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
+                    shareActionCard(
+                        onShared = { thanked = true },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(
+                        onClick = onAlreadyStarred,
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                     ) {
-                        supportActionCard(
-                            icon = Icons.Default.Star,
-                            iconTint = Color(0xFFFFC107),
-                            label = stringResource("star.prompt.star.button"),
-                            description = stringResource("star.prompt.star.description"),
-                            onClick = {
-                                onStar()
-                                thanked = true
-                            },
-                            modifier = Modifier.weight(1f),
-                        )
-                        shareActionCard(
-                            onShared = { thanked = true },
-                            modifier = Modifier.weight(1f),
+                        Text(
+                            text = stringResource("star.prompt.already.starred"),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
+                    TextButton(
+                        onClick = { if (showReminderOnMaybeLater) showReminder = true else onDismiss() },
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                     ) {
-                        TextButton(
-                            onClick = onAlreadyStarred,
-                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                        ) {
-                            Text(
-                                text = stringResource("star.prompt.already.starred"),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        TextButton(
-                            onClick = { if (showReminderOnMaybeLater) showReminder = true else onDismiss() },
-                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                        ) {
-                            Text(
-                                text = stringResource("star.prompt.maybe.later"),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                        Text(
+                            text = stringResource("star.prompt.maybe.later"),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }

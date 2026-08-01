@@ -123,7 +123,7 @@ fun editProjectDialog(
                         CircularProgressIndicator()
                     }
                 },
-                actions = {},
+                actions = null,
             )
         }
 

@@ -95,10 +95,10 @@ object TelemetryExportService {
         }
 
         // LLM summary metrics
-        if (metrics.llmCallsByProvider.isNotEmpty()) {
-            val totalCalls = metrics.llmCallsByProvider.values.sum()
-            val totalTokens = metrics.llmTokensByProvider.values.sum()
-            val totalErrors = metrics.llmErrorsByProvider.values.sum()
+        if (metrics.llmCallsByInstance.isNotEmpty()) {
+            val totalCalls = metrics.llmCallsByInstance.values.sum()
+            val totalTokens = metrics.llmTokensByInstance.values.sum()
+            val totalErrors = metrics.llmErrorsByInstance.values.sum()
             sw.appendCsvLine(capturedAt, "llm_total_calls", "LLM Total Calls", "count", LocalizationManager.formatNumber(totalCalls))
             sw.appendCsvLine(capturedAt, "llm_total_tokens", "LLM Total Tokens", "tokens", LocalizationManager.formatNumber(totalTokens))
             sw.appendCsvLine(capturedAt, "llm_total_errors", "LLM Total Errors", "count", LocalizationManager.formatNumber(totalErrors))
@@ -111,7 +111,7 @@ object TelemetryExportService {
         val sw = StringWriter()
         sw.appendCsvLine(
             "captured_at",
-            "provider",
+            "instance_or_provider",
             "model",
             "calls",
             "tokens",
@@ -119,17 +119,17 @@ object TelemetryExportService {
             "errors",
         )
 
-        metrics.llmCallsByProvider.forEach { (providerModel, calls) ->
-            val parts = providerModel.split(":", limit = 2)
-            val provider = parts.getOrElse(0) { providerModel }
+        metrics.llmCallsByInstance.forEach { (instanceModel, calls) ->
+            val parts = instanceModel.split(":", limit = 2)
+            val instanceOrProvider = parts.getOrElse(0) { instanceModel }
             val model = parts.getOrElse(1) { "" }
-            val tokens = metrics.llmTokensByProvider[providerModel] ?: 0L
-            val avgDurationMs = metrics.llmAvgDurationMsByProvider[providerModel] ?: 0L
-            val errors = metrics.llmErrorsByProvider[providerModel] ?: 0
+            val tokens = metrics.llmTokensByInstance[instanceModel] ?: 0L
+            val avgDurationMs = metrics.llmAvgDurationMsByInstance[instanceModel] ?: 0L
+            val errors = metrics.llmErrorsByInstance[instanceModel] ?: 0
 
             sw.appendCsvLine(
                 capturedAt,
-                provider,
+                instanceOrProvider,
                 model,
                 LocalizationManager.formatNumber(calls),
                 LocalizationManager.formatNumber(tokens),

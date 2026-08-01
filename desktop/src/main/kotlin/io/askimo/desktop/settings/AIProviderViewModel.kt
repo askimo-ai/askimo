@@ -216,6 +216,3 @@ class AIProviderViewModel(
         showSuccessMessage = true
     }
 }
-
-/** Backward-compat alias — prefer [AIProviderViewModel] in new code. */
-typealias SettingsViewModel = AIProviderViewModel

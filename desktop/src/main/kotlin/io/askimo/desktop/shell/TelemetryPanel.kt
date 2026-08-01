@@ -96,7 +96,7 @@ internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
                         fontWeight = FontWeight.SemiBold,
                     )
 
-                    if (metrics.ragClassificationTotal > 0 || metrics.llmCallsByProvider.isNotEmpty()) {
+                    if (metrics.ragClassificationTotal > 0 || metrics.llmCallsByInstance.isNotEmpty()) {
                         themedTooltip(text = stringResource("telemetry.reset")) {
                             IconButton(
                                 onClick = { appContext.telemetry.reset() },
@@ -113,7 +113,7 @@ internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
                     }
                 }
 
-                if (metrics.ragClassificationTotal == 0 && metrics.llmCallsByProvider.isEmpty()) {
+                if (metrics.ragClassificationTotal == 0 && metrics.llmCallsByInstance.isEmpty()) {
                     Text(
                         text = stringResource("telemetry.no.data"),
                         style = MaterialTheme.typography.bodyMedium,
@@ -185,7 +185,7 @@ internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
                 }
 
                 // ── LLM section ───────────────────────────────────────────
-                if (metrics.llmCallsByProvider.isNotEmpty()) {
+                if (metrics.llmCallsByInstance.isNotEmpty()) {
                     if (metrics.ragClassificationTotal > 0) {
                         HorizontalDivider()
                     }
@@ -197,7 +197,7 @@ internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
                         fontWeight = FontWeight.SemiBold,
                     )
 
-                    var sortColumn by remember { mutableStateOf(LlmSortColumn.PROVIDER) }
+                    var sortColumn by remember { mutableStateOf(LlmSortColumn.INSTANCE) }
                     var sortAscending by remember { mutableStateOf(true) }
 
                     fun toggleSort(column: LlmSortColumn) {
@@ -222,19 +222,19 @@ internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
                     var totalTokens = 0L
                     var totalErrors = 0
 
-                    val rows = metrics.llmCallsByProvider.map { (providerModel, calls) ->
+                    val rows = metrics.llmCallsByInstance.map { (providerModel, calls) ->
                         val parts = providerModel.split(":", limit = 2)
-                        val provider = parts.getOrElse(0) { providerModel }
+                        val instance = parts.getOrElse(0) { providerModel }
                             .replaceFirstChar { if (it.isLowerCase()) it.titlecase(getDefault()) else it.toString() }
                         val model = parts.getOrElse(1) { "" }
-                        val tokens = metrics.llmTokensByProvider[providerModel] ?: 0L
-                        val avgDuration = metrics.llmAvgDurationMsByProvider[providerModel] ?: 0L
-                        val errors = metrics.llmErrorsByProvider[providerModel] ?: 0
-                        LlmRow(provider, model, calls, tokens, avgDuration, errors)
+                        val tokens = metrics.llmTokensByInstance[providerModel] ?: 0L
+                        val avgDuration = metrics.llmAvgDurationMsByInstance[providerModel] ?: 0L
+                        val errors = metrics.llmErrorsByInstance[providerModel] ?: 0
+                        LlmRow(instance, model, calls, tokens, avgDuration, errors)
                     }
 
                     val sorted = when (sortColumn) {
-                        LlmSortColumn.PROVIDER -> rows.sortedBy { it.provider }
+                        LlmSortColumn.INSTANCE -> rows.sortedBy { it.instance }
                         LlmSortColumn.MODEL -> rows.sortedBy { it.model }
                         LlmSortColumn.CALLS -> rows.sortedBy { it.calls }
                         LlmSortColumn.TOKENS -> rows.sortedBy { it.tokens }
@@ -254,7 +254,7 @@ internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
 
                     // Totals row
                     llmTableRow(
-                        provider = stringResource("telemetry.llm.col.total"),
+                        instance = stringResource("telemetry.llm.col.total"),
                         model = "",
                         calls = LocalizationManager.formatNumber(totalCalls),
                         tokens = LocalizationManager.formatNumber(totalTokens),
@@ -278,10 +278,10 @@ internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
     }
 }
 
-private enum class LlmSortColumn { PROVIDER, MODEL, CALLS, TOKENS, AVG_DURATION, ERRORS }
+private enum class LlmSortColumn { INSTANCE, MODEL, CALLS, TOKENS, AVG_DURATION, ERRORS }
 
 private data class LlmRow(
-    val provider: String,
+    val instance: String,
     val model: String,
     val calls: Int,
     val tokens: Long,
@@ -308,7 +308,7 @@ private fun llmTableHeader(
     val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     val cols = listOf(
-        Triple(stringResource("telemetry.llm.col.provider"), LlmSortColumn.PROVIDER, COL_PROVIDER),
+        Triple(stringResource("telemetry.llm.col.instance"), LlmSortColumn.INSTANCE, COL_PROVIDER),
         Triple(stringResource("telemetry.llm.col.model"), LlmSortColumn.MODEL, COL_MODEL),
         Triple(stringResource("telemetry.llm.col.calls"), LlmSortColumn.CALLS, COL_CALLS),
         Triple(stringResource("telemetry.llm.col.tokens"), LlmSortColumn.TOKENS, COL_TOKENS),
@@ -360,7 +360,7 @@ private fun llmTableDataRow(row: LlmRow) {
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = row.provider, style = style, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(COL_PROVIDER), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(text = row.instance, style = style, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(COL_PROVIDER), maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(text = row.model, style = style, color = secondary, modifier = Modifier.weight(COL_MODEL), maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(text = LocalizationManager.formatNumber(row.calls), style = style, color = secondary, modifier = Modifier.weight(COL_CALLS), maxLines = 1)
         Text(text = LocalizationManager.formatNumber(row.tokens), style = style, color = secondary, modifier = Modifier.weight(COL_TOKENS), maxLines = 1)
@@ -381,7 +381,7 @@ private fun llmTableDataRow(row: LlmRow) {
 
 @Composable
 private fun llmTableRow(
-    provider: String,
+    instance: String,
     model: String,
     calls: String,
     tokens: String,
@@ -399,7 +399,7 @@ private fun llmTableRow(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = provider, style = style, fontWeight = fontWeight, color = defaultColor, modifier = Modifier.weight(COL_PROVIDER), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(text = instance, style = style, fontWeight = fontWeight, color = defaultColor, modifier = Modifier.weight(COL_PROVIDER), maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(text = model, style = style, fontWeight = fontWeight, color = secondaryColor, modifier = Modifier.weight(COL_MODEL), maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(text = calls, style = style, fontWeight = fontWeight, color = secondaryColor, modifier = Modifier.weight(COL_CALLS), maxLines = 1)
         Text(text = tokens, style = style, fontWeight = fontWeight, color = secondaryColor, modifier = Modifier.weight(COL_TOKENS), maxLines = 1)
