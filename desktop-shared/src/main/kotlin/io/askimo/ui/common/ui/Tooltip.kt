@@ -4,7 +4,6 @@
  */
 package io.askimo.ui.common.ui
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -81,7 +80,7 @@ enum class TooltipPlacement {
  * @param tooltip The tooltip popup content
  * @param content The anchor content
  */
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
 private fun tooltipContainer(
     placement: TooltipPlacement = TooltipPlacement.AUTO,
@@ -147,7 +146,6 @@ private fun tooltipContainer(
  * @param modifier Optional modifier for the TooltipBox
  * @param content The composable content that the tooltip wraps
  */
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
 fun themedTooltip(
     text: String,
@@ -199,7 +197,6 @@ fun themedTooltip(
  * @param tooltipContent The composable to render inside the tooltip popup
  * @param content The anchor composable the tooltip wraps
  */
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
 fun themedRichTooltip(
     placement: TooltipPlacement = TooltipPlacement.AUTO,

@@ -85,6 +85,9 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import io.askimo.ui.common.i18n.stringResource
 
 object AppComponents {
@@ -845,4 +848,40 @@ object AppComponents {
         unhoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
         hoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.50f),
     )
+
+    /**
+     * A floating popup anchored to any position via [positionProvider], using the same
+     * background, border, and elevation tokens as all other popup surfaces in the app.
+     *
+     * Use this instead of a raw [Popup] + [Surface] whenever you need a custom-positioned
+     * overlay (e.g. an upward-opening chip picker, command palette).
+     */
+    @Composable
+    fun anchoredPopup(
+        positionProvider: PopupPositionProvider,
+        onDismissRequest: () -> Unit,
+        modifier: Modifier = Modifier,
+        shape: Shape = MaterialTheme.shapes.medium,
+        properties: PopupProperties = PopupProperties(focusable = true),
+        content: @Composable ColumnScope.() -> Unit,
+    ) {
+        val border = popupBorderStroke()
+        Popup(
+            popupPositionProvider = positionProvider,
+            onDismissRequest = onDismissRequest,
+            properties = properties,
+        ) {
+            MaterialTheme(colorScheme = popupColorScheme()) {
+                Surface(
+                    modifier = modifier.border(border.width, border.brush, shape),
+                    shape = shape,
+                    color = popupContainerColor(),
+                    tonalElevation = popupSurfaceTonalElevation,
+                    shadowElevation = popupElevation,
+                ) {
+                    Column(content = content)
+                }
+            }
+        }
+    }
 }

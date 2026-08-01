@@ -10,6 +10,7 @@ import androidx.compose.foundation.ScrollbarStyle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -136,19 +137,23 @@ fun codeViewerBlock(
             )
         }
 
-        HorizontalScrollbar(
-            adapter = rememberScrollbarAdapter(hScrollState),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 2.dp),
-            style = ScrollbarStyle(
-                minimalHeight = 16.dp,
-                thickness = 6.dp,
-                shape = MaterialTheme.shapes.small,
-                hoverDurationMillis = 150,
-                unhoverColor = contentColor.copy(alpha = 0.20f),
-                hoverColor = contentColor.copy(alpha = 0.50f),
-            ),
-        )
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            if (maxWidth.value.isFinite()) {
+                HorizontalScrollbar(
+                    adapter = rememberScrollbarAdapter(hScrollState),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                    style = ScrollbarStyle(
+                        minimalHeight = 16.dp,
+                        thickness = 6.dp,
+                        shape = MaterialTheme.shapes.small,
+                        hoverDurationMillis = 150,
+                        unhoverColor = contentColor.copy(alpha = 0.20f),
+                        hoverColor = contentColor.copy(alpha = 0.50f),
+                    ),
+                )
+            }
+        }
     }
 }

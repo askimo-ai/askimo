@@ -4,7 +4,6 @@
  */
 package io.askimo.ui.chat
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -108,7 +107,6 @@ import io.askimo.ui.common.theme.LocalBackgroundActive
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.TooltipPlacement
-import io.askimo.ui.common.ui.markdownText
 import io.askimo.ui.common.ui.themedRichTooltip
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.common.ui.util.FileDialogUtils
@@ -125,7 +123,7 @@ import java.util.UUID.randomUUID
 
 private val log = currentFileLogger()
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun chatView(
     state: ChatState,
@@ -729,10 +727,16 @@ fun chatView(
                                                 themedRichTooltip(
                                                     placement = TooltipPlacement.LEFT,
                                                     tooltipContent = {
-                                                        markdownText(
-                                                            markdown = msg.content.take(600),
+                                                        Text(
+                                                            text = msg.content.take(200).let {
+                                                                if (msg.content.length > 200) "$it…" else it
+                                                            },
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            color = MaterialTheme.colorScheme.onSurface,
+                                                            maxLines = 6,
+                                                            overflow = TextOverflow.Ellipsis,
                                                             modifier = Modifier
-                                                                .widthIn(max = 360.dp)
+                                                                .widthIn(max = 280.dp)
                                                                 .padding(horizontal = 10.dp, vertical = 8.dp),
                                                         )
                                                     },
@@ -783,8 +787,12 @@ fun chatView(
                                                                         .weight(1f),
                                                                     verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                                                                 ) {
-                                                                    markdownText(
-                                                                        markdown = msg.content.take(120),
+                                                                    Text(
+                                                                        text = msg.content.take(120),
+                                                                        style = MaterialTheme.typography.bodyMedium,
+                                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                                        maxLines = 3,
+                                                                        overflow = TextOverflow.Ellipsis,
                                                                         modifier = Modifier.fillMaxWidth(),
                                                                     )
                                                                     msg.timestamp?.let { ts ->

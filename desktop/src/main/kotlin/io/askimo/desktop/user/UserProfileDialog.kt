@@ -11,28 +11,17 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -50,7 +39,6 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import io.askimo.core.user.domain.UserProfile
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
@@ -87,7 +75,6 @@ enum class UserInterestCategory(val key: String, val displayKey: String) {
 /**
  * User profile dialog for viewing and editing user information
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun userProfileDialog(
     profile: UserProfile,
@@ -136,253 +123,199 @@ fun userProfileDialog(
         }
     }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier.width(600.dp).height(700.dp),
-            shape = MaterialTheme.shapes.large,
-            tonalElevation = 8.dp,
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(Spacing.extraLarge),
-            ) {
-                // Header
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource("user.profile.title"),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
+    AppComponents.scaffoldDialog(
+        onDismissRequest = onDismiss,
+        onCloseRequest = onDismiss,
+        width = 720.dp,
+        title = {
+            Text(
+                text = stringResource("user.profile.title"),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+            )
+        },
+        actions = {
+            secondaryButton(onClick = onDismiss) {
+                Text(stringResource("action.cancel"))
+            }
+            Spacer(Modifier.width(Spacing.small))
+            primaryButton(
+                onClick = {
+                    val allInterests = selectedInterests.toMutableSet()
+                    customInterests.split(",")
+                        .map { it.trim() }
+                        .filter { it.isNotBlank() }
+                        .forEach { allInterests.add(it) }
+
+                    val updatedPreferences = profile.preferences.toMutableMap()
+                    avatarPath?.let { updatedPreferences["avatarPath"] = it }
+
+                    onSave(
+                        profile.copy(
+                            name = name.ifBlank { null },
+                            email = email.ifBlank { null },
+                            occupation = occupation.ifBlank { null },
+                            location = location.ifBlank { null },
+                            bio = bio.ifBlank { null },
+                            interests = allInterests.toList(),
+                            preferences = updatedPreferences,
+                        ),
                     )
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                    ) {
-                        Icon(Icons.Default.Close, contentDescription = stringResource("action.close"))
-                    }
-                }
-
-                Spacer(Modifier.height(Spacing.large))
-
-                // Scrollable content
-                Column(
+                },
+            ) {
+                Text(stringResource("action.save"))
+            }
+        },
+        stickyHeader = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(Spacing.small),
+            ) {
+                Box(
                     modifier = Modifier
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.large),
-                ) {
-                    // Avatar section
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(120.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer)
-                                .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                                .clickable {
-                                    scope.launch {
-                                        val (path, bitmap) = avatarService.pickAndSaveUserAvatar() ?: return@launch
-                                        avatarPath = path
-                                        avatarImage = bitmap
-                                    }
-                                }
-                                .pointerHoverIcon(PointerIcon.Hand),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            if (avatarImage != null) {
-                                Image(
-                                    bitmap = avatarImage!!,
-                                    contentDescription = stringResource("user.profile.avatar"),
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop,
-                                )
-                            } else {
-                                val initials = name.split(" ")
-                                    .mapNotNull { it.firstOrNull()?.uppercase() }
-                                    .take(2)
-                                    .joinToString("")
-                                    .ifBlank { "?" }
-
-                                Text(
-                                    text = initials,
-                                    style = MaterialTheme.typography.displayLarge,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                )
+                        .size(96.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                        .clickable {
+                            scope.launch {
+                                val (path, bitmap) = avatarService.pickAndSaveUserAvatar() ?: return@launch
+                                avatarPath = path
+                                avatarImage = bitmap
                             }
                         }
-
-                        Spacer(Modifier.height(Spacing.small))
-
+                        .pointerHoverIcon(PointerIcon.Hand),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (avatarImage != null) {
+                        Image(
+                            bitmap = avatarImage!!,
+                            contentDescription = stringResource("user.profile.avatar"),
+                            modifier = Modifier.size(96.dp),
+                            contentScale = ContentScale.Crop,
+                        )
+                    } else {
+                        val initials = name.split(" ")
+                            .mapNotNull { it.firstOrNull()?.uppercase() }
+                            .take(2)
+                            .joinToString("")
+                            .ifBlank { "?" }
                         Text(
-                            text = stringResource("user.profile.avatar.click_to_change"),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            text = initials,
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
                     }
-
-                    HorizontalDivider()
-
-                    // Basic Information
-                    Text(
-                        text = stringResource("user.profile.basic_info"),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-
-                    OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        label = { Text(stringResource("user.profile.name")) },
-                        colors = AppComponents.outlinedTextFieldColors(),
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-
-                    OutlinedTextField(
-                        value = email,
-                        onValueChange = { email = it },
-                        label = { Text(stringResource("user.profile.email")) },
-                        colors = AppComponents.outlinedTextFieldColors(),
-                        placeholder = { Text(stringResource("user.profile.email.placeholder")) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-
-                    OutlinedTextField(
-                        value = occupation,
-                        onValueChange = { occupation = it },
-                        label = { Text(stringResource("user.profile.occupation")) },
-                        colors = AppComponents.outlinedTextFieldColors(),
-                        placeholder = { Text(stringResource("user.profile.occupation.placeholder")) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-
-                    OutlinedTextField(
-                        value = location,
-                        onValueChange = { location = it },
-                        label = { Text(stringResource("user.profile.location")) },
-                        colors = AppComponents.outlinedTextFieldColors(),
-                        placeholder = { Text(stringResource("user.profile.location.placeholder")) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-
-                    OutlinedTextField(
-                        value = bio,
-                        onValueChange = { bio = it },
-                        label = { Text(stringResource("user.profile.bio")) },
-                        colors = AppComponents.outlinedTextFieldColors(),
-                        placeholder = { Text(stringResource("user.profile.bio.placeholder")) },
-                        modifier = Modifier.fillMaxWidth().height(100.dp),
-                        maxLines = 4,
-                    )
-
-                    HorizontalDivider()
-
-                    // Interests
-                    Text(
-                        text = stringResource("user.profile.interests"),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-
-                    Text(
-                        text = stringResource("user.profile.interests.description"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-
-                    // Predefined interest chips
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.small),
-                    ) {
-                        UserInterestCategory.entries.forEach { category ->
-                            FilterChip(
-                                selected = category.key in selectedInterests,
-                                onClick = {
-                                    selectedInterests = if (category.key in selectedInterests) {
-                                        selectedInterests - category.key
-                                    } else {
-                                        selectedInterests + category.key
-                                    }
-                                },
-                                label = { Text(stringResource(category.displayKey)) },
-                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                            )
-                        }
-                    }
-
-                    // Custom interests
-                    OutlinedTextField(
-                        value = customInterests,
-                        onValueChange = { customInterests = it },
-                        label = { Text(stringResource("user.profile.interests.custom")) },
-                        colors = AppComponents.outlinedTextFieldColors(),
-                        placeholder = { Text(stringResource("user.profile.interests.custom.placeholder")) },
-                        modifier = Modifier.fillMaxWidth(),
-                        supportingText = {
-                            Text(
-                                text = stringResource("user.profile.interests.custom.hint"),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        },
-                    )
                 }
+                Text(
+                    text = stringResource("user.profile.avatar.click_to_change"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        showSectionDividers = true,
+        content = {
+            // ── Basic Information ─────────────────────────────────────────────
+            Text(
+                text = stringResource("user.profile.basic_info"),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
 
-                Spacer(Modifier.height(Spacing.large))
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource("user.profile.name")) },
+                colors = AppComponents.outlinedTextFieldColors(),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text(stringResource("user.profile.email")) },
+                placeholder = { Text(stringResource("user.profile.email.placeholder")) },
+                colors = AppComponents.outlinedTextFieldColors(),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+            OutlinedTextField(
+                value = occupation,
+                onValueChange = { occupation = it },
+                label = { Text(stringResource("user.profile.occupation")) },
+                placeholder = { Text(stringResource("user.profile.occupation.placeholder")) },
+                colors = AppComponents.outlinedTextFieldColors(),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+            OutlinedTextField(
+                value = location,
+                onValueChange = { location = it },
+                label = { Text(stringResource("user.profile.location")) },
+                placeholder = { Text(stringResource("user.profile.location.placeholder")) },
+                colors = AppComponents.outlinedTextFieldColors(),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+            OutlinedTextField(
+                value = bio,
+                onValueChange = { bio = it },
+                label = { Text(stringResource("user.profile.bio")) },
+                placeholder = { Text(stringResource("user.profile.bio.placeholder")) },
+                colors = AppComponents.outlinedTextFieldColors(),
+                modifier = Modifier.fillMaxWidth().height(100.dp),
+                maxLines = 4,
+            )
 
-                // Action buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    secondaryButton(
-                        onClick = onDismiss,
-                    ) {
-                        Text(stringResource("action.cancel"))
-                    }
+            HorizontalDivider()
 
-                    Spacer(Modifier.width(Spacing.small))
-
-                    primaryButton(
+            // ── Interests ─────────────────────────────────────────────────────
+            Text(
+                text = stringResource("user.profile.interests"),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = stringResource("user.profile.interests.description"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                verticalArrangement = Arrangement.spacedBy(Spacing.small),
+            ) {
+                UserInterestCategory.entries.forEach { category ->
+                    FilterChip(
+                        selected = category.key in selectedInterests,
                         onClick = {
-                            // Combine selected predefined interests with custom interests
-                            val allInterests = selectedInterests.toMutableSet()
-                            customInterests.split(",")
-                                .map { it.trim() }
-                                .filter { it.isNotBlank() }
-                                .forEach { allInterests.add(it) }
-
-                            val updatedPreferences = profile.preferences.toMutableMap()
-                            avatarPath?.let { updatedPreferences["avatarPath"] = it }
-
-                            val updatedProfile = profile.copy(
-                                name = name.ifBlank { null },
-                                email = email.ifBlank { null },
-                                occupation = occupation.ifBlank { null },
-                                location = location.ifBlank { null },
-                                bio = bio.ifBlank { null },
-                                interests = allInterests.toList(),
-                                preferences = updatedPreferences,
-                            )
-                            onSave(updatedProfile)
+                            selectedInterests = if (category.key in selectedInterests) {
+                                selectedInterests - category.key
+                            } else {
+                                selectedInterests + category.key
+                            }
                         },
-                    ) {
-                        Text(stringResource("action.save"))
-                    }
+                        label = { Text(stringResource(category.displayKey)) },
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                    )
                 }
             }
-        }
-    }
+            OutlinedTextField(
+                value = customInterests,
+                onValueChange = { customInterests = it },
+                label = { Text(stringResource("user.profile.interests.custom")) },
+                placeholder = { Text(stringResource("user.profile.interests.custom.placeholder")) },
+                colors = AppComponents.outlinedTextFieldColors(),
+                modifier = Modifier.fillMaxWidth(),
+                supportingText = {
+                    Text(
+                        text = stringResource("user.profile.interests.custom.hint"),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                },
+            )
+        },
+    )
 }

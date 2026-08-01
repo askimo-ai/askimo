@@ -4,7 +4,6 @@
  */
 package io.askimo.ui.terminal
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -256,7 +255,6 @@ fun terminalPanel(
                                         horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                                     ) {
                                         // Tab title — single click switches tab, double click renames
-                                        @OptIn(ExperimentalFoundationApi::class)
                                         Text(
                                             text = tab.title,
                                             style = MaterialTheme.typography.bodyMedium,
