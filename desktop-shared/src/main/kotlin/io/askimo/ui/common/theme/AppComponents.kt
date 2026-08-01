@@ -487,7 +487,11 @@ object AppComponents {
     ) {
         MaterialTheme(
             colorScheme = MaterialTheme.colorScheme.copy(
+                surfaceContainerLowest = MaterialTheme.colorScheme.surface,
+                surfaceContainerLow = MaterialTheme.colorScheme.surface,
                 surfaceContainer = MaterialTheme.colorScheme.surface,
+                surfaceContainerHigh = MaterialTheme.colorScheme.surface,
+                surfaceContainerHighest = MaterialTheme.colorScheme.surface,
             ),
         ) {
             DropdownMenu(
@@ -523,7 +527,11 @@ object AppComponents {
     ) {
         MaterialTheme(
             colorScheme = MaterialTheme.colorScheme.copy(
+                surfaceContainerLowest = MaterialTheme.colorScheme.surface,
+                surfaceContainerLow = MaterialTheme.colorScheme.surface,
+                surfaceContainer = MaterialTheme.colorScheme.surface,
                 surfaceContainerHigh = MaterialTheme.colorScheme.surface,
+                surfaceContainerHighest = MaterialTheme.colorScheme.surface,
             ),
         ) {
             AlertDialog(
@@ -624,6 +632,7 @@ object AppComponents {
         onCloseRequest: (() -> Unit)? = null,
         title: (@Composable () -> Unit)? = null,
         stickyHeader: (@Composable ColumnScope.() -> Unit)? = null,
+        showSectionDividers: Boolean = false,
         content: @Composable ColumnScope.() -> Unit,
     ) {
         val safeMaxHeightFraction = maxHeightFraction.coerceIn(0.35f, 1f)
@@ -651,6 +660,8 @@ object AppComponents {
                     ) {
                         scaffoldDialogHeader(title, onCloseRequest, stickyHeader, sectionSpacing)
 
+                        if (showSectionDividers) HorizontalDivider()
+
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -675,6 +686,8 @@ object AppComponents {
                                 )
                             }
                         }
+
+                        if (showSectionDividers) HorizontalDivider()
 
                         Row(
                             modifier = Modifier

@@ -718,6 +718,42 @@ private fun instanceEditForm(
                             )
                         }
                     }
+
+                    is ProviderConfigField.SelectField -> {
+                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+                            Text(
+                                text = field.label,
+                                style = MaterialTheme.typography.labelMedium,
+                            )
+                            Text(
+                                text = field.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            val currentValue = state.editFieldValues[field.name] ?: field.value
+                            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {
+                                field.options.forEach { option ->
+                                    if (currentValue == option.value) {
+                                        primaryButton(onClick = {}) {
+                                            Text(option.label, style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    } else {
+                                        secondaryButton(onClick = { state.updateEditField(field.name, option.value) }) {
+                                            Text(option.label, style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
+                                }
+                            }
+                            field.options.find { it.value == currentValue }?.description
+                                ?.takeIf { it.isNotBlank() }?.let { endpoint ->
+                                    Text(
+                                        text = endpoint,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                        }
+                    }
                 }
             }
 

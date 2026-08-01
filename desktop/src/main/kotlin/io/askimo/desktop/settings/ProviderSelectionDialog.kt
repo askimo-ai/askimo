@@ -9,17 +9,26 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.Info
@@ -42,11 +51,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.providers.ModelDTO
+import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ProviderConfigField
+import io.askimo.core.providers.ProviderEntry
 import io.askimo.core.providers.ProviderRegistry
 import io.askimo.core.providers.filterChatModels
 import io.askimo.ui.common.components.linkButton
@@ -55,11 +68,8 @@ import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.Spacing
-import io.askimo.ui.common.ui.clickableCard
 import java.awt.Desktop
 import java.net.URI
-
-// ── Dialog: Provider wizard (add & edit) ──────────────────────────────────────────────────
 
 @Composable
 fun providerWizardDialog(viewModel: ProviderWizardViewModel) {
@@ -70,7 +80,12 @@ fun providerWizardDialog(viewModel: ProviderWizardViewModel) {
 
         WizardStep.CONFIG -> {
             if (viewModel.isAddingNewInstance) {
-                stringResource("provider.configure.new.title", ProviderRegistry.getProviderDisplayName(viewModel.selectedProvider!!))
+                // Prefer the pre-filled display name so template providers (Groq, NVIDIA NIM, etc.)
+                // show their own name rather than the generic "OpenAI Compatible" type label.
+                val providerName = viewModel.newInstanceDisplayName.ifBlank {
+                    ProviderRegistry.getProviderDisplayName(viewModel.selectedProvider!!)
+                }
+                stringResource("provider.configure.new.title", providerName)
             } else {
                 stringResource("provider.edit.title", viewModel.editingInstance?.displayName ?: "")
             }
@@ -104,6 +119,7 @@ fun providerWizardDialog(viewModel: ProviderWizardViewModel) {
     AppComponents.scaffoldDialog(
         onDismissRequest = { viewModel.closeProviderWizard() },
         onCloseRequest = { viewModel.closeProviderWizard() },
+        showSectionDividers = true,
         title = {
             Text(text = title, style = MaterialTheme.typography.headlineSmall)
         },
@@ -225,7 +241,12 @@ fun providerWizardDialog(viewModel: ProviderWizardViewModel) {
                 }
 
                 WizardStep.TYPE_PICKER -> {
-                    // No back button — type picker is the entry point
+                    primaryButton(
+                        onClick = { viewModel.connectEntry() },
+                        enabled = viewModel.selectedEntry != null,
+                    ) {
+                        Text(stringResource("provider.connect.button"))
+                    }
                 }
             }
         },
@@ -247,59 +268,306 @@ fun providerWizardDialog(viewModel: ProviderWizardViewModel) {
     }
 }
 
-// ── Screen 2: Provider type picker ────────────────────────────────────────────────────────
+// ── Screen 2: Provider type picker (two-column master-detail) ─────────────────────────────
 
 @Composable
 private fun providerTypePickerScreen(viewModel: ProviderWizardViewModel) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(Spacing.small),
+    val entries = viewModel.availableEntries
+    val mainEntries = remember(entries) { entries.filterNot { it is ProviderEntry.Custom } }
+    val hasCustom = remember(entries) { entries.any { it is ProviderEntry.Custom } }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(380.dp),
     ) {
-        Text(
-            text = stringResource("provider.type.picker.prompt"),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        viewModel.availableProviders.chunked(3).forEach { rowItems ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-            ) {
-                rowItems.forEach { providerType ->
-                    val existingCount = viewModel.availableInstances.count { it.providerType == providerType }
-                    Card(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickableCard { viewModel.selectProviderTypeForNewInstance(providerType) }
-                            .pointerHoverIcon(PointerIcon.Hand),
-                        colors = AppComponents.surfaceVariantCardColors(),
-                    ) {
-                        Box(modifier = Modifier.fillMaxWidth().padding(Spacing.medium)) {
-                            Text(
-                                text = ProviderRegistry.getProviderDisplayName(providerType),
-                                style = MaterialTheme.typography.bodyMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier
-                                    .align(Alignment.CenterStart)
-                                    .padding(end = if (existingCount > 0) 16.dp else 0.dp),
-                            )
-                            if (existingCount > 0) {
-                                Canvas(modifier = Modifier.size(8.dp).align(Alignment.TopEnd)) {
-                                    drawCircle(color = Color(0xFF4CAF50))
-                                }
-                            }
-                        }
+        // ── Left column: scrollable provider list ─────────────────────────────────────────
+        val listState = rememberLazyListState()
+        Box(modifier = Modifier.width(220.dp).fillMaxHeight()) {
+            LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                items(mainEntries, key = { entry ->
+                    when (entry) {
+                        is ProviderEntry.Native -> "native_${entry.provider.name}"
+                        is ProviderEntry.Template -> "template_${entry.template.name}"
+                        is ProviderEntry.Custom -> "custom"
                     }
+                }) { entry ->
+                    providerPickerEntryRow(
+                        entry = entry,
+                        isSelected = viewModel.selectedEntry == entry,
+                        onClick = { viewModel.selectEntryForPreview(entry) },
+                    )
                 }
 
-                repeat(3 - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
+                if (hasCustom) {
+                    item(key = "custom_divider") {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.extraSmall))
+                    }
+                    item(key = "custom_entry") {
+                        providerPickerEntryRow(
+                            entry = ProviderEntry.Custom,
+                            isSelected = viewModel.selectedEntry is ProviderEntry.Custom,
+                            onClick = { viewModel.selectEntryForPreview(ProviderEntry.Custom) },
+                        )
+                    }
+                }
+            }
+            VerticalScrollbar(
+                adapter = rememberScrollbarAdapter(listState),
+                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 2.dp),
+                style = AppComponents.scrollbarStyle(),
+            )
+        }
+
+        // ── Vertical divider ──────────────────────────────────────────────────────────────
+        Box(
+            modifier = Modifier
+                .width(1.dp)
+                .fillMaxHeight()
+                .background(MaterialTheme.colorScheme.outlineVariant),
+        )
+
+        // ── Right column: detail panel or empty hint ──────────────────────────────────────
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .padding(Spacing.medium),
+        ) {
+            val selected = viewModel.selectedEntry
+            if (selected == null) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Text(
+                        text = stringResource("provider.type.picker.select.hint"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            } else {
+                providerPickerDetail(entry = selected)
             }
         }
     }
 }
 
-// ── Screen 3: Instance config form ────────────────────────────────────────────────────────
+// ── Provider picker — entry badge ─────────────────────────────────────────────────────────
+
+private fun providerInitialsForPicker(provider: ModelProvider): String = when (provider) {
+    ModelProvider.OPENAI -> "OA"
+    ModelProvider.ANTHROPIC -> "AN"
+    ModelProvider.GEMINI -> "GM"
+    ModelProvider.XAI -> "xA"
+    ModelProvider.OLLAMA -> "OL"
+    ModelProvider.DOCKER -> "DA"
+    ModelProvider.LOCALAI -> "LA"
+    ModelProvider.LMSTUDIO -> "LM"
+    ModelProvider.OPENAI_COMPATIBLE -> "OC"
+    ModelProvider.ASKIMO_PRO -> "AP"
+    ModelProvider.UNKNOWN -> "?"
+}
+
+@Composable
+private fun entryBadge(entry: ProviderEntry) {
+    val bg = when (entry) {
+        is ProviderEntry.Native -> MaterialTheme.colorScheme.secondaryContainer
+        is ProviderEntry.Template -> MaterialTheme.colorScheme.tertiaryContainer
+        is ProviderEntry.Custom -> MaterialTheme.colorScheme.surfaceVariant
+    }
+    val fg = when (entry) {
+        is ProviderEntry.Native -> MaterialTheme.colorScheme.onSecondaryContainer
+        is ProviderEntry.Template -> MaterialTheme.colorScheme.onTertiaryContainer
+        is ProviderEntry.Custom -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val initials = when (entry) {
+        is ProviderEntry.Native -> providerInitialsForPicker(entry.provider)
+        is ProviderEntry.Template -> entry.template.initials
+        is ProviderEntry.Custom -> "+"
+    }
+    Box(
+        modifier = Modifier
+            .size(26.dp)
+            .background(bg, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = initials,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = fg,
+            maxLines = 1,
+        )
+    }
+}
+
+// ── Provider picker — left-column row ─────────────────────────────────────────────────────
+
+@Composable
+private fun providerPickerEntryRow(
+    entry: ProviderEntry,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+) {
+    val displayName = when (entry) {
+        is ProviderEntry.Native -> ProviderRegistry.getProviderDisplayName(entry.provider)
+        is ProviderEntry.Template -> entry.template.displayName
+        is ProviderEntry.Custom -> stringResource("provider.other.title")
+    }
+    val bg = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+    val textColor = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(bg)
+            .clickable(onClick = onClick)
+            .pointerHoverIcon(PointerIcon.Hand)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        entryBadge(entry = entry)
+        Text(
+            text = displayName,
+            style = MaterialTheme.typography.bodySmall,
+            color = textColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+// ── Provider picker — right-column detail ─────────────────────────────────────────────────
+
+@Composable
+private fun providerPickerDetail(
+    entry: ProviderEntry,
+) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(Spacing.medium),
+    ) {
+        when (entry) {
+            is ProviderEntry.Native -> {
+                Text(
+                    text = ProviderRegistry.getProviderDisplayName(entry.provider),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                val description = ProviderRegistry.getProviderShortDescription(entry.provider)
+                if (description.isNotBlank()) {
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                val apiKeyUrl = ProviderRegistry.getProviderApiKeyUrl(entry.provider)
+                if (apiKeyUrl.isNotBlank()) {
+                    linkButton(
+                        onClick = {
+                            try {
+                                Desktop.getDesktop().browse(URI(apiKeyUrl))
+                            } catch (_: Exception) {}
+                        },
+                        modifier = Modifier.padding(0.dp),
+                    ) {
+                        Text(
+                            text = stringResource("provider.template.get.apikey"),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            }
+
+            is ProviderEntry.Template -> {
+                Text(
+                    text = entry.template.displayName,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = entry.template.tagline,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                // Info chips: base URL + API key requirement
+                Card(colors = AppComponents.surfaceVariantCardColors()) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(Spacing.medium),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                    ) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small), verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Base URL",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = entry.template.baseUrl
+                                    .removePrefix("https://").removePrefix("http://")
+                                    .substringBefore("/"),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small), verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "API key",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = if (entry.template.apiKeyRequired) {
+                                    stringResource("provider.template.apikey.required")
+                                } else {
+                                    stringResource("provider.template.apikey.optional")
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (entry.template.apiKeyRequired) {
+                                    MaterialTheme.colorScheme.onSurface
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                            )
+                        }
+                    }
+                }
+
+                if (entry.template.apiKeyUrl.isNotBlank()) {
+                    linkButton(
+                        onClick = {
+                            try {
+                                Desktop.getDesktop().browse(URI(entry.template.apiKeyUrl))
+                            } catch (_: Exception) {}
+                        },
+                        modifier = Modifier.padding(0.dp),
+                    ) {
+                        Text(
+                            text = stringResource("provider.template.get.apikey"),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            }
+
+            is ProviderEntry.Custom -> {
+                Text(
+                    text = stringResource("provider.other.title"),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = stringResource("provider.other.description"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun instanceConfigScreen(viewModel: ProviderWizardViewModel) {
@@ -396,6 +664,31 @@ private fun instanceConfigScreen(viewModel: ProviderWizardViewModel) {
                                         placeholder = { Text(stringResource("settings.placeholder.baseurl")) },
                                         colors = AppComponents.outlinedTextFieldColors(),
                                     )
+                                }
+
+                                is ProviderConfigField.SelectField -> {
+                                    val currentValue = viewModel.providerFieldValues[field.name] ?: field.value
+                                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {
+                                        field.options.forEach { option ->
+                                            if (currentValue == option.value) {
+                                                primaryButton(onClick = {}) {
+                                                    Text(option.label, style = MaterialTheme.typography.bodySmall)
+                                                }
+                                            } else {
+                                                secondaryButton(onClick = { viewModel.updateProviderField(field.name, option.value) }) {
+                                                    Text(option.label, style = MaterialTheme.typography.bodySmall)
+                                                }
+                                            }
+                                        }
+                                    }
+                                    field.options.find { it.value == currentValue }?.description
+                                        ?.takeIf { it.isNotBlank() }?.let { endpoint ->
+                                            Text(
+                                                text = endpoint,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
                                 }
                             }
                         }

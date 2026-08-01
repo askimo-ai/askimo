@@ -10,6 +10,7 @@ import java.net.Authenticator
 import java.net.CookieHandler
 import java.net.ProxySelector
 import java.net.http.HttpClient
+import java.net.http.HttpHeaders
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.net.http.WebSocket
@@ -17,6 +18,7 @@ import java.nio.ByteBuffer
 import java.time.Duration
 import java.util.Optional
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionStage
 import java.util.concurrent.Executor
 import java.util.concurrent.Flow
 import java.util.concurrent.TimeUnit
@@ -27,6 +29,9 @@ private val log = currentFileLogger()
 
 /** Header names whose values must be masked in log output. */
 private val SENSITIVE_HEADERS = setOf("authorization", "x-api-key", "api-key", "x-goog-api-key")
+
+/** Maximum bytes captured from a response body for logging (avoids OOM on large payloads). */
+private const val MAX_RESPONSE_LOG_BYTES = 8_192
 
 /**
  * Wraps this builder in a [LoggingHttpClientBuilder] only when DEBUG logging is enabled.
@@ -43,7 +48,6 @@ fun HttpClient.Builder.withLoggingIfDebug(): HttpClient.Builder = if (log.isDebu
  * <logger name="io.askimo.core.util.LoggingHttpClientBuilder" level="DEBUG"/>
  * ```
  */
-@Suppress("JAVA_DEFAULT_METHODS_NOT_OVERRIDDEN_BY_DELEGATION")
 class LoggingHttpClientBuilder(
     private val delegate: HttpClient.Builder,
 ) : HttpClient.Builder by delegate {
@@ -51,13 +55,14 @@ class LoggingHttpClientBuilder(
 }
 
 /**
- * A [HttpClient] wrapper that logs every outgoing HTTP request (URI, method, headers, body)
- * at DEBUG / TRACE level before delegating to the real client.
+ * A [HttpClient] wrapper that logs every outgoing HTTP request and incoming HTTP response at
+ * DEBUG level before/after delegating to the real client.
  *
- * - **Headers**: sensitive values (`Authorization`, `x-api-key`, etc.) are masked via [Masking].
- * - **Body**: the `BodyPublisher` is drained into a buffer, logged, then rebuilt as a fresh
- *   [HttpRequest.BodyPublishers.ofByteArray] publisher so the actual HTTP call still carries
- *   its full payload intact. Body text is only printed at TRACE level; DEBUG shows byte-count.
+ * - **Request**: method, URI, headers (sensitive values masked), body (rebuilt via a fresh
+ *   publisher so the actual HTTP call still carries its full payload intact).
+ * - **Response**: status code, headers, and up to [MAX_RESPONSE_LOG_BYTES] bytes of body.
+ *   The response body is captured by a tee-subscriber — each [ByteBuffer] is duplicated
+ *   for logging so the originals are forwarded to the real [HttpResponse.BodyHandler] untouched.
  */
 class LoggingHttpClient(
     private val delegate: HttpClient,
@@ -69,7 +74,7 @@ class LoggingHttpClient(
     ): HttpResponse<T> {
         val (loggable, body) = interceptRequest(request)
         logRequest(loggable, body)
-        return delegate.send(loggable, responseBodyHandler)
+        return delegate.send(loggable, loggingBodyHandler(responseBodyHandler, loggable))
     }
 
     override fun <T> sendAsync(
@@ -78,7 +83,7 @@ class LoggingHttpClient(
     ): CompletableFuture<HttpResponse<T>> {
         val (loggable, body) = interceptRequest(request)
         logRequest(loggable, body)
-        return delegate.sendAsync(loggable, responseBodyHandler)
+        return delegate.sendAsync(loggable, loggingBodyHandler(responseBodyHandler, loggable))
     }
 
     override fun <T> sendAsync(
@@ -88,7 +93,7 @@ class LoggingHttpClient(
     ): CompletableFuture<HttpResponse<T>> {
         val (loggable, body) = interceptRequest(request)
         logRequest(loggable, body)
-        return delegate.sendAsync(loggable, responseBodyHandler, pushPromiseHandler)
+        return delegate.sendAsync(loggable, loggingBodyHandler(responseBodyHandler, loggable), pushPromiseHandler)
     }
 
     // ── HttpClient delegation boilerplate ──────────────────────────────────────
@@ -104,7 +109,105 @@ class LoggingHttpClient(
     override fun executor(): Optional<Executor> = delegate.executor()
     override fun newWebSocketBuilder(): WebSocket.Builder = delegate.newWebSocketBuilder()
 
-    // ── Private helpers ────────────────────────────────────────────────────────
+    // ── Response logging ───────────────────────────────────────────────────────
+
+    /**
+     * Wraps [original] so each response is routed through a [TeeBodySubscriber] that
+     * captures up to [MAX_RESPONSE_LOG_BYTES] bytes before forwarding the raw buffers
+     * to the real subscriber unchanged.
+     */
+    private fun <T> loggingBodyHandler(
+        original: HttpResponse.BodyHandler<T>,
+        request: HttpRequest,
+    ): HttpResponse.BodyHandler<T> = HttpResponse.BodyHandler { responseInfo ->
+        TeeBodySubscriber(original.apply(responseInfo), responseInfo, request)
+    }
+
+    private fun StringBuilder.appendHeaders(headers: HttpHeaders) {
+        appendLine("Headers:")
+        headers.map().forEach { (name, values) ->
+            val display = if (name.lowercase() in SENSITIVE_HEADERS) {
+                values.map { Masking.maskSecret(it) }
+            } else {
+                values
+            }
+            appendLine("  $name: ${display.joinToString(", ")}")
+        }
+    }
+
+    private fun logResponse(
+        responseInfo: HttpResponse.ResponseInfo,
+        request: HttpRequest,
+        bodyBytes: ByteArray,
+        truncated: Boolean,
+    ) {
+        val sb = StringBuilder()
+        sb.appendLine("──── Incoming HTTP Response ────────────────────────────────────────────")
+        sb.appendLine("${responseInfo.statusCode()} ${request.method()} ${request.uri()}")
+        sb.appendLine()
+        sb.appendHeaders(responseInfo.headers())
+        if (bodyBytes.isNotEmpty()) {
+            val text = bodyBytes.toString(Charsets.UTF_8)
+            sb.appendLine()
+            sb.appendLine("Body${if (truncated) " [truncated at $MAX_RESPONSE_LOG_BYTES bytes]" else ""}:")
+            sb.append("  ")
+            sb.appendLine(text.replace("\n", "\n  "))
+        }
+        sb.append("───────────────────────────────────────────────────────────────────────")
+        log.debug(sb.toString())
+    }
+
+    /**
+     * Tee subscriber — duplicates each [ByteBuffer] via [ByteBuffer.duplicate] (independent
+     * position, same backing data) so we can read for logging without advancing the original
+     * buffer's position. The originals are forwarded to [delegate] completely unmodified.
+     *
+     * Logging fires in [onComplete] / [onError]:
+     * - Regular responses: fires after all bytes have arrived.
+     * - SSE / streaming: fires when the connection closes.
+     */
+    private inner class TeeBodySubscriber<T>(
+        private val delegate: HttpResponse.BodySubscriber<T>,
+        private val responseInfo: HttpResponse.ResponseInfo,
+        private val request: HttpRequest,
+    ) : HttpResponse.BodySubscriber<T> {
+
+        private val captureBuffer = ByteArrayOutputStream()
+        private var captureExhausted = false
+
+        override fun getBody(): CompletionStage<T> = delegate.getBody()
+
+        override fun onSubscribe(subscription: Flow.Subscription) = delegate.onSubscribe(subscription)
+
+        override fun onNext(item: List<ByteBuffer>) {
+            if (!captureExhausted) {
+                for (bb in item) {
+                    val available = MAX_RESPONSE_LOG_BYTES - captureBuffer.size()
+                    if (available <= 0) {
+                        captureExhausted = true
+                        break
+                    }
+                    val dup = bb.duplicate() // independent position — original is untouched
+                    val toRead = minOf(dup.remaining(), available)
+                    val bytes = ByteArray(toRead)
+                    dup.get(bytes)
+                    captureBuffer.write(bytes)
+                    if (captureBuffer.size() >= MAX_RESPONSE_LOG_BYTES) captureExhausted = true
+                }
+            }
+            delegate.onNext(item) // always forward originals
+        }
+
+        override fun onError(throwable: Throwable) {
+            logResponse(responseInfo, request, captureBuffer.toByteArray(), captureExhausted)
+            delegate.onError(throwable)
+        }
+
+        override fun onComplete() {
+            logResponse(responseInfo, request, captureBuffer.toByteArray(), captureExhausted)
+            delegate.onComplete()
+        }
+    }
 
     /**
      * Short-circuits when DEBUG is off (zero overhead).
@@ -145,15 +248,7 @@ class LoggingHttpClient(
         sb.appendLine("──── Outgoing HTTP Request ────────────────────────────────────────────")
         sb.appendLine("${request.method()} ${request.uri()}")
         sb.appendLine()
-        sb.appendLine("Headers:")
-        request.headers().map().forEach { (name, values) ->
-            val display = if (name.lowercase() in SENSITIVE_HEADERS) {
-                values.map { Masking.maskSecret(it) }
-            } else {
-                values
-            }
-            sb.appendLine("  $name: ${display.joinToString(", ")}")
-        }
+        sb.appendHeaders(request.headers())
         if (body != null) {
             sb.appendLine()
             sb.appendLine("Body:")

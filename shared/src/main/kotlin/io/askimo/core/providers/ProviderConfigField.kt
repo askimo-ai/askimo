@@ -37,7 +37,31 @@ sealed class ProviderConfigField {
         override val required: Boolean = false,
         val message: String,
     ) : ProviderConfigField()
+
+    /**
+     * A field that lets the user pick one value from a fixed set of [options].
+     * Rendered as a segmented button row in the config UI.
+     */
+    data class SelectField(
+        override val name: String,
+        override val label: String,
+        override val description: String,
+        override val required: Boolean = false,
+        val options: List<SelectOption>,
+        /** Currently selected option value — must match one of [SelectOption.value]. */
+        val value: String,
+    ) : ProviderConfigField()
 }
+
+/** A single option within a [ProviderConfigField.SelectField]. */
+data class SelectOption(
+    /** Machine-readable value stored in settings (e.g. enum name). */
+    val value: String,
+    /** Human-readable label shown in the UI button. */
+    val label: String,
+    /** Optional subtitle shown below the button row when this option is selected. */
+    val description: String = "",
+)
 
 /**
  * Result of a provider connection test.

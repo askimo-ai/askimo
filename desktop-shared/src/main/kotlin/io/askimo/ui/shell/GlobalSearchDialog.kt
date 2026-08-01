@@ -298,7 +298,11 @@ fun globalSearchDialog(
 
                         MaterialTheme(
                             colorScheme = MaterialTheme.colorScheme.copy(
+                                surfaceContainerLowest = MaterialTheme.colorScheme.surface,
+                                surfaceContainerLow = MaterialTheme.colorScheme.surface,
                                 surfaceContainer = MaterialTheme.colorScheme.surface,
+                                surfaceContainerHigh = MaterialTheme.colorScheme.surface,
+                                surfaceContainerHighest = MaterialTheme.colorScheme.surface,
                             ),
                         ) {
                             ExposedDropdownMenu(
@@ -341,7 +345,11 @@ fun globalSearchDialog(
                         // Override surfaceContainer so the popup background matches the theme surface
                         MaterialTheme(
                             colorScheme = MaterialTheme.colorScheme.copy(
+                                surfaceContainerLowest = MaterialTheme.colorScheme.surface,
+                                surfaceContainerLow = MaterialTheme.colorScheme.surface,
                                 surfaceContainer = MaterialTheme.colorScheme.surface,
+                                surfaceContainerHigh = MaterialTheme.colorScheme.surface,
+                                surfaceContainerHighest = MaterialTheme.colorScheme.surface,
                             ),
                         ) {
                             ExposedDropdownMenu(

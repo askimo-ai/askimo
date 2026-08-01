@@ -25,6 +25,7 @@ sealed class SettingField {
         const val MAX_TOKENS = "maxTokens"
         const val THINKING_BUDGET_TOKENS = "thinkingBudgetTokens"
         const val THINKING_MAX_TOKENS = "thinkingMaxTokens"
+        const val API_MODE = "apiMode"
     }
 
     data class TextField(

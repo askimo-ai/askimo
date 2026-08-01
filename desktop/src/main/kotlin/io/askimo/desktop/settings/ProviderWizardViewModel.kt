@@ -20,12 +20,15 @@ import io.askimo.core.providers.ModelAvailabilityResult
 import io.askimo.core.providers.ModelDTO
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ProviderConfigField
+import io.askimo.core.providers.ProviderEntry
 import io.askimo.core.providers.ProviderInstance
 import io.askimo.core.providers.ProviderInstanceService
 import io.askimo.core.providers.ProviderRegistry
 import io.askimo.core.providers.ProviderSettings
 import io.askimo.core.providers.ProviderTestResult
 import io.askimo.core.providers.SettingField
+import io.askimo.core.providers.openaicompatible.OpenAiCompatibleSettings
+import io.askimo.core.providers.openaicompatible.OpenAiCompatibleTemplate
 import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -75,8 +78,20 @@ class ProviderWizardViewModel(
 
     // ── Provider list (TYPE_PICKER step) ─────────────────────────────────────────────────────
 
-    /** All supported provider types shown in the TYPE_PICKER step. */
-    var availableProviders by mutableStateOf<List<ModelProvider>>(emptyList())
+    /**
+     * Flat, alphabetically sorted list of all selectable entries in the type picker.
+     * Contains [ProviderEntry.Native] for first-class providers, [ProviderEntry.Template]
+     * for predefined OpenAI-compatible cloud providers, and [ProviderEntry.Custom] as the
+     * last entry (separated by a divider in the UI).
+     */
+    var availableEntries by mutableStateOf<List<ProviderEntry>>(emptyList())
+        private set
+
+    /**
+     * The entry currently highlighted in the left column of the type picker.
+     * Drives the right-column detail panel; null shows the "← Select a provider" hint.
+     */
+    var selectedEntry by mutableStateOf<ProviderEntry?>(null)
         private set
 
     /** All configured instances — used to show existing-count badges in the type picker. */
@@ -180,9 +195,23 @@ class ProviderWizardViewModel(
      */
     fun initAddMode() {
         availableInstances = providerInstanceService.all
-        availableProviders = ProviderRegistry.getSupportedProviders()
-            .filter { it != ModelProvider.UNKNOWN && it != ModelProvider.ASKIMO_PRO }
-            .sortedBy { ProviderRegistry.getProviderDisplayName(it) }
+
+        val nativeEntries = ProviderRegistry.getSupportedProviders()
+            .filter { it != ModelProvider.UNKNOWN && it != ModelProvider.ASKIMO_PRO && it != ModelProvider.OPENAI_COMPATIBLE }
+            .map { ProviderEntry.Native(it) }
+
+        val templateEntries = OpenAiCompatibleTemplate.entries.map { ProviderEntry.Template(it) }
+
+        availableEntries = (nativeEntries + templateEntries)
+            .sortedBy { entry ->
+                when (entry) {
+                    is ProviderEntry.Native -> ProviderRegistry.getProviderDisplayName(entry.provider).lowercase()
+                    is ProviderEntry.Template -> entry.template.displayName.lowercase()
+                    is ProviderEntry.Custom -> "zzz"
+                }
+            } + listOf(ProviderEntry.Custom)
+
+        selectedEntry = null
         editingInstance = null
         selectedProvider = null
         newInstanceDisplayName = ""
@@ -206,6 +235,7 @@ class ProviderWizardViewModel(
             when (field) {
                 is ProviderConfigField.ApiKeyField -> field.name to field.value
                 is ProviderConfigField.BaseUrlField -> field.name to field.value
+                is ProviderConfigField.SelectField -> field.name to field.value
                 is ProviderConfigField.InfoField -> null
             }
         }.toMap()
@@ -267,9 +297,59 @@ class ProviderWizardViewModel(
             when (field) {
                 is ProviderConfigField.ApiKeyField -> field.name to field.value
                 is ProviderConfigField.BaseUrlField -> field.name to field.value
+                is ProviderConfigField.SelectField -> field.name to field.value
                 is ProviderConfigField.InfoField -> null
             }
         }.toMap()
+
+        scheduleAutoModelFetch()
+    }
+
+    /**
+     * Highlights an entry in the TYPE_PICKER left column, updating the right-column
+     * detail panel. Does NOT advance to the CONFIG step.
+     */
+    fun selectEntryForPreview(entry: ProviderEntry) {
+        selectedEntry = entry
+    }
+
+    /**
+     * Advances to the CONFIG step for [selectedEntry].
+     * - [ProviderEntry.Native] → same as [selectProviderTypeForNewInstance].
+     * - [ProviderEntry.Template] → pre-fills [OpenAiCompatibleSettings] from the template.
+     * - [ProviderEntry.Custom] → opens a blank [ModelProvider.OPENAI_COMPATIBLE] config form.
+     */
+    fun connectEntry() {
+        when (val entry = selectedEntry ?: return) {
+            is ProviderEntry.Native -> selectProviderTypeForNewInstance(entry.provider)
+            is ProviderEntry.Template -> selectTemplateForNewInstance(entry.template)
+            is ProviderEntry.Custom -> selectProviderTypeForNewInstance(ModelProvider.OPENAI_COMPATIBLE)
+        }
+    }
+
+    /**
+     * Advances to CONFIG with [OpenAiCompatibleSettings] pre-filled from [template].
+     * The display name and base URL are set to the template values; the user only
+     * needs to paste their API key.
+     */
+    fun selectTemplateForNewInstance(template: OpenAiCompatibleTemplate) {
+        selectedProvider = ModelProvider.OPENAI_COMPATIBLE
+        newInstanceDisplayName = template.displayName
+        wizardStep = WizardStep.CONFIG
+        resetWizardFormState()
+
+        val prefilled = OpenAiCompatibleSettings(baseUrl = template.baseUrl, apiMode = template.apiMode)
+        providerConfigFields = prefilled.getConfigFields(LocalizationManager.messageResolver)
+        providerFieldValues = buildMap {
+            providerConfigFields.forEach { field ->
+                when (field) {
+                    is ProviderConfigField.ApiKeyField -> put(field.name, field.value)
+                    is ProviderConfigField.BaseUrlField -> put(field.name, template.baseUrl)
+                    is ProviderConfigField.SelectField -> put(field.name, template.apiMode.name)
+                    is ProviderConfigField.InfoField -> Unit
+                }
+            }
+        }
 
         scheduleAutoModelFetch()
     }

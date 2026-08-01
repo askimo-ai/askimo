@@ -157,6 +157,7 @@ class ProviderModelPanelState(
             when (field) {
                 is ProviderConfigField.ApiKeyField -> field.name to field.value
                 is ProviderConfigField.BaseUrlField -> field.name to field.value
+                is ProviderConfigField.SelectField -> field.name to field.value
                 is ProviderConfigField.InfoField -> null
             }
         }.toMap()

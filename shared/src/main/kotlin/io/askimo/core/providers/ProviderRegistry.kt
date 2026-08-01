@@ -4,6 +4,7 @@
  */
 package io.askimo.core.providers
 
+import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.providers.ModelProvider.ANTHROPIC
 import io.askimo.core.providers.ModelProvider.DOCKER
 import io.askimo.core.providers.ModelProvider.GEMINI
@@ -77,6 +78,34 @@ object ProviderRegistry {
         providerType = providerType,
         settings = settings,
     )
+
+    /**
+     * Returns a localized brief description of a native provider, shown in the
+     * type-picker right column. Falls back to an empty string for unknown providers.
+     */
+    fun getProviderShortDescription(provider: ModelProvider): String = when (provider) {
+        OPENAI -> LocalizationManager.getString("provider.picker.description.openai")
+        ANTHROPIC -> LocalizationManager.getString("provider.picker.description.anthropic")
+        GEMINI -> LocalizationManager.getString("provider.picker.description.gemini")
+        XAI -> LocalizationManager.getString("provider.picker.description.xai")
+        OLLAMA -> LocalizationManager.getString("provider.picker.description.ollama")
+        DOCKER -> LocalizationManager.getString("provider.picker.description.docker")
+        LOCALAI -> LocalizationManager.getString("provider.picker.description.localai")
+        LMSTUDIO -> LocalizationManager.getString("provider.picker.description.lmstudio")
+        else -> ""
+    }
+
+    /**
+     * Returns the URL where the user can obtain an API key for [provider],
+     * or an empty string if no API key is required (local / self-hosted providers).
+     */
+    fun getProviderApiKeyUrl(provider: ModelProvider): String = when (provider) {
+        OPENAI -> "https://platform.openai.com/account/api-keys"
+        ANTHROPIC -> "https://console.anthropic.com/"
+        GEMINI -> "https://aistudio.google.com/app/apikey"
+        XAI -> "https://console.x.ai/"
+        else -> ""
+    }
 
     /**
      * Returns a human-readable display name for a provider type, suitable for use as a
