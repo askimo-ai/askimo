@@ -211,14 +211,28 @@ fun ChatClient.sendStreamingMessageWithCallback(
                                 return@onError
                             }
 
-                            // Check for local AI server internal errors (Ollama, Docker AI, LocalAI, LMStudio, etc.)
+                            // InternalServerException (HTTP 5xx) — delegate to ExceptionHandler/ExceptionMapper
+                            // which sub-classifies by message content:
+                            //   • local-server crash patterns → LocalServerException (non-retryable)
+                            //   • remote provider errors (overloaded, 529, 503, etc.) → RemoteServerException
+                            if (e is InternalServerException) {
+                                isConfigurationError = true
+                                val serverErrorMsg = ExceptionHandler.handle(e)
+                                sb.append(serverErrorMsg)
+                                onToken(serverErrorMsg)
+                                done.countDown()
+                                return@onError
+                            }
+
+                            // Check for local AI server errors identified purely by message patterns
+                            // (covers wrapped exceptions where InternalServerException is not in the chain).
                             // These are non-retryable: the server crashed, the model is broken, or OOM.
-                            val isLocalServerError = e is InternalServerException ||
+                            val isLocalServerError =
                                 errorMessage.contains("process has terminated", ignoreCase = true) ||
-                                errorMessage.contains("llama-server", ignoreCase = true) ||
-                                errorMessage.contains("llama_model_loader", ignoreCase = true) ||
-                                errorMessage.contains("error loading model", ignoreCase = true) ||
-                                (errorMessage.contains("api_error", ignoreCase = true) && errorMessage.contains("exit status", ignoreCase = true))
+                                    errorMessage.contains("llama-server", ignoreCase = true) ||
+                                    errorMessage.contains("llama_model_loader", ignoreCase = true) ||
+                                    errorMessage.contains("error loading model", ignoreCase = true) ||
+                                    (errorMessage.contains("api_error", ignoreCase = true) && errorMessage.contains("exit status", ignoreCase = true))
 
                             if (isLocalServerError) {
                                 isConfigurationError = true

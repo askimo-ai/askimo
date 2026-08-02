@@ -143,6 +143,21 @@ class LocalServerException(
 }
 
 /**
+ * Remote AI provider returned a server-side error (HTTP 5xx), such as 503 Service Unavailable
+ * or 529 Service Overloaded. This is typically transient — the provider's infrastructure is
+ * temporarily overwhelmed. The request may succeed after a brief wait and retry.
+ *
+ * @param details A short excerpt from the server error message for diagnostic display.
+ */
+class RemoteServerException(
+    val details: String = "",
+    cause: Throwable? = null,
+) : UserException("Remote AI server error", cause) {
+    override fun getMessageKey() = "error.remote_server"
+    override fun getMessageArgs() = mapOf("details" to details)
+}
+
+/**
  * Model not found — the selected model has been deprecated or removed by the provider.
  */
 class ModelNotFoundChatException(

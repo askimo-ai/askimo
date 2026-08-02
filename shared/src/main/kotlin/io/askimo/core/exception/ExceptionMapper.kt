@@ -77,6 +77,17 @@ object ExceptionMapper {
     }
 
     /**
+     * Returns true when [message] contains patterns that indicate a local AI server crash
+     * (Ollama, Docker AI, LocalAI, LMStudio process dying or failing to load a model).
+     */
+    private fun isLocalServerMessage(message: String): Boolean =
+        message.contains("process has terminated", ignoreCase = true) ||
+            message.contains("llama-server", ignoreCase = true) ||
+            message.contains("llama_model_loader", ignoreCase = true) ||
+            message.contains("error loading model", ignoreCase = true) ||
+            (message.contains("api_error", ignoreCase = true) && message.contains("exit status", ignoreCase = true))
+
+    /**
      * Try to match an exception by its concrete type.
      *
      * @param exception The exception to check
@@ -99,11 +110,17 @@ object ExceptionMapper {
             cause = exception,
         )
 
-        // Local AI server internal error (Ollama, Docker AI, LocalAI, LMStudio, etc.)
-        is InternalServerException -> LocalServerException(
-            details = exception.message ?: "",
-            cause = exception,
-        )
+        // InternalServerException (HTTP 5xx) — sub-classify by message content:
+        //   • local-server crash patterns (Ollama/LMStudio/etc.) → LocalServerException (non-retryable)
+        //   • everything else (remote overload, 529, 503, etc.) → RemoteServerException (transient)
+        is InternalServerException -> {
+            val msg = exception.message ?: ""
+            if (isLocalServerMessage(msg)) {
+                LocalServerException(details = msg, cause = exception)
+            } else {
+                RemoteServerException(details = msg, cause = exception)
+            }
+        }
 
         // Add more type-based matches as needed
         else -> null
@@ -128,6 +145,17 @@ object ExceptionMapper {
                 combinedMessage.contains("error loading model", ignoreCase = true) ||
                 (combinedMessage.contains("api_error", ignoreCase = true) && combinedMessage.contains("exit status", ignoreCase = true)) ->
                 LocalServerException(details = combinedMessage.take(300), cause = rootCause)
+
+            // Remote AI provider returned a transient server-side error (HTTP 5xx).
+            // Covers 503 Service Unavailable, 529 Overloaded, and similar temporary outages.
+            combinedMessage.contains("overloaded", ignoreCase = true) ||
+                combinedMessage.contains("529", ignoreCase = true) ||
+                combinedMessage.contains("503", ignoreCase = true) ||
+                combinedMessage.contains("service unavailable", ignoreCase = true) ||
+                combinedMessage.contains("temporarily unavailable", ignoreCase = true) ||
+                combinedMessage.contains("server is busy", ignoreCase = true) ||
+                combinedMessage.contains("server is currently processing", ignoreCase = true) ->
+                RemoteServerException(details = combinedMessage.take(300), cause = rootCause)
 
             // Network connectivity issues
             combinedMessage.contains("Connection refused", ignoreCase = true) ||
