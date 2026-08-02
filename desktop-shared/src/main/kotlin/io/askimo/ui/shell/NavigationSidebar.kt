@@ -329,6 +329,7 @@ private fun expandedNavigationSidebar(
                     modifier = Modifier
                         .padding(horizontal = Spacing.medium)
                         .pointerHoverIcon(PointerIcon.Hand),
+                    shape = AppComponents.navigationItemShape,
                     colors = AppComponents.navigationDrawerItemColors(),
                 )
             }
@@ -368,6 +369,7 @@ private fun expandedNavigationSidebar(
                             }
                         },
                         modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                        shape = AppComponents.navigationItemShape,
                         colors = AppComponents.navigationDrawerItemColors(),
                     )
                 }
@@ -383,6 +385,7 @@ private fun expandedNavigationSidebar(
                     modifier = Modifier
                         .padding(horizontal = Spacing.medium)
                         .pointerHoverIcon(PointerIcon.Hand),
+                    shape = AppComponents.navigationItemShape,
                     colors = AppComponents.navigationDrawerItemColors(),
                 )
             }
@@ -397,6 +400,7 @@ private fun expandedNavigationSidebar(
                     modifier = Modifier
                         .padding(horizontal = Spacing.medium)
                         .pointerHoverIcon(PointerIcon.Hand),
+                    shape = AppComponents.navigationItemShape,
                     colors = AppComponents.navigationDrawerItemColors(),
                 )
             }
@@ -452,6 +456,7 @@ private fun expandedNavigationSidebar(
                 modifier = Modifier
                     .padding(horizontal = Spacing.medium)
                     .pointerHoverIcon(PointerIcon.Hand),
+                shape = AppComponents.navigationItemShape,
                 colors = AppComponents.navigationDrawerItemColors(),
             )
 
@@ -724,6 +729,7 @@ private fun pinnedSection(
                 )
             },
             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+            shape = AppComponents.navigationItemShape,
             colors = AppComponents.navigationDrawerItemColors(),
         )
 
@@ -789,6 +795,7 @@ private fun pinnedProjectItem(
                 modifier = Modifier
                     .padding(vertical = Spacing.extraSmall / 2f)
                     .pointerHoverIcon(PointerIcon.Hand),
+                shape = AppComponents.navigationItemShape,
                 colors = AppComponents.navigationDrawerItemColors(),
             )
         }
@@ -999,6 +1006,7 @@ private fun sessionsList(
                     modifier = Modifier
                         .padding(vertical = Spacing.extraSmall / 2f)
                         .pointerHoverIcon(PointerIcon.Hand),
+                    shape = AppComponents.navigationItemShape,
                     colors = AppComponents.navigationDrawerItemColors(),
                 )
             }
@@ -1132,6 +1140,7 @@ private fun sessionDrawerItemContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .pointerHoverIcon(PointerIcon.Hand),
+            shape = AppComponents.navigationItemShape,
             colors = AppComponents.navigationDrawerItemColors(),
         )
     }

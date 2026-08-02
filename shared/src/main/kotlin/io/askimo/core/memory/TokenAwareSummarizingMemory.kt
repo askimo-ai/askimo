@@ -31,6 +31,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Structured summary format for conversation analysis
@@ -174,6 +175,13 @@ class TokenAwareSummarizingMemory(
     // AtomicBoolean is used as the cross-thread "in progress" guard.
     // Using AtomicBoolean.compareAndSet avoids the permanent-lock bug.
     private val summarizationInProgress = AtomicBoolean(false)
+
+    /**
+     * Counts messages added since the last successful summarization cycle (or since load).
+     * Zero means the in-memory state is already fully summarized; no AI call is needed on eviction.
+     */
+    private val messagesSinceLastSummary = AtomicInteger(0)
+
     private val log = logger<TokenAwareSummarizingMemory>()
 
     init {
@@ -215,11 +223,18 @@ class TokenAwareSummarizingMemory(
     override fun id(): Any = this.hashCode()
 
     /**
+     * Returns true when at least one new message has been added since the last completed
+     * summarization (or since this memory was loaded from the database).
+     */
+    fun hasNewMessagesSinceLastSummary(): Boolean = messagesSinceLastSummary.get() > 0
+
+    /**
      * Add message to memory. Non-blocking - triggers async summarization if needed.
      * Automatically persists to database if configured with sessionId and repository.
      */
     override fun add(message: ChatMessage) {
         messages.add(message)
+        messagesSinceLastSummary.incrementAndGet()
         addMessageToDb(message)
     }
 
@@ -316,6 +331,9 @@ class TokenAwareSummarizingMemory(
         )
 
         persistToDatabase()
+
+        // Reset dirty counter — reloaded from DB/filtered state, nothing unsummarized yet.
+        messagesSinceLastSummary.set(0)
 
         if (totalTokens > threshold && !summarizationInProgress.get()) {
             log.info(
@@ -463,6 +481,9 @@ class TokenAwareSummarizingMemory(
         // Remove exactly the messages that were summarized — not by count, to avoid
         // pruning messages that arrived during the async AI call.
         pruneMessages(messagesToSummarize)
+
+        // Reset dirty counter — everything new has been summarized.
+        messagesSinceLastSummary.set(0)
 
         log.info("Summarization complete. Remaining: ${messages.size}, Tokens: ${estimateTotalTokens()}")
     }
@@ -647,9 +668,10 @@ class TokenAwareSummarizingMemory(
         try {
             val savedMemory = sessionMemoryRepository.getBySessionId(sessionId)
             if (savedMemory != null) {
-                // Deserialize and restore state
                 val state = deserializeMemoryState(savedMemory)
                 importState(state)
+                // Reset dirty counter — state is fully persisted, nothing new to summarize.
+                messagesSinceLastSummary.set(0)
                 log.debug("Loaded memory from database for session: $sessionId (${messages.size} messages)")
             } else {
                 log.debug("No existing memory found in database for session: $sessionId")

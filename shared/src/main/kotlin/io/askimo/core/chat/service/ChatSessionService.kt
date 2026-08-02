@@ -143,11 +143,16 @@ class ChatSessionService(
         .maximumSize(10)
         .expireAfterAccess(30.minutes.toJavaDuration())
         .removalListener<String, TokenAwareSummarizingMemory> { sessionId, memory, _ ->
-            // When a session is evicted (user switched away or cache full), trigger summarization
-            // unconditionally so the next resume loads a compact summary rather than raw messages.
+            // Only summarize when new messages were added since the last summary cycle.
+            // Skipping when nothing is new avoids a wasteful AI API call (e.g. user
+            // opened a session, read it, and navigated away without sending anything).
             if (memory != null && sessionId != null) {
-                log.debug("Memory evicted for session {}, triggering background summarization", sessionId)
-                memory.triggerAsyncSummarization()
+                if (memory.hasNewMessagesSinceLastSummary()) {
+                    log.debug("Memory evicted for session {}, triggering background summarization", sessionId)
+                    memory.triggerAsyncSummarization()
+                } else {
+                    log.debug("Memory evicted for session {}, no new messages since last summary — skipping", sessionId)
+                }
             }
         }
         .build()

@@ -159,6 +159,9 @@ object AppComponents {
 
     // ── Navigation ───────────────────────────────────────────────────────────
 
+    /** Corner radius for the selected-item background in all navigation components. */
+    val navigationItemShape: Shape = RoundedCornerShape(8.dp)
+
     @Composable
     fun navigationDrawerItemColors(): NavigationDrawerItemColors = NavigationDrawerItemDefaults.colors(
         selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
