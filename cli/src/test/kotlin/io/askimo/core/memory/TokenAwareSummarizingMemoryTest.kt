@@ -496,8 +496,6 @@ class TokenAwareSummarizingMemoryTest {
         assertEquals(100, memory.messages().size, "All concurrent messages should be added")
     }
 
-    // ── Misc ─────────────────────────────────────────────────────────────────
-
     @Test
     fun `should extract text content from different message types`() {
         memory = createMemory()

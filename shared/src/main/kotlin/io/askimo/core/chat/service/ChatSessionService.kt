@@ -232,7 +232,6 @@ class ChatSessionService(
             sessionMemoryRepository = sessionMemoryRepository,
             userMemoryRepository = DatabaseManager.getInstance().getUserMemoryRepository(),
             summarizationTimeoutSeconds = AppConfig.chat.summarizationTimeoutSeconds,
-            onTitleSuggested = { candidate -> handleTitleSuggestion(sessionId, candidate) },
         )
     }
 
@@ -563,80 +562,6 @@ class ChatSessionService(
      * @return true if the session was updated, false if it didn't exist
      */
     fun updateSessionDirective(sessionId: String, directiveId: String?): Boolean = sessionRepository.updateSessionDirective(sessionId, directiveId)
-
-    /**
-     * Called from the summarization background thread each time a new structured summary
-     * is produced. Applies the suggested title if all guards pass:
-     *
-     * 1. The user has not manually renamed the session ([ChatSession.isUserRenamed] == false).
-     * 2. The candidate differs from the current title by more than 20 % Levenshtein distance
-     *    (avoids flickering on minor rewordings).
-     *
-     * No message-count guard needed — [TokenAwareSummarizingMemory.onTitleSuggested] only fires
-     * after structured summarization, which itself requires the token threshold to be exceeded
-     * (i.e. a sufficiently long conversation).
-     */
-    private fun handleTitleSuggestion(sessionId: String, candidate: String) {
-        val trimmed = candidate.trim().take(256)
-        if (trimmed.isBlank()) return
-
-        try {
-            val session = sessionRepository.getSession(sessionId) ?: return
-
-            // Guard 1 — suppress for user-renamed sessions
-            if (session.isUserRenamed) {
-                log.debug("Skipping title refresh for session {} — user has manually renamed it", sessionId)
-                return
-            }
-
-            // Guard 2 — candidate must differ meaningfully from current title
-            val currentTitle = session.title
-            val distance = levenshteinDistance(currentTitle, trimmed)
-            val threshold = (currentTitle.length * 0.20).toInt().coerceAtLeast(3)
-            if (distance <= threshold) {
-                log.debug("Skipping title refresh for session {} — Levenshtein distance {} <= threshold {}", sessionId, distance, threshold)
-                return
-            }
-
-            // All guards passed — apply the new title
-            sessionRepository.updateSessionTitle(sessionId, trimmed)
-            log.info("Auto-refreshed title for session {}: '{}' → '{}'", sessionId, currentTitle, trimmed)
-
-            eventScope.launch {
-                EventBus.emit(
-                    SessionTitleUpdatedEvent(
-                        sessionId = sessionId,
-                        newTitle = trimmed,
-                    ),
-                )
-            }
-        } catch (e: Exception) {
-            log.warn("handleTitleSuggestion failed for session {}: {}", sessionId, e.message)
-        }
-    }
-
-    /**
-     * Computes the Levenshtein edit distance between two strings.
-     * Used by [handleTitleSuggestion] to decide whether a title candidate differs
-     * enough from the current title to justify an update.
-     */
-    private fun levenshteinDistance(s1: String, s2: String): Int {
-        val m = s1.length
-        val n = s2.length
-        val dp = Array(m + 1) { IntArray(n + 1) }
-        for (i in 0..m) dp[i][0] = i
-        for (j in 0..n) dp[0][j] = j
-        for (i in 1..m) {
-            for (j in 1..n) {
-                dp[i][j] = if (s1[i - 1] == s2[j - 1]) {
-                    dp[i - 1][j - 1]
-                } else {
-                    minOf(dp[i - 1][j - 1], dp[i - 1][j], dp[i][j - 1]) + 1
-                }
-            }
-        }
-        return dp[m][n]
-    }
 
     /**
      * Add a message to a session and update the session's timestamp.

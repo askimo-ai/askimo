@@ -151,15 +151,6 @@ class TokenAwareSummarizingMemory(
     private val tokenEstimator: (ChatMessage) -> Int = defaultTokenEstimator(),
     asyncSummarization: Boolean = true,
     private val summarizationTimeoutSeconds: Long = 300,
-    /**
-     * Optional callback invoked after each successful structured summarization cycle
-     * with a suggested title derived from the new summary. The caller decides whether
-     * to apply the title (change-detection guard lives in [ChatSessionService]).
-     *
-     * Invoked on the summarizer background thread — implementations must be thread-safe.
-     * Only fires when summarization used the structured (AI) path, not the basic fallback.
-     */
-    private val onTitleSuggested: ((String) -> Unit)? = null,
 ) : ChatMemory,
     AutoCloseable {
 
@@ -488,45 +479,11 @@ class TokenAwareSummarizingMemory(
             structuredSummary = mergeWithExistingSummary(newSummary)
             log.info("Generated structured summary with ${newSummary.keyFacts.size} facts, ${newSummary.mainTopics.size} topics")
 
-            // Derive a title candidate from the merged summary — no extra AI call needed.
-            // Priority: first sentence of recentContext → top-2 mainTopics joined with " · "
-            if (onTitleSuggested != null) {
-                val candidate = deriveTitleFromSummary(structuredSummary)
-                if (candidate.isNotBlank()) {
-                    try {
-                        onTitleSuggested.invoke(candidate)
-                    } catch (e: Exception) {
-                        log.warn("onTitleSuggested callback failed for session {}: {}", sessionId, e.message)
-                    }
-                }
-            }
-
             // Merge stable user facts into the persistent user memory store
             mergeIntoUserMemory(conversationText)
         } catch (e: Exception) {
             log.error("Structured summarization failed for session $sessionId", e)
         }
-    }
-
-    /**
-     * Derives a short title candidate from an existing [SessionConversationSummary] without
-     * any additional AI call.
-     *
-     * Priority:
-     * 1. First sentence of [SessionConversationSummary.recentContext], truncated to 60 chars.
-     * 2. Top-2 [SessionConversationSummary.mainTopics] joined with " · ", truncated to 60 chars.
-     * 3. Empty string if neither yields anything useful.
-     */
-    private fun deriveTitleFromSummary(summary: SessionConversationSummary?): String {
-        if (summary == null) return ""
-        val fromContext = summary.recentContext
-            .split(Regex("[.!?]\\s+"))
-            .firstOrNull { it.isNotBlank() }
-            ?.trim()
-            ?.take(60)
-            .orEmpty()
-        if (fromContext.isNotBlank()) return fromContext
-        return summary.mainTopics.take(2).joinToString(" · ").take(60)
     }
 
     /**
