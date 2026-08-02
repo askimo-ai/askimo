@@ -221,7 +221,6 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
             .supportedCapabilities(Capability.RESPONSE_FORMAT_JSON_SCHEMA)
             .modelName(
                 settings.utilityModel
-                    .ifBlank { AppConfig.models[ANTHROPIC].utilityModel }
                     .ifBlank { settings.defaultModel },
             )
             .baseUrl(settings.baseUrl)

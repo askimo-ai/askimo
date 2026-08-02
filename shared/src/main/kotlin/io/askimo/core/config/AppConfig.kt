@@ -381,14 +381,6 @@ data class RagConfig(
     val useAbsolutePathInCitations: Boolean = true,
 )
 
-data class ProviderModelConfig(
-    val defaultModel: String = "",
-    val utilityModel: String = "",
-    val embeddingModel: String = "",
-    val visionModel: String = "",
-    val imageModel: String = "",
-)
-
 /**
  * Global AI model timeouts shared across all providers.
  *
@@ -398,52 +390,26 @@ data class ProviderModelConfig(
  *   accommodate slow local models and cloud reasoning models with extended thinking.
  */
 data class ModelTimeoutsConfig(
-    val utilityModelTimeoutSeconds: Long = 600,
-    val defaultModelTimeoutSeconds: Long = 600,
+    @field:JsonAlias("utilityModelTimeoutSeconds") val utilityModelTimeoutSeconds: Long = 600,
+    @field:JsonAlias("defaultModelTimeoutSeconds") val defaultModelTimeoutSeconds: Long = 600,
 )
 
+/**
+ * Global model execution settings.
+ *
+ * Per-provider model names (utility, embedding, image, vision) are now stored directly on each
+ * [ProviderInstance]'s [ProviderSettings]. This class intentionally no longer contains
+ * per-provider fields — they were removed in favour of instance-level configuration so that
+ * multiple instances of the same provider type can each have independent model assignments.
+ *
+ * Existing `askimo.yml` files that still contain per-provider sub-keys (e.g.
+ * `models.ollama.embedding_model`) will deserialize silently — the unknown fields are ignored
+ * by Jackson (`FAIL_ON_UNKNOWN_PROPERTIES = false`). No migration or data loss occurs.
+ */
 data class ModelsConfig(
     val maxToolCallingRoundTrips: Int = 10,
     val timeouts: ModelTimeoutsConfig = ModelTimeoutsConfig(),
-    val anthropic: ProviderModelConfig = ProviderModelConfig(),
-    val gemini: ProviderModelConfig = ProviderModelConfig(),
-    val openai: ProviderModelConfig = ProviderModelConfig(),
-    val ollama: ProviderModelConfig = ProviderModelConfig(),
-    val docker: ProviderModelConfig = ProviderModelConfig(),
-    val localai: ProviderModelConfig = ProviderModelConfig(),
-    val lmstudio: ProviderModelConfig = ProviderModelConfig(),
-    val xai: ProviderModelConfig = ProviderModelConfig(),
-    val openai_compatible: ProviderModelConfig = ProviderModelConfig(),
-    val askimo_pro: ProviderModelConfig = ProviderModelConfig(),
-) {
-    operator fun get(provider: ModelProvider): ProviderModelConfig = when (provider) {
-        ModelProvider.OPENAI -> openai
-        ModelProvider.ANTHROPIC -> anthropic
-        ModelProvider.GEMINI -> gemini
-        ModelProvider.XAI -> xai
-        ModelProvider.OLLAMA -> ollama
-        ModelProvider.DOCKER -> docker
-        ModelProvider.LOCALAI -> localai
-        ModelProvider.LMSTUDIO -> lmstudio
-        ModelProvider.OPENAI_COMPATIBLE -> openai_compatible
-        ModelProvider.ASKIMO_PRO -> askimo_pro
-        ModelProvider.UNKNOWN -> ProviderModelConfig()
-    }
-
-    fun update(provider: ModelProvider, updated: ProviderModelConfig): ModelsConfig = when (provider) {
-        ModelProvider.OPENAI -> copy(openai = updated)
-        ModelProvider.ANTHROPIC -> copy(anthropic = updated)
-        ModelProvider.GEMINI -> copy(gemini = updated)
-        ModelProvider.XAI -> copy(xai = updated)
-        ModelProvider.OLLAMA -> copy(ollama = updated)
-        ModelProvider.DOCKER -> copy(docker = updated)
-        ModelProvider.LOCALAI -> copy(localai = updated)
-        ModelProvider.LMSTUDIO -> copy(lmstudio = updated)
-        ModelProvider.OPENAI_COMPATIBLE -> copy(openai_compatible = updated)
-        ModelProvider.ASKIMO_PRO -> copy(askimo_pro = updated)
-        ModelProvider.UNKNOWN -> this
-    }
-}
+)
 
 /**
  * Configuration for the Askimo business analytics system.
@@ -713,56 +679,6 @@ object AppConfig {
           timeouts:
             utility_model_timeout_seconds: ${'$'}{ASKIMO_UTILITY_MODEL_TIMEOUT:45}
             default_model_timeout_seconds: ${'$'}{ASKIMO_DEFAULT_MODEL_TIMEOUT:300}
-          anthropic:
-            utility_model: ${'$'}{ASKIMO_ANTHROPIC_UTILITY_MODEL:}
-            embedding_model: ${'$'}{ASKIMO_ANTHROPIC_EMBEDDING_MODEL:}
-            vision_model: ${'$'}{ASKIMO_ANTHROPIC_VISION_MODEL:claude-sonnet-4-6}
-            image_model: ${'$'}{ASKIMO_ANTHROPIC_IMAGE_MODEL:claude-sonnet-4-6}
-            # Extended thinking settings — only applied when the selected model supports thinking.
-            # Increase thinking_budget_tokens for deeper reasoning (max varies by model, up to 64000 for claude-sonnet-4-6+).
-            # thinking_max_tokens must always be greater than thinking_budget_tokens.
-            thinking_budget_tokens: ${'$'}{ASKIMO_ANTHROPIC_THINKING_BUDGET_TOKENS:16000}
-            thinking_max_tokens: ${'$'}{ASKIMO_ANTHROPIC_THINKING_MAX_TOKENS:32000}
-          gemini:
-            utility_model: ${'$'}{ASKIMO_GEMINI_UTILITY_MODEL:}
-            embedding_model: ${'$'}{ASKIMO_GEMINI_EMBEDDING_MODEL:gemini-embedding-001}
-            vision_model: ${'$'}{ASKIMO_GEMINI_VISION_MODEL:gemini-1.5-pro}
-            image_model: ${'$'}{ASKIMO_GEMINI_IMAGE_MODEL:gemini-2.0-flash-exp}
-          openai:
-            utility_model: ${'$'}{ASKIMO_OPENAI_UTILITY_MODEL:}
-            embedding_model: ${'$'}{ASKIMO_OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
-            vision_model: ${'$'}{ASKIMO_OPENAI_VISION_MODEL:gpt-4o}
-            image_model: ${'$'}{ASKIMO_OPENAI_IMAGE_MODEL:dall-e-3}
-          ollama:
-            utility_model: ${'$'}{ASKIMO_OLLAMA_UTILITY_MODEL:}
-            embedding_model: ${'$'}{ASKIMO_OLLAMA_EMBEDDING_MODEL:}
-            vision_model: ${'$'}{ASKIMO_OLLAMA_VISION_MODEL:}
-            image_model: ${'$'}{ASKIMO_OLLAMA_IMAGE_MODEL:}
-          docker:
-            utility_model: ${'$'}{ASKIMO_DOCKER_UTILITY_MODEL:}
-            embedding_model: ${'$'}{ASKIMO_DOCKER_EMBEDDING_MODEL:}
-            vision_model: ${'$'}{ASKIMO_DOCKER_VISION_MODEL:}
-            image_model: ${'$'}{ASKIMO_DOCKER_IMAGE_MODEL:}
-          localai:
-            utility_model: ${'$'}{ASKIMO_LOCALAI_UTILITY_MODEL:}
-            embedding_model: ${'$'}{ASKIMO_LOCALAI_EMBEDDING_MODEL:}
-            vision_model: ${'$'}{ASKIMO_LOCALAI_VISION_MODEL:}
-            image_model: ${'$'}{ASKIMO_LOCALAI_IMAGE_MODEL:}
-          lmstudio:
-            utility_model: ${'$'}{ASKIMO_LMSTUDIO_UTILITY_MODEL:}
-            embedding_model: ${'$'}{ASKIMO_LMSTUDIO_EMBEDDING_MODEL:}
-            vision_model: ${'$'}{ASKIMO_LMSTUDIO_VISION_MODEL:}
-            image_model: ${'$'}{ASKIMO_LMSTUDIO_IMAGE_MODEL:stable-diffusion}
-          xai:
-            utility_model: ${'$'}{ASKIMO_XAI_UTILITY_MODEL:}
-            embedding_model: ${'$'}{ASKIMO_XAI_EMBEDDING_MODEL:}
-            vision_model: ${'$'}{ASKIMO_XAI_VISION_MODEL:grok-2-vision-latest}
-            image_model: ${'$'}{ASKIMO_XAI_IMAGE_MODEL:grok-2-vision-latest}
-          openai_compatible:
-            utility_model:
-            embedding_model:
-            vision_model:
-            image_model:
 
         proxy:
           type: ${'$'}{ASKIMO_PROXY_TYPE:NONE}
@@ -1003,60 +919,6 @@ object AppConfig {
                 utilityModelTimeoutSeconds = envLong("ASKIMO_UTILITY_MODEL_TIMEOUT", 600L),
                 defaultModelTimeoutSeconds = envLong("ASKIMO_DEFAULT_MODEL_TIMEOUT", 600L),
             ),
-            anthropic = ProviderModelConfig(
-                utilityModel = env("ASKIMO_ANTHROPIC_UTILITY_MODEL", ""),
-                embeddingModel = env("ASKIMO_ANTHROPIC_EMBEDDING_MODEL", ""),
-                visionModel = env("ASKIMO_ANTHROPIC_VISION_MODEL", "claude-sonnet-4-6"),
-                imageModel = env("ASKIMO_ANTHROPIC_IMAGE_MODEL", "claude-sonnet-4-6"),
-            ),
-            gemini = ProviderModelConfig(
-                utilityModel = env("ASKIMO_GEMINI_UTILITY_MODEL", "gemini-2.5-flash-lite"),
-                embeddingModel = env("ASKIMO_GEMINI_EMBEDDING_MODEL", "gemini-embedding-001"),
-                visionModel = env("ASKIMO_GEMINI_VISION_MODEL", "gemini-1.5-pro"),
-                imageModel = env("ASKIMO_GEMINI_IMAGE_MODEL", "gemini-2.0-flash-exp"),
-            ),
-            openai = ProviderModelConfig(
-                utilityModel = env("ASKIMO_OPENAI_UTILITY_MODEL", "gpt-3.5-turbo"),
-                embeddingModel = env("ASKIMO_OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"),
-                visionModel = env("ASKIMO_OPENAI_VISION_MODEL", "gpt-4o"),
-                imageModel = env("ASKIMO_OPENAI_IMAGE_MODEL", "dall-e-3"),
-            ),
-            ollama = ProviderModelConfig(
-                utilityModel = env("ASKIMO_OLLAMA_UTILITY_MODEL", ""),
-                embeddingModel = env("ASKIMO_OLLAMA_EMBEDDING_MODEL", ""),
-                visionModel = env("ASKIMO_OLLAMA_VISION_MODEL", ""),
-                imageModel = env("ASKIMO_OLLAMA_IMAGE_MODEL", ""),
-            ),
-            docker = ProviderModelConfig(
-                utilityModel = env("ASKIMO_DOCKER_UTILITY_MODEL", ""),
-                embeddingModel = env("ASKIMO_DOCKER_EMBEDDING_MODEL", ""),
-                visionModel = env("ASKIMO_DOCKER_VISION_MODEL", ""),
-                imageModel = env("ASKIMO_DOCKER_IMAGE_MODEL", ""),
-            ),
-            localai = ProviderModelConfig(
-                utilityModel = env("ASKIMO_LOCALAI_UTILITY_MODEL", ""),
-                embeddingModel = env("ASKIMO_LOCALAI_EMBEDDING_MODEL", ""),
-                visionModel = env("ASKIMO_LOCALAI_VISION_MODEL", ""),
-                imageModel = env("ASKIMO_LOCALAI_IMAGE_MODEL", ""),
-            ),
-            lmstudio = ProviderModelConfig(
-                utilityModel = env("ASKIMO_LMSTUDIO_UTILITY_MODEL", ""),
-                embeddingModel = env("ASKIMO_LMSTUDIO_EMBEDDING_MODEL", ""),
-                visionModel = env("ASKIMO_LMSTUDIO_VISION_MODEL", ""),
-                imageModel = env("ASKIMO_LMSTUDIO_IMAGE_MODEL", ""),
-            ),
-            xai = ProviderModelConfig(
-                utilityModel = env("ASKIMO_XAI_UTILITY_MODEL", "grok-3-mini"),
-                embeddingModel = env("ASKIMO_XAI_EMBEDDING_MODEL", ""),
-                visionModel = env("ASKIMO_XAI_VISION_MODEL", "grok-2-vision-latest"),
-                imageModel = env("ASKIMO_XAI_IMAGE_MODEL", "grok-2-vision-latest"),
-            ),
-            openai_compatible = ProviderModelConfig(
-                utilityModel = "",
-                embeddingModel = "",
-                visionModel = "",
-                imageModel = "",
-            ),
         )
 
         val proxy =
@@ -1114,28 +976,13 @@ object AppConfig {
 
             val current = cached ?: loadOnce()
 
-            // If any ASKIMO_PRO instance carries a defaultModel, persist it into
-            // models.askimo_pro.default_model so the model selection survives restarts.
-            val askimoProModel = params.providerInstances
-                .firstOrNull { it.providerType == ModelProvider.ASKIMO_PRO }
-                ?.settings?.defaultModel
-                ?.takeIf { it.isNotBlank() }
-            val updatedModels = if (askimoProModel != null) {
-                current.models.update(
-                    ModelProvider.ASKIMO_PRO,
-                    current.models[ModelProvider.ASKIMO_PRO].copy(defaultModel = askimoProModel),
-                )
-            } else {
-                current.models
-            }
-
-            cached = current.copy(context = sanitized, models = updatedModels)
+            cached = current.copy(context = sanitized)
 
             val configPath = resolveOrCreateConfigPath()
             if (configPath != null && configPath.exists()) {
                 try {
                     val updatedYaml = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(
-                        current.copy(context = persistable, models = updatedModels),
+                        current.copy(context = persistable),
                     )
                     Files.writeString(configPath, updatedYaml)
                     log.info("Saved context to $configPath")
@@ -1223,7 +1070,7 @@ object AppConfig {
                     val updatedYaml = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(cached)
                     Files.writeString(configPath, updatedYaml)
 
-                    log.debug("Updated $path=$value in $configPath")
+                    log.debug("Updated {}={} in {}", path, value, configPath)
                 } catch (e: Exception) {
                     log.displayError("Failed to persist $path to config file", e)
                 }
@@ -1370,30 +1217,8 @@ object AppConfig {
             return config.copy(timeouts = updated)
         }
 
-        val provider = ModelProvider.entries.firstOrNull { it.name.lowercase() == providerKey }
-            ?: run {
-                log.displayError("Unknown provider: $providerKey", null)
-                return config
-            }
-
-        val current = config[provider]
-        val updated = when (modelField) {
-            "defaultModel" -> current.copy(defaultModel = stringValue)
-
-            "utilityModel" -> current.copy(utilityModel = stringValue)
-
-            "embeddingModel" -> current.copy(embeddingModel = stringValue)
-
-            "visionModel" -> current.copy(visionModel = stringValue)
-
-            "imageModel" -> current.copy(imageModel = stringValue)
-
-            else -> {
-                log.displayError("Unknown model field '$modelField' for provider $providerKey", null)
-                return config
-            }
-        }
-        return config.update(provider, updated)
+        log.displayError("Unknown models config path '$field'. Per-provider model fields are now configured per-instance in Settings > AI Provider.", null)
+        return config
     }
 
     private fun updateProxyField(config: ProxyConfig, field: String, value: Any): ProxyConfig = when (field) {

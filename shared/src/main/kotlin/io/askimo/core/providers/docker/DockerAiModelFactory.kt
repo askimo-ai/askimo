@@ -8,7 +8,6 @@ import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.StreamingChatModel
 import dev.langchain4j.model.openai.OpenAiChatModel
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel
-import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
 import io.askimo.core.providers.ModelCapabilitiesCache
 import io.askimo.core.providers.ModelProvider
@@ -53,7 +52,6 @@ class DockerAiModelFactory : OpenAiCompatibleChatModelFactory<DockerAiSettings>(
         .apiKey(resolveApiKey(settings))
         .modelName(
             settings.utilityModel
-                .ifBlank { AppConfig.models[getProvider()].utilityModel }
                 .ifBlank { utilityModelFallback(settings) },
         )
         .logRequests(log.isDebugEnabled)

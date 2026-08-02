@@ -25,53 +25,22 @@ import java.nio.file.Files
 class AppConfigTest {
 
     @Test
-    fun `DEFAULT_YAML snake_case fields are correctly deserialized for all providers`() {
+    fun `DEFAULT_YAML snake_case fields are correctly deserialized`() {
         // @AskimoTestHome writes DEFAULT_YAML and resets AppConfig — so all fields
-        // should reflect the YAML defaults, not the empty ProviderModelConfig() defaults.
+        // should reflect the YAML defaults.
         val models = AppConfig.models
 
         assertEquals(10, models.maxToolCallingRoundTrips)
 
-        // Ollama — the field that was failing in EmbeddingModelFactoryOllamaTest
-        assertEquals("", models[ModelProvider.OLLAMA].embeddingModel)
-        assertEquals("", models[ModelProvider.OLLAMA].visionModel)
-        assertEquals("", models[ModelProvider.OLLAMA].imageModel)
-
-        // Anthropic
-        assertEquals("", models[ModelProvider.ANTHROPIC].utilityModel)
-        assertEquals("claude-sonnet-4-6", models[ModelProvider.ANTHROPIC].visionModel)
-        assertEquals("claude-sonnet-4-6", models[ModelProvider.ANTHROPIC].imageModel)
-
         // Global timeouts
         assertEquals(45L, models.timeouts.utilityModelTimeoutSeconds)
         assertEquals(300L, models.timeouts.defaultModelTimeoutSeconds)
-
-        // Gemini
-        assertEquals("", models[ModelProvider.GEMINI].utilityModel)
-        assertEquals("gemini-embedding-001", models[ModelProvider.GEMINI].embeddingModel)
-        assertEquals("gemini-1.5-pro", models[ModelProvider.GEMINI].visionModel)
-        assertEquals("gemini-2.0-flash-exp", models[ModelProvider.GEMINI].imageModel)
-
-        // OpenAI
-        assertEquals("", models[ModelProvider.OPENAI].utilityModel)
-        assertEquals("text-embedding-3-small", models[ModelProvider.OPENAI].embeddingModel)
-        assertEquals("gpt-4o", models[ModelProvider.OPENAI].visionModel)
-        assertEquals("dall-e-3", models[ModelProvider.OPENAI].imageModel)
-
-        // XAI
-        assertEquals("", models[ModelProvider.XAI].utilityModel)
-        assertEquals("grok-2-vision-latest", models[ModelProvider.XAI].visionModel)
-        assertEquals("grok-2-vision-latest", models[ModelProvider.XAI].imageModel)
     }
 
     @Test
-    fun `YAML round-trip preserves snake_case field values after updateField`() {
-        // Mutate a field, then verify the in-memory value is correct
-        AppConfig.updateField("models.ollama.embeddingModel", "mxbai-embed-large:latest")
-        assertEquals("mxbai-embed-large:latest", AppConfig.models[ModelProvider.OLLAMA].embeddingModel)
-
-        AppConfig.updateField("models.anthropic.utilityModel", "claude-haiku-4")
-        assertEquals("claude-haiku-4", AppConfig.models[ModelProvider.ANTHROPIC].utilityModel)
+    fun `YAML round-trip preserves timeout values after updateField`() {
+        AppConfig.updateField("models.timeouts.utilityModelTimeoutSeconds", "120")
+        assertEquals(120L, AppConfig.models.timeouts.utilityModelTimeoutSeconds)
     }
 
     @Test
@@ -112,60 +81,6 @@ class AppConfigTest {
 
         val withInvalid = updateModelsFieldHelper(config, "maxToolCallingRoundTrips", "invalid")
         assertEquals(config.maxToolCallingRoundTrips, withInvalid.maxToolCallingRoundTrips)
-    }
-
-    @Test
-    fun `updateModelsField should handle all provider vision models`() {
-        val config = ModelsConfig()
-
-        // Test OpenAI
-        var updated = updateModelsFieldHelper(config, "openai.visionModel", "gpt-4-vision-preview")
-        assertEquals("gpt-4-vision-preview", updated.openai.visionModel)
-
-        // Test Anthropic
-        updated = updateModelsFieldHelper(config, "anthropic.visionModel", "claude-3-opus-20240229")
-        assertEquals("claude-3-opus-20240229", updated.anthropic.visionModel)
-
-        // Test Gemini
-        updated = updateModelsFieldHelper(config, "gemini.visionModel", "gemini-pro-vision")
-        assertEquals("gemini-pro-vision", updated.gemini.visionModel)
-
-        // Test XAI
-        updated = updateModelsFieldHelper(config, "xai.visionModel", "grok-vision-beta")
-        assertEquals("grok-vision-beta", updated.xai.visionModel)
-
-        // Test Ollama
-        updated = updateModelsFieldHelper(config, "ollama.visionModel", "llava:13b")
-        assertEquals("llava:13b", updated.ollama.visionModel)
-
-        // Test Docker
-        updated = updateModelsFieldHelper(config, "docker.visionModel", "llava:latest")
-        assertEquals("llava:latest", updated.docker.visionModel)
-
-        // Test LocalAI
-        updated = updateModelsFieldHelper(config, "localai.visionModel", "bakllava")
-        assertEquals("bakllava", updated.localai.visionModel)
-
-        // Test LMStudio
-        updated = updateModelsFieldHelper(config, "lmstudio.visionModel", "llava-v1.6-mistral-7b")
-        assertEquals("llava-v1.6-mistral-7b", updated.lmstudio.visionModel)
-    }
-
-    @Test
-    fun `updateModelsField should handle embedding models`() {
-        val config = ModelsConfig()
-
-        // Test OpenAI
-        var updated = updateModelsFieldHelper(config, "openai.embeddingModel", "text-embedding-3-large")
-        assertEquals("text-embedding-3-large", updated.openai.embeddingModel)
-
-        // Test Gemini
-        updated = updateModelsFieldHelper(config, "gemini.embeddingModel", "text-embedding-004")
-        assertEquals("text-embedding-004", updated.gemini.embeddingModel)
-
-        // Test Ollama
-        updated = updateModelsFieldHelper(config, "ollama.embeddingModel", "mxbai-embed-large")
-        assertEquals("mxbai-embed-large", updated.ollama.embeddingModel)
     }
 
     @Test
@@ -525,7 +440,7 @@ class AppConfigTest {
     @Test
     fun `saveContext preserves existing config fields after save`() {
         // Verify that saving context does not wipe out unrelated config sections
-        val originalEmbeddingModel = AppConfig.models[ModelProvider.OLLAMA].embeddingModel
+        val originalMaxRoundTrips = AppConfig.models.maxToolCallingRoundTrips
 
         val instance = ProviderInstance.create(
             displayName = "OpenAI",
@@ -538,7 +453,7 @@ class AppConfigTest {
 
         AppConfig.saveContext(params)
 
-        assertEquals(originalEmbeddingModel, AppConfig.models[ModelProvider.OLLAMA].embeddingModel)
+        assertEquals(originalMaxRoundTrips, AppConfig.models.maxToolCallingRoundTrips)
     }
 
     @Test

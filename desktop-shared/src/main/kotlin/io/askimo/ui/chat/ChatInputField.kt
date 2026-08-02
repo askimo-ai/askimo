@@ -262,9 +262,7 @@ fun chatInputField(
         )
     }
 
-    val configuredImageModel = resolvedProvider?.let { provider ->
-        AppConfig.models[provider].imageModel
-    }.orEmpty()
+    val configuredImageModel = appParams.activeInstance?.settings?.imageModel.orEmpty()
     val hasConfiguredImageModel = configuredImageModel.isNotBlank()
     val providerNotSetLabel = stringResource("provider.not.set")
     val missingImageModelTitle = stringResource("chat.image.model.missing.title")

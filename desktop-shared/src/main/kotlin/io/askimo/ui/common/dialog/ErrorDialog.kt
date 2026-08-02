@@ -8,16 +8,20 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -53,13 +57,21 @@ fun errorDialog(
 ) {
     val linkColor = MaterialTheme.colorScheme.onSurface
     var showDetails by remember { mutableStateOf(false) }
+    var messageExpanded by remember { mutableStateOf(false) }
+
+    // Collapse long messages at 4 lines; user can expand to see the full text
+    val messageCollapsedMaxLines = 4
+    val isMessageLong = message.lines().size > messageCollapsedMaxLines ||
+        message.length > 300
 
     AppComponents.alertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.width(800.dp),
         title = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                 verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(
                     imageVector = Icons.Default.Warning,
@@ -70,6 +82,14 @@ fun errorDialog(
                     text = title,
                     style = MaterialTheme.typography.headlineSmall,
                 )
+                Spacer(modifier = Modifier.weight(1f))
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         },
         text = {
@@ -100,12 +120,47 @@ fun errorDialog(
                     Text(
                         text = annotatedString,
                         style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                        maxLines = if (messageExpanded || !isMessageLong) Int.MAX_VALUE else messageCollapsedMaxLines,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(
+                                if (messageExpanded) {
+                                    Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())
+                                } else {
+                                    Modifier
+                                },
+                            )
+                            .pointerHoverIcon(PointerIcon.Hand),
                     )
                 } else {
                     Text(
                         text = message,
                         style = MaterialTheme.typography.bodyMedium,
+                        maxLines = if (messageExpanded || !isMessageLong) Int.MAX_VALUE else messageCollapsedMaxLines,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(
+                                if (messageExpanded) {
+                                    Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())
+                                } else {
+                                    Modifier
+                                },
+                            ),
+                    )
+                }
+
+                // Show more / Show less toggle for long messages
+                if (isMessageLong) {
+                    Text(
+                        text = if (messageExpanded) stringResource("action.show.less") else stringResource("action.show.more"),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .clickable { messageExpanded = !messageExpanded }
+                            .pointerHoverIcon(PointerIcon.Hand)
+                            .padding(top = Spacing.extraSmall),
                     )
                 }
 
@@ -147,11 +202,13 @@ fun errorDialog(
             }
         },
         confirmButton = {
-            primaryButton(
-                onClick = onDismiss,
+            Row(
                 modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
             ) {
-                Text(stringResource("action.ok"))
+                primaryButton(onClick = onDismiss) {
+                    Text(stringResource("action.ok"))
+                }
             }
         },
     )

@@ -10,7 +10,6 @@ import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.model.openai.OpenAiChatModel
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel.OpenAiEmbeddingModelBuilder
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel
-import io.askimo.core.config.AppConfig
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.OpenAiCompatibleChatModelFactory
 import io.askimo.core.util.ApiKeyUtils.safeApiKey
@@ -56,7 +55,6 @@ internal class OpenAiCompatibleCompletionsModelFactory : OpenAiCompatibleDelegat
     override fun createSecondaryModel(settings: OpenAiCompatibleSettings): ChatModel {
         val listener = createTelemetryListener()
         val modelName = settings.utilityModel
-            .ifBlank { AppConfig.models[getProvider()].utilityModel }
             .ifBlank { utilityModelFallback(settings) }
         return OpenAiChatModel.builder()
             .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener))
@@ -127,7 +125,7 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
     """.trimIndent()
 
     override fun createEmbeddingModel(settings: OpenAiCompatibleSettings): EmbeddingModel {
-        val modelName = AppConfig.models[ModelProvider.OPENAI_COMPATIBLE].embeddingModel
+        val modelName = settings.embeddingModel
         check(modelName.isNotBlank()) {
             "No embedding model is configured for ${ModelProvider.OPENAI_COMPATIBLE.name}. " +
                 "Go to Settings > AI Provider and select an embedding model under the provider configuration card."
@@ -140,7 +138,7 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
     }
 
     override fun getEmbeddingTokenLimit(settings: OpenAiCompatibleSettings): Int {
-        val modelName = AppConfig.models[ModelProvider.OPENAI_COMPATIBLE].embeddingModel.lowercase()
+        val modelName = settings.embeddingModel.lowercase()
         return when {
             modelName.contains("text-embedding-3") -> 8191
             modelName.contains("ada-002") -> 8191

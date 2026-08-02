@@ -259,7 +259,6 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
     override fun createSecondaryModel(settings: T): ChatModel {
         val listener = createTelemetryListener()
         val modelName = settings.utilityModel
-            .ifBlank { AppConfig.models[getProvider()].utilityModel }
             .ifBlank { utilityModelFallback(settings) }
         return OpenAiResponsesChatModel.builder()
             .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener))
@@ -291,7 +290,7 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
     override fun createImageModel(settings: T): ImageModel = OpenAiImageModel.builder()
         .baseUrl(settings.baseUrl)
         .apiKey(resolveApiKey(settings))
-        .modelName(settings.imageModel.ifBlank { AppConfig.models[getProvider()].imageModel })
+        .modelName(settings.imageModel)
         .build()
 
     override fun createUtilityClient(settings: T): ChatClient = AiServices.builder(ChatClient::class.java)
@@ -302,7 +301,7 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
 
     override fun createEmbeddingModel(settings: T): EmbeddingModel {
         val baseUrl = settings.baseUrl.removeSuffix("/")
-        val modelName = settings.embeddingModel.ifBlank { AppConfig.models[getProvider()].embeddingModel }
+        val modelName = settings.embeddingModel
         check(modelName.isNotBlank()) {
             "No embedding model is configured for ${getProvider().name}. " +
                 "Go to Settings > AI Provider and select an embedding model under the provider configuration card."
@@ -318,6 +317,6 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
     }
 
     override fun getEmbeddingTokenLimit(settings: T): Int = LocalEmbeddingTokenLimits.resolve(
-        settings.embeddingModel.ifBlank { AppConfig.models[getProvider()].embeddingModel },
+        settings.embeddingModel,
     )
 }

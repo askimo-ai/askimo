@@ -164,7 +164,7 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
     ): ImageModel = GoogleAiGeminiImageModel.builder()
         .apiKey(safeApiKey(settings.apiKey))
         .baseUrl(settings.baseUrl)
-        .modelName(settings.imageModel.ifBlank { AppConfig.models[GEMINI].imageModel })
+        .modelName(settings.imageModel)
         .build()
 
     override fun createStreamingModel(settings: GeminiSettings): StreamingChatModel {
@@ -210,7 +210,6 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
             .apiKey(safeApiKey(settings.apiKey))
             .modelName(
                 settings.utilityModel
-                    .ifBlank { AppConfig.models[GEMINI].utilityModel }
                     .ifBlank { settings.defaultModel },
             )
             .timeout(Duration.ofSeconds(AppConfig.models.timeouts.utilityModelTimeoutSeconds))
@@ -239,11 +238,11 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
 
     override fun createEmbeddingModel(settings: GeminiSettings): EmbeddingModel = GoogleAiEmbeddingModel.builder()
         .apiKey(safeApiKey(settings.apiKey))
-        .modelName(settings.embeddingModel.ifBlank { AppConfig.models[GEMINI].embeddingModel })
+        .modelName(settings.embeddingModel)
         .build()
 
     override fun getEmbeddingTokenLimit(settings: GeminiSettings): Int {
-        val modelName = settings.embeddingModel.ifBlank { AppConfig.models[GEMINI].embeddingModel }.lowercase()
+        val modelName = settings.embeddingModel.lowercase()
         return when {
             modelName.contains("embedding-001") -> 2048
             modelName.contains("text-embedding-004") -> 2048
