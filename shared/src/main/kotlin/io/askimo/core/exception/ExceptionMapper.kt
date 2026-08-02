@@ -80,12 +80,11 @@ object ExceptionMapper {
      * Returns true when [message] contains patterns that indicate a local AI server crash
      * (Ollama, Docker AI, LocalAI, LMStudio process dying or failing to load a model).
      */
-    private fun isLocalServerMessage(message: String): Boolean =
-        message.contains("process has terminated", ignoreCase = true) ||
-            message.contains("llama-server", ignoreCase = true) ||
-            message.contains("llama_model_loader", ignoreCase = true) ||
-            message.contains("error loading model", ignoreCase = true) ||
-            (message.contains("api_error", ignoreCase = true) && message.contains("exit status", ignoreCase = true))
+    private fun isLocalServerMessage(message: String): Boolean = message.contains("process has terminated", ignoreCase = true) ||
+        message.contains("llama-server", ignoreCase = true) ||
+        message.contains("llama_model_loader", ignoreCase = true) ||
+        message.contains("error loading model", ignoreCase = true) ||
+        (message.contains("api_error", ignoreCase = true) && message.contains("exit status", ignoreCase = true))
 
     /**
      * Try to match an exception by its concrete type.
