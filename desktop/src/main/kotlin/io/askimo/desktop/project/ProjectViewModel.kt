@@ -31,6 +31,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -387,15 +388,22 @@ class ProjectViewModel(
     }
 
     /**
-     * Sync the current index progress from [ProjectIndexer] immediately on init.
+     * Sync the current index progress from [ProjectIndexer] as a one-shot snapshot on init.
      * Without this, navigating back to the project view shows a blank progress bar
      * because the ViewModel is recreated and misses all prior events.
+     *
+     * Intentionally a single [first] read — NOT a continuous collect.
+     * A continuous collect races with [observeIndexProgress] and overwrites event-driven
+     * resets (e.g. the fresh INDEXING state) with stale READY(120/120) snapshots from the
+     * coordinator's StateFlow, causing the "120/120 flash before counting from 1" bug.
      */
     private fun syncInitialIndexProgress() {
         if (projectIndexer == null) return
         scope.launch {
-            projectIndexer.getProgressFlow(projectId).collect { progress ->
-                indexProgress = progress
+            val initial = projectIndexer.getProgressFlow(projectId).first()
+            // Only apply the snapshot if observeIndexProgress hasn't already set a live state.
+            if (indexProgress.status == IndexStatus.NOT_STARTED) {
+                indexProgress = initial
             }
         }
     }

@@ -357,7 +357,7 @@ fun feedbackPromptDialog(
                             enabled = selectedReasons.isNotEmpty() || comment.isNotBlank(),
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         ) {
-                            Text(text = stringResource("feedback.action.send"), style = AppTextStyles.groupTitle)
+                            Text(text = stringResource("feedback.action.send"))
                         }
                     }
                 }

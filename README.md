@@ -47,9 +47,12 @@
   <img src="https://img.shields.io/badge/Gemini-Supported-4285F4" alt="Gemini">
   <img src="https://img.shields.io/badge/Grok-Supported-1DA1F2" alt="Grok">
   <img src="https://img.shields.io/badge/Ollama-Supported-000000" alt="Ollama">
-  <img src="https://img.shields.io/badge/LocalAI-Supported-00ADD8" alt="LocalAI">
   <img src="https://img.shields.io/badge/LMStudio-Supported-6B46C1" alt="LMStudio">
   <img src="https://img.shields.io/badge/DockerAI-Supported-2496ED" alt="DockerAI">
+  <img src="https://img.shields.io/badge/OpenRouter-Supported-6366F1" alt="OpenRouter">
+  <img src="https://img.shields.io/badge/NVIDIA_NIM-Supported-76B900" alt="NVIDIA NIM">
+  <img src="https://img.shields.io/badge/Together_AI-Supported-FF6B35" alt="Together AI">
+  <img src="https://img.shields.io/badge/vLLM_Server-Supported-EF4444" alt="vLLM Server">
   <img src="https://img.shields.io/badge/OpenAI--Compatible-Any_Endpoint-gray" alt="OpenAI-Compatible">
 </p>
 
@@ -123,11 +126,10 @@ You shouldn't have to choose between the best AI model, your privacy, and gettin
 
 ## Features
 
-- **Multi-provider** - Switch between OpenAI, Claude, Gemini, Grok, Ollama, LM Studio, LocalAI, Docker AI, or any OpenAI-compatible endpoint per session
+- **Multi-provider** - Switch between OpenAI, Claude, Gemini, Grok, Ollama, LM Studio, Docker AI, OpenRouter, NVIDIA NIM, Together AI, vLLM Server, or any OpenAI-compatible endpoint per session
 - **Web search (multiple backends)** - Search the web with DuckDuckGo (no API key), Brave Search API, Tavily, or your own SearxNG instance
 - **Local RAG** - Index local folders, files, and web URLs. Hybrid BM25 + vector retrieval with an AI classifier that skips retrieval when the query doesn't need it. Your data never leaves your machine.
 - **Plans (agentic workflows)** - Chain multi-step AI pipelines from a form UI. Each step builds on the previous; progress shown live. Export as PDF or Word. Define your own plans in YAML or generate them by describing your workflow in plain English.
-- **Skills** - Define reusable AI agents as Markdown files and execute them via [Gemini CLI](https://github.com/google-gemini/gemini-cli) or [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Skills carry a system prompt, run in a sandboxed workspace, stream live activity, and persist a full run history.
 - **Script runner** - Execute Python, Bash, and JavaScript from chat. Python runs in an auto-managed virtualenv with automatic dependency installation.
 - **MCP tool integration** - Connect MCP-compatible servers via stdio or HTTP
 - **Persistent sessions** - Conversations stored in a local SQLite database, restored on restart
@@ -137,28 +139,11 @@ You shouldn't have to choose between the best AI model, your privacy, and gettin
 
 ---
 
-## Beyond Chat: Skills and Plans
-
-Most AI apps stop at a chat box. Askimo goes further with two automation primitives that turn AI from a conversation tool into a work tool.
-
-**Skills** delegate real work to an agent runtime ([Claude Code](https://docs.anthropic.com/en/docs/claude-code) or [Gemini CLI](https://github.com/google-gemini/gemini-cli)) running directly on your machine. The agent reads and writes your files, runs shell commands, and iterates until the job is done, without you copy-pasting anything. Point it at a codebase, describe the task, and the agent handles the rest. More runtimes are planned.
-
-**Plans** break complex reasoning into a chain of focused AI steps, each building on the last. Instead of asking a single prompt to research, analyse, and write simultaneously, a Plan assigns each stage its own goal and persona. You fill in a form, click Run, and get a finished deliverable (a report, a cover letter, a blog post) ready to export as PDF or Word.
-
-| | Skills | Plans |
-|---|---|---|
-| **Use when** | The task needs to touch files, run commands, or modify code | The task is pure reasoning: text in, polished output out |
-| **Runs via** | Claude Code or Gemini CLI on your machine | Askimo's built-in AI, no extra installs |
-| **Example** | "Refactor my API routes to follow REST conventions" | "Write a competitor analysis report for my product" |
-
-[Skills documentation →](https://askimo.chat/docs/desktop/skills/) · [Plans documentation →](https://askimo.chat/docs/desktop/plans/)
-
----
 
 ## Supported Providers
 
-**Cloud:** OpenAI · Anthropic Claude · Google Gemini · xAI Grok  
-**Local:** Ollama · LM Studio · LocalAI · Docker AI  
+**Cloud:** OpenAI · Anthropic Claude · Google Gemini · xAI Grok · OpenRouter · NVIDIA NIM · Together AI  
+**Local:** Ollama · LM Studio · Docker AI · vLLM Server  
 **Custom:** Any OpenAI-compatible endpoint via custom base URL
 
 ---

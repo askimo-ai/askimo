@@ -50,6 +50,14 @@ class HybridIndexer(
     private val segmentBatch = mutableListOf<Pair<TextSegment, Path>>() // Track file path with segment
     private val pendingMappings = mutableListOf<Triple<Path, String, Int>>() // (filePath, segmentId, chunkIndex)
 
+    // Counter for periodic JVector saves — incremented on every successful batch flush.
+    // Saves every SAVE_EVERY_N_BATCHES flushes (~2500 segments) to balance disk I/O vs crash safety.
+    private var flushCount = 0
+
+    companion object {
+        private const val SAVE_EVERY_N_BATCHES = 50
+    }
+
     /**
      * Add segment to batch. If the batch is full, snapshots and clears the batch under
      * the lock, then flushes **outside** the lock — so the expensive `embedAll` call
@@ -59,7 +67,14 @@ class HybridIndexer(
         segment: TextSegment,
         filePath: Path,
     ): Boolean {
-        log.trace("Adding segment {} to batch for project {}", segment.metadata().getString("file_name"), projectId)
+        log.trace(
+            "Adding segment to batch [{}/{}] file={}, chunk={}, project={}",
+            segmentBatch.size + 1,
+            AppConfig.indexing.embeddingBatchSize,
+            segment.metadata().getString("file_name"),
+            segment.metadata().getInteger("chunk_index") ?: 0,
+            projectId,
+        )
 
         val snapshot: List<Pair<TextSegment, Path>>? = batchMutex.withLock {
             segmentBatch.add(segment to filePath)
@@ -90,11 +105,17 @@ class HybridIndexer(
             }
         }
         return if (snapshot != null) {
-            flushSnapshot(snapshot)
+            flushSnapshot(snapshot).also {
+                // Final save after the last batch — ensures all segments are persisted.
+                // Guard against empty store: JVector throws IllegalStateException if save() is
+                // called when no embeddings have been added (e.g. all files unchanged on re-index).
+                if (flushCount > 0) (embeddingStore as? JVectorEmbeddingStore)?.save()
+            }
         } else {
             // Nothing to flush — still persist any pending mappings
             try {
                 batchMutex.withLock { savePendingMappings() }
+                if (flushCount > 0) (embeddingStore as? JVectorEmbeddingStore)?.save()
                 true
             } catch (e: Exception) {
                 log.warn("Failed to save pending mappings", e)
@@ -121,8 +142,13 @@ class HybridIndexer(
                 val segmentIds = segments.map { generateSegmentId(it) }
 
                 embeddingStore.addAll(embeddings, segments)
-                (embeddingStore as? JVectorEmbeddingStore)?.save()
+                flushCount++
+                if (flushCount % SAVE_EVERY_N_BATCHES == 0) {
+                    log.debug("Periodic JVector save at batch {} (~{} segments), project {}", flushCount, flushCount * AppConfig.indexing.embeddingBatchSize, projectId)
+                    (embeddingStore as? JVectorEmbeddingStore)?.save()
+                }
 
+                log.debug("Index segments by lucene {}, project={}", segments.size, projectId)
                 luceneIndexer.indexSegments(segments)
 
                 val mappings = segments.mapIndexed { i, seg ->

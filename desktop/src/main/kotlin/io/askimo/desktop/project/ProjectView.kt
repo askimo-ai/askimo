@@ -958,12 +958,19 @@ private fun indexProgressIndicator(
 
                     // Baseline resets whenever a new file starts being processed.
                     val baseWallClock = remember(indexProgress.currentFile) { mutableStateOf(System.currentTimeMillis()) }
-                    val baseElapsed = remember(indexProgress.currentFile) { mutableStateOf(backendElapsedMs) }
-                    var liveElapsedMs by remember(indexProgress.currentFile) { mutableStateOf(backendElapsedMs) }
+                    val baseElapsed = remember(indexProgress.currentFile) { mutableStateOf(0L) }
+                    var liveElapsedMs by remember(indexProgress.currentFile) { mutableStateOf(0L) }
+
+                    // Skip that first fire and start the timer from zero for each new file.
+                    val seenFirstBackendUpdate = remember(indexProgress.currentFile) { mutableStateOf(false) }
 
                     // When the backend emits a higher value (a batch just completed),
                     // advance the baseline so the display never goes backwards.
                     LaunchedEffect(backendElapsedMs) {
+                        if (!seenFirstBackendUpdate.value) {
+                            seenFirstBackendUpdate.value = true
+                            return@LaunchedEffect
+                        }
                         if (backendElapsedMs >= baseElapsed.value) {
                             baseElapsed.value = backendElapsedMs
                             baseWallClock.value = System.currentTimeMillis()
