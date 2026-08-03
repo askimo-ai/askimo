@@ -604,9 +604,21 @@ private fun instanceConfigScreen(viewModel: ProviderWizardViewModel) {
                     }
 
                     else -> {
-                        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
-                            Text(text = field.label + if (field.required) " *" else "", style = AppTextStyles.groupTitle)
-                            Text(text = field.description, style = AppTextStyles.caption)
+                        val fieldHint: (@Composable () -> Unit)? = if (field is ProviderConfigField.SelectField) {
+                            val currentValue = viewModel.providerFieldValues[field.name] ?: field.value
+                            field.options.find { it.value == currentValue }?.description
+                                ?.takeIf { it.isNotBlank() }
+                                ?.let { desc -> { Text(text = desc, style = AppTextStyles.caption) } }
+                        } else {
+                            null
+                        }
+
+                        AppComponents.formField(
+                            label = field.label,
+                            description = field.description,
+                            required = field.required,
+                            hint = fieldHint,
+                        ) {
                             when (field) {
                                 is ProviderConfigField.ApiKeyField -> {
                                     AppComponents.appSecretTextField(
@@ -660,14 +672,9 @@ private fun instanceConfigScreen(viewModel: ProviderWizardViewModel) {
                                             }
                                         }
                                     }
-                                    field.options.find { it.value == currentValue }?.description
-                                        ?.takeIf { it.isNotBlank() }?.let { endpoint ->
-                                            Text(
-                                                text = endpoint,
-                                                style = AppTextStyles.caption,
-                                            )
-                                        }
                                 }
+
+                                else -> {}
                             }
                         }
                     }

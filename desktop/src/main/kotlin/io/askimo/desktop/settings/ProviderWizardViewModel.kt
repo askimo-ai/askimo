@@ -134,6 +134,15 @@ class ProviderWizardViewModel(
     var providerFieldValues by mutableStateOf<Map<String, String>>(emptyMap())
         private set
 
+    /**
+     * Base settings pre-filled from a [OpenAiCompatibleTemplate] during the add-wizard flow.
+     * Used by [buildValidatedSettings] so that template-locked values ([OpenAiCompatibleSettings.isTemplate],
+     * [OpenAiCompatibleSettings.apiMode], [OpenAiCompatibleSettings.httpVersionConfig]) survive
+     * the [applyConfigFields] call when saving a new template-based instance.
+     * Reset to null whenever the wizard is reset or a non-template provider is selected.
+     */
+    private var templateBaseSettings: ProviderSettings? = null
+
     // ── Connection / fetch state ──────────────────────────────────────────────────────────────
 
     var isTestingConnection by mutableStateOf(false)
@@ -335,14 +344,20 @@ class ProviderWizardViewModel(
         wizardStep = WizardStep.CONFIG
         resetWizardFormState()
 
-        val prefilled = OpenAiCompatibleSettings(baseUrl = template.baseUrl, apiMode = template.apiMode)
+        val prefilled = OpenAiCompatibleSettings(
+            baseUrl = template.baseUrl,
+            apiMode = template.apiMode,
+            httpVersionConfig = template.httpVersion,
+            isTemplate = true,
+        )
+        templateBaseSettings = prefilled
         providerConfigFields = prefilled.getConfigFields(LocalizationManager.messageResolver)
         providerFieldValues = buildMap {
             providerConfigFields.forEach { field ->
                 when (field) {
                     is ProviderConfigField.ApiKeyField -> put(field.name, field.value)
                     is ProviderConfigField.BaseUrlField -> put(field.name, template.baseUrl)
-                    is ProviderConfigField.SelectField -> put(field.name, template.apiMode.name)
+                    is ProviderConfigField.SelectField -> put(field.name, field.value)
                     is ProviderConfigField.InfoField -> Unit
                 }
             }
@@ -512,7 +527,11 @@ class ProviderWizardViewModel(
      * callers inside a `withContext` block can simply `return@withContext e.failure`.
      */
     private fun buildValidatedSettings(provider: ModelProvider): ProviderSettings {
+        // For new template instances, use templateBaseSettings (which carries isTemplate=true,
+        // the preset apiMode, and httpVersionConfig) instead of the generic defaultSettings().
+        // For editing an existing instance, the persisted settings already carry isTemplate.
         val baseSettings = editingInstance?.settings
+            ?: templateBaseSettings
             ?: ProviderRegistry.getFactory(provider)?.defaultSettings()
 
         val settings = baseSettings?.applyConfigFields(providerFieldValues)
@@ -643,6 +662,7 @@ class ProviderWizardViewModel(
 
     private fun resetWizardFormState() {
         autoFetchJob?.cancel()
+        templateBaseSettings = null
         connectionError = null
         connectionErrorHelp = null
         connectionTestSuccess = false

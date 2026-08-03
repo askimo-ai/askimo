@@ -36,6 +36,14 @@ data class OpenAiCompatibleSettings(
      * Existing serialised configs without this field deserialise to the default safely.
      */
     val httpVersionConfig: HttpVersion = HttpVersion.HTTP_1_1,
+    /**
+     * Whether this instance was created from a predefined [OpenAiCompatibleTemplate].
+     * When `true`, [apiMode] and [httpVersionConfig] are locked to the template's preset
+     * values and the corresponding UI fields are hidden in the config screen.
+     * Set once at creation time by the wizard; never mutated through the field-map path.
+     * Existing serialised configs without this field deserialise to `false` safely.
+     */
+    val isTemplate: Boolean = false,
 ) : ProviderSettings,
     HasApiKey,
     HasBaseUrl {
@@ -107,54 +115,68 @@ data class OpenAiCompatibleSettings(
             messageResolver("provider.openai_compatible.apikey.description")
         }
 
-        return listOf(
-            ProviderConfigField.BaseUrlField(
-                description = messageResolver("provider.openai_compatible.baseurl.description"),
-                value = baseUrl,
-            ),
-            ProviderConfigField.ApiKeyField(
-                description = apiKeyDescription,
-                value = apiKey,
-                required = false,
-                hasExistingValue = hasStoredKey,
-            ),
-            ProviderConfigField.SelectField(
-                name = SettingField.API_MODE,
-                label = messageResolver("provider.openai_compatible.apimode.label"),
-                description = messageResolver("provider.openai_compatible.apimode.description"),
-                value = apiMode.name,
-                options = listOf(
-                    SelectOption(
-                        value = OpenAiApiMode.CHAT_COMPLETIONS.name,
-                        label = messageResolver("provider.openai_compatible.apimode.chat_completions"),
-                        description = "/v1/chat/completions",
-                    ),
-                    SelectOption(
-                        value = OpenAiApiMode.RESPONSES.name,
-                        label = messageResolver("provider.openai_compatible.apimode.responses"),
-                        description = "/v1/responses",
+        return buildList {
+            add(
+                ProviderConfigField.BaseUrlField(
+                    description = messageResolver("provider.openai_compatible.baseurl.description"),
+                    value = baseUrl,
+                ),
+            )
+            add(
+                ProviderConfigField.ApiKeyField(
+                    description = apiKeyDescription,
+                    value = apiKey,
+                    required = false,
+                    hasExistingValue = hasStoredKey,
+                ),
+            )
+            // API mode is always shown — power users may need to switch it even on template
+            // instances (e.g. when a provider adds Responses API support after setup).
+            add(
+                ProviderConfigField.SelectField(
+                    name = SettingField.API_MODE,
+                    label = messageResolver("provider.openai_compatible.apimode.label"),
+                    description = messageResolver("provider.openai_compatible.apimode.description"),
+                    value = apiMode.name,
+                    options = listOf(
+                        SelectOption(
+                            value = OpenAiApiMode.CHAT_COMPLETIONS.name,
+                            label = messageResolver("provider.openai_compatible.apimode.chat_completions"),
+                            description = "/v1/chat/completions",
+                        ),
+                        SelectOption(
+                            value = OpenAiApiMode.RESPONSES.name,
+                            label = messageResolver("provider.openai_compatible.apimode.responses"),
+                            description = "/v1/responses",
+                        ),
                     ),
                 ),
-            ),
-            ProviderConfigField.SelectField(
-                name = SettingField.HTTP_VERSION,
-                label = messageResolver("provider.openai_compatible.httpversion.label"),
-                description = messageResolver("provider.openai_compatible.httpversion.description"),
-                value = httpVersionConfig.name,
-                options = listOf(
-                    SelectOption(
-                        value = HttpVersion.HTTP_1_1.name,
-                        label = "HTTP/1.1",
-                        description = messageResolver("provider.openai_compatible.httpversion.http1_1"),
+            )
+            // HTTP version is a low-level transport detail — hidden for template instances
+            // where the correct value is already pre-set and misconfigurations silently break things.
+            if (!isTemplate) {
+                add(
+                    ProviderConfigField.SelectField(
+                        name = SettingField.HTTP_VERSION,
+                        label = messageResolver("provider.openai_compatible.httpversion.label"),
+                        description = messageResolver("provider.openai_compatible.httpversion.description"),
+                        value = httpVersionConfig.name,
+                        options = listOf(
+                            SelectOption(
+                                value = HttpVersion.HTTP_1_1.name,
+                                label = "HTTP/1.1",
+                                description = messageResolver("provider.openai_compatible.httpversion.http1_1"),
+                            ),
+                            SelectOption(
+                                value = HttpVersion.HTTP_2.name,
+                                label = "HTTP/2",
+                                description = messageResolver("provider.openai_compatible.httpversion.http2"),
+                            ),
+                        ),
                     ),
-                    SelectOption(
-                        value = HttpVersion.HTTP_2.name,
-                        label = "HTTP/2",
-                        description = messageResolver("provider.openai_compatible.httpversion.http2"),
-                    ),
-                ),
-            ),
-        )
+                )
+            }
+        }
     }
 
     override fun applyConfigFields(fields: Map<String, String>): ProviderSettings {
@@ -163,9 +185,13 @@ data class OpenAiCompatibleSettings(
         val newApiMode = fields[SettingField.API_MODE]
             ?.let { runCatching { OpenAiApiMode.valueOf(it) }.getOrNull() }
             ?: apiMode
-        val newHttpVersion = fields[SettingField.HTTP_VERSION]
-            ?.let { runCatching { HttpVersion.valueOf(it) }.getOrNull() }
-            ?: httpVersionConfig
+        val newHttpVersion = if (isTemplate) {
+            httpVersionConfig
+        } else {
+            fields[SettingField.HTTP_VERSION]
+                ?.let { runCatching { HttpVersion.valueOf(it) }.getOrNull() }
+                ?: httpVersionConfig
+        }
         return copy(baseUrl = newBaseUrl, apiKey = newApiKey, apiMode = newApiMode, httpVersionConfig = newHttpVersion)
     }
 

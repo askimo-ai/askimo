@@ -4,6 +4,8 @@
  */
 package io.askimo.core.providers.openaicompatible
 
+import io.askimo.core.providers.HttpVersion
+
 /**
  * Predefined OpenAI-compatible cloud provider templates.
  *
@@ -29,6 +31,13 @@ enum class OpenAiCompatibleTemplate(
     val helpText: String,
     /** API mode pre-selected when the user connects via this template. */
     val apiMode: OpenAiApiMode = OpenAiApiMode.CHAT_COMPLETIONS,
+    /**
+     * HTTP protocol version for connections to this provider.
+     * All predefined cloud providers default to [HttpVersion.HTTP_2] — they run on modern
+     * infrastructure that supports multiplexing. Override to [HttpVersion.HTTP_1_1] only for
+     * providers known to have HTTP/2 issues.
+     */
+    val httpVersion: HttpVersion = HttpVersion.HTTP_2,
 ) {
     CLOUDFLARE_AI(
         displayName = "Cloudflare AI",
@@ -51,6 +60,7 @@ enum class OpenAiCompatibleTemplate(
         baseUrl = "https://api.groq.com/openai/v1",
         apiKeyRequired = true,
         apiKeyUrl = "https://console.groq.com/keys",
+        apiMode = OpenAiApiMode.RESPONSES,
         helpText = "💡 To use Groq:\n\n" +
             "1. Get your free API key at: console.groq.com/keys\n" +
             "2. Enter a model name, e.g. llama-3.1-8b-instant\n" +
@@ -70,20 +80,6 @@ enum class OpenAiCompatibleTemplate(
             "3. Click Next to browse all available models",
     ),
 
-    OLLAMA_CLOUD(
-        displayName = "Ollama (Remote)",
-        initials = "OL",
-        tagline = "Connect to an Ollama instance running on a remote server or cloud VM.",
-        baseUrl = "http://your-server:11434/v1",
-        apiKeyRequired = false,
-        apiKeyUrl = "",
-        helpText = "💡 To connect a remote Ollama instance:\n\n" +
-            "1. On your server, set: OLLAMA_HOST=0.0.0.0\n" +
-            "2. Restart Ollama so it listens on all interfaces\n" +
-            "3. Replace the Base URL with your server's address,\n" +
-            "   e.g. http://192.168.1.10:11434/v1",
-    ),
-
     OPENROUTER(
         displayName = "OpenRouter",
         initials = "OR",
@@ -91,6 +87,7 @@ enum class OpenAiCompatibleTemplate(
         baseUrl = "https://openrouter.ai/api/v1",
         apiKeyRequired = true,
         apiKeyUrl = "https://openrouter.ai/keys",
+        apiMode = OpenAiApiMode.RESPONSES,
         helpText = "💡 To use OpenRouter:\n\n" +
             "1. Get your free API key at: openrouter.ai/keys\n" +
             "2. Click Next to browse 300+ available models\n" +
@@ -104,6 +101,7 @@ enum class OpenAiCompatibleTemplate(
         baseUrl = "https://api.together.xyz/v1",
         apiKeyRequired = true,
         apiKeyUrl = "https://api.together.ai/settings/api-keys",
+        httpVersion = HttpVersion.HTTP_1_1,
         helpText = "💡 To use Together AI:\n\n" +
             "1. Get your API key at: api.together.ai/settings/api-keys\n" +
             "2. Click Next to browse available models,\n" +

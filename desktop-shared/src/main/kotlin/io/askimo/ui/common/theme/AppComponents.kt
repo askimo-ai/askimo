@@ -20,8 +20,10 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -67,6 +69,7 @@ import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -403,6 +406,52 @@ object AppComponents {
             },
             colors = outlinedTextFieldColors(),
         )
+    }
+
+    // ── Form Fields ───────────────────────────────────────────────────────────
+
+    /**
+     * Standardised form-field layout that enforces a consistent vertical rhythm:
+     *
+     * ```
+     * [Label]           ┐
+     * [Description]     ┘ extraSmall gap — label and description belong together
+     *                     small gap — breath before the interactive control
+     * [content slot]    ← text field, secret field, button row, etc.
+     * [hint slot]         extraSmall gap — hint is a sub-annotation of the input
+     * ```
+     *
+     *
+     * @param label       Field label rendered in [AppTextStyles.groupTitle].
+     * @param description One-line helper text rendered in [AppTextStyles.caption].
+     * @param required    When `true`, appends " *" to the label.
+     * @param hint        Optional composable rendered below [content] with [Spacing.extraSmall]
+     *                    top gap (e.g. the currently-selected option description for a SelectField).
+     * @param content     The interactive control (text field, button row, etc.).
+     */
+    @Composable
+    fun formField(
+        label: String,
+        description: String,
+        modifier: Modifier = Modifier,
+        required: Boolean = false,
+        hint: (@Composable () -> Unit)? = null,
+        content: @Composable ColumnScope.() -> Unit,
+    ) {
+        Column(modifier = modifier.fillMaxWidth()) {
+            Text(
+                text = if (required) "$label *" else label,
+                style = AppTextStyles.groupTitle,
+            )
+            Spacer(Modifier.height(Spacing.extraSmall))
+            Text(text = description, style = AppTextStyles.caption)
+            Spacer(Modifier.height(Spacing.small))
+            content()
+            if (hint != null) {
+                Spacer(Modifier.height(Spacing.extraSmall))
+                hint()
+            }
+        }
     }
 
     @Composable

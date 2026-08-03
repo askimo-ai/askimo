@@ -235,7 +235,7 @@ private fun mcpTemplateCatalogCard(
                 onClick = onSelect,
                 modifier = Modifier.fillMaxWidth().pointerHoverIcon(PointerIcon.Hand),
             ) {
-                Text(stringResource("mcp.catalog.card.configure"), style = AppTextStyles.fieldLabel)
+                Text(stringResource("mcp.catalog.card.configure"))
             }
         }
     }

@@ -651,16 +651,11 @@ private fun instanceEditForm(
                     }
 
                     is ProviderConfigField.ApiKeyField -> {
-                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
-                            Text(
-                                text = field.label + if (field.required) " *" else "",
-                                style = AppTextStyles.fieldLabel,
-                            )
-                            Text(
-                                text = field.description,
-                                style = AppTextStyles.caption,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                        AppComponents.formField(
+                            label = field.label,
+                            description = field.description,
+                            required = field.required,
+                        ) {
                             AppComponents.appSecretTextField(
                                 value = state.editFieldValues[field.name] ?: "",
                                 onValueChange = { state.updateEditField(field.name, it) },
@@ -676,16 +671,11 @@ private fun instanceEditForm(
                     }
 
                     is ProviderConfigField.BaseUrlField -> {
-                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
-                            Text(
-                                text = field.label + if (field.required) " *" else "",
-                                style = AppTextStyles.fieldLabel,
-                            )
-                            Text(
-                                text = field.description,
-                                style = AppTextStyles.caption,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                        AppComponents.formField(
+                            label = field.label,
+                            description = field.description,
+                            required = field.required,
+                        ) {
                             OutlinedTextField(
                                 value = state.editFieldValues[field.name] ?: "",
                                 onValueChange = { state.updateEditField(field.name, it) },
@@ -699,17 +689,25 @@ private fun instanceEditForm(
                     }
 
                     is ProviderConfigField.SelectField -> {
-                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
-                            Text(
-                                text = field.label,
-                                style = AppTextStyles.fieldLabel,
-                            )
-                            Text(
-                                text = field.description,
-                                style = AppTextStyles.caption,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            val currentValue = state.editFieldValues[field.name] ?: field.value
+                        val currentValue = state.editFieldValues[field.name] ?: field.value
+                        val selectHint: (@Composable () -> Unit)? = field.options
+                            .find { it.value == currentValue }?.description
+                            ?.takeIf { it.isNotBlank() }
+                            ?.let { desc ->
+                                {
+                                    Text(
+                                        text = desc,
+                                        style = AppTextStyles.caption,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        AppComponents.formField(
+                            label = field.label,
+                            description = field.description,
+                            required = field.required,
+                            hint = selectHint,
+                        ) {
                             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {
                                 field.options.forEach { option ->
                                     if (currentValue == option.value) {
@@ -723,14 +721,6 @@ private fun instanceEditForm(
                                     }
                                 }
                             }
-                            field.options.find { it.value == currentValue }?.description
-                                ?.takeIf { it.isNotBlank() }?.let { endpoint ->
-                                    Text(
-                                        text = endpoint,
-                                        style = AppTextStyles.caption,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
                         }
                     }
                 }
