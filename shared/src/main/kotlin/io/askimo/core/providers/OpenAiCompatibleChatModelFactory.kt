@@ -70,8 +70,18 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
      *
      * Defaults to [HttpClient.Version.HTTP_2]. Override to [HttpClient.Version.HTTP_1_1]
      * for servers that do not support HTTP/2 (e.g., LmStudio, Docker AI).
+     *
+     * Prefer overriding [httpVersion] that takes [settings] when the version should be
+     * read from per-instance settings rather than being a class-level constant.
      */
     protected open fun httpVersion(): HttpClient.Version = HttpClient.Version.HTTP_2
+
+    /**
+     * Settings-aware variant of [httpVersion]. Called by the base class at every
+     * model-build and model-list site. The default delegates to [httpVersion] so all
+     * existing subclasses that override the no-arg form continue to work unchanged.
+     */
+    protected open fun httpVersion(settings: T): HttpClient.Version = httpVersion()
 
     /**
      * Fallback model name used for the secondary/utility model when no explicit utility model
@@ -120,7 +130,7 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
     protected open fun probeThinkingSupport(settings: T): Boolean = try {
         val testModel = OpenAiResponsesStreamingChatModel
             .builder()
-            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl))
+            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, httpVersion = httpVersion(settings)))
             .baseUrl(settings.baseUrl)
             .apiKey(resolveApiKey(settings))
             .modelName(settings.defaultModel)
@@ -152,9 +162,10 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
     protected open fun createHttpClientBuilder(
         baseUrl: String,
         listener: TelemetryChatModelListener? = null,
+        httpVersion: HttpClient.Version = httpVersion(),
     ) = JdkHttpClient.builder().httpClientBuilder(
         ProxyUtil.configureProxy(
-            HttpClient.newBuilder().version(httpVersion()),
+            HttpClient.newBuilder().version(httpVersion),
             baseUrl,
         ).withLoggingIfDebug(),
     ).readTimeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
@@ -173,7 +184,7 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
             apiKey = resolveApiKey(settings),
             url = "${settings.baseUrl.trimEnd('/')}/models",
             providerName = getProvider(),
-            httpVersion = httpVersion(),
+            httpVersion = httpVersion(settings),
         ).map { ModelDTO.of(getProvider(), it) }
     }
 
@@ -240,7 +251,7 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
         val listener = createTelemetryListener()
         val supportsThinking = ModelCapabilitiesCache.supportsThinking(getProvider(), settings.defaultModel)
         return OpenAiResponsesStreamingChatModel.builder()
-            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener))
+            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener, httpVersion(settings)))
             .baseUrl(settings.baseUrl)
             .apiKey(resolveApiKey(settings))
             .modelName(settings.defaultModel)
@@ -261,7 +272,7 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
         val modelName = settings.utilityModel
             .ifBlank { utilityModelFallback(settings) }
         return OpenAiResponsesChatModel.builder()
-            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener))
+            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener, httpVersion(settings)))
             .baseUrl(settings.baseUrl)
             .apiKey(resolveApiKey(settings))
             .modelName(modelName)
@@ -273,7 +284,7 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
         val listener = createTelemetryListener()
         val supportsThinking = ModelCapabilitiesCache.supportsThinking(getProvider(), settings.defaultModel)
         return OpenAiResponsesChatModel.builder()
-            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener))
+            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener, httpVersion(settings)))
             .baseUrl(settings.baseUrl)
             .apiKey(resolveApiKey(settings))
             .modelName(settings.defaultModel)

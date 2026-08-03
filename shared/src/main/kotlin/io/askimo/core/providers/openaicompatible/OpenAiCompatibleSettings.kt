@@ -28,6 +28,13 @@ data class OpenAiCompatibleSettings(
      * Existing serialised configs without this field deserialise to the default safely.
      */
     val apiMode: OpenAiApiMode = OpenAiApiMode.CHAT_COMPLETIONS,
+    /**
+     * HTTP protocol version for connections to this endpoint.
+     * Defaults to [OpenAiHttpVersion.HTTP_1_1] — the safe choice for self-hosted servers
+     * (uvicorn, vLLM, FastAPI). Switch to [OpenAiHttpVersion.HTTP_2] for cloud endpoints.
+     * Existing serialised configs without this field deserialise to the default safely.
+     */
+    val httpVersion: OpenAiHttpVersion = OpenAiHttpVersion.HTTP_1_1,
 ) : ProviderSettings,
     HasApiKey,
     HasBaseUrl {
@@ -36,9 +43,10 @@ data class OpenAiCompatibleSettings(
         "baseUrl: $baseUrl",
         "apiKey:  ${maskApiKey()}",
         "apiMode: $apiMode",
+        "httpVersion: $httpVersion",
     )
 
-    override fun toString(): String = "OpenAiCompatibleSettings(baseUrl=$baseUrl, apiKey=${maskApiKey()}, apiMode=$apiMode)"
+    override fun toString(): String = "OpenAiCompatibleSettings(baseUrl=$baseUrl, apiKey=${maskApiKey()}, apiMode=$apiMode, httpVersion=$httpVersion)"
 
     override fun getFields() = listOf(
         SettingField.TextField(
@@ -73,6 +81,10 @@ data class OpenAiCompatibleSettings(
 
         SettingField.API_MODE -> copy(
             apiMode = runCatching { OpenAiApiMode.valueOf(value) }.getOrDefault(apiMode),
+        )
+
+        SettingField.HTTP_VERSION -> copy(
+            httpVersion = runCatching { OpenAiHttpVersion.valueOf(value) }.getOrDefault(httpVersion),
         )
 
         else -> this
@@ -120,6 +132,24 @@ data class OpenAiCompatibleSettings(
                     ),
                 ),
             ),
+            ProviderConfigField.SelectField(
+                name = SettingField.HTTP_VERSION,
+                label = messageResolver("provider.openai_compatible.httpversion.label"),
+                description = messageResolver("provider.openai_compatible.httpversion.description"),
+                value = httpVersion.name,
+                options = listOf(
+                    SelectOption(
+                        value = OpenAiHttpVersion.HTTP_1_1.name,
+                        label = "HTTP/1.1",
+                        description = messageResolver("provider.openai_compatible.httpversion.http1_1"),
+                    ),
+                    SelectOption(
+                        value = OpenAiHttpVersion.HTTP_2.name,
+                        label = "HTTP/2",
+                        description = messageResolver("provider.openai_compatible.httpversion.http2"),
+                    ),
+                ),
+            ),
         )
     }
 
@@ -129,7 +159,10 @@ data class OpenAiCompatibleSettings(
         val newApiMode = fields[SettingField.API_MODE]
             ?.let { runCatching { OpenAiApiMode.valueOf(it) }.getOrNull() }
             ?: apiMode
-        return copy(baseUrl = newBaseUrl, apiKey = newApiKey, apiMode = newApiMode)
+        val newHttpVersion = fields[SettingField.HTTP_VERSION]
+            ?.let { runCatching { OpenAiHttpVersion.valueOf(it) }.getOrNull() }
+            ?: httpVersion
+        return copy(baseUrl = newBaseUrl, apiKey = newApiKey, apiMode = newApiMode, httpVersion = newHttpVersion)
     }
 
     override fun deepCopy(): ProviderSettings = copy()

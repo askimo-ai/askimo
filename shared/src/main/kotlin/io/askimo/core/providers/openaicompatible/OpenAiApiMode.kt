@@ -21,3 +21,18 @@ enum class OpenAiApiMode {
     CHAT_COMPLETIONS,
     RESPONSES,
 }
+
+/**
+ * HTTP protocol version used for connections to an OpenAI-compatible endpoint.
+ *
+ * - [HTTP_1_1] — use for self-hosted servers running on uvicorn, Gunicorn, FastAPI, or vLLM.
+ *   These stacks commonly have incomplete HTTP/2 support that causes the request body to
+ *   arrive as null. **This is the safe default for the OpenAI-compatible provider.**
+ *
+ * - [HTTP_2] — use for production cloud endpoints (OpenAI, Groq, OpenRouter, etc.) that
+ *   fully support HTTP/2 multiplexing.
+ */
+enum class OpenAiHttpVersion {
+    HTTP_1_1,
+    HTTP_2,
+}

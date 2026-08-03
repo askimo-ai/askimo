@@ -13,6 +13,7 @@ import dev.langchain4j.model.openai.OpenAiStreamingChatModel
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.OpenAiCompatibleChatModelFactory
 import io.askimo.core.util.ApiKeyUtils.safeApiKey
+import java.net.http.HttpClient
 
 /**
  * Intermediate base that adds [shouldProbeThinking] as a stable, non-protected surface so
@@ -23,6 +24,15 @@ internal abstract class OpenAiCompatibleDelegateFactory : OpenAiCompatibleChatMo
 
     /** Expose the protected [probeThinkingSupport] to the router as an internal method. */
     internal fun shouldProbeThinking(settings: OpenAiCompatibleSettings): Boolean = probeThinkingSupport(settings)
+
+    /**
+     * Read the HTTP version from per-instance [settings] rather than using a class-level constant.
+     * Maps [OpenAiHttpVersion] to the JDK [HttpClient.Version] enum.
+     */
+    override fun httpVersion(settings: OpenAiCompatibleSettings): HttpClient.Version = when (settings.httpVersion) {
+        OpenAiHttpVersion.HTTP_1_1 -> HttpClient.Version.HTTP_1_1
+        OpenAiHttpVersion.HTTP_2 -> HttpClient.Version.HTTP_2
+    }
 }
 
 // ── Delegate: Chat Completions API (/v1/chat/completions) ─────────────────────────────────
@@ -44,7 +54,7 @@ internal class OpenAiCompatibleCompletionsModelFactory : OpenAiCompatibleDelegat
     override fun createStreamingModel(settings: OpenAiCompatibleSettings): StreamingChatModel {
         val listener = createTelemetryListener()
         return OpenAiStreamingChatModel.builder()
-            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener))
+            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener, httpVersion(settings)))
             .baseUrl(settings.baseUrl)
             .apiKey(resolveApiKey(settings))
             .modelName(settings.defaultModel)
@@ -57,7 +67,7 @@ internal class OpenAiCompatibleCompletionsModelFactory : OpenAiCompatibleDelegat
         val modelName = settings.utilityModel
             .ifBlank { utilityModelFallback(settings) }
         return OpenAiChatModel.builder()
-            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener))
+            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener, httpVersion(settings)))
             .baseUrl(settings.baseUrl)
             .apiKey(resolveApiKey(settings))
             .modelName(modelName)
@@ -68,7 +78,7 @@ internal class OpenAiCompatibleCompletionsModelFactory : OpenAiCompatibleDelegat
     override fun createModel(settings: OpenAiCompatibleSettings): ChatModel {
         val listener = createTelemetryListener()
         return OpenAiChatModel.builder()
-            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener))
+            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener, httpVersion(settings)))
             .baseUrl(settings.baseUrl)
             .apiKey(resolveApiKey(settings))
             .modelName(settings.defaultModel)
