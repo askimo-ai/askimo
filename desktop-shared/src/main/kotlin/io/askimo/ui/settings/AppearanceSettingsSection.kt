@@ -84,6 +84,7 @@ import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.AccountPreferences
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.BackgroundImage
 import io.askimo.ui.common.theme.FontSize
 import io.askimo.ui.common.theme.LayoutDensity
@@ -192,8 +193,7 @@ fun appearanceSettingsSection() {
             ) {
                 Text(
                     text = stringResource("settings.appearance"),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    style = AppTextStyles.pageTitle,
                     modifier = Modifier.padding(bottom = Spacing.small),
                 )
 
@@ -205,8 +205,7 @@ fun appearanceSettingsSection() {
                 Spacer(modifier = Modifier.height(Spacing.small))
                 Text(
                     text = stringResource("settings.theme"),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    style = AppTextStyles.sectionTitle,
                 )
 
                 // Light Mode
@@ -244,13 +243,11 @@ fun appearanceSettingsSection() {
                 Spacer(modifier = Modifier.height(Spacing.small))
                 Text(
                     text = stringResource("settings.layout.density"),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    style = AppTextStyles.sectionTitle,
                 )
                 Text(
                     text = stringResource("settings.layout.density.description"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.caption,
                 )
 
                 themeOption(
@@ -289,13 +286,11 @@ fun appearanceSettingsSection() {
                 Spacer(modifier = Modifier.height(Spacing.small))
                 Text(
                     text = stringResource("settings.background.image"),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    style = AppTextStyles.sectionTitle,
                 )
                 Text(
                     text = stringResource("settings.background.image.description"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.caption,
                 )
 
                 FlowRow(
@@ -391,13 +386,11 @@ private fun accentColorSection() {
 
     Text(
         text = stringResource("settings.appearance.accent"),
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onBackground,
+        style = AppTextStyles.sectionTitle,
     )
     Text(
         text = stringResource("settings.appearance.accent.description"),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        style = AppTextStyles.caption,
     )
 
     Card(
@@ -425,7 +418,7 @@ private fun accentColorSection() {
                         if (accentInput.isNotBlank() && parsedAccent == null) {
                             Text(
                                 text = stringResource("settings.appearance.accent.invalid"),
-                                style = MaterialTheme.typography.bodySmall,
+                                style = AppTextStyles.caption,
                             )
                         }
                     },
@@ -464,8 +457,7 @@ private fun accentColorSection() {
 
             Text(
                 text = stringResource("settings.appearance.accent.presets"),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f),
+                style = AppTextStyles.groupTitle,
             )
 
             // Preset tiles — apply immediately on click
@@ -509,13 +501,11 @@ private fun accentColorSection() {
 
     Text(
         text = stringResource("settings.appearance.palette"),
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onBackground,
+        style = AppTextStyles.groupTitle,
     )
     Text(
         text = stringResource("settings.appearance.palette.description"),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        style = AppTextStyles.caption,
     )
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
@@ -545,8 +535,7 @@ private fun accentColorSwatch(color: Color, label: String) {
         )
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f),
+            style = AppTextStyles.hint,
         )
     }
 }
@@ -588,17 +577,13 @@ private fun accentPresetTile(
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = preset.label,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (selected) selectedTextColor else MaterialTheme.colorScheme.onSurface,
+                    style = AppTextStyles.fieldLabel,
+                    color = if (selected) selectedTextColor else AppTextStyles.primaryContent,
                 )
                 Text(
                     text = preset.hex,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (selected) {
-                        selectedTextColor.copy(alpha = 0.82f)
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
+                    style = AppTextStyles.hint,
+                    color = if (selected) selectedTextColor.copy(alpha = 0.82f) else AppTextStyles.secondaryContent,
                 )
             }
         }
@@ -661,20 +646,20 @@ private fun themeOption(
                 Column {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = AppTextStyles.sectionTitle,
                         color = if (selected) {
                             MaterialTheme.colorScheme.onPrimaryContainer
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                            AppTextStyles.secondaryContent
                         },
                     )
                     Text(
                         text = description,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = AppTextStyles.body,
                         color = if (selected) {
                             MaterialTheme.colorScheme.onPrimaryContainer
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                            AppTextStyles.secondaryContent
                         },
                     )
                 }
@@ -703,14 +688,12 @@ private fun aiAvatarSettingsSection() {
 
         Text(
             text = stringResource("settings.appearance.avatar.ai"),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
+            style = AppTextStyles.sectionTitle,
         )
 
         Text(
             text = stringResource("settings.appearance.avatar.ai.description"),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = AppTextStyles.bodySecondary,
         )
 
         // AI avatar only (user avatar is in User Profile now)
@@ -791,8 +774,7 @@ private fun avatarSetting(
 
                 Text(
                     text = label,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.bodySecondary,
                 )
             }
 
@@ -900,12 +882,8 @@ private fun backgroundImageOption(
             ) {
                 Text(
                     text = backgroundImage.displayName,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (painter != null) {
-                        Color.White
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
+                    style = AppTextStyles.fieldLabel,
+                    color = if (painter != null) Color.White else Color.Unspecified,
                 )
             }
 
@@ -1021,12 +999,8 @@ private fun backgroundImageCustomOption(
             ) {
                 Text(
                     text = if (painter != null) stringResource("settings.background.image.custom") else browseLabel,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (painter != null) {
-                        Color.White
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
+                    style = AppTextStyles.fieldLabel,
+                    color = if (painter != null) Color.White else Color.Unspecified,
                 )
             }
 
@@ -1107,8 +1081,7 @@ private fun uiScaleSection() {
 
     Text(
         text = stringResource("settings.ui.scale.title"),
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onBackground,
+        style = AppTextStyles.sectionTitle,
     )
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -1123,8 +1096,7 @@ private fun uiScaleSection() {
             ) {
                 Text(
                     text = stringResource("settings.ui.scale.description"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.caption,
                     modifier = Modifier.weight(1f).padding(end = Spacing.large),
                 )
 
@@ -1140,8 +1112,7 @@ private fun uiScaleSection() {
                         ) {
                             Text(
                                 text = selectedOption?.label ?: currentScale?.let { "${it * 100}%" } ?: systemDefaultLabel,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                style = AppTextStyles.body,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f).padding(end = Spacing.small),
@@ -1160,7 +1131,7 @@ private fun uiScaleSection() {
                     ) {
                         scaleOptions.forEachIndexed { index, option ->
                             AppComponents.themedDropdownMenuItem(
-                                text = { Text(text = option.label, style = MaterialTheme.typography.bodyMedium) },
+                                text = { Text(text = option.label, style = AppTextStyles.body) },
                                 onClick = {
                                     currentScale = option.value
                                     AccountPreferences.device().setUiScale(option.value)
@@ -1178,8 +1149,7 @@ private fun uiScaleSection() {
             if (showRestartNotice) {
                 Text(
                     text = stringResource("settings.ui.scale.restart.notice"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
+                    style = AppTextStyles.errorText,
                 )
             }
 
@@ -1209,7 +1179,7 @@ private fun uiScaleSection() {
                             append(stringResource("settings.ui.scale.learn.more"))
                         }
                     },
-                    style = MaterialTheme.typography.bodySmall,
+                    style = AppTextStyles.caption,
                 )
             }
         }
@@ -1223,8 +1193,7 @@ private fun hardwareAccelerationSection() {
 
     Text(
         text = stringResource("settings.hardware.acceleration.title"),
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onBackground,
+        style = AppTextStyles.sectionTitle,
     )
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -1243,8 +1212,7 @@ private fun hardwareAccelerationSection() {
                     } else {
                         stringResource("settings.hardware.acceleration.description")
                     },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.caption,
                     modifier = Modifier.weight(1f),
                 )
                 Switch(
@@ -1260,8 +1228,7 @@ private fun hardwareAccelerationSection() {
             if (showRestartNotice) {
                 Text(
                     text = stringResource("settings.hardware.acceleration.restart.notice"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
+                    style = AppTextStyles.errorText,
                 )
             }
         }
@@ -1291,8 +1258,7 @@ private fun languageSelectionCard() {
             ) {
                 Text(
                     text = stringResource("settings.app.language"),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    style = AppTextStyles.fieldLabel,
                     modifier = Modifier.weight(1f).padding(end = Spacing.large),
                 )
                 Box(modifier = Modifier.widthIn(min = dropdownRegularMinWidth, max = dropdownRegularMaxWidth)) {
@@ -1313,8 +1279,7 @@ private fun languageSelectionCard() {
                         ) {
                             Text(
                                 text = availableLanguages[currentLocale] ?: currentLocale.displayName,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                style = AppTextStyles.body,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f).padding(end = Spacing.small),
@@ -1334,7 +1299,7 @@ private fun languageSelectionCard() {
                         val languages = availableLanguages.entries.toList()
                         languages.forEachIndexed { index, (locale, name) ->
                             AppComponents.themedDropdownMenuItem(
-                                text = { Text(text = name, style = MaterialTheme.typography.bodyMedium) },
+                                text = { Text(text = name, style = AppTextStyles.body) },
                                 onClick = {
                                     ThemePreferences.setLocale(locale)
                                     languageDropdownExpanded = false
@@ -1366,9 +1331,7 @@ private fun languageSelectionCard() {
             }
             Text(
                 text = annotatedString,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
-                ),
+                style = AppTextStyles.caption,
             )
 
             HorizontalDivider()
@@ -1396,14 +1359,13 @@ private fun preferredAIResponseLanguageField(availableLanguages: Map<Locale, Str
             ) {
                 Text(
                     text = stringResource("settings.ai.response.language"),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    style = AppTextStyles.fieldLabel,
                 )
                 themedTooltip(text = stringResource("settings.ai.response.language.tooltip")) {
                     Icon(
                         Icons.Default.Info,
                         contentDescription = "Information",
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.width(24.dp),
                     )
                 }
@@ -1429,8 +1391,7 @@ private fun preferredAIResponseLanguageField(availableLanguages: Map<Locale, Str
                         ) {
                             Text(
                                 text = aiLangDisplayText,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                style = AppTextStyles.body,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f).padding(end = Spacing.small),
@@ -1448,7 +1409,7 @@ private fun preferredAIResponseLanguageField(availableLanguages: Map<Locale, Str
                     onDismissRequest = { aiLanguageDropdownExpanded = false },
                 ) {
                     AppComponents.themedDropdownMenuItem(
-                        text = { Text(stringResource("settings.ai.response.language.auto"), style = MaterialTheme.typography.bodyMedium) },
+                        text = { Text(stringResource("settings.ai.response.language.auto"), style = AppTextStyles.body) },
                         onClick = {
                             AppConfig.updateField("chat.defaultResponseAILocale", "")
                             aiLanguageDropdownExpanded = false
@@ -1459,7 +1420,7 @@ private fun preferredAIResponseLanguageField(availableLanguages: Map<Locale, Str
                     val langs = availableLanguages.entries.toList()
                     langs.forEachIndexed { index, (locale, name) ->
                         AppComponents.themedDropdownMenuItem(
-                            text = { Text(name, style = MaterialTheme.typography.bodyMedium) },
+                            text = { Text(name, style = AppTextStyles.body) },
                             onClick = {
                                 AppConfig.updateField("chat.defaultResponseAILocale", locale.toString())
                                 aiLanguageDropdownExpanded = false
@@ -1473,8 +1434,7 @@ private fun preferredAIResponseLanguageField(availableLanguages: Map<Locale, Str
         }
         Text(
             text = stringResource("settings.ai.response.language.description"),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+            style = AppTextStyles.caption,
         )
     }
 }
@@ -1517,8 +1477,7 @@ private fun fontSettingsCard() {
             ) {
                 Text(
                     text = stringResource("settings.font.size"),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    style = AppTextStyles.fieldLabel,
                     modifier = Modifier.weight(1f).padding(end = Spacing.large),
                 )
                 Box(modifier = Modifier.widthIn(min = dropdownCompactMinWidth, max = dropdownCompactMaxWidth)) {
@@ -1533,8 +1492,7 @@ private fun fontSettingsCard() {
                         ) {
                             Text(
                                 currentFontSettings.fontSize.displayName,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                style = AppTextStyles.body,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f).padding(end = Spacing.small),
@@ -1545,7 +1503,7 @@ private fun fontSettingsCard() {
                     AppComponents.dropdownMenu(expanded = fontSizeDropdownExpanded, onDismissRequest = { fontSizeDropdownExpanded = false }) {
                         FontSize.entries.forEachIndexed { index, fontSize ->
                             AppComponents.themedDropdownMenuItem(
-                                text = { Text(fontSize.displayName, style = MaterialTheme.typography.bodyMedium) },
+                                text = { Text(fontSize.displayName, style = AppTextStyles.body) },
                                 onClick = {
                                     ThemePreferences.setFontSettings(currentFontSettings.copy(fontSize = fontSize))
                                     fontSizeDropdownExpanded = false
@@ -1565,8 +1523,7 @@ private fun fontSettingsCard() {
             ) {
                 Text(
                     text = stringResource("settings.font.line.spacing"),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    style = AppTextStyles.fieldLabel,
                     modifier = Modifier.weight(1f).padding(end = Spacing.large),
                 )
                 Box(modifier = Modifier.widthIn(min = dropdownCompactMinWidth, max = dropdownCompactMaxWidth)) {
@@ -1581,8 +1538,7 @@ private fun fontSettingsCard() {
                         ) {
                             Text(
                                 currentFontSettings.lineSpacing.displayName,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                style = AppTextStyles.body,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f).padding(end = Spacing.small),
@@ -1593,7 +1549,7 @@ private fun fontSettingsCard() {
                     AppComponents.dropdownMenu(expanded = lineSpacingDropdownExpanded, onDismissRequest = { lineSpacingDropdownExpanded = false }) {
                         LineSpacing.entries.forEachIndexed { index, spacing ->
                             AppComponents.themedDropdownMenuItem(
-                                text = { Text(spacing.displayName, style = MaterialTheme.typography.bodyMedium) },
+                                text = { Text(spacing.displayName, style = AppTextStyles.body) },
                                 onClick = {
                                     ThemePreferences.setFontSettings(currentFontSettings.copy(lineSpacing = spacing))
                                     lineSpacingDropdownExpanded = false
@@ -1625,8 +1581,7 @@ private fun fontFamilySelector(
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            style = AppTextStyles.fieldLabel,
             modifier = Modifier.weight(1f).padding(end = Spacing.large),
         )
         Box(modifier = Modifier.widthIn(min = dropdownRegularMinWidth, max = dropdownRegularMaxWidth)) {
@@ -1641,8 +1596,7 @@ private fun fontFamilySelector(
                 ) {
                     Text(
                         selectedFontFamily,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = AppTextStyles.body,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f).padding(end = Spacing.small),
@@ -1656,7 +1610,7 @@ private fun fontFamilySelector(
                         text = {
                             Text(
                                 text = fontFamily,
-                                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = previewResolver(fontFamily)),
+                                style = AppTextStyles.body.copy(fontFamily = previewResolver(fontFamily)),
                             )
                         },
                         onClick = {

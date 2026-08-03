@@ -30,6 +30,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -137,15 +138,13 @@ fun urlInputDialog(
         title = {
             Text(
                 text = stringResource("project.dialog.url.title"),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = AppTextStyles.pageTitle,
             )
         },
         content = {
             Text(
                 text = stringResource("project.dialog.url.description"),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = AppTextStyles.bodySecondary,
             )
 
             OutlinedTextField(

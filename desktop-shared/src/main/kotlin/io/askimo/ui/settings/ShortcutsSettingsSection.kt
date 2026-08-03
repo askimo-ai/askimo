@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.keymap.KeyMapManager
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.util.Platform
@@ -105,15 +106,13 @@ fun shortcutsSettingsSection() {
             ) {
                 Text(
                     text = stringResource("settings.shortcuts"),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    style = AppTextStyles.pageTitle,
                     modifier = Modifier.padding(bottom = Spacing.small),
                 )
 
                 Text(
                     text = stringResource("settings.shortcuts.description"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.bodySecondary,
                 )
 
                 // Search bar
@@ -140,8 +139,7 @@ fun shortcutsSettingsSection() {
                 if (filteredByCategory.isEmpty()) {
                     Text(
                         text = stringResource("settings.shortcuts.no_results"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        style = AppTextStyles.bodySecondary,
                         modifier = Modifier.padding(vertical = Spacing.large),
                     )
                 }
@@ -166,8 +164,7 @@ fun shortcutsSettingsSection() {
                             ) {
                                 Text(
                                     text = category,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    style = AppTextStyles.sectionTitle,
                                     modifier = Modifier.weight(1f),
                                 )
                                 Card(
@@ -176,8 +173,7 @@ fun shortcutsSettingsSection() {
                                 ) {
                                     Text(
                                         text = "${shortcuts.size}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = AppTextStyles.hint,
                                         fontFamily = FontFamily.Monospace,
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                                     )
@@ -231,8 +227,7 @@ private fun shortcutRow(description: String, keyBinding: String) {
     ) {
         Text(
             text = description,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            style = AppTextStyles.body,
             modifier = Modifier.weight(1f).padding(end = Spacing.medium),
         )
 
@@ -262,7 +257,7 @@ private fun shortcutRow(description: String, keyBinding: String) {
                 )
                 Text(
                     text = "Copied",
-                    style = MaterialTheme.typography.labelSmall,
+                    style = AppTextStyles.hint,
                     color = MaterialTheme.colorScheme.primary,
                 )
             } else {
@@ -282,8 +277,7 @@ private fun keyChip(key: String) {
     ) {
         Text(
             text = key,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = AppTextStyles.bodySecondary,
             fontFamily = FontFamily.Monospace,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
         )

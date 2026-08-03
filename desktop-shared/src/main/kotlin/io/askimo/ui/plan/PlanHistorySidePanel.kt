@@ -62,6 +62,7 @@ import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.themedTooltip
 import java.awt.Cursor
@@ -149,7 +150,7 @@ fun planHistorySidePanel(
                             )
                             Text(
                                 text = stringResource("plans.history.title"),
-                                style = MaterialTheme.typography.titleMedium,
+                                style = AppTextStyles.sectionTitle,
                                 fontWeight = FontWeight.Bold,
                             )
                             if (executions.isNotEmpty()) {
@@ -163,8 +164,8 @@ fun planHistorySidePanel(
                                 ) {
                                     Text(
                                         text = "${executions.size}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+                                        style = AppTextStyles.hint,
                                     )
                                 }
                             }
@@ -199,8 +200,8 @@ fun planHistorySidePanel(
                             if (executions.isEmpty()) {
                                 Text(
                                     text = stringResource("plans.history.empty"),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+                                    style = AppTextStyles.bodySecondary,
                                     modifier = Modifier.padding(top = Spacing.small),
                                 )
                             } else {
@@ -332,19 +333,21 @@ private fun planHistoryItem(
                     Column {
                         Text(
                             text = execution.status.name.lowercase().replaceFirstChar { it.uppercase() },
-                            style = MaterialTheme.typography.bodySmall,
+
+                            style = AppTextStyles.caption,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
                             text = TimeUtil.formatDisplay(execution.createdAt),
-                            style = MaterialTheme.typography.labelSmall,
+                            style = AppTextStyles.hint,
+
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         )
                         if (execution.runCount > 1) {
                             Text(
                                 text = "×${execution.runCount} runs",
-                                style = MaterialTheme.typography.labelSmall,
+                                style = AppTextStyles.hint,
+
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             )
                         }
@@ -356,7 +359,8 @@ private fun planHistoryItem(
                                 if (preview.isNotBlank()) {
                                     Text(
                                         text = "$key: $preview",
-                                        style = MaterialTheme.typography.labelSmall,
+                                        style = AppTextStyles.hint,
+
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
                                         maxLines = 1,
                                     )

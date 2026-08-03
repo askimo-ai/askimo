@@ -62,6 +62,7 @@ import io.askimo.core.plan.domain.PlanDef
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.clickableCard
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.themedTooltip
@@ -103,9 +104,7 @@ fun plansGalleryView(
                 ) {
                     Text(
                         text = stringResource("plans.title"),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground,
+                        style = AppTextStyles.pageTitle,
                     )
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
@@ -152,8 +151,8 @@ fun plansGalleryView(
 
                 Text(
                     text = stringResource("plans.description"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+                    style = AppTextStyles.bodySecondary,
                     modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),
                 )
 
@@ -200,7 +199,8 @@ fun plansGalleryView(
                         Text(
                             text = error,
                             modifier = Modifier.padding(Spacing.large),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = AppTextStyles.body,
+
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
                     }
@@ -221,7 +221,7 @@ fun plansGalleryView(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 text = if (viewModel.galleryShowAll) "📋" else "🤖",
-                                style = MaterialTheme.typography.displayMedium,
+                                style = AppTextStyles.emptyStateEmoji,
                             )
                             Spacer(modifier = Modifier.height(Spacing.small))
                             Text(
@@ -230,15 +230,14 @@ fun plansGalleryView(
                                 } else {
                                     stringResource("plans.tab.my.plans.empty")
                                 },
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+                                style = AppTextStyles.bodySecondary,
                             )
                             if (!viewModel.galleryShowAll) {
                                 Spacer(modifier = Modifier.height(Spacing.small))
                                 Text(
                                     text = stringResource("plans.tab.my.plans.empty.hint"),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    style = AppTextStyles.bodySecondary,
                                 )
                             }
                         }
@@ -312,7 +311,7 @@ private fun planTab(
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.titleSmall,
+                style = AppTextStyles.itemTitle,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                 color = textColor,
             )
@@ -348,7 +347,7 @@ private fun planCountBadge(count: Int, isSelected: Boolean) {
     ) {
         Text(
             text = "$count",
-            style = MaterialTheme.typography.labelSmall,
+            style = AppTextStyles.hint,
             color = if (isSelected) {
                 MaterialTheme.colorScheme.onPrimaryContainer
             } else {
@@ -391,14 +390,12 @@ private fun planCard(
             ) {
                 Text(
                     text = plan.icon.ifBlank { "📋" },
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = AppTextStyles.emptyStateEmoji,
                 )
                 Spacer(modifier = Modifier.width(Spacing.small))
                 Text(
                     text = plan.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = AppTextStyles.sectionTitle,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f).padding(top = 4.dp),
                 )
@@ -466,8 +463,8 @@ private fun planCard(
                 themedTooltip(text = plan.description) {
                     Text(
                         text = plan.description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+                        style = AppTextStyles.caption,
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -485,8 +482,7 @@ private fun planCard(
             ) {
                 Text(
                     text = "${plan.steps.size} ${if (plan.steps.size == 1) "step" else "steps"}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    style = AppTextStyles.hint,
                 )
                 Icon(
                     Icons.Default.PlayArrow,

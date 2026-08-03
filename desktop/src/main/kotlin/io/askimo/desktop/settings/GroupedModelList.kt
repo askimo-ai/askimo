@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import io.askimo.core.providers.ModelDTO
 import io.askimo.core.providers.ModelProvider
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.ui.clickableCard
 
 /**
@@ -48,8 +49,7 @@ fun groupedModelListAsCards(
         if (shouldShowHeaders && providerModels.isNotEmpty()) {
             Text(
                 text = provider.name,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = AppTextStyles.hint,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(horizontal = 0.dp, vertical = 8.dp),
             )
@@ -77,7 +77,7 @@ fun groupedModelListAsCards(
                 ) {
                     Text(
                         text = dto.displayName,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = AppTextStyles.body,
                     )
                     if (isSelected) {
                         Icon(

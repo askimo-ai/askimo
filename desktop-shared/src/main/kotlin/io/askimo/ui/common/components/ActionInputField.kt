@@ -43,6 +43,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import io.askimo.ui.common.keymap.KeyMapManager
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 
 private val InlineControlsHeight = 44.dp
@@ -213,8 +214,7 @@ internal fun actionInputField(
             if (error != null) {
                 Text(
                     text = error,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = AppTextStyles.errorText,
                     modifier = Modifier.padding(start = 16.dp, top = 4.dp),
                 )
             }

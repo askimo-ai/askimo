@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import io.askimo.core.skills.domain.SkillDefinition
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 
 /**
@@ -99,7 +100,7 @@ internal fun skillsCompactList(
     Column(modifier = Modifier.fillMaxSize()) {
         Text(
             stringResource("skills.view.title"),
-            style = MaterialTheme.typography.titleSmall,
+            style = AppTextStyles.itemTitle,
             modifier = Modifier.padding(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 2.dp),
         )
 
@@ -107,7 +108,7 @@ internal fun skillsCompactList(
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text(stringResource("skills.view.search.placeholder"), style = MaterialTheme.typography.bodySmall) },
+            placeholder = { Text(stringResource("skills.view.search.placeholder"), style = AppTextStyles.caption) },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp)) },
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {
@@ -121,7 +122,7 @@ internal fun skillsCompactList(
             },
             singleLine = true,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
-            textStyle = MaterialTheme.typography.bodySmall,
+            textStyle = AppTextStyles.caption,
             colors = AppComponents.outlinedTextFieldColors(),
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
@@ -137,7 +138,7 @@ internal fun skillsCompactList(
                     )
                     Text(
                         if (searchQuery.isBlank()) stringResource("skills.view.empty") else stringResource("skills.view.empty.search"),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = AppTextStyles.caption,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                     )
                 }
@@ -170,22 +171,19 @@ internal fun skillsCompactList(
                             Icon(
                                 if (isExpanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
                                 contentDescription = null,
-                                modifier = Modifier.size(14.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Text(
                                 text = categoryLabel,
-                                style = MaterialTheme.typography.labelMedium,
+                                style = AppTextStyles.fieldLabel,
                                 fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.weight(1f),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(
                                 text = "(${entries.size})",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = AppTextStyles.hint,
                             )
                         }
 
@@ -221,17 +219,15 @@ internal fun skillsCompactList(
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             skill.name,
-                                            style = MaterialTheme.typography.labelMedium,
+                                            style = AppTextStyles.fieldLabel,
                                             fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
-                                            color = MaterialTheme.colorScheme.onSurface,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
                                         )
                                         if (skill.description.isNotBlank()) {
                                             Text(
                                                 skill.description,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                style = AppTextStyles.hint,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis,
                                             )

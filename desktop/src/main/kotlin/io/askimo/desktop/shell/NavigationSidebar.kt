@@ -41,6 +41,7 @@ import io.askimo.desktop.View
 import io.askimo.desktop.project.ProjectsViewModel
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.LocalFontScale
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.session.SessionsViewModel
@@ -173,15 +174,14 @@ private fun communityUserProfileSection(
                 ) {
                     Text(
                         text = profile?.name ?: stringResource("user.profile.default_name"),
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = AppTextStyles.body,
+                        fontWeight = FontWeight.Medium,
                         maxLines = 1,
                     )
                     profile?.occupation?.let {
                         Text(
                             text = it,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.caption,
                             maxLines = 1,
                         )
                     }
@@ -216,7 +216,7 @@ private fun communityUserProfileSection(
                             sidebarUserAvatar(
                                 profile = profile,
                                 avatarImage = avatarImage,
-                                textStyle = MaterialTheme.typography.labelSmall,
+                                textStyle = AppTextStyles.hint,
                             )
                         }
                     },

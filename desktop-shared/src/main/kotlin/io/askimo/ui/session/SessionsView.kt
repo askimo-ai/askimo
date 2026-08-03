@@ -68,6 +68,7 @@ import io.askimo.ui.common.components.tablePagination
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 
@@ -107,8 +108,7 @@ fun sessionsView(
                 ) {
                     Text(
                         text = stringResource("sessions.title"),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
+                        style = AppTextStyles.pageTitle,
                         color = MaterialTheme.colorScheme.onBackground,
                     )
                     Button(
@@ -130,7 +130,7 @@ fun sessionsView(
                     placeholder = {
                         Text(
                             text = stringResource("sessions.search.placeholder"),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = AppTextStyles.body,
                         )
                     },
                     leadingIcon = {
@@ -154,7 +154,7 @@ fun sessionsView(
                         }
                     },
                     singleLine = true,
-                    textStyle = MaterialTheme.typography.bodyMedium,
+                    textStyle = AppTextStyles.body,
                     modifier = Modifier.fillMaxWidth(),
                     colors = AppComponents.outlinedTextFieldColors(),
                 )
@@ -179,7 +179,7 @@ fun sessionsView(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                Text(message, style = AppTextStyles.body, color = MaterialTheme.colorScheme.onPrimaryContainer)
                             }
                             IconButton(onClick = { viewModel.dismissSuccessMessage() }) {
                                 Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = MaterialTheme.colorScheme.onPrimaryContainer)
@@ -201,7 +201,8 @@ fun sessionsView(
                             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
                                 Text(
                                     text = stringResource("sessions.error", viewModel.errorMessage ?: ""),
-                                    style = MaterialTheme.typography.bodyLarge,
+                                    style = AppTextStyles.body,
+
                                     color = MaterialTheme.colorScheme.error,
                                 )
                                 TextButton(onClick = {
@@ -220,12 +221,12 @@ fun sessionsView(
                                 if (viewModel.searchQuery.isNotBlank()) {
                                     Text(
                                         stringResource("sessions.search.empty", viewModel.searchQuery),
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+                                        style = AppTextStyles.bodySecondary,
                                     )
                                 } else {
-                                    Text(stringResource("sessions.empty"), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(stringResource("sessions.empty.hint"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(stringResource("sessions.empty"), style = AppTextStyles.bodySecondary)
+                                    Text(stringResource("sessions.empty.hint"), style = AppTextStyles.bodySecondary)
                                 }
                             }
                         }
@@ -336,7 +337,7 @@ private fun sessionTable(
                 // Title column (non-sortable)
                 Text(
                     text = stringResource("sessions.col.title"),
-                    style = MaterialTheme.typography.labelMedium,
+                    style = AppTextStyles.fieldLabel,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
@@ -399,7 +400,7 @@ private fun sortableHeader(
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium,
+            style = AppTextStyles.fieldLabel,
             fontWeight = FontWeight.SemiBold,
             color = if (isActive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -477,7 +478,7 @@ private fun sessionRow(
         sessionTooltip(session = session, modifier = Modifier.weight(1f)) {
             Text(
                 text = session.title,
-                style = MaterialTheme.typography.bodyMedium,
+                style = AppTextStyles.body,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
@@ -488,16 +489,16 @@ private fun sessionRow(
         // Created date
         Text(
             text = TimeUtil.formatDisplay(session.createdAt),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+            style = AppTextStyles.caption,
             modifier = Modifier.widthIn(min = 140.dp).padding(horizontal = Spacing.large),
         )
 
         // Updated date
         Text(
             text = TimeUtil.formatDisplay(session.updatedAt),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+            style = AppTextStyles.caption,
             modifier = Modifier.widthIn(min = 140.dp).padding(horizontal = Spacing.large),
         )
 

@@ -26,12 +26,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.monitoring.SystemResourceMonitor
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import org.koin.java.KoinJavaComponent.get
 
@@ -70,17 +70,14 @@ fun systemResourcesDialog(
         title = {
             Text(
                 text = stringResource("system.diagnostics.title"),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold,
+                style = AppTextStyles.pageTitle,
             )
         },
         stickyHeader = {
             // ── Resources section ────────────────────────────────────
             Text(
                 text = stringResource("system.diagnostics.resources"),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = AppTextStyles.sectionTitle,
             )
 
             Row(
@@ -93,7 +90,7 @@ fun systemResourcesDialog(
                             Icons.Default.Memory,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = AppTextStyles.secondaryContent,
                         )
                     },
                     label = stringResource("system.diagnostics.jvm.memory"),
@@ -106,7 +103,7 @@ fun systemResourcesDialog(
                             Icons.Default.Speed,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = AppTextStyles.secondaryContent,
                         )
                     },
                     label = stringResource("system.diagnostics.cpu.usage"),
@@ -130,9 +127,7 @@ fun systemResourcesDialog(
         // ── Telemetry section ────────────────────────────────────
         Text(
             text = stringResource("system.diagnostics.telemetry"),
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
+            style = AppTextStyles.sectionTitle,
         )
 
         telemetryContent()
@@ -161,14 +156,11 @@ private fun resourceMetricCard(
             Column {
                 Text(
                     text = value,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = AppTextStyles.sectionTitle,
                 )
                 Text(
                     text = label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.hint,
                 )
             }
         }

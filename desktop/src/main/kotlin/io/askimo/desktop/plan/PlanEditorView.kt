@@ -36,7 +36,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,6 +45,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.plan.PlansViewModel
 import io.askimo.ui.plan.planInputField
@@ -108,9 +108,7 @@ fun planEditorView(
                         } else {
                             stringResource("plans.editor.title.edit")
                         },
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = AppTextStyles.pageTitle,
                     )
                 }
 
@@ -160,7 +158,7 @@ fun planEditorView(
                         Text(
                             text = saveError,
                             modifier = Modifier.padding(horizontal = 24.dp, vertical = Spacing.small),
-                            style = MaterialTheme.typography.bodySmall,
+                            style = AppTextStyles.caption,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
                     }
@@ -176,7 +174,7 @@ fun planEditorView(
                         Text(
                             text = "❌ $validationError",
                             modifier = Modifier.padding(horizontal = 24.dp, vertical = Spacing.small),
-                            style = MaterialTheme.typography.bodySmall,
+                            style = AppTextStyles.caption,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
                     }
@@ -201,7 +199,7 @@ fun planEditorView(
                         )
                         Text(
                             text = stringResource("plans.editor.valid"),
-                            style = MaterialTheme.typography.bodySmall,
+                            style = AppTextStyles.caption,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
                     }
@@ -235,7 +233,7 @@ fun planEditorView(
 
                     Text(
                         text = stringResource("plans.editor.label"),
-                        style = MaterialTheme.typography.labelMedium,
+                        style = AppTextStyles.fieldLabel,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = Spacing.small),
                     )
@@ -243,15 +241,11 @@ fun planEditorView(
                         value = viewModel.editorYaml,
                         onValueChange = { viewModel.updateEditorYaml(it) },
                         modifier = Modifier.weight(1f).fillMaxWidth(),
-                        textStyle = MaterialTheme.typography.bodySmall.copy(
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 13.sp,
-                            lineHeight = 20.sp,
-                        ),
+                        textStyle = AppTextStyles.codeBlock,
                         placeholder = {
                             Text(
                                 text = if (isNewPlan) YAML_HINT else stringResource("plans.editor.placeholder"),
-                                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                                style = AppTextStyles.codeBlockPlaceholder,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                             )
                         },
@@ -276,7 +270,7 @@ fun planEditorView(
                     ) {
                         Text(
                             text = stringResource("plans.editor.hint.title"),
-                            style = MaterialTheme.typography.labelMedium,
+                            style = AppTextStyles.fieldLabel,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -289,7 +283,7 @@ fun planEditorView(
                         ) {
                             Text(
                                 text = stringResource("plans.editor.docs.link"),
-                                style = MaterialTheme.typography.labelSmall,
+                                style = AppTextStyles.hint,
                             )
                         }
                     }
@@ -300,21 +294,17 @@ fun planEditorView(
                     ) {
                         Text(
                             text = YAML_HINT,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontFamily = FontFamily.Monospace,
+                            style = AppTextStyles.codeSecondary.copy(
                                 fontSize = 11.sp,
                                 lineHeight = 18.sp,
                             ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(Spacing.medium),
                         )
                     }
                     Spacer(modifier = Modifier.height(Spacing.medium))
                     Text(
                         text = stringResource("plans.editor.hint.fields"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 20.sp,
+                        style = AppTextStyles.caption.copy(lineHeight = 20.sp),
                     )
                 }
             }
@@ -354,7 +344,7 @@ private fun aiGenerationPanel(
                 )
                 Text(
                     text = stringResource("plans.editor.ai.label"),
-                    style = MaterialTheme.typography.labelMedium,
+                    style = AppTextStyles.fieldLabel,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -374,7 +364,7 @@ private fun aiGenerationPanel(
             if (!isGenerating && viewModel.aiGenerateError == null) {
                 Text(
                     text = stringResource("plans.editor.ai.hint"),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = AppTextStyles.hint,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     modifier = Modifier.padding(top = Spacing.extraSmall),
                 )

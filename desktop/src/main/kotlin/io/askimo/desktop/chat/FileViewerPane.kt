@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import io.askimo.core.logging.currentFileLogger
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.codeViewerBlock
 import io.askimo.ui.common.ui.themedTooltip
@@ -138,7 +139,7 @@ fun fileViewerPane(
                 )
                 Text(
                     text = node.displayName,
-                    style = MaterialTheme.typography.labelMedium,
+                    style = AppTextStyles.fieldLabel,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -150,7 +151,7 @@ fun fileViewerPane(
                             "file.viewer.lines",
                             (viewerState as ViewerState.Content).lineCount,
                         ),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = AppTextStyles.hint,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         softWrap = false,
@@ -215,7 +216,7 @@ fun fileViewerPane(
                 ) {
                     Text(
                         text = stringResource("file.viewer.loading"),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = AppTextStyles.caption,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -325,7 +326,7 @@ private fun viewerPlaceholder(
             icon()
             Text(
                 text = message,
-                style = MaterialTheme.typography.bodySmall,
+                style = AppTextStyles.caption,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
             )
@@ -342,7 +343,7 @@ private fun viewerPlaceholder(
                 Spacer(Modifier.size(6.dp))
                 Text(
                     text = actionLabel,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = AppTextStyles.caption,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
             }

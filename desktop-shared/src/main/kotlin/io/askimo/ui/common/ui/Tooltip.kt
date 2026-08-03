@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupPositionProvider
+import io.askimo.ui.common.theme.AppTextStyles
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -178,8 +179,7 @@ fun themedTooltip(
                     modifier = Modifier
                         .widthIn(max = TOOLTIP_MAX_WIDTH)
                         .padding(horizontal = 10.dp, vertical = 8.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.caption,
                     softWrap = true,
                 )
             }

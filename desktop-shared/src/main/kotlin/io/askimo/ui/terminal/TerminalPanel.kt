@@ -65,6 +65,7 @@ import com.pty4j.WinSize
 import io.askimo.core.util.AskimoHome
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import kotlinx.coroutines.delay
 import java.awt.Color
@@ -257,7 +258,7 @@ fun terminalPanel(
                                         // Tab title — single click switches tab, double click renames
                                         Text(
                                             text = tab.title,
-                                            style = MaterialTheme.typography.bodyMedium,
+                                            style = AppTextStyles.body,
                                             modifier = Modifier.combinedClickable(
                                                 onClick = { selectedTabId = tab.id },
                                                 onDoubleClick = {
@@ -413,8 +414,7 @@ fun terminalPanel(
                 ) {
                     Text(
                         text = "Rename Terminal",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = AppTextStyles.sectionTitle,
                     )
 
                     val focusRequester = remember { FocusRequester() }

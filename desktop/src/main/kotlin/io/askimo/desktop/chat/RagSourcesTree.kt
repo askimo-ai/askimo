@@ -82,6 +82,7 @@ import io.askimo.ui.common.components.indexedIcon
 import io.askimo.ui.common.components.notIndexedIcon
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.themedTooltip
 import kotlinx.coroutines.Dispatchers
@@ -187,7 +188,7 @@ fun ragSourcesTree(
             placeholder = {
                 Text(
                     text = stringResource("rag.tree.search.placeholder"),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = AppTextStyles.caption,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 )
             },
@@ -215,7 +216,7 @@ fun ragSourcesTree(
                 }
             },
             singleLine = true,
-            textStyle = MaterialTheme.typography.bodySmall,
+            textStyle = AppTextStyles.caption,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                 unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
@@ -239,7 +240,7 @@ fun ragSourcesTree(
                                 CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
                                 Text(
                                     text = stringResource("rag.tree.search.indexing"),
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = AppTextStyles.caption,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
@@ -250,7 +251,7 @@ fun ragSourcesTree(
                         Box(modifier = Modifier.fillMaxWidth().padding(Spacing.large), contentAlignment = Alignment.Center) {
                             Text(
                                 text = stringResource("rag.tree.search.no.results"),
-                                style = MaterialTheme.typography.bodySmall,
+                                style = AppTextStyles.caption,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
@@ -271,7 +272,7 @@ fun ragSourcesTree(
                                     } else {
                                         stringResource("rag.tree.search.results.count", searchResults.size)
                                     },
-                                    style = MaterialTheme.typography.labelSmall,
+                                    style = AppTextStyles.hint,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                     modifier = Modifier.padding(vertical = Spacing.extraSmall),
                                 )
@@ -339,18 +340,18 @@ fun ragSourcesTree(
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small), verticalAlignment = Alignment.CenterVertically) {
                     Icon(imageVector = Icons.Default.AttachFile, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(16.dp))
-                    Text(text = stringResource("rag.tree.chat.selected", chatSelection.size), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    Text(text = stringResource("rag.tree.chat.selected", chatSelection.size), style = AppTextStyles.fieldLabel, color = MaterialTheme.colorScheme.onSecondaryContainer)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall), verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = { chatSelection.clear() }, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
-                        Text(text = stringResource("rag.tree.chat.clear"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        Text(text = stringResource("rag.tree.chat.clear"), style = AppTextStyles.hint, color = MaterialTheme.colorScheme.onSecondaryContainer)
                     }
                     Button(onClick = {
                         onAddToChat(chatSelection.toList())
                         chatSelection.clear()
                     }, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
                         Icon(imageVector = Icons.Default.AttachFile, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Text(text = stringResource("rag.tree.chat.add"), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 4.dp))
+                        Text(text = stringResource("rag.tree.chat.add"), style = AppTextStyles.hint, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 4.dp))
                     }
                 }
             }
@@ -423,16 +424,16 @@ private fun searchResultItem(
                             }
                             append(fileName.substring(matchStart + query.length))
                         },
-                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface),
+                        style = AppTextStyles.caption.copy(color = MaterialTheme.colorScheme.onSurface),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 } else {
-                    Text(text = fileName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(text = fileName, style = AppTextStyles.caption, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Text(
                     text = file.parent ?: path,
-                    style = MaterialTheme.typography.labelSmall,
+                    style = AppTextStyles.hint,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -601,7 +602,7 @@ private fun folderNodeItem(
                         tint = AppComponents.secondaryIconColor(),
                         modifier = Modifier.size(18.dp),
                     )
-                    Text(text = node.displayName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    Text(text = node.displayName, style = AppTextStyles.caption, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 }
                 DropdownMenu(expanded = showContextMenu, onDismissRequest = { showContextMenu = false }, offset = DpOffset(x = 0.dp, y = 0.dp)) {
                     DropdownMenuItem(text = { Text(stringResource("rag.tree.folder.open")) }, onClick = {
@@ -666,7 +667,7 @@ private fun fileNodeItem(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(imageVector = Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = null, tint = AppComponents.secondaryIconColor(), modifier = Modifier.size(18.dp))
-                Text(text = node.displayName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(text = node.displayName, style = AppTextStyles.caption, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 themedTooltip(
                     text = if (isIndexed) {
                         stringResource("rag.tree.status.indexed")
@@ -760,7 +761,7 @@ private fun urlNodeItem(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(imageVector = Icons.Default.Language, contentDescription = null, tint = AppComponents.secondaryIconColor(), modifier = Modifier.size(18.dp))
-                Text(text = node.displayName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(text = node.displayName, style = AppTextStyles.caption, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             }
             DropdownMenu(expanded = showContextMenu, onDismissRequest = { showContextMenu = false }, offset = DpOffset(x = 0.dp, y = 0.dp)) {
                 DropdownMenuItem(text = { Text(stringResource("rag.tree.url.open")) }, onClick = {

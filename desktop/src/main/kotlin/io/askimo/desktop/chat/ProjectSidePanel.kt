@@ -56,7 +56,6 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
@@ -76,6 +75,7 @@ import io.askimo.desktop.project.reIndexConfirmDialog
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.themedTooltip
 import kotlinx.coroutines.flow.filterIsInstance
@@ -195,8 +195,7 @@ fun communityProjectSidePanel(
                             }
                             Text(
                                 text = stringResource(selectedTab.labelKey),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
+                                style = AppTextStyles.sectionTitle,
                             )
                         }
 
@@ -446,7 +445,7 @@ private fun ragSourcesTabContent(
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
                         Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(28.dp), tint = AppComponents.tertiaryIconColor())
-                        Text(text = stringResource("file.viewer.select.prompt"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = Spacing.large))
+                        Text(text = stringResource("file.viewer.select.prompt"), style = AppTextStyles.caption, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = Spacing.large))
                     }
                 }
             }
@@ -459,8 +458,8 @@ private fun ragSourcesEmptyState(project: Project?, onAddMaterial: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.large)) {
             Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(64.dp), tint = AppComponents.tertiaryIconColor())
-            Text(text = stringResource("rag.empty.title"), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
-            Text(text = stringResource("rag.empty.description"), style = MaterialTheme.typography.bodySmall, color = AppComponents.secondaryTextColor(), textAlign = TextAlign.Center)
+            Text(text = stringResource("rag.empty.title"), style = AppTextStyles.sectionTitle)
+            Text(text = stringResource("rag.empty.description"), style = AppTextStyles.caption, textAlign = TextAlign.Center)
             Button(
                 onClick = { if (project != null) onAddMaterial() },
                 enabled = project != null,

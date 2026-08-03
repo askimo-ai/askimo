@@ -34,6 +34,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.markdownText
 
@@ -106,7 +107,7 @@ private fun newVersionDialog(
         title = {
             Text(
                 text = stringResource("update.dialog.title"),
-                style = MaterialTheme.typography.headlineSmall,
+                style = AppTextStyles.pageTitle,
             )
         },
         text = {
@@ -150,7 +151,7 @@ private fun newVersionDialog(
                         )
                         Text(
                             text = bannerText,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = AppTextStyles.body,
                             fontWeight = FontWeight.SemiBold,
                         )
                     }
@@ -168,25 +169,21 @@ private fun newVersionDialog(
                         Column {
                             Text(
                                 text = stringResource("update.dialog.current.version.label"),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                                style = AppTextStyles.hint,
                             )
                             Text(
                                 text = currentVersion,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                style = AppTextStyles.body,
                             )
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text(
                                 text = stringResource("update.dialog.new.version.label"),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                                style = AppTextStyles.hint,
                             )
                             Text(
                                 text = releaseInfo.latestVersion,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                style = AppTextStyles.body,
                                 fontWeight = FontWeight.Bold,
                             )
                         }
@@ -197,12 +194,11 @@ private fun newVersionDialog(
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
                     Text(
                         text = stringResource("update.dialog.release.date"),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        style = AppTextStyles.hint,
                     )
                     Text(
                         text = releaseInfo.releaseDate,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = AppTextStyles.body,
                     )
                 }
 
@@ -210,8 +206,7 @@ private fun newVersionDialog(
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
                     Text(
                         text = stringResource("update.dialog.release.notes"),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        style = AppTextStyles.hint,
                     )
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -270,14 +265,14 @@ private fun upToDateDialog(
         title = {
             Text(
                 text = stringResource("update.dialog.title"),
-                style = MaterialTheme.typography.headlineSmall,
+                style = AppTextStyles.pageTitle,
             )
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
                 Text(
                     text = stringResource("update.check.up.to.date"),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = AppTextStyles.body,
                 )
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -289,13 +284,11 @@ private fun upToDateDialog(
                     ) {
                         Text(
                             text = stringResource("update.dialog.current.version.label"),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                            style = AppTextStyles.hint,
                         )
                         Text(
                             text = currentVersion,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            style = AppTextStyles.body,
                         )
                     }
                 }
@@ -321,7 +314,7 @@ private fun errorDialog(
         title = {
             Text(
                 text = stringResource("update.check.failed"),
-                style = MaterialTheme.typography.headlineSmall,
+                style = AppTextStyles.pageTitle,
                 color = MaterialTheme.colorScheme.error,
             )
         },
@@ -332,9 +325,8 @@ private fun errorDialog(
             ) {
                 Text(
                     text = message,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = AppTextStyles.body,
                     modifier = Modifier.padding(Spacing.large),
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
             }
         },

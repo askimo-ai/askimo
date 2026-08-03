@@ -47,6 +47,7 @@ import io.askimo.core.logging.currentFileLogger
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -133,8 +134,7 @@ fun logViewerDialog(
                     // Header
                     Text(
                         text = stringResource("settings.log.viewer.dialog.title"),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = AppTextStyles.pageTitle,
                     )
 
                     Spacer(modifier = Modifier.height(Spacing.small))
@@ -143,8 +143,7 @@ fun logViewerDialog(
                     LoggingService.getLogFilePath()?.let { logPath ->
                         Text(
                             text = logPath.toString(),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            style = AppTextStyles.caption,
                             fontFamily = FontFamily.Monospace,
                         )
                     }
@@ -236,8 +235,7 @@ fun logViewerDialog(
                                 ) {
                                     Text(
                                         text = stringResource("settings.log.viewer.loading"),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = AppTextStyles.bodySecondary,
                                     )
                                 }
                             }
@@ -251,14 +249,13 @@ fun logViewerDialog(
                                 ) {
                                     Text(
                                         text = stringResource("settings.log.viewer.error"),
-                                        style = MaterialTheme.typography.titleMedium,
+                                        style = AppTextStyles.sectionTitle,
                                         color = MaterialTheme.colorScheme.error,
                                     )
                                     Spacer(modifier = Modifier.height(Spacing.small))
                                     Text(
                                         text = errorMessage ?: "",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = AppTextStyles.caption,
                                         fontFamily = FontFamily.Monospace,
                                     )
                                 }
@@ -274,8 +271,7 @@ fun logViewerDialog(
                                 ) {
                                     Text(
                                         text = stringResource("settings.log.viewer.empty"),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = AppTextStyles.bodySecondary,
                                     )
                                 }
                             }
@@ -290,8 +286,7 @@ fun logViewerDialog(
                                             .verticalScroll(scrollState),
                                         fontFamily = FontFamily.Monospace,
                                         fontSize = 11.sp,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = AppTextStyles.caption,
                                         lineHeight = 16.sp,
                                     )
                                 }
@@ -363,7 +358,6 @@ private fun copyToClipboard(text: String) {
         val selection = StringSelection(text)
         clipboard.setContents(selection, selection)
     } catch (e: Exception) {
-        log
-            .error("Failed to copy to clipboard", e)
+        log.error("Failed to copy to clipboard", e)
     }
 }

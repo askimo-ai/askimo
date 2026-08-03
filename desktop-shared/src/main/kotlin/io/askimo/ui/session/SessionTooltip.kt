@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.TooltipPlacement
 import io.askimo.ui.common.ui.themedRichTooltip
@@ -63,9 +64,8 @@ private fun sessionTooltipContent(session: ChatSession) {
         // Full title
         Text(
             text = session.title,
-            style = MaterialTheme.typography.bodySmall,
+            style = AppTextStyles.caption,
             fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
             softWrap = true,
         )
 
@@ -92,13 +92,11 @@ private fun tooltipRow(label: String, value: String) {
     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {
         Text(
             text = "$label:",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = AppTextStyles.hint,
         )
         Text(
             text = value,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurface,
+            style = AppTextStyles.hint,
         )
     }
 }

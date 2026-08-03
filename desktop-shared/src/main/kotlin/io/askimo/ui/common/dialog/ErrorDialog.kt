@@ -37,13 +37,13 @@ import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 
 @Composable
@@ -80,14 +80,14 @@ fun errorDialog(
                 )
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = AppTextStyles.pageTitle,
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 IconButton(onClick = onDismiss) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Close",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = AppTextStyles.secondaryContent,
                     )
                 }
             }
@@ -119,7 +119,7 @@ fun errorDialog(
 
                     Text(
                         text = annotatedString,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = AppTextStyles.body,
                         maxLines = if (messageExpanded || !isMessageLong) Int.MAX_VALUE else messageCollapsedMaxLines,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         modifier = Modifier
@@ -136,7 +136,7 @@ fun errorDialog(
                 } else {
                     Text(
                         text = message,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = AppTextStyles.body,
                         maxLines = if (messageExpanded || !isMessageLong) Int.MAX_VALUE else messageCollapsedMaxLines,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         modifier = Modifier
@@ -155,7 +155,7 @@ fun errorDialog(
                 if (isMessageLong) {
                     Text(
                         text = if (messageExpanded) stringResource("action.show.less") else stringResource("action.show.more"),
-                        style = MaterialTheme.typography.labelMedium,
+                        style = AppTextStyles.fieldLabel,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
                             .clickable { messageExpanded = !messageExpanded }
@@ -176,21 +176,17 @@ fun errorDialog(
                         Icon(
                             imageVector = if (showDetails) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = AppTextStyles.secondaryContent,
                         )
                         Text(
                             text = if (showDetails) "Hide details" else "Show details",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.fieldLabel,
                         )
                     }
                     if (showDetails) {
                         Text(
                             text = details,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontFamily = FontFamily.Monospace,
-                            ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.codeSecondary,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(max = 200.dp)

@@ -45,7 +45,6 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.skills.agent.ExternalAgent
@@ -56,6 +55,7 @@ import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.markdownText
@@ -235,8 +235,7 @@ internal fun agenticRunArea(
                     )
                     Text(
                         text = stringResource("skills.agentic.skills.available", skills.size),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.hint,
                         modifier = Modifier.weight(1f),
                     )
                     val maxVisible = 4
@@ -247,8 +246,7 @@ internal fun agenticRunArea(
                         ) {
                             Text(
                                 text = skill.name,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = AppTextStyles.hint,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                 maxLines = 1,
                             )
@@ -257,8 +255,7 @@ internal fun agenticRunArea(
                     if (skills.size > maxVisible) {
                         Text(
                             text = "+${skills.size - maxVisible}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            style = AppTextStyles.hint,
                         )
                     }
                 }
@@ -283,8 +280,7 @@ internal fun agenticRunArea(
                     )
                     Text(
                         text = stringResource("skills.agentic.no.skills.hint"),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        style = AppTextStyles.hint,
                     )
                 }
             }
@@ -326,8 +322,7 @@ internal fun agenticRunArea(
                         ) {
                             Text(
                                 text = stringResource("skills.agentic.model.default"),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = AppTextStyles.hint,
                             )
                             Icon(
                                 Icons.Default.ExpandMore,
@@ -346,7 +341,7 @@ internal fun agenticRunArea(
                             text = {
                                 Text(
                                     text = stringResource("skills.agentic.model.default"),
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = AppTextStyles.body,
                                 )
                             },
                             onClick = { modelDropdownExpanded = false },
@@ -367,8 +362,7 @@ internal fun agenticRunArea(
                     if (isRunning) {
                         Text(
                             text = "${elapsedSeconds}s",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                            style = AppTextStyles.hint,
                         )
                     }
 
@@ -401,8 +395,7 @@ internal fun agenticRunArea(
                                 )
                                 Text(
                                     text = selectedAgent?.name ?: stringResource("skills.view.no.agent"),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = AppTextStyles.hint,
                                 )
                                 Icon(
                                     Icons.Default.ExpandMore,
@@ -436,14 +429,12 @@ internal fun agenticRunArea(
                                             )
                                             Text(
                                                 text = agent.name,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = if (agent.id == selectedAgent?.id) FontWeight.SemiBold else FontWeight.Normal,
+                                                style = AppTextStyles.body,
                                             )
                                             if (!agentReady) {
                                                 Text(
                                                     text = stringResource("skills.view.agent.not.installed"),
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                    style = AppTextStyles.hint,
                                                 )
                                             }
                                         }
@@ -517,15 +508,12 @@ internal fun agenticRunArea(
                                     runError != null -> stringResource("skills.view.response.error")
                                     else -> stringResource("skills.view.response.title")
                                 },
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                style = AppTextStyles.sectionTitle,
                             )
                             if (isRunning) {
                                 Text(
                                     text = "${elapsedSeconds}s",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                                    style = AppTextStyles.hint,
                                 )
                             }
                         }
@@ -547,7 +535,7 @@ internal fun agenticRunArea(
                     when {
                         runError != null -> Text(
                             text = runError!!,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = AppTextStyles.body,
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.padding(top = Spacing.medium),
                         )
@@ -573,16 +561,14 @@ internal fun agenticRunArea(
                         ) {
                             Text(
                                 text = "▌",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                style = AppTextStyles.body,
                             )
                         }
                     }
                     if (isRunning && currentStatusLine != null) {
                         Text(
                             text = currentStatusLine!!,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                            style = AppTextStyles.hint,
                             modifier = Modifier.padding(top = Spacing.small),
                         )
                     }
@@ -599,9 +585,7 @@ internal fun agenticRunArea(
                 Column(modifier = Modifier.padding(Spacing.large)) {
                     Text(
                         text = stringResource("skills.view.followup.label"),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.fieldLabel,
                         modifier = Modifier.padding(bottom = Spacing.small),
                     )
                     agentInputField(

@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.LocalCodeFontFamily
 
 /**
@@ -108,7 +109,7 @@ fun codeViewerBlock(
                     lines.forEachIndexed { index, _ ->
                         Text(
                             text = "${index + 1}",
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = AppTextStyles.body,
                             fontFamily = codeFontFamily,
                             color = lineNumberColor,
                             modifier = Modifier.padding(end = 8.dp),
@@ -126,7 +127,7 @@ fun codeViewerBlock(
 
             Text(
                 text = highlightedCode,
-                style = MaterialTheme.typography.bodyMedium,
+                style = AppTextStyles.body,
                 fontFamily = codeFontFamily,
                 color = contentColor,
                 softWrap = false,

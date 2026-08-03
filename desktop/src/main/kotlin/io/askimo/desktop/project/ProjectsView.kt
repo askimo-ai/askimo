@@ -67,6 +67,7 @@ import io.askimo.ui.common.components.tablePageSizeSelector
 import io.askimo.ui.common.components.tablePagination
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.themedTooltip
@@ -108,8 +109,7 @@ fun projectsView(
                 ) {
                     Text(
                         text = stringResource("projects.title"),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
+                        style = AppTextStyles.pageTitle,
                         color = MaterialTheme.colorScheme.onBackground,
                     )
                     Button(
@@ -124,8 +124,8 @@ fun projectsView(
 
                 Text(
                     text = stringResource("projects.description"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+                    style = AppTextStyles.bodySecondary,
                     modifier = Modifier.padding(top = 6.dp, bottom = 4.dp),
                 )
 
@@ -138,7 +138,7 @@ fun projectsView(
                     placeholder = {
                         Text(
                             text = stringResource("projects.search.placeholder"),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = AppTextStyles.body,
                         )
                     },
                     leadingIcon = {
@@ -162,7 +162,7 @@ fun projectsView(
                         }
                     },
                     singleLine = true,
-                    textStyle = MaterialTheme.typography.bodyMedium,
+                    textStyle = AppTextStyles.body,
                     modifier = Modifier.fillMaxWidth(),
                     colors = AppComponents.outlinedTextFieldColors(),
                 )
@@ -182,7 +182,8 @@ fun projectsView(
                             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
                                 Text(
                                     stringResource("projects.error", viewModel.errorMessage ?: ""),
-                                    style = MaterialTheme.typography.bodyLarge,
+                                    style = AppTextStyles.body,
+
                                     color = MaterialTheme.colorScheme.error,
                                 )
                                 TextButton(onClick = {
@@ -201,12 +202,12 @@ fun projectsView(
                                 if (viewModel.searchQuery.isNotBlank()) {
                                     Text(
                                         stringResource("projects.search.empty", viewModel.searchQuery),
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+                                        style = AppTextStyles.bodySecondary,
                                     )
                                 } else {
-                                    Text(stringResource("projects.empty"), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(stringResource("projects.empty.hint"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(stringResource("projects.empty"), style = AppTextStyles.bodySecondary)
+                                    Text(stringResource("projects.empty.hint"), style = AppTextStyles.bodySecondary)
                                 }
                             }
                         }
@@ -321,7 +322,7 @@ private fun projectTable(
                 // Name column (non-sortable)
                 Text(
                     text = stringResource("projects.col.name"),
-                    style = MaterialTheme.typography.labelMedium,
+                    style = AppTextStyles.fieldLabel,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
@@ -385,7 +386,7 @@ private fun projectSortableHeader(
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium,
+            style = AppTextStyles.fieldLabel,
             fontWeight = FontWeight.SemiBold,
             color = if (isActive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -465,7 +466,7 @@ private fun projectRow(
             themedTooltip(text = project.name) {
                 Text(
                     text = project.name,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = AppTextStyles.body,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
@@ -475,8 +476,8 @@ private fun projectRow(
             project.description?.let { desc ->
                 Text(
                     text = desc,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+                    style = AppTextStyles.caption,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -486,16 +487,16 @@ private fun projectRow(
         // Created date
         Text(
             text = TimeUtil.formatDisplay(project.createdAt),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+            style = AppTextStyles.caption,
             modifier = Modifier.widthIn(min = 140.dp).padding(horizontal = Spacing.large),
         )
 
         // Modified date
         Text(
             text = TimeUtil.formatDisplay(project.updatedAt),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+            style = AppTextStyles.caption,
             modifier = Modifier.widthIn(min = 140.dp).padding(horizontal = Spacing.large),
         )
 

@@ -43,7 +43,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -52,6 +51,7 @@ import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.service.AvatarService
 import kotlinx.coroutines.launch
@@ -94,8 +94,7 @@ fun welcomeProfileDialog(
                 ) {
                     Text(
                         text = "👋 " + stringResource("welcome.title"),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
+                        style = AppTextStyles.pageTitle,
                         textAlign = TextAlign.Center,
                     )
 
@@ -103,8 +102,7 @@ fun welcomeProfileDialog(
 
                     Text(
                         text = stringResource("welcome.subtitle"),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.bodySecondary,
                         textAlign = TextAlign.Center,
                     )
                 }
@@ -155,7 +153,7 @@ fun welcomeProfileDialog(
 
                                 Text(
                                     text = initials,
-                                    style = MaterialTheme.typography.displayMedium,
+                                    style = AppTextStyles.emptyStateEmoji,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 )
                             }
@@ -165,8 +163,7 @@ fun welcomeProfileDialog(
 
                         Text(
                             text = stringResource("welcome.avatar.optional"),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.caption,
                         )
                     }
 
@@ -199,14 +196,12 @@ fun welcomeProfileDialog(
                     // Interests
                     Text(
                         text = stringResource("welcome.interests"),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
+                        style = AppTextStyles.itemTitle,
                     )
 
                     Text(
                         text = stringResource("welcome.interests.description"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.sectionDescription,
                     )
 
                     // Top interest chips (show 8 most common)
@@ -278,8 +273,7 @@ fun welcomeProfileDialog(
                 // Required field note
                 Text(
                     text = stringResource("welcome.required_note"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.caption,
                     modifier = Modifier.padding(top = Spacing.small),
                 )
             }

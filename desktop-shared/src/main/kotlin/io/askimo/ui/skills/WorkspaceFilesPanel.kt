@@ -76,6 +76,7 @@ import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.ui.codeViewerBlock
 import io.askimo.ui.common.ui.themedTooltip
 import kotlinx.coroutines.Dispatchers
@@ -304,9 +305,8 @@ internal fun workspaceFilesPanel(
                 )
                 Text(
                     workDir.name.ifEmpty { workDir.path },
-                    style = MaterialTheme.typography.labelMedium,
+                    style = AppTextStyles.fieldLabel,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f).padding(start = 4.dp),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -400,7 +400,7 @@ internal fun workspaceFilesPanel(
                 isLoading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         "...",
-                        style = MaterialTheme.typography.bodySmall,
+                        style = AppTextStyles.caption,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                     )
                 }
@@ -408,7 +408,7 @@ internal fun workspaceFilesPanel(
                 rootChildren.isEmpty() -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         stringResource("skills.view.workspace.empty"),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = AppTextStyles.caption,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                         modifier = Modifier.padding(16.dp),
                     )
@@ -575,7 +575,7 @@ private fun workspaceNodeRow(
                         value = renameText,
                         onValueChange = onRenameTextChange,
                         singleLine = true,
-                        textStyle = MaterialTheme.typography.bodySmall.copy(
+                        textStyle = AppTextStyles.caption.copy(
                             color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = if (node is WorkspaceFolderNode) FontWeight.SemiBold else FontWeight.Normal,
                         ),
@@ -630,7 +630,7 @@ private fun workspaceNodeRow(
                 } else {
                     Text(
                         text = node.displayName,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = AppTextStyles.caption,
                         fontWeight = if (node is WorkspaceFolderNode) FontWeight.SemiBold else FontWeight.Normal,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
@@ -640,7 +640,7 @@ private fun workspaceNodeRow(
                     if (node is WorkspaceFileNode) {
                         Text(
                             text = node.file.length().toWorkspaceHumanSize(),
-                            style = MaterialTheme.typography.labelSmall,
+                            style = AppTextStyles.hint,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
                         )
                     }
@@ -842,8 +842,7 @@ private fun workspaceFileViewer(
                 )
                 Text(
                     text = file.name,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = AppTextStyles.fieldLabel,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -853,7 +852,7 @@ private fun workspaceFileViewer(
                             "file.viewer.lines",
                             (viewerState as WorkspaceViewerState.Content).lineCount,
                         ),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = AppTextStyles.hint,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -898,7 +897,7 @@ private fun workspaceFileViewer(
                 Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
                     Text(
                         text = stringResource("file.viewer.loading"),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = AppTextStyles.caption,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -939,7 +938,7 @@ private fun workspaceFileViewer(
                 Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
                     Text(
                         text = stringResource("file.viewer.too.large", state.sizeKb),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = AppTextStyles.caption,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                     )
@@ -950,7 +949,7 @@ private fun workspaceFileViewer(
                 Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
                     Text(
                         text = stringResource("file.viewer.binary"),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = AppTextStyles.caption,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -960,8 +959,7 @@ private fun workspaceFileViewer(
                 Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
                     Text(
                         text = state.message,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
+                        style = AppTextStyles.errorText,
                     )
                 }
             }

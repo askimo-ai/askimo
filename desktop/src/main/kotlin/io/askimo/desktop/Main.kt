@@ -115,6 +115,7 @@ import io.askimo.ui.common.keymap.KeyMapManager.AppShortcut
 import io.askimo.ui.common.preferences.AccountPreferences
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents.alertDialog
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.BackgroundImage
 import io.askimo.ui.common.theme.LocalBackgroundActive
 import io.askimo.ui.common.theme.LocalCodeFontFamily
@@ -1178,8 +1179,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                     ) {
                                                         Text(
                                                             text = stringResource("chat.no.active.session"),
-                                                            style = MaterialTheme.typography.bodyLarge,
-                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            style = AppTextStyles.bodySecondary,
                                                         )
                                                     }
                                                 }
@@ -1439,13 +1439,13 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                             title = {
                                 Text(
                                     text = stringResource("provider.setup.required.title"),
-                                    style = MaterialTheme.typography.headlineSmall,
+                                    style = AppTextStyles.pageTitle,
                                 )
                             },
                             text = {
                                 Text(
                                     text = stringResource("provider.setup.required.message"),
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = AppTextStyles.body,
                                 )
                             },
                             confirmButton = {
@@ -1621,8 +1621,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                             )
                                             Text(
                                                 text = message,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                style = AppTextStyles.bodySecondary,
                                             )
                                         }
                                     }
@@ -1671,14 +1670,12 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                             )
                                             Text(
                                                 text = stringResource("file.overwrite.message"),
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                style = AppTextStyles.bodySecondary,
                                             )
                                             sessionsViewModel.pendingExportPath?.let { path ->
                                                 Text(
                                                     text = path,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    style = AppTextStyles.caption,
                                                     modifier = Modifier.padding(top = Spacing.extraSmall),
                                                 )
                                             }
@@ -2147,8 +2144,7 @@ fun mainContent(
                     ) {
                         Text(
                             text = stringResource("project.not.selected"),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.bodySecondary,
                         )
                     }
                 }

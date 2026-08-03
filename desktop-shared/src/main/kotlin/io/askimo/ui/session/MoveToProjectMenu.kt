@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import io.askimo.core.chat.domain.Project
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 
 /**
@@ -148,8 +149,7 @@ fun moveToProjectMenuItem(
                                 text = {
                                     Text(
                                         "No projects available",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = AppTextStyles.caption,
                                     )
                                 },
                                 onClick = { /* Do nothing */ },

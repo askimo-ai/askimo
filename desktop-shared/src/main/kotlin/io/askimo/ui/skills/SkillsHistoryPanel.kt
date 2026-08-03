@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import io.askimo.core.skills.domain.SkillRunRecord
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.TooltipPlacement
 import io.askimo.ui.common.ui.themedTooltip
@@ -112,7 +113,7 @@ private fun skillRunHistoryPanelRow(
                 if (showSkillName) {
                     Text(
                         skillDisplayName,
-                        style = MaterialTheme.typography.labelSmall,
+                        style = AppTextStyles.hint,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
@@ -121,13 +122,12 @@ private fun skillRunHistoryPanelRow(
                 }
                 Text(
                     timeLabel,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.hint,
                 )
                 if (record.userInput.isNotBlank()) {
                     Text(
                         record.userInput,
-                        style = MaterialTheme.typography.labelSmall,
+                        style = AppTextStyles.hint,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -171,7 +171,7 @@ internal fun skillsHistoryContent(
                 verticalArrangement = Arrangement.spacedBy(Spacing.small),
             ) {
                 Icon(Icons.Default.History, null, modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
-                Text(stringResource("skills.view.history.empty"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+                Text(stringResource("skills.view.history.empty"), style = AppTextStyles.caption, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
             }
         }
     } else {

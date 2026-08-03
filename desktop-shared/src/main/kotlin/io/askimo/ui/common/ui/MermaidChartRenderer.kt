@@ -75,6 +75,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.util.FileDialogUtils
 import io.askimo.ui.service.MermaidCliNotAvailableException
@@ -390,7 +391,7 @@ fun mermaidChart(
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                         Spacer(modifier = Modifier.height(Spacing.large))
-                        Text("Checking Mermaid CLI...", style = MaterialTheme.typography.bodyMedium)
+                        Text("Checking Mermaid CLI...", style = AppTextStyles.body)
                     }
                 }
             }
@@ -420,7 +421,7 @@ fun mermaidChart(
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                         Spacer(modifier = Modifier.height(Spacing.large))
-                        Text(stringResource("mermaid.rendering.progress"), style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource("mermaid.rendering.progress"), style = AppTextStyles.body)
                     }
                 }
             }
@@ -454,14 +455,13 @@ fun mermaidChart(
                         ) {
                             Text(
                                 text = stringResource("mermaid.error.rendering.title"),
-                                style = MaterialTheme.typography.titleMedium,
+                                style = AppTextStyles.sectionTitle,
                                 color = MaterialTheme.colorScheme.error,
                                 textAlign = TextAlign.Center,
                             )
                             Text(
                                 text = error!!,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = AppTextStyles.caption,
                                 textAlign = TextAlign.Center,
                                 maxLines = 5,
                                 overflow = TextOverflow.Ellipsis,
@@ -489,7 +489,7 @@ fun mermaidChart(
                                     } else {
                                         stringResource("mermaid.error.code.show")
                                     },
-                                    style = MaterialTheme.typography.labelSmall,
+                                    style = AppTextStyles.hint,
                                 )
                             }
 
@@ -498,8 +498,8 @@ fun mermaidChart(
                                 Box(modifier = Modifier.fillMaxWidth()) {
                                     Text(
                                         text = diagramSource,
-                                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = AppTextStyles.hint,
+                                        fontFamily = FontFamily.Monospace,
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .heightIn(max = 200.dp)
@@ -580,7 +580,7 @@ fun mermaidChart(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         text = stringResource("mermaid.error.unexpected.state"),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = AppTextStyles.body,
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
@@ -636,15 +636,14 @@ private fun mermaidSetupInstructions(
             ) {
                 Text(
                     text = stringResource("mermaid.setup.required.title"),
-                    style = MaterialTheme.typography.titleMedium,
+                    style = AppTextStyles.sectionTitle,
                     textAlign = TextAlign.Center,
                 )
 
                 if (isNpmAvailable == false) {
                     Text(
                         text = stringResource("mermaid.setup.node.required"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.caption,
                         textAlign = TextAlign.Center,
                     )
                 }
@@ -716,7 +715,7 @@ private fun mermaidSetupInstructions(
                         Spacer(modifier = Modifier.width(Spacing.small))
                         Text(
                             text = stringResource("mermaid.setup.installing"),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = AppTextStyles.body,
                         )
                     }
                 }
@@ -724,7 +723,7 @@ private fun mermaidSetupInstructions(
                 if (installFailed) {
                     Text(
                         text = stringResource("mermaid.setup.install.failed"),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = AppTextStyles.body,
                         color = MaterialTheme.colorScheme.error,
                         textAlign = TextAlign.Center,
                     )
@@ -738,7 +737,7 @@ private fun mermaidSetupInstructions(
                     }
                     Text(
                         text = installLog,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = AppTextStyles.caption,
                         fontFamily = FontFamily.Monospace,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -825,7 +824,7 @@ private fun diagramViewer(
                         )
                         .padding(horizontal = Spacing.large, vertical = Spacing.small),
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    style = MaterialTheme.typography.labelLarge,
+                    style = AppTextStyles.groupTitle,
                 )
             }
         }
@@ -1048,7 +1047,7 @@ private fun diagramImage(
         Box(modifier = modifier, contentAlignment = Alignment.Center) {
             Text(
                 text = stringResource("mermaid.error.failed.load.image"),
-                color = MaterialTheme.colorScheme.error,
+                style = AppTextStyles.errorText,
             )
         }
     }

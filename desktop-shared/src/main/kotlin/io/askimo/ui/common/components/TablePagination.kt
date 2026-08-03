@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 
 val TABLE_PAGE_SIZE_OPTIONS = listOf(10, 20, 50, 100)
@@ -73,8 +74,7 @@ fun tablePagination(
             }
             Text(
                 text = stringResource("table.page", currentPage, totalPages),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = AppTextStyles.body,
                 modifier = Modifier.padding(horizontal = Spacing.small),
             )
             IconButton(
@@ -111,8 +111,7 @@ fun tablePageSizeSelector(
     ) {
         Text(
             text = stringResource("table.page.size.label"),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = AppTextStyles.caption,
         )
         Box {
             Row(
@@ -125,7 +124,7 @@ fun tablePageSizeSelector(
             ) {
                 Text(
                     text = pageSize.toString(),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = AppTextStyles.caption,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )

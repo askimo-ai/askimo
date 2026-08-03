@@ -61,6 +61,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -165,8 +166,7 @@ fun globalSearchDialog(
         title = {
             Text(
                 text = stringResource("global.search.title"),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = AppTextStyles.pageTitle,
             )
         },
         stickyHeader = {
@@ -204,8 +204,7 @@ fun globalSearchDialog(
                 ) {
                     Text(
                         text = stringResource("global.search.filter.date"),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.fieldLabel,
                     )
                     Box {
                         Card(
@@ -221,13 +220,12 @@ fun globalSearchDialog(
                             ) {
                                 Text(
                                     text = selectedDateFilter,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    style = AppTextStyles.body,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f).padding(end = Spacing.small),
                                 )
-                                Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+                                Icon(Icons.Default.Edit, contentDescription = null, tint = AppTextStyles.primaryContent)
                             }
                         }
                         AppComponents.dropdownMenu(
@@ -236,7 +234,7 @@ fun globalSearchDialog(
                         ) {
                             dateFilterOptions.forEachIndexed { index, option ->
                                 AppComponents.themedDropdownMenuItem(
-                                    text = { Text(option, style = MaterialTheme.typography.bodyMedium) },
+                                    text = { Text(option, style = AppTextStyles.body) },
                                     onClick = {
                                         selectedDateFilter = option
                                         dateFilterExpanded = false
@@ -256,8 +254,7 @@ fun globalSearchDialog(
                 ) {
                     Text(
                         text = stringResource("global.search.sort.by"),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.fieldLabel,
                     )
                     Box {
                         Card(
@@ -273,13 +270,12 @@ fun globalSearchDialog(
                             ) {
                                 Text(
                                     text = selectedSortBy,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    style = AppTextStyles.body,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f).padding(end = Spacing.small),
                                 )
-                                Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+                                Icon(Icons.Default.Edit, contentDescription = null, tint = AppTextStyles.primaryContent)
                             }
                         }
                         AppComponents.dropdownMenu(
@@ -288,7 +284,7 @@ fun globalSearchDialog(
                         ) {
                             sortByOptions.forEachIndexed { index, option ->
                                 AppComponents.themedDropdownMenuItem(
-                                    text = { Text(option, style = MaterialTheme.typography.bodyMedium) },
+                                    text = { Text(option, style = AppTextStyles.body) },
                                     onClick = {
                                         selectedSortBy = option
                                         sortByExpanded = false
@@ -317,8 +313,7 @@ fun globalSearchDialog(
                             Spacer(modifier = Modifier.height(Spacing.large))
                             Text(
                                 text = stringResource("global.search.searching"),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = AppTextStyles.bodySecondary,
                             )
                         }
                     }
@@ -339,14 +334,12 @@ fun globalSearchDialog(
                             Spacer(modifier = Modifier.height(Spacing.large))
                             Text(
                                 text = stringResource("global.search.no.results"),
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = AppTextStyles.sectionTitle,
                             )
                             Spacer(modifier = Modifier.height(Spacing.small))
                             Text(
                                 text = stringResource("global.search.no.results.hint"),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                style = AppTextStyles.bodySecondary,
                             )
                         }
                     }
@@ -360,8 +353,7 @@ fun globalSearchDialog(
                             } else {
                                 stringResource("global.search.results.count.plural", searchResults.size)
                             },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.bodySecondary,
                         )
                     }
                     items(searchResults) { result ->
@@ -388,8 +380,7 @@ fun globalSearchDialog(
                             Spacer(modifier = Modifier.height(Spacing.large))
                             Text(
                                 text = stringResource("global.search.initial.message"),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                style = AppTextStyles.bodySecondary,
                             )
                         }
                     }
@@ -461,9 +452,7 @@ private fun searchResultItem(
             ) {
                 Text(
                     text = result.sessionTitle,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = AppTextStyles.itemTitle,
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -471,8 +460,7 @@ private fun searchResultItem(
                 Spacer(modifier = Modifier.width(Spacing.small))
                 Text(
                     text = formattedDate,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.caption,
                 )
             }
 
@@ -487,13 +475,12 @@ private fun searchResultItem(
                     imageVector = if (result.isUserMessage) Icons.Default.Person else Icons.Default.SmartToy,
                     contentDescription = if (result.isUserMessage) "User" else "Assistant",
                     modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = AppTextStyles.secondaryContent,
                 )
                 Spacer(modifier = Modifier.width(Spacing.small))
                 Text(
                     text = highlightedText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = AppTextStyles.body,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )

@@ -49,7 +49,6 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -57,6 +56,7 @@ import io.askimo.core.event.Event
 import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import java.awt.Cursor
 
@@ -273,9 +273,7 @@ private fun eventLogPanelContent(
         ) {
             Text(
                 text = stringResource("eventlog.title", events.size),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = AppTextStyles.sectionTitle,
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
@@ -393,8 +391,7 @@ private fun eventLogPanelContent(
             ) {
                 Text(
                     text = stringResource("eventlog.empty"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    style = AppTextStyles.bodySecondary,
                 )
             }
         } else {
@@ -454,20 +451,16 @@ private fun eventLogCompactItem(event: Event, isEven: Boolean) {
                 ) {
                     Text(
                         text = event::class.simpleName ?: stringResource("eventlog.unknown"),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.fieldLabel,
                     )
                     Text(
                         text = TimeUtil.formatInstantDisplay(event.timestamp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        style = AppTextStyles.hint,
                     )
                 }
                 Text(
                     text = event.getDetails(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.caption,
                 )
             }
 
@@ -478,8 +471,7 @@ private fun eventLogCompactItem(event: Event, isEven: Boolean) {
             ) {
                 Text(
                     text = event.source.name,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    style = AppTextStyles.hint.copy(color = MaterialTheme.colorScheme.onPrimaryContainer),
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = Spacing.extraSmall),
                 )
             }

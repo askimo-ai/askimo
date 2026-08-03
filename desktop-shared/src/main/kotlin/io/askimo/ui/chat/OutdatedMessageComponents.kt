@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppTextStyles
 
 /**
  * Sealed class to represent different types of message groups
@@ -126,7 +127,7 @@ fun outdatedBranchComponent(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = stringResource("outdated.branch.header", messages.size),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = AppTextStyles.caption,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     fontStyle = FontStyle.Italic,
                 )

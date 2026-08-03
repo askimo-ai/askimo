@@ -85,6 +85,7 @@ import io.askimo.core.util.JsonUtils.json
 import io.askimo.tools.chart.MermaidChartData
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.LocalCodeFontFamily
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.util.FileDialogUtils
@@ -398,7 +399,7 @@ private fun renderParagraph(
         buildInlineContent(paragraph, inlineCodeBg, linkColor, codeFontFamily, onLinkClick)
     Text(
         text = annotatedText,
-        style = MaterialTheme.typography.bodyMedium,
+        style = AppTextStyles.body,
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = Spacing.extraSmall),
@@ -426,7 +427,6 @@ private fun renderHeading(
     Text(
         text = buildInlineContent(heading, inlineCodeBg, linkColor, codeFontFamily, onLinkClick),
         style = style,
-        fontWeight = FontWeight.Bold,
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = Spacing.small),
@@ -509,7 +509,7 @@ private fun renderListItem(
 
             Text(
                 text = annotatedText,
-                style = MaterialTheme.typography.bodyMedium,
+                style = AppTextStyles.body,
             )
         }
 
@@ -571,8 +571,7 @@ private fun renderCodeBlock(codeBlock: FencedCodeBlock, viewportTopY: Float? = n
                 Spacer(modifier = Modifier.width(5.dp))
                 Text(
                     text = if (language != null) language else "code",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    style = AppTextStyles.hint,
                 )
             }
         }
@@ -606,8 +605,7 @@ private fun renderCodeBlock(codeBlock: FencedCodeBlock, viewportTopY: Float? = n
                     Spacer(modifier = Modifier.height(Spacing.small))
                     Text(
                         text = "Rendering diagram...",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.caption,
                     )
                 }
             }
@@ -711,7 +709,7 @@ private fun renderCodeBlock(codeBlock: FencedCodeBlock, viewportTopY: Float? = n
                                 )
                                 .padding(horizontal = Spacing.large, vertical = Spacing.small),
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            style = MaterialTheme.typography.labelLarge,
+                            style = AppTextStyles.groupTitle,
                         )
                         Spacer(modifier = Modifier.width(Spacing.small))
                     }
@@ -798,7 +796,6 @@ private fun renderBlockQuote(blockQuote: BlockQuote, viewportTopY: Float? = null
  * Styled to match the copy button from code blocks.
  * [onClick] is a plain lambda — the caller is responsible for launching any coroutine work.
  */
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun imageDownloadButton(
     isVisible: Boolean,
@@ -892,8 +889,7 @@ private fun renderImage(image: Image) {
                 onFailure = { error ->
                     Text(
                         text = "Error loading image: ${error.message}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
+                        style = AppTextStyles.errorText,
                         modifier = Modifier.padding(Spacing.small),
                     )
                 },
@@ -930,8 +926,7 @@ private fun renderImage(image: Image) {
         if (caption.isNotBlank()) {
             Text(
                 text = caption,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = AppTextStyles.caption,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = Spacing.extraSmall),
@@ -975,7 +970,7 @@ private fun renderVideo(videoUrl: String) {
                 )
                 Text(
                     text = "Click to play video",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = AppTextStyles.body,
                     modifier = Modifier.padding(top = Spacing.small),
                 )
             }
@@ -983,8 +978,7 @@ private fun renderVideo(videoUrl: String) {
 
         Text(
             text = videoUrl,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = AppTextStyles.caption,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = Spacing.extraSmall),
@@ -1031,9 +1025,7 @@ private fun renderTable(table: TableBlock) {
                                         ) {
                                             Text(
                                                 text = extractCellText(cell),
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onSurface,
+                                                style = AppTextStyles.body,
                                             )
                                         }
                                     }
@@ -1068,8 +1060,7 @@ private fun renderTable(table: TableBlock) {
                                         ) {
                                             Text(
                                                 text = extractCellText(cell),
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onSurface,
+                                                style = AppTextStyles.body,
                                             )
                                         }
                                     }

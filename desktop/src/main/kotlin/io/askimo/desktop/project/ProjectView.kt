@@ -89,6 +89,7 @@ import io.askimo.ui.common.components.successIcon
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.clickableCard
@@ -196,7 +197,7 @@ fun projectView(
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = stringResource("action.back"),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                tint = AppTextStyles.secondaryContent,
                                 modifier = Modifier.size(20.dp),
                             )
                         }
@@ -206,8 +207,7 @@ fun projectView(
                         ) {
                             Text(
                                 text = stringResource("projects.title"),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = AppTextStyles.caption,
                             )
                         }
                     }
@@ -239,8 +239,7 @@ fun projectView(
                             ) {
                                 Text(
                                     text = currentProject.name.firstOrNull()?.uppercaseChar()?.toString() ?: "P",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
+                                    style = AppTextStyles.pageTitle,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 )
                             }
@@ -249,15 +248,12 @@ fun projectView(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = currentProject.name,
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    style = AppTextStyles.pageTitle,
                                 )
                                 currentProject.description?.takeIf { it.isNotBlank() }?.let { desc ->
                                     Text(
                                         text = desc,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = AppTextStyles.bodySecondary,
                                         modifier = Modifier.padding(top = Spacing.extraSmall),
                                     )
                                 }
@@ -273,7 +269,7 @@ fun projectView(
                                         Icon(
                                             imageVector = Icons.Default.MoreVert,
                                             contentDescription = stringResource("project.menu.tooltip"),
-                                            tint = MaterialTheme.colorScheme.onSurface,
+                                            tint = AppTextStyles.primaryContent,
                                         )
                                     }
                                 }
@@ -322,9 +318,7 @@ fun projectView(
                     if (projectSessions.isNotEmpty()) {
                         Text(
                             text = stringResource("project.recent.chats"),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            style = AppTextStyles.sectionTitle,
                             modifier = Modifier.padding(bottom = Spacing.medium),
                         )
                     }
@@ -333,8 +327,7 @@ fun projectView(
                     if (projectSessions.isEmpty()) {
                         Text(
                             text = stringResource("project.no.chats"),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.bodySecondary,
                             modifier = Modifier.padding(vertical = Spacing.large),
                         )
                     } else {
@@ -516,7 +509,7 @@ private fun sessionCard(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.Chat,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = AppTextStyles.secondaryContent,
             )
 
             Column(
@@ -525,17 +518,14 @@ private fun sessionCard(
                 sessionTooltip(session = session) {
                     Text(
                         text = session.title,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Normal,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = AppTextStyles.body,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
                 Text(
                     text = TimeUtil.formatDisplay(session.updatedAt),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.caption,
                 )
             }
 
@@ -550,7 +540,7 @@ private fun sessionCard(
                         Icon(
                             Icons.Default.MoreVert,
                             contentDescription = "More options",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = AppTextStyles.secondaryContent,
                             modifier = Modifier.size(18.dp),
                         )
                     }
@@ -660,15 +650,14 @@ private fun knowledgeSourcesPanel(
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.LibraryBooks,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface,
+                            tint = AppTextStyles.primaryContent,
                             modifier = Modifier.size(20.dp),
                         )
 
                         Text(
                             text = stringResource("projects.sources.count", currentProject.knowledgeSources.size),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = AppTextStyles.body,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
                         )
 
                         // ── Indexed badge ──────────────────────────────────
@@ -681,8 +670,7 @@ private fun knowledgeSourcesPanel(
                                     successIcon(size = 14.dp)
                                     Text(
                                         text = stringResource("project.indexing.ready.label"),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = AppTextStyles.hint,
                                     )
                                 }
                             }
@@ -700,7 +688,7 @@ private fun knowledgeSourcesPanel(
                             } else {
                                 stringResource("projects.sources.expand")
                             },
-                            tint = MaterialTheme.colorScheme.onSurface,
+                            tint = AppTextStyles.primaryContent,
                             modifier = Modifier.rotate(rotation),
                         )
 
@@ -725,15 +713,14 @@ private fun knowledgeSourcesPanel(
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.LibraryBooks,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface,
+                            tint = AppTextStyles.primaryContent,
                             modifier = Modifier.size(20.dp),
                         )
 
                         Text(
                             text = stringResource("projects.sources.empty.title"),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = AppTextStyles.body,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
                 }
@@ -759,7 +746,7 @@ private fun knowledgeSourcesPanel(
                         )
                         Text(
                             text = stringResource("projects.sources.guide"),
-                            style = MaterialTheme.typography.bodySmall,
+                            style = AppTextStyles.caption,
                             modifier = Modifier.padding(start = 4.dp),
                         )
                     }
@@ -772,7 +759,7 @@ private fun knowledgeSourcesPanel(
                             Icon(
                                 imageVector = Icons.Default.Add,
                                 contentDescription = stringResource("projects.sources.add.tooltip"),
-                                tint = MaterialTheme.colorScheme.onSurface,
+                                tint = AppTextStyles.primaryContent,
                             )
                         }
                     }
@@ -817,9 +804,8 @@ private fun knowledgeSourcesPanel(
                         groupedSources.forEach { (groupName, sources) ->
                             Text(
                                 text = groupName,
-                                style = MaterialTheme.typography.labelMedium,
+                                style = AppTextStyles.fieldLabel,
                                 fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
                             )
                             sources.forEach { source ->
@@ -845,7 +831,7 @@ private fun knowledgeSourcesPanel(
                     )
                     Text(
                         text = stringResource("projects.sources.empty.description"),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = AppTextStyles.caption,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                     )
                 }
@@ -874,12 +860,11 @@ private fun knowledgeSourceItem(
         ) {
             Text(
                 text = "•",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = AppTextStyles.caption,
             )
             Text(
                 text = source.resourceIdentifier,
-                style = MaterialTheme.typography.bodySmall,
+                style = AppTextStyles.caption,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -928,8 +913,7 @@ private fun indexProgressIndicator(
                 )
                 Text(
                     text = stringResource("project.indexing.queued", indexProgress.blockedByName!!),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.caption,
                 )
             }
         }
@@ -949,15 +933,13 @@ private fun indexProgressIndicator(
                     indexProgress.resourceIdentifier?.let { resourceIdentifier ->
                         Text(
                             text = stringResource("project.indexing.label", resourceIdentifier),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.caption,
                         )
                     }
                     if (indexProgress.totalFiles > 0) {
                         Text(
                             text = "${indexProgress.processedFiles} / ${indexProgress.totalFiles} (${indexProgress.progressPercentFormatted}%)",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.caption,
                         )
                     }
                 }
@@ -1008,7 +990,7 @@ private fun indexProgressIndicator(
                     }
                     Text(
                         text = "$file$elapsedText",
-                        style = MaterialTheme.typography.labelSmall,
+                        style = AppTextStyles.hint,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -1033,8 +1015,7 @@ private fun indexProgressIndicator(
                 Text(
                     text = indexProgress.error
                         ?: stringResource("project.indexing.failed"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
+                    style = AppTextStyles.errorText,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -1079,19 +1060,18 @@ private fun skippedFilesWarning(skippedFileNames: List<String>) {
             Icon(
                 imageVector = Icons.Default.Info,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = AppTextStyles.secondaryContent,
                 modifier = Modifier.size(14.dp),
             )
             Text(
                 text = "${skippedFileNames.size} file(s) skipped — no extractable text (e.g. image-only PDFs)",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = AppTextStyles.hint,
                 modifier = Modifier.weight(1f),
             )
             Icon(
                 imageVector = Icons.Default.KeyboardArrowDown,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = AppTextStyles.secondaryContent,
                 modifier = Modifier
                     .size(16.dp)
                     .rotate(rotation),
@@ -1112,7 +1092,7 @@ private fun skippedFilesWarning(skippedFileNames: List<String>) {
                 skippedFileNames.forEach { name ->
                     Text(
                         text = "• $name",
-                        style = MaterialTheme.typography.labelSmall,
+                        style = AppTextStyles.hint,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                     )
                 }

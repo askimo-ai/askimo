@@ -49,6 +49,7 @@ import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.telemetry.TelemetryMetrics
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.util.formatDuration
@@ -91,9 +92,7 @@ internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
                 ) {
                     Text(
                         text = stringResource("telemetry.title"),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.SemiBold,
+                        style = AppTextStyles.itemTitle,
                     )
 
                     if (metrics.ragClassificationTotal > 0 || metrics.llmCallsByInstance.isNotEmpty()) {
@@ -116,8 +115,7 @@ internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
                 if (metrics.ragClassificationTotal == 0 && metrics.llmCallsByInstance.isEmpty()) {
                     Text(
                         text = stringResource("telemetry.no.data"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.bodySecondary,
                         modifier = Modifier.padding(vertical = Spacing.small),
                     )
                     return@Column
@@ -127,8 +125,7 @@ internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
                 if (metrics.ragClassificationTotal > 0) {
                     Text(
                         text = stringResource("telemetry.tab.rag"),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = AppTextStyles.fieldLabel,
                         fontWeight = FontWeight.SemiBold,
                     )
 
@@ -192,8 +189,7 @@ internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
 
                     Text(
                         text = stringResource("telemetry.tab.llm"),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = AppTextStyles.fieldLabel,
                         fontWeight = FontWeight.SemiBold,
                     )
 
@@ -303,7 +299,7 @@ private fun llmTableHeader(
     sortAscending: Boolean,
     onSort: (LlmSortColumn) -> Unit,
 ) {
-    val headerStyle = MaterialTheme.typography.labelSmall
+    val headerStyle = AppTextStyles.hint
     val activeColor = MaterialTheme.colorScheme.onSurface
     val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant
 
@@ -353,7 +349,7 @@ private fun llmTableHeader(
 
 @Composable
 private fun llmTableDataRow(row: LlmRow) {
-    val style = MaterialTheme.typography.bodySmall
+    val style = AppTextStyles.caption
     val secondary = MaterialTheme.colorScheme.onSurfaceVariant
 
     Row(
@@ -390,7 +386,7 @@ private fun llmTableRow(
     isHeader: Boolean = false,
     errorsIsError: Boolean = false,
 ) {
-    val style = if (isHeader) MaterialTheme.typography.labelSmall else MaterialTheme.typography.bodySmall
+    val style = if (isHeader) AppTextStyles.hint else AppTextStyles.caption
     val fontWeight = if (isHeader) FontWeight.SemiBold else FontWeight.Normal
     val defaultColor = MaterialTheme.colorScheme.onSurface
     val secondaryColor = if (isHeader) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
@@ -427,14 +423,13 @@ private fun telemetryStat(
     ) {
         Text(
             text = value,
-            style = MaterialTheme.typography.bodyMedium,
+            style = AppTextStyles.body,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = AppTextStyles.hint,
         )
     }
 }
@@ -461,27 +456,24 @@ private fun telemetryMetricCard(
                 themedTooltip(text = valueTooltip) {
                     Text(
                         text = value,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = AppTextStyles.sectionTitle,
                         fontWeight = FontWeight.Bold,
                     )
                 }
             } else {
                 Text(
                     text = value,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = AppTextStyles.sectionTitle,
                     fontWeight = FontWeight.Bold,
                 )
             }
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = AppTextStyles.hint,
             )
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
+                style = AppTextStyles.caption,
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )

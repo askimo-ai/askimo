@@ -24,6 +24,7 @@ import io.askimo.ui.common.components.dangerButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.components.warningIcon
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 
 /**
@@ -58,16 +59,14 @@ fun reIndexConfirmDialog(
                     warningIcon(size = 32.dp)
                     Text(
                         text = stringResource("panel.reindex.confirm.title"),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = AppTextStyles.pageTitle,
                     )
                 }
 
                 // Confirmation message
                 Text(
                     text = stringResource("panel.reindex.confirm.message", projectName),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.bodySecondary,
                 )
 
                 // Action buttons

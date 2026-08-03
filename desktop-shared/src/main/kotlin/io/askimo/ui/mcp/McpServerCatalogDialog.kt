@@ -35,7 +35,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.mcp.McpServerDefinition
@@ -44,6 +43,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 
 /**
@@ -86,14 +86,11 @@ fun mcpServerCatalogDialog(
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
                 Text(
                     text = stringResource("mcp.catalog.dialog.title"),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = AppTextStyles.pageTitle,
                 )
                 Text(
                     text = stringResource("mcp.catalog.dialog.description"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.bodySecondary,
                 )
             }
         },
@@ -116,7 +113,7 @@ fun mcpServerCatalogDialog(
                     FilterChip(
                         selected = cat == selectedCategory,
                         onClick = { selectedCategory = cat },
-                        label = { Text(cat, style = MaterialTheme.typography.labelSmall) },
+                        label = { Text(cat, style = AppTextStyles.hint) },
                         modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                     )
                 }
@@ -150,8 +147,7 @@ fun mcpServerCatalogDialog(
             ) {
                 Text(
                     text = stringResource("mcp.catalog.search.empty"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.bodySecondary,
                 )
             }
         } else {
@@ -202,16 +198,14 @@ private fun mcpTemplateCatalogCard(
             ) {
                 Text(
                     text = template.name,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = AppTextStyles.itemTitle,
                     modifier = Modifier.weight(1f),
                 )
                 if (isPopular) {
                     Icon(
                         imageVector = Icons.Default.Star,
                         contentDescription = stringResource("mcp.catalog.category.popular"),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = AppTextStyles.secondaryContent,
                         modifier = Modifier.size(14.dp),
                     )
                 }
@@ -219,8 +213,7 @@ private fun mcpTemplateCatalogCard(
 
             Text(
                 text = template.description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = AppTextStyles.caption,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(),
@@ -233,8 +226,7 @@ private fun mcpTemplateCatalogCard(
             }
             Text(
                 text = credentialLabel,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = AppTextStyles.hint,
             )
 
             Spacer(Modifier.height(2.dp))
@@ -243,7 +235,7 @@ private fun mcpTemplateCatalogCard(
                 onClick = onSelect,
                 modifier = Modifier.fillMaxWidth().pointerHoverIcon(PointerIcon.Hand),
             ) {
-                Text(stringResource("mcp.catalog.card.configure"), style = MaterialTheme.typography.labelMedium)
+                Text(stringResource("mcp.catalog.card.configure"), style = AppTextStyles.fieldLabel)
             }
         }
     }

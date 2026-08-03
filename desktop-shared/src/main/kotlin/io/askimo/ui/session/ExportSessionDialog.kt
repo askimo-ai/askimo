@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -51,6 +52,7 @@ import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.export.ExportFormat
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.util.FileDialogUtils
 import java.io.File
@@ -116,13 +118,11 @@ fun exportSessionDialog(
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
                 Text(
                     text = stringResource("session.export.title"),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = AppTextStyles.pageTitle,
                 )
                 Text(
                     text = sessionTitle,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.bodySecondary,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -143,15 +143,13 @@ fun exportSessionDialog(
         // Description
         Text(
             text = stringResource("session.export.description"),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = AppTextStyles.bodySecondary,
         )
 
         // Format selection title
         Text(
             text = stringResource("session.export.select.format"),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
+            style = AppTextStyles.sectionTitle,
         )
 
         // Format cards
@@ -177,8 +175,7 @@ fun exportSessionDialog(
         // File path section
         Text(
             text = stringResource("session.export.location"),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
+            style = AppTextStyles.sectionTitle,
         )
 
         Row(
@@ -201,7 +198,7 @@ fun exportSessionDialog(
                 Icon(
                     imageVector = Icons.Default.FolderOpen,
                     contentDescription = stringResource("session.export.browse"),
-                    tint = MaterialTheme.colorScheme.onSurface,
+                    tint = AppTextStyles.primaryContent,
                 )
             }
         }
@@ -287,34 +284,22 @@ private fun formatCard(
                 ) {
                     Text(
                         text = format.getDisplayName(),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
-                        },
+                        style = AppTextStyles.sectionTitle,
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else Color.Unspecified,
                     )
                     Spacer(modifier = Modifier.width(Spacing.small))
                     Text(
                         text = ".${format.extension}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
+                        style = AppTextStyles.hint,
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f) else Color.Unspecified,
                     )
                 }
 
                 // Description
                 Text(
                     text = format.getDescription(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (isSelected) {
-                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
+                    style = AppTextStyles.caption,
+                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else Color.Unspecified,
                 )
             }
 
@@ -323,7 +308,7 @@ private fun formatCard(
                 Icon(
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = "Selected",
-                    tint = MaterialTheme.colorScheme.onSurface,
+                    tint = AppTextStyles.primaryContent,
                     modifier = Modifier.size(24.dp),
                 )
             }

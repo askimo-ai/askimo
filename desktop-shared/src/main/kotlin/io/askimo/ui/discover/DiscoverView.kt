@@ -59,7 +59,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -73,6 +72,7 @@ import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.components.clickableCard
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.themedTooltip
@@ -194,9 +194,7 @@ private fun headerSection(
     ) {
         Text(
             text = stringResource(greetingKey, firstName),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
+            style = AppTextStyles.pageTitle,
         )
 
         Row(
@@ -227,7 +225,7 @@ private fun headerSection(
                             ) {
                                 Text(
                                     text = stringResource("discover.customize.show_token_usage"),
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = AppTextStyles.body,
                                 )
                                 Spacer(modifier = Modifier.width(Spacing.large))
                                 Switch(
@@ -340,13 +338,12 @@ private fun statCard(
             Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) { icon() }
             Text(
                 text = value,
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
+                style = AppTextStyles.pageTitle,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodyMedium,
+                style = AppTextStyles.body,
                 color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f),
             )
         }
@@ -391,9 +388,7 @@ private fun tokenUsageSection(
                 )
                 Text(
                     text = stringResource("discover.tokens.title"),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    style = AppTextStyles.sectionTitle,
                 )
             }
 
@@ -405,8 +400,7 @@ private fun tokenUsageSection(
                     Text(
                         // abbreviateTokens uses LocalizationManager internally
                         text = stringResource("discover.tokens.total", abbreviateTokens(totalTokens)),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.caption,
                     )
                     IconButton(
                         onClick = onOpenSystemDiagnostics,
@@ -436,8 +430,7 @@ private fun tokenUsageSection(
                 ) {
                     Text(
                         text = stringResource("discover.tokens.empty"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.bodySecondary,
                     )
                 }
             } else {
@@ -492,16 +485,13 @@ private fun tokenBarRow(
             Column(modifier = Modifier.width(160.dp)) {
                 Text(
                     text = model,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = AppTextStyles.caption,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = provider,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.hint,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -527,9 +517,7 @@ private fun tokenBarRow(
         themedTooltip(text = LocalizationManager.formatNumber(tokens)) {
             Text(
                 text = abbreviateTokens(tokens),
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = AppTextStyles.caption,
                 textAlign = TextAlign.End,
                 modifier = Modifier.width(52.dp),
             )
@@ -538,8 +526,7 @@ private fun tokenBarRow(
         // Percentage
         Text(
             text = pctFormatted,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = AppTextStyles.hint,
             textAlign = TextAlign.End,
             modifier = Modifier.width(40.dp),
         )
@@ -563,9 +550,7 @@ private fun exploreFeaturesSection() {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
         Text(
             text = stringResource("discover.explore.title"),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onBackground,
+            style = AppTextStyles.sectionTitle,
         )
         Row(
             modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
@@ -609,8 +594,8 @@ private fun exploreCard(
                 icon()
                 Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
             }
-            Text(text = title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(text = description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.82f))
+            Text(text = title, style = AppTextStyles.itemTitle)
+            Text(text = description, style = AppTextStyles.caption)
         }
     }
 }
@@ -625,16 +610,13 @@ private fun recentSessionsSection(
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
         Text(
             text = stringResource("discover.recent.title"),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onBackground,
+            style = AppTextStyles.sectionTitle,
         )
 
         if (sessions.isEmpty()) {
             Text(
                 text = stringResource("discover.recent.empty"),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = AppTextStyles.bodySecondary,
                 modifier = Modifier.padding(vertical = 8.dp),
             )
         } else {
@@ -684,10 +666,10 @@ private fun recentSessionRow(
         ) {
             Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
             sessionTooltip(session = session) {
-                Text(text = session.title, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(text = session.title, style = AppTextStyles.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         Spacer(modifier = Modifier.width(16.dp))
-        Text(text = TimeUtil.formatDisplay(session.updatedAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(text = TimeUtil.formatDisplay(session.updatedAt), style = AppTextStyles.caption)
     }
 }

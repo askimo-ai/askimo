@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -23,6 +22,7 @@ import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import java.awt.Desktop
 import java.net.URI
@@ -37,7 +37,7 @@ fun aboutDialog(
         title = {
             Text(
                 text = stringResource("about.title", VersionInfo.name),
-                style = MaterialTheme.typography.headlineSmall,
+                style = AppTextStyles.pageTitle,
             )
         },
         text = {
@@ -58,18 +58,16 @@ fun aboutDialog(
                     ) {
                         Text(
                             text = VersionInfo.name,
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+
+                            style = AppTextStyles.sectionTitle,
                         )
                         Text(
                             text = "${stringResource("about.version")} ${VersionInfo.version}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            style = AppTextStyles.body,
                         )
                         Text(
                             text = "${stringResource("about.buildDate")}: ${VersionInfo.buildDate}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            style = AppTextStyles.caption,
                         )
                         linkButton(
                             onClick = {
@@ -82,7 +80,7 @@ fun aboutDialog(
                         ) {
                             Text(
                                 text = "https://$DOMAIN",
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = AppTextStyles.body,
                             )
                         }
                     }
@@ -99,13 +97,11 @@ fun aboutDialog(
                     ) {
                         Text(
                             text = stringResource("about.description"),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            style = AppTextStyles.sectionTitle,
                         )
                         Text(
                             text = stringResource("about.description.text"),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            style = AppTextStyles.body,
                         )
                     }
                 }
@@ -121,18 +117,15 @@ fun aboutDialog(
                     ) {
                         Text(
                             text = stringResource("about.license"),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            style = AppTextStyles.sectionTitle,
                         )
                         Text(
                             text = VersionInfo.license,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            style = AppTextStyles.body,
                         )
                         Text(
                             text = stringResource("about.copyright", Year.now().value, VersionInfo.author),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            style = AppTextStyles.caption,
                         )
                     }
                 }

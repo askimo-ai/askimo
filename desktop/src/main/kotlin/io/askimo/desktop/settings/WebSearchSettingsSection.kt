@@ -50,6 +50,7 @@ import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.clickableCard
@@ -82,14 +83,13 @@ fun webSearchSettingsSection() {
             ) {
                 Text(
                     text = stringResource("settings.web_search"),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    style = AppTextStyles.pageTitle,
                     modifier = Modifier.padding(bottom = Spacing.small),
                 )
 
                 Text(
                     text = stringResource("settings.web_search.description"),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = AppTextStyles.bodySecondary,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                 )
 
@@ -162,8 +162,7 @@ private fun webSearchConfigCard() {
             ) {
                 Text(
                     text = stringResource("settings.web_search.title"),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    style = AppTextStyles.sectionTitle,
                     modifier = Modifier.weight(1f),
                 )
                 Row(
@@ -172,8 +171,7 @@ private fun webSearchConfigCard() {
                 ) {
                     Text(
                         text = stringResource("settings.web_search.enabled"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                        style = AppTextStyles.caption,
                     )
                     Switch(
                         checked = enabled,
@@ -188,8 +186,7 @@ private fun webSearchConfigCard() {
 
             Text(
                 text = stringResource("settings.web_search.description"),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                style = AppTextStyles.caption,
             )
 
             // ── Zero-config info banner ───────────────────────────────────────────
@@ -213,7 +210,7 @@ private fun webSearchConfigCard() {
                     )
                     Text(
                         text = stringResource("settings.web_search.zero_config_note"),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = AppTextStyles.caption,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                 }
@@ -229,8 +226,7 @@ private fun webSearchConfigCard() {
             ) {
                 Text(
                     text = stringResource("settings.web_search.backend"),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    style = AppTextStyles.fieldLabel,
                     modifier = Modifier.weight(1f).padding(end = Spacing.large),
                 )
 
@@ -255,8 +251,7 @@ private fun webSearchConfigCard() {
                             ) {
                                 Text(
                                     text = stringResource("settings.web_search.backend.${backend.name.lowercase()}"),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    style = AppTextStyles.body,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f).padding(end = Spacing.small),
@@ -264,7 +259,7 @@ private fun webSearchConfigCard() {
                                 Icon(
                                     Icons.Default.Edit,
                                     contentDescription = "Change backend",
-                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    tint = AppTextStyles.primaryContent,
                                 )
                             }
                         }
@@ -281,12 +276,11 @@ private fun webSearchConfigCard() {
                                     Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
                                         Text(
                                             text = stringResource("settings.web_search.backend.${b.name.lowercase()}"),
-                                            style = MaterialTheme.typography.bodyMedium,
+                                            style = AppTextStyles.body,
                                         )
                                         Text(
                                             text = stringResource("settings.web_search.backend.${b.name.lowercase()}.description"),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = AppTextStyles.caption,
                                         )
                                     }
                                 },
@@ -385,7 +379,7 @@ private fun webSearchConfigCard() {
                             is TestStatus.Failure -> stringResource("settings.web_search.test.fail")
                                 .replace("{0}", status.message)
                         },
-                        style = MaterialTheme.typography.bodySmall,
+                        style = AppTextStyles.caption,
                         color = when (status) {
                             is TestStatus.Success -> MaterialTheme.colorScheme.primary
                             is TestStatus.Failure -> MaterialTheme.colorScheme.error
@@ -424,7 +418,7 @@ private fun braveApiKeyField(
             Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(14.dp))
             Text(
                 text = stringResource("settings.web_search.get_api_key"),
-                style = MaterialTheme.typography.bodySmall,
+                style = AppTextStyles.caption,
                 modifier = Modifier.padding(start = 4.dp),
             )
         }
@@ -456,7 +450,7 @@ private fun tavilyApiKeyField(
             Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(14.dp))
             Text(
                 text = stringResource("settings.web_search.get_api_key"),
-                style = MaterialTheme.typography.bodySmall,
+                style = AppTextStyles.caption,
                 modifier = Modifier.padding(start = 4.dp),
             )
         }

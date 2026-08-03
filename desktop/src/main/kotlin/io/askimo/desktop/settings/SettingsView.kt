@@ -50,10 +50,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.LocalBackgroundActive
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
@@ -116,18 +116,16 @@ fun settingsViewWithSidebar(
                     },
                     contentDescription = "Askimo",
                     modifier = Modifier.size(48.dp),
-                    tint = MaterialTheme.colorScheme.onSurface,
+                    tint = AppTextStyles.primaryContent,
                 )
                 Text(
                     text = "Askimo",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = AppTextStyles.pageTitle,
                 )
                 Text(
                     text = stringResource("settings.title"),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    style = AppTextStyles.pageTitle,
+                    color = AppTextStyles.secondaryContent,
                 )
             }
             IconButton(
@@ -137,7 +135,7 @@ fun settingsViewWithSidebar(
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = stringResource("action.close"),
-                    tint = MaterialTheme.colorScheme.onSurface,
+                    tint = AppTextStyles.primaryContent,
                 )
             }
         }
@@ -339,7 +337,7 @@ private fun settingsSidebarItem(
             )
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyMedium,
+                style = AppTextStyles.body,
                 color = if (isSelected) {
                     MaterialTheme.colorScheme.onPrimaryContainer
                 } else {

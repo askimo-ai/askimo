@@ -20,6 +20,7 @@ import io.askimo.ui.common.components.dangerButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 
 /**
@@ -49,14 +50,14 @@ fun deleteSessionDialog(
                 )
                 Text(
                     text = stringResource("session.delete.confirm.title"),
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = AppTextStyles.pageTitle,
                 )
             }
         },
         text = {
             Text(
                 text = stringResource("session.delete.confirm.message", sessionTitle),
-                style = MaterialTheme.typography.bodyMedium,
+                style = AppTextStyles.body,
             )
         },
         dismissButton = {

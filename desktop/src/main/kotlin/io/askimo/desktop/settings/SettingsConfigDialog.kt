@@ -33,6 +33,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import io.askimo.core.providers.SettingField
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -46,7 +47,7 @@ fun settingsConfigDialog(
         title = {
             Text(
                 text = stringResource("settings.configure.title", viewModel.provider?.name ?: ""),
-                style = MaterialTheme.typography.headlineSmall,
+                style = AppTextStyles.pageTitle,
             )
         },
         text = {
@@ -103,12 +104,11 @@ fun settingsConfigDialog(
                                                 Column {
                                                     Text(
                                                         text = option.label,
-                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        style = AppTextStyles.body,
                                                     )
                                                     Text(
                                                         text = option.description,
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        style = AppTextStyles.caption,
                                                     )
                                                 }
                                             },

@@ -58,6 +58,7 @@ import io.askimo.ui.common.components.rememberDialogState
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -109,8 +110,7 @@ fun editProjectDialog(
                 title = {
                     Text(
                         text = stringResource("project.edit.dialog.title"),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = AppTextStyles.pageTitle,
                     )
                 },
                 content = {
@@ -264,8 +264,7 @@ private fun editProjectFormDialog(
         title = {
             Text(
                 text = stringResource("project.edit.dialog.title"),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = AppTextStyles.pageTitle,
             )
         },
         stickyHeader = {
@@ -305,8 +304,7 @@ private fun editProjectFormDialog(
             ) {
                 Text(
                     text = stringResource("project.new.dialog.sources.label"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = AppTextStyles.body,
                 )
 
                 knowledgeSources.forEach { source ->
@@ -347,13 +345,12 @@ private fun editProjectFormDialog(
                                 Icon(
                                     typeInfo.icon,
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    tint = AppTextStyles.primaryContent,
                                     modifier = Modifier.size(20.dp),
                                 )
                                 Text(
                                     text = stringResource(typeInfo.typeLabelKey),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    style = AppTextStyles.body,
                                 )
                             }
                             if (index < KnowledgeSourceItem.availableTypes.lastIndex) {
@@ -418,11 +415,11 @@ fun knowledgeSourceRow(
                 source.typeInfo.icon,
                 contentDescription = null,
                 modifier = Modifier.padding(end = Spacing.small).size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurface,
+                tint = AppTextStyles.primaryContent,
             )
             Text(
                 text = source.displayName,
-                style = MaterialTheme.typography.bodyMedium,
+                style = AppTextStyles.body,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -430,7 +427,7 @@ fun knowledgeSourceRow(
                 Icon(
                     Icons.Default.CheckCircle,
                     contentDescription = "Valid",
-                    tint = MaterialTheme.colorScheme.onSurface,
+                    tint = AppTextStyles.primaryContent,
                     modifier = Modifier.size(16.dp).padding(start = 4.dp),
                 )
             } else {

@@ -29,6 +29,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 
 @Composable
@@ -63,8 +64,7 @@ fun editDirectiveDialog(
             ) {
                 Text(
                     text = stringResource("directive.edit.title"),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = AppTextStyles.pageTitle,
                 )
 
                 OutlinedTextField(

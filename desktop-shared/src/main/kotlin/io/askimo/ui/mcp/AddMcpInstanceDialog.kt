@@ -39,7 +39,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import dev.langchain4j.agent.tool.ToolSpecification
@@ -59,6 +58,7 @@ import io.askimo.ui.common.components.rememberDialogState
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -360,9 +360,7 @@ fun addMcpInstanceDialog(
                             "mcp.instance.add.dialog.title"
                         },
                     ),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = AppTextStyles.pageTitle,
                 )
                 Text(
                     text = stringResource(
@@ -372,8 +370,7 @@ fun addMcpInstanceDialog(
                             "mcp.instance.add.dialog.description"
                         },
                     ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.bodySecondary,
                 )
             }
         },
@@ -489,13 +486,12 @@ fun addMcpInstanceDialog(
                             "mcp.instance.template.advanced.show"
                         },
                     ),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.fieldLabel,
                 )
                 Icon(
                     imageVector = if (showAdvanced) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = AppTextStyles.secondaryContent,
                     modifier = Modifier.size(16.dp),
                 )
             }
@@ -542,15 +538,12 @@ fun addMcpInstanceDialog(
         // Connection Status Section
         Text(
             text = stringResource("mcp.instance.connection.status"),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
+            style = AppTextStyles.sectionTitle,
         )
 
         Text(
             text = stringResource("mcp.instance.connection.info"),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = AppTextStyles.caption,
         )
 
         // Show test result
@@ -562,7 +555,7 @@ fun addMcpInstanceDialog(
             ) {
                 Text(
                     text = if (success) "✅" else "❌",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = AppTextStyles.body,
                 )
                 Text(
                     text = stringResource(
@@ -572,13 +565,12 @@ fun addMcpInstanceDialog(
                             "mcp.instance.test.failed"
                         },
                     ),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = AppTextStyles.body,
                     color = if (success) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                        AppTextStyles.secondaryContent
                     } else {
                         MaterialTheme.colorScheme.error
                     },
-                    fontWeight = FontWeight.Medium,
                 )
             }
         }
@@ -589,15 +581,12 @@ fun addMcpInstanceDialog(
 
             Text(
                 text = stringResource("mcp.instance.tools.title"),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = AppTextStyles.sectionTitle,
             )
 
             Text(
                 text = stringResource("mcp.instance.tools.count", availableTools.size.toString()),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = AppTextStyles.caption,
                 modifier = Modifier.padding(vertical = Spacing.small),
             )
 
@@ -622,15 +611,12 @@ fun addMcpInstanceDialog(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = toolSpec.name(),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    style = AppTextStyles.body,
                                 )
                                 toolSpec.description()?.let { desc ->
                                     Text(
                                         text = desc,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = AppTextStyles.caption,
                                     )
                                 }
                             }
@@ -668,7 +654,7 @@ private fun templateParameterFields(
         ) {
             Text(
                 text = stringResource("mcp.instance.template.no.credentials"),
-                style = MaterialTheme.typography.bodySmall,
+                style = AppTextStyles.caption,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
                 modifier = Modifier.padding(Spacing.medium),
             )
@@ -679,14 +665,11 @@ private fun templateParameterFields(
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
         Text(
             text = stringResource("mcp.instance.template.config.title"),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
+            style = AppTextStyles.sectionTitle,
         )
         Text(
             text = stringResource("mcp.instance.template.config.description"),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = AppTextStyles.caption,
         )
 
         template.parameters.forEach { param ->
@@ -755,9 +738,7 @@ private fun advancedTransportFields(
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
         Text(
             text = stringResource("mcp.instance.field.transport"),
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
+            style = AppTextStyles.groupTitle,
         )
         SecondaryTabRow(
             selectedTabIndex = selectedTab,

@@ -27,6 +27,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppTextStyles
 import java.time.Duration
 import java.time.Instant
 
@@ -103,7 +104,7 @@ private fun modeTab(label: String, active: Boolean, onClick: () -> Unit) {
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
+            style = AppTextStyles.hint,
             fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
             color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
         )

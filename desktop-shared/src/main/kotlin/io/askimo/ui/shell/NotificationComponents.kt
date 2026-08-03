@@ -48,7 +48,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -63,6 +62,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.AccountPreferences
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import java.awt.Desktop
 import java.net.URI
@@ -151,7 +151,7 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
             ) {
                 Text(
                     text = if (unreadCount > 9) "9+" else unreadCount.toString(),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = AppTextStyles.hint,
                     fontSize = 9.sp,
                     color = MaterialTheme.colorScheme.onError,
                     maxLines = 1,
@@ -239,9 +239,7 @@ fun notificationPopup(
         ) {
             Text(
                 text = "Notifications (${events.size})",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = AppTextStyles.sectionTitle,
             )
 
             if (events.isNotEmpty()) {
@@ -252,8 +250,7 @@ fun notificationPopup(
                 ) {
                     Text(
                         text = stringResource("event.notification.clear.all"),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = AppTextStyles.fieldLabel,
                     )
                 }
             }
@@ -264,8 +261,7 @@ fun notificationPopup(
         if (events.isEmpty()) {
             Text(
                 text = stringResource("event.notification.empty"),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = AppTextStyles.body,
                 modifier = Modifier.padding(Spacing.large),
             )
         } else {
@@ -314,8 +310,7 @@ fun notificationPopup(
                                 HorizontalDivider(modifier = Modifier.weight(1f))
                                 Text(
                                     text = stringResource("event.notification.group.errors"),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                    style = AppTextStyles.hint,
                                 )
                                 HorizontalDivider(modifier = Modifier.weight(1f))
                             }
@@ -430,8 +425,7 @@ fun notificationEventCard(
                     }
                     Text(
                         text = eventName,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
+                        style = AppTextStyles.itemTitle,
                         color = contentColor,
                     )
                 }
@@ -443,7 +437,7 @@ fun notificationEventCard(
                 ) {
                     Text(
                         text = stringResource("event.notification.clear"),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = AppTextStyles.hint,
                         color = contentColor,
                     )
                 }
@@ -465,8 +459,7 @@ fun notificationEventCard(
                     ) {
                         Text(
                             text = "v${event.currentVersion} → v${event.latestVersion}",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
+                            style = AppTextStyles.fieldLabel,
                             color = contentColor,
                         )
                     }
@@ -476,7 +469,7 @@ fun notificationEventCard(
 
             Text(
                 text = formatInstantDisplay(event.timestamp),
-                style = MaterialTheme.typography.bodySmall,
+                style = AppTextStyles.caption,
                 color = contentColor.copy(alpha = 0.7f),
             )
 
@@ -484,7 +477,7 @@ fun notificationEventCard(
                 SelectionContainer {
                     Text(
                         text = event.getDetails(),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = AppTextStyles.caption,
                         color = contentColor,
                     )
                 }
@@ -505,7 +498,7 @@ fun notificationEventCard(
                         } else {
                             stringResource("event.shell.error.cause.show")
                         },
-                        style = MaterialTheme.typography.labelSmall,
+                        style = AppTextStyles.hint,
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
@@ -514,7 +507,8 @@ fun notificationEventCard(
                     SelectionContainer {
                         Text(
                             text = event.cause.stackTraceToString(),
-                            style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+                            style = AppTextStyles.hint,
+                            fontFamily = FontFamily.Monospace,
                             color = contentColor.copy(alpha = 0.85f),
                         )
                     }
@@ -537,7 +531,7 @@ fun notificationEventCard(
                     ) {
                         Text(
                             text = stringResource("event.details.action"),
-                            style = MaterialTheme.typography.labelMedium,
+                            style = AppTextStyles.fieldLabel,
                         )
                     }
                     primaryButton(
@@ -551,8 +545,7 @@ fun notificationEventCard(
                     ) {
                         Text(
                             text = stringResource("event.update.download"),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
+                            style = AppTextStyles.fieldLabel,
                         )
                     }
                 }

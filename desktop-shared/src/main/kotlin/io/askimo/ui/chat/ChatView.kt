@@ -103,6 +103,7 @@ import io.askimo.ui.common.keymap.KeyMapManager
 import io.askimo.ui.common.keymap.KeyMapManager.AppShortcut
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.LocalBackgroundActive
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
@@ -551,7 +552,7 @@ fun chatView(
                                             ) {
                                                 Text(
                                                     text = project.name.take(3).uppercase(),
-                                                    style = MaterialTheme.typography.labelMedium,
+                                                    style = AppTextStyles.fieldLabel,
                                                     fontWeight = FontWeight.Bold,
                                                 )
                                             }
@@ -696,14 +697,13 @@ fun chatView(
                                                             )
                                                             Text(
                                                                 text = stringResource("chat.bookmarks.popover.empty.title"),
-                                                                style = MaterialTheme.typography.bodyMedium,
+                                                                style = AppTextStyles.body,
                                                                 color = MaterialTheme.colorScheme.onSurface,
                                                             )
                                                         }
                                                         Text(
                                                             text = stringResource("chat.bookmarks.popover.empty.hint"),
-                                                            style = MaterialTheme.typography.bodySmall,
-                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            style = AppTextStyles.caption,
                                                         )
                                                     }
                                                 },
@@ -717,7 +717,7 @@ fun chatView(
                                         } else {
                                             Text(
                                                 text = "${stringResource("chat.bookmarks.popover.title")} (${pinnedMessages.size})",
-                                                style = MaterialTheme.typography.labelMedium,
+                                                style = AppTextStyles.fieldLabel,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 modifier = Modifier.padding(horizontal = Spacing.large, vertical = Spacing.medium),
                                             )
@@ -731,7 +731,7 @@ fun chatView(
                                                             text = msg.content.take(200).let {
                                                                 if (msg.content.length > 200) "$it…" else it
                                                             },
-                                                            style = MaterialTheme.typography.bodySmall,
+                                                            style = AppTextStyles.caption,
                                                             color = MaterialTheme.colorScheme.onSurface,
                                                             maxLines = 6,
                                                             overflow = TextOverflow.Ellipsis,
@@ -789,7 +789,7 @@ fun chatView(
                                                                 ) {
                                                                     Text(
                                                                         text = msg.content.take(120),
-                                                                        style = MaterialTheme.typography.bodyMedium,
+                                                                        style = AppTextStyles.body,
                                                                         color = MaterialTheme.colorScheme.onSurface,
                                                                         maxLines = 3,
                                                                         overflow = TextOverflow.Ellipsis,
@@ -798,7 +798,7 @@ fun chatView(
                                                                     msg.timestamp?.let { ts ->
                                                                         Text(
                                                                             text = formatDisplay(ts),
-                                                                            style = MaterialTheme.typography.labelSmall,
+                                                                            style = AppTextStyles.hint,
                                                                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                                                         )
                                                                     }
@@ -888,7 +888,7 @@ fun chatView(
                                     } else {
                                         "${currentSearchResultIndex + 1}/${searchResults.size}"
                                     },
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = AppTextStyles.caption,
                                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                                     modifier = Modifier.padding(horizontal = 8.dp),
                                 )
@@ -1264,7 +1264,7 @@ fun chatView(
                         )
                         Text(
                             text = stringResource("chat.drop.files"),
-                            style = MaterialTheme.typography.titleMedium,
+                            style = AppTextStyles.sectionTitle,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                             textAlign = TextAlign.Center,

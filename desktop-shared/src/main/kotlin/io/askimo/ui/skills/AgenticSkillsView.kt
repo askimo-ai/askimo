@@ -68,6 +68,7 @@ import io.askimo.core.util.AskimoHome
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.TooltipPlacement
 import io.askimo.ui.common.ui.themedTooltip
@@ -190,9 +191,7 @@ private fun agenticContent(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = stringResource("skills.view.title"),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground,
+                            style = AppTextStyles.pageTitle,
                         )
                         val runtimes = ExternalAgentLoader.displayNames()
                         val runtimesLabel = runtimes.mapIndexed { i, r ->
@@ -201,8 +200,7 @@ private fun agenticContent(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = stringResource("settings.skills.description", runtimesLabel),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.bodySecondary,
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(
@@ -211,8 +209,7 @@ private fun agenticContent(
                         ) {
                             Text(
                                 text = stringResource("settings.skills.runtimes"),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = AppTextStyles.caption,
                             )
                             runtimes.forEach { runtime ->
                                 Surface(
@@ -221,8 +218,7 @@ private fun agenticContent(
                                 ) {
                                     Text(
                                         text = runtime,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = AppTextStyles.hint,
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                                     )
                                 }
@@ -354,9 +350,8 @@ private fun agenticWorkspacePanel(
                         )
                         Text(
                             text = stringResource("skills.view.workspace"),
-                            style = MaterialTheme.typography.labelMedium,
+                            style = AppTextStyles.fieldLabel,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.weight(1f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,

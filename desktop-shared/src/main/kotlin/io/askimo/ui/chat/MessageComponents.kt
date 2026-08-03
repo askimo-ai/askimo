@@ -98,6 +98,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.markdownText
 import io.askimo.ui.common.ui.revealingMarkdownText
@@ -119,7 +120,6 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import kotlin.time.Duration.Companion.milliseconds
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun messageList(
     messages: List<ChatMessageDTO>,
@@ -176,7 +176,7 @@ fun messageList(
             ) {
                 Text(
                     text = stringResource("message.loading.previous"),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = AppTextStyles.bodySecondary,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
             }
@@ -265,7 +265,7 @@ fun messageList(
             ) {
                 Text(
                     text = "$spinnerFrame ${stringResource("message.thinking", thinkingElapsedSeconds)}",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = AppTextStyles.bodySecondary,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
             }
@@ -471,13 +471,13 @@ private fun userMessageBubble(
                                         activeHighlightColor = Color(0xFFFF8F00), // amber-800 — bold active match
                                     ),
                                     modifier = Modifier.padding(Spacing.medium),
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = AppTextStyles.body,
                                 )
                             } else {
                                 Text(
                                     text = message.content,
                                     modifier = Modifier.padding(Spacing.medium),
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = AppTextStyles.body,
                                 )
                             }
                         }
@@ -485,7 +485,7 @@ private fun userMessageBubble(
                         if (isOutdatedMessage) {
                             Text(
                                 text = stringResource("outdated.label"),
-                                style = MaterialTheme.typography.labelSmall,
+                                style = AppTextStyles.hint,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                 fontStyle = FontStyle.Italic,
                                 modifier = Modifier.padding(start = Spacing.medium, end = Spacing.medium, bottom = Spacing.small, top = Spacing.extraSmall),
@@ -535,7 +535,7 @@ private fun userMessageBubble(
                             .background(MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.small)
                             .padding(horizontal = Spacing.large, vertical = Spacing.small),
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        style = MaterialTheme.typography.labelLarge,
+                        style = AppTextStyles.groupTitle,
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                 }
@@ -573,7 +573,7 @@ private fun userMessageBubble(
                                             imageVector = Icons.Default.ContentCopy,
                                             contentDescription = stringResource("message.copy.description"),
                                             modifier = Modifier.size(16.dp),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            tint = AppTextStyles.secondaryContent,
                                         )
                                     }
                                 }
@@ -588,7 +588,7 @@ private fun userMessageBubble(
                                                 imageVector = Icons.Default.Edit,
                                                 contentDescription = stringResource("message.edit.description"),
                                                 modifier = Modifier.size(16.dp),
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                tint = AppTextStyles.secondaryContent,
                                             )
                                         }
                                     }
@@ -608,7 +608,7 @@ private fun userMessageBubble(
                                     themedTooltip(text = TimeUtil.formatFullDateTime(ts, LocalizationManager.getCurrentLocale())) {
                                         Text(
                                             text = LocalizationManager.formatMessageTime(ts),
-                                            style = MaterialTheme.typography.labelSmall,
+                                            style = AppTextStyles.hint,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                         )
                                     }
@@ -687,9 +687,10 @@ private fun aiMessageBubble(
             horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.Top,
         ) {
-            // AI avatar
+            // AI avatar — top padding aligns the circle with the first text line
             Box(
                 modifier = Modifier
+                    .padding(top = Spacing.medium)
                     .size(32.dp)
                     .background(color = MaterialTheme.colorScheme.primaryContainer, shape = CircleShape)
                     .border(width = 2.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), shape = CircleShape),
@@ -764,7 +765,7 @@ private fun aiMessageBubble(
                                             activeHighlightColor = Color(0xFFFF8F00),
                                         ),
                                         modifier = Modifier.padding(start = Spacing.medium, end = 48.dp, top = Spacing.medium, bottom = Spacing.medium),
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        style = AppTextStyles.body,
                                     )
                                 }
                             } else {
@@ -809,7 +810,7 @@ private fun aiMessageBubble(
                             if (isOutdatedMessage) {
                                 Text(
                                     text = stringResource("outdated.label"),
-                                    style = MaterialTheme.typography.labelSmall,
+                                    style = AppTextStyles.hint,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                     fontStyle = FontStyle.Italic,
                                     modifier = Modifier.padding(start = Spacing.medium, end = Spacing.medium, bottom = Spacing.small, top = Spacing.extraSmall),
@@ -894,7 +895,7 @@ private fun aiMessageBubble(
                                 imageVector = Icons.Default.ContentCopy,
                                 contentDescription = stringResource("message.copy.description"),
                                 modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                tint = AppTextStyles.secondaryContent,
                             )
                         }
                     }
@@ -909,7 +910,7 @@ private fun aiMessageBubble(
                                     imageVector = Icons.Default.Edit,
                                     contentDescription = stringResource("message.ai.edit.description"),
                                     modifier = Modifier.size(16.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    tint = AppTextStyles.secondaryContent,
                                 )
                             }
                         }
@@ -934,7 +935,7 @@ private fun aiMessageBubble(
                                     imageVector = Icons.Default.Refresh,
                                     contentDescription = stringResource("message.ai.try.again.description"),
                                     modifier = Modifier.size(16.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    tint = AppTextStyles.secondaryContent,
                                 )
                             }
                         }
@@ -1016,7 +1017,7 @@ private fun aiMessageBubble(
                                     imageVector = Icons.AutoMirrored.Filled.CallSplit,
                                     contentDescription = stringResource("message.ai.fork.description"),
                                     modifier = Modifier.size(16.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    tint = AppTextStyles.secondaryContent,
                                 )
                             }
                         }
@@ -1032,7 +1033,7 @@ private fun aiMessageBubble(
                         .background(MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.small)
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    style = MaterialTheme.typography.labelLarge,
+                    style = AppTextStyles.groupTitle,
                 )
             }
 
@@ -1067,7 +1068,7 @@ private fun aiMessageBubble(
                                 append(durationLabel)
                             }
                         },
-                        style = MaterialTheme.typography.labelSmall,
+                        style = AppTextStyles.hint,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     )
                 }
@@ -1080,7 +1081,7 @@ private fun aiMessageBubble(
                     themedTooltip(text = TimeUtil.formatFullDateTime(ts, LocalizationManager.getCurrentLocale())) {
                         Text(
                             text = "$timestampPrefix${LocalizationManager.formatMessageTime(ts)}",
-                            style = MaterialTheme.typography.labelSmall,
+                            style = AppTextStyles.hint,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                         )
                     }
@@ -1096,8 +1097,7 @@ private fun aiMessageBubble(
             ) {
                 Text(
                     text = stringResource("message.edited.indicator"),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.hint,
                     modifier = Modifier.padding(start = 12.dp, top = 2.dp),
                 )
             }
@@ -1112,14 +1112,13 @@ private fun aiMessageBubble(
             title = {
                 Text(
                     text = stringResource("code.run.dialog.title"),
-                    style = MaterialTheme.typography.titleMedium,
+                    style = AppTextStyles.sectionTitle,
                 )
             },
             text = {
                 Text(
                     text = stringResource("code.run.dialog.message"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.bodySecondary,
                 )
             },
             dismissButton = {
@@ -1189,7 +1188,7 @@ private fun thinkingSection(
             )
             Text(
                 text = headerText,
-                style = MaterialTheme.typography.labelSmall,
+                style = AppTextStyles.hint,
                 color = headerColor,
                 fontStyle = FontStyle.Italic,
             )
@@ -1234,7 +1233,7 @@ private fun thinkingSection(
                     ) {
                         Text(
                             text = thinkingContent,
-                            style = MaterialTheme.typography.bodySmall,
+                            style = AppTextStyles.caption,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
                             fontStyle = FontStyle.Italic,
                         )
@@ -1297,7 +1296,7 @@ private fun toolCallsSection(
             )
             Text(
                 text = headerText,
-                style = MaterialTheme.typography.labelSmall,
+                style = AppTextStyles.hint,
                 color = headerColor,
             )
         }
@@ -1390,15 +1389,14 @@ private fun toolCallRow(toolCall: ToolCallInfo) {
                 )
                 Text(
                     text = toolCall.toolName,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.hint,
                     modifier = Modifier.weight(1f),
                 )
                 // Status indicator
                 when {
                     !isDone -> Text(
                         text = "⏳",
-                        style = MaterialTheme.typography.labelSmall,
+                        style = AppTextStyles.hint,
                         color = statusIconColor,
                     )
 
@@ -1466,12 +1464,12 @@ private fun toolCallDetailSection(
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
+            style = AppTextStyles.hint,
             color = labelColor ?: MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
         )
         Text(
             text = content,
-            style = MaterialTheme.typography.bodySmall,
+            style = AppTextStyles.codeSecondary,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
             modifier = Modifier
                 .fillMaxWidth()
@@ -1518,18 +1516,16 @@ private fun fileAttachmentChip(
                     imageVector = Icons.Default.AttachFile,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = AppTextStyles.secondaryContent,
                 )
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = attachment.fileName,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.caption,
                     )
                     Text(
                         text = formatFileSize(attachment.size),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.hint,
                     )
                 }
                 if (onDownload != null) {
@@ -1537,7 +1533,7 @@ private fun fileAttachmentChip(
                         imageVector = Icons.Default.Download,
                         contentDescription = stringResource("attachment.download.description"),
                         modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = AppTextStyles.secondaryContent,
                     )
                 }
             }
@@ -1574,8 +1570,7 @@ fun aiMessageEditDialog(
                 // Title
                 Text(
                     text = stringResource("message.ai.edit"),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = AppTextStyles.pageTitle,
                 )
 
                 // Scrollable content field with visible scrollbar
@@ -1590,7 +1585,7 @@ fun aiMessageEditDialog(
                             .fillMaxWidth()
                             .fillMaxHeight()
                             .padding(end = 12.dp), // room for the scrollbar
-                        textStyle = MaterialTheme.typography.bodyMedium,
+                        textStyle = AppTextStyles.body,
                         colors = AppComponents.outlinedTextFieldColors(),
                         label = { Text(stringResource("message.ai.edit.content.label")) },
                         scrollState = textScrollState,
@@ -1649,7 +1644,7 @@ private fun messageDaySeparator(label: String) {
         )
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
+            style = AppTextStyles.hint,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
         )
         HorizontalDivider(

@@ -77,6 +77,7 @@ import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.TooltipPlacement
 import io.askimo.ui.common.ui.themedTooltip
@@ -95,7 +96,7 @@ private fun providerBadge(provider: ModelProvider, size: Int = 26) {
     ) {
         Text(
             text = provider.initials,
-            style = MaterialTheme.typography.labelSmall,
+            style = AppTextStyles.hint,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSecondaryContainer,
             maxLines = 1,
@@ -167,7 +168,7 @@ internal fun providerModelPanel(
                 ) {
                     Text(
                         text = stringResource("provider.manage.title"),
-                        style = MaterialTheme.typography.labelMedium,
+                        style = AppTextStyles.fieldLabel,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     IconButton(onClick = onAddProvider, modifier = Modifier.size(28.dp).pointerHoverIcon(PointerIcon.Hand)) {
@@ -186,9 +187,7 @@ internal fun providerModelPanel(
                     Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                         Text(
                             text = stringResource("provider.no.instances.hint"),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(Spacing.medium),
+                            style = AppTextStyles.caption,
                         )
                     }
                 } else {
@@ -273,7 +272,7 @@ internal fun providerModelPanel(
                                     providerBadge(pendingInstance.providerType, size = 22)
                                     Text(
                                         text = pendingInstance.displayName,
-                                        style = MaterialTheme.typography.labelMedium,
+                                        style = AppTextStyles.body,
                                         fontWeight = FontWeight.SemiBold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -282,7 +281,7 @@ internal fun providerModelPanel(
                                     if (pendingModels.isNotEmpty() && !state.isLoadingPending) {
                                         Text(
                                             text = stringResource("provider.model.panel.model.count", pendingModels.size),
-                                            style = MaterialTheme.typography.labelSmall,
+                                            style = AppTextStyles.hint,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                         )
                                     }
@@ -354,7 +353,7 @@ private fun modelListColumn(
                         )
                         Text(
                             text = stringResource("provider.model.panel.select.hint"),
-                            style = MaterialTheme.typography.bodySmall,
+                            style = AppTextStyles.caption,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
                         )
@@ -375,7 +374,7 @@ private fun modelListColumn(
                         )
                         Text(
                             text = stringResource("settings.model.loading"),
-                            style = MaterialTheme.typography.bodySmall,
+                            style = AppTextStyles.caption,
                         )
                     }
                 }
@@ -385,7 +384,7 @@ private fun modelListColumn(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         text = stringResource("settings.model.none"),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = AppTextStyles.caption,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -400,13 +399,13 @@ private fun modelListColumn(
                     placeholder = {
                         Text(
                             text = stringResource("settings.model.search"),
-                            style = MaterialTheme.typography.bodySmall,
+                            style = AppTextStyles.hint,
                         )
                     },
                     leadingIcon = {
                         Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
                     },
-                    textStyle = MaterialTheme.typography.bodySmall,
+                    textStyle = AppTextStyles.caption,
                     colors = AppComponents.outlinedTextFieldColors(),
                 )
 
@@ -454,7 +453,7 @@ private fun modelListColumn(
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text(
                                 text = stringResource("settings.model.no.match"),
-                                style = MaterialTheme.typography.bodySmall,
+                                style = AppTextStyles.body,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(Spacing.medium),
                             )
@@ -474,7 +473,7 @@ private fun modelListColumn(
                                                 horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                                                 verticalAlignment = Alignment.CenterVertically,
                                             ) {
-                                                Text(pinnedModel.displayName, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f, fill = false))
+                                                Text(pinnedModel.displayName, style = AppTextStyles.body, modifier = Modifier.weight(1f, fill = false))
                                                 Box(
                                                     modifier = Modifier
                                                         .background(
@@ -485,7 +484,7 @@ private fun modelListColumn(
                                                 ) {
                                                     Text(
                                                         text = stringResource("provider.model.default.badge"),
-                                                        style = MaterialTheme.typography.labelSmall,
+                                                        style = AppTextStyles.hint,
                                                         color = MaterialTheme.colorScheme.onTertiaryContainer,
                                                     )
                                                 }
@@ -515,7 +514,7 @@ private fun modelListColumn(
                                         ) {
                                             Text(
                                                 text = provider.name,
-                                                style = MaterialTheme.typography.labelSmall,
+                                                style = AppTextStyles.hint,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 fontWeight = FontWeight.SemiBold,
                                             )
@@ -526,7 +525,7 @@ private fun modelListColumn(
                                     val isCurrent = dto.modelId == currentModel &&
                                         state.pendingInstanceId == currentInstanceId
                                     AppComponents.themedDropdownMenuItem(
-                                        text = { Text(dto.displayName, style = MaterialTheme.typography.bodyMedium) },
+                                        text = { Text(dto.displayName, style = AppTextStyles.body) },
                                         onClick = {
                                             state.commitSelection(state.pendingInstanceId, dto.modelId)
                                             onModelSelected()
@@ -558,13 +557,13 @@ private fun modelListColumn(
                     ) {
                         Text(
                             text = stringResource("settings.model.chat.filter.label", filteredModels.size),
-                            style = MaterialTheme.typography.labelSmall,
+                            style = AppTextStyles.hint,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         )
                         linkButton(onClick = onShowAll) {
                             Text(
                                 text = stringResource("settings.model.chat.filter.show.all", totalModelCount),
-                                style = MaterialTheme.typography.labelSmall,
+                                style = AppTextStyles.hint,
                             )
                         }
                     }
@@ -597,11 +596,11 @@ private fun instanceEditForm(
             Column {
                 Text(
                     text = stringResource("provider.edit.title", state.editDisplayName.ifBlank { providerDisplayName }),
-                    style = MaterialTheme.typography.titleSmall,
+                    style = AppTextStyles.itemTitle,
                 )
                 Text(
                     text = providerDisplayName,
-                    style = MaterialTheme.typography.labelSmall,
+                    style = AppTextStyles.hint,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -621,7 +620,8 @@ private fun instanceEditForm(
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
                 Text(
                     text = stringResource("provider.instance.name.label"),
-                    style = MaterialTheme.typography.labelMedium,
+                    style = AppTextStyles.fieldLabel,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 OutlinedTextField(
                     value = state.editDisplayName,
@@ -629,12 +629,11 @@ private fun instanceEditForm(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     isError = state.editDisplayNameError != null,
-                    placeholder = { Text(stringResource("provider.instance.name.placeholder"), style = MaterialTheme.typography.bodySmall) },
+                    placeholder = { Text(stringResource("provider.instance.name.placeholder"), style = AppTextStyles.caption) },
                     supportingText = state.editDisplayNameError?.let { error ->
-                        { Text(text = error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                        { Text(text = error, color = MaterialTheme.colorScheme.error, style = AppTextStyles.errorText) }
                     },
-                    textStyle = MaterialTheme.typography.bodySmall,
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    textStyle = AppTextStyles.caption,
                 )
             }
 
@@ -648,7 +647,7 @@ private fun instanceEditForm(
                         ) {
                             Text(
                                 text = field.message,
-                                style = MaterialTheme.typography.bodySmall,
+                                style = AppTextStyles.caption,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(Spacing.medium),
                             )
@@ -659,11 +658,11 @@ private fun instanceEditForm(
                         Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
                             Text(
                                 text = field.label + if (field.required) " *" else "",
-                                style = MaterialTheme.typography.labelMedium,
+                                style = AppTextStyles.fieldLabel,
                             )
                             Text(
                                 text = field.description,
-                                style = MaterialTheme.typography.bodySmall,
+                                style = AppTextStyles.caption,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             AppComponents.appSecretTextField(
@@ -673,7 +672,7 @@ private fun instanceEditForm(
                                 placeholder = {
                                     Text(
                                         text = if (field.hasExistingValue) stringResource("provider.apikey.stored") else stringResource("provider.apikey.enter"),
-                                        style = MaterialTheme.typography.bodySmall,
+                                        style = AppTextStyles.body,
                                     )
                                 },
                             )
@@ -684,11 +683,11 @@ private fun instanceEditForm(
                         Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
                             Text(
                                 text = field.label + if (field.required) " *" else "",
-                                style = MaterialTheme.typography.labelMedium,
+                                style = AppTextStyles.fieldLabel,
                             )
                             Text(
                                 text = field.description,
-                                style = MaterialTheme.typography.bodySmall,
+                                style = AppTextStyles.caption,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             OutlinedTextField(
@@ -696,8 +695,8 @@ private fun instanceEditForm(
                                 onValueChange = { state.updateEditField(field.name, it) },
                                 modifier = Modifier.fillMaxWidth(),
                                 singleLine = true,
-                                placeholder = { Text(stringResource("settings.placeholder.baseurl"), style = MaterialTheme.typography.bodySmall) },
-                                textStyle = MaterialTheme.typography.bodySmall,
+                                placeholder = { Text(stringResource("settings.placeholder.baseurl"), style = AppTextStyles.caption) },
+                                textStyle = AppTextStyles.caption,
                                 colors = AppComponents.outlinedTextFieldColors(),
                             )
                         }
@@ -707,11 +706,11 @@ private fun instanceEditForm(
                         Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
                             Text(
                                 text = field.label,
-                                style = MaterialTheme.typography.labelMedium,
+                                style = AppTextStyles.fieldLabel,
                             )
                             Text(
                                 text = field.description,
-                                style = MaterialTheme.typography.bodySmall,
+                                style = AppTextStyles.caption,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             val currentValue = state.editFieldValues[field.name] ?: field.value
@@ -719,11 +718,11 @@ private fun instanceEditForm(
                                 field.options.forEach { option ->
                                     if (currentValue == option.value) {
                                         primaryButton(onClick = {}) {
-                                            Text(option.label, style = MaterialTheme.typography.bodySmall)
+                                            Text(option.label, style = AppTextStyles.body)
                                         }
                                     } else {
                                         secondaryButton(onClick = { state.updateEditField(field.name, option.value) }) {
-                                            Text(option.label, style = MaterialTheme.typography.bodySmall)
+                                            Text(option.label, style = AppTextStyles.body)
                                         }
                                     }
                                 }
@@ -732,7 +731,7 @@ private fun instanceEditForm(
                                 ?.takeIf { it.isNotBlank() }?.let { endpoint ->
                                     Text(
                                         text = endpoint,
-                                        style = MaterialTheme.typography.bodySmall,
+                                        style = AppTextStyles.caption,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
@@ -762,7 +761,7 @@ private fun instanceEditForm(
                         )
                         Text(
                             text = state.editConnectionError ?: "",
-                            style = MaterialTheme.typography.bodySmall,
+                            style = AppTextStyles.caption,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
                     }
@@ -778,13 +777,13 @@ private fun instanceEditForm(
             horizontalArrangement = Arrangement.spacedBy(Spacing.small, Alignment.End),
         ) {
             secondaryButton(onClick = onCancel, enabled = !state.isTestingEdit) {
-                Text(stringResource("settings.cancel"), style = MaterialTheme.typography.bodySmall)
+                Text(stringResource("settings.cancel"), style = AppTextStyles.caption)
             }
             primaryButton(
                 onClick = onSave,
                 enabled = !state.isTestingEdit && state.editDisplayNameError == null,
             ) {
-                Text(stringResource("settings.save"), style = MaterialTheme.typography.bodySmall)
+                Text(stringResource("settings.save"), style = AppTextStyles.caption)
             }
         }
     }
@@ -846,7 +845,7 @@ internal fun instanceRow(
 
             Text(
                 text = instance.displayName,
-                style = MaterialTheme.typography.bodySmall,
+                style = AppTextStyles.caption,
                 color = when {
                     isActive -> MaterialTheme.colorScheme.onPrimaryContainer
                     isPending -> MaterialTheme.colorScheme.onSecondaryContainer

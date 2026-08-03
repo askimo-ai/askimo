@@ -41,15 +41,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.askimo.core.chat.service.BookmarkGroup
 import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.markdownText
+import java.util.Locale
 
 /**
  * Full content-area view that lists all bookmarked messages across every session,
@@ -99,9 +101,7 @@ fun bookmarksView(
                         )
                         Text(
                             text = stringResource("bookmarks.title"),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground,
+                            style = AppTextStyles.pageTitle,
                         )
                     }
                 }
@@ -130,7 +130,7 @@ fun bookmarksView(
                             ) {
                                 Text(
                                     text = viewModel.errorMessage ?: "",
-                                    style = MaterialTheme.typography.bodyLarge,
+                                    style = AppTextStyles.body,
                                     color = MaterialTheme.colorScheme.error,
                                 )
                                 TextButton(onClick = viewModel::load) {
@@ -157,13 +157,11 @@ fun bookmarksView(
                                 )
                                 Text(
                                     text = stringResource("bookmarks.empty.title"),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    style = AppTextStyles.sectionTitle,
                                 )
                                 Text(
                                     text = stringResource("bookmarks.empty.hint"),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = AppTextStyles.bodySecondary,
                                 )
                             }
                         }
@@ -193,7 +191,7 @@ fun bookmarksView(
 
 @Composable
 private fun bookmarkGroupList(
-    groups: List<io.askimo.core.chat.service.BookmarkGroup>,
+    groups: List<BookmarkGroup>,
     onNavigateToSession: (String) -> Unit,
     onRemoveBookmark: (String) -> Unit,
 ) {
@@ -213,7 +211,7 @@ private fun bookmarkGroupList(
 
 @Composable
 private fun bookmarkGroupCard(
-    group: io.askimo.core.chat.service.BookmarkGroup,
+    group: BookmarkGroup,
     onNavigateToSession: (String) -> Unit,
     onRemoveBookmark: (String) -> Unit,
 ) {
@@ -235,8 +233,7 @@ private fun bookmarkGroupCard(
             ) {
                 Text(
                     text = group.session.title.ifBlank { stringResource("bookmarks.session.untitled") },
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
+                    style = AppTextStyles.itemTitle,
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -244,8 +241,7 @@ private fun bookmarkGroupCard(
                 )
                 Text(
                     text = stringResource("bookmarks.message.count", group.messages.size),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.hint,
                 )
             }
 
@@ -314,7 +310,7 @@ private fun bookmarkMessageRow(
             // Role label
             Text(
                 text = if (isUser) stringResource("bookmarks.role.user") else stringResource("bookmarks.role.ai"),
-                style = MaterialTheme.typography.labelSmall,
+                style = AppTextStyles.hint,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
             )
             Spacer(modifier = Modifier.height(2.dp))
@@ -326,8 +322,8 @@ private fun bookmarkMessageRow(
             timestamp?.let { ts ->
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = TimeUtil.formatFullDateTime(ts, java.util.Locale.getDefault()),
-                    style = MaterialTheme.typography.labelSmall,
+                    text = TimeUtil.formatFullDateTime(ts, Locale.getDefault()),
+                    style = AppTextStyles.hint,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                 )
             }

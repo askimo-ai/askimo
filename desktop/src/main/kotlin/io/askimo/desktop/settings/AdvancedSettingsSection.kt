@@ -61,6 +61,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.clickableCard
@@ -96,16 +97,14 @@ fun advancedSettingsSection() {
             ) {
                 Text(
                     text = stringResource("settings.advanced"),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    style = AppTextStyles.pageTitle,
                     modifier = Modifier.padding(bottom = Spacing.small),
                 )
 
                 // Log Level Section
                 Text(
                     text = stringResource("settings.log.level"),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    style = AppTextStyles.sectionTitle,
                 )
                 logLevelCard()
 
@@ -170,8 +169,7 @@ private fun logLevelCard() {
             ) {
                 Text(
                     text = stringResource("settings.log.level.description"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    style = AppTextStyles.body,
                     modifier = Modifier.weight(1f).padding(end = Spacing.large),
                 )
 
@@ -194,8 +192,7 @@ private fun logLevelCard() {
                             ) {
                                 Text(
                                     text = stringResource("log.level.${currentLogLevel.name.lowercase()}"),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    style = AppTextStyles.body,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f).padding(end = Spacing.small),
@@ -203,7 +200,7 @@ private fun logLevelCard() {
                                 Icon(
                                     Icons.Default.Edit,
                                     contentDescription = "Change log level",
-                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    tint = AppTextStyles.primaryContent,
                                 )
                             }
                         }
@@ -220,12 +217,11 @@ private fun logLevelCard() {
                                     Column {
                                         Text(
                                             text = stringResource("log.level.${level.name.lowercase()}"),
-                                            style = MaterialTheme.typography.bodyMedium,
+                                            style = AppTextStyles.body,
                                         )
                                         Text(
                                             text = stringResource("log.level.${level.name.lowercase()}.description"),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = AppTextStyles.caption,
                                         )
                                     }
                                 },
@@ -261,14 +257,12 @@ private fun logViewerCard(
         ) {
             Text(
                 text = stringResource("settings.log.viewer"),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                style = AppTextStyles.sectionTitle,
             )
 
             Text(
                 text = stringResource("settings.log.viewer.description"),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+                style = AppTextStyles.body,
             )
 
             // Buttons Row
@@ -309,8 +303,7 @@ private fun logViewerCard(
             LoggingService.getLogFilePath()?.let { logPath ->
                 Text(
                     text = stringResource("settings.log.viewer.path", logPath.toString()),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
+                    style = AppTextStyles.caption,
                     fontFamily = FontFamily.Monospace,
                 )
             }
@@ -373,13 +366,11 @@ private fun analyticsSection() {
                 ) {
                     Text(
                         text = stringResource("settings.analytics.title"),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        style = AppTextStyles.sectionTitle,
                     )
                     Text(
                         text = stringResource("settings.analytics.description"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                        style = AppTextStyles.caption,
                     )
                 }
                 Switch(
@@ -428,13 +419,11 @@ private fun developerModeSection() {
                 ) {
                     Text(
                         text = stringResource("settings.developer.mode"),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        style = AppTextStyles.sectionTitle,
                     )
                     Text(
                         text = stringResource("settings.developer.mode.description"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                        style = AppTextStyles.caption,
                     )
                 }
                 Switch(
@@ -461,15 +450,13 @@ private fun ragConfigurationSection() {
             // Title
             Text(
                 text = stringResource("settings.rag.title"),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                style = AppTextStyles.sectionTitle,
             )
 
             // Description
             Text(
                 text = stringResource("settings.rag.description"),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                style = AppTextStyles.caption,
             )
 
             // Vector Search Max Results
@@ -525,20 +512,17 @@ private fun ragConfigurationSection() {
             // Divider before embedding configuration
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 8.dp),
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.2f),
             )
 
             // Embedding Configuration Section
             Text(
                 text = stringResource("settings.rag.embedding.title"),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                style = AppTextStyles.sectionTitle,
             )
 
             Text(
                 text = stringResource("settings.rag.embedding.description"),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                style = AppTextStyles.caption,
             )
 
             // Max Characters Per Chunk
@@ -564,20 +548,17 @@ private fun ragConfigurationSection() {
             // Divider before indexing configuration
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 8.dp),
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.2f),
             )
 
             // Indexing Configuration Section
             Text(
                 text = stringResource("settings.rag.indexing.title"),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                style = AppTextStyles.sectionTitle,
             )
 
             Text(
                 text = stringResource("settings.rag.indexing.description"),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                style = AppTextStyles.caption,
             )
 
             // Max File Bytes
@@ -647,14 +628,12 @@ private fun modelsConfigurationSection() {
         ) {
             Text(
                 text = stringResource("settings.models.title"),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                style = AppTextStyles.sectionTitle,
             )
 
             Text(
                 text = stringResource("settings.models.description"),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                style = AppTextStyles.caption,
             )
 
             ragIntField(
@@ -686,14 +665,12 @@ private fun memoryConfigurationSection() {
         ) {
             Text(
                 text = stringResource("settings.memory.title"),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                style = AppTextStyles.sectionTitle,
             )
 
             Text(
                 text = stringResource("settings.memory.description"),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                style = AppTextStyles.caption,
             )
 
             // Mode selector — label + dropdown (same pattern as web search backend)
@@ -704,8 +681,7 @@ private fun memoryConfigurationSection() {
             ) {
                 Text(
                     text = stringResource("settings.memory.mode"),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    style = AppTextStyles.fieldLabel,
                     modifier = Modifier.weight(1f).padding(end = Spacing.large),
                 )
 
@@ -727,8 +703,7 @@ private fun memoryConfigurationSection() {
                         ) {
                             Text(
                                 text = stringResource("settings.memory.mode.${currentMode.name.lowercase()}"),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                style = AppTextStyles.body,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f).padding(end = Spacing.small),
@@ -736,7 +711,7 @@ private fun memoryConfigurationSection() {
                             Icon(
                                 Icons.Default.Edit,
                                 contentDescription = "Change memory mode",
-                                tint = MaterialTheme.colorScheme.onSurface,
+                                tint = AppTextStyles.primaryContent,
                             )
                         }
                     }
@@ -751,12 +726,11 @@ private fun memoryConfigurationSection() {
                                     Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
                                         Text(
                                             text = stringResource("settings.memory.mode.${mode.name.lowercase()}"),
-                                            style = MaterialTheme.typography.bodyMedium,
+                                            style = AppTextStyles.body,
                                         )
                                         Text(
                                             text = stringResource("settings.memory.mode.${mode.name.lowercase()}.description"),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = AppTextStyles.caption,
                                         )
                                     }
                                 },
@@ -797,13 +771,11 @@ private fun ragBooleanField(
             ) {
                 Text(
                     text = label,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    style = AppTextStyles.body,
                 )
                 Text(
                     text = hint,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
+                    style = AppTextStyles.caption,
                 )
             }
             Switch(
@@ -843,8 +815,7 @@ private fun ragIntField(
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            style = AppTextStyles.body,
         )
         OutlinedTextField(
             value = textValue,
@@ -869,7 +840,7 @@ private fun ragIntField(
                         textValue = LocalizationManager.formatNumber(lastValidValue)
                     }
                 },
-            textStyle = MaterialTheme.typography.bodyMedium,
+            textStyle = AppTextStyles.body,
             singleLine = true,
             isError = isEditing && textValue.toIntOrNull() == null,
             trailingIcon = {
@@ -877,14 +848,14 @@ private fun ragIntField(
                     Icon(
                         Icons.Default.Check,
                         contentDescription = "Saved",
-                        tint = MaterialTheme.colorScheme.onSurface,
+                        tint = AppTextStyles.primaryContent,
                         modifier = Modifier.size(20.dp),
                     )
                 }
             },
             colors = AppComponents.outlinedTextFieldColors(),
         )
-        Text(text = hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f))
+        Text(text = hint, style = AppTextStyles.caption)
     }
 }
 
@@ -915,7 +886,7 @@ private fun ragDoubleField(
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
-        Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+        Text(text = label, style = AppTextStyles.body)
         OutlinedTextField(
             value = textValue,
             onValueChange = { textValue = it },
@@ -937,17 +908,17 @@ private fun ragDoubleField(
                         textValue = NumberFormatUtil.formatDecimal(lastValidValue)
                     }
                 },
-            textStyle = MaterialTheme.typography.bodyMedium,
+            textStyle = AppTextStyles.body,
             singleLine = true,
             isError = isEditing && textValue.toDoubleOrNull() == null,
             trailingIcon = {
                 AnimatedVisibility(visible = showSavedIndicator, enter = fadeIn(), exit = fadeOut()) {
-                    Icon(Icons.Default.Check, contentDescription = "Saved", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Check, contentDescription = "Saved", tint = AppTextStyles.primaryContent, modifier = Modifier.size(20.dp))
                 }
             },
             colors = AppComponents.outlinedTextFieldColors(),
         )
-        Text(text = hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f))
+        Text(text = hint, style = AppTextStyles.caption)
     }
 }
 
@@ -981,8 +952,7 @@ private fun ragOptionalIntField(
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            style = AppTextStyles.body,
         )
         OutlinedTextField(
             value = textValue,
@@ -1006,7 +976,7 @@ private fun ragOptionalIntField(
                         }
                     }
                 },
-            textStyle = MaterialTheme.typography.bodyMedium,
+            textStyle = AppTextStyles.body,
             singleLine = true,
             isError = textValue.isNotBlank() && textValue.toIntOrNull() == null,
             trailingIcon = {
@@ -1027,8 +997,7 @@ private fun ragOptionalIntField(
         )
         Text(
             text = hint,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
+            style = AppTextStyles.caption,
         )
     }
 }
@@ -1060,7 +1029,7 @@ private fun ragLongField(
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
-        Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+        Text(text = label, style = AppTextStyles.body)
         OutlinedTextField(
             value = textValue,
             onValueChange = { textValue = it },
@@ -1082,17 +1051,17 @@ private fun ragLongField(
                         textValue = LocalizationManager.formatNumber(lastValidValue)
                     }
                 },
-            textStyle = MaterialTheme.typography.bodyMedium,
+            textStyle = AppTextStyles.body,
             singleLine = true,
             isError = isEditing && textValue.toLongOrNull() == null,
             trailingIcon = {
                 AnimatedVisibility(visible = showSavedIndicator, enter = fadeIn(), exit = fadeOut()) {
-                    Icon(Icons.Default.Check, contentDescription = "Saved", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Check, contentDescription = "Saved", tint = AppTextStyles.primaryContent, modifier = Modifier.size(20.dp))
                 }
             },
             colors = AppComponents.outlinedTextFieldColors(),
         )
-        Text(text = hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f))
+        Text(text = hint, style = AppTextStyles.caption)
     }
 }
 
@@ -1120,8 +1089,7 @@ private fun ragStringSetField(
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            style = AppTextStyles.body,
         )
         OutlinedTextField(
             value = textValue,
@@ -1141,7 +1109,7 @@ private fun ragStringSetField(
                         }
                     }
                 },
-            textStyle = MaterialTheme.typography.bodyMedium,
+            textStyle = AppTextStyles.body,
             minLines = 2,
             maxLines = 5,
             trailingIcon = {
@@ -1149,7 +1117,7 @@ private fun ragStringSetField(
                     Icon(
                         Icons.Default.Check,
                         contentDescription = "Saved",
-                        tint = MaterialTheme.colorScheme.onSurface,
+                        tint = AppTextStyles.primaryContent,
                         modifier = Modifier.size(20.dp),
                     )
                 }
@@ -1158,8 +1126,7 @@ private fun ragStringSetField(
         )
         Text(
             text = hint,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
+            style = AppTextStyles.caption,
         )
     }
 }

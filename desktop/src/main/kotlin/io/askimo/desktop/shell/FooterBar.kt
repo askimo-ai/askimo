@@ -49,6 +49,7 @@ import io.askimo.core.providers.ProviderInstanceService
 import io.askimo.core.providers.ProviderRegistry
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.clickableCard
 import io.askimo.ui.common.ui.themedTooltip
@@ -118,7 +119,7 @@ private fun aiConfigInfo(
                     }
                     Text(
                         text = instanceLabel,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = AppTextStyles.caption,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -126,13 +127,11 @@ private fun aiConfigInfo(
                     if (configInfo.model.isNotBlank()) {
                         Text(
                             text = "·",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.caption,
                         )
                         Text(
                             text = configInfo.model,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.caption,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -194,7 +193,7 @@ fun footerBar(
             themedTooltip(text = stringResource("menu.about")) {
                 Text(
                     text = "v${VersionInfo.version}",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = AppTextStyles.caption,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                     modifier = Modifier
                         .align(Alignment.CenterStart)

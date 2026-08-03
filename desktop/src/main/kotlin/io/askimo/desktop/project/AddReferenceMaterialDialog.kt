@@ -39,6 +39,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -86,15 +87,13 @@ fun addReferenceMaterialDialog(
         title = {
             Text(
                 text = stringResource("projects.sources.add.dialog.title"),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = AppTextStyles.pageTitle,
             )
         },
         content = {
             Text(
                 text = stringResource("projects.sources.add.dialog.description"),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = AppTextStyles.bodySecondary,
             )
 
             Box {
@@ -128,13 +127,12 @@ fun addReferenceMaterialDialog(
                             Icon(
                                 typeInfo.icon,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurface,
+                                tint = AppTextStyles.primaryContent,
                                 modifier = Modifier.size(20.dp),
                             )
                             Text(
                                 text = stringResource(typeInfo.typeLabelKey),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                style = AppTextStyles.body,
                             )
                         }
                         if (index < KnowledgeSourceItem.availableTypes.lastIndex) {

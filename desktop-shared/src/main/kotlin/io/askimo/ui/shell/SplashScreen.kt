@@ -21,9 +21,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.toComposeImageBitmap
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.askimo.core.VersionInfo
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import org.jetbrains.skia.Image
 
@@ -61,14 +61,11 @@ fun splashScreen(isConnecting: Boolean = false) {
             )
             Text(
                 text = VersionInfo.name,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
+                style = AppTextStyles.pageTitle,
             )
             Text(
                 text = "v${VersionInfo.version}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                style = AppTextStyles.caption,
             )
         }
 
@@ -87,8 +84,7 @@ fun splashScreen(isConnecting: Boolean = false) {
                 )
                 Text(
                     text = "Connecting…",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.caption,
                 )
             }
         }

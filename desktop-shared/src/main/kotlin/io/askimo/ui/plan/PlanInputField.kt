@@ -42,6 +42,7 @@ import io.askimo.ui.common.components.actionInputField
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.themedTooltip
 
@@ -184,12 +185,13 @@ fun planInputField(
                             ) {
                                 Text(
                                     text = stringResource("chat.reasoning.effort.label") + ":",
-                                    style = MaterialTheme.typography.labelSmall,
+                                    style = AppTextStyles.hint,
+
                                     color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
                                 )
                                 Text(
                                     text = reasoningEffort.value.replaceFirstChar { it.uppercase() },
-                                    style = MaterialTheme.typography.labelSmall,
+                                    style = AppTextStyles.hint,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                                 )
@@ -225,7 +227,7 @@ fun planInputField(
                                     text = {
                                         Text(
                                             text = label,
-                                            style = MaterialTheme.typography.bodyMedium,
+                                            style = AppTextStyles.body,
                                             fontWeight = if (effort == reasoningEffort) FontWeight.Bold else FontWeight.Normal,
                                         )
                                     },

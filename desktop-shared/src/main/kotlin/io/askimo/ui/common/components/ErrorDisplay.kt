@@ -11,6 +11,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 
 /**
@@ -34,7 +35,7 @@ fun inlineErrorMessage(
             Text(
                 text = errorMessage,
                 color = MaterialTheme.colorScheme.onErrorContainer,
-                style = MaterialTheme.typography.bodySmall,
+                style = AppTextStyles.caption,
                 modifier = Modifier.padding(Spacing.medium),
             )
         }
@@ -62,7 +63,7 @@ fun inlineSuccessMessage(
             Text(
                 text = message,
                 color = MaterialTheme.colorScheme.onTertiaryContainer,
-                style = MaterialTheme.typography.bodySmall,
+                style = AppTextStyles.caption,
                 modifier = Modifier.padding(Spacing.medium),
             )
         }

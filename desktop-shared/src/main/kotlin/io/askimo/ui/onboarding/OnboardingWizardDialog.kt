@@ -47,12 +47,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -64,6 +62,7 @@ import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.clickableCard
@@ -129,15 +128,13 @@ fun onboardingWizardDialog(
                 ) {
                     Text(
                         text = stringResource("onboarding.title"),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
+                        style = AppTextStyles.pageTitle,
                         textAlign = TextAlign.Center,
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = stringResource("onboarding.step.indicator", currentStep + 1, TOTAL_STEPS),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.bodySecondary,
                     )
                 }
 
@@ -279,14 +276,12 @@ private fun onboardingStepLanguage(
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
         Text(
             text = stringResource("onboarding.step.language.title"),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
+            style = AppTextStyles.sectionTitle,
         )
 
         Text(
             text = stringResource("onboarding.step.language.description"),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = AppTextStyles.bodySecondary,
         )
 
         Spacer(modifier = Modifier.height(Spacing.small))
@@ -303,10 +298,8 @@ private fun onboardingStepLanguage(
             ) {
                 Text(
                     text = stringResource("onboarding.step.language.label"),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = AppTextStyles.fieldLabel,
                 )
-
                 Box(modifier = Modifier.fillMaxWidth()) {
                     Card(
                         modifier = Modifier
@@ -325,8 +318,7 @@ private fun onboardingStepLanguage(
                         ) {
                             Text(
                                 text = availableLanguages[selectedLocale] ?: selectedLocale.displayName,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                style = AppTextStyles.body,
                             )
                             Icon(
                                 Icons.Default.Edit,
@@ -358,7 +350,7 @@ private fun onboardingStepLanguage(
                                         }
                                         Text(
                                             text = displayName,
-                                            style = MaterialTheme.typography.bodyMedium,
+                                            style = AppTextStyles.body,
                                         )
                                     }
                                 },
@@ -385,16 +377,14 @@ private fun onboardingStepWelcome() {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
         Text(
             text = stringResource("onboarding.step.welcome.title"),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
+            style = AppTextStyles.sectionTitle,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
 
         Text(
             text = stringResource("onboarding.step.welcome.description"),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = AppTextStyles.bodySecondary,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -430,14 +420,12 @@ private fun onboardingStepProfile(
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
         Text(
             text = stringResource("onboarding.step.profile.title"),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
+            style = AppTextStyles.sectionTitle,
         )
 
         Text(
             text = stringResource("onboarding.step.profile.description"),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = AppTextStyles.bodySecondary,
         )
 
         Spacer(modifier = Modifier.height(Spacing.small))
@@ -445,8 +433,7 @@ private fun onboardingStepProfile(
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
             Text(
                 text = stringResource("onboarding.step.profile.name.label"),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = AppTextStyles.fieldLabel,
             )
             OutlinedTextField(
                 value = name,
@@ -466,8 +453,7 @@ private fun onboardingStepProfile(
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
             Text(
                 text = stringResource("onboarding.step.profile.occupation.label"),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = AppTextStyles.fieldLabel,
             )
             OutlinedTextField(
                 value = occupation,
@@ -495,14 +481,12 @@ private fun onboardingStepDirectives() {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
         Text(
             text = stringResource("onboarding.step.directives.title"),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
+            style = AppTextStyles.sectionTitle,
         )
 
         Text(
             text = stringResource("onboarding.step.directives.description"),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = AppTextStyles.bodySecondary,
         )
 
         Spacer(modifier = Modifier.height(Spacing.small))
@@ -541,14 +525,12 @@ private fun onboardingStepPersona(
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
         Text(
             text = stringResource("onboarding.step.persona.title"),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
+            style = AppTextStyles.sectionTitle,
         )
 
         Text(
             text = stringResource("onboarding.step.persona.description"),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = AppTextStyles.bodySecondary,
         )
 
         Spacer(modifier = Modifier.height(Spacing.small))
@@ -644,9 +626,7 @@ private fun personaCard(
                 ) {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = AppTextStyles.itemTitle,
                     )
                     if (isSelected) {
                         Icon(
@@ -659,13 +639,11 @@ private fun personaCard(
                 }
                 Text(
                     text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.caption,
                 )
                 Text(
                     text = features,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.hint,
                 )
             }
         }
@@ -699,22 +677,18 @@ private fun onboardingStepAnalytics(
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = stringResource("onboarding.step.analytics.title"),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = AppTextStyles.sectionTitle,
                 )
                 Text(
                     text = stringResource("onboarding.step.analytics.tagline"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.caption,
                 )
             }
         }
 
         Text(
             text = stringResource("onboarding.step.analytics.description"),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = AppTextStyles.bodySecondary,
         )
 
         // ── Privacy breakdown — two visually distinct sections ────────────────
@@ -728,9 +702,7 @@ private fun onboardingStepAnalytics(
                 // ✅ Collected section
                 Text(
                     text = stringResource("onboarding.step.analytics.section.collected"),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.hint,
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -749,9 +721,7 @@ private fun onboardingStepAnalytics(
                 // ❌ Never collected section
                 Text(
                     text = stringResource("onboarding.step.analytics.section.never"),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.hint,
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -795,14 +765,11 @@ private fun onboardingStepAnalytics(
                         } else {
                             stringResource("onboarding.step.analytics.toggle.off")
                         },
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = AppTextStyles.body,
                     )
                     Text(
                         text = stringResource("onboarding.step.analytics.toggle.subtitle"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.caption,
                     )
                 }
                 Switch(
@@ -821,8 +788,7 @@ private fun onboardingStepAnalytics(
         ) {
             Text(
                 text = stringResource("onboarding.step.analytics.learn_more"),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = AppTextStyles.caption,
             )
         }
     }
@@ -834,15 +800,10 @@ private fun onboardingStepAnalytics(
  */
 @Composable
 private fun analyticsPrivacyRow(text: String, positive: Boolean) {
-    val textColor = if (positive) {
-        MaterialTheme.colorScheme.onSurface
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
     Text(
         text = text,
-        style = MaterialTheme.typography.bodySmall,
-        color = textColor,
+        style = AppTextStyles.caption,
+        color = if (positive) AppTextStyles.primaryContent else AppTextStyles.secondaryContent,
     )
 }
 
@@ -856,16 +817,14 @@ private fun onboardingStepReady() {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
         Text(
             text = stringResource("onboarding.step.ready.title"),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
+            style = AppTextStyles.sectionTitle,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
 
         Text(
             text = stringResource("onboarding.step.ready.description"),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = AppTextStyles.bodySecondary,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -919,13 +878,11 @@ private fun onboardingFeatureCard(title: String, description: String) {
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
+                style = AppTextStyles.sectionTitle,
             )
             Text(
                 text = description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = AppTextStyles.bodySecondary,
             )
         }
     }
@@ -941,13 +898,11 @@ private fun onboardingDocLink(label: String, url: String) {
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = AppTextStyles.bodySecondary,
         )
     }
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun onboardingLinkItem(title: String, onClick: () -> Unit) {
     TextButton(
@@ -964,13 +919,11 @@ private fun onboardingLinkItem(title: String, onClick: () -> Unit) {
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                style = AppTextStyles.body,
             )
             Text(
                 text = "→",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                style = AppTextStyles.body,
             )
         }
     }

@@ -43,6 +43,7 @@ import io.askimo.core.config.ProxyType
 import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.clickableCard
@@ -72,15 +73,13 @@ fun networkSettingsSection() {
             ) {
                 Text(
                     text = stringResource("settings.network"),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    style = AppTextStyles.pageTitle,
                     modifier = Modifier.padding(bottom = Spacing.small),
                 )
 
                 Text(
                     text = stringResource("settings.network.description"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                    style = AppTextStyles.bodySecondary,
                 )
 
                 // Proxy Configuration Card
@@ -133,8 +132,7 @@ private fun proxyConfigurationCard() {
             ) {
                 Text(
                     text = stringResource("settings.proxy.title"),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    style = AppTextStyles.sectionTitle,
                     modifier = Modifier.weight(1f),
                 )
                 linkButton(
@@ -153,7 +151,7 @@ private fun proxyConfigurationCard() {
                     )
                     Text(
                         text = stringResource("settings.proxy.guide"),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = AppTextStyles.caption,
                         modifier = Modifier.padding(start = 4.dp),
                     )
                 }
@@ -161,8 +159,7 @@ private fun proxyConfigurationCard() {
 
             Text(
                 text = stringResource("settings.proxy.description"),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                style = AppTextStyles.caption,
             )
 
             HorizontalDivider()
@@ -175,8 +172,7 @@ private fun proxyConfigurationCard() {
             ) {
                 Text(
                     text = stringResource("settings.proxy.type"),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    style = AppTextStyles.fieldLabel,
                     modifier = Modifier.weight(1f).padding(end = Spacing.large),
                 )
 
@@ -201,8 +197,7 @@ private fun proxyConfigurationCard() {
                             ) {
                                 Text(
                                     text = stringResource("settings.proxy.type.${proxyType.name.lowercase()}"),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    style = AppTextStyles.body,
                                     maxLines = 1,
                                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f).padding(end = Spacing.small),
@@ -210,7 +205,7 @@ private fun proxyConfigurationCard() {
                                 Icon(
                                     Icons.Default.Edit,
                                     contentDescription = "Change proxy type",
-                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    tint = AppTextStyles.primaryContent,
                                 )
                             }
                         }
@@ -229,12 +224,11 @@ private fun proxyConfigurationCard() {
                                     ) {
                                         Text(
                                             text = stringResource("settings.proxy.type.${type.name.lowercase()}"),
-                                            style = MaterialTheme.typography.bodyMedium,
+                                            style = AppTextStyles.body,
                                         )
                                         Text(
                                             text = stringResource("settings.proxy.type.${type.name.lowercase()}.description"),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = AppTextStyles.caption,
                                         )
                                     }
                                 },
@@ -290,14 +284,12 @@ private fun proxyConfigurationCard() {
 
                     Text(
                         text = stringResource("settings.proxy.authentication"),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        style = AppTextStyles.fieldLabel,
                     )
 
                     Text(
                         text = stringResource("settings.proxy.authentication.description"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                        style = AppTextStyles.caption,
                     )
 
                     // Username (Optional)
@@ -332,8 +324,7 @@ private fun proxyConfigurationCard() {
 
                     Text(
                         text = stringResource("settings.proxy.socks5.no.auth.info"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        style = AppTextStyles.caption,
                     )
                 }
             }
@@ -344,8 +335,7 @@ private fun proxyConfigurationCard() {
 
                 Text(
                     text = stringResource("settings.proxy.system.info"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    style = AppTextStyles.caption,
                 )
             }
         }

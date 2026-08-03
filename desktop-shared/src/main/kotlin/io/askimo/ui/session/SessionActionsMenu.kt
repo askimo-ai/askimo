@@ -32,6 +32,7 @@ import io.askimo.core.event.internal.ProjectsRefreshEvent
 import io.askimo.core.event.internal.SessionsRefreshEvent
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.shell.DeveloperModePreferences
 
 /**
@@ -104,7 +105,7 @@ fun sessionActionsMenu(
                 text = {
                     Text(
                         text = stringResource("session.export"),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = AppTextStyles.body,
                     )
                 },
                 onClick = {
@@ -124,7 +125,7 @@ fun sessionActionsMenu(
                 text = {
                     Text(
                         text = stringResource("action.rename"),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = AppTextStyles.body,
                     )
                 },
                 onClick = {
@@ -145,7 +146,7 @@ fun sessionActionsMenu(
                 text = {
                     Text(
                         text = if (isStarred) stringResource("session.unstar") else stringResource("session.star"),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = AppTextStyles.body,
                     )
                 },
                 onClick = {
@@ -220,7 +221,7 @@ fun sessionActionsMenu(
                     text = {
                         Text(
                             text = stringResource("developer.menu.show.session.summary"),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = AppTextStyles.body,
                         )
                     },
                     onClick = {
@@ -242,7 +243,7 @@ fun sessionActionsMenu(
                 text = {
                     Text(
                         text = stringResource("action.delete"),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = AppTextStyles.body,
                     )
                 },
                 onClick = {

@@ -49,6 +49,7 @@ import io.askimo.core.analytics.AnalyticsEvent
 import io.askimo.core.service.StatsService
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -90,7 +91,7 @@ fun happinessGateDialog(
         ) {
             Text(
                 text = "😊",
-                style = MaterialTheme.typography.displaySmall,
+                style = AppTextStyles.emptyStateEmoji,
             )
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -98,15 +99,12 @@ fun happinessGateDialog(
             ) {
                 Text(
                     text = stringResource("happiness.gate.title"),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = AppTextStyles.sectionTitle,
                     textAlign = TextAlign.Center,
                 )
                 Text(
                     text = stringResource("happiness.gate.subtitle"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.bodySecondary,
                     textAlign = TextAlign.Center,
                 )
             }
@@ -161,8 +159,7 @@ private fun sentimentButton(
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Medium,
+            style = AppTextStyles.groupTitle,
             modifier = Modifier
                 .padding(14.dp)
                 .fillMaxWidth(),
@@ -208,78 +205,69 @@ fun feedbackPromptDialog(
             when {
                 submitted -> {
                     // ── Thank-you screen ───────────────────────────────────
-                    Text(text = "🙏", style = MaterialTheme.typography.displaySmall)
+                    Text(text = "🙏", style = AppTextStyles.emptyStateEmoji)
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(Spacing.small),
                     ) {
                         Text(
                             text = stringResource("feedback.thanks.title"),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            style = AppTextStyles.sectionTitle,
                             textAlign = TextAlign.Center,
                         )
                         Text(
                             text = stringResource("feedback.thanks.message"),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.bodySecondary,
                             textAlign = TextAlign.Center,
                         )
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                         TextButton(onClick = onClose, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
-                            Text(text = stringResource("feedback.thanks.close"), style = MaterialTheme.typography.bodySmall)
+                            Text(text = stringResource("feedback.thanks.close"), style = AppTextStyles.caption)
                         }
                     }
                 }
 
                 showReminder -> {
                     // ── Skip reminder screen ───────────────────────────────
-                    Text(text = "💡", style = MaterialTheme.typography.displaySmall)
+                    Text(text = "💡", style = AppTextStyles.emptyStateEmoji)
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(Spacing.small),
                     ) {
                         Text(
                             text = stringResource("feedback.remind.title"),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            style = AppTextStyles.sectionTitle,
                             textAlign = TextAlign.Center,
                         )
                         Text(
                             text = stringResource("feedback.remind.message"),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.bodySecondary,
                             textAlign = TextAlign.Center,
                         )
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                         TextButton(onClick = onSnooze, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
-                            Text(text = stringResource("feedback.remind.got.it"), style = MaterialTheme.typography.bodySmall)
+                            Text(text = stringResource("feedback.remind.got.it"), style = AppTextStyles.caption)
                         }
                     }
                 }
 
                 else -> {
                     // ── Input screen ───────────────────────────────────────
-                    Text(text = "💬", style = MaterialTheme.typography.displaySmall)
+                    Text(text = "💬", style = AppTextStyles.emptyStateEmoji)
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(Spacing.small),
                     ) {
                         Text(
                             text = stringResource("feedback.dialog.title"),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            style = AppTextStyles.sectionTitle,
                             textAlign = TextAlign.Center,
                         )
                         Text(
                             text = stringResource("feedback.dialog.subtitle"),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.bodySecondary,
                             textAlign = TextAlign.Center,
                         )
                     }
@@ -317,10 +305,10 @@ fun feedbackPromptDialog(
                         onValueChange = { comment = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = {
-                            Text(text = stringResource("feedback.comment.label"), style = MaterialTheme.typography.bodySmall)
+                            Text(text = stringResource("feedback.comment.label"), style = AppTextStyles.caption)
                         },
                         placeholder = {
-                            Text(text = stringResource("feedback.comment.placeholder"), style = MaterialTheme.typography.bodySmall)
+                            Text(text = stringResource("feedback.comment.placeholder"), style = AppTextStyles.caption)
                         },
                         minLines = 3,
                         maxLines = 5,
@@ -332,16 +320,15 @@ fun feedbackPromptDialog(
                         onValueChange = { email = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = {
-                            Text(text = stringResource("feedback.email.label"), style = MaterialTheme.typography.bodySmall)
+                            Text(text = stringResource("feedback.email.label"), style = AppTextStyles.caption)
                         },
                         placeholder = {
-                            Text(text = stringResource("feedback.email.placeholder"), style = MaterialTheme.typography.bodySmall)
+                            Text(text = stringResource("feedback.email.placeholder"), style = AppTextStyles.caption)
                         },
                         supportingText = {
                             Text(
                                 text = stringResource("feedback.email.hint"),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = AppTextStyles.caption,
                             )
                         },
                         singleLine = true,
@@ -359,8 +346,7 @@ fun feedbackPromptDialog(
                         ) {
                             Text(
                                 text = stringResource("feedback.action.skip"),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = AppTextStyles.caption,
                             )
                         }
                         Button(
@@ -371,7 +357,7 @@ fun feedbackPromptDialog(
                             enabled = selectedReasons.isNotEmpty() || comment.isNotBlank(),
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         ) {
-                            Text(text = stringResource("feedback.action.send"), style = MaterialTheme.typography.labelLarge)
+                            Text(text = stringResource("feedback.action.send"), style = AppTextStyles.groupTitle)
                         }
                     }
                 }
@@ -403,10 +389,10 @@ private fun feedbackReasonChip(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Text(text = reason.emoji, style = MaterialTheme.typography.bodyMedium)
+            Text(text = reason.emoji, style = AppTextStyles.body)
             Text(
                 text = stringResource(reason.i18nKey),
-                style = MaterialTheme.typography.labelMedium,
+                style = AppTextStyles.fieldLabel,
                 fontWeight = FontWeight.Medium,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -455,36 +441,21 @@ fun starPromptDialog(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(Spacing.medium),
                 ) {
-                    Text(
-                        text = "🙏",
-                        style = MaterialTheme.typography.displaySmall,
-                    )
+                    Text(text = "🙏", style = AppTextStyles.emptyStateEmoji)
                     Text(
                         text = stringResource("star.prompt.thanks.title"),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = AppTextStyles.sectionTitle,
                         textAlign = TextAlign.Center,
                     )
                     Text(
                         text = stringResource("star.prompt.thanks.message"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.bodySecondary,
                         textAlign = TextAlign.Center,
                     )
                 }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    TextButton(
-                        onClick = onAlreadyStarred,
-                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                    ) {
-                        Text(
-                            text = stringResource("star.prompt.thanks.done"),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onAlreadyStarred, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+                        Text(text = stringResource("star.prompt.thanks.done"), style = AppTextStyles.caption)
                     }
                 }
             } else if (showReminder) {
@@ -494,36 +465,21 @@ fun starPromptDialog(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(Spacing.medium),
                 ) {
-                    Text(
-                        text = "💡",
-                        style = MaterialTheme.typography.displaySmall,
-                    )
+                    Text(text = "💡", style = AppTextStyles.emptyStateEmoji)
                     Text(
                         text = stringResource("star.prompt.remind.title"),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = AppTextStyles.sectionTitle,
                         textAlign = TextAlign.Center,
                     )
                     Text(
                         text = stringResource("star.prompt.remind.message"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.bodySecondary,
                         textAlign = TextAlign.Center,
                     )
                 }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    TextButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                    ) {
-                        Text(
-                            text = stringResource("star.prompt.remind.got.it"),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+                        Text(text = stringResource("star.prompt.remind.got.it"), style = AppTextStyles.caption)
                     }
                 }
             } else {
@@ -531,20 +487,17 @@ fun starPromptDialog(
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
                     Text(
                         text = stringResource("star.prompt.title"),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = AppTextStyles.sectionTitle,
                     )
                     Text(
                         text = stringResource("star.prompt.message"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.bodySecondary,
                     )
                     val count = starCount
                     if (count != null) {
                         Text(
                             text = stringResource("star.prompt.social.proof", count),
-                            style = MaterialTheme.typography.labelMedium,
+                            style = AppTextStyles.fieldLabel,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.secondary,
                         )
@@ -577,14 +530,10 @@ fun starPromptDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    TextButton(
-                        onClick = onAlreadyStarred,
-                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                    ) {
+                    TextButton(onClick = onAlreadyStarred, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
                         Text(
                             text = stringResource("star.prompt.already.starred"),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.caption,
                         )
                     }
                     TextButton(
@@ -593,8 +542,7 @@ fun starPromptDialog(
                     ) {
                         Text(
                             text = stringResource("star.prompt.maybe.later"),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.caption,
                         )
                     }
                 }
@@ -637,13 +585,12 @@ private fun shareActionCard(
                 )
                 Text(
                     text = stringResource("star.prompt.share.button"),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
+                    style = AppTextStyles.groupTitle,
                     color = if (isHovered) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
                     text = stringResource("star.prompt.share.description"),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = AppTextStyles.caption,
                     color = if (isHovered) {
                         MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                     } else {
@@ -708,13 +655,12 @@ private fun supportActionCard(
             )
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
+                style = AppTextStyles.groupTitle,
                 color = if (isHovered) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = description,
-                style = MaterialTheme.typography.bodySmall,
+                style = AppTextStyles.caption,
                 color = if (isHovered) {
                     MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                 } else {

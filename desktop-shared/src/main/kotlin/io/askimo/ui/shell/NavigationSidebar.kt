@@ -65,7 +65,6 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -81,6 +80,7 @@ import io.askimo.core.user.domain.UserProfile
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.LocalFontScale
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.themedTooltip
@@ -305,7 +305,7 @@ private fun expandedNavigationSidebar(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.MenuOpen,
                         contentDescription = stringResource("sidebar.collapse"),
-                        tint = MaterialTheme.colorScheme.onSurface,
+                        tint = AppTextStyles.primaryContent,
                     )
                 }
             }
@@ -323,7 +323,7 @@ private fun expandedNavigationSidebar(
             themedTooltip(text = stringResource("chat.new.tooltip", Platform.modifierKey)) {
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                    label = { Text(stringResource("chat.new"), style = MaterialTheme.typography.labelLarge) },
+                    label = { Text(stringResource("chat.new"), style = AppTextStyles.groupTitle) },
                     selected = false,
                     onClick = onNewChat,
                     modifier = Modifier
@@ -346,7 +346,7 @@ private fun expandedNavigationSidebar(
                 ) {
                     NavigationDrawerItem(
                         icon = { Icon(Icons.Default.FolderOpen, contentDescription = null) },
-                        label = { Text(stringResource("project.title"), style = MaterialTheme.typography.labelLarge) },
+                        label = { Text(stringResource("project.title"), style = AppTextStyles.groupTitle) },
                         selected = isProjectsSelected,
                         onClick = onNavigateToProjects,
                         badge = {
@@ -361,7 +361,7 @@ private fun expandedNavigationSidebar(
                                         Icon(
                                             Icons.Default.Add,
                                             contentDescription = stringResource("project.new.dialog.title"),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            tint = AppTextStyles.secondaryContent,
                                             modifier = Modifier.size((18 * fontScale).dp),
                                         )
                                     }
@@ -379,7 +379,7 @@ private fun expandedNavigationSidebar(
             if (showPlansInSidebar) {
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.PlayCircle, contentDescription = null) },
-                    label = { Text(stringResource("plans.nav.title"), style = MaterialTheme.typography.labelLarge) },
+                    label = { Text(stringResource("plans.nav.title"), style = AppTextStyles.groupTitle) },
                     selected = isPlansSelected,
                     onClick = onNavigateToPlans,
                     modifier = Modifier
@@ -394,7 +394,7 @@ private fun expandedNavigationSidebar(
             if (showSkillsInSidebar) {
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.Extension, contentDescription = null) },
-                    label = { Text(stringResource("skills.nav.title"), style = MaterialTheme.typography.labelLarge) },
+                    label = { Text(stringResource("skills.nav.title"), style = AppTextStyles.groupTitle) },
                     selected = isSkillsSelected,
                     onClick = onNavigateToSkills,
                     modifier = Modifier
@@ -425,7 +425,7 @@ private fun expandedNavigationSidebar(
             // Sessions header (collapsible)
             NavigationDrawerItem(
                 icon = { Icon(Icons.Default.History, contentDescription = null) },
-                label = { Text(stringResource("chat.sessions"), style = MaterialTheme.typography.labelLarge) },
+                label = { Text(stringResource("chat.sessions"), style = AppTextStyles.groupTitle) },
                 selected = isSessionsSelected,
                 onClick = onToggleSessions,
                 badge = {
@@ -442,8 +442,7 @@ private fun expandedNavigationSidebar(
                             val count = sessionsViewModel.totalSessionCount
                             Text(
                                 text = if (count > 99) "99+" else "$count",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                style = AppTextStyles.hint,
                             )
                         }
                         Icon(
@@ -544,7 +543,7 @@ private fun collapsedNavigationSidebar(
                     Icon(
                         imageVector = Icons.Filled.Menu,
                         contentDescription = stringResource("sidebar.expand"),
-                        tint = MaterialTheme.colorScheme.onSurface,
+                        tint = AppTextStyles.primaryContent,
                         modifier = Modifier.size((32 * fontScale).dp),
                     )
                 } else {
@@ -552,7 +551,7 @@ private fun collapsedNavigationSidebar(
                         painter = appLogo,
                         contentDescription = "Askimo",
                         modifier = Modifier.size((32 * fontScale).dp),
-                        tint = MaterialTheme.colorScheme.onSurface,
+                        tint = AppTextStyles.primaryContent,
                     )
                 }
             }
@@ -666,15 +665,13 @@ fun sidebarLogoRow(
                 painter = rememberAppLogo(),
                 contentDescription = "Askimo",
                 modifier = Modifier.size((48 * fontScale).dp),
-                tint = MaterialTheme.colorScheme.onSurface,
+                tint = AppTextStyles.primaryContent,
             )
             logoOverlay(Modifier.align(Alignment.TopEnd))
         }
         Text(
             text = "Askimo",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
+            style = AppTextStyles.pageTitle,
         )
     }
 }
@@ -715,8 +712,7 @@ private fun pinnedSection(
             label = {
                 Text(
                     stringResource("sidebar.pinned"),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.groupTitle,
                 )
             },
             selected = false,
@@ -725,7 +721,7 @@ private fun pinnedSection(
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = AppTextStyles.secondaryContent,
                 )
             },
             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
@@ -804,7 +800,7 @@ private fun pinnedProjectItem(
             dropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                 DropdownMenuItem(
                     text = { Text(stringResource("action.unpin")) },
-                    leadingIcon = { Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    leadingIcon = { Icon(Icons.Default.Star, contentDescription = null, tint = AppTextStyles.secondaryContent) },
                     onClick = {
                         showMenu = false
                         onUnpin()
@@ -893,7 +889,7 @@ private fun pinnedSessionItem(
             ) {
                 DropdownMenuItem(
                     text = { Text(stringResource("action.unpin")) },
-                    leadingIcon = { Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    leadingIcon = { Icon(Icons.Default.Star, contentDescription = null, tint = AppTextStyles.secondaryContent) },
                     onClick = {
                         showMenu = false
                         onUnpin()
@@ -963,8 +959,7 @@ private fun sessionsList(
         if (sessionsViewModel.recentSessions.isEmpty()) {
             Text(
                 text = "No sessions yet",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = AppTextStyles.caption,
                 modifier = Modifier.padding(
                     horizontal = Spacing.large,
                     vertical = Spacing.small,
@@ -996,9 +991,7 @@ private fun sessionsList(
                     label = {
                         Text(
                             text = "More...",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            style = AppTextStyles.caption,
                         )
                     },
                     selected = false,
@@ -1161,7 +1154,7 @@ private fun navigationItemLabelWithMenu(
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.labelLarge,
+            style = AppTextStyles.groupTitle,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
@@ -1177,7 +1170,7 @@ private fun navigationItemLabelWithMenu(
                     Icon(
                         Icons.Default.MoreVert,
                         contentDescription = "More options",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = AppTextStyles.secondaryContent,
                         modifier = Modifier.size((18 * fontScale).dp),
                     )
                 }
@@ -1197,7 +1190,7 @@ private fun navigationItemLabelWithMenu(
                 )
                 Text(
                     text = "$bookmarkCount",
-                    style = MaterialTheme.typography.labelSmall,
+                    style = AppTextStyles.hint,
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
                 )
             }

@@ -48,6 +48,7 @@ import io.askimo.ui.common.components.rememberDialogState
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.util.FileDialogUtils
 import kotlinx.coroutines.delay
@@ -199,14 +200,12 @@ fun newProjectDialog(
                 )
                 Text(
                     text = stringResource("project.new.dialog.success.title"),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = AppTextStyles.pageTitle,
                     textAlign = TextAlign.Center,
                 )
                 Text(
                     text = stringResource("project.new.dialog.success.message", createdProjectName),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.bodySecondary,
                     textAlign = TextAlign.Center,
                 )
                 Text(
@@ -215,8 +214,7 @@ fun newProjectDialog(
                         countdown,
                         if (countdown != 1) "s" else "",
                     ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.caption,
                     textAlign = TextAlign.Center,
                 )
             }
@@ -231,8 +229,7 @@ fun newProjectDialog(
             title = {
                 Text(
                     text = stringResource("project.new.dialog.title"),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = AppTextStyles.pageTitle,
                 )
             },
             // Name + description are pinned above the scroll viewport so they're
@@ -272,8 +269,7 @@ fun newProjectDialog(
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
                     Text(
                         text = stringResource("project.new.dialog.sources.label"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = AppTextStyles.body,
                     )
 
                     knowledgeSources.forEach { source ->
@@ -314,13 +310,12 @@ fun newProjectDialog(
                                     Icon(
                                         typeInfo.icon,
                                         contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurface,
+                                        tint = AppTextStyles.primaryContent,
                                         modifier = Modifier.size(20.dp),
                                     )
                                     Text(
                                         text = stringResource(typeInfo.typeLabelKey),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurface,
+                                        style = AppTextStyles.body,
                                     )
                                 }
                                 if (index < KnowledgeSourceItem.availableTypes.lastIndex) {

@@ -98,6 +98,7 @@ import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.appOutlinedTextField
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.revealingMarkdownText
@@ -431,8 +432,7 @@ private fun skillsMainContent(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = stringResource("settings.skills"),
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = MaterialTheme.colorScheme.onBackground,
+                            style = AppTextStyles.pageTitle,
                         )
                         val runtimes = ExternalAgentLoader.displayNames()
                         val runtimesLabel = runtimes.mapIndexed { i, r ->
@@ -441,8 +441,7 @@ private fun skillsMainContent(
                         Spacer(Modifier.height(Spacing.extraSmall))
                         Text(
                             text = stringResource("settings.skills.description", runtimesLabel),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                            style = AppTextStyles.bodySecondary,
                         )
                         Spacer(Modifier.height(Spacing.small))
                         Row(
@@ -451,8 +450,7 @@ private fun skillsMainContent(
                         ) {
                             Text(
                                 text = stringResource("settings.skills.runtimes"),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = AppTextStyles.caption,
                             )
                             runtimes.forEach { runtime ->
                                 Surface(
@@ -461,8 +459,7 @@ private fun skillsMainContent(
                                 ) {
                                     Text(
                                         text = runtime,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = AppTextStyles.hint,
                                         modifier = Modifier.padding(horizontal = Spacing.small, vertical = 3.dp),
                                     )
                                 }
@@ -506,12 +503,12 @@ private fun skillsMainContent(
                                     Column {
                                         Text(
                                             text = stringResource("settings.skills.directory"),
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                            style = AppTextStyles.fieldLabel,
+                                            color = AppTextStyles.secondaryContent,
                                         )
                                         Text(
                                             text = AskimoHome.skillsDir().toString(),
-                                            style = MaterialTheme.typography.bodySmall,
+                                            style = AppTextStyles.caption,
                                         )
                                     }
                                 }
@@ -572,8 +569,7 @@ private fun skillsMainSelectPrompt() {
             )
             Text(
                 text = stringResource("settings.skills.select.prompt"),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                style = AppTextStyles.bodySecondary,
             )
         }
     }
@@ -599,13 +595,11 @@ private fun skillsMainEmptyState() {
             )
             Text(
                 text = stringResource("settings.skills.empty"),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                style = AppTextStyles.bodySecondary,
             )
             Text(
                 text = stringResource("settings.skills.empty.hint"),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+                style = AppTextStyles.caption,
             )
         }
     }
@@ -704,7 +698,7 @@ private fun skillEditorContent(
                             value = nameInput,
                             onValueChange = { nameInput = it },
                             singleLine = true,
-                            textStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                            textStyle = AppTextStyles.sectionTitle,
                             colors = AppComponents.outlinedTextFieldColors(),
                             modifier = Modifier.weight(1f),
                         )
@@ -726,9 +720,7 @@ private fun skillEditorContent(
                     } else {
                         Text(
                             text = name.ifBlank { stringResource("settings.skills.new.skill") },
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            style = AppTextStyles.sectionTitle,
                             modifier = Modifier.weight(1f),
                         )
                         IconButton(
@@ -738,7 +730,7 @@ private fun skillEditorContent(
                             },
                             modifier = Modifier.size(28.dp).pointerHoverIcon(PointerIcon.Hand),
                         ) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit name", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                            Icon(Icons.Default.Edit, contentDescription = "Edit name", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -753,7 +745,7 @@ private fun skillEditorContent(
                             value = descInput,
                             onValueChange = { descInput = it },
                             singleLine = true,
-                            textStyle = MaterialTheme.typography.bodySmall,
+                            textStyle = AppTextStyles.caption,
                             colors = AppComponents.outlinedTextFieldColors(),
                             modifier = Modifier.weight(1f),
                         )
@@ -775,12 +767,7 @@ private fun skillEditorContent(
                     } else {
                         Text(
                             text = description.ifBlank { stringResource("settings.skills.editor.description") },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (description.isBlank()) {
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
-                            } else {
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                            },
+                            style = AppTextStyles.caption,
                             modifier = Modifier.weight(1f),
                         )
                         IconButton(
@@ -790,7 +777,7 @@ private fun skillEditorContent(
                             },
                             modifier = Modifier.size(28.dp).pointerHoverIcon(PointerIcon.Hand),
                         ) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit description", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                            Icon(Icons.Default.Edit, contentDescription = "Edit description", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -808,14 +795,12 @@ private fun skillEditorContent(
                 Column {
                     Text(
                         text = stringResource("settings.skills.editor.system.prompt"),
-                        style = MaterialTheme.typography.labelMedium,
+                        style = AppTextStyles.fieldLabel,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                     )
                     Text(
                         text = stringResource("settings.skills.editor.system.prompt.hint"),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        style = AppTextStyles.hint,
                     )
                 }
                 // Read / Edit segmented toggle
@@ -855,7 +840,7 @@ private fun skillEditorContent(
                                         style = TextStyle(
                                             fontFamily = FontFamily.Monospace,
                                             fontSize = 13.sp,
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         ),
                                     )
                                 }
@@ -936,14 +921,14 @@ private fun fileEditorContent(
                 modifier = if (isRenaming) Modifier.fillMaxWidth() else Modifier.weight(1f),
             ) {
                 themedTooltip(text = leaf.path) {
-                    Text(fileEmoji, style = MaterialTheme.typography.titleLarge)
+                    Text(fileEmoji, style = AppTextStyles.sectionTitle)
                 }
                 if (isRenaming) {
                     OutlinedTextField(
                         value = renameInput,
                         onValueChange = { renameInput = it },
                         singleLine = true,
-                        textStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        textStyle = AppTextStyles.sectionTitle,
                         colors = AppComponents.outlinedTextFieldColors(),
                         modifier = Modifier.weight(1f),
                     )
@@ -977,9 +962,7 @@ private fun fileEditorContent(
                 } else {
                     Text(
                         text = currentName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = AppTextStyles.sectionTitle,
                     )
                     // Rename is not allowed for skill.md entry files
                     if (!leaf.isSkillEntry) {
@@ -994,7 +977,7 @@ private fun fileEditorContent(
                                 Icons.Default.Edit,
                                 contentDescription = "Rename file",
                                 modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
@@ -1047,8 +1030,7 @@ private fun fileEditorContent(
             } else {
                 stringResource("settings.skills.editor.line.count.plural").replace("{0}", "$lineCount")
             },
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+            style = AppTextStyles.hint,
         )
     }
 }
@@ -1092,8 +1074,7 @@ private fun skillsTreePanel(
         ) {
             Text(
                 text = stringResource("settings.skills"),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
+                style = AppTextStyles.itemTitle,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                 // + dropdown button
@@ -1109,7 +1090,7 @@ private fun skillsTreePanel(
                         onDismissRequest = { showAddMenu = false },
                     ) {
                         DropdownMenuItem(
-                            text = { Text(stringResource("settings.skills.new.skill"), style = MaterialTheme.typography.bodyMedium) },
+                            text = { Text(stringResource("settings.skills.new.skill"), style = AppTextStyles.body) },
                             onClick = {
                                 showAddMenu = false
                                 onNewSkill()
@@ -1119,7 +1100,7 @@ private fun skillsTreePanel(
                         )
                         HorizontalDivider()
                         DropdownMenuItem(
-                            text = { Text(stringResource("settings.skills.import.github"), style = MaterialTheme.typography.bodyMedium) },
+                            text = { Text(stringResource("settings.skills.import.github"), style = AppTextStyles.body) },
                             onClick = {
                                 showAddMenu = false
                                 onImportFromGitHub()
@@ -1128,7 +1109,7 @@ private fun skillsTreePanel(
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource("settings.skills.import.zip"), style = MaterialTheme.typography.bodyMedium) },
+                            text = { Text(stringResource("settings.skills.import.zip"), style = AppTextStyles.body) },
                             onClick = {
                                 showAddMenu = false
                                 onImportFromZip()
@@ -1176,7 +1157,7 @@ private fun skillsTreePanel(
             singleLine = true,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
         )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+        HorizontalDivider()
 
         if (showDeleteAllConfirm) {
             deleteAllSkillsDialog(
@@ -1208,8 +1189,7 @@ private fun skillsTreePanel(
                             } else {
                                 stringResource("skills.view.empty.search")
                             },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                            style = AppTextStyles.caption,
                         )
                     }
                 } else {
@@ -1311,8 +1291,8 @@ private fun skillTreeNodeItem(
                     )
                     Text(
                         text = node.name,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (isSkillFolder) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.fieldLabel,
+                        color = if (isSkillFolder) AppTextStyles.primaryContent else AppTextStyles.secondaryContent,
                         fontWeight = if (isSkillFolder) FontWeight.SemiBold else FontWeight.Normal,
                         modifier = Modifier.weight(1f),
                     )
@@ -1330,7 +1310,7 @@ private fun skillTreeNodeItem(
                                 onDismissRequest = { showAddMenu = false },
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource("settings.skills.add.file"), style = MaterialTheme.typography.bodyMedium) },
+                                    text = { Text(stringResource("settings.skills.add.file"), style = AppTextStyles.body) },
                                     leadingIcon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp)) },
                                     onClick = {
                                         showAddMenu = false
@@ -1339,7 +1319,7 @@ private fun skillTreeNodeItem(
                                     modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                                 )
                                 DropdownMenuItem(
-                                    text = { Text(stringResource("settings.skills.add.folder"), style = MaterialTheme.typography.bodyMedium) },
+                                    text = { Text(stringResource("settings.skills.add.folder"), style = AppTextStyles.body) },
                                     leadingIcon = { Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(14.dp)) },
                                     onClick = {
                                         showAddMenu = false
@@ -1436,23 +1416,19 @@ private fun skillTreeNodeItem(
                             node.name.endsWith(".txt") -> "📃"
                             else -> "📎"
                         },
-                        style = MaterialTheme.typography.labelSmall,
+                        style = AppTextStyles.hint,
                     )
                     Column {
                         Text(
                             text = if (node.isSkillEntry) node.name else node.name,
-                            style = MaterialTheme.typography.bodySmall,
+                            style = AppTextStyles.caption,
                             fontWeight = if (isSelected || node.isSkillEntry) FontWeight.SemiBold else FontWeight.Normal,
-                            color = when {
-                                node.isSkillEntry -> MaterialTheme.colorScheme.onSurface
-                                else -> MaterialTheme.colorScheme.onSurface
-                            },
+                            color = AppTextStyles.primaryContent,
                         )
                         if (node.skill?.description?.isNotBlank() == true && node.isSkillEntry) {
                             Text(
                                 text = node.skill?.description ?: "",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                style = AppTextStyles.hint,
                                 maxLines = 1,
                             )
                         }
@@ -1591,21 +1567,11 @@ private fun previewEditSegmentButton(
                 imageVector = icon,
                 contentDescription = label,
                 modifier = Modifier.size(13.dp),
-                tint = if (isActive) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
+                tint = AppTextStyles.primaryContent,
             )
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (isActive) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
+                style = AppTextStyles.hint,
             )
         }
     }
@@ -1626,7 +1592,7 @@ private fun importErrorBanner(message: String) {
     ) {
         Text(
             text = message,
-            style = MaterialTheme.typography.bodySmall,
+            style = AppTextStyles.caption,
             color = MaterialTheme.colorScheme.onErrorContainer,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
         )
@@ -1647,8 +1613,7 @@ private fun newSkillInFolderDialog(
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
                 Text(
                     text = "📁 $parentPath/",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    style = AppTextStyles.hint,
                 )
                 OutlinedTextField(
                     value = fileName,
@@ -1692,8 +1657,7 @@ private fun importFromGitHubDialog(
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
                 Text(
                     text = stringResource("settings.skills.import.github.description"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.caption,
                 )
                 appOutlinedTextField(
                     value = repoUrl,
@@ -1770,8 +1734,7 @@ private fun importFromZipDialog(
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
                 Text(
                     text = stringResource("settings.skills.import.zip.description"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.caption,
                 )
 
                 secondaryButton(
@@ -1794,8 +1757,7 @@ private fun importFromZipDialog(
                 if (selectedZipPath != null) {
                     Text(
                         text = Path.of(selectedZipPath!!).fileName.toString(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        style = AppTextStyles.hint,
                     )
                 }
 
@@ -1863,8 +1825,7 @@ private fun addFileInFolderDialog(
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
                 Text(
                     text = "📁 $parentPath/",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    style = AppTextStyles.hint,
                 )
                 OutlinedTextField(
                     value = fileName,
@@ -1904,8 +1865,7 @@ private fun addFolderInFolderDialog(
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
                 Text(
                     text = "📁 $parentPath/",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    style = AppTextStyles.hint,
                 )
                 OutlinedTextField(
                     value = folderName,
@@ -1943,7 +1903,7 @@ private fun deleteFileConfirmDialog(
         text = {
             Text(
                 text = stringResource("settings.skills.delete.file.confirm").replace("{0}", fileName),
-                style = MaterialTheme.typography.bodyMedium,
+                style = AppTextStyles.body,
             )
         },
         confirmButton = {
@@ -1967,7 +1927,7 @@ private fun deleteFolderConfirmDialog(
         text = {
             Text(
                 text = stringResource("settings.skills.delete.folder.confirm").replace("{0}", folderName),
-                style = MaterialTheme.typography.bodyMedium,
+                style = AppTextStyles.body,
             )
         },
         confirmButton = {
@@ -1990,7 +1950,7 @@ private fun deleteAllSkillsDialog(
         text = {
             Text(
                 text = stringResource("settings.skills.delete.all.confirm"),
-                style = MaterialTheme.typography.bodyMedium,
+                style = AppTextStyles.body,
             )
         },
         confirmButton = {
@@ -2013,8 +1973,7 @@ private fun importSuccessDialog(
         text = {
             Text(
                 text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = AppTextStyles.body,
             )
         },
         confirmButton = {

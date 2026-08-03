@@ -27,7 +27,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.rememberWindowState
@@ -36,6 +35,7 @@ import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 
 /**
@@ -76,9 +76,7 @@ fun eventLogWindow(
             ) {
                 Text(
                     text = LocalizationManager.getString("eventlog.window.header"),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    style = AppTextStyles.pageTitle,
                 )
 
                 Row(
@@ -91,8 +89,7 @@ fun eventLogWindow(
 
                     Text(
                         text = LocalizationManager.getString("eventlog.window.events.count", events.size),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onBackground,
+                        style = AppTextStyles.body,
                     )
                 }
             }
@@ -107,8 +104,7 @@ fun eventLogWindow(
                 ) {
                     Text(
                         text = LocalizationManager.getString("eventlog.window.empty.message"),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                        style = AppTextStyles.bodySecondary,
                     )
                 }
             } else {
@@ -160,9 +156,7 @@ private fun eventLogItem(event: Event) {
             ) {
                 Text(
                     text = event::class.simpleName ?: LocalizationManager.getString("eventlog.unknown"),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = AppTextStyles.sectionTitle,
                 )
                 Card(
                     colors = CardDefaults.cardColors(
@@ -171,8 +165,7 @@ private fun eventLogItem(event: Event) {
                 ) {
                     Text(
                         text = event.source.name,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        style = AppTextStyles.fieldLabel.copy(color = MaterialTheme.colorScheme.onPrimaryContainer),
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     )
                 }
@@ -181,15 +174,12 @@ private fun eventLogItem(event: Event) {
             // Timestamp
             Text(
                 text = TimeUtil.formatInstantDisplay(event.timestamp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                style = AppTextStyles.caption,
             )
 
-            // Event details
             Text(
                 text = event.getDetails(),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = AppTextStyles.body,
             )
         }
     }

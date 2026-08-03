@@ -82,7 +82,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -124,6 +123,7 @@ import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.keymap.KeyMapManager
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.LocalFontScale
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.TooltipPlacement
@@ -523,7 +523,7 @@ fun chatInputField(
                                 val formattedTime = TimeUtil.formatDisplay(timestamp)
                                 stringResource("message.editing.banner.from", formattedTime)
                             } ?: stringResource("message.editing.banner"),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = AppTextStyles.body,
                             color = MaterialTheme.colorScheme.onSecondaryContainer,
                         )
                     }
@@ -823,7 +823,7 @@ fun chatInputField(
                                 ) {
                                     Text(
                                         text = stringResource("chat.create.image.mode"),
-                                        style = MaterialTheme.typography.labelSmall,
+                                        style = AppTextStyles.hint,
                                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                                     )
                                     Icon(
@@ -872,13 +872,12 @@ fun chatInputField(
                                         ) {
                                             Text(
                                                 text = stringResource("chat.reasoning.effort.label") + ":",
-                                                style = MaterialTheme.typography.labelSmall,
+                                                style = AppTextStyles.hint,
                                                 color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
                                             )
                                             Text(
                                                 text = reasoningEffort.value.replaceFirstChar { it.uppercase() },
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontWeight = FontWeight.SemiBold,
+                                                style = AppTextStyles.hint,
                                                 color = MaterialTheme.colorScheme.onSecondaryContainer,
                                             )
                                             Icon(
@@ -913,8 +912,7 @@ fun chatInputField(
                                                 text = {
                                                     Text(
                                                         text = label,
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        fontWeight = if (effort == reasoningEffort) FontWeight.Bold else FontWeight.Normal,
+                                                        style = AppTextStyles.body,
                                                     )
                                                 },
                                                 trailingIcon = null,
@@ -982,8 +980,7 @@ fun chatInputField(
                 if (errorMessage != null) {
                     Text(
                         text = errorMessage,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = AppTextStyles.errorText,
                         modifier = Modifier.padding(start = 16.dp, top = 4.dp),
                     )
                 }
@@ -1165,8 +1162,7 @@ private fun toolsIndicatorButton(
                     if (totalServers > 0 && modelSupportsTools) {
                         Text(
                             text = if (hasDisabled) "$enabledServers/$totalServers" else "$enabledServers",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
+                            style = AppTextStyles.hint,
                             color = if (hasDisabled) {
                                 MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f)
                             } else {
@@ -1209,8 +1205,7 @@ private fun toolsIndicatorButton(
                 ) {
                     Text(
                         text = stringResource("chat.tools.popup.title"),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+                        style = AppTextStyles.sectionTitle,
                     )
                     if (onNavigateToMcpSettings != null) {
                         themedTooltip(text = stringResource("chat.tools.popup.manage")) {
@@ -1258,8 +1253,7 @@ private fun toolsIndicatorButton(
                     mcpServers.isEmpty() -> {
                         Text(
                             text = stringResource("chat.tools.popup.no.servers.global"),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.bodySecondary,
                             modifier = Modifier.padding(
                                 horizontal = Spacing.medium,
                                 vertical = Spacing.medium,
@@ -1377,8 +1371,7 @@ private fun mcpServerItem(
                     ) {
                         Text(
                             text = server.name,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
+                            style = AppTextStyles.body,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
                         )
                         if (server.tools.isNotEmpty()) {
@@ -1396,7 +1389,7 @@ private fun mcpServerItem(
                             ) {
                                 Text(
                                     text = server.tools.size.toString(),
-                                    style = MaterialTheme.typography.labelSmall,
+                                    style = AppTextStyles.hint,
                                 )
                             }
                         }
@@ -1409,7 +1402,7 @@ private fun mcpServerItem(
                         } else {
                             stringResource("chat.tools.server.scope.project")
                         },
-                        style = MaterialTheme.typography.bodySmall,
+                        style = AppTextStyles.caption,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
                     )
                 }
@@ -1461,8 +1454,7 @@ private fun mcpServerItem(
                                 ) {
                                     Text(
                                         text = "${index + 1}.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = AppTextStyles.caption,
                                         softWrap = false,
                                         modifier = Modifier.widthIn(min = 32.dp),
                                     )
@@ -1471,13 +1463,11 @@ private fun mcpServerItem(
                                     ) {
                                         Text(
                                             text = toolName,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurface,
+                                            style = AppTextStyles.body,
                                         )
                                         Text(
                                             text = toolDescription,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = AppTextStyles.caption,
                                             maxLines = 2,
                                             overflow = TextOverflow.Ellipsis,
                                         )
@@ -1574,13 +1564,11 @@ private fun fileAttachmentItem(
                     Column {
                         Text(
                             text = attachment.fileName,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            style = AppTextStyles.caption,
                         )
                         Text(
                             text = formatFileSize(attachment.size),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.hint,
                         )
                     }
                 }
@@ -1631,8 +1619,7 @@ private fun fileAttachmentItem(
                                 CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
                                 Text(
                                     text = stringResource("chat.attachment.preview.loading"),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = AppTextStyles.hint,
                                 )
                             }
                         }
@@ -1645,10 +1632,8 @@ private fun fileAttachmentItem(
                                 SelectionContainer {
                                     Text(
                                         text = previewContent!!,
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontFamily = FontFamily.Monospace,
-                                        ),
-                                        color = MaterialTheme.colorScheme.onSurface,
+                                        style = AppTextStyles.hint,
+                                        fontFamily = FontFamily.Monospace,
                                     )
                                 }
                             }
@@ -1695,17 +1680,14 @@ private fun directiveChip(
                         ) {
                             Text(
                                 text = activeDirective.name,
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                style = AppTextStyles.caption,
                             )
                             HorizontalDivider(
                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                             )
                             Text(
                                 text = activeDirective.content,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = AppTextStyles.hint,
                                 maxLines = 10,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -1758,8 +1740,7 @@ private fun directiveChip(
                     )
                     Text(
                         text = activeDirectiveName ?: stringResource("chat.directive"),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
+                        style = AppTextStyles.hint,
                         color = if (selectedDirective != null) {
                             MaterialTheme.colorScheme.onSecondaryContainer
                         } else {
@@ -1805,8 +1786,7 @@ private fun directiveChip(
                 ) {
                     Text(
                         text = stringResource("chat.directive"),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+                        style = AppTextStyles.sectionTitle,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                         themedTooltip(text = stringResource("chat.directive.new")) {
@@ -1885,17 +1865,14 @@ private fun directiveChip(
                                 ) {
                                     Text(
                                         text = directive.name,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface,
+                                        style = AppTextStyles.caption,
                                     )
                                     HorizontalDivider(
                                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                                     )
                                     Text(
                                         text = directive.content,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = AppTextStyles.hint,
                                         maxLines = 10,
                                         overflow = TextOverflow.Ellipsis,
                                     )
@@ -1917,7 +1894,6 @@ private fun directiveChip(
                                     .pointerHoverIcon(PointerIcon.Hand),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                @OptIn(ExperimentalMaterial3Api::class)
                                 CompositionLocalProvider(LocalRippleConfiguration provides null) {
                                     Checkbox(
                                         checked = isSelected,
@@ -1931,7 +1907,7 @@ private fun directiveChip(
                                 }
                                 Text(
                                     text = directive.name,
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = AppTextStyles.body,
                                     modifier = Modifier.weight(1f),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -1944,7 +1920,7 @@ private fun directiveChip(
                                     ) {
                                         Text(
                                             text = stringResource("directive.scope.team"),
-                                            style = MaterialTheme.typography.labelSmall,
+                                            style = AppTextStyles.hint,
                                             color = MaterialTheme.colorScheme.onTertiaryContainer,
                                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
                                         )
@@ -2015,7 +1991,7 @@ private fun webSearchRagChip(
                 )
                 Text(
                     text = stringResource("chat.rag.web_search.chip"),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = AppTextStyles.hint,
                     color = if (active) {
                         MaterialTheme.colorScheme.onSecondaryContainer
                     } else {

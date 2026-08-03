@@ -45,6 +45,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.awt.Toolkit
@@ -93,12 +94,11 @@ fun fileViewerDialog(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = title,
-                            style = MaterialTheme.typography.headlineSmall,
+                            style = AppTextStyles.pageTitle,
                         )
                         Text(
                             text = filePath,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.caption,
                             modifier = Modifier.padding(top = 4.dp),
                         )
                     }

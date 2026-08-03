@@ -40,7 +40,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.intent.ToolCategory
@@ -57,6 +56,7 @@ import io.askimo.ui.common.components.rememberDialogState
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.util.FileDialogUtils
 import kotlinx.coroutines.Dispatchers
@@ -129,9 +129,7 @@ fun mcpToolsDialog(
         title = {
             Text(
                 text = stringResource("mcp.tools.dialog.title", instance.name),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = AppTextStyles.pageTitle,
             )
         },
         stickyHeader = {
@@ -188,8 +186,7 @@ fun mcpToolsDialog(
             ) {
                 Text(
                     text = stringResource("mcp.tools.dialog.instance.info"),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
+                    style = AppTextStyles.itemTitle,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
                 HorizontalDivider(
@@ -201,14 +198,13 @@ fun mcpToolsDialog(
                 ) {
                     Text(
                         text = stringResource("mcp.instance.field.serverId"),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium,
+                        style = AppTextStyles.caption,
                         color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
                     )
                     SelectionContainer {
                         Text(
                             text = instance.serverId,
-                            style = MaterialTheme.typography.bodySmall,
+                            style = AppTextStyles.caption,
                             color = MaterialTheme.colorScheme.onSecondaryContainer,
                         )
                     }
@@ -216,8 +212,7 @@ fun mcpToolsDialog(
                 if (instance.parameterValues.isNotEmpty()) {
                     Text(
                         text = stringResource("mcp.tools.dialog.parameters"),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium,
+                        style = AppTextStyles.caption,
                         color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
                         modifier = Modifier.padding(top = Spacing.extraSmall),
                     )
@@ -234,7 +229,7 @@ fun mcpToolsDialog(
                             SelectionContainer {
                                 Text(
                                     text = key,
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = AppTextStyles.caption,
                                     color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
                                 )
                             }
@@ -247,7 +242,7 @@ fun mcpToolsDialog(
                                     SelectionContainer(modifier = Modifier.weight(1f, fill = false)) {
                                         Text(
                                             text = value,
-                                            style = MaterialTheme.typography.bodySmall,
+                                            style = AppTextStyles.caption,
                                             color = MaterialTheme.colorScheme.onSecondaryContainer,
                                             modifier = Modifier.padding(start = Spacing.small),
                                             maxLines = 1,
@@ -257,7 +252,7 @@ fun mcpToolsDialog(
                                 } else {
                                     Text(
                                         text = if (isSecret) "••••••••" else value,
-                                        style = MaterialTheme.typography.bodySmall,
+                                        style = AppTextStyles.caption,
                                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                                         modifier = Modifier
                                             .weight(1f, fill = false)
@@ -303,8 +298,7 @@ fun mcpToolsDialog(
                     )
                     Text(
                         text = stringResource("mcp.tools.dialog.loading"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.bodySecondary,
                     )
                 }
             }
@@ -316,8 +310,7 @@ fun mcpToolsDialog(
             tools.isNullOrEmpty() -> {
                 Text(
                     text = stringResource("mcp.tools.dialog.empty"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.bodySecondary,
                 )
             }
 
@@ -328,15 +321,13 @@ fun mcpToolsDialog(
                     } else {
                         stringResource("mcp.tools.dialog.search.count", filteredTools!!.size, tools!!.size)
                     },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.caption,
                 )
 
                 if (filteredTools.isNullOrEmpty()) {
                     Text(
                         text = stringResource("mcp.tools.dialog.search.empty"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.bodySecondary,
                     )
                 } else {
                     filteredTools.forEach { tool ->
@@ -355,17 +346,14 @@ fun mcpToolsDialog(
                                 SelectionContainer {
                                     Text(
                                         text = tool.specification.name(),
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface,
+                                        style = AppTextStyles.sectionTitle,
                                     )
                                 }
                                 tool.specification.description()?.let { desc ->
                                     SelectionContainer {
                                         Text(
                                             text = desc,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = AppTextStyles.caption,
                                         )
                                     }
                                 }
@@ -466,7 +454,7 @@ private fun toolCategoryChip(category: ToolCategory) {
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
+            style = AppTextStyles.hint,
             color = fg,
         )
     }
@@ -507,7 +495,7 @@ private fun toolStrategyChip(strategy: Int) {
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
+            style = AppTextStyles.hint,
             color = fg,
         )
     }

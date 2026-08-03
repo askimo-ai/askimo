@@ -532,15 +532,20 @@ object AppComponents {
     fun isCodeBlockDark(): Boolean = MaterialTheme.colorScheme.surface.luminance() < 0.5
 
     // ── Icon & Text Tints ─────────────────────────────────────────────────────
+    // Prefer AppTextStyles.primaryContent / secondaryContent over these helpers.
+    // These are kept for call sites that haven't been migrated yet.
 
+    /** @see AppTextStyles.secondaryContent */
     @Composable
-    fun secondaryIconColor(): Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+    fun secondaryIconColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant
 
+    /** Subtle decorative icon tint — half-opacity secondary. */
     @Composable
     fun tertiaryIconColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
 
+    /** @see AppTextStyles.secondaryContent */
     @Composable
-    fun secondaryTextColor(): Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+    fun secondaryTextColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant
 
     @Composable
     fun dropdownMenu(

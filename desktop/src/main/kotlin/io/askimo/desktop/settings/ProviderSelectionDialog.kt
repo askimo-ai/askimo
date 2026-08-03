@@ -66,6 +66,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import java.awt.Desktop
 import java.net.URI
@@ -121,7 +122,7 @@ fun providerWizardDialog(viewModel: ProviderWizardViewModel) {
         width = 780.dp,
         showSectionDividers = true,
         title = {
-            Text(text = title, style = MaterialTheme.typography.headlineSmall)
+            Text(text = title, style = AppTextStyles.pageTitle)
         },
         stickyHeader = if (modelPickerReady) {
             {
@@ -129,7 +130,7 @@ fun providerWizardDialog(viewModel: ProviderWizardViewModel) {
                     ?.let { ProviderRegistry.getProviderDisplayName(it) } ?: ""
                 Text(
                     text = stringResource("settings.model.select", providerDisplayName),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = AppTextStyles.body,
                 )
 
                 viewModel.pendingModelForNewProvider?.let { selectedModel ->
@@ -140,7 +141,7 @@ fun providerWizardDialog(viewModel: ProviderWizardViewModel) {
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(text = stringResource("settings.model.selected"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(text = stringResource("settings.model.selected"), style = AppTextStyles.fieldLabel, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text(text = selectedModel, style = MaterialTheme.typography.bodyLarge)
                             }
                         }
@@ -160,8 +161,7 @@ fun providerWizardDialog(viewModel: ProviderWizardViewModel) {
                 if (searchQuery.isNotBlank() && filteredModels.isNotEmpty()) {
                     Text(
                         text = stringResource("settings.model.filtered", filteredModels.size, displayModels.size),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.caption,
                     )
                 }
             }
@@ -181,8 +181,7 @@ fun providerWizardDialog(viewModel: ProviderWizardViewModel) {
                 val dots = ".".repeat((tick.toInt() % 4).coerceAtLeast(1))
                 Text(
                     text = stringResource("settings.test.connection.testing") + dots,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.caption,
                 )
                 Spacer(Modifier.width(Spacing.small))
             }
@@ -343,8 +342,8 @@ private fun providerTypePickerScreen(viewModel: ProviderWizardViewModel) {
                 ) {
                     Text(
                         text = stringResource("provider.type.picker.select.hint"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        style = AppTextStyles.caption,
+                        color = MaterialTheme.colorScheme.onSurface,
                         textAlign = TextAlign.Center,
                     )
                 }
@@ -382,7 +381,7 @@ private fun entryBadge(entry: ProviderEntry) {
     ) {
         Text(
             text = initials,
-            style = MaterialTheme.typography.labelSmall,
+            style = AppTextStyles.hint,
             fontWeight = FontWeight.Bold,
             color = fg,
             maxLines = 1,
@@ -419,7 +418,7 @@ private fun providerPickerEntryRow(
         entryBadge(entry = entry)
         Text(
             text = displayName,
-            style = MaterialTheme.typography.bodySmall,
+            style = AppTextStyles.caption,
             color = textColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -442,14 +441,13 @@ private fun providerPickerDetail(
             is ProviderEntry.Native -> {
                 Text(
                     text = ProviderRegistry.getProviderDisplayName(entry.provider),
-                    style = MaterialTheme.typography.titleMedium,
+                    style = AppTextStyles.sectionTitle,
                 )
                 val description = ProviderRegistry.getProviderShortDescription(entry.provider)
                 if (description.isNotBlank()) {
                     Text(
                         text = description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.bodySecondary,
                     )
                 }
                 val apiKeyUrl = ProviderRegistry.getProviderApiKeyUrl(entry.provider)
@@ -464,7 +462,7 @@ private fun providerPickerDetail(
                     ) {
                         Text(
                             text = stringResource("provider.template.get.apikey"),
-                            style = MaterialTheme.typography.bodySmall,
+                            style = AppTextStyles.caption,
                         )
                     }
                 }
@@ -473,12 +471,11 @@ private fun providerPickerDetail(
             is ProviderEntry.Template -> {
                 Text(
                     text = entry.template.displayName,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = AppTextStyles.sectionTitle,
                 )
                 Text(
                     text = entry.template.tagline,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.bodySecondary,
                 )
 
                 // Info chips: base URL + API key requirement
@@ -490,21 +487,19 @@ private fun providerPickerDetail(
                         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small), verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "Base URL",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = AppTextStyles.hint,
                             )
                             Text(
                                 text = entry.template.baseUrl
                                     .removePrefix("https://").removePrefix("http://")
                                     .substringBefore("/"),
-                                style = MaterialTheme.typography.bodySmall,
+                                style = AppTextStyles.caption,
                             )
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small), verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "API key",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = AppTextStyles.hint,
                             )
                             Text(
                                 text = if (entry.template.apiKeyRequired) {
@@ -512,7 +507,7 @@ private fun providerPickerDetail(
                                 } else {
                                     stringResource("provider.template.apikey.optional")
                                 },
-                                style = MaterialTheme.typography.bodySmall,
+                                style = AppTextStyles.caption,
                                 color = if (entry.template.apiKeyRequired) {
                                     MaterialTheme.colorScheme.onSurface
                                 } else {
@@ -534,7 +529,7 @@ private fun providerPickerDetail(
                     ) {
                         Text(
                             text = stringResource("provider.template.get.apikey"),
-                            style = MaterialTheme.typography.bodySmall,
+                            style = AppTextStyles.caption,
                         )
                     }
                 }
@@ -543,12 +538,11 @@ private fun providerPickerDetail(
             is ProviderEntry.Custom -> {
                 Text(
                     text = stringResource("provider.other.title"),
-                    style = MaterialTheme.typography.titleMedium,
+                    style = AppTextStyles.sectionTitle,
                 )
                 Text(
                     text = stringResource("provider.other.description"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.bodySecondary,
                 )
             }
         }
@@ -566,7 +560,7 @@ private fun instanceConfigScreen(viewModel: ProviderWizardViewModel) {
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
         ) {
-            Text(text = stringResource("provider.instance.name.label"), style = MaterialTheme.typography.titleMedium)
+            Text(text = stringResource("provider.instance.name.label"), style = AppTextStyles.sectionTitle)
             OutlinedTextField(
                 value = if (viewModel.isAddingNewInstance) viewModel.newInstanceDisplayName else viewModel.editingInstanceDisplayName,
                 onValueChange = {
@@ -581,7 +575,7 @@ private fun instanceConfigScreen(viewModel: ProviderWizardViewModel) {
                 isError = viewModel.displayNameError != null,
                 placeholder = { Text(stringResource("provider.instance.name.placeholder")) },
                 supportingText = viewModel.displayNameError?.let { error ->
-                    { Text(text = error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                    { Text(text = error, style = AppTextStyles.errorText) }
                 },
                 colors = AppComponents.outlinedTextFieldColors(),
             )
@@ -590,7 +584,7 @@ private fun instanceConfigScreen(viewModel: ProviderWizardViewModel) {
 
         // Provider config fields (API key, base URL, etc.)
         if (viewModel.providerConfigFields.isNotEmpty()) {
-            Text(text = stringResource("provider.configure.prompt"), style = MaterialTheme.typography.titleMedium)
+            Text(text = stringResource("provider.configure.prompt"), style = AppTextStyles.sectionTitle)
 
             viewModel.providerConfigFields.forEach { field ->
                 when (field) {
@@ -605,15 +599,15 @@ private fun instanceConfigScreen(viewModel: ProviderWizardViewModel) {
                                 verticalAlignment = Alignment.Top,
                             ) {
                                 Icon(Icons.Default.Info, contentDescription = "Info", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(text = field.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(text = field.message, style = AppTextStyles.caption)
                             }
                         }
                     }
 
                     else -> {
                         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
-                            Text(text = field.label + if (field.required) " *" else "", style = MaterialTheme.typography.labelLarge)
-                            Text(text = field.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(text = field.label + if (field.required) " *" else "", style = AppTextStyles.groupTitle)
+                            Text(text = field.description, style = AppTextStyles.caption)
                             when (field) {
                                 is ProviderConfigField.ApiKeyField -> {
                                     AppComponents.appSecretTextField(
@@ -629,13 +623,13 @@ private fun instanceConfigScreen(viewModel: ProviderWizardViewModel) {
                                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                                     ) {
                                         Column(modifier = Modifier.fillMaxWidth().padding(Spacing.medium), verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
-                                            Text(text = stringResource("provider.apikey.security.message"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(text = stringResource("provider.apikey.security.message"), style = AppTextStyles.caption)
                                             linkButton(onClick = {
                                                 try {
                                                     Desktop.getDesktop().browse(URI("https://$DOMAIN/security/"))
                                                 } catch (_: Exception) {}
                                             }, modifier = Modifier.padding(0.dp)) {
-                                                Text(text = stringResource("provider.apikey.security.link"), style = MaterialTheme.typography.bodySmall)
+                                                Text(text = stringResource("provider.apikey.security.link"), style = AppTextStyles.caption)
                                             }
                                         }
                                     }
@@ -658,11 +652,11 @@ private fun instanceConfigScreen(viewModel: ProviderWizardViewModel) {
                                         field.options.forEach { option ->
                                             if (currentValue == option.value) {
                                                 primaryButton(onClick = {}) {
-                                                    Text(option.label, style = MaterialTheme.typography.bodySmall)
+                                                    Text(option.label, style = AppTextStyles.caption)
                                                 }
                                             } else {
                                                 secondaryButton(onClick = { viewModel.updateProviderField(field.name, option.value) }) {
-                                                    Text(option.label, style = MaterialTheme.typography.bodySmall)
+                                                    Text(option.label, style = AppTextStyles.caption)
                                                 }
                                             }
                                         }
@@ -671,8 +665,7 @@ private fun instanceConfigScreen(viewModel: ProviderWizardViewModel) {
                                         ?.takeIf { it.isNotBlank() }?.let { endpoint ->
                                             Text(
                                                 text = endpoint,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                style = AppTextStyles.caption,
                                             )
                                         }
                                 }
@@ -696,7 +689,7 @@ private fun instanceConfigScreen(viewModel: ProviderWizardViewModel) {
                     Spacer(Modifier.width(Spacing.extraSmall))
                     Text(
                         text = stringResource("provider.setup.guide", ProviderRegistry.getProviderDisplayName(provider)),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = AppTextStyles.caption,
                     )
                 }
             }
@@ -707,10 +700,10 @@ private fun instanceConfigScreen(viewModel: ProviderWizardViewModel) {
                     Row(modifier = Modifier.fillMaxWidth().padding(Spacing.medium), horizontalArrangement = Arrangement.spacedBy(Spacing.small), verticalAlignment = Alignment.Top) {
                         Icon(Icons.Default.Warning, contentDescription = "Error", tint = MaterialTheme.colorScheme.error)
                         Column {
-                            Text(text = viewModel.connectionError ?: "", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+                            Text(text = viewModel.connectionError ?: "", style = AppTextStyles.body, color = MaterialTheme.colorScheme.onErrorContainer)
                             viewModel.connectionErrorHelp?.let {
                                 Spacer(Modifier.height(Spacing.extraSmall))
-                                Text(text = it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f))
+                                Text(text = it, style = AppTextStyles.caption, color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f))
                             }
                         }
                     }
@@ -742,17 +735,17 @@ private fun modelPickerScreen(
 
             viewModel.modelError != null -> {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
-                    Text(text = viewModel.modelError ?: "", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                    Text(text = viewModel.modelError ?: "", color = MaterialTheme.colorScheme.error, style = AppTextStyles.body)
                     viewModel.modelErrorHelp?.let {
                         Card(colors = AppComponents.surfaceVariantCardColors()) {
-                            Text(text = it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(Spacing.medium))
+                            Text(text = it, style = AppTextStyles.caption, modifier = Modifier.padding(Spacing.medium))
                         }
                     }
                 }
             }
 
             viewModel.availableModels.isEmpty() -> {
-                Text(text = stringResource("settings.model.none"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(text = stringResource("settings.model.none"), style = AppTextStyles.bodySecondary)
             }
 
             else -> {
@@ -761,8 +754,7 @@ private fun modelPickerScreen(
                 if (filteredModels.isEmpty()) {
                     Text(
                         text = stringResource("settings.model.no.match"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.caption,
                         modifier = Modifier.padding(Spacing.large),
                     )
                 } else {
@@ -776,7 +768,7 @@ private fun modelPickerScreen(
 
                 if (isFiltered && !showAll && searchQuery.isBlank()) {
                     linkButton(onClick = onShowAll, modifier = Modifier.padding(top = Spacing.small)) {
-                        Text(text = "Show all ${viewModel.availableModels.size} models", style = MaterialTheme.typography.bodySmall)
+                        Text(text = "Show all ${viewModel.availableModels.size} models", style = AppTextStyles.caption)
                     }
                 }
             }

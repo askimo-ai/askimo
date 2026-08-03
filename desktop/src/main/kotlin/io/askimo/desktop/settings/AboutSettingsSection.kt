@@ -29,7 +29,6 @@ import androidx.compose.material.icons.filled.Update
 import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -42,6 +41,7 @@ import io.askimo.core.VersionInfo
 import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import java.awt.Desktop
@@ -68,8 +68,7 @@ fun aboutSettingsSection() {
             ) {
                 Text(
                     text = stringResource("settings.about"),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    style = AppTextStyles.pageTitle,
                     modifier = Modifier.padding(bottom = Spacing.small),
                 )
 
@@ -92,18 +91,17 @@ fun aboutSettingsSection() {
                                 imageVector = Icons.Default.Info,
                                 contentDescription = null,
                                 modifier = Modifier.size(32.dp),
-                                tint = MaterialTheme.colorScheme.onSurface,
+                                tint = AppTextStyles.primaryContent,
                             )
                             Column {
                                 Text(
                                     text = VersionInfo.name,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+
+                                    style = AppTextStyles.sectionTitle,
                                 )
                                 Text(
                                     text = "${stringResource("about.version")} ${VersionInfo.version}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    style = AppTextStyles.body,
                                 )
                             }
                         }
@@ -137,7 +135,7 @@ fun aboutSettingsSection() {
                             Spacer(modifier = Modifier.size(8.dp))
                             Text(
                                 text = DOMAIN,
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = AppTextStyles.body,
                             )
                         }
                     }
@@ -156,13 +154,11 @@ fun aboutSettingsSection() {
                     ) {
                         Text(
                             text = stringResource("about.description"),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            style = AppTextStyles.sectionTitle,
                         )
                         Text(
                             text = stringResource("about.description.text"),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            style = AppTextStyles.body,
                         )
                     }
                 }
@@ -180,20 +176,17 @@ fun aboutSettingsSection() {
                     ) {
                         Text(
                             text = stringResource("about.license"),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            style = AppTextStyles.sectionTitle,
                         )
                         Text(
                             text = VersionInfo.license,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            style = AppTextStyles.body,
                             fontFamily = FontFamily.Monospace,
                         )
                         Spacer(modifier = Modifier.height(Spacing.extraSmall))
                         Text(
                             text = stringResource("about.copyright", Year.now().value, VersionInfo.author),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                            style = AppTextStyles.caption,
                         )
                     }
                 }
@@ -211,8 +204,7 @@ fun aboutSettingsSection() {
                     ) {
                         Text(
                             text = stringResource("about.runtime.info"),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            style = AppTextStyles.sectionTitle,
                         )
 
                         infoRow(
@@ -244,8 +236,7 @@ fun aboutSettingsSection() {
                     ) {
                         Text(
                             text = stringResource("about.links"),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            style = AppTextStyles.sectionTitle,
                         )
 
                         linkButton(
@@ -296,18 +287,16 @@ private fun infoRow(
             imageVector = icon,
             contentDescription = null,
             modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+            tint = AppTextStyles.secondaryContent,
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                style = AppTextStyles.hint,
             )
             Text(
                 text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                style = AppTextStyles.body,
                 fontFamily = if (useMonospace) FontFamily.Monospace else FontFamily.Default,
             )
         }

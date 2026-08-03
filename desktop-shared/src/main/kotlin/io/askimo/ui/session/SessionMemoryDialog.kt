@@ -44,6 +44,7 @@ import io.askimo.core.util.JsonUtils.prettyJson
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -84,9 +85,7 @@ fun sessionMemoryDialog(
         title = {
             Text(
                 text = stringResource("developer.session.memory.title"),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = AppTextStyles.pageTitle,
             )
         },
         content = {
@@ -97,8 +96,7 @@ fun sessionMemoryDialog(
                 ) {
                     Text(
                         text = stringResource("developer.session.memory.loading"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.bodySecondary,
                         modifier = Modifier.padding(Spacing.large),
                     )
                 }
@@ -109,8 +107,7 @@ fun sessionMemoryDialog(
                 ) {
                     Text(
                         text = stringResource("developer.session.memory.not.found"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.bodySecondary,
                         modifier = Modifier.padding(Spacing.large),
                     )
                 }
@@ -129,17 +126,14 @@ fun sessionMemoryDialog(
                     ) {
                         Text(
                             text = stringResource("developer.session.memory.summary"),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            style = AppTextStyles.sectionTitle,
                         )
                         Text(
                             text = stringResource(
                                 "developer.session.memory.word.count",
                                 countWords(memory.memorySummary ?: ""),
                             ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.caption,
                         )
                     }
 
@@ -156,8 +150,7 @@ fun sessionMemoryDialog(
                             SelectionContainer {
                                 Text(
                                     text = formatJson(memory.memorySummary ?: stringResource("developer.session.memory.empty")),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = AppTextStyles.bodySecondary,
                                     modifier = Modifier
                                         .padding(Spacing.large)
                                         .fillMaxWidth()
@@ -206,9 +199,7 @@ fun sessionMemoryDialog(
                     ) {
                         Text(
                             text = stringResource("developer.session.memory.messages"),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            style = AppTextStyles.sectionTitle,
                         )
 
                         if (messages.isNotEmpty()) {
@@ -221,8 +212,7 @@ fun sessionMemoryDialog(
                                         "developer.session.memory.word.count",
                                         countWords(memory.memoryMessages),
                                     ),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = AppTextStyles.caption,
                                 )
 
                                 // Pagination controls
@@ -244,8 +234,7 @@ fun sessionMemoryDialog(
 
                                     Text(
                                         text = "$currentPage / $totalPages",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurface,
+                                        style = AppTextStyles.caption,
                                     )
 
                                     IconButton(
@@ -267,8 +256,7 @@ fun sessionMemoryDialog(
                                     "developer.session.memory.word.count",
                                     countWords(memory.memoryMessages),
                                 ),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = AppTextStyles.caption,
                             )
                         }
                     }
@@ -294,8 +282,7 @@ fun sessionMemoryDialog(
                                     if (currentMessages.isEmpty()) {
                                         Text(
                                             text = stringResource("developer.session.memory.empty"),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = AppTextStyles.bodySecondary,
                                         )
                                     } else {
                                         currentMessages.forEach { msg ->
@@ -362,7 +349,7 @@ private fun memoryMessageItem(messageJson: String) {
             ) {
                 Text(
                     text = type.replaceFirstChar { it.uppercase() },
-                    style = MaterialTheme.typography.labelMedium,
+                    style = AppTextStyles.fieldLabel,
                     fontWeight = FontWeight.SemiBold,
                     color = when (type) {
                         "user" -> MaterialTheme.colorScheme.tertiary
@@ -372,22 +359,19 @@ private fun memoryMessageItem(messageJson: String) {
                 )
                 Text(
                     text = createdAt,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.hint,
                 )
             }
             Text(
                 text = content,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = AppTextStyles.body,
             )
         }
     } else {
         // Fallback for invalid JSON
         Text(
             text = messageJson,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
+            style = AppTextStyles.errorText,
         )
     }
 }

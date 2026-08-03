@@ -40,6 +40,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,6 +54,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.common.ui.util.FileDialogUtils
@@ -112,8 +114,7 @@ fun manageDirectivesDialog(
         title = {
             Text(
                 text = stringResource("directive.manage.title"),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = AppTextStyles.pageTitle,
             )
         },
         content = {
@@ -122,8 +123,7 @@ fun manageDirectivesDialog(
                 item {
                     Text(
                         text = stringResource("directive.manage.empty"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.bodySecondary,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 32.dp),
@@ -168,8 +168,7 @@ fun manageDirectivesDialog(
                                     }
                                     Text(
                                         text = directive.name,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onSurface,
+                                        style = AppTextStyles.sectionTitle,
                                     )
                                     if (directive.scope == DirectiveScope.TEAM) {
                                         AssistChip(
@@ -177,7 +176,7 @@ fun manageDirectivesDialog(
                                             label = {
                                                 Text(
                                                     text = stringResource("directive.scope.team"),
-                                                    style = MaterialTheme.typography.labelSmall,
+                                                    style = AppTextStyles.hint,
                                                 )
                                             },
                                             modifier = Modifier.height(24.dp),
@@ -199,7 +198,7 @@ fun manageDirectivesDialog(
                                             onClick = { editingDirective = directive },
                                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                                         ) {
-                                            Icon(Icons.Default.Edit, contentDescription = stringResource("action.edit"), tint = MaterialTheme.colorScheme.onSurface)
+                                            Icon(Icons.Default.Edit, contentDescription = stringResource("action.edit"), tint = AppTextStyles.primaryContent)
                                         }
                                         IconButton(
                                             onClick = { onDelete(directive.id) },
@@ -214,16 +213,14 @@ fun manageDirectivesDialog(
                             Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
                                 Text(
                                     text = directive.content,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = AppTextStyles.bodySecondary,
                                     maxLines = if (isExpanded) Int.MAX_VALUE else 3,
                                     overflow = if (isExpanded) TextOverflow.Clip else TextOverflow.Ellipsis,
                                 )
                                 if (directive.content.length > 120 || directive.content.lines().size > 3) {
                                     Text(
                                         text = if (isExpanded) stringResource("action.show.less") else stringResource("action.show.more"),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = AppTextStyles.hint,
                                         modifier = Modifier
                                             .pointerHoverIcon(PointerIcon.Hand)
                                             .clickable {
@@ -240,7 +237,7 @@ fun manageDirectivesDialog(
                                     label = {
                                         Text(
                                             text = stringResource("directive.created", TimeUtil.formatDisplay(directive.createdAt)),
-                                            style = MaterialTheme.typography.labelSmall,
+                                            style = AppTextStyles.hint,
                                         )
                                     },
                                     leadingIcon = {
@@ -288,12 +285,8 @@ fun manageDirectivesDialog(
                                     result.skipped,
                                 )
                             },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (importError) {
-                                MaterialTheme.colorScheme.onErrorContainer
-                            } else {
-                                MaterialTheme.colorScheme.onSecondaryContainer
-                            },
+                            style = AppTextStyles.caption,
+                            color = if (importError) MaterialTheme.colorScheme.onErrorContainer else Color.Unspecified,
                             modifier = Modifier.padding(horizontal = Spacing.medium, vertical = Spacing.small),
                         )
                     }

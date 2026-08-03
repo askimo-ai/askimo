@@ -43,7 +43,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.mcp.McpInstance
@@ -56,6 +55,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.themedTooltip
@@ -97,8 +97,7 @@ fun mcpServerTemplatesSection() {
                 // Page title — consistent with all other settings sections
                 Text(
                     text = stringResource("mcp.instances.title"),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    style = AppTextStyles.pageTitle,
                     modifier = Modifier.padding(bottom = Spacing.small),
                 )
 
@@ -110,8 +109,7 @@ fun mcpServerTemplatesSection() {
                     ) {
                         Text(
                             text = stringResource("mcp.instances.description"),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                            style = AppTextStyles.caption,
                         )
                         linkButton(
                             onClick = {
@@ -125,7 +123,7 @@ fun mcpServerTemplatesSection() {
                             Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(16.dp))
                             Text(
                                 text = stringResource("mcp.servers.guide"),
-                                style = MaterialTheme.typography.bodySmall,
+                                style = AppTextStyles.caption,
                                 modifier = Modifier.padding(start = 4.dp),
                             )
                         }
@@ -155,8 +153,7 @@ fun mcpServerTemplatesSection() {
                             ) {
                                 Text(
                                     text = stringResource("mcp.instances.empty"),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f),
+                                    style = AppTextStyles.bodySecondary,
                                 )
                             }
                         } else {
@@ -186,8 +183,7 @@ fun mcpServerTemplatesSection() {
 
                     Text(
                         text = stringResource("mcp.instances.count", mcpInstances.size.toString()),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                        style = AppTextStyles.hint,
                     )
                 }
             }
@@ -316,23 +312,20 @@ private fun mcpInstanceCard(
                 ) {
                     Text(
                         text = instance.name,
-                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = AppTextStyles.sectionTitle,
                     )
                 }
 
                 serverDef?.let { def ->
                     Text(
                         text = def.description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        style = AppTextStyles.caption,
                     )
                 }
 
                 Text(
                     text = stringResource("mcp.instance.server.label", instance.serverId),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f),
+                    style = AppTextStyles.caption,
                 )
             }
 
@@ -362,7 +355,7 @@ private fun mcpInstanceCard(
                         Icon(
                             imageVector = Icons.Default.Build,
                             contentDescription = stringResource("mcp.instance.view.tools.tooltip"),
-                            tint = MaterialTheme.colorScheme.onSurface,
+                            tint = AppTextStyles.primaryContent,
                             modifier = Modifier.size(18.dp),
                         )
                     }
@@ -376,7 +369,7 @@ private fun mcpInstanceCard(
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = stringResource("mcp.instance.edit.tooltip"),
-                            tint = MaterialTheme.colorScheme.onSurface,
+                            tint = AppTextStyles.primaryContent,
                             modifier = Modifier.size(18.dp),
                         )
                     }

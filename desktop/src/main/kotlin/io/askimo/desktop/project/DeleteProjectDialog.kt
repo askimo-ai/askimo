@@ -20,6 +20,7 @@ import io.askimo.ui.common.components.dangerButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 
 @Composable
 fun deleteProjectDialog(
@@ -46,8 +47,8 @@ fun deleteProjectDialog(
         text = {
             Text(
                 text = stringResource("project.delete.confirm.message", projectName),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+                style = AppTextStyles.bodySecondary,
             )
         },
         dismissButton = {

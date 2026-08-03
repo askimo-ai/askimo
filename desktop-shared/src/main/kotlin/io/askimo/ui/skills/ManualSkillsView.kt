@@ -61,7 +61,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.db.DatabaseManager
@@ -72,6 +71,7 @@ import io.askimo.core.skills.domain.SkillRunRecord
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.selectableText
@@ -237,9 +237,7 @@ private fun manualContent(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = stringResource("skills.view.title"),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground,
+                            style = AppTextStyles.pageTitle,
                         )
                         val runtimes = ExternalAgentLoader.displayNames()
                         val runtimesLabel = runtimes.mapIndexed { i, r ->
@@ -248,8 +246,7 @@ private fun manualContent(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = stringResource("settings.skills.description", runtimesLabel),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.bodySecondary,
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(
@@ -258,8 +255,7 @@ private fun manualContent(
                         ) {
                             Text(
                                 text = stringResource("settings.skills.runtimes"),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = AppTextStyles.caption,
                             )
                             runtimes.forEach { runtime ->
                                 Surface(
@@ -268,8 +264,7 @@ private fun manualContent(
                                 ) {
                                     Text(
                                         text = runtime,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = AppTextStyles.hint,
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                                     )
                                 }
@@ -336,15 +331,12 @@ private fun manualContent(
                         Column(modifier = Modifier.weight(1f)) {
                             selectableText(
                                 selectedSkill.name,
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground,
+                                style = AppTextStyles.pageTitle,
                             )
                             if (selectedSkill.description.isNotBlank()) {
                                 selectableText(
                                     selectedSkill.description,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = AppTextStyles.bodySecondary,
                                 )
                             }
                             if (lastRunRecord != null) {
@@ -368,7 +360,7 @@ private fun manualContent(
                                             "skills.view.last.run",
                                             formatRelativeTime(lastRunRecord.createdAt),
                                         ),
-                                        style = MaterialTheme.typography.labelSmall,
+                                        style = AppTextStyles.hint,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
@@ -406,7 +398,7 @@ private fun manualContent(
                             } else {
                                 stringResource("skills.view.select.hint")
                             },
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = AppTextStyles.bodySecondary,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         )
                     }
@@ -523,9 +515,7 @@ private fun manualRightPanel(
                     ) {
                         Text(
                             text = stringResource(activeTab.labelKey),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            style = AppTextStyles.itemTitle,
                         )
                         IconButton(
                             onClick = {
@@ -646,8 +636,7 @@ private fun manualRightTabIcon(
                 ) {
                     Text(
                         text = badge,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.hint,
                         modifier = Modifier.padding(horizontal = 3.dp, vertical = 0.dp),
                     )
                 }

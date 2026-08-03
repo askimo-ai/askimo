@@ -37,13 +37,13 @@ import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.askimo.core.user.domain.UserProfile
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.service.AvatarService
 import kotlinx.coroutines.launch
@@ -130,8 +130,7 @@ fun userProfileDialog(
         title = {
             Text(
                 text = stringResource("user.profile.title"),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
+                style = AppTextStyles.pageTitle,
             )
         },
         actions = {
@@ -210,8 +209,7 @@ fun userProfileDialog(
                 }
                 Text(
                     text = stringResource("user.profile.avatar.click_to_change"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AppTextStyles.caption,
                 )
             }
         },
@@ -220,8 +218,7 @@ fun userProfileDialog(
             // ── Basic Information ─────────────────────────────────────────────
             Text(
                 text = stringResource("user.profile.basic_info"),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
+                style = AppTextStyles.sectionTitle,
             )
 
             OutlinedTextField(
@@ -274,13 +271,11 @@ fun userProfileDialog(
             // ── Interests ─────────────────────────────────────────────────────
             Text(
                 text = stringResource("user.profile.interests"),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
+                style = AppTextStyles.sectionTitle,
             )
             Text(
                 text = stringResource("user.profile.interests.description"),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = AppTextStyles.caption,
             )
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
@@ -312,7 +307,7 @@ fun userProfileDialog(
                 supportingText = {
                     Text(
                         text = stringResource("user.profile.interests.custom.hint"),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = AppTextStyles.caption,
                     )
                 },
             )

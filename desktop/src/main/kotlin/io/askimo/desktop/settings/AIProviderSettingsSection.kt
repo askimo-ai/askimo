@@ -65,6 +65,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.clickableCard
@@ -96,8 +97,7 @@ fun aiProviderSettingsSection(viewModel: AIProviderViewModel) {
             ) {
                 Text(
                     text = stringResource("settings.ai.provider"),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    style = AppTextStyles.pageTitle,
                     modifier = Modifier.padding(bottom = Spacing.small),
                 )
 
@@ -122,21 +122,18 @@ fun aiProviderSettingsSection(viewModel: AIProviderViewModel) {
                                 text = viewModel.instanceDisplayName.ifBlank {
                                     viewModel.provider?.name ?: stringResource("provider.not.set")
                                 },
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                style = AppTextStyles.sectionTitle,
                             )
                             if (viewModel.model.isNotBlank()) {
                                 Text(
                                     text = viewModel.model,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+                                    style = AppTextStyles.body,
                                 )
                             }
                             viewModel.settingsDescription.forEach { line ->
                                 Text(
                                     text = line,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
+                                    style = AppTextStyles.caption,
                                 )
                             }
                         }
@@ -213,8 +210,7 @@ private fun providerModelConfigCard(instance: ProviderInstance, viewModel: AIPro
             ) {
                 Text(
                     text = stringResource("settings.provider.model.config.title"),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    style = AppTextStyles.sectionTitle,
                     modifier = Modifier.weight(1f),
                 )
                 linkButton(
@@ -233,7 +229,7 @@ private fun providerModelConfigCard(instance: ProviderInstance, viewModel: AIPro
                     )
                     Text(
                         text = stringResource("settings.provider.model.config.guide"),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = AppTextStyles.caption,
                         modifier = Modifier.padding(start = 4.dp),
                     )
                 }
@@ -241,8 +237,7 @@ private fun providerModelConfigCard(instance: ProviderInstance, viewModel: AIPro
 
             Text(
                 text = stringResource("settings.provider.model.config.description"),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                style = AppTextStyles.caption,
             )
 
             // Utility model
@@ -276,7 +271,7 @@ private fun providerModelConfigCard(instance: ProviderInstance, viewModel: AIPro
                 )
             }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.15f))
+            HorizontalDivider()
 
             // Vision model
             var showVisionModelDialog by remember { mutableStateOf(false) }
@@ -301,7 +296,7 @@ private fun providerModelConfigCard(instance: ProviderInstance, viewModel: AIPro
                 )
             }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.15f))
+            HorizontalDivider()
 
             // Image model
             var showImageModelDialog by remember { mutableStateOf(false) }
@@ -329,7 +324,8 @@ private fun providerModelConfigCard(instance: ProviderInstance, viewModel: AIPro
             // Provider-specific configurable fields (e.g. maxTokens for Anthropic)
             val configurableFields = instance.settings.getConfigurableFields { key -> LocalizationManager.getString(key) }
             if (configurableFields.isNotEmpty()) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.15f))
+                HorizontalDivider()
+
                 configurableFields.forEach { field ->
                     providerConfigurableField(
                         field = field,
@@ -342,7 +338,7 @@ private fun providerModelConfigCard(instance: ProviderInstance, viewModel: AIPro
 
             // Embedding model — only for supported providers
             if (supportsEmbedding) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.15f))
+                HorizontalDivider()
 
                 var showEmbeddingModelDialog by remember { mutableStateOf(false) }
                 providerModelSelectorField(
@@ -389,18 +385,16 @@ private fun providerModelSelectorField(
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                style = AppTextStyles.body,
             )
             Text(
                 text = hint,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
+                style = AppTextStyles.caption,
             )
         }
 
         val displayText = value.ifBlank { placeholder }
-        themedTooltip(text = if (value.isNotBlank()) value else "") {
+        themedTooltip(text = value.ifBlank { "" }) {
             Card(
                 modifier = Modifier
                     .widthIn(min = 160.dp, max = 300.dp)
@@ -416,8 +410,7 @@ private fun providerModelSelectorField(
                 ) {
                     Text(
                         text = displayText,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = AppTextStyles.body,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f).padding(end = Spacing.small),
@@ -425,7 +418,7 @@ private fun providerModelSelectorField(
                     Icon(
                         Icons.Default.Edit,
                         contentDescription = stringResource("settings.model.change.button"),
-                        tint = MaterialTheme.colorScheme.onSurface,
+                        tint = AppTextStyles.primaryContent,
                         modifier = Modifier.size(16.dp),
                     )
                 }
@@ -505,7 +498,7 @@ private fun providerModelTypePickerDialog(
         title = {
             Text(
                 text = stringResource("settings.model.select.title") + " (${modelType.label})",
-                style = MaterialTheme.typography.headlineSmall,
+                style = AppTextStyles.pageTitle,
             )
         },
         stickyHeader = if (modelsReady) {
@@ -516,8 +509,8 @@ private fun providerModelTypePickerDialog(
                             modifier = Modifier.fillMaxWidth().padding(Spacing.large),
                             verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                         ) {
-                            Text(text = stringResource("settings.model.current"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                            Text(text = currentValue, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Text(text = stringResource("settings.model.current"), style = AppTextStyles.fieldLabel)
+                            Text(text = currentValue, style = AppTextStyles.sectionTitle)
                         }
                     }
                 }
@@ -526,10 +519,10 @@ private fun providerModelTypePickerDialog(
                     Card(modifier = Modifier.fillMaxWidth(), colors = AppComponents.primaryCardColors()) {
                         Row(modifier = Modifier.fillMaxWidth().padding(Spacing.large), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(text = stringResource("settings.model.new"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                                Text(text = selectedModel ?: "", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                Text(text = stringResource("settings.model.new"), style = AppTextStyles.fieldLabel, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                Text(text = selectedModel ?: "", style = AppTextStyles.body, color = MaterialTheme.colorScheme.onPrimaryContainer)
                             }
-                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AppTextStyles.primaryContent)
                         }
                     }
                 }
@@ -547,8 +540,7 @@ private fun providerModelTypePickerDialog(
                 if (searchQuery.isNotBlank() && filteredModels.isNotEmpty()) {
                     Text(
                         text = stringResource("settings.model.filtered", filteredModels.size, displayModels.size),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = AppTextStyles.caption,
                     )
                 }
             }
@@ -583,31 +575,31 @@ private fun providerModelTypePickerDialog(
 
             errorMessage != null -> {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
-                    Text(text = errorMessage ?: "", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                    Text(text = errorMessage ?: "", color = MaterialTheme.colorScheme.error, style = AppTextStyles.body)
                     errorHelp?.let { helpText ->
                         Card(colors = AppComponents.surfaceVariantCardColors()) {
-                            Text(text = helpText, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(Spacing.medium))
+                            Text(text = helpText, style = AppTextStyles.caption, modifier = Modifier.padding(Spacing.medium))
                         }
                     }
                 }
             }
 
             availableModels.isEmpty() -> {
-                Text(text = stringResource("settings.model.none"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(text = stringResource("settings.model.none"), style = AppTextStyles.bodySecondary)
             }
 
             else -> {
-                Text(text = stringResource("settings.model.change.description"), style = MaterialTheme.typography.bodyMedium)
+                Text(text = stringResource("settings.model.change.description"), style = AppTextStyles.body)
 
                 if (filteredModels.isEmpty()) {
-                    Text(text = stringResource("settings.model.no.match"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(Spacing.large))
+                    Text(text = stringResource("settings.model.no.match"), style = AppTextStyles.caption, modifier = Modifier.padding(Spacing.large))
                 } else {
                     groupedModelListAsCards(models = filteredModels, selectedModelId = selectedModel, onModelClick = { selectedModel = it }, showHeaders = true)
                 }
 
                 if (isFiltered && !showAll && searchQuery.isBlank()) {
                     linkButton(onClick = { showAll = true }, modifier = Modifier.padding(top = Spacing.small)) {
-                        Text(text = "Show all ${availableModels.size} models", style = MaterialTheme.typography.bodySmall)
+                        Text(text = "Show all ${availableModels.size} models", style = AppTextStyles.caption)
                     }
                 }
             }
@@ -645,13 +637,11 @@ private fun providerConfigurableField(
         ) {
             Text(
                 text = field.label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                style = AppTextStyles.body,
             )
             Text(
                 text = field.description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
+                style = AppTextStyles.caption,
             )
         }
 

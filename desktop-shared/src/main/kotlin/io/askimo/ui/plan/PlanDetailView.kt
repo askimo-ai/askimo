@@ -69,8 +69,6 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -83,6 +81,7 @@ import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.markdownText
@@ -179,8 +178,7 @@ fun planDetailView(
                         ) {
                             Text(
                                 text = stringResource("plans.title"),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onBackground,
+                                style = AppTextStyles.body,
                             )
                         }
                     }
@@ -192,21 +190,18 @@ fun planDetailView(
                     ) {
                         Text(
                             text = plan.icon.ifBlank { "📋" },
-                            style = MaterialTheme.typography.headlineLarge,
+                            style = AppTextStyles.emptyStateEmoji,
                         )
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = plan.name,
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground,
+                                style = AppTextStyles.pageTitle,
                             )
                             if (plan.description.isNotBlank()) {
                                 SelectionContainer {
                                     Text(
                                         text = plan.description,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = AppTextStyles.bodySecondary,
                                     )
                                 }
                             }
@@ -293,9 +288,7 @@ fun planDetailView(
                                         Text(
                                             text = stringResource("plans.detail.how.it.works") +
                                                 " (${plan.steps.size} ${if (plan.steps.size == 1) stringResource("plans.detail.step") else stringResource("plans.detail.steps")})",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = AppTextStyles.fieldLabel,
                                         )
                                         Icon(
                                             imageVector = if (stepsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
@@ -322,8 +315,7 @@ fun planDetailView(
                                                 ) {
                                                     Text(
                                                         text = "${index + 1}",
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        fontWeight = FontWeight.Bold,
+                                                        style = AppTextStyles.hint,
                                                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                                     )
@@ -331,25 +323,18 @@ fun planDetailView(
                                                 Column(modifier = Modifier.weight(1f)) {
                                                     Text(
                                                         text = stepId,
-                                                        style = MaterialTheme.typography.labelMedium,
-                                                        fontWeight = FontWeight.SemiBold,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        style = AppTextStyles.fieldLabel,
                                                     )
                                                     if (!step.system.isNullOrBlank()) {
                                                         Text(
                                                             text = step.system!!,
-                                                            style = MaterialTheme.typography.bodySmall.copy(
-                                                                fontFamily = FontFamily.Monospace,
-                                                                fontSize = 11.sp,
-                                                            ),
-                                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                            style = AppTextStyles.codeSecondary.copy(fontSize = 11.sp),
                                                             modifier = Modifier.padding(top = 2.dp),
                                                         )
                                                     }
                                                     Text(
                                                         text = step.message,
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        style = AppTextStyles.caption,
                                                         modifier = Modifier.padding(top = 2.dp),
                                                     )
                                                 }
@@ -370,9 +355,7 @@ fun planDetailView(
                         if (plan.inputs.isNotEmpty()) {
                             Text(
                                 text = stringResource("plans.detail.inputs"),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onBackground,
+                                style = AppTextStyles.sectionTitle,
                                 modifier = Modifier.padding(bottom = Spacing.medium),
                             )
                             plan.inputs.forEach { input ->
@@ -482,7 +465,7 @@ fun planDetailView(
                                         SelectionContainer {
                                             Text(
                                                 text = error,
-                                                style = MaterialTheme.typography.bodyMedium,
+                                                style = AppTextStyles.body,
                                                 color = MaterialTheme.colorScheme.onErrorContainer,
                                             )
                                         }
@@ -505,7 +488,7 @@ fun planDetailView(
                                             Spacer(modifier = Modifier.size(Spacing.extraSmall))
                                             Text(
                                                 text = stringResource("plans.retry"),
-                                                style = MaterialTheme.typography.labelMedium,
+                                                style = AppTextStyles.fieldLabel,
                                             )
                                         }
                                     }
@@ -613,9 +596,7 @@ private fun agenticStepProgressPanel(
         Column(modifier = Modifier.padding(Spacing.large)) {
             Text(
                 text = stringResource("plans.steps.title"),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = AppTextStyles.itemTitle,
                 modifier = Modifier.padding(bottom = Spacing.medium),
             )
 
@@ -729,9 +710,7 @@ private fun agenticStepRow(
                     ) {
                         Text(
                             text = event.stepName,
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = AppTextStyles.caption,
                         )
                         when (event) {
                             is PlanStepEvent.Completed -> {
@@ -751,7 +730,7 @@ private fun agenticStepRow(
                                                 secondLabel = stringResource("plans.steps.duration.second"),
                                                 lessThanOne = stringResource("plans.steps.duration.less.than.one.second"),
                                             ),
-                                            style = MaterialTheme.typography.labelSmall,
+                                            style = AppTextStyles.hint,
                                             color = MaterialTheme.colorScheme.onSecondaryContainer,
                                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
                                         )
@@ -761,8 +740,7 @@ private fun agenticStepRow(
                                             themedTooltip(text = stringResource("message.token.usage.tooltip")) {
                                                 Text(
                                                     text = usage,
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                    style = AppTextStyles.hint,
                                                 )
                                             }
                                         }
@@ -783,7 +761,7 @@ private fun agenticStepRow(
                                             secondLabel = stringResource("plans.steps.duration.second"),
                                             lessThanOne = stringResource("plans.steps.duration.less.than.one.second"),
                                         ),
-                                        style = MaterialTheme.typography.labelSmall,
+                                        style = AppTextStyles.hint,
                                         color = MaterialTheme.colorScheme.onErrorContainer,
                                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
                                     )
@@ -822,7 +800,7 @@ private fun agenticStepRow(
                     is PlanStepEvent.WaitingForInput -> {
                         Text(
                             text = event.question,
-                            style = MaterialTheme.typography.bodySmall,
+                            style = AppTextStyles.caption,
                             color = MaterialTheme.colorScheme.tertiary,
                             modifier = Modifier.padding(top = 2.dp),
                         )
@@ -832,8 +810,7 @@ private fun agenticStepRow(
                         SelectionContainer {
                             Text(
                                 text = event.error.message ?: event.error.javaClass.simpleName,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
+                                style = AppTextStyles.errorText,
                                 modifier = Modifier.padding(top = 2.dp),
                             )
                         }
@@ -849,8 +826,7 @@ private fun agenticStepRow(
                         }
                         Text(
                             text = stringResource("plans.steps.running") + elapsed + ".".repeat(dotCount),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            style = AppTextStyles.caption,
                             modifier = Modifier.padding(top = 2.dp),
                         )
                     }
@@ -895,7 +871,7 @@ private fun agenticStepRow(
                             )
                             .padding(horizontal = 10.dp, vertical = 4.dp),
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        style = MaterialTheme.typography.labelSmall,
+                        style = AppTextStyles.hint,
                     )
                 }
             }
@@ -975,14 +951,13 @@ private fun interactiveQuestionPanel(
                 )
                 Text(
                     text = stringResource("plans.interactive.question.label"),
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    style = AppTextStyles.fieldLabel,
                     color = MaterialTheme.colorScheme.onTertiaryContainer,
                 )
             }
             Text(
                 text = question,
-                style = MaterialTheme.typography.bodyMedium,
+                style = AppTextStyles.body,
                 color = MaterialTheme.colorScheme.onTertiaryContainer,
                 modifier = Modifier.padding(bottom = Spacing.medium),
             )
@@ -999,7 +974,7 @@ private fun interactiveQuestionPanel(
             ) {
                 Text(
                     text = stringResource("plans.interactive.skip"),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = AppTextStyles.hint,
                     color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
                 )
             }
@@ -1026,9 +1001,7 @@ private fun followUpPanel(
         Column(modifier = Modifier.padding(Spacing.large)) {
             Text(
                 text = stringResource("plans.followup.label"),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = AppTextStyles.fieldLabel,
                 modifier = Modifier.padding(bottom = Spacing.small),
             )
             planInputField(
@@ -1110,9 +1083,7 @@ private fun resultPanel(
                     )
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = AppTextStyles.sectionTitle,
                     )
                     // Plan-level totals — only for the live (non-pinned) result panel
                     if (!isPinned) {
@@ -1120,8 +1091,7 @@ private fun resultPanel(
                             themedTooltip(text = stringResource("message.token.usage.tooltip")) {
                                 Text(
                                     text = summary,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                    style = AppTextStyles.hint,
                                 )
                             }
                         }
@@ -1180,7 +1150,7 @@ private fun resultPanel(
                             ) {
                                 Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.size(4.dp))
-                                Text(text = stringResource("plans.export"), style = MaterialTheme.typography.labelMedium)
+                                Text(text = stringResource("plans.export"), style = AppTextStyles.fieldLabel)
                             }
                             AppComponents.dropdownMenu(
                                 expanded = exportMenuExpanded,
@@ -1233,7 +1203,7 @@ private fun resultPanel(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(Icons.Default.Close, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
-                        Text(text = err, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                        Text(text = err, style = AppTextStyles.errorText)
                     }
                 }
             }
@@ -1292,14 +1262,12 @@ private fun planInputField(
                     Column {
                         Text(
                             text = input.label + if (input.required) " *" else "",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            style = AppTextStyles.body,
                         )
                         if (input.hint.isNotBlank()) {
                             Text(
                                 text = input.hint,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = AppTextStyles.caption,
                             )
                         }
                     }
