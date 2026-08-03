@@ -6,10 +6,14 @@ package io.askimo.core.providers.localai
 
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ModelProvider.LOCALAI
-import io.askimo.core.providers.OpenAiCompatibleChatModelFactory
 import io.askimo.core.providers.ensureLocalEmbeddingModelAvailable
+import io.askimo.core.providers.openaicompatible.CompletionsApiDelegate
+import io.askimo.core.providers.openaicompatible.OpenAiCompatibleChatModelFactory
 
-class LocalAiModelFactory : OpenAiCompatibleChatModelFactory<LocalAiSettings>() {
+class LocalAiModelFactory :
+    OpenAiCompatibleChatModelFactory<LocalAiSettings>(
+        apiDelegate = CompletionsApiDelegate(),
+    ) {
 
     override fun getProvider(): ModelProvider = LOCALAI
 

@@ -181,7 +181,9 @@ private fun logLevelCard() {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickableCard { logLevelDropdownExpanded = true },
-                            colors = CardDefaults.cardColors(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface,
+                            ),
                         ) {
                             Row(
                                 modifier = Modifier

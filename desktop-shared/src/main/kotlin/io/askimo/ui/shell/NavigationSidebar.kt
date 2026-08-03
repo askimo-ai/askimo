@@ -411,6 +411,7 @@ private fun expandedNavigationSidebar(
                 starredSessions = pinnedState.starredSessions,
                 currentSessionId = currentSessionId,
                 inProgressSessionIds = inProgressSessionIds,
+                bookmarkCountsBySession = sessionsViewModel.bookmarkCountsBySession,
                 onSelectProject = onSelectProject,
                 onResumeSession = onResumeSession,
                 onStarProject = onStarProject,
@@ -686,6 +687,7 @@ private fun pinnedSection(
     starredSessions: List<ChatSession>,
     currentSessionId: String?,
     inProgressSessionIds: Set<String>,
+    bookmarkCountsBySession: Map<String, Int> = emptyMap(),
     onSelectProject: (String) -> Unit,
     onResumeSession: (String) -> Unit,
     onStarProject: (String, Boolean) -> Unit,
@@ -745,6 +747,7 @@ private fun pinnedSection(
                         session = session,
                         isSelected = session.id == currentSessionId,
                         isChatInProgress = session.id in inProgressSessionIds,
+                        bookmarkCount = bookmarkCountsBySession[session.id] ?: 0,
                         onResumeSession = onResumeSession,
                         onUnpin = { onStarSession(session.id, false) },
                         onDelete = { onDeleteSession(session.id) },
@@ -845,6 +848,7 @@ private fun pinnedSessionItem(
     session: ChatSession,
     isSelected: Boolean,
     isChatInProgress: Boolean,
+    bookmarkCount: Int = 0,
     onResumeSession: (String) -> Unit,
     onUnpin: () -> Unit,
     onDelete: () -> Unit,
@@ -878,6 +882,7 @@ private fun pinnedSessionItem(
             isSelected = isSelected,
             isChatInProgress = isChatInProgress,
             isHovered = isHovered || showMenu,
+            bookmarkCount = bookmarkCount,
             onResumeSession = onResumeSession,
             onMenuClick = { showMenu = true },
         )
@@ -1125,6 +1130,7 @@ private fun sessionDrawerItemContent(
                     text = session.title,
                     onMenuClick = onMenuClick,
                     isHovered = isHovered,
+                    isSelected = isSelected,
                     bookmarkCount = bookmarkCount,
                 )
             },
@@ -1144,9 +1150,11 @@ private fun navigationItemLabelWithMenu(
     text: String,
     onMenuClick: () -> Unit,
     isHovered: Boolean,
+    isSelected: Boolean = false,
     bookmarkCount: Int = 0,
 ) {
     val fontScale = LocalFontScale.current
+    val textColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -1155,6 +1163,7 @@ private fun navigationItemLabelWithMenu(
         Text(
             text = text,
             style = AppTextStyles.groupTitle,
+            color = textColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
@@ -1170,7 +1179,7 @@ private fun navigationItemLabelWithMenu(
                     Icon(
                         Icons.Default.MoreVert,
                         contentDescription = "More options",
-                        tint = AppTextStyles.secondaryContent,
+                        tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppTextStyles.secondaryContent,
                         modifier = Modifier.size((18 * fontScale).dp),
                     )
                 }

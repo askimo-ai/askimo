@@ -36,7 +36,6 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -186,7 +185,7 @@ fun plansGalleryView(
                     Box(
                         modifier = Modifier.fillMaxWidth().height(200.dp),
                         contentAlignment = Alignment.Center,
-                    ) { CircularProgressIndicator() }
+                    ) { AppComponents.loadingSpinner() }
                     return@Column
                 }
 

@@ -34,7 +34,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -174,11 +173,7 @@ fun communityProjectSidePanel(
                                 }
                                 themedTooltip(text = statusTooltip) {
                                     if (ragIndexingStatus in listOf("inprogress", "started", "queued")) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(14.dp),
-                                            strokeWidth = 2.dp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
+                                        AppComponents.loadingSpinner(size = 14.dp)
                                     } else {
                                         Icon(
                                             imageVector = Icons.Default.AutoAwesome,

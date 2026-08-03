@@ -7,7 +7,7 @@ package io.askimo.core.providers.openai
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel.OpenAiEmbeddingModelBuilder
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ModelProvider.OPENAI
-import io.askimo.core.providers.OpenAiCompatibleChatModelFactory
+import io.askimo.core.providers.openaicompatible.OpenAiCompatibleChatModelFactory
 import io.askimo.core.util.ApiKeyUtils.safeApiKey
 
 class OpenAiModelFactory : OpenAiCompatibleChatModelFactory<OpenAiSettings>() {

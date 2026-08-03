@@ -8,10 +8,23 @@ import dev.langchain4j.model.openai.OpenAiEmbeddingModel.OpenAiEmbeddingModelBui
 import io.askimo.core.context.AppContext
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ModelProvider.LMSTUDIO
-import io.askimo.core.providers.OpenAiCompatibleChatModelFactory
 import io.askimo.core.providers.ensureLocalEmbeddingModelAvailable
+import io.askimo.core.providers.openaicompatible.CompletionsApiDelegate
+import io.askimo.core.providers.openaicompatible.OpenAiCompatibleChatModelFactory
+import io.askimo.core.providers.openaicompatible.ResponsesApiDelegate
+import io.askimo.core.util.toJdkVersion
 
-class LmStudioModelFactory : OpenAiCompatibleChatModelFactory<LmStudioSettings>() {
+/**
+ * Model factory for LM Studio.
+ *
+ * Uses [CompletionsApiDelegate] (`/v1/chat/completions`) since LM Studio does not support
+ * the OpenAI Responses API. HTTP/1.1 is enforced via [LmStudioSettings.httpVersion] —
+ * LM Studio's server does not support HTTP/2.
+ */
+class LmStudioModelFactory :
+    OpenAiCompatibleChatModelFactory<LmStudioSettings>(
+        apiDelegate = ResponsesApiDelegate(),
+    ) {
 
     override fun getProvider(): ModelProvider = LMSTUDIO
 
@@ -25,9 +38,11 @@ class LmStudioModelFactory : OpenAiCompatibleChatModelFactory<LmStudioSettings>(
 
     override fun checkEmbeddingAvailability(baseUrl: String, modelName: String) = ensureLocalEmbeddingModelAvailable(getProvider(), baseUrl, modelName)
 
-    /** LmStudio requires an HTTP/1.1 client on the embedding builder as well. */
+    /** LM Studio requires an HTTP/1.1 client on the embedding builder as well. */
     override fun customizeEmbeddingBuilder(
         settings: LmStudioSettings,
         builder: OpenAiEmbeddingModelBuilder,
-    ): OpenAiEmbeddingModelBuilder = builder.httpClientBuilder(createHttpClientBuilder(settings.baseUrl))
+    ): OpenAiEmbeddingModelBuilder = builder.httpClientBuilder(
+        createHttpClientBuilder(settings.baseUrl, httpVersion = settings.httpVersion.toJdkVersion()),
+    )
 }

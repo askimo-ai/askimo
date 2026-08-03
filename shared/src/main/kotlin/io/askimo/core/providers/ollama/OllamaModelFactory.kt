@@ -5,10 +5,14 @@
 package io.askimo.core.providers.ollama
 
 import io.askimo.core.providers.ModelProvider
-import io.askimo.core.providers.OpenAiCompatibleChatModelFactory
 import io.askimo.core.providers.ensureLocalEmbeddingModelAvailable
+import io.askimo.core.providers.openaicompatible.OpenAiCompatibleChatModelFactory
+import io.askimo.core.providers.openaicompatible.ResponsesApiDelegate
 
-class OllamaModelFactory : OpenAiCompatibleChatModelFactory<OllamaSettings>() {
+class OllamaModelFactory :
+    OpenAiCompatibleChatModelFactory<OllamaSettings>(
+        apiDelegate = ResponsesApiDelegate(),
+    ) {
 
     override fun getProvider(): ModelProvider = ModelProvider.OLLAMA
 

@@ -8,8 +8,8 @@ import dev.langchain4j.model.embedding.EmbeddingModel
 import io.askimo.core.providers.ModelDTO
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ModelProvider.XAI
-import io.askimo.core.providers.OpenAiCompatibleChatModelFactory
 import io.askimo.core.providers.ProviderModelUtils.fetchModels
+import io.askimo.core.providers.openaicompatible.OpenAiCompatibleChatModelFactory
 import io.askimo.core.util.ApiKeyUtils.safeApiKey
 
 class XAiModelFactory : OpenAiCompatibleChatModelFactory<XAiSettings>() {

@@ -35,7 +35,6 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -219,7 +218,7 @@ fun providerWizardDialog(viewModel: ProviderWizardViewModel) {
                             enabled = viewModel.connectionTestSuccess && !viewModel.isFetchingModelsForConfig,
                         ) {
                             if (viewModel.isFetchingModelsForConfig) {
-                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.surface)
+                                AppComponents.loadingSpinner(size = 16.dp)
                                 Spacer(Modifier.width(Spacing.small))
                             }
                             Text(stringResource("action.next"))
@@ -231,7 +230,7 @@ fun providerWizardDialog(viewModel: ProviderWizardViewModel) {
                             enabled = !viewModel.isTestingConnection && !viewModel.isFetchingModelsForConfig,
                         ) {
                             if (viewModel.isTestingConnection) {
-                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.surface)
+                                AppComponents.loadingSpinner(size = 16.dp)
                                 Spacer(Modifier.width(Spacing.small))
                             }
                             Text(stringResource("settings.save"))
@@ -652,11 +651,11 @@ private fun instanceConfigScreen(viewModel: ProviderWizardViewModel) {
                                         field.options.forEach { option ->
                                             if (currentValue == option.value) {
                                                 primaryButton(onClick = {}) {
-                                                    Text(option.label, style = AppTextStyles.caption)
+                                                    Text(option.label)
                                                 }
                                             } else {
                                                 secondaryButton(onClick = { viewModel.updateProviderField(field.name, option.value) }) {
-                                                    Text(option.label, style = AppTextStyles.caption)
+                                                    Text(option.label)
                                                 }
                                             }
                                         }
@@ -728,7 +727,7 @@ private fun modelPickerScreen(
         when {
             viewModel.isLoadingModels -> {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurface)
+                    AppComponents.loadingSpinner()
                     Text(text = stringResource("settings.model.loading"), modifier = Modifier.padding(start = Spacing.large))
                 }
             }

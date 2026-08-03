@@ -23,7 +23,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -129,11 +128,7 @@ fun planEditorView(
                         enabled = viewModel.editorValidationError == null && !viewModel.isSaving,
                     ) {
                         if (viewModel.isSaving) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                strokeWidth = 2.dp,
-                            )
+                            AppComponents.loadingSpinner(size = 16.dp)
                         } else {
                             Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
                         }

@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,6 +22,7 @@ import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.unit.dp
 import io.askimo.core.VersionInfo
+import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import org.jetbrains.skia.Image
@@ -77,11 +77,7 @@ fun splashScreen(isConnecting: Boolean = false) {
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(Spacing.small),
             ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                AppComponents.loadingSpinner(size = 16.dp)
                 Text(
                     text = "Connecting…",
                     style = AppTextStyles.caption,

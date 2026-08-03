@@ -7,125 +7,78 @@ package io.askimo.core.providers.openaicompatible
 import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.StreamingChatModel
 import dev.langchain4j.model.embedding.EmbeddingModel
-import dev.langchain4j.model.openai.OpenAiChatModel
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel.OpenAiEmbeddingModelBuilder
-import dev.langchain4j.model.openai.OpenAiStreamingChatModel
 import io.askimo.core.providers.ModelProvider
-import io.askimo.core.providers.OpenAiCompatibleChatModelFactory
 import io.askimo.core.util.ApiKeyUtils.safeApiKey
-import java.net.http.HttpClient
+import io.askimo.core.util.toJdkVersion
 
 /**
- * Intermediate base that adds [shouldProbeThinking] as a stable, non-protected surface so
- * [OpenAiCompatibleModelFactory] can call it on whichever delegate [delegate] returns —
- * without a `when` expression and without touching the visibility of the base-class method.
+ * The registered factory for [ModelProvider.OPENAI_COMPATIBLE].
+ *
+ * Routes model creation to [CompletionsApiDelegate] (`/v1/chat/completions`) or
+ * [ResponsesApiDelegate] (`/v1/responses`) based on [OpenAiCompatibleSettings.apiMode],
+ * which is user-configurable per instance.
+ *
+ * HTTP version and API mode are orthogonal: the delegate controls the endpoint surface;
+ * [OpenAiCompatibleSettings.httpVersion] controls the transport version.
  */
-internal abstract class OpenAiCompatibleDelegateFactory : OpenAiCompatibleChatModelFactory<OpenAiCompatibleSettings>() {
+class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiCompatibleSettings>() {
 
-    /** Expose the protected [probeThinkingSupport] to the router as an internal method. */
-    internal fun shouldProbeThinking(settings: OpenAiCompatibleSettings): Boolean = probeThinkingSupport(settings)
+    private val completionsApiDelegate = CompletionsApiDelegate()
+    private val responsesApiDelegate = ResponsesApiDelegate()
 
-    /**
-     * Read the HTTP version from per-instance [settings] rather than using a class-level constant.
-     * Maps [OpenAiHttpVersion] to the JDK [HttpClient.Version] enum.
-     */
-    override fun httpVersion(settings: OpenAiCompatibleSettings): HttpClient.Version = when (settings.httpVersion) {
-        OpenAiHttpVersion.HTTP_1_1 -> HttpClient.Version.HTTP_1_1
-        OpenAiHttpVersion.HTTP_2 -> HttpClient.Version.HTTP_2
+    private fun delegate(settings: OpenAiCompatibleSettings): OpenAiApiDelegate = when (settings.apiMode) {
+        OpenAiApiMode.CHAT_COMPLETIONS -> completionsApiDelegate
+        OpenAiApiMode.RESPONSES -> responsesApiDelegate
     }
-}
-
-// ── Delegate: Chat Completions API (/v1/chat/completions) ─────────────────────────────────
-
-/**
- * Handles the standard Chat Completions API path.
- * Used for virtually every third-party OpenAI-compatible provider
- * (NVIDIA NIM, OpenRouter, Groq, Together AI, Cloudflare AI, etc.).
- */
-internal class OpenAiCompatibleCompletionsModelFactory : OpenAiCompatibleDelegateFactory() {
 
     override fun getProvider(): ModelProvider = ModelProvider.OPENAI_COMPATIBLE
     override fun defaultSettings(): OpenAiCompatibleSettings = OpenAiCompatibleSettings()
     override fun resolveApiKey(settings: OpenAiCompatibleSettings): String = safeApiKey(settings.apiKey.ifBlank { "not-needed" })
 
-    /** Chat Completions providers don't support /v1/responses — thinking is never available. */
-    override fun probeThinkingSupport(settings: OpenAiCompatibleSettings): Boolean = false
+    override fun probeThinkingSupport(settings: OpenAiCompatibleSettings): Boolean = delegate(settings).probeThinkingSupport(
+        baseUrl = settings.baseUrl,
+        apiKey = resolveApiKey(settings),
+        modelName = settings.defaultModel,
+        httpClientBuilder = createHttpClientBuilder(settings.baseUrl, httpVersion = settings.httpVersion.toJdkVersion()),
+        log = log,
+    )
 
     override fun createStreamingModel(settings: OpenAiCompatibleSettings): StreamingChatModel {
         val listener = createTelemetryListener()
-        return OpenAiStreamingChatModel.builder()
-            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener, httpVersion(settings)))
-            .baseUrl(settings.baseUrl)
-            .apiKey(resolveApiKey(settings))
-            .modelName(settings.defaultModel)
-            .listeners(listOf(listener))
-            .build()
+        return delegate(settings).createStreamingModel(
+            baseUrl = settings.baseUrl,
+            apiKey = resolveApiKey(settings),
+            modelName = settings.defaultModel,
+            httpClientBuilder = createHttpClientBuilder(settings.baseUrl, listener, settings.httpVersion.toJdkVersion()),
+            listener = listener,
+            provider = getProvider(),
+        )
     }
 
     override fun createSecondaryModel(settings: OpenAiCompatibleSettings): ChatModel {
         val listener = createTelemetryListener()
-        val modelName = settings.utilityModel
-            .ifBlank { utilityModelFallback(settings) }
-        return OpenAiChatModel.builder()
-            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener, httpVersion(settings)))
-            .baseUrl(settings.baseUrl)
-            .apiKey(resolveApiKey(settings))
-            .modelName(modelName)
-            .listeners(listOf(listener))
-            .build()
+        val modelName = settings.utilityModel.ifBlank { utilityModelFallback(settings) }
+        return delegate(settings).createSecondaryModel(
+            baseUrl = settings.baseUrl,
+            apiKey = resolveApiKey(settings),
+            modelName = modelName,
+            httpClientBuilder = createHttpClientBuilder(settings.baseUrl, listener, settings.httpVersion.toJdkVersion()),
+            listener = listener,
+        )
     }
 
     override fun createModel(settings: OpenAiCompatibleSettings): ChatModel {
         val listener = createTelemetryListener()
-        return OpenAiChatModel.builder()
-            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener, httpVersion(settings)))
-            .baseUrl(settings.baseUrl)
-            .apiKey(resolveApiKey(settings))
-            .modelName(settings.defaultModel)
-            .listeners(listOf(listener))
-            .build()
+        return delegate(settings).createModel(
+            baseUrl = settings.baseUrl,
+            apiKey = resolveApiKey(settings),
+            modelName = settings.defaultModel,
+            httpClientBuilder = createHttpClientBuilder(settings.baseUrl, listener, settings.httpVersion.toJdkVersion()),
+            listener = listener,
+            provider = getProvider(),
+        )
     }
-}
-
-// ── Delegate: Responses API (/v1/responses) ───────────────────────────────────────────────
-
-/**
- * Handles the OpenAI Responses API path with typed content parts and thinking support.
- * Use when pointing at an endpoint that explicitly supports `/v1/responses`
- * (native OpenAI, or a compatible gateway). Inherits all Responses API model creation
- * from [OpenAiCompatibleChatModelFactory] — no overrides needed.
- */
-internal class OpenAiCompatibleResponsesModelFactory : OpenAiCompatibleDelegateFactory() {
-
-    override fun getProvider(): ModelProvider = ModelProvider.OPENAI_COMPATIBLE
-    override fun defaultSettings(): OpenAiCompatibleSettings = OpenAiCompatibleSettings()
-    override fun resolveApiKey(settings: OpenAiCompatibleSettings): String = safeApiKey(settings.apiKey.ifBlank { "not-needed" })
-}
-
-/**
- * The registered factory for [ModelProvider.OPENAI_COMPATIBLE].
- */
-class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiCompatibleSettings>() {
-
-    private val completionsDelegate = OpenAiCompatibleCompletionsModelFactory()
-    private val responsesDelegate = OpenAiCompatibleResponsesModelFactory()
-
-    private fun delegate(settings: OpenAiCompatibleSettings): OpenAiCompatibleDelegateFactory = when (settings.apiMode) {
-        OpenAiApiMode.CHAT_COMPLETIONS -> completionsDelegate
-        OpenAiApiMode.RESPONSES -> responsesDelegate
-    }
-
-    override fun getProvider(): ModelProvider = ModelProvider.OPENAI_COMPATIBLE
-    override fun defaultSettings(): OpenAiCompatibleSettings = OpenAiCompatibleSettings()
-    override fun resolveApiKey(settings: OpenAiCompatibleSettings): String = safeApiKey(settings.apiKey.ifBlank { "not-needed" })
-
-    override fun createStreamingModel(settings: OpenAiCompatibleSettings): StreamingChatModel = delegate(settings).createStreamingModel(settings)
-
-    override fun createSecondaryModel(settings: OpenAiCompatibleSettings): ChatModel = delegate(settings).createSecondaryModel(settings)
-
-    override fun createModel(settings: OpenAiCompatibleSettings): ChatModel = delegate(settings).createModel(settings)
-
-    override fun probeThinkingSupport(settings: OpenAiCompatibleSettings): Boolean = delegate(settings).shouldProbeThinking(settings)
 
     override fun getNoModelsHelpText(): String = """
         One possible reason is that your server URL or API key is not configured.

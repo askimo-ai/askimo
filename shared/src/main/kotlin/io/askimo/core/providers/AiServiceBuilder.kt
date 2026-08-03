@@ -15,7 +15,6 @@ import dev.langchain4j.service.tool.ToolProvider
 import io.askimo.core.config.AppConfig
 import io.askimo.core.logging.logger
 import io.askimo.core.rag.MetadataAwareContentInjector
-import io.askimo.core.util.SystemPrompts.systemMessage
 
 /**
  * Shared builder for creating ChatClient instances across all provider model factories.
@@ -68,9 +67,6 @@ object AiServiceBuilder {
                 }
             }
             .hallucinatedToolNameStrategy(ProviderModelUtils::hallucinatedToolHandler)
-            .systemMessageProvider {
-                systemMessage()
-            }
             .chatRequestTransformer { chatRequest, memoryId ->
                 ChatRequestTransformers.addCustomSystemMessagesAndRemoveDuplicates(
                     sessionId,

@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -110,10 +109,8 @@ internal fun actionInputField(
                 .pointerHoverIcon(PointerIcon.Hand),
         ) {
             if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary,
+                AppComponents.loadingSpinner(
+                    size = 20.dp,
                     trackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.3f),
                 )
             } else {
@@ -136,10 +133,8 @@ internal fun actionInputField(
                 .pointerHoverIcon(PointerIcon.Hand),
         ) {
             if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(14.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary,
+                AppComponents.loadingSpinner(
+                    size = 14.dp,
                     trackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.3f),
                 )
             } else {

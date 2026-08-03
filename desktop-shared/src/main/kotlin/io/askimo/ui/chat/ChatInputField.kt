@@ -46,7 +46,6 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -1241,10 +1240,7 @@ private fun toolsIndicatorButton(
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            AppComponents.loadingSpinner(size = 24.dp)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(stringResource("chat.tools.popup.loading"))
                         }
@@ -1616,7 +1612,7 @@ private fun fileAttachmentItem(
                                 horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                                AppComponents.loadingSpinner(size = 14.dp)
                                 Text(
                                     text = stringResource("chat.attachment.preview.loading"),
                                     style = AppTextStyles.hint,

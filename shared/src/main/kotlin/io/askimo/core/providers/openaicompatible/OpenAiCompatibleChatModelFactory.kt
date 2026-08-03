@@ -2,9 +2,8 @@
  *
  * Copyright (c) 2026 Askimo
  */
-package io.askimo.core.providers
+package io.askimo.core.providers.openaicompatible
 
-import dev.langchain4j.data.message.UserMessage
 import dev.langchain4j.http.client.jdk.JdkHttpClient
 import dev.langchain4j.memory.ChatMemory
 import dev.langchain4j.model.chat.ChatModel
@@ -13,16 +12,24 @@ import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.model.image.ImageModel
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel.OpenAiEmbeddingModelBuilder
 import dev.langchain4j.model.openai.OpenAiImageModel
-import dev.langchain4j.model.openai.OpenAiResponsesChatModel
-import dev.langchain4j.model.openai.OpenAiResponsesStreamingChatModel
 import dev.langchain4j.rag.content.retriever.ContentRetriever
 import dev.langchain4j.service.AiServices
 import dev.langchain4j.service.tool.ToolProvider
 import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
 import io.askimo.core.context.ExecutionMode
+import io.askimo.core.providers.AiServiceBuilder
+import io.askimo.core.providers.ChatClient
+import io.askimo.core.providers.ChatModelFactory
+import io.askimo.core.providers.HasBaseUrl
+import io.askimo.core.providers.LocalEmbeddingTokenLimits
+import io.askimo.core.providers.ModelCapabilitiesCache
+import io.askimo.core.providers.ModelDTO
+import io.askimo.core.providers.ProviderModelUtils
+import io.askimo.core.providers.ProviderSettings
 import io.askimo.core.telemetry.TelemetryChatModelListener
 import io.askimo.core.util.ProxyUtil
+import io.askimo.core.util.toJdkVersion
 import io.askimo.core.util.withLoggingIfDebug
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,17 +39,24 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.net.http.HttpClient
 import java.time.Duration
-import kotlin.Boolean
 
 /**
  * Abstract base factory for all OpenAI-compatible API providers.
  *
- * Subclasses must implement [getProvider] and [defaultSettings].
- * Everything else has a sensible default that can be selectively overridden.
+ * Subclasses must implement [getProvider] and [io.askimo.core.providers.ChatModelFactory.defaultSettings].
+ * The [apiDelegate] selects which OpenAI API surface is used ([ResponsesApiDelegate] for
+ * `/v1/responses`, [CompletionsApiDelegate] for
+ * `/v1/chat/completions`) and owns `probeThinkingSupport`.
+ * HTTP version is declared per-provider via [io.askimo.core.providers.ProviderSettings.httpVersion].
  *
- * @param T Provider-specific settings. Must implement both [ProviderSettings] and [HasBaseUrl].
+ * @param T Provider-specific settings. Must implement both [io.askimo.core.providers.ProviderSettings] and [io.askimo.core.providers.HasBaseUrl].
+ * @param apiDelegate Strategy that builds models and probes thinking support. Defaults to
+ * [ResponsesApiDelegate]; pass [CompletionsApiDelegate]
+ * for providers that target `/v1/chat/completions`.
  */
-abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
+abstract class OpenAiCompatibleChatModelFactory<T>(
+    protected val apiDelegate: OpenAiApiDelegate = ResponsesApiDelegate(),
+) : ChatModelFactory<T>
     where T : ProviderSettings, T : HasBaseUrl {
 
     /**
@@ -66,24 +80,6 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
     protected open fun resolveApiKey(settings: T): String = "not-needed"
 
     /**
-     * HTTP protocol version used for all connections to this provider.
-     *
-     * Defaults to [HttpClient.Version.HTTP_2]. Override to [HttpClient.Version.HTTP_1_1]
-     * for servers that do not support HTTP/2 (e.g., LmStudio, Docker AI).
-     *
-     * Prefer overriding [httpVersion] that takes [settings] when the version should be
-     * read from per-instance settings rather than being a class-level constant.
-     */
-    protected open fun httpVersion(): HttpClient.Version = HttpClient.Version.HTTP_2
-
-    /**
-     * Settings-aware variant of [httpVersion]. Called by the base class at every
-     * model-build and model-list site. The default delegates to [httpVersion] so all
-     * existing subclasses that override the no-arg form continue to work unchanged.
-     */
-    protected open fun httpVersion(settings: T): HttpClient.Version = httpVersion()
-
-    /**
      * Fallback model name used for the secondary/utility model when no explicit utility model
      * is configured in [AppConfig].
      *
@@ -104,7 +100,7 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
      * Template method for embedding model availability verification.
      *
      * **Local providers** (Ollama, LocalAI, LmStudio, Docker AI) override this to call
-     * [ensureLocalEmbeddingModelAvailable], which verifies the server is reachable and the
+     * [io.askimo.core.providers.ensureLocalEmbeddingModelAvailable], which verifies the server is reachable and the
      * requested model is pulled/available.
      *
      * **Remote / cloud providers** leave this as a no-op — the embedding endpoint is assumed
@@ -125,29 +121,18 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
     ): OpenAiEmbeddingModelBuilder = builder
 
     /**
-     * Probe whether the current model supports thinking/reasoning capabilities.
+     * Delegates thinking-support probing to [apiDelegate].
+     * [CompletionsApiDelegate] returns `false`
+     * immediately; [ResponsesApiDelegate] fires a live HTTP probe.
+     * Result is cached by the calling [create] method.
      */
-    protected open fun probeThinkingSupport(settings: T): Boolean = try {
-        val testModel = OpenAiResponsesStreamingChatModel
-            .builder()
-            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, httpVersion = httpVersion(settings)))
-            .baseUrl(settings.baseUrl)
-            .apiKey(resolveApiKey(settings))
-            .modelName(settings.defaultModel)
-            .reasoningEffort(ReasoningEffort.LOW.value)
-            .build()
-
-        val testClient = AiServices.builder(ChatClient::class.java)
-            .streamingChatModel(testModel)
-            .build()
-
-        testClient.sendStreamingMessageWithCallback(null, UserMessage("Capability probe — reply with 'ok'."))
-        log.info("Model '${settings.defaultModel}' supports thinking — thinking enabled")
-        true
-    } catch (e: Exception) {
-        log.info("Model '${settings.defaultModel}' does not support thinking: ${e.message} — thinking disabled", e)
-        false
-    }
+    protected open fun probeThinkingSupport(settings: T): Boolean = apiDelegate.probeThinkingSupport(
+        baseUrl = settings.baseUrl,
+        apiKey = resolveApiKey(settings),
+        modelName = settings.defaultModel,
+        httpClientBuilder = createHttpClientBuilder(settings.baseUrl, httpVersion = settings.httpVersion.toJdkVersion()),
+        log = log,
+    )
 
     // ── Shared helpers ─────────────────────────────────────────────────────────
 
@@ -157,12 +142,15 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
      *
      * [listener] is provided when the HTTP client should be wired to a specific
      * [TelemetryChatModelListener] instance — e.g. to inject per-request headers that are
-     * derived from that listener. The default implementation ignores it;
+     * derived from that listener. The default implementation ignores it.
+     *
+     * The HTTP version defaults to [HttpClient.Version.HTTP_2]; callers pass
+     * `settings.httpVersion.toJdkVersion()` to respect the per-provider/per-instance setting.
      */
     protected open fun createHttpClientBuilder(
         baseUrl: String,
         listener: TelemetryChatModelListener? = null,
-        httpVersion: HttpClient.Version = httpVersion(),
+        httpVersion: HttpClient.Version = HttpClient.Version.HTTP_2,
     ) = JdkHttpClient.builder().httpClientBuilder(
         ProxyUtil.configureProxy(
             HttpClient.newBuilder().version(httpVersion),
@@ -184,7 +172,7 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
             apiKey = resolveApiKey(settings),
             url = "${settings.baseUrl.trimEnd('/')}/models",
             providerName = getProvider(),
-            httpVersion = httpVersion(settings),
+            httpVersion = settings.httpVersion.toJdkVersion(),
         ).map { ModelDTO.of(getProvider(), it) }
     }
 
@@ -249,53 +237,38 @@ abstract class OpenAiCompatibleChatModelFactory<T> : ChatModelFactory<T>
 
     override fun createStreamingModel(settings: T): StreamingChatModel {
         val listener = createTelemetryListener()
-        val supportsThinking = ModelCapabilitiesCache.supportsThinking(getProvider(), settings.defaultModel)
-        return OpenAiResponsesStreamingChatModel.builder()
-            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener, httpVersion(settings)))
-            .baseUrl(settings.baseUrl)
-            .apiKey(resolveApiKey(settings))
-            .modelName(settings.defaultModel)
-            .apply {
-                val reasoningLevel = ModelCapabilitiesCache.getReasoningLevel(getProvider(), settings.defaultModel)
-                if (supportsThinking && reasoningLevel.isEnabled) {
-                    reasoningEffort(reasoningLevel.value)
-                    reasoningSummary("detailed")
-                }
-            }
-            .strictTools(true)
-            .listeners(listOf(listener))
-            .build()
+        return apiDelegate.createStreamingModel(
+            baseUrl = settings.baseUrl,
+            apiKey = resolveApiKey(settings),
+            modelName = settings.defaultModel,
+            httpClientBuilder = createHttpClientBuilder(settings.baseUrl, listener, settings.httpVersion.toJdkVersion()),
+            listener = listener,
+            provider = getProvider(),
+        )
     }
 
     override fun createSecondaryModel(settings: T): ChatModel {
         val listener = createTelemetryListener()
-        val modelName = settings.utilityModel
-            .ifBlank { utilityModelFallback(settings) }
-        return OpenAiResponsesChatModel.builder()
-            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener, httpVersion(settings)))
-            .baseUrl(settings.baseUrl)
-            .apiKey(resolveApiKey(settings))
-            .modelName(modelName)
-            .listeners(listOf(listener))
-            .build()
+        val modelName = settings.utilityModel.ifBlank { utilityModelFallback(settings) }
+        return apiDelegate.createSecondaryModel(
+            baseUrl = settings.baseUrl,
+            apiKey = resolveApiKey(settings),
+            modelName = modelName,
+            httpClientBuilder = createHttpClientBuilder(settings.baseUrl, listener, settings.httpVersion.toJdkVersion()),
+            listener = listener,
+        )
     }
 
     override fun createModel(settings: T): ChatModel {
         val listener = createTelemetryListener()
-        val supportsThinking = ModelCapabilitiesCache.supportsThinking(getProvider(), settings.defaultModel)
-        return OpenAiResponsesChatModel.builder()
-            .httpClientBuilder(createHttpClientBuilder(settings.baseUrl, listener, httpVersion(settings)))
-            .baseUrl(settings.baseUrl)
-            .apiKey(resolveApiKey(settings))
-            .modelName(settings.defaultModel)
-            .apply {
-                val reasoningLevel = ModelCapabilitiesCache.getReasoningLevel(getProvider(), settings.defaultModel)
-                if (supportsThinking && reasoningLevel.isEnabled) {
-                    reasoningEffort(reasoningLevel.value)
-                }
-            }
-            .listeners(listOf(listener))
-            .build()
+        return apiDelegate.createModel(
+            baseUrl = settings.baseUrl,
+            apiKey = resolveApiKey(settings),
+            modelName = settings.defaultModel,
+            httpClientBuilder = createHttpClientBuilder(settings.baseUrl, listener, settings.httpVersion.toJdkVersion()),
+            listener = listener,
+            provider = getProvider(),
+        )
     }
 
     override fun createImageModel(settings: T): ImageModel = OpenAiImageModel.builder()

@@ -599,8 +599,9 @@ private fun renderCodeBlock(codeBlock: FencedCodeBlock, viewportTopY: Float? = n
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator(
+                    AppComponents.loadingSpinner(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
                     )
                     Spacer(modifier = Modifier.height(Spacing.small))
                     Text(

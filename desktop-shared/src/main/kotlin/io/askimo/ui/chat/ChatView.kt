@@ -39,7 +39,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -599,11 +598,7 @@ fun chatView(
                                                     modifier = Modifier.size(18.dp),
                                                 )
                                                 if (ragIndexingStatus == "inprogress") {
-                                                    CircularProgressIndicator(
-                                                        modifier = Modifier.size(14.dp),
-                                                        color = statusColor,
-                                                        strokeWidth = 2.dp,
-                                                    )
+                                                    AppComponents.loadingSpinner(size = 14.dp, color = statusColor)
                                                 }
                                             }
                                         }

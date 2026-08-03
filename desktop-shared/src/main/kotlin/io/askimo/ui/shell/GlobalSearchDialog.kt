@@ -23,7 +23,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -306,8 +305,7 @@ fun globalSearchDialog(
                         contentAlignment = Alignment.Center,
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(
-                                color = MaterialTheme.colorScheme.onSurface,
+                            AppComponents.loadingSpinner(
                                 trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
                             )
                             Spacer(modifier = Modifier.height(Spacing.large))

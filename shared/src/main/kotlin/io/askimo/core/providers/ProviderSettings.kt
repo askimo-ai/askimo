@@ -18,6 +18,18 @@ import io.askimo.core.providers.openaicompatible.OpenAiCompatibleSettings
 import io.askimo.core.providers.xai.XAiSettings
 
 /**
+ * HTTP protocol version used for connections to a provider endpoint.
+ *
+ * - [HTTP_1_1] — safe default for self-hosted servers (uvicorn, vLLM, FastAPI, Docker AI)
+ *   that have incomplete or no HTTP/2 support.
+ * - [HTTP_2] — for cloud endpoints and local servers that fully support HTTP/2 multiplexing.
+ */
+enum class HttpVersion {
+    HTTP_1_1,
+    HTTP_2,
+}
+
+/**
  * Marker interface for model provider-specific configuration settings.
  *
  * This interface is implemented by various provider-specific settings classes
@@ -39,6 +51,13 @@ import io.askimo.core.providers.xai.XAiSettings
 )
 interface ProviderSettings {
     val defaultModel: String
+
+    /**
+     * HTTP protocol version for connections to this provider's endpoint.
+     * Defaults to [HttpVersion.HTTP_2]. Override in settings classes that target servers
+     * without full HTTP/2 support (e.g. [DockerAiSettings]).
+     */
+    val httpVersion: HttpVersion get() = HttpVersion.HTTP_2
 
     /**
      * Per-instance override for the utility/secondary model.

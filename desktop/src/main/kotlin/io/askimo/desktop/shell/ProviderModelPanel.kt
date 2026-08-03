@@ -40,7 +40,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -191,9 +190,10 @@ internal fun providerModelPanel(
                         )
                     }
                 } else {
-                    val sortedInstances = remember(state.availableInstances, currentInstanceId) {
+                    val initialActiveInstanceId = remember { currentInstanceId }
+                    val sortedInstances = remember(state.availableInstances) {
                         state.availableInstances.sortedWith(
-                            compareByDescending<ProviderInstance> { it.id == currentInstanceId }
+                            compareByDescending<ProviderInstance> { it.id == initialActiveInstanceId }
                                 .thenBy { it.displayName.lowercase() },
                         )
                     }
@@ -367,11 +367,7 @@ private fun modelListColumn(
                         horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
+                        AppComponents.loadingSpinner(size = 16.dp)
                         Text(
                             text = stringResource("settings.model.loading"),
                             style = AppTextStyles.caption,
@@ -718,11 +714,11 @@ private fun instanceEditForm(
                                 field.options.forEach { option ->
                                     if (currentValue == option.value) {
                                         primaryButton(onClick = {}) {
-                                            Text(option.label, style = AppTextStyles.body)
+                                            Text(option.label)
                                         }
                                     } else {
                                         secondaryButton(onClick = { state.updateEditField(field.name, option.value) }) {
-                                            Text(option.label, style = AppTextStyles.body)
+                                            Text(option.label)
                                         }
                                     }
                                 }
@@ -777,13 +773,13 @@ private fun instanceEditForm(
             horizontalArrangement = Arrangement.spacedBy(Spacing.small, Alignment.End),
         ) {
             secondaryButton(onClick = onCancel, enabled = !state.isTestingEdit) {
-                Text(stringResource("settings.cancel"), style = AppTextStyles.caption)
+                Text(stringResource("settings.cancel"))
             }
             primaryButton(
                 onClick = onSave,
                 enabled = !state.isTestingEdit && state.editDisplayNameError == null,
             ) {
-                Text(stringResource("settings.save"), style = AppTextStyles.caption)
+                Text(stringResource("settings.save"))
             }
         }
     }

@@ -197,8 +197,20 @@ fun appearanceSettingsSection() {
                     modifier = Modifier.padding(bottom = Spacing.small),
                 )
 
-                // Language & Font (formerly General settings)
+                // Language section
+                Spacer(modifier = Modifier.height(Spacing.small))
+                Text(
+                    text = stringResource("settings.language"),
+                    style = AppTextStyles.sectionTitle,
+                )
                 languageSelectionCard()
+
+                // Font section
+                Spacer(modifier = Modifier.height(Spacing.small))
+                Text(
+                    text = stringResource("settings.font"),
+                    style = AppTextStyles.sectionTitle,
+                )
                 fontSettingsCard()
 
                 // Theme Mode Section
@@ -1258,7 +1270,7 @@ private fun languageSelectionCard() {
             ) {
                 Text(
                     text = stringResource("settings.app.language"),
-                    style = AppTextStyles.fieldLabel,
+                    style = AppTextStyles.body,
                     modifier = Modifier.weight(1f).padding(end = Spacing.large),
                 )
                 Box(modifier = Modifier.widthIn(min = dropdownRegularMinWidth, max = dropdownRegularMaxWidth)) {
@@ -1359,7 +1371,7 @@ private fun preferredAIResponseLanguageField(availableLanguages: Map<Locale, Str
             ) {
                 Text(
                     text = stringResource("settings.ai.response.language"),
-                    style = AppTextStyles.fieldLabel,
+                    style = AppTextStyles.body,
                 )
                 themedTooltip(text = stringResource("settings.ai.response.language.tooltip")) {
                     Icon(
@@ -1477,7 +1489,7 @@ private fun fontSettingsCard() {
             ) {
                 Text(
                     text = stringResource("settings.font.size"),
-                    style = AppTextStyles.fieldLabel,
+                    style = AppTextStyles.body,
                     modifier = Modifier.weight(1f).padding(end = Spacing.large),
                 )
                 Box(modifier = Modifier.widthIn(min = dropdownCompactMinWidth, max = dropdownCompactMaxWidth)) {
@@ -1523,7 +1535,7 @@ private fun fontSettingsCard() {
             ) {
                 Text(
                     text = stringResource("settings.font.line.spacing"),
-                    style = AppTextStyles.fieldLabel,
+                    style = AppTextStyles.body,
                     modifier = Modifier.weight(1f).padding(end = Spacing.large),
                 )
                 Box(modifier = Modifier.widthIn(min = dropdownCompactMinWidth, max = dropdownCompactMaxWidth)) {
@@ -1581,7 +1593,7 @@ private fun fontFamilySelector(
     ) {
         Text(
             text = label,
-            style = AppTextStyles.fieldLabel,
+            style = AppTextStyles.body,
             modifier = Modifier.weight(1f).padding(end = Spacing.large),
         )
         Box(modifier = Modifier.widthIn(min = dropdownRegularMinWidth, max = dropdownRegularMaxWidth)) {

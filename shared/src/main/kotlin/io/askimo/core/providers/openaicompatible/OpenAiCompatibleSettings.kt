@@ -6,6 +6,7 @@ package io.askimo.core.providers.openaicompatible
 
 import io.askimo.core.providers.HasApiKey
 import io.askimo.core.providers.HasBaseUrl
+import io.askimo.core.providers.HttpVersion
 import io.askimo.core.providers.ProviderConfigField
 import io.askimo.core.providers.ProviderSettings
 import io.askimo.core.providers.SelectOption
@@ -30,23 +31,25 @@ data class OpenAiCompatibleSettings(
     val apiMode: OpenAiApiMode = OpenAiApiMode.CHAT_COMPLETIONS,
     /**
      * HTTP protocol version for connections to this endpoint.
-     * Defaults to [OpenAiHttpVersion.HTTP_1_1] — the safe choice for self-hosted servers
-     * (uvicorn, vLLM, FastAPI). Switch to [OpenAiHttpVersion.HTTP_2] for cloud endpoints.
+     * Defaults to [HttpVersion.HTTP_1_1] — the safe choice for self-hosted servers
+     * (uvicorn, vLLM, FastAPI). Switch to [HttpVersion.HTTP_2] for cloud endpoints.
      * Existing serialised configs without this field deserialise to the default safely.
      */
-    val httpVersion: OpenAiHttpVersion = OpenAiHttpVersion.HTTP_1_1,
+    val httpVersionConfig: HttpVersion = HttpVersion.HTTP_1_1,
 ) : ProviderSettings,
     HasApiKey,
     HasBaseUrl {
+
+    override val httpVersion: HttpVersion get() = httpVersionConfig
 
     override fun describe(): List<String> = listOf(
         "baseUrl: $baseUrl",
         "apiKey:  ${maskApiKey()}",
         "apiMode: $apiMode",
-        "httpVersion: $httpVersion",
+        "httpVersion: $httpVersionConfig",
     )
 
-    override fun toString(): String = "OpenAiCompatibleSettings(baseUrl=$baseUrl, apiKey=${maskApiKey()}, apiMode=$apiMode, httpVersion=$httpVersion)"
+    override fun toString(): String = "OpenAiCompatibleSettings(baseUrl=$baseUrl, apiKey=${maskApiKey()}, apiMode=$apiMode, httpVersion=$httpVersionConfig)"
 
     override fun getFields() = listOf(
         SettingField.TextField(
@@ -84,7 +87,7 @@ data class OpenAiCompatibleSettings(
         )
 
         SettingField.HTTP_VERSION -> copy(
-            httpVersion = runCatching { OpenAiHttpVersion.valueOf(value) }.getOrDefault(httpVersion),
+            httpVersionConfig = runCatching { HttpVersion.valueOf(value) }.getOrDefault(httpVersionConfig),
         )
 
         else -> this
@@ -112,6 +115,7 @@ data class OpenAiCompatibleSettings(
             ProviderConfigField.ApiKeyField(
                 description = apiKeyDescription,
                 value = apiKey,
+                required = false,
                 hasExistingValue = hasStoredKey,
             ),
             ProviderConfigField.SelectField(
@@ -136,15 +140,15 @@ data class OpenAiCompatibleSettings(
                 name = SettingField.HTTP_VERSION,
                 label = messageResolver("provider.openai_compatible.httpversion.label"),
                 description = messageResolver("provider.openai_compatible.httpversion.description"),
-                value = httpVersion.name,
+                value = httpVersionConfig.name,
                 options = listOf(
                     SelectOption(
-                        value = OpenAiHttpVersion.HTTP_1_1.name,
+                        value = HttpVersion.HTTP_1_1.name,
                         label = "HTTP/1.1",
                         description = messageResolver("provider.openai_compatible.httpversion.http1_1"),
                     ),
                     SelectOption(
-                        value = OpenAiHttpVersion.HTTP_2.name,
+                        value = HttpVersion.HTTP_2.name,
                         label = "HTTP/2",
                         description = messageResolver("provider.openai_compatible.httpversion.http2"),
                     ),
@@ -160,9 +164,9 @@ data class OpenAiCompatibleSettings(
             ?.let { runCatching { OpenAiApiMode.valueOf(it) }.getOrNull() }
             ?: apiMode
         val newHttpVersion = fields[SettingField.HTTP_VERSION]
-            ?.let { runCatching { OpenAiHttpVersion.valueOf(it) }.getOrNull() }
-            ?: httpVersion
-        return copy(baseUrl = newBaseUrl, apiKey = newApiKey, apiMode = newApiMode, httpVersion = newHttpVersion)
+            ?.let { runCatching { HttpVersion.valueOf(it) }.getOrNull() }
+            ?: httpVersionConfig
+        return copy(baseUrl = newBaseUrl, apiKey = newApiKey, apiMode = newApiMode, httpVersionConfig = newHttpVersion)
     }
 
     override fun deepCopy(): ProviderSettings = copy()

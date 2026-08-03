@@ -41,7 +41,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -906,11 +905,7 @@ private fun indexProgressIndicator(
                 horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(14.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                AppComponents.loadingSpinner(size = 14.dp)
                 Text(
                     text = stringResource("project.indexing.queued", indexProgress.blockedByName!!),
                     style = AppTextStyles.caption,

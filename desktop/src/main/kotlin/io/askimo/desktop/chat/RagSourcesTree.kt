@@ -38,7 +38,6 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -237,7 +236,7 @@ fun ragSourcesTree(
                                 horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                                AppComponents.loadingSpinner(size = 14.dp)
                                 Text(
                                     text = stringResource("rag.tree.search.indexing"),
                                     style = AppTextStyles.caption,

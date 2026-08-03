@@ -39,7 +39,6 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -173,7 +172,7 @@ fun projectsView(
                 when {
                     viewModel.isLoading -> {
                         Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
+                            AppComponents.loadingSpinner()
                         }
                     }
 

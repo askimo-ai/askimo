@@ -35,7 +35,6 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -387,9 +386,7 @@ fun mermaidChart(
             isMermaidCliAvailable == null -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
+                        AppComponents.loadingSpinner()
                         Spacer(modifier = Modifier.height(Spacing.large))
                         Text("Checking Mermaid CLI...", style = AppTextStyles.body)
                     }
@@ -417,9 +414,7 @@ fun mermaidChart(
             isLoading && isMermaidCliAvailable == true -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
+                        AppComponents.loadingSpinner()
                         Spacer(modifier = Modifier.height(Spacing.large))
                         Text(stringResource("mermaid.rendering.progress"), style = AppTextStyles.body)
                     }
@@ -707,11 +702,7 @@ private fun mermaidSetupInstructions(
                 // Install progress spinner
                 if (isInstalling) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
+                        AppComponents.loadingSpinner(size = 16.dp)
                         Spacer(modifier = Modifier.width(Spacing.small))
                         Text(
                             text = stringResource("mermaid.setup.installing"),

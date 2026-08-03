@@ -38,7 +38,6 @@ import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -383,11 +382,7 @@ fun planDetailView(
                                 enabled = !viewModel.isRunning,
                             ) {
                                 if (viewModel.isRunning) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
-                                        color = MaterialTheme.colorScheme.onPrimary,
-                                        strokeWidth = 2.dp,
-                                    )
+                                    AppComponents.loadingSpinner(size = 16.dp)
                                 } else {
                                     Icon(
                                         Icons.Default.PlayArrow,
@@ -668,11 +663,7 @@ private fun agenticStepRow(
         ) {
             Box(modifier = Modifier.padding(top = 2.dp)) {
                 when (event) {
-                    is PlanStepEvent.Started -> CircularProgressIndicator(
-                        modifier = Modifier.size(14.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.secondary,
-                    )
+                    is PlanStepEvent.Started -> AppComponents.loadingSpinner(size = 14.dp, color = MaterialTheme.colorScheme.secondary)
 
                     is PlanStepEvent.WaitingForInput -> Icon(
                         Icons.AutoMirrored.Filled.HelpOutline,

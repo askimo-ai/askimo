@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Error
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -120,7 +119,7 @@ fun editProjectDialog(
                             .padding(48.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        CircularProgressIndicator()
+                        AppComponents.loadingSpinner()
                     }
                 },
                 actions = null,

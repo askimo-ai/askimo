@@ -5,8 +5,6 @@
 package io.askimo.core.providers.gemini
 
 import dev.langchain4j.data.message.UserMessage
-import dev.langchain4j.http.client.jdk.JdkHttpClient
-import dev.langchain4j.http.client.jdk.JdkHttpClientBuilder
 import dev.langchain4j.memory.ChatMemory
 import dev.langchain4j.model.chat.Capability
 import dev.langchain4j.model.chat.ChatModel
@@ -38,13 +36,11 @@ import io.askimo.core.providers.ReasoningEffort
 import io.askimo.core.providers.sendStreamingMessageWithCallback
 import io.askimo.core.telemetry.TelemetryChatModelListener
 import io.askimo.core.util.ApiKeyUtils.safeApiKey
-import io.askimo.core.util.ProxyUtil
-import io.askimo.core.util.withLoggingIfDebug
+import io.askimo.core.util.createJdkHttpClientBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import java.net.http.HttpClient
 import java.time.Duration
 
 class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
@@ -70,12 +66,9 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
         executionMode: ExecutionMode,
         chatMemory: ChatMemory?,
     ): ChatClient {
-        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder()).withLoggingIfDebug()
-        val jdkHttpClientBuilder = JdkHttpClient.builder().httpClientBuilder(httpClientBuilder)
-
         // Probe thinking support once — result is persisted in ModelCapabilitiesCache
         if (!ModelCapabilitiesCache.hasTestedThinkingSupport(GEMINI, settings.defaultModel)) {
-            val supportsThinking = probeThinkingSupport(settings, jdkHttpClientBuilder)
+            val supportsThinking = probeThinkingSupport(settings)
             ModelCapabilitiesCache.setThinkingSupport(GEMINI, settings.defaultModel, supportsThinking)
         }
 
@@ -129,13 +122,10 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
      *
      * This is called only once per model — the result is cached in [ModelCapabilitiesCache].
      */
-    private fun probeThinkingSupport(
-        settings: GeminiSettings,
-        jdkHttpClientBuilder: JdkHttpClientBuilder,
-    ): Boolean = try {
+    private fun probeThinkingSupport(settings: GeminiSettings): Boolean = try {
         val testModel = GoogleAiGeminiStreamingChatModel
             .builder()
-            .httpClientBuilder(jdkHttpClientBuilder)
+            .httpClientBuilder(createJdkHttpClientBuilder())
             .apiKey(safeApiKey(settings.apiKey))
             .modelName(settings.defaultModel)
             .thinkingConfig(
@@ -168,15 +158,13 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
         .build()
 
     override fun createStreamingModel(settings: GeminiSettings): StreamingChatModel {
-        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder()).withLoggingIfDebug()
-        val jdkHttpClientBuilder = JdkHttpClient.builder().httpClientBuilder(httpClientBuilder)
         val telemetry = AppContext.getInstance().telemetry
 
         val supportsThinking = ModelCapabilitiesCache.supportsThinking(GEMINI, settings.defaultModel)
         val reasoningLevel = ModelCapabilitiesCache.getReasoningLevel(GEMINI, settings.defaultModel)
 
         return GoogleAiGeminiStreamingChatModel.builder()
-            .httpClientBuilder(jdkHttpClientBuilder)
+            .httpClientBuilder(createJdkHttpClientBuilder())
             .apiKey(safeApiKey(settings.apiKey))
             .modelName(settings.defaultModel)
             .timeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
@@ -201,32 +189,23 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
             .build()
     }
 
-    override fun createSecondaryModel(settings: GeminiSettings): ChatModel {
-        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder()).withLoggingIfDebug()
-        val jdkHttpClientBuilder = JdkHttpClient.builder().httpClientBuilder(httpClientBuilder)
-        return GoogleAiGeminiChatModel.builder()
-            .httpClientBuilder(jdkHttpClientBuilder)
-            .supportedCapabilities(Capability.RESPONSE_FORMAT_JSON_SCHEMA)
-            .apiKey(safeApiKey(settings.apiKey))
-            .modelName(
-                settings.utilityModel
-                    .ifBlank { settings.defaultModel },
-            )
-            .timeout(Duration.ofSeconds(AppConfig.models.timeouts.utilityModelTimeoutSeconds))
-            .build()
-    }
+    override fun createSecondaryModel(settings: GeminiSettings): ChatModel = GoogleAiGeminiChatModel.builder()
+        .httpClientBuilder(createJdkHttpClientBuilder())
+        .supportedCapabilities(Capability.RESPONSE_FORMAT_JSON_SCHEMA)
+        .apiKey(safeApiKey(settings.apiKey))
+        .modelName(
+            settings.utilityModel
+                .ifBlank { settings.defaultModel },
+        )
+        .timeout(Duration.ofSeconds(AppConfig.models.timeouts.utilityModelTimeoutSeconds))
+        .build()
 
-    override fun createModel(settings: GeminiSettings): ChatModel {
-        val httpClientBuilder = ProxyUtil.configureProxy(HttpClient.newBuilder()).withLoggingIfDebug()
-        val jdkHttpClientBuilder = JdkHttpClient.builder().httpClientBuilder(httpClientBuilder)
-
-        return GoogleAiGeminiChatModel.builder()
-            .httpClientBuilder(jdkHttpClientBuilder)
-            .apiKey(safeApiKey(settings.apiKey))
-            .modelName(settings.defaultModel)
-            .timeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
-            .build()
-    }
+    override fun createModel(settings: GeminiSettings): ChatModel = GoogleAiGeminiChatModel.builder()
+        .httpClientBuilder(createJdkHttpClientBuilder())
+        .apiKey(safeApiKey(settings.apiKey))
+        .modelName(settings.defaultModel)
+        .timeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
+        .build()
 
     override fun createUtilityClient(
         settings: GeminiSettings,

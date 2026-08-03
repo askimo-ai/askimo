@@ -141,9 +141,14 @@ class LoggingHttpClient(
         bodyBytes: ByteArray,
         truncated: Boolean,
     ) {
+        val version = when (responseInfo.version()) {
+            Version.HTTP_1_1 -> "HTTP/1.1"
+            Version.HTTP_2 -> "HTTP/2"
+            else -> responseInfo.version().name
+        }
         val sb = StringBuilder()
         sb.appendLine("──── Incoming HTTP Response ────────────────────────────────────────────")
-        sb.appendLine("${responseInfo.statusCode()} ${request.method()} ${request.uri()}")
+        sb.appendLine("${responseInfo.statusCode()} ${request.method()} ${request.uri()} [$version]")
         sb.appendLine()
         sb.appendHeaders(responseInfo.headers())
         if (bodyBytes.isNotEmpty()) {
@@ -243,10 +248,18 @@ class LoggingHttpClient(
     }
 
     private fun logRequest(request: HttpRequest, body: String?) {
-        // No isDebugEnabled guard needed — this class is only instantiated when debug is on.
+        val version = request.version()
+            .map { v ->
+                when (v) {
+                    Version.HTTP_1_1 -> "HTTP/1.1"
+                    Version.HTTP_2 -> "HTTP/2"
+                    else -> v.name
+                }
+            }
+            .orElse("default")
         val sb = StringBuilder()
         sb.appendLine("──── Outgoing HTTP Request ────────────────────────────────────────────")
-        sb.appendLine("${request.method()} ${request.uri()}")
+        sb.appendLine("${request.method()} ${request.uri()} [$version]")
         sb.appendLine()
         sb.appendHeaders(request.headers())
         if (body != null) {

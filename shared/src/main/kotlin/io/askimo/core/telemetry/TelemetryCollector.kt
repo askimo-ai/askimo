@@ -233,10 +233,10 @@ data class TelemetryMetrics(
     val ragAvgChunksRetrieved: Double,
 
     // LLM Calls — key is "$instanceId:$model" or "$provider:$model" (legacy)
-    val llmCallsByInstance: Map<String, Int>,
-    val llmTokensByInstance: Map<String, Long>,
-    val llmAvgDurationMsByInstance: Map<String, Long>,
-    val llmErrorsByInstance: Map<String, Int>,
+    val llmCallsByInstance: Map<String, Int> = emptyMap(),
+    val llmTokensByInstance: Map<String, Long> = emptyMap(),
+    val llmAvgDurationMsByInstance: Map<String, Long> = emptyMap(),
+    val llmErrorsByInstance: Map<String, Int> = emptyMap(),
 ) {
     val totalTokensUsed: Long
         get() = llmTokensByInstance.values.sum()

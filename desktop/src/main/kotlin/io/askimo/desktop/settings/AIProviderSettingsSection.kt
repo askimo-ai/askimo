@@ -32,7 +32,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -568,7 +567,7 @@ private fun providerModelTypePickerDialog(
         when {
             isLoading -> {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    AppComponents.loadingSpinner()
                     Text(text = stringResource("settings.model.loading"), modifier = Modifier.padding(start = Spacing.large))
                 }
             }

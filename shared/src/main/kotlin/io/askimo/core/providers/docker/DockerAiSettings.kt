@@ -5,6 +5,7 @@
 package io.askimo.core.providers.docker
 
 import io.askimo.core.providers.HasBaseUrl
+import io.askimo.core.providers.HttpVersion
 import io.askimo.core.providers.ProviderConfigField
 import io.askimo.core.providers.ProviderSettings
 import io.askimo.core.providers.SettingField
@@ -20,6 +21,8 @@ data class DockerAiSettings(
     override val embeddingModel: String = "",
 ) : ProviderSettings,
     HasBaseUrl {
+    /** Docker AI does not support HTTP/2 — force HTTP/1.1 for all connections. */
+    override val httpVersion: HttpVersion get() = HttpVersion.HTTP_1_1
     override fun describe(): List<String> = listOf(
         "baseUrl:     $baseUrl",
     )

@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -292,10 +291,7 @@ fun mcpToolsDialog(
                     horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
+                    AppComponents.loadingSpinner(size = 24.dp)
                     Text(
                         text = stringResource("mcp.tools.dialog.loading"),
                         style = AppTextStyles.bodySecondary,

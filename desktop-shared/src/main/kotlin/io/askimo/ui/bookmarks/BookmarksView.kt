@@ -27,7 +27,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -115,7 +114,7 @@ fun bookmarksView(
                             modifier = Modifier.fillMaxWidth().height(200.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            CircularProgressIndicator()
+                            AppComponents.loadingSpinner()
                         }
                     }
 

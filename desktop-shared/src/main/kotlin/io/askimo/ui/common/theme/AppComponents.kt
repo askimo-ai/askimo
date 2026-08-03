@@ -48,6 +48,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardColors
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -55,6 +56,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonColors
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.MenuItemColors
@@ -846,6 +848,42 @@ object AppComponents {
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Standardised small loading spinner for all UI contexts.
+     *
+     * Color defaults to [LocalContentColor] so it automatically matches its container:
+     *   - inside a `primaryButton`         → onPrimary
+     *   - inside a `bannerCardColors` card → onSecondaryContainer
+     *   - on a plain surface               → onSurface
+     *
+     * Bakes in `strokeWidth = 2.dp` (lighter than M3 default of 4.dp) for inline use.
+     *
+     * @param size  Spinner diameter. 16.dp when inline in a button, 18.dp standalone (default).
+     * @param color Override only when a dynamic/semantic color is needed (e.g. a status color).
+     */
+    @Composable
+    fun loadingSpinner(
+        modifier: Modifier = Modifier,
+        size: Dp = 18.dp,
+        color: Color = LocalContentColor.current,
+        trackColor: Color? = null,
+    ) {
+        if (trackColor != null) {
+            CircularProgressIndicator(
+                modifier = modifier.size(size),
+                strokeWidth = 2.dp,
+                color = color,
+                trackColor = trackColor,
+            )
+        } else {
+            CircularProgressIndicator(
+                modifier = modifier.size(size),
+                strokeWidth = 2.dp,
+                color = color,
+            )
         }
     }
 

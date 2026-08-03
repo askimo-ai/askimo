@@ -1227,7 +1227,7 @@ private fun thinkingSection(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 300.dp)
+                            .heightIn(max = 200.dp)
                             .verticalScroll(scrollState)
                             .padding(start = Spacing.small, end = Spacing.medium, top = 2.dp, bottom = 2.dp),
                     ) {
