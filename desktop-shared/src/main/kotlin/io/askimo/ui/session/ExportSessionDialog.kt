@@ -264,7 +264,7 @@ private fun formatCard(
                 imageVector = icon,
                 contentDescription = null,
                 tint = if (isSelected) {
-                    MaterialTheme.colorScheme.onSurface
+                    MaterialTheme.colorScheme.onPrimaryContainer
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
@@ -308,7 +308,7 @@ private fun formatCard(
                 Icon(
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = "Selected",
-                    tint = AppTextStyles.primaryContent,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(24.dp),
                 )
             }

@@ -346,7 +346,13 @@ private fun expandedNavigationSidebar(
                 ) {
                     NavigationDrawerItem(
                         icon = { Icon(Icons.Default.FolderOpen, contentDescription = null) },
-                        label = { Text(stringResource("project.title"), style = AppTextStyles.groupTitle) },
+                        label = {
+                            Text(
+                                stringResource("project.title"),
+                                style = AppTextStyles.groupTitle,
+                                color = if (isProjectsSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppTextStyles.primaryContent,
+                            )
+                        },
                         selected = isProjectsSelected,
                         onClick = onNavigateToProjects,
                         badge = {
@@ -361,7 +367,7 @@ private fun expandedNavigationSidebar(
                                         Icon(
                                             Icons.Default.Add,
                                             contentDescription = stringResource("project.new.dialog.title"),
-                                            tint = AppTextStyles.secondaryContent,
+                                            tint = if (isProjectsSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppTextStyles.secondaryContent,
                                             modifier = Modifier.size((18 * fontScale).dp),
                                         )
                                     }
@@ -379,7 +385,13 @@ private fun expandedNavigationSidebar(
             if (showPlansInSidebar) {
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.PlayCircle, contentDescription = null) },
-                    label = { Text(stringResource("plans.nav.title"), style = AppTextStyles.groupTitle) },
+                    label = {
+                        Text(
+                            stringResource("plans.nav.title"),
+                            style = AppTextStyles.groupTitle,
+                            color = if (isPlansSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppTextStyles.primaryContent,
+                        )
+                    },
                     selected = isPlansSelected,
                     onClick = onNavigateToPlans,
                     modifier = Modifier
@@ -394,7 +406,13 @@ private fun expandedNavigationSidebar(
             if (showSkillsInSidebar) {
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.Extension, contentDescription = null) },
-                    label = { Text(stringResource("skills.nav.title"), style = AppTextStyles.groupTitle) },
+                    label = {
+                        Text(
+                            stringResource("skills.nav.title"),
+                            style = AppTextStyles.groupTitle,
+                            color = if (isSkillsSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppTextStyles.primaryContent,
+                        )
+                    },
                     selected = isSkillsSelected,
                     onClick = onNavigateToSkills,
                     modifier = Modifier
@@ -426,7 +444,13 @@ private fun expandedNavigationSidebar(
             // Sessions header (collapsible)
             NavigationDrawerItem(
                 icon = { Icon(Icons.Default.History, contentDescription = null) },
-                label = { Text(stringResource("chat.sessions"), style = AppTextStyles.groupTitle) },
+                label = {
+                    Text(
+                        stringResource("chat.sessions"),
+                        style = AppTextStyles.groupTitle,
+                        color = if (isSessionsSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppTextStyles.primaryContent,
+                    )
+                },
                 selected = isSessionsSelected,
                 onClick = onToggleSessions,
                 badge = {

@@ -275,7 +275,7 @@ private fun statCardsSection(
         statCard(
             label = stringResource("discover.stat.chats"),
             value = totalChats?.let { LocalizationManager.formatNumber(it) } ?: "—",
-            icon = { Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer) },
+            icon = { Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
             onClick = onNavigateToSessions,
             modifier = Modifier.weight(1f),
         )
@@ -284,7 +284,7 @@ private fun statCardsSection(
             statCard(
                 label = stringResource("discover.stat.projects"),
                 value = totalProjects?.let { LocalizationManager.formatNumber(it) } ?: "—",
-                icon = { Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer) },
+                icon = { Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                 onClick = onNavigateToProjects,
                 modifier = Modifier.weight(1f),
             )
@@ -294,7 +294,7 @@ private fun statCardsSection(
             statCard(
                 label = stringResource("discover.stat.mcp"),
                 value = LocalizationManager.formatNumber(totalMcpServers),
-                icon = { Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer) },
+                icon = { Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                 onClick = onNavigateToMcpSettings,
                 modifier = Modifier.weight(1f),
             )
@@ -304,7 +304,7 @@ private fun statCardsSection(
             statCard(
                 label = stringResource("discover.stat.plans"),
                 value = totalPlans?.let { LocalizationManager.formatNumber(it) } ?: "—",
-                icon = { Icon(Icons.Default.PlayCircle, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer) },
+                icon = { Icon(Icons.Default.PlayCircle, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                 onClick = onNavigateToPlans,
                 modifier = Modifier.weight(1f),
             )
@@ -314,7 +314,7 @@ private fun statCardsSection(
             statCard(
                 label = stringResource("discover.stat.skills"),
                 value = totalSkills?.let { LocalizationManager.formatNumber(it) } ?: "—",
-                icon = { Icon(Icons.Default.Extension, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer) },
+                icon = { Icon(Icons.Default.Extension, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                 onClick = onNavigateToSkills,
                 modifier = Modifier.weight(1f),
             )
@@ -330,7 +330,7 @@ private fun statCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
 ) {
-    clickableCard(onClick = onClick, modifier = modifier, colors = AppComponents.secondaryCardColors()) {
+    clickableCard(onClick = onClick, modifier = modifier) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(Spacing.large),
             verticalArrangement = Arrangement.spacedBy(Spacing.medium),
@@ -339,12 +339,10 @@ private fun statCard(
             Text(
                 text = value,
                 style = AppTextStyles.pageTitle,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
             Text(
                 text = label,
                 style = AppTextStyles.body,
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f),
             )
         }
     }
