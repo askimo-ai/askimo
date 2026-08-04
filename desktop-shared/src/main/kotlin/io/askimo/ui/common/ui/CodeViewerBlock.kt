@@ -25,9 +25,13 @@ import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
@@ -72,10 +76,20 @@ fun codeViewerBlock(
     val lineCount = lines.size
 
     val lineNumberColor = Color(contentColor.red, contentColor.green, contentColor.blue, 0.4f)
-    val lineNumberWidth = when {
-        lineCount >= 1000 -> 52.dp
-        lineCount >= 100 -> 42.dp
-        else -> 32.dp
+
+    // Measure the width of the widest line-number string using the actual code font so
+    // the gutter always fits — regardless of digit count — without hard-coded breakpoints.
+    val textMeasurer = rememberTextMeasurer()
+    val lineNumberStyle = AppTextStyles.body.copy(fontFamily = codeFontFamily)
+    val density = LocalDensity.current
+    val lineNumberWidth: Dp = remember(lineCount, codeFontFamily, density) {
+        val digitCount = lineCount.toString().length
+        // "8" repeated is the widest digit in most monospace fonts.
+        val widestLabel = "8".repeat(digitCount)
+        val measured = textMeasurer.measure(widestLabel, lineNumberStyle)
+        val textWidthDp = with(density) { measured.size.width.toDp() }
+        // end-padding (8 dp) + measured text + small left breathing room (4 dp), min 32 dp
+        (textWidthDp + 8.dp + 4.dp).coerceAtLeast(32.dp)
     }
     val gutterBackground = backgroundColor.let { base ->
         val factor = if (isDark) 0.80f else 0.93f
@@ -112,6 +126,7 @@ fun codeViewerBlock(
                             style = AppTextStyles.body,
                             fontFamily = codeFontFamily,
                             color = lineNumberColor,
+                            softWrap = false,
                             modifier = Modifier.padding(end = 8.dp),
                         )
                     }
