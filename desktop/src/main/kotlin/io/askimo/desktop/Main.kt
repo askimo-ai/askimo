@@ -1268,7 +1268,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                         alertDialog(
                             onDismissRequest = { showQuitDialog = false },
                             title = { Text(stringResource("menu.quit") + "?") },
-                            text = { Text(stringResource("session.delete.confirm")) },
+                            text = { Text(stringResource("app.quit.confirm")) },
                             confirmButton = {
                                 dangerButton(
                                     onClick = {
