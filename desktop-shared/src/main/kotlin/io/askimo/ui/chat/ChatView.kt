@@ -1392,11 +1392,7 @@ private fun memoryPressureBanner(
                 colors = ButtonDefaults.textButtonColors(contentColor = contentColor),
             ) {
                 if (isCompressing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(14.dp),
-                        strokeWidth = 2.dp,
-                        color = contentColor,
-                    )
+                    AppComponents.loadingSpinner(size = 14.dp, color = contentColor)
                 } else {
                     Text(
                         text = stringResource("memory.pressure.action.compress"),
