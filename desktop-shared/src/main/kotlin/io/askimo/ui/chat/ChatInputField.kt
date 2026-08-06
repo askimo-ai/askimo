@@ -72,7 +72,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
@@ -120,6 +119,7 @@ import io.askimo.core.util.TimeUtil
 import io.askimo.core.util.formatFileSize
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.keymap.KeyMapManager
+import io.askimo.ui.common.keymap.onImeAwarePreviewKeyEvent
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.AppTextStyles
@@ -477,9 +477,8 @@ fun chatInputField(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .onPreviewKeyEvent { keyEvent ->
-                val shortcut = KeyMapManager.handleKeyEvent(keyEvent)
-                when (shortcut) {
+            .onImeAwarePreviewKeyEvent(inputText.composition) { keyEvent ->
+                when (KeyMapManager.handleKeyEvent(keyEvent)) {
                     KeyMapManager.AppShortcut.ATTACH_FILE -> {
                         if (!isLoading) {
                             openFileDialog()
@@ -642,9 +641,8 @@ fun chatInputField(
                             .onGloballyPositioned { coordinates ->
                                 textFieldWidthPx = coordinates.size.width.toFloat()
                             }
-                            .onPreviewKeyEvent { keyEvent ->
-                                val shortcut = KeyMapManager.handleKeyEvent(keyEvent)
-                                when (shortcut) {
+                            .onImeAwarePreviewKeyEvent(inputText.composition) { keyEvent ->
+                                when (KeyMapManager.handleKeyEvent(keyEvent)) {
                                     KeyMapManager.AppShortcut.NEW_LINE -> {
                                         val cursorPosition = inputText.selection.start
                                         val textBeforeCursor = inputText.text.substring(0, cursorPosition)

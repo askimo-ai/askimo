@@ -34,13 +34,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import io.askimo.ui.common.keymap.KeyMapManager
+import io.askimo.ui.common.keymap.onImeAwarePreviewKeyEvent
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -80,7 +80,7 @@ internal fun actionInputField(
 ) {
     val canSend = enabled && !isLoading && value.text.isNotBlank()
 
-    val keyModifier = Modifier.onPreviewKeyEvent { keyEvent ->
+    val keyModifier = Modifier.onImeAwarePreviewKeyEvent(value.composition) { keyEvent ->
         when (KeyMapManager.handleKeyEvent(keyEvent)) {
             KeyMapManager.AppShortcut.NEW_LINE -> {
                 val cursor = value.selection.start
