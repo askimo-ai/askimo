@@ -473,7 +473,7 @@ private fun providerPickerDetail(
                     style = AppTextStyles.sectionTitle,
                 )
                 Text(
-                    text = entry.template.tagline,
+                    text = stringResource(entry.template.taglineKey),
                     style = AppTextStyles.bodySecondary,
                 )
 
