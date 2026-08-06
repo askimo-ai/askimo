@@ -5,7 +5,6 @@
 package io.askimo.ui.common.ui
 
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -34,7 +33,7 @@ fun selectableText(
     ) {
         Text(
             text = text,
-            color = if (color == Color.Unspecified) LocalContentColor.current else color,
+            color = color,
             style = style,
             fontWeight = fontWeight,
             fontFamily = fontFamily,

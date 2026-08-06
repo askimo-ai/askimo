@@ -4,6 +4,7 @@
  */
 package io.askimo.ui.skills
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
@@ -187,7 +188,7 @@ internal fun manualSkillsView(
                             ),
                     )
                 }
-                androidx.compose.animation.AnimatedVisibility(
+                AnimatedVisibility(
                     visible = showOverlayPanel,
                     enter = slideInHorizontally(initialOffsetX = { it }),
                     exit = slideOutHorizontally(targetOffsetX = { it }),
@@ -229,48 +230,22 @@ private fun manualContent(
                     .fillMaxWidth()
                     .padding(start = 24.dp, end = 36.dp, top = 24.dp, bottom = 24.dp),
             ) {
+                val runtimes = ExternalAgentLoader.displayNames()
+                val runtimesLabel = runtimes.mapIndexed { i, r ->
+                    if (i == runtimes.lastIndex) "or $r" else r
+                }.joinToString(", ")
+
+                // ── Title row: page title + toolbar actions ────────────────
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource("skills.view.title"),
-                            style = AppTextStyles.pageTitle,
-                        )
-                        val runtimes = ExternalAgentLoader.displayNames()
-                        val runtimesLabel = runtimes.mapIndexed { i, r ->
-                            if (i == runtimes.lastIndex) "or $r" else r
-                        }.joinToString(", ")
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = stringResource("settings.skills.description", runtimesLabel),
-                            style = AppTextStyles.bodySecondary,
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Text(
-                                text = stringResource("settings.skills.runtimes"),
-                                style = AppTextStyles.caption,
-                            )
-                            runtimes.forEach { runtime ->
-                                Surface(
-                                    shape = MaterialTheme.shapes.small,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                                ) {
-                                    Text(
-                                        text = runtime,
-                                        style = AppTextStyles.hint,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    Text(
+                        text = stringResource("skills.view.title"),
+                        style = AppTextStyles.pageTitle,
+                        modifier = Modifier.weight(1f),
+                    )
                     // Toolbar actions
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         skillsModeToggle(agenticMode = false, onToggle = { if (it) onSwitchToAgentic() })
@@ -313,6 +288,36 @@ private fun manualContent(
                                     )
                                 }
                             }
+                        }
+                    }
+                }
+
+                // ── Description + runtimes: full width below the title row ─
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource("settings.skills.description", runtimesLabel),
+                    style = AppTextStyles.bodySecondary,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = stringResource("settings.skills.runtimes"),
+                        style = AppTextStyles.caption,
+                    )
+                    runtimes.forEach { runtime ->
+                        Surface(
+                            shape = MaterialTheme.shapes.small,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                        ) {
+                            Text(
+                                text = runtime,
+                                style = AppTextStyles.hint,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            )
                         }
                     }
                 }
