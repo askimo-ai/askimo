@@ -11,7 +11,11 @@ import io.askimo.core.event.error.IndexingErrorEvent
 import io.askimo.core.event.error.IndexingErrorType
 import io.askimo.core.event.error.ModelNotAvailableEvent
 import io.askimo.core.event.error.SendMessageErrorEvent
+import io.askimo.core.event.internal.NavigateToProviderSettingsEvent
+import io.askimo.core.exception.AuthenticationException
 import io.askimo.core.exception.ExceptionMapper
+import io.askimo.core.exception.ModelNotFoundChatException
+import io.askimo.core.exception.ProviderNotConfiguredException
 import io.askimo.core.i18n.LocalizationManager
 
 /**
@@ -24,13 +28,22 @@ data class ErrorDialogState(
     val linkText: String? = null,
     val linkUrl: String? = null,
     val details: String? = null,
+    /** Label for an optional in-dialog action button (e.g. "Configure Provider"). */
+    val actionLabel: String? = null,
+    /** Callback invoked when the user clicks the action button. The dialog is dismissed before this runs. */
+    val action: (() -> Unit)? = null,
 )
 
 /**
  * Listens to [EventBus.errorEvents] and surfaces errors through [ErrorDialogState].
  *
- * Call this composable once at the top-level [app] scope and pass the returned
- * state (along with the dismiss callback) down to wherever the error dialog is rendered.
+ * Call this composable once at the top-level app scope.
+ *
+ * For errors the user can fix by reconfiguring their provider
+ * ([AuthenticationException], [ProviderNotConfiguredException], [ModelNotFoundChatException]),
+ * the resulting [ErrorDialogState] includes an action button that posts
+ * [NavigateToProviderSettingsEvent] on the internal event bus.
+ * The top-level composable should listen for that event and open the provider wizard.
  *
  * @param onStateChange called whenever a new [ErrorDialogState] should be applied.
  */
@@ -136,11 +149,27 @@ fun globalErrorHandler(onStateChange: (ErrorDialogState) -> Unit) {
                         mapped.getMessageKey(),
                         *mapped.getMessageArgs().values.toTypedArray(),
                     )
+                    val isProviderConfigError = mapped is AuthenticationException ||
+                        mapped is ProviderNotConfiguredException ||
+                        mapped is ModelNotFoundChatException
+
                     onStateChange(
                         ErrorDialogState(
                             show = true,
                             title = LocalizationManager.getString("error.send_message.title"),
                             message = localizedMsg,
+                            actionLabel = if (isProviderConfigError) {
+                                LocalizationManager.getString("error.action.configure_provider")
+                            } else {
+                                null
+                            },
+                            // Posts a navigation event so the UI layer can open the wizard
+                            // without this component holding any reference to the UI.
+                            action = if (isProviderConfigError) {
+                                { EventBus.post(NavigateToProviderSettingsEvent()) }
+                            } else {
+                                null
+                            },
                         ),
                     )
                 }

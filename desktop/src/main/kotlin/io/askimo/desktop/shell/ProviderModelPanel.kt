@@ -187,6 +187,7 @@ internal fun providerModelPanel(
                         Text(
                             text = stringResource("provider.no.instances.hint"),
                             style = AppTextStyles.caption,
+                            modifier = Modifier.padding(horizontal = 12.dp),
                         )
                     }
                 } else {
@@ -225,6 +226,30 @@ internal fun providerModelPanel(
                             style = AppComponents.scrollbarStyle(),
                         )
                     }
+                }
+
+                // ── Pinned "Add provider" row ─────────────────────────────────────────────
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onAddProvider() }
+                        .pointerHoverIcon(PointerIcon.Hand)
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = stringResource("provider.add.new"),
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = stringResource("provider.add.new"),
+                        style = AppTextStyles.caption,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
             }
 

@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import io.askimo.ui.common.components.primaryButton
+import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
@@ -54,6 +55,8 @@ fun errorDialog(
     linkText: String? = null,
     linkUrl: String? = null,
     details: String? = null,
+    actionLabel: String? = null,
+    action: (() -> Unit)? = null,
 ) {
     val linkColor = MaterialTheme.colorScheme.onSurface
     var showDetails by remember { mutableStateOf(false) }
@@ -200,8 +203,16 @@ fun errorDialog(
         confirmButton = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.small, Alignment.End),
             ) {
+                if (actionLabel != null && action != null) {
+                    secondaryButton(onClick = {
+                        onDismiss()
+                        action()
+                    }) {
+                        Text(actionLabel)
+                    }
+                }
                 primaryButton(onClick = onDismiss) {
                     Text(stringResource("action.ok"))
                 }

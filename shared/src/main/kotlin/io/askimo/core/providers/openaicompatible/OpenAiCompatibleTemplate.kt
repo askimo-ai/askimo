@@ -83,7 +83,7 @@ enum class OpenAiCompatibleTemplate(
     OPENROUTER(
         displayName = "OpenRouter",
         initials = "OR",
-        tagline = "Access 300+ models — GPT-4o, Claude, Llama, Gemini, Mistral and more via one API.",
+        tagline = "Access 300+ models — GPT, Claude, Llama, Gemini, Mistral and more via one API.",
         baseUrl = "https://openrouter.ai/api/v1",
         apiKeyRequired = true,
         apiKeyUrl = "https://openrouter.ai/keys",

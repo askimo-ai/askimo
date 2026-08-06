@@ -44,6 +44,13 @@ object Analytics {
     val isEnabled: Boolean get() = enabled
 
     /**
+     * Anonymous stable install-scoped identifier sourced from [AnalyticsDeviceInfo.installId].
+     * A random UUID v4 persisted in `~/.askimo/.install_id`, stable across sessions.
+     * Safe to use as a device identifier in sync protocols.
+     */
+    val installId: String get() = AnalyticsDeviceInfo.installId
+
+    /**
      * Returns `"local"` for self-hosted providers (Ollama, LMStudio, LocalAI, Docker),
      * `"cloud"` for all managed / API-key providers.
      * Never includes the model ID — only the tier matters for analytics.

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -45,6 +46,7 @@ import io.askimo.core.context.AppContext
 import io.askimo.core.context.getConfigInfo
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.ModelChangedEvent
+import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ProviderInstanceService
 import io.askimo.core.providers.ProviderRegistry
 import io.askimo.ui.common.i18n.stringResource
@@ -67,13 +69,49 @@ private fun aiConfigInfo(
     val scope = rememberCoroutineScope()
     var configInfo by remember { mutableStateOf(appContext.getConfigInfo()) }
 
-    // Keep configInfo in sync with model/instance changes broadcast on the event bus.
     LaunchedEffect(Unit) {
         EventBus.internalEvents.collect { event ->
             if (event is ModelChangedEvent) {
                 configInfo = appContext.getConfigInfo()
             }
         }
+    }
+
+    val noProvider = configInfo.provider == ModelProvider.UNKNOWN
+
+    // When no provider is configured, show a prominent "Add Provider" CTA so
+    // users have an obvious entry point directly in the footer.
+    if (noProvider) {
+        themedTooltip(text = stringResource("provider.setup.required.title")) {
+            Card(
+                modifier = Modifier
+                    .clickableCard { onAddProvider() }
+                    .pointerHoverIcon(PointerIcon.Hand)
+                    .widthIn(min = 120.dp, max = 320.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                ),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                    Text(
+                        text = stringResource("provider.setup.empty.state.button"),
+                        style = AppTextStyles.caption,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
+            }
+        }
+        return
     }
 
     val panelState = remember(appContext) { ProviderModelPanelState(scope, appContext, providerInstanceService) }

@@ -70,6 +70,7 @@ import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.Event
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.LanguageDirectiveChangedEvent
+import io.askimo.core.event.internal.NavigateToProviderSettingsEvent
 import io.askimo.core.event.internal.RunCodeEvent
 import io.askimo.core.event.system.InvalidateCacheEvent
 import io.askimo.core.i18n.LocalizationManager
@@ -411,9 +412,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
         }
     }
 
-    // Listen for errors – handled by the dedicated GlobalErrorHandler
-    globalErrorHandler { state -> errorDialogState = state }
-
     val scope = rememberCoroutineScope()
 
     // Backup and restore helper functions
@@ -507,6 +505,17 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     val discoverViewModel = remember { koin.get<DiscoverViewModel> { parametersOf(scope) } }
     val settingsViewModel = remember { koin.get<AIProviderViewModel> { parametersOf(scope) } }
     val updateViewModel = remember { koin.get<UpdateViewModel> { parametersOf(scope) } }
+
+    // Listen for errors via the GlobalErrorHandler.
+    globalErrorHandler { state -> errorDialogState = state }
+
+    // React to NavigateToProviderSettingsEvent posted by GlobalErrorHandler (and any other
+    // component) to open the provider wizard without the emitter holding a UI reference.
+    LaunchedEffect(Unit) {
+        EventBus.internalEvents
+            .filterIsInstance<NavigateToProviderSettingsEvent>()
+            .collect { settingsViewModel.onChangeProvider() }
+    }
 
     val deleteSessionCommand = remember {
         koin.get<DeleteSessionFromProjectCommand> { parametersOf(scope) }
@@ -1435,7 +1444,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                     // Provider setup required dialog
                     if (showProviderSetupDialog) {
                         alertDialog(
-                            onDismissRequest = { },
+                            onDismissRequest = { showProviderSetupDialog = false },
                             title = {
                                 Text(
                                     text = stringResource("provider.setup.required.title"),
@@ -1456,6 +1465,13 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                     },
                                 ) {
                                     Text(stringResource("provider.setup.required.button"))
+                                }
+                            },
+                            dismissButton = {
+                                secondaryButton(
+                                    onClick = { showProviderSetupDialog = false },
+                                ) {
+                                    Text(stringResource("provider.setup.required.skip"))
                                 }
                             },
                         )
@@ -1857,6 +1873,8 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                             linkText = errorDialogState.linkText,
                             linkUrl = errorDialogState.linkUrl,
                             details = errorDialogState.details,
+                            actionLabel = errorDialogState.actionLabel,
+                            action = errorDialogState.action,
                             onDismiss = {
                                 errorDialogState = ErrorDialogState()
                             },
