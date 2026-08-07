@@ -1247,6 +1247,13 @@ class ChatViewModel(
 
         // Reset directive to null for new chat session
         selectedDirective = null
+
+        // Clear the active session in the manager so that when the first message of the
+        // new chat is sent (and SessionCreatedEvent fires), the manager correctly adopts
+        // the newly created session as the active one. Without this, activeSessionId
+        // would still point to the previously selected session and the sidebar would
+        // keep highlighting the old chat item instead of the new one.
+        sessionManager.markNewChatPending()
     }
 
     /**

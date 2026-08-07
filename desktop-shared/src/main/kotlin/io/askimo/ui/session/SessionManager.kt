@@ -87,6 +87,16 @@ class SessionManager(
     var activeSessionId by mutableStateOf<String?>(null)
         private set
 
+    /**
+     * True when the user has started a "New Chat" while an existing session was active.
+     * In this state the active ViewModel has been cleared (currentSessionId = null) but
+     * activeSessionId still points at the previous session so that chatViewModel stays
+     * non-null and the input field remains visible.
+     * When the first message is sent and a SessionCreatedEvent fires, this flag causes
+     * the new session to be adopted as the active one, updating the sidebar selection.
+     */
+    private var isPendingNewChat = false
+
     init {
         Runtime.getRuntime().addShutdownHook(
             Thread {
@@ -104,7 +114,7 @@ class SessionManager(
             EventBus.internalEvents
                 .filterIsInstance<SessionCreatedEvent>()
                 .collect { event ->
-                    if (activeSessionId == null && event.projectId == null) {
+                    if ((activeSessionId == null || isPendingNewChat) && event.projectId == null) {
                         log.debug("New session created: ${event.sessionId}, setting as active")
                         setActiveSession(event.sessionId)
                     }
@@ -512,6 +522,22 @@ class SessionManager(
      * Used when a new session is created by sending a message in "New Chat" state.
      */
     fun setActiveSession(sessionId: String) {
+        val wasPendingNewChat = isPendingNewChat
+        isPendingNewChat = false
+
+        // When transitioning from a "pending new chat" state, the ViewModel that sent the
+        // first message is still stored under the *old* activeSessionId key. Move it to
+        // the new sessionId so that getOrCreateChatViewModel(sessionId) returns the
+        // already-streaming instance instead of creating a fresh empty one (which would
+        // cause ChatView to show an empty conversation while the response streams in the
+        // background).
+        val currentActiveId = activeSessionId
+        if (wasPendingNewChat && currentActiveId != null && currentActiveId != sessionId) {
+            chatViewModels.remove(currentActiveId)?.let { existingViewModel ->
+                chatViewModels[sessionId] = existingViewModel
+            }
+        }
+
         activeSessionId = sessionId
         createdSessions.add(sessionId)
     }
@@ -633,5 +659,14 @@ class SessionManager(
         if (activeSessionId == sessionId) {
             activeSessionId = null
         }
+    }
+
+    /**
+     * Mark that the user has initiated a "New Chat" while an existing session was active.
+     * The next SessionCreatedEvent (triggered when the first message is sent) will update
+     * activeSessionId to the new session so the sidebar highlights it correctly.
+     */
+    fun markNewChatPending() {
+        isPendingNewChat = true
     }
 }
