@@ -31,14 +31,22 @@ enum class OpenAiCompatibleTemplate(
     val helpText: String,
     /** API mode pre-selected when the user connects via this template. */
     val apiMode: OpenAiApiMode = OpenAiApiMode.CHAT_COMPLETIONS,
-    /**
-     * HTTP protocol version for connections to this provider.
-     * All predefined cloud providers default to [HttpVersion.HTTP_2] — they run on modern
-     * infrastructure that supports multiplexing. Override to [HttpVersion.HTTP_1_1] only for
-     * providers known to have HTTP/2 issues.
-     */
+    /** HTTP protocol version for connections to this provider. */
     val httpVersion: HttpVersion = HttpVersion.HTTP_2,
 ) {
+    /**
+     * Resource key prefix for this template's localized onboarding copy.
+     * Keys follow the pattern `provider.template.<name_lowercase>.tagline` / `.help`.
+     * The enum name (e.g. `CLOUDFLARE_AI`) is lowercased to `cloudflare_ai`.
+     */
+    val i18nKey: String get() = "provider.template.${name.lowercase()}"
+
+    /** Resource key for the localized one-sentence value proposition. */
+    val taglineKey: String get() = "$i18nKey.tagline"
+
+    /** Resource key for the localized multi-line setup help text. */
+    val helpKey: String get() = "$i18nKey.help"
+
     CLOUDFLARE_AI(
         displayName = "Cloudflare AI",
         initials = "CF",
