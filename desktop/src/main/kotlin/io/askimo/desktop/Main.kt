@@ -27,7 +27,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -1021,6 +1020,9 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                         onShowSessionSummary = { sessionId ->
                                                             sessionMemorySessionId = sessionId
                                                             showSessionMemoryDialog = true
+                                                        },
+                                                        onMoveSessionToNewProject = {
+                                                            showNewProjectDialog = true
                                                         },
                                                         onEditProject = { projectId ->
                                                             editingProjectId = projectId
@@ -2017,7 +2019,6 @@ fun mainContent(
     onOpenSystemDiagnostics: () -> Unit = {},
     bookmarksViewModel: BookmarksViewModel? = null,
 ) {
-    val discoverRefresh by appContext.telemetry.refreshSignal.collectAsState()
     Box(
         modifier = Modifier
             .fillMaxSize()

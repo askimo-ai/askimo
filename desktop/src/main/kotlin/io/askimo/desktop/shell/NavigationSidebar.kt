@@ -78,6 +78,7 @@ fun navigationSidebar(
     onRenameSession: (String, String) -> Unit,
     onExportSession: (String) -> Unit,
     onShowSessionSummary: (String) -> Unit = {},
+    onMoveSessionToNewProject: (sessionId: String) -> Unit = {},
     onEditProject: (String) -> Unit = {},
     onDeleteProject: (String) -> Unit = {},
     onEditUserProfile: () -> Unit,
@@ -118,6 +119,7 @@ fun navigationSidebar(
         onRenameSession = onRenameSession,
         onExportSession = onExportSession,
         onShowSessionSummary = onShowSessionSummary,
+        onMoveSessionToNewProject = onMoveSessionToNewProject,
         onEditProject = onEditProject,
         onDeleteProject = onDeleteProject,
         userProfileContent = {
