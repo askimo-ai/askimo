@@ -50,6 +50,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -66,7 +68,8 @@ import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.config.FeatureFlags
 import io.askimo.core.i18n.LocalizationManager
-import io.askimo.core.telemetry.TelemetryMetrics
+import io.askimo.core.telemetry.LlmInstanceStats
+import io.askimo.core.telemetry.TelemetryCollector
 import io.askimo.core.user.domain.UserProfile
 import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.components.clickableCard
@@ -77,8 +80,11 @@ import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.session.sessionTooltip
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.awt.Desktop
 import java.net.URI
+import java.time.Instant
 import java.time.LocalTime
 
 /**
@@ -108,7 +114,7 @@ fun discoverView(
     showTokenUsageCard: Boolean,
     onToggleTokenUsageCard: (Boolean) -> Unit,
     onOpenSystemDiagnostics: () -> Unit,
-    telemetryMetrics: TelemetryMetrics,
+    telemetry: TelemetryCollector,
     modifier: Modifier = Modifier,
 ) {
     val scrollState = rememberScrollState()
@@ -149,7 +155,7 @@ fun discoverView(
 
                 if (showTokenUsageCard) {
                     tokenUsageSection(
-                        telemetryMetrics = telemetryMetrics,
+                        telemetry = telemetry,
                         onOpenSystemDiagnostics = onOpenSystemDiagnostics,
                     )
                 }
@@ -358,106 +364,124 @@ private fun statCard(
  */
 @Composable
 private fun tokenUsageSection(
-    telemetryMetrics: TelemetryMetrics,
+    telemetry: TelemetryCollector,
     onOpenSystemDiagnostics: () -> Unit,
 ) {
-    val totalTokens = telemetryMetrics.totalTokensUsed
-    val topModels = telemetryMetrics.llmTokensByInstance
-        .entries
-        .sortedByDescending { it.value }
-        .take(5)
+    val refreshSignal by telemetry.refreshSignal.collectAsState()
+    var stats by remember { mutableStateOf<List<LlmInstanceStats>>(emptyList()) }
+
+    LaunchedEffect(refreshSignal) {
+        stats = withContext(Dispatchers.IO) {
+            telemetry.usageRepository.queryGroupedByInstance(telemetry.sessionStart, Instant.now())
+        }
+    }
+
+    val totalTokens = stats.sumOf { it.tokens }
+    val topModels = stats.take(5) // already ordered by tokens DESC from query
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
-        // ── Section header ─────────────────────────────────────────
+        tokenUsageSectionHeader(totalTokens = totalTokens, onOpenSystemDiagnostics = onOpenSystemDiagnostics)
+        tokenUsageChartCard(totalTokens = totalTokens, topModels = topModels)
+    }
+}
+
+@Composable
+private fun tokenUsageSectionHeader(
+    totalTokens: Long,
+    onOpenSystemDiagnostics: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.small),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            Icon(
+                Icons.Default.Token,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = stringResource("discover.tokens.title"),
+                style = AppTextStyles.sectionTitle,
+            )
+        }
+
+        if (totalTokens > 0) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    Icons.Default.Token,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onBackground,
-                )
                 Text(
-                    text = stringResource("discover.tokens.title"),
-                    style = AppTextStyles.sectionTitle,
+                    // abbreviateTokens uses LocalizationManager internally
+                    text = stringResource("discover.tokens.total", abbreviateTokens(totalTokens)),
+                    style = AppTextStyles.caption,
                 )
-            }
-
-            if (totalTokens > 0) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                IconButton(
+                    onClick = onOpenSystemDiagnostics,
+                    modifier = Modifier.size(24.dp).pointerHoverIcon(PointerIcon.Hand),
                 ) {
-                    Text(
-                        // abbreviateTokens uses LocalizationManager internally
-                        text = stringResource("discover.tokens.total", abbreviateTokens(totalTokens)),
-                        style = AppTextStyles.caption,
+                    Icon(
+                        Icons.AutoMirrored.Filled.OpenInNew,
+                        contentDescription = stringResource("discover.tokens.view_details"),
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    IconButton(
-                        onClick = onOpenSystemDiagnostics,
-                        modifier = Modifier.size(24.dp).pointerHoverIcon(PointerIcon.Hand),
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.OpenInNew,
-                            contentDescription = stringResource("discover.tokens.view_details"),
-                            modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
                 }
             }
         }
+    }
+}
 
-        // ── Chart card ─────────────────────────────────────────────
-        Surface(
-            shape = MaterialTheme.shapes.large,
-            tonalElevation = 1.dp,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            if (totalTokens == 0L) {
-                Box(
-                    modifier = Modifier.fillMaxWidth().padding(Spacing.large),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = stringResource("discover.tokens.empty"),
-                        style = AppTextStyles.bodySecondary,
+@Composable
+private fun tokenUsageChartCard(
+    totalTokens: Long,
+    topModels: List<LlmInstanceStats>,
+) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        tonalElevation = 1.dp,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        if (totalTokens == 0L) {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(Spacing.large),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = stringResource("discover.tokens.empty"),
+                    style = AppTextStyles.bodySecondary,
+                )
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(Spacing.large),
+                verticalArrangement = Arrangement.spacedBy(Spacing.medium),
+            ) {
+                topModels.forEachIndexed { index, stat ->
+                    val provider = stat.instanceKey
+                        .split(":", limit = 2).getOrElse(0) { stat.instanceKey }
+                        .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                    val model = stat.model.ifBlank { provider }
+                    val fraction = stat.tokens.toFloat() / totalTokens.toFloat()
+                    val pctFormatted = LocalizationManager.formatNumber((fraction * 100).toInt()) + "%"
+
+                    tokenBarRow(
+                        provider = provider,
+                        model = model,
+                        tokens = stat.tokens,
+                        fraction = fraction,
+                        pctFormatted = pctFormatted,
                     )
-                }
-            } else {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(Spacing.large),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.medium),
-                ) {
-                    topModels.forEachIndexed { index, (key, tokens) ->
-                        val parts = key.split(":", limit = 2)
-                        val provider = parts.getOrElse(0) { key }
-                            .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-                        val model = parts.getOrElse(1) { "" }.ifBlank { provider }
-                        val fraction = tokens.toFloat() / totalTokens.toFloat()
-                        // Percentage: locale-aware integer, e.g. "62 %" in fr vs "62%" in en
-                        val pctFormatted = LocalizationManager.formatNumber((fraction * 100).toInt()) + "%"
 
-                        tokenBarRow(
-                            provider = provider,
-                            model = model,
-                            tokens = tokens,
-                            fraction = fraction,
-                            pctFormatted = pctFormatted,
+                    if (index < topModels.lastIndex) {
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
                         )
-
-                        if (index < topModels.lastIndex) {
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
-                            )
-                        }
                     }
                 }
             }

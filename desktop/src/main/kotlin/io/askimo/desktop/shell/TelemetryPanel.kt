@@ -31,6 +31,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,7 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.askimo.core.context.AppContext
 import io.askimo.core.i18n.LocalizationManager
-import io.askimo.core.telemetry.TelemetryMetrics
+import io.askimo.core.telemetry.LlmInstanceStats
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
@@ -54,7 +56,10 @@ import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.util.formatDuration
 import io.askimo.ui.util.formatDurationDetailed
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.koin.java.KoinJavaComponent.get
+import java.time.Instant
 import java.util.Locale.getDefault
 
 /**
@@ -62,8 +67,17 @@ import java.util.Locale.getDefault
  * Max height is limited to 1/3 of parent height with scrolling support.
  */
 @Composable
-internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
+internal fun telemetryPanel(maxHeight: Dp) {
     val appContext = remember { get<AppContext>(AppContext::class.java) }
+    val telemetry = appContext.telemetry
+    val refreshSignal by telemetry.refreshSignal.collectAsState()
+    var stats by remember { mutableStateOf<List<LlmInstanceStats>>(emptyList()) }
+
+    LaunchedEffect(refreshSignal) {
+        stats = withContext(Dispatchers.IO) {
+            telemetry.usageRepository.queryGroupedByInstance(telemetry.sessionStart, Instant.now())
+        }
+    }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -95,10 +109,10 @@ internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
                         style = AppTextStyles.itemTitle,
                     )
 
-                    if (metrics.ragClassificationTotal > 0 || metrics.llmCallsByInstance.isNotEmpty()) {
+                    if (stats.isNotEmpty()) {
                         themedTooltip(text = stringResource("telemetry.reset")) {
                             IconButton(
-                                onClick = { appContext.telemetry.reset() },
+                                onClick = { telemetry.reset() },
                                 modifier = Modifier.size(24.dp),
                             ) {
                                 Icon(
@@ -112,7 +126,7 @@ internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
                     }
                 }
 
-                if (metrics.ragClassificationTotal == 0 && metrics.llmCallsByInstance.isEmpty()) {
+                if (stats.isEmpty()) {
                     Text(
                         text = stringResource("telemetry.no.data"),
                         style = AppTextStyles.bodySecondary,
@@ -121,145 +135,72 @@ internal fun telemetryPanel(metrics: TelemetryMetrics, maxHeight: Dp) {
                     return@Column
                 }
 
-                // ── RAG section ──────────────────────────────────────────
-                if (metrics.ragClassificationTotal > 0) {
-                    Text(
-                        text = stringResource("telemetry.tab.rag"),
-                        style = AppTextStyles.fieldLabel,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-
-                    // Summary stats
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                    ) {
-                        telemetryStat(
-                            label = stringResource("telemetry.rag.total.queries"),
-                            value = LocalizationManager.formatNumber(metrics.ragClassificationTotal),
-                            modifier = Modifier.weight(1f),
-                        )
-                        telemetryStat(
-                            label = stringResource("telemetry.rag.triggered.label"),
-                            value = "${LocalizationManager.formatNumber(metrics.ragTriggered)} (${LocalizationManager.formatDouble(metrics.ragTriggeredPercent, 0)}%)",
-                            modifier = Modifier.weight(1f),
-                        )
-                        telemetryStat(
-                            label = stringResource("telemetry.rag.skipped.label"),
-                            value = LocalizationManager.formatNumber(metrics.ragSkipped),
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-
-                    // Detail cards
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
-                    ) {
-                        telemetryMetricCard(
-                            label = stringResource("telemetry.rag.efficiency"),
-                            value = "${LocalizationManager.formatDouble(metrics.ragTriggeredPercent, 0)}%",
-                            subtitle = stringResource("telemetry.rag.triggered", metrics.ragTriggered, metrics.ragClassificationTotal),
-                            modifier = Modifier.weight(1f),
-                        )
-                        telemetryMetricCard(
-                            label = stringResource("telemetry.classification"),
-                            value = formatDuration(metrics.ragAvgClassificationTimeMs),
-                            valueTooltip = formatDurationDetailed(metrics.ragAvgClassificationTimeMs),
-                            subtitle = stringResource("telemetry.classification.time"),
-                            modifier = Modifier.weight(1f),
-                        )
-                        if (metrics.ragRetrievalTotal > 0) {
-                            telemetryMetricCard(
-                                label = stringResource("telemetry.retrieval"),
-                                value = formatDuration(metrics.ragAvgRetrievalTimeMs),
-                                valueTooltip = formatDurationDetailed(metrics.ragAvgRetrievalTimeMs),
-                                subtitle = stringResource("telemetry.retrieval.chunks", LocalizationManager.formatDouble(metrics.ragAvgChunksRetrieved, 1)),
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                    }
-                }
-
                 // ── LLM section ───────────────────────────────────────────
-                if (metrics.llmCallsByInstance.isNotEmpty()) {
-                    if (metrics.ragClassificationTotal > 0) {
-                        HorizontalDivider()
+                Text(
+                    text = stringResource("telemetry.tab.llm"),
+                    style = AppTextStyles.fieldLabel,
+                    fontWeight = FontWeight.SemiBold,
+                )
+
+                var sortColumn by remember { mutableStateOf(LlmSortColumn.INSTANCE) }
+                var sortAscending by remember { mutableStateOf(true) }
+
+                fun toggleSort(column: LlmSortColumn) {
+                    if (sortColumn == column) {
+                        sortAscending = !sortAscending
+                    } else {
+                        sortColumn = column
+                        sortAscending = true
                     }
-
-                    Text(
-                        text = stringResource("telemetry.tab.llm"),
-                        style = AppTextStyles.fieldLabel,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-
-                    var sortColumn by remember { mutableStateOf(LlmSortColumn.INSTANCE) }
-                    var sortAscending by remember { mutableStateOf(true) }
-
-                    fun toggleSort(column: LlmSortColumn) {
-                        if (sortColumn == column) {
-                            sortAscending = !sortAscending
-                        } else {
-                            sortColumn = column
-                            sortAscending = true
-                        }
-                    }
-
-                    // Table header
-                    llmTableHeader(
-                        sortColumn = sortColumn,
-                        sortAscending = sortAscending,
-                        onSort = ::toggleSort,
-                    )
-
-                    HorizontalDivider()
-
-                    var totalCalls = 0
-                    var totalTokens = 0L
-                    var totalErrors = 0
-
-                    val rows = metrics.llmCallsByInstance.map { (providerModel, calls) ->
-                        val parts = providerModel.split(":", limit = 2)
-                        val instance = parts.getOrElse(0) { providerModel }
-                            .replaceFirstChar { if (it.isLowerCase()) it.titlecase(getDefault()) else it.toString() }
-                        val model = parts.getOrElse(1) { "" }
-                        val tokens = metrics.llmTokensByInstance[providerModel] ?: 0L
-                        val avgDuration = metrics.llmAvgDurationMsByInstance[providerModel] ?: 0L
-                        val errors = metrics.llmErrorsByInstance[providerModel] ?: 0
-                        LlmRow(instance, model, calls, tokens, avgDuration, errors)
-                    }
-
-                    val sorted = when (sortColumn) {
-                        LlmSortColumn.INSTANCE -> rows.sortedBy { it.instance }
-                        LlmSortColumn.MODEL -> rows.sortedBy { it.model }
-                        LlmSortColumn.CALLS -> rows.sortedBy { it.calls }
-                        LlmSortColumn.TOKENS -> rows.sortedBy { it.tokens }
-                        LlmSortColumn.AVG_DURATION -> rows.sortedBy { it.avgDurationMs }
-                        LlmSortColumn.ERRORS -> rows.sortedBy { it.errors }
-                    }.let { if (sortAscending) it else it.reversed() }
-
-                    sorted.forEach { row ->
-                        totalCalls += row.calls
-                        totalTokens += row.tokens
-                        totalErrors += row.errors
-
-                        llmTableDataRow(row)
-                    }
-
-                    HorizontalDivider()
-
-                    // Totals row
-                    llmTableRow(
-                        instance = stringResource("telemetry.llm.col.total"),
-                        model = "",
-                        calls = LocalizationManager.formatNumber(totalCalls),
-                        tokens = LocalizationManager.formatNumber(totalTokens),
-                        avgDuration = "",
-                        errors = if (totalErrors > 0) LocalizationManager.formatNumber(totalErrors) else "—",
-                        isHeader = true,
-                        errorsIsError = totalErrors > 0,
-                    )
                 }
+
+                llmTableHeader(
+                    sortColumn = sortColumn,
+                    sortAscending = sortAscending,
+                    onSort = ::toggleSort,
+                )
+
+                HorizontalDivider()
+
+                var totalCalls = 0
+                var totalTokens = 0L
+                var totalErrors = 0
+
+                val rows = stats.map { stat ->
+                    val instance = stat.instanceKey
+                        .split(":", limit = 2).getOrElse(0) { stat.instanceKey }
+                        .replaceFirstChar { if (it.isLowerCase()) it.titlecase(getDefault()) else it.toString() }
+                    LlmRow(instance, stat.model, stat.calls, stat.tokens, stat.avgDurationMs, stat.errors)
+                }
+
+                val sorted = when (sortColumn) {
+                    LlmSortColumn.INSTANCE -> rows.sortedBy { it.instance }
+                    LlmSortColumn.MODEL -> rows.sortedBy { it.model }
+                    LlmSortColumn.CALLS -> rows.sortedBy { it.calls }
+                    LlmSortColumn.TOKENS -> rows.sortedBy { it.tokens }
+                    LlmSortColumn.AVG_DURATION -> rows.sortedBy { it.avgDurationMs }
+                    LlmSortColumn.ERRORS -> rows.sortedBy { it.errors }
+                }.let { if (sortAscending) it else it.reversed() }
+
+                sorted.forEach { row ->
+                    totalCalls += row.calls
+                    totalTokens += row.tokens
+                    totalErrors += row.errors
+                    llmTableDataRow(row)
+                }
+
+                HorizontalDivider()
+
+                llmTableRow(
+                    instance = stringResource("telemetry.llm.col.total"),
+                    model = "",
+                    calls = LocalizationManager.formatNumber(totalCalls),
+                    tokens = LocalizationManager.formatNumber(totalTokens),
+                    avgDuration = "",
+                    errors = if (totalErrors > 0) LocalizationManager.formatNumber(totalErrors) else "—",
+                    isHeader = true,
+                    errorsIsError = totalErrors > 0,
+                )
             }
 
             VerticalScrollbar(

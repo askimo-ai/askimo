@@ -185,6 +185,7 @@ import java.awt.Toolkit
 import java.net.URI
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.time.Instant
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -292,7 +293,8 @@ fun main(args: Array<String>) {
             icon = icon,
             onCloseRequest = {
                 val messageCount = runCatching {
-                    AppContext.getInstance().telemetry.metricsFlow.value.llmCallsByInstance.values.sum()
+                    val t = AppContext.getInstance().telemetry
+                    t.usageRepository.countByPeriod(t.sessionStart, Instant.now())
                 }.getOrDefault(0)
                 Analytics.trackSessionEnd(messageCount)
                 Analytics.shutdown()
@@ -1489,7 +1491,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
 
                     // System Diagnostics Dialog
                     if (showSystemDiagnosticsDialog) {
-                        val metrics by appContext.telemetry.metricsFlow.collectAsState()
                         systemResourcesDialog(
                             onDismiss = { showSystemDiagnosticsDialog = false },
                             onExportTelemetry = {
@@ -1503,7 +1504,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                         title = LocalizationManager.getString("telemetry.export.dialog.title"),
                                     ) ?: return@launch
 
-                                    val result = TelemetryExportService.export(metrics, targetFile)
+                                    val result = TelemetryExportService.export(appContext.telemetry, targetFile)
                                     if (result.isFailure) {
                                         errorDialogState = ErrorDialogState(
                                             show = true,
@@ -1516,7 +1517,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                     }
                                 }
                             },
-                            telemetryContent = { telemetryPanel(metrics = metrics, maxHeight = 480.dp) },
+                            telemetryContent = { telemetryPanel(maxHeight = 480.dp) },
                         )
                     }
 
@@ -2016,7 +2017,7 @@ fun mainContent(
     onOpenSystemDiagnostics: () -> Unit = {},
     bookmarksViewModel: BookmarksViewModel? = null,
 ) {
-    val discoverMetrics by appContext.telemetry.metricsFlow.collectAsState()
+    val discoverRefresh by appContext.telemetry.refreshSignal.collectAsState()
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -2043,7 +2044,7 @@ fun mainContent(
                 showTokenUsageCard = showTokenUsageCard,
                 onToggleTokenUsageCard = onToggleTokenUsageCard,
                 onOpenSystemDiagnostics = onOpenSystemDiagnostics,
-                telemetryMetrics = discoverMetrics,
+                telemetry = appContext.telemetry,
                 modifier = Modifier.fillMaxSize(),
             )
 

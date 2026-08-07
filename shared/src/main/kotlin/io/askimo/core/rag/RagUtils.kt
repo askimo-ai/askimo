@@ -10,7 +10,6 @@ import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.rag.content.retriever.ContentRetriever
 import dev.langchain4j.store.embedding.EmbeddingStore
 import io.askimo.core.config.AppConfig
-import io.askimo.core.context.AppContext
 import io.askimo.core.logging.logger
 import io.askimo.core.providers.ChatClient
 import io.askimo.core.util.AskimoHome
@@ -114,7 +113,6 @@ object RagUtils {
         useWebSearch: Boolean = false,
     ): ContentRetriever {
         val ragConfig = AppConfig.rag
-        val telemetry = AppContext.getInstance().telemetry
 
         val webRetriever: ContentRetriever? = if (useWebSearch && AppConfig.webSearch.enabled) {
             val backend = WebSearchDispatcher.activeBackend(AppConfig.webSearch)
@@ -133,7 +131,6 @@ object RagUtils {
                 webRetriever = webRetriever,
             ),
             classifierChatClient,
-            telemetry,
             knowledgeSourcePaths,
         )
     }

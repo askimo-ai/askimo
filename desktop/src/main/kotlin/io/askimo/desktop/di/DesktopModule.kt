@@ -14,6 +14,7 @@ import io.askimo.core.mcp.McpInstanceService
 import io.askimo.core.plan.PlanService
 import io.askimo.core.plan.repository.PlanDefRepository
 import io.askimo.core.providers.ProviderInstanceService
+import io.askimo.core.telemetry.TelemetryCollector
 import io.askimo.core.tools.ToolProviderImpl
 import io.askimo.desktop.project.ProjectViewModel
 import io.askimo.desktop.project.ProjectsViewModel
@@ -49,6 +50,9 @@ val desktopModule = module {
     single { get<DatabaseManager>().getChatDirectiveRepository() }
     single { get<DatabaseManager>().getProjectRepository() }
     single { get<DatabaseManager>().getPlanExecutionRepository() }
+    single { get<DatabaseManager>().getLlmUsageRepository() }
+
+    single { TelemetryCollector(usageRepository = get()) }
 
     single { ProjectService(projectRepository = get()) }
 

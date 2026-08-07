@@ -17,6 +17,7 @@ import io.askimo.core.chat.repository.SessionMemoryRepository
 import io.askimo.core.chat.repository.UserMemoryRepository
 import io.askimo.core.plan.repository.PlanExecutionRepository
 import io.askimo.core.skills.repository.SkillRunHistoryRepository
+import io.askimo.core.telemetry.LlmUsageRepository
 import io.askimo.core.user.repository.UserProfileRepository
 import io.askimo.core.util.AskimoHome
 import java.sql.Connection
@@ -112,6 +113,7 @@ class DatabaseManager private constructor(
         createIndexFileStateTable(connection)
         createPlanExecutionsTable(connection)
         createSkillRunHistoryTable(connection)
+        createLlmUsageRecordsTable(connection)
     }
 
     private fun createUserProfilesTable(conn: Connection) {
@@ -737,6 +739,34 @@ class DatabaseManager private constructor(
         }
     }
 
+    private fun createLlmUsageRecordsTable(conn: Connection) {
+        conn.createStatement().use { stmt ->
+            stmt.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS llm_usage_records (
+                    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp     TEXT    NOT NULL,
+                    provider      TEXT    NOT NULL,
+                    model         TEXT    NOT NULL,
+                    instance_id   TEXT,
+                    prompt_tokens INTEGER NOT NULL DEFAULT 0,
+                    output_tokens INTEGER NOT NULL DEFAULT 0,
+                    total_tokens  INTEGER NOT NULL DEFAULT 0,
+                    duration_ms   INTEGER NOT NULL DEFAULT 0,
+                    is_error      INTEGER NOT NULL DEFAULT 0
+                )
+                """.trimIndent(),
+            )
+
+            stmt.executeUpdate(
+                """
+                CREATE INDEX IF NOT EXISTS idx_llm_usage_records_timestamp
+                ON llm_usage_records (timestamp)
+                """.trimIndent(),
+            )
+        }
+    }
+
     private val _chatSessionRepository: ChatSessionRepository by lazy {
         ChatSessionRepository(this)
     }
@@ -783,6 +813,10 @@ class DatabaseManager private constructor(
 
     private val _skillRunHistoryRepository: SkillRunHistoryRepository by lazy {
         SkillRunHistoryRepository(this)
+    }
+
+    private val _llmUsageRepository: LlmUsageRepository by lazy {
+        LlmUsageRepository(this)
     }
 
     /**
@@ -856,6 +890,12 @@ class DatabaseManager private constructor(
      * All access to skill run history should go through this repository.
      */
     fun getSkillRunHistoryRepository(): SkillRunHistoryRepository = _skillRunHistoryRepository
+
+    /**
+     * Get the singleton LlmUsageRepository instance.
+     * All access to individual LLM call records should go through this repository.
+     */
+    fun getLlmUsageRepository(): LlmUsageRepository = _llmUsageRepository
 
     /**
      * Get the singleton FileSegmentRepository instance (deprecated - use getResourceSegmentRepository).

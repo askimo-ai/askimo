@@ -10,7 +10,6 @@ import dev.langchain4j.rag.content.retriever.ContentRetriever
 import dev.langchain4j.rag.query.Query
 import io.askimo.core.logging.logger
 import io.askimo.core.providers.ChatClient
-import io.askimo.core.telemetry.TelemetryCollector
 import io.askimo.core.util.ProcessBuilderExt
 import kotlinx.coroutines.runBlocking
 import java.io.File
@@ -25,12 +24,10 @@ import java.io.File
  *
  * @property delegate              The wrapped semantic retriever (HybridContentRetriever).
  * @property knowledgeSourcePaths  Root paths of the project's knowledge sources, used for grep search.
- * @property telemetry             Optional telemetry collector.
  */
 class RAGContentProcessor(
     private val delegate: ContentRetriever,
     private val classifierChatClient: ChatClient,
-    private val telemetry: TelemetryCollector? = null,
     private val knowledgeSourcePaths: List<String> = emptyList(),
 ) : ContentRetriever {
 
@@ -58,16 +55,12 @@ class RAGContentProcessor(
             classifier.classify(userMessage, conversationHistory, knowledgeSourcePaths)
         }
         val classificationDuration = System.currentTimeMillis() - classificationStartTime
-
-        telemetry?.recordRAGClassification(intent != RAGIntent.SKIP, classificationDuration)
+        log.debug("RAG classification took ${classificationDuration}ms, intent=$intent")
 
         return when (intent) {
             RAGIntent.RAG -> {
                 log.info("RAG triggered — semantic retrieval")
-                val retrievalStartTime = System.currentTimeMillis()
-                val results = delegate.retrieve(query)
-                telemetry?.recordRAGRetrieval(results.size, System.currentTimeMillis() - retrievalStartTime)
-                results
+                delegate.retrieve(query)
             }
 
             RAGIntent.SEARCH -> {

@@ -119,10 +119,19 @@ class AppContext private constructor(
         get() = _userProfileDirective
 
     /**
-     * Telemetry collector for tracking RAG and LLM metrics.
+     * Telemetry collector for tracking LLM call metrics.
      * Shared across all chat clients in this context.
+     *
+     * In desktop mode, [TelemetryCollector] is resolved from the Koin graph (where
+     * [io.askimo.core.telemetry.LlmUsageRepository] has already been injected).
+     * In CLI / stateless mode (Koin not started), falls back to constructing it
+     * directly with a [DatabaseManager] singleton.
      */
-    val telemetry = TelemetryCollector()
+    val telemetry: TelemetryCollector = runCatching {
+        getKoin().get<TelemetryCollector>()
+    }.getOrElse {
+        TelemetryCollector(usageRepository = DatabaseManager.getInstance().getLlmUsageRepository())
+    }
 
     /**
      * Cached utility client for lightweight operations (classification, intent detection).
