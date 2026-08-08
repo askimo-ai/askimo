@@ -78,12 +78,13 @@ fun groupedModelListAsCards(
                     Text(
                         text = dto.displayName,
                         style = AppTextStyles.body,
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
                     )
                     if (isSelected) {
                         Icon(
                             Icons.Default.CheckCircle,
                             contentDescription = "Selected model",
-                            tint = MaterialTheme.colorScheme.onSurface,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
                     }
                 }
