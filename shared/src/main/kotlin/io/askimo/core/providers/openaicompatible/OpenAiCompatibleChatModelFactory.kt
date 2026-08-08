@@ -4,7 +4,6 @@
  */
 package io.askimo.core.providers.openaicompatible
 
-import dev.langchain4j.http.client.jdk.JdkHttpClient
 import dev.langchain4j.memory.ChatMemory
 import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.StreamingChatModel
@@ -28,17 +27,14 @@ import io.askimo.core.providers.ModelDTO
 import io.askimo.core.providers.ProviderModelUtils
 import io.askimo.core.providers.ProviderSettings
 import io.askimo.core.telemetry.TelemetryChatModelListener
-import io.askimo.core.util.ProxyUtil
+import io.askimo.core.util.createJdkHttpClientBuilder
 import io.askimo.core.util.toJdkVersion
-import io.askimo.core.util.withLoggingIfDebug
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import java.net.http.HttpClient
-import java.time.Duration
 
 /**
  * Abstract base factory for all OpenAI-compatible API providers.
@@ -113,7 +109,7 @@ abstract class OpenAiCompatibleChatModelFactory<T>(
      *
      * The default is an identity transform (no changes).
      * Override when the provider needs extra builder settings for embeddings
-     * (e.g., LmStudio injects an HTTP/1.1 client via [createHttpClientBuilder]).
+     * (e.g., LmStudio injects an HTTP/1.1 client via [createJdkHttpClientBuilder]).
      */
     protected open fun customizeEmbeddingBuilder(
         settings: T,
@@ -130,34 +126,11 @@ abstract class OpenAiCompatibleChatModelFactory<T>(
         baseUrl = settings.baseUrl,
         apiKey = resolveApiKey(settings),
         modelName = settings.defaultModel,
-        httpClientBuilder = createHttpClientBuilder(settings.baseUrl, httpVersion = settings.httpVersion.toJdkVersion()),
+        httpClientBuilder = createJdkHttpClientBuilder(settings.baseUrl, settings.httpVersion),
         log = log,
     )
 
     // ── Shared helpers ─────────────────────────────────────────────────────────
-
-    /**
-     * Creates a [JdkHttpClient] builder configured with the correct HTTP version and proxy
-     * settings for this provider. Proxy is automatically bypassed for localhost URLs.
-     *
-     * [listener] is provided when the HTTP client should be wired to a specific
-     * [TelemetryChatModelListener] instance — e.g. to inject per-request headers that are
-     * derived from that listener. The default implementation ignores it.
-     *
-     * The HTTP version defaults to [HttpClient.Version.HTTP_2]; callers pass
-     * `settings.httpVersion.toJdkVersion()` to respect the per-provider/per-instance setting.
-     */
-    protected open fun createHttpClientBuilder(
-        baseUrl: String,
-        listener: TelemetryChatModelListener? = null,
-        httpVersion: HttpClient.Version = HttpClient.Version.HTTP_2,
-    ) = JdkHttpClient.builder().httpClientBuilder(
-        ProxyUtil.configureProxy(
-            HttpClient.newBuilder().version(httpVersion),
-            baseUrl,
-        ).withLoggingIfDebug(),
-    ).readTimeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
-        .connectTimeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
 
     /**
      * Creates the [TelemetryChatModelListener] attached to every model built by this factory.
@@ -241,7 +214,7 @@ abstract class OpenAiCompatibleChatModelFactory<T>(
             baseUrl = settings.baseUrl,
             apiKey = resolveApiKey(settings),
             modelName = settings.defaultModel,
-            httpClientBuilder = createHttpClientBuilder(settings.baseUrl, listener, settings.httpVersion.toJdkVersion()),
+            httpClientBuilder = createJdkHttpClientBuilder(settings.baseUrl, settings.httpVersion),
             listener = listener,
             provider = getProvider(),
         )
@@ -254,7 +227,7 @@ abstract class OpenAiCompatibleChatModelFactory<T>(
             baseUrl = settings.baseUrl,
             apiKey = resolveApiKey(settings),
             modelName = modelName,
-            httpClientBuilder = createHttpClientBuilder(settings.baseUrl, listener, settings.httpVersion.toJdkVersion()),
+            httpClientBuilder = createJdkHttpClientBuilder(settings.baseUrl, settings.httpVersion),
             listener = listener,
         )
     }
@@ -265,7 +238,7 @@ abstract class OpenAiCompatibleChatModelFactory<T>(
             baseUrl = settings.baseUrl,
             apiKey = resolveApiKey(settings),
             modelName = settings.defaultModel,
-            httpClientBuilder = createHttpClientBuilder(settings.baseUrl, listener, settings.httpVersion.toJdkVersion()),
+            httpClientBuilder = createJdkHttpClientBuilder(settings.baseUrl, settings.httpVersion),
             listener = listener,
             provider = getProvider(),
         )
@@ -275,6 +248,7 @@ abstract class OpenAiCompatibleChatModelFactory<T>(
         .baseUrl(settings.baseUrl)
         .apiKey(resolveApiKey(settings))
         .modelName(settings.imageModel)
+        .httpClientBuilder(createJdkHttpClientBuilder(settings.baseUrl, settings.httpVersion))
         .build()
 
     override fun createUtilityClient(settings: T): ChatClient = AiServices.builder(ChatClient::class.java)
@@ -296,6 +270,7 @@ abstract class OpenAiCompatibleChatModelFactory<T>(
             OpenAiEmbeddingModelBuilder()
                 .apiKey("not-needed")
                 .baseUrl(baseUrl)
+                .httpClientBuilder(createJdkHttpClientBuilder(baseUrl, settings.httpVersion))
                 .modelName(modelName),
         ).build()
     }

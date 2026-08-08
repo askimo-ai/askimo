@@ -508,8 +508,8 @@ private fun providerModelTypePickerDialog(
                             modifier = Modifier.fillMaxWidth().padding(Spacing.large),
                             verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                         ) {
-                            Text(text = stringResource("settings.model.current"), style = AppTextStyles.fieldLabel)
-                            Text(text = currentValue, style = AppTextStyles.sectionTitle)
+                            Text(text = stringResource("settings.model.current"), style = AppTextStyles.fieldLabel, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Text(text = currentValue, style = AppTextStyles.sectionTitle, color = MaterialTheme.colorScheme.onSecondaryContainer)
                         }
                     }
                 }
@@ -521,7 +521,7 @@ private fun providerModelTypePickerDialog(
                                 Text(text = stringResource("settings.model.new"), style = AppTextStyles.fieldLabel, color = MaterialTheme.colorScheme.onPrimaryContainer)
                                 Text(text = selectedModel ?: "", style = AppTextStyles.body, color = MaterialTheme.colorScheme.onPrimaryContainer)
                             }
-                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AppTextStyles.primaryContent)
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
                         }
                     }
                 }

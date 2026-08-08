@@ -153,6 +153,7 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
         settings: GeminiSettings,
     ): ImageModel = GoogleAiGeminiImageModel.builder()
         .apiKey(safeApiKey(settings.apiKey))
+        .httpClientBuilder(createJdkHttpClientBuilder())
         .baseUrl(settings.baseUrl)
         .modelName(settings.imageModel)
         .build()
@@ -217,6 +218,7 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
 
     override fun createEmbeddingModel(settings: GeminiSettings): EmbeddingModel = GoogleAiEmbeddingModel.builder()
         .apiKey(safeApiKey(settings.apiKey))
+        .httpClientBuilder(createJdkHttpClientBuilder())
         .modelName(settings.embeddingModel)
         .build()
 
