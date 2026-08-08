@@ -24,6 +24,7 @@ import kotlinx.coroutines.withContext
 class BookmarksViewModel(
     private val chatSessionService: ChatSessionService,
     private val scope: CoroutineScope,
+    private val bookmarkCountsStore: BookmarkCountsStore,
 ) {
     private val log = logger<BookmarksViewModel>()
 
@@ -63,6 +64,10 @@ class BookmarksViewModel(
      * then persist the change via [chatSessionService].
      */
     fun removeBookmark(messageId: String) {
+        val sessionId = groups.firstOrNull { group ->
+            group.messages.any { it.id == messageId }
+        }?.session?.id
+
         // Optimistic update
         groups = groups.mapNotNull { group ->
             val updated = group.messages.filter { it.id != messageId }
@@ -71,8 +76,11 @@ class BookmarksViewModel(
 
         scope.launch {
             try {
-                withContext(Dispatchers.IO) {
+                val isBookmarked = withContext(Dispatchers.IO) {
                     chatSessionService.toggleBookmark(messageId)
+                }
+                if (sessionId != null) {
+                    bookmarkCountsStore.applyBookmarkChange(sessionId, isBookmarked)
                 }
             } catch (e: Exception) {
                 log.error("Failed to remove bookmark for message {}", messageId, e)

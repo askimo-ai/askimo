@@ -25,6 +25,7 @@ import io.askimo.core.event.internal.DiagramFixedEvent
 import io.askimo.core.event.internal.ProjectRefreshEvent
 import io.askimo.core.event.internal.SessionTitleUpdatedEvent
 import io.askimo.core.logging.logger
+import io.askimo.ui.bookmarks.BookmarkCountsStore
 import io.askimo.ui.session.SessionManager
 import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
@@ -52,6 +53,7 @@ class ChatViewModel(
     private val sessionManager: SessionManager,
     private val scope: CoroutineScope,
     private val chatSessionService: ChatSessionService,
+    private val bookmarkCountsStore: BookmarkCountsStore,
 ) : ChatActions {
     private val log = logger<ChatViewModel>()
 
@@ -1358,6 +1360,7 @@ class ChatViewModel(
      * for instant feedback (optimistic update).
      */
     override fun toggleBookmark(messageId: String) {
+        val sessionId = currentSessionId.value
         bookmarkedMessageIds = if (messageId in bookmarkedMessageIds) {
             bookmarkedMessageIds - messageId
         } else {
@@ -1366,8 +1369,11 @@ class ChatViewModel(
 
         scope.launch {
             try {
-                withContext(Dispatchers.IO) {
+                val isBookmarked = withContext(Dispatchers.IO) {
                     chatSessionService.toggleBookmark(messageId)
+                }
+                if (sessionId != null) {
+                    bookmarkCountsStore.applyBookmarkChange(sessionId, isBookmarked)
                 }
             } catch (e: Exception) {
                 // Roll back the optimistic update on failure

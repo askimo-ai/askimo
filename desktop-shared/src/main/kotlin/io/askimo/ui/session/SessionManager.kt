@@ -24,6 +24,7 @@ import io.askimo.core.providers.ConfigurationErrorException
 import io.askimo.core.providers.isContextLengthError
 import io.askimo.core.providers.sendStreamingMessageWithCallback
 import io.askimo.core.vision.ImageProcessor
+import io.askimo.ui.bookmarks.BookmarkCountsStore
 import io.askimo.ui.chat.ChatViewModel
 import io.askimo.ui.chat.CreationMode
 import kotlinx.coroutines.CoroutineScope
@@ -62,6 +63,7 @@ import java.util.concurrent.ConcurrentHashMap
 class SessionManager(
     private val chatSessionService: ChatSessionService,
     private val scope: CoroutineScope,
+    private val bookmarkCountsStore: BookmarkCountsStore,
 ) {
     private val log = logger<SessionManager>()
 
@@ -476,6 +478,7 @@ class SessionManager(
             sessionManager = this,
             scope = scope,
             chatSessionService = chatSessionService,
+            bookmarkCountsStore = bookmarkCountsStore,
         )
 
         chatViewModels[sessionId] = viewModel
