@@ -19,6 +19,7 @@ import io.askimo.core.tools.ToolProviderImpl
 import io.askimo.desktop.project.ProjectViewModel
 import io.askimo.desktop.project.ProjectsViewModel
 import io.askimo.desktop.settings.AIProviderViewModel
+import io.askimo.ui.bookmarks.BookmarkCountsStore
 import io.askimo.ui.chat.ProjectIndexStateManager
 import io.askimo.ui.common.monitoring.SystemResourceMonitor
 import io.askimo.ui.discover.DiscoverViewModel
@@ -89,11 +90,13 @@ val desktopModule = module {
     single { SystemResourceMonitor() }
 
     single { ProjectIndexStateManager() }
+    single { BookmarkCountsStore() }
 
     single {
         SessionManager(
             chatSessionService = get(),
             scope = CoroutineScope(Dispatchers.Default + SupervisorJob()),
+            bookmarkCountsStore = get(),
         )
     }
 
@@ -102,6 +105,7 @@ val desktopModule = module {
             scope = scope,
             sessionService = get(),
             sessionManager = sessionManager,
+            bookmarkCountsStore = get(),
             onCreateNewSession = onCreateNewSession,
             onRenameComplete = onRenameComplete,
         )

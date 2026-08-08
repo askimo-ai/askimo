@@ -17,6 +17,7 @@ import io.askimo.core.event.internal.SessionTitleUpdatedEvent
 import io.askimo.core.event.internal.SessionsRefreshEvent
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
+import io.askimo.ui.bookmarks.BookmarkCountsStore
 import io.askimo.ui.common.export.ExportFormat
 import io.askimo.ui.shell.PinnedSidebarState
 import io.askimo.ui.util.ErrorHandler
@@ -40,6 +41,7 @@ class SessionsViewModel(
     private val scope: CoroutineScope,
     private val sessionService: ChatSessionService,
     private val sessionManager: SessionManager,
+    private val bookmarkCountsStore: BookmarkCountsStore,
     private val onCreateNewSession: () -> String,
     private val onRenameComplete: () -> Unit = {}, // Callback when rename completes
 ) : PinnedSidebarState {
@@ -74,7 +76,7 @@ class SessionsViewModel(
         private set
 
     /** sessionId → number of bookmarked messages. Only populated for sessions that have ≥1 bookmark. */
-    var bookmarkCountsBySession by mutableStateOf<Map<String, Int>>(emptyMap())
+    var bookmarkCountsBySession by mutableStateOf(bookmarkCountsStore.counts.value)
         private set
 
     var searchQuery by mutableStateOf("")
@@ -126,10 +128,19 @@ class SessionsViewModel(
     }
 
     init {
+        subscribeToBookmarkCounts()
         loadSessions(1)
         loadRecentSessions()
         loadStarredSessions()
         subscribeToSessionEvents()
+    }
+
+    private fun subscribeToBookmarkCounts() {
+        scope.launch {
+            bookmarkCountsStore.counts.collect { counts ->
+                bookmarkCountsBySession = counts
+            }
+        }
     }
 
     /**
@@ -200,7 +211,7 @@ class SessionsViewModel(
                 }
                 recentSessions = sessions
                 totalSessionCount = total
-                bookmarkCountsBySession = bookmarkCounts
+                bookmarkCountsStore.setCounts(bookmarkCounts)
 
                 log.debug("Loaded ${sessions.size} sessions without projects (showing ${sessions.size} in sidebar, total: $total)")
             } catch (e: Exception) {

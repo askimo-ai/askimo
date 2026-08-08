@@ -98,6 +98,7 @@ import io.askimo.desktop.shell.footerBar
 import io.askimo.desktop.shell.navigationSidebar
 import io.askimo.desktop.shell.telemetryPanel
 import io.askimo.desktop.user.userProfileDialog
+import io.askimo.ui.bookmarks.BookmarkCountsStore
 import io.askimo.ui.bookmarks.BookmarksViewModel
 import io.askimo.ui.bookmarks.bookmarksView
 import io.askimo.ui.chat.ChatViewModel
@@ -475,8 +476,9 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
 
     val appContext = remember { koin.get<AppContext>() }
     val chatSessionService = remember { koin.get<ChatSessionService>() }
+    val bookmarkCountsStore = remember { koin.get<BookmarkCountsStore>() }
 
-    val bookmarksViewModel = remember { BookmarksViewModel(chatSessionService, scope) }
+    val bookmarksViewModel = remember { BookmarksViewModel(chatSessionService, scope, bookmarkCountsStore) }
 
     val sessionManager = remember { koin.get<SessionManager>() }
     val sessionsViewModel = remember {
