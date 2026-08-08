@@ -10,7 +10,7 @@ import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel.OpenAiEmbeddingModelBuilder
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.util.ApiKeyUtils.safeApiKey
-import io.askimo.core.util.toJdkVersion
+import io.askimo.core.util.createJdkHttpClientBuilder
 
 /**
  * The registered factory for [ModelProvider.OPENAI_COMPATIBLE].
@@ -40,7 +40,7 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
         baseUrl = settings.baseUrl,
         apiKey = resolveApiKey(settings),
         modelName = settings.defaultModel,
-        httpClientBuilder = createHttpClientBuilder(settings.baseUrl, httpVersion = settings.httpVersion.toJdkVersion()),
+        httpClientBuilder = createJdkHttpClientBuilder(settings.baseUrl, settings.httpVersion),
         log = log,
     )
 
@@ -50,7 +50,7 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
             baseUrl = settings.baseUrl,
             apiKey = resolveApiKey(settings),
             modelName = settings.defaultModel,
-            httpClientBuilder = createHttpClientBuilder(settings.baseUrl, listener, settings.httpVersion.toJdkVersion()),
+            httpClientBuilder = createJdkHttpClientBuilder(settings.baseUrl, settings.httpVersion),
             listener = listener,
             provider = getProvider(),
         )
@@ -63,7 +63,7 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
             baseUrl = settings.baseUrl,
             apiKey = resolveApiKey(settings),
             modelName = modelName,
-            httpClientBuilder = createHttpClientBuilder(settings.baseUrl, listener, settings.httpVersion.toJdkVersion()),
+            httpClientBuilder = createJdkHttpClientBuilder(settings.baseUrl, settings.httpVersion),
             listener = listener,
         )
     }
@@ -74,7 +74,7 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
             baseUrl = settings.baseUrl,
             apiKey = resolveApiKey(settings),
             modelName = settings.defaultModel,
-            httpClientBuilder = createHttpClientBuilder(settings.baseUrl, listener, settings.httpVersion.toJdkVersion()),
+            httpClientBuilder = createJdkHttpClientBuilder(settings.baseUrl, settings.httpVersion),
             listener = listener,
             provider = getProvider(),
         )
