@@ -507,8 +507,6 @@ class ProjectIndexer(
                     embeddingModel = embeddingModel,
                     watchForChanges = true,
                 )
-
-                log.info("Re-indexing initiated for project $projectId")
             }
         } catch (e: CancellationException) {
             // Job was cancelled (e.g. project deleted while re-indexing) — not an error.

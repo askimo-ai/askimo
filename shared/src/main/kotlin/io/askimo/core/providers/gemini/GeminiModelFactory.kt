@@ -216,11 +216,17 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
 
     override fun supportsEmbedding(): Boolean = true
 
-    override fun createEmbeddingModel(settings: GeminiSettings): EmbeddingModel = GoogleAiEmbeddingModel.builder()
-        .apiKey(safeApiKey(settings.apiKey))
-        .httpClientBuilder(createJdkHttpClientBuilder())
-        .modelName(settings.embeddingModel)
-        .build()
+    override fun createEmbeddingModel(settings: GeminiSettings): EmbeddingModel {
+        check(settings.embeddingModel.isNotBlank()) {
+            "No embedding model is configured for ${GEMINI.name}. " +
+                "Go to Settings > AI Provider and select an embedding model under the provider configuration card."
+        }
+        return GoogleAiEmbeddingModel.builder()
+            .apiKey(safeApiKey(settings.apiKey))
+            .httpClientBuilder(createJdkHttpClientBuilder())
+            .modelName(settings.embeddingModel)
+            .build()
+    }
 
     override fun getEmbeddingTokenLimit(settings: GeminiSettings): Int {
         val modelName = settings.embeddingModel.lowercase()
