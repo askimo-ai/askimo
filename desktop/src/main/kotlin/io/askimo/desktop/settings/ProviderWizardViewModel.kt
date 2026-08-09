@@ -347,7 +347,7 @@ class ProviderWizardViewModel(
         val prefilled = OpenAiCompatibleSettings(
             baseUrl = template.baseUrl,
             apiMode = template.apiMode,
-            httpVersionConfig = template.httpVersion,
+            httpVersion = template.httpVersion,
             isTemplate = true,
         )
         templateBaseSettings = prefilled
