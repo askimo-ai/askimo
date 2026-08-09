@@ -4,7 +4,6 @@
  */
 package io.askimo.core.providers.lmstudio
 
-import dev.langchain4j.model.openai.OpenAiEmbeddingModel.OpenAiEmbeddingModelBuilder
 import io.askimo.core.context.AppContext
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ModelProvider.LMSTUDIO
@@ -12,7 +11,6 @@ import io.askimo.core.providers.ensureLocalEmbeddingModelAvailable
 import io.askimo.core.providers.openaicompatible.CompletionsApiDelegate
 import io.askimo.core.providers.openaicompatible.OpenAiCompatibleChatModelFactory
 import io.askimo.core.providers.openaicompatible.ResponsesApiDelegate
-import io.askimo.core.util.toJdkVersion
 
 /**
  * Model factory for LM Studio.
@@ -37,12 +35,4 @@ class LmStudioModelFactory :
     override fun utilityModelFallback(settings: LmStudioSettings): String = AppContext.getInstance().params.model
 
     override fun checkEmbeddingAvailability(baseUrl: String, modelName: String) = ensureLocalEmbeddingModelAvailable(getProvider(), baseUrl, modelName)
-
-    /** LM Studio requires an HTTP/1.1 client on the embedding builder as well. */
-    override fun customizeEmbeddingBuilder(
-        settings: LmStudioSettings,
-        builder: OpenAiEmbeddingModelBuilder,
-    ): OpenAiEmbeddingModelBuilder = builder.httpClientBuilder(
-        createHttpClientBuilder(settings.baseUrl, httpVersion = settings.httpVersion.toJdkVersion()),
-    )
 }
