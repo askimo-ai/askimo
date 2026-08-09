@@ -116,12 +116,18 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
         while (events.size > 100) events.removeAt(events.lastIndex)
     }
 
-    // Upserts a terminal indexing card (completed / failed) and bumps the unread badge.
+    // Upserts a terminal indexing card (completed / failed) and bumps the unread badge
+    // only when a new card is added — not when replacing an existing in-progress card.
     fun upsertIndexingEvent(item: NotificationEventItem) {
         val existingIdx = events.indexOfFirst { it.projectId == item.projectId }
-        if (existingIdx >= 0) events[existingIdx] = item else events.add(0, item)
-        unreadCount++
-        trimEvents()
+        if (existingIdx >= 0) {
+            events[existingIdx] = item
+            // Replace in-place — card was already counted, don't bump badge
+        } else {
+            events.add(0, item)
+            unreadCount++
+            trimEvents()
+        }
     }
 
     // User-facing events (UpdateAvailableEvent, ShellErrorEvent, …)
