@@ -10,6 +10,7 @@ import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.store.embedding.EmbeddingStore
 import io.askimo.core.chat.repository.ResourceSegmentRepository
 import io.askimo.core.config.AppConfig
+import io.askimo.core.context.AppContext
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.error.IndexingErrorEvent
@@ -43,6 +44,17 @@ class HybridIndexer(
 ) {
     private val log = logger<HybridIndexer>()
     private val luceneIndexer = LuceneIndexer.getInstance(projectId)
+
+    // Telemetry identifiers — resolved once at construction so we don't call AppContext on every batch flush.
+    private val telemetryProvider: String
+    private val telemetryModel: String
+
+    init {
+        val activeInstance = runCatching { AppContext.getInstance().params.activeInstance }.getOrNull()
+        telemetryProvider = activeInstance?.providerType?.name?.lowercase() ?: "unknown"
+        telemetryModel = activeInstance?.settings?.embeddingModel?.takeIf { it.isNotBlank() }
+            ?: embeddingModel.javaClass.simpleName
+    }
 
     // Mutex for thread-safe batch operations
     private val batchMutex = Mutex()
@@ -134,11 +146,26 @@ class HybridIndexer(
         return try {
             withContext(Dispatchers.IO) {
                 log.debug("embedAll: calling embeddingModel for {} segments, project {}", segments.size, projectId)
-                val embeddings = withTimeout(60.seconds) {
-                    embeddingModel.embedAll(segments).content()
+                val startMs = System.currentTimeMillis()
+                val response = withTimeout(60.seconds) {
+                    embeddingModel.embedAll(segments)
                 }
+                val durationMs = System.currentTimeMillis() - startMs
                 log.debug("embedAll: completed for {} segments, project {}", segments.size, projectId)
 
+                // Record embedding token usage in telemetry (best-effort — not all providers return token counts)
+                runCatching {
+                    AppContext.getInstance().telemetry.recordLLMCall(
+                        provider = telemetryProvider,
+                        model = telemetryModel,
+                        tokenUsage = response.tokenUsage(),
+                        durationMs = durationMs,
+                    )
+                }.onFailure { e ->
+                    log.debug("Failed to record embedding telemetry: {}", e.message)
+                }
+
+                val embeddings = response.content()
                 val segmentIds = segments.map { generateSegmentId(it) }
 
                 embeddingStore.addAll(embeddings, segments)
