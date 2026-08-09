@@ -118,7 +118,7 @@ fun providerWizardDialog(viewModel: ProviderWizardViewModel) {
     AppComponents.scaffoldDialog(
         onDismissRequest = { viewModel.closeProviderWizard() },
         onCloseRequest = { viewModel.closeProviderWizard() },
-        width = 780.dp,
+        width = 860.dp,
         showSectionDividers = true,
         title = {
             Text(text = title, style = AppTextStyles.pageTitle)
@@ -277,7 +277,7 @@ private fun providerTypePickerScreen(viewModel: ProviderWizardViewModel) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(380.dp),
+            .height(460.dp),
     ) {
         // ── Left column: scrollable provider list ─────────────────────────────────────────
         val listState = rememberLazyListState()
@@ -477,46 +477,6 @@ private fun providerPickerDetail(
                     style = AppTextStyles.bodySecondary,
                 )
 
-                // Info chips: base URL + API key requirement
-                Card(colors = AppComponents.surfaceVariantCardColors()) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(Spacing.medium),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-                    ) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small), verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "Base URL",
-                                style = AppTextStyles.hint,
-                            )
-                            Text(
-                                text = entry.template.baseUrl
-                                    .removePrefix("https://").removePrefix("http://")
-                                    .substringBefore("/"),
-                                style = AppTextStyles.caption,
-                            )
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small), verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "API key",
-                                style = AppTextStyles.hint,
-                            )
-                            Text(
-                                text = if (entry.template.apiKeyRequired) {
-                                    stringResource("provider.template.apikey.required")
-                                } else {
-                                    stringResource("provider.template.apikey.optional")
-                                },
-                                style = AppTextStyles.caption,
-                                color = if (entry.template.apiKeyRequired) {
-                                    MaterialTheme.colorScheme.onSurface
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                },
-                            )
-                        }
-                    }
-                }
-
                 if (entry.template.apiKeyUrl.isNotBlank()) {
                     linkButton(
                         onClick = {
@@ -530,6 +490,18 @@ private fun providerPickerDetail(
                             text = stringResource("provider.template.get.apikey"),
                             style = AppTextStyles.caption,
                         )
+                    }
+                }
+
+                // Setup instructions specific to this template
+                Card(colors = AppComponents.surfaceVariantCardColors()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(Spacing.medium),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(text = entry.template.helpText, style = AppTextStyles.caption)
                     }
                 }
             }
