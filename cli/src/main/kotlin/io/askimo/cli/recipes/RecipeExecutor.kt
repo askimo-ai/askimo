@@ -4,7 +4,7 @@
  */
 package io.askimo.cli.recipes
 
-import dev.langchain4j.data.message.UserMessage
+import dev.langchain4j.data.message.TextContent
 import io.askimo.cli.LoadingIndicator
 import io.askimo.core.analytics.Analytics
 import io.askimo.core.analytics.AnalyticsEvent
@@ -89,7 +89,7 @@ class RecipeExecutor(
         val output =
             appContext
                 .getStatelessChatClient()
-                .sendStreamingMessageWithCallback(null, UserMessage(prompt), onToken = { _ ->
+                .sendStreamingMessageWithCallback(null, listOf(TextContent(prompt)), onToken = { _ ->
                     if (firstTokenSeen.compareAndSet(false, true)) {
                         indicator?.stopWithElapsed()
                         opts.terminal?.flush()

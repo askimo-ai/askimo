@@ -4,7 +4,8 @@
  */
 package io.askimo.cli
 
-import dev.langchain4j.data.message.UserMessage
+import dev.langchain4j.data.message.Content
+import dev.langchain4j.data.message.TextContent
 import io.askimo.cli.autocompleter.CliCommandCompleter
 import io.askimo.cli.commands.CommandHandler
 import io.askimo.cli.commands.ConfigCommandHandler
@@ -213,7 +214,7 @@ fun main(args: Array<String>) {
             val prompt = buildPrompt(promptText, stdinText)
             sendNonInteractiveChatMessage(
                 appContext.getStatelessChatClient(),
-                UserMessage(prompt),
+                listOf(TextContent(prompt)),
                 TerminalBuilder.builder().system(true).build(),
             )
             return
@@ -339,9 +340,9 @@ fun main(args: Array<String>) {
 
 private fun sendNonInteractiveChatMessage(
     chatClient: ChatClient,
-    userMessage: UserMessage,
+    userMessages: List<Content>,
     terminal: Terminal,
-): String = streamChatResponse(chatClient, userMessage, terminal)
+): String = streamChatResponse(chatClient, userMessages, terminal)
 
 private fun sendChatMessage(
     prompt: String,
@@ -376,7 +377,7 @@ private fun sendChatMessage(
  */
 private fun streamChatResponse(
     chatClient: ChatClient,
-    userMessage: UserMessage,
+    userMessage: List<Content>,
     terminal: Terminal,
 ): String {
     val indicator = LoadingIndicator(terminal, "Thinking…").apply { start() }
