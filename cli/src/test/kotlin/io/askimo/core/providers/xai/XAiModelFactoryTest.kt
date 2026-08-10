@@ -4,7 +4,7 @@
  */
 package io.askimo.core.providers.xai
 
-import dev.langchain4j.data.message.UserMessage
+import dev.langchain4j.data.message.TextContent
 import io.askimo.core.context.AppContext
 import io.askimo.core.context.ExecutionMode
 import io.askimo.core.providers.ChatClient
@@ -52,7 +52,7 @@ class XAiModelFactoryTest {
     private fun sendPromptAndGetResponse(chatClient: ChatClient, prompt: String): String {
         println("Sending prompt: '$prompt'")
 
-        val output = chatClient.sendStreamingMessageWithCallback(null, UserMessage(prompt), onToken = { _ ->
+        val output = chatClient.sendStreamingMessageWithCallback(null, listOf(TextContent(prompt)), onToken = { _ ->
             print(".")
         }).trim()
 

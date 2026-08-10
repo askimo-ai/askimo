@@ -5,7 +5,7 @@
 package io.askimo.core.providers.openai
 
 import com.sun.net.httpserver.HttpServer
-import dev.langchain4j.data.message.UserMessage
+import dev.langchain4j.data.message.TextContent
 import io.askimo.core.config.AppConfig
 import io.askimo.core.config.ProxyConfig
 import io.askimo.core.config.ProxyType
@@ -93,7 +93,7 @@ class OpenAiModelFactoryProxyTest {
     private fun sendPromptAndGetResponse(chatClient: ChatClient, prompt: String): String {
         println("Sending prompt with proxy config: '$prompt'")
 
-        val output = chatClient.sendStreamingMessageWithCallback(null, UserMessage(prompt), onToken = { _ ->
+        val output = chatClient.sendStreamingMessageWithCallback(null, listOf(TextContent(prompt)), onToken = { _ ->
             print(".")
         }).trim()
 
@@ -292,7 +292,7 @@ class OpenAiModelFactoryProxyTest {
         // Test streaming with proxy
         var chunkCount = 0
         val output = chatClient.sendStreamingMessageWithCallback(
-            userContents = UserMessage("Count to 3."),
+            userContents = listOf(TextContent("Count to 3.")),
             onToken = { token ->
                 chunkCount++
                 print(token)
