@@ -4,7 +4,6 @@
  */
 package io.askimo.core.providers.docker
 
-import io.askimo.core.context.AppContext
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ModelProvider.DOCKER
 import io.askimo.core.providers.ensureLocalEmbeddingModelAvailable
@@ -27,12 +26,6 @@ class DockerAiModelFactory :
     override fun getProvider(): ModelProvider = DOCKER
 
     override fun defaultSettings(): DockerAiSettings = DockerAiSettings()
-
-    /**
-     * When no explicit utility model is configured, fall back to whichever model is currently
-     * active in the session rather than [DockerAiSettings.defaultModel].
-     */
-    override fun utilityModelFallback(settings: DockerAiSettings): String = AppContext.getInstance().params.model
 
     override fun checkEmbeddingAvailability(baseUrl: String, modelName: String) = ensureLocalEmbeddingModelAvailable(getProvider(), baseUrl, modelName)
 

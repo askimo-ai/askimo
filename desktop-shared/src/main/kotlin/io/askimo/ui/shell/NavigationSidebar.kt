@@ -441,6 +441,12 @@ private fun expandedNavigationSidebar(
                 onDeleteProject = onDeleteProject,
             )
 
+            // Visual separator between pinned and sessions zones
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = Spacing.medium, vertical = Spacing.extraSmall),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+            )
+
             // Sessions header (collapsible)
             NavigationDrawerItem(
                 icon = { Icon(Icons.Default.History, contentDescription = null) },
@@ -1186,7 +1192,7 @@ private fun navigationItemLabelWithMenu(
     ) {
         Text(
             text = text,
-            style = AppTextStyles.groupTitle,
+            style = AppTextStyles.body,
             color = textColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

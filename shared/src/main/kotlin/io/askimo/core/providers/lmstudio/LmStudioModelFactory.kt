@@ -4,7 +4,6 @@
  */
 package io.askimo.core.providers.lmstudio
 
-import io.askimo.core.context.AppContext
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ModelProvider.LMSTUDIO
 import io.askimo.core.providers.ensureLocalEmbeddingModelAvailable
@@ -27,12 +26,6 @@ class LmStudioModelFactory :
     override fun getProvider(): ModelProvider = LMSTUDIO
 
     override fun defaultSettings(): LmStudioSettings = LmStudioSettings()
-
-    /**
-     * When no explicit utility model is configured, fall back to whichever model is currently
-     * active in the session rather than [LmStudioSettings.defaultModel].
-     */
-    override fun utilityModelFallback(settings: LmStudioSettings): String = AppContext.getInstance().params.model
 
     override fun checkEmbeddingAvailability(baseUrl: String, modelName: String) = ensureLocalEmbeddingModelAvailable(getProvider(), baseUrl, modelName)
 }
