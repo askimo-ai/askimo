@@ -473,7 +473,7 @@ private fun providerPickerDetail(
                     style = AppTextStyles.sectionTitle,
                 )
                 Text(
-                    text = entry.template.tagline,
+                    text = stringResource(entry.template.taglineKey),
                     style = AppTextStyles.bodySecondary,
                 )
 
@@ -501,7 +501,7 @@ private fun providerPickerDetail(
                         verticalAlignment = Alignment.Top,
                     ) {
                         Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(text = entry.template.helpText, style = AppTextStyles.caption)
+                        Text(text = stringResource(entry.template.helpTextKey), style = AppTextStyles.caption)
                     }
                 }
             }
