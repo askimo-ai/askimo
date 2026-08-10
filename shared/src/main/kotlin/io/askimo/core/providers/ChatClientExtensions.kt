@@ -4,6 +4,7 @@
  */
 package io.askimo.core.providers
 
+import dev.langchain4j.data.message.Content
 import dev.langchain4j.data.message.UserMessage
 import dev.langchain4j.exception.InternalServerException
 import dev.langchain4j.exception.ModelNotFoundException
@@ -71,14 +72,14 @@ private fun Throwable.isUnsupportedSamplingError(): Boolean {
  *   - Stage 1 (Pre-request): Detect user intent to attach relevant tools
  *   - Stage 2 (Post-response): Detect follow-up opportunities from AI response
  *
- * @param userMessage The input text to send to the language model
+ * @param userContents the contents sent by user
  * @param onToken Optional callback function that is invoked for each token received from the model
  * @param onFollowUpSuggestion Optional callback for follow-up suggestions based on AI response
  * @return The complete response from the language model as a string
  */
 fun ChatClient.sendStreamingMessageWithCallback(
     projectId: String? = null,
-    userMessage: UserMessage,
+    userContents: List<Content>,
     enabledServerIds: Set<String> = emptySet(),
     onToken: (String) -> Unit = {},
     onFollowUpSuggestion: ((FollowUpSuggestion) -> Unit)? = null,
@@ -118,7 +119,7 @@ fun ChatClient.sendStreamingMessageWithCallback(
                     var capturedError: Throwable? = null
                     val streamStartTime = System.currentTimeMillis()
 
-                    sendMessageStreaming(userMessage)
+                    sendMessageStreaming(userContents)
                         .onPartialResponse { chunk ->
                             sb.append(chunk)
                             onToken(chunk)

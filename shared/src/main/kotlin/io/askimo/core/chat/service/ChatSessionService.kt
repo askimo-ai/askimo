@@ -6,7 +6,7 @@ package io.askimo.core.chat.service
 
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
-import dev.langchain4j.data.message.UserMessage
+import dev.langchain4j.data.message.Content
 import dev.langchain4j.rag.content.retriever.ContentRetriever
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever
 import io.askimo.core.chat.domain.ChatMessage
@@ -834,7 +834,7 @@ class ChatSessionService(
         sessionId: String,
         userMessage: ChatMessageDTO,
         willSaveUserMessage: Boolean,
-    ): UserMessage {
+    ): List<Content> {
         if (willSaveUserMessage) {
             messageRepository.addMessage(
                 ChatMessage(

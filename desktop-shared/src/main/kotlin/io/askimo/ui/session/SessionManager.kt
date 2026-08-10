@@ -299,7 +299,7 @@ class SessionManager(
                         .getOrCreateClientForSession(sessionId)
                         .sendStreamingMessageWithCallback(
                             projectId = projectId,
-                            userMessage = promptWithContext,
+                            userContents = promptWithContext,
                             enabledServerIds = enabledServerIds,
                             onToken = { token ->
                                 streamingScope.launch {

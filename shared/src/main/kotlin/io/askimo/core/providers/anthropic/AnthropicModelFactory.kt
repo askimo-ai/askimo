@@ -4,7 +4,7 @@
  */
 package io.askimo.core.providers.anthropic
 
-import dev.langchain4j.data.message.UserMessage
+import dev.langchain4j.data.message.TextContent
 import dev.langchain4j.memory.ChatMemory
 import dev.langchain4j.model.anthropic.AnthropicChatModel
 import dev.langchain4j.model.anthropic.AnthropicStreamingChatModel
@@ -141,7 +141,7 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
             .streamingChatModel(testModel)
             .build()
 
-        testClient.sendStreamingMessageWithCallback(null, UserMessage("Capability probe — reply with 'ok'."))
+        testClient.sendStreamingMessageWithCallback(null, listOf(TextContent("Capability probe — reply with 'ok'.")))
         log.info("Model '${settings.defaultModel}' supports thinking — thinking enabled")
         true
     } catch (e: Exception) {

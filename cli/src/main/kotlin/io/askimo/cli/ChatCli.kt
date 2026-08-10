@@ -385,7 +385,7 @@ private fun streamChatResponse(
     val mdSink = MarkdownStreamingSink(terminal, mdRenderer)
 
     val output = chatClient.sendStreamingMessageWithCallback(
-        userMessage = userMessage,
+        userContents = userMessage,
         onToken = { token ->
             if (firstTokenSeen.compareAndSet(false, true)) {
                 indicator.stopWithElapsed()

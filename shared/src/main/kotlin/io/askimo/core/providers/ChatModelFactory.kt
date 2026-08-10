@@ -4,7 +4,7 @@
  */
 package io.askimo.core.providers
 
-import dev.langchain4j.data.message.UserMessage
+import dev.langchain4j.data.message.TextContent
 import dev.langchain4j.exception.InvalidRequestException
 import dev.langchain4j.memory.ChatMemory
 import dev.langchain4j.model.chat.ChatModel
@@ -192,7 +192,7 @@ interface ChatModelFactory<T : ProviderSettings> {
             }
 
             val testClient = testClientBuilder.maxToolCallingRoundTrips(1).build()
-            testClient.sendStreamingMessageWithCallback(null, UserMessage("Capability tool probe — reply with 'ok'."))
+            testClient.sendStreamingMessageWithCallback(null, listOf(TextContent("Capability tool probe — reply with 'ok'.")))
             true
         } catch (e: Exception) {
             val errorMessage = e.message?.lowercase() ?: ""
@@ -255,7 +255,7 @@ interface ChatModelFactory<T : ProviderSettings> {
                 "Generate a tiny 64x64 PNG image of a red circle on white background. " +
                     "Return ONLY a single data URI in this exact format: data:image/png;base64,<base64>. " +
                     "Do not return SVG, markdown, code blocks, or explanations."
-            val response = testClient.sendStreamingMessageWithCallback(null, UserMessage(testPrompt)).trim()
+            val response = testClient.sendStreamingMessageWithCallback(null, listOf(TextContent(testPrompt))).trim()
 
             // Extract first data:image/*;base64,... token from raw or markdown text.
             val dataUriRegex = Regex("""data:image/([a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=\r\n]+)""")

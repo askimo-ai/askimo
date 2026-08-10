@@ -4,7 +4,7 @@
  */
 package io.askimo.core.providers.openaicompatible
 
-import dev.langchain4j.data.message.UserMessage
+import dev.langchain4j.data.message.TextContent
 import dev.langchain4j.http.client.jdk.JdkHttpClientBuilder
 import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.StreamingChatModel
@@ -116,7 +116,7 @@ class ResponsesApiDelegate : OpenAiApiDelegate {
             .streamingChatModel(testModel)
             .build()
 
-        testClient.sendStreamingMessageWithCallback(null, UserMessage("Capability probe — reply with 'ok'."))
+        testClient.sendStreamingMessageWithCallback(null, listOf(TextContent("Capability probe — reply with 'ok'.")))
         log.info("Model '$modelName' supports thinking — thinking enabled")
         true
     } catch (e: Exception) {

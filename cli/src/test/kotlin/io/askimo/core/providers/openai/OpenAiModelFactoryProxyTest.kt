@@ -21,7 +21,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestInstance.Lifecycle
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
-import kotlin.inc
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -293,7 +292,7 @@ class OpenAiModelFactoryProxyTest {
         // Test streaming with proxy
         var chunkCount = 0
         val output = chatClient.sendStreamingMessageWithCallback(
-            userMessage = UserMessage("Count to 3."),
+            userContents = UserMessage("Count to 3."),
             onToken = { token ->
                 chunkCount++
                 print(token)

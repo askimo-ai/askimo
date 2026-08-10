@@ -4,7 +4,7 @@
  */
 package io.askimo.core.providers
 
-import dev.langchain4j.model.chat.request.ChatRequestParameters
+import dev.langchain4j.data.message.Content
 import dev.langchain4j.service.TokenStream
 import dev.langchain4j.service.UserMessage
 
@@ -26,8 +26,7 @@ interface ChatClient {
      * @return A [TokenStream] that emits tokens as they are generated
      */
     fun sendMessageStreaming(
-        @UserMessage userMessage: dev.langchain4j.data.message.UserMessage,
-        chatRequestParameters: ChatRequestParameters? = null,
+        userContents: List<Content>,
     ): TokenStream
 
     /**

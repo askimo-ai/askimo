@@ -7,7 +7,6 @@ package io.askimo.core.vision
 import dev.langchain4j.data.message.Content
 import dev.langchain4j.data.message.ImageContent
 import dev.langchain4j.data.message.TextContent
-import dev.langchain4j.data.message.UserMessage
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
 import io.askimo.core.chat.util.FileTypeSupport
@@ -40,10 +39,10 @@ fun ChatMessageDTO.needsVision(): Boolean = attachments.any { it.isImage() }
  * If the message contains images, creates a multi-modal message with both text and images.
  * Otherwise, creates a simple text-only message.
  */
-fun ChatMessageDTO.toUserMessage(): UserMessage {
+fun ChatMessageDTO.toUserMessage(): List<Content> {
     if (!needsVision()) {
         // Simple text message
-        return UserMessage.from(content)
+        return listOf(TextContent(content))
     }
 
     // Multi-modal message with text and images
@@ -92,10 +91,10 @@ fun ChatMessageDTO.toUserMessage(): UserMessage {
 
     // Ensure we have at least some content
     if (contents.isEmpty()) {
-        return UserMessage.from(content.ifBlank { "Please analyze this image" })
+        return listOf(TextContent(content.ifBlank { "Please analyze this image" }))
     }
 
-    return UserMessage.from(contents)
+    return contents
 }
 
 /**
