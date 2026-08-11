@@ -5,6 +5,13 @@
 package io.askimo.core.providers.openaicompatible
 
 import io.askimo.core.providers.HttpVersion
+import io.askimo.core.util.appJson
+import io.askimo.core.util.httpGet
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import java.net.http.HttpClient
 
 /**
  * Predefined OpenAI-compatible cloud provider templates.
@@ -38,6 +45,14 @@ enum class OpenAiCompatibleTemplate(
      * providers known to have HTTP/2 issues.
      */
     val httpVersion: HttpVersion = HttpVersion.HTTP_2,
+    /**
+     * Custom model-fetching strategy for providers whose model-list endpoint differs from the
+     * standard OpenAI `GET /models`. If `null`, the default `{baseUrl}/models` fetch is used.
+     *
+     * Receives the resolved API key, the configured base URL, and the HTTP version;
+     * returns a sorted, deduplicated list of model ID strings.
+     */
+    val modelFetcher: ((apiKey: String, baseUrl: String, httpVersion: HttpClient.Version) -> List<String>)? = null,
 ) {
     CLOUDFLARE_AI(
         displayName = "Cloudflare AI",
@@ -47,6 +62,20 @@ enum class OpenAiCompatibleTemplate(
         apiKeyRequired = true,
         apiKeyUrl = "https://dash.cloudflare.com/profile/api-tokens",
         helpTextKey = "provider.template.cloudflare_ai.help",
+        modelFetcher = { apiKey, baseUrl, httpVersion ->
+            // Cloudflare AI does not implement the standard GET /models endpoint.
+            // Derive the models/search URL from the configured base URL so the user's
+            // actual account ID is honoured.
+            // e.g. https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/v1
+            //   →  https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/models/search
+            val searchUrl = baseUrl.trimEnd('/').removeSuffix("/v1") + "/models/search"
+            val (_, body) = httpGet(searchUrl, headers = mapOf("Authorization" to "Bearer $apiKey"), httpVersion = httpVersion)
+            val json = appJson.parseToJsonElement(body)
+            json.jsonObject["result"]?.jsonArray.orEmpty()
+                .mapNotNull { it.jsonObject["name"]?.jsonPrimitive?.contentOrNull }
+                .distinct()
+                .sorted()
+        },
     ),
 
     GROQ(

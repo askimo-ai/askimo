@@ -1890,6 +1890,8 @@
   }, {
     "type": "dev.langchain4j.model.chat.ChatModel"
   }, {
+    "type": "dev.langchain4j.model.chat.request.ChatRequest"
+  }, {
     "type": "dev.langchain4j.model.embedding.EmbeddingModel"
   }, {
     "type": "dev.langchain4j.model.googleai.GeminiContent",
@@ -3557,6 +3559,9 @@
       "name": "<init>",
       "parameterTypes": [ ]
     }, {
+      "name": "DEFAULT_YAML snake_case fields are correctly deserialized",
+      "parameterTypes": [ ]
+    }, {
       "name": "DEFAULT_YAML snake_case fields are correctly deserialized for all providers",
       "parameterTypes": [ ]
     }, {
@@ -3576,6 +3581,9 @@
       "parameterTypes": [ ]
     }, {
       "name": "YAML round-trip preserves snake_case field values after updateField",
+      "parameterTypes": [ ]
+    }, {
+      "name": "YAML round-trip preserves timeout values after updateField",
       "parameterTypes": [ ]
     }, {
       "name": "saveContext overwrites a previously saved context",
@@ -3829,6 +3837,9 @@
     "type": "io.askimo.core.config.ModelsConfig",
     "allDeclaredFields": true,
     "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ "int", "io.askimo.core.config.ModelTimeoutsConfig" ]
+    }, {
       "name": "<init>",
       "parameterTypes": [ "int", "io.askimo.core.config.ModelTimeoutsConfig", "io.askimo.core.config.ProviderModelConfig", "io.askimo.core.config.ProviderModelConfig", "io.askimo.core.config.ProviderModelConfig", "io.askimo.core.config.ProviderModelConfig", "io.askimo.core.config.ProviderModelConfig", "io.askimo.core.config.ProviderModelConfig", "io.askimo.core.config.ProviderModelConfig", "io.askimo.core.config.ProviderModelConfig", "io.askimo.core.config.ProviderModelConfig", "io.askimo.core.config.ProviderModelConfig" ]
     }, {
@@ -5270,6 +5281,8 @@
   }, {
     "type": "io.askimo.core.providers.HasBaseUrl"
   }, {
+    "type": "io.askimo.core.providers.HttpVersion"
+  }, {
     "type": "io.askimo.core.providers.ModelFilterUtilsTest",
     "methods": [ {
       "name": "<init>",
@@ -5616,6 +5629,9 @@
     "type": "io.askimo.core.providers.ProviderSettings",
     "methods": [ {
       "name": "getDefaultModel",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getHttpVersion",
       "parameterTypes": [ ]
     } ]
   }, {
@@ -6569,6 +6585,84 @@
       "parameterTypes": [ ]
     }, {
       "name": "save persists file and findByPath retrieves the skill",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "io.askimo.core.telemetry.LlmUsageRepositoryTest",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    }, {
+      "name": "setup",
+      "parameterTypes": [ ]
+    }, {
+      "name": "tearDown",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "io.askimo.core.telemetry.LlmUsageRepositoryTest$Insert",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ "io.askimo.core.telemetry.LlmUsageRepositoryTest" ]
+    }, {
+      "name": "insert does not throw for a successful call",
+      "parameterTypes": [ ]
+    }, {
+      "name": "insert does not throw for an error call",
+      "parameterTypes": [ ]
+    }, {
+      "name": "inserted record appears in queryGroupedByInstance",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "io.askimo.core.telemetry.LlmUsageRepositoryTest$QueryGroupedByInstance",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ "io.askimo.core.telemetry.LlmUsageRepositoryTest" ]
+    }, {
+      "name": "avgDurationMs is the arithmetic mean of all calls in a group",
+      "parameterTypes": [ ]
+    }, {
+      "name": "calls for the same provider and model are merged into one group",
+      "parameterTypes": [ ]
+    }, {
+      "name": "different models under the same provider form separate groups",
+      "parameterTypes": [ ]
+    }, {
+      "name": "errors counts only the rows with isError true",
+      "parameterTypes": [ ]
+    }, {
+      "name": "from is inclusive and to is exclusive",
+      "parameterTypes": [ ]
+    }, {
+      "name": "instanceId takes precedence over provider for grouping key",
+      "parameterTypes": [ ]
+    }, {
+      "name": "instanceKey is the instanceId when present",
+      "parameterTypes": [ ]
+    }, {
+      "name": "instanceKey is the provider when instanceId is null",
+      "parameterTypes": [ ]
+    }, {
+      "name": "provider and model fields are preserved on each stats row",
+      "parameterTypes": [ ]
+    }, {
+      "name": "records before the from boundary are excluded",
+      "parameterTypes": [ ]
+    }, {
+      "name": "records inside the time window are included",
+      "parameterTypes": [ ]
+    }, {
+      "name": "results are ordered by total tokens descending",
+      "parameterTypes": [ ]
+    }, {
+      "name": "returns empty list when no records exist",
+      "parameterTypes": [ ]
+    }, {
+      "name": "tokens are summed across all calls in a group",
+      "parameterTypes": [ ]
+    }, {
+      "name": "zero errors when all calls succeed",
       "parameterTypes": [ ]
     } ]
   }, {
@@ -8667,6 +8761,16 @@
     "type": "org.mockito.internal.creation.bytebuddy.codegen.ChatClient$MockitoMock$a577cr1op99200N$auxiliary$4cscpe1S"
   }, {
     "type": "org.mockito.internal.creation.bytebuddy.codegen.ChatClient$MockitoMock$a577cr1op99200N$auxiliary$7m9oaq0S"
+  }, {
+    "type": "org.mockito.internal.creation.bytebuddy.codegen.ChatModel$MockitoMock$u6jvu43op99200N",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "org.mockito.internal.creation.bytebuddy.codegen.ChatModel$MockitoMock$u6jvu43op99200N$auxiliary$4cscpe1S"
+  }, {
+    "type": "org.mockito.internal.creation.bytebuddy.codegen.ChatModel$MockitoMock$u6jvu43op99200N$auxiliary$7m9oaq0S"
   }, {
     "type": "org.mockito.internal.creation.bytebuddy.codegen.ParsedLine$MockitoMock$mharrt1op99200N",
     "methods": [ {

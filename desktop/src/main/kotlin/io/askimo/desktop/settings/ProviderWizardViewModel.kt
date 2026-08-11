@@ -349,6 +349,7 @@ class ProviderWizardViewModel(
             apiMode = template.apiMode,
             httpVersion = template.httpVersion,
             isTemplate = true,
+            templateName = template.name,
         )
         templateBaseSettings = prefilled
         providerConfigFields = prefilled.getConfigFields(LocalizationManager.messageResolver)
@@ -581,7 +582,7 @@ class ProviderWizardViewModel(
 
                     @Suppress("UNCHECKED_CAST")
                     val models = (factory as ChatModelFactory<ProviderSettings>)
-                        .availableModels((editingInstance?.settings ?: factory.defaultSettings()).applyConfigFields(providerFieldValues))
+                        .availableModels((editingInstance?.settings ?: templateBaseSettings ?: factory.defaultSettings()).applyConfigFields(providerFieldValues))
 
                     isLoadingModels = false
                     if (models.isNotEmpty()) {
@@ -641,7 +642,7 @@ class ProviderWizardViewModel(
 
                 @Suppress("UNCHECKED_CAST")
                 val models = (factory as ChatModelFactory<ProviderSettings>)
-                    .availableModels((editingInstance?.settings ?: factory.defaultSettings()).applyConfigFields(providerFieldValues))
+                    .availableModels((editingInstance?.settings ?: templateBaseSettings ?: factory.defaultSettings()).applyConfigFields(providerFieldValues))
 
                 isLoadingModels = false
                 if (models.isEmpty()) {

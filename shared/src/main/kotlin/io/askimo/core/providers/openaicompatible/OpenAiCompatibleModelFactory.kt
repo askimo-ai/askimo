@@ -8,9 +8,12 @@ import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.StreamingChatModel
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel.OpenAiEmbeddingModelBuilder
+import io.askimo.core.providers.ModelDTO
 import io.askimo.core.providers.ModelProvider
+import io.askimo.core.providers.ProviderModelUtils
 import io.askimo.core.util.ApiKeyUtils.safeApiKey
 import io.askimo.core.util.createJdkHttpClientBuilder
+import io.askimo.core.util.toJdkVersion
 
 /**
  * The registered factory for [ModelProvider.OPENAI_COMPATIBLE].
@@ -35,6 +38,29 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
     override fun getProvider(): ModelProvider = ModelProvider.OPENAI_COMPATIBLE
     override fun defaultSettings(): OpenAiCompatibleSettings = OpenAiCompatibleSettings()
     override fun resolveApiKey(settings: OpenAiCompatibleSettings): String = safeApiKey(settings.apiKey.ifBlank { "not-needed" })
+
+    override fun availableModels(settings: OpenAiCompatibleSettings): List<ModelDTO> {
+        if (!canFetchModels(settings)) return emptyList()
+        val template = settings.templateName
+            ?.let { name -> OpenAiCompatibleTemplate.entries.find { it.name == name } }
+        val modelIds = if (template?.modelFetcher != null) {
+            template.modelFetcher(
+                resolveApiKey(settings),
+                settings.baseUrl,
+                settings.httpVersion.toJdkVersion(),
+            )
+        } else {
+            ProviderModelUtils.fetchModels(
+                apiKey = resolveApiKey(settings),
+                url = "${settings.baseUrl.trimEnd('/')}/models",
+                providerName = getProvider(),
+                httpVersion = settings.httpVersion.toJdkVersion(),
+            )
+        }
+        return modelIds.map { ModelDTO.of(getProvider(), it) }
+    }
+
+    override fun canFetchModels(settings: OpenAiCompatibleSettings): Boolean = settings.baseUrl.isNotBlank() && settings.apiKey.isNotBlank()
 
     override fun probeThinkingSupport(settings: OpenAiCompatibleSettings): Boolean = delegate(settings).probeThinkingSupport(
         baseUrl = settings.baseUrl,

@@ -243,7 +243,7 @@ internal fun providerModelPanel(
                         Icons.Default.Add,
                         contentDescription = stringResource("provider.add.new"),
                         modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
                         text = stringResource("provider.add.new"),

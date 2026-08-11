@@ -44,6 +44,13 @@ data class OpenAiCompatibleSettings(
      * Existing serialised configs without this field deserialise to `false` safely.
      */
     val isTemplate: Boolean = false,
+    /**
+     * The [OpenAiCompatibleTemplate.name] of the template this instance was created from,
+     * or `null` for manually configured instances.
+     * Used to look up template-specific behaviour such as a custom model-fetching strategy.
+     * Existing serialised configs without this field deserialise to `null` safely.
+     */
+    val templateName: String? = null,
 ) : ProviderSettings,
     HasApiKey,
     HasBaseUrl {
@@ -190,7 +197,7 @@ data class OpenAiCompatibleSettings(
                 ?.let { runCatching { HttpVersion.valueOf(it) }.getOrNull() }
                 ?: httpVersion
         }
-        return copy(baseUrl = newBaseUrl, apiKey = newApiKey, apiMode = newApiMode, httpVersion = newHttpVersion)
+        return copy(baseUrl = newBaseUrl, apiKey = newApiKey, apiMode = newApiMode, httpVersion = newHttpVersion, isTemplate = isTemplate, templateName = templateName)
     }
 
     override fun deepCopy(): ProviderSettings = copy()
