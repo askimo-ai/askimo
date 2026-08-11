@@ -41,7 +41,10 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Token
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -49,6 +52,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -86,6 +91,9 @@ import java.awt.Desktop
 import java.net.URI
 import java.time.Instant
 import java.time.LocalTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 /**
  * Abbreviates a token count to a compact, locale-aware string.
@@ -357,10 +365,51 @@ private fun statCard(
 // ── Token Usage section ───────────────────────────────────────────────────────
 
 /**
- * Full-width section with a horizontal bar chart of the top 5 models by token
- * usage. All numbers are formatted via [LocalizationManager] so grouping separators
- * and decimal marks follow the active locale. Abbreviated counts (K/M) also use
- * [LocalizationManager.formatDouble] for locale-correct decimal separators.
+ * Represents the active time window for the token usage query.
+ *
+ * [Past24Hours], [PastWeek], and [PastMonth] use rolling windows ending at *now*.
+ * [Custom] carries explicit `from`/`to` [Instant] boundaries chosen by the user.
+ */
+private sealed class TokenUsagePeriod {
+    object Past24Hours : TokenUsagePeriod()
+    object PastWeek : TokenUsagePeriod()
+    object PastMonth : TokenUsagePeriod()
+    data class Custom(val from: Instant, val to: Instant) : TokenUsagePeriod()
+
+    /** Returns the [from, to) instant pair for this period. */
+    fun toTimeRange(): Pair<Instant, Instant> {
+        val now = Instant.now()
+        return when (this) {
+            is Past24Hours -> now.minus(24, ChronoUnit.HOURS) to now
+            is PastWeek -> now.minus(7, ChronoUnit.DAYS) to now
+            is PastMonth -> now.minus(30, ChronoUnit.DAYS) to now
+            is Custom -> from to to
+        }
+    }
+
+    val labelKey: String
+        get() = when (this) {
+            is Past24Hours -> "discover.tokens.period.24h"
+            is PastWeek -> "discover.tokens.period.week"
+            is PastMonth -> "discover.tokens.period.month"
+            is Custom -> "discover.tokens.period.custom"
+        }
+
+    val emptyKey: String
+        get() = when (this) {
+            is Past24Hours -> "discover.tokens.empty.24h"
+            is PastWeek -> "discover.tokens.empty.week"
+            is PastMonth -> "discover.tokens.empty.month"
+            is Custom -> "discover.tokens.empty.custom"
+        }
+}
+
+/**
+ * Full-width section with a time-scope selector (Past 24 h / Past 1 Week /
+ * Past 1 Month / Custom), a 3-column summary strip, and a horizontal bar chart
+ * of the top 5 models by token usage within the active period.
+ * All numbers are formatted via [LocalizationManager] so grouping separators
+ * and decimal marks follow the active locale.
  */
 @Composable
 private fun tokenUsageSection(
@@ -368,20 +417,146 @@ private fun tokenUsageSection(
     onOpenSystemDiagnostics: () -> Unit,
 ) {
     val refreshSignal by telemetry.refreshSignal.collectAsState()
+    var selectedPeriod by remember { mutableStateOf<TokenUsagePeriod>(TokenUsagePeriod.PastMonth) }
+    var showCustomDialog by remember { mutableStateOf(false) }
     var stats by remember { mutableStateOf<List<LlmInstanceStats>>(emptyList()) }
 
-    LaunchedEffect(refreshSignal) {
+    LaunchedEffect(refreshSignal, selectedPeriod) {
+        val (from, to) = selectedPeriod.toTimeRange()
         stats = withContext(Dispatchers.IO) {
-            telemetry.usageRepository.queryGroupedByInstance(telemetry.sessionStart, Instant.now())
+            telemetry.usageRepository.queryGroupedByInstance(from, to)
         }
     }
 
     val totalTokens = stats.sumOf { it.tokens }
+    val totalCalls = stats.sumOf { it.calls }
     val topModels = stats.take(5) // already ordered by tokens DESC from query
 
+    if (showCustomDialog) {
+        tokenUsageCustomDateDialog(
+            onConfirm = { from, to ->
+                selectedPeriod = TokenUsagePeriod.Custom(from, to)
+                showCustomDialog = false
+            },
+            onDismiss = { showCustomDialog = false },
+        )
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
-        tokenUsageSectionHeader(totalTokens = totalTokens, onOpenSystemDiagnostics = onOpenSystemDiagnostics)
-        tokenUsageChartCard(totalTokens = totalTokens, topModels = topModels)
+        tokenUsageSectionHeader(
+            totalTokens = totalTokens,
+            onOpenSystemDiagnostics = onOpenSystemDiagnostics,
+            selectedPeriod = selectedPeriod,
+            onSelectPreset = { selectedPeriod = it },
+            onSelectCustom = { showCustomDialog = true },
+        )
+        tokenUsageChartCard(
+            totalTokens = totalTokens,
+            totalCalls = totalCalls,
+            topModels = topModels,
+            selectedPeriod = selectedPeriod,
+        )
+    }
+}
+
+/**
+ * Two-step calendar date-range picker.
+ * Step 1 — user picks the *From* date; step 2 — user picks the *To* date.
+ * Dismissing at any point (ESC / click-outside) closes the flow entirely;
+ * the dismiss button on step 2 goes back to step 1.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun tokenUsageCustomDateDialog(
+    onConfirm: (from: Instant, to: Instant) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var step by remember { mutableStateOf(1) }
+    val fromState = rememberDatePickerState(
+        initialSelectedDateMillis = Instant.now().minus(30, ChronoUnit.DAYS).toEpochMilli(),
+    )
+    val toState = rememberDatePickerState(
+        initialSelectedDateMillis = Instant.now().toEpochMilli(),
+    )
+
+    if (step == 1) {
+        DatePickerDialog(
+            onDismissRequest = onDismiss,
+            confirmButton = {
+                TextButton(
+                    onClick = { if (fromState.selectedDateMillis != null) step = 2 },
+                    enabled = fromState.selectedDateMillis != null,
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                ) {
+                    Text(stringResource("discover.tokens.custom.next"))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                ) {
+                    Text(stringResource("discover.tokens.custom.cancel"))
+                }
+            },
+        ) {
+            DatePicker(
+                state = fromState,
+                title = null,
+                headline = {
+                    Text(
+                        text = stringResource("discover.tokens.custom.from"),
+                        modifier = Modifier.padding(start = 24.dp, end = 12.dp, bottom = 12.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                },
+                showModeToggle = true,
+            )
+        }
+    } else {
+        DatePickerDialog(
+            onDismissRequest = onDismiss,
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val fromMillis = fromState.selectedDateMillis
+                        val toMillis = toState.selectedDateMillis
+                        if (fromMillis != null && toMillis != null) {
+                            onConfirm(
+                                Instant.ofEpochMilli(fromMillis),
+                                // advance by one day so the full "to" day is included in the query
+                                Instant.ofEpochMilli(toMillis).plus(1, ChronoUnit.DAYS),
+                            )
+                        }
+                    },
+                    enabled = toState.selectedDateMillis != null,
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                ) {
+                    Text(stringResource("discover.tokens.custom.apply"))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { step = 1 },
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                ) {
+                    Text(stringResource("discover.tokens.custom.back"))
+                }
+            },
+        ) {
+            DatePicker(
+                state = toState,
+                title = null,
+                headline = {
+                    Text(
+                        text = stringResource("discover.tokens.custom.to"),
+                        modifier = Modifier.padding(start = 24.dp, end = 12.dp, bottom = 12.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                },
+                showModeToggle = true,
+            )
+        }
     }
 }
 
@@ -389,12 +564,32 @@ private fun tokenUsageSection(
 private fun tokenUsageSectionHeader(
     totalTokens: Long,
     onOpenSystemDiagnostics: () -> Unit,
+    selectedPeriod: TokenUsagePeriod,
+    onSelectPreset: (TokenUsagePeriod) -> Unit,
+    onSelectCustom: () -> Unit,
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+
+    // Build the button label: formatted date range for Custom, i18n key for presets
+    val zone = ZoneId.systemDefault()
+    val shortFmt = DateTimeFormatter.ofPattern("MMM d")
+    val periodLabel = when (selectedPeriod) {
+        is TokenUsagePeriod.Custom -> {
+            val fromStr = selectedPeriod.from.atZone(zone).format(shortFmt)
+            // "to" was advanced by +1 day for inclusive querying — display the original selected day
+            val toStr = selectedPeriod.to.minus(1, ChronoUnit.DAYS).atZone(zone).format(shortFmt)
+            "$fromStr – $toStr"
+        }
+
+        else -> stringResource(selectedPeriod.labelKey)
+    }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Left: icon + title
         Row(
             horizontalArrangement = Arrangement.spacedBy(Spacing.small),
             verticalAlignment = Alignment.CenterVertically,
@@ -411,13 +606,49 @@ private fun tokenUsageSectionHeader(
             )
         }
 
-        if (totalTokens > 0) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+        // Right: period dropdown + optional total-tokens badge
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box {
+                TextButton(
+                    onClick = { showMenu = true },
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                ) {
+                    Text("$periodLabel ▾", style = AppTextStyles.caption)
+                }
+                AppComponents.dropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                ) {
+                    listOf(
+                        TokenUsagePeriod.Past24Hours,
+                        TokenUsagePeriod.PastWeek,
+                        TokenUsagePeriod.PastMonth,
+                    ).forEach { period ->
+                        DropdownMenuItem(
+                            text = { Text(stringResource(period.labelKey), style = AppTextStyles.body) },
+                            onClick = {
+                                onSelectPreset(period)
+                                showMenu = false
+                            },
+                            modifier = Modifier.widthIn(min = 220.dp).pointerHoverIcon(PointerIcon.Hand),
+                        )
+                    }
+                    DropdownMenuItem(
+                        text = { Text(stringResource("discover.tokens.period.custom"), style = AppTextStyles.body) },
+                        onClick = {
+                            onSelectCustom()
+                            showMenu = false
+                        },
+                        modifier = Modifier.widthIn(min = 220.dp).pointerHoverIcon(PointerIcon.Hand),
+                    )
+                }
+            }
+
+            if (totalTokens > 0) {
                 Text(
-                    // abbreviateTokens uses LocalizationManager internally
                     text = stringResource("discover.tokens.total", abbreviateTokens(totalTokens)),
                     style = AppTextStyles.caption,
                 )
@@ -440,7 +671,9 @@ private fun tokenUsageSectionHeader(
 @Composable
 private fun tokenUsageChartCard(
     totalTokens: Long,
+    totalCalls: Int,
     topModels: List<LlmInstanceStats>,
+    selectedPeriod: TokenUsagePeriod,
 ) {
     Surface(
         shape = MaterialTheme.shapes.large,
@@ -453,7 +686,7 @@ private fun tokenUsageChartCard(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = stringResource("discover.tokens.empty"),
+                    text = stringResource(selectedPeriod.emptyKey),
                     style = AppTextStyles.bodySecondary,
                 )
             }
@@ -462,6 +695,16 @@ private fun tokenUsageChartCard(
                 modifier = Modifier.fillMaxWidth().padding(Spacing.large),
                 verticalArrangement = Arrangement.spacedBy(Spacing.medium),
             ) {
+                // 3-column summary strip: Tokens used / Calls made / Top model
+                val topModelName = topModels.firstOrNull()?.let { stat ->
+                    stat.model.ifBlank {
+                        stat.instanceKey.split(":", limit = 2).getOrElse(0) { stat.instanceKey }
+                            .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                    }
+                }
+                tokenUsageSummaryStrip(totalTokens = totalTokens, totalCalls = totalCalls, topModel = topModelName)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
                 topModels.forEachIndexed { index, stat ->
                     val provider = stat.instanceKey
                         .split(":", limit = 2).getOrElse(0) { stat.instanceKey }
@@ -476,6 +719,7 @@ private fun tokenUsageChartCard(
                         tokens = stat.tokens,
                         fraction = fraction,
                         pctFormatted = pctFormatted,
+                        calls = stat.calls,
                     )
 
                     if (index < topModels.lastIndex) {
@@ -490,12 +734,49 @@ private fun tokenUsageChartCard(
 }
 
 @Composable
+private fun tokenUsageSummaryStrip(totalTokens: Long, totalCalls: Int, topModel: String?) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+    ) {
+        summaryStatItem(
+            value = abbreviateTokens(totalTokens),
+            label = stringResource("discover.tokens.stat.tokens"),
+            modifier = Modifier.weight(1f),
+        )
+        summaryStatItem(
+            value = LocalizationManager.formatNumber(totalCalls),
+            label = stringResource("discover.tokens.stat.calls"),
+            modifier = Modifier.weight(1f),
+        )
+        summaryStatItem(
+            value = topModel ?: "—",
+            label = stringResource("discover.tokens.stat.top_model"),
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun summaryStatItem(value: String, label: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(text = value, style = AppTextStyles.itemTitle)
+        Text(text = label, style = AppTextStyles.hint, textAlign = TextAlign.Center)
+    }
+}
+
+@Composable
 private fun tokenBarRow(
     provider: String,
     model: String,
     tokens: Long,
     fraction: Float,
     pctFormatted: String,
+    calls: Int,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -551,6 +832,14 @@ private fun tokenBarRow(
             style = AppTextStyles.hint,
             textAlign = TextAlign.End,
             modifier = Modifier.width(40.dp),
+        )
+
+        // Call count
+        Text(
+            text = stringResource("discover.tokens.calls", LocalizationManager.formatNumber(calls)),
+            style = AppTextStyles.hint,
+            textAlign = TextAlign.End,
+            modifier = Modifier.width(52.dp),
         )
     }
 }
