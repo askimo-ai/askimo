@@ -248,7 +248,7 @@ internal fun providerModelPanel(
                     Text(
                         text = stringResource("provider.add.new"),
                         style = AppTextStyles.caption,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
