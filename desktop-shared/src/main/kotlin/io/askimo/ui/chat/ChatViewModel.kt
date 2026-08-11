@@ -19,6 +19,7 @@ import io.askimo.core.chat.service.ChatSessionService
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.error.SendMessageErrorEvent
+import io.askimo.core.event.internal.BookmarkToggledEvent
 import io.askimo.core.event.internal.ChatCompletedEvent
 import io.askimo.core.event.internal.ChatInProgressEvent
 import io.askimo.core.event.internal.DiagramFixedEvent
@@ -1356,22 +1357,36 @@ class ChatViewModel(
      * Toggle the bookmark state of a message.
      * Updates the DB on a background thread and reflects the change immediately in UI state
      * for instant feedback (optimistic update).
+     *
+     * On success, emits a [BookmarkToggledEvent] so that [SessionsViewModel] can update
+     * the sidebar bookmark-count badge without a full reload.
      */
     override fun toggleBookmark(messageId: String) {
-        bookmarkedMessageIds = if (messageId in bookmarkedMessageIds) {
-            bookmarkedMessageIds - messageId
-        } else {
+        val isAdding = messageId !in bookmarkedMessageIds
+        bookmarkedMessageIds = if (isAdding) {
             bookmarkedMessageIds + messageId
+        } else {
+            bookmarkedMessageIds - messageId
         }
 
         scope.launch {
             try {
-                withContext(Dispatchers.IO) {
+                val nowBookmarked = withContext(Dispatchers.IO) {
                     chatSessionService.toggleBookmark(messageId)
+                }
+                // Notify the sidebar so the bookmark-count badge updates immediately
+                val sessionId = currentSessionId.value
+                if (sessionId != null) {
+                    EventBus.post(
+                        BookmarkToggledEvent(
+                            sessionId = sessionId,
+                            delta = if (nowBookmarked) +1 else -1,
+                        ),
+                    )
                 }
             } catch (e: Exception) {
                 // Roll back the optimistic update on failure
-                bookmarkedMessageIds = if (messageId in bookmarkedMessageIds) {
+                bookmarkedMessageIds = if (isAdding) {
                     bookmarkedMessageIds - messageId
                 } else {
                     bookmarkedMessageIds + messageId

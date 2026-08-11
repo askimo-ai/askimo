@@ -12,6 +12,7 @@ import io.askimo.core.chat.service.ChatSessionExporterService
 import io.askimo.core.chat.service.ChatSessionService
 import io.askimo.core.db.Pageable
 import io.askimo.core.event.EventBus
+import io.askimo.core.event.internal.BookmarkToggledEvent
 import io.askimo.core.event.internal.SessionCreatedEvent
 import io.askimo.core.event.internal.SessionTitleUpdatedEvent
 import io.askimo.core.event.internal.SessionsRefreshEvent
@@ -180,6 +181,28 @@ class SessionsViewModel(
                     log.debug("Sessions refresh requested: ${event.reason ?: "no reason specified"}")
                     loadRecentSessions()
                     loadStarredSessions()
+                }
+        }
+
+        // Listen for bookmark toggles — update the sidebar badge count in-place,
+        // no DB round-trip needed.
+        scope.launch {
+            EventBus.internalEvents
+                .filterIsInstance<BookmarkToggledEvent>()
+                .collect { event ->
+                    val current = bookmarkCountsBySession[event.sessionId] ?: 0
+                    val updated = (current + event.delta).coerceAtLeast(0)
+                    bookmarkCountsBySession = if (updated == 0) {
+                        bookmarkCountsBySession - event.sessionId
+                    } else {
+                        bookmarkCountsBySession + (event.sessionId to updated)
+                    }
+                    log.debug(
+                        "Bookmark badge updated for session {}: {} → {}",
+                        event.sessionId,
+                        current,
+                        updated,
+                    )
                 }
         }
     }
