@@ -660,19 +660,23 @@ private fun aiMessageBubble(
         MaterialTheme.colorScheme.onSurface
     }
 
-    // Tool call collapsible state — auto-expand when any tool starts running
+    // Tool call collapsible state — auto-expand when any tool starts running,
+    // auto-collapse when all tools are done to keep history clean.
     var toolCallsExpanded by remember { mutableStateOf(false) }
     val hasRunningTool = toolCalls.any { it.status == ToolCallStatus.RUNNING }
     LaunchedEffect(hasRunningTool) {
-        if (hasRunningTool) toolCallsExpanded = true
+        toolCallsExpanded = hasRunningTool
     }
 
     // Thinking section collapsible state — auto-expand when thinking tokens start arriving,
-    // keep expanded so user can review the full trace after streaming completes.
+    // auto-collapse once streaming completes to reduce visual noise in history.
     var thinkingExpanded by remember { mutableStateOf(false) }
     val hasThinkingContent = thinkingContent.isNotEmpty()
     LaunchedEffect(hasThinkingContent) {
         if (hasThinkingContent) thinkingExpanded = true
+    }
+    LaunchedEffect(isStreaming) {
+        if (!isStreaming) thinkingExpanded = false
     }
 
     Column(

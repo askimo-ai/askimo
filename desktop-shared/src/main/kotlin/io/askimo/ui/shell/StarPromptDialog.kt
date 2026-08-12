@@ -299,16 +299,22 @@ fun feedbackPromptDialog(
                             }
                         }
                     }
-                    // ── Optional comment ───────────────────────────────────
+                    // ── Optional comment (required when MISSING_FEATURE or OTHER is selected) ────
                     OutlinedTextField(
                         value = comment,
                         onValueChange = { comment = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = {
-                            Text(text = stringResource("feedback.comment.label"), style = AppTextStyles.caption)
+                            Text(
+                                text = stringResource("feedback.comment.label"),
+                                style = AppTextStyles.caption,
+                            )
                         },
                         placeholder = {
-                            Text(text = stringResource("feedback.comment.placeholder"), style = AppTextStyles.caption)
+                            Text(
+                                text = stringResource("feedback.comment.placeholder"),
+                                style = AppTextStyles.caption,
+                            )
                         },
                         minLines = 3,
                         maxLines = 5,
@@ -354,7 +360,9 @@ fun feedbackPromptDialog(
                                 onSubmit(selectedReasons, comment.trim(), email.trim())
                                 submitted = true
                             },
-                            enabled = selectedReasons.isNotEmpty() || comment.isNotBlank(),
+                            enabled = (selectedReasons.isNotEmpty() || comment.isNotBlank()) &&
+                                (FeedbackReason.MISSING_FEATURE !in selectedReasons || comment.isNotBlank()) &&
+                                (FeedbackReason.OTHER !in selectedReasons || comment.isNotBlank()),
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         ) {
                             Text(text = stringResource("feedback.action.send"))

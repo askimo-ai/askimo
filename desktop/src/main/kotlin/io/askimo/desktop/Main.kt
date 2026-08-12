@@ -1820,7 +1820,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                 Analytics.sendFeedbackDirect(
                                     sentiment = feedbackSentiment,
                                     reasons = reasons.joinToString(",") { it.name.lowercase() },
-                                    hasComment = comment.isNotBlank(),
+                                    comment = comment,
                                     email = email.trim(),
                                 )
                             },

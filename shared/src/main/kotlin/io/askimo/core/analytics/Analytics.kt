@@ -144,17 +144,17 @@ object Analytics {
      *
      * @param sentiment  "neutral" | "unhappy" | "direct"
      * @param reasons    Comma-separated lowercase reason names (e.g. "slow,broken")
-     * @param hasComment Whether the user wrote an optional comment (text itself is never sent)
+     * @param comment    Optional free-text comment; included in the payload when non-blank
      * @param email      Optional follow-up email address; empty string → omitted from payload
      */
     fun sendFeedbackDirect(
         sentiment: String,
         reasons: String,
-        hasComment: Boolean,
+        comment: String,
         email: String,
     ) {
         val endpoint = runCatching { AppConfig.analytics.endpoint }.getOrNull() ?: return
-        val payload = buildFeedbackPayload(sentiment, reasons, hasComment, email)
+        val payload = buildFeedbackPayload(sentiment, reasons, comment, email)
         Thread({
             runCatching {
                 val (status, _) = httpPost(
@@ -176,7 +176,7 @@ object Analytics {
     private fun buildFeedbackPayload(
         sentiment: String,
         reasons: String,
-        hasComment: Boolean,
+        comment: String,
         email: String,
     ): String {
         fun String.jsonSafe() = replace("\\", "\\\\").replace("\"", "\\\"")
@@ -184,9 +184,12 @@ object Analytics {
         val installId = AnalyticsDeviceInfo.installId.jsonSafe()
         val safeEmail = email.trim().jsonSafe()
         val hasEmail = safeEmail.isNotEmpty()
-        // Email appended only when the user provided it — their act of entering it is consent
+        val safeComment = comment.trim().jsonSafe()
+        val hasComment = safeComment.isNotEmpty()
+        // Email and comment appended only when provided — the user's act of entering them is consent
         val emailField = if (hasEmail) ""","email":"$safeEmail"""" else ""
-        return """[{"event":"${AnalyticsEvent.USER_FEEDBACK_SUBMITTED.eventName}","appVersion":"$version","os":"$os","installId":"$installId","properties":{"sentiment":"$sentiment","reasons":"$reasons","has_comment":"$hasComment","has_email":"$hasEmail"$emailField}}]"""
+        val commentField = if (hasComment) ""","comment":"$safeComment"""" else ""
+        return """[{"event":"${AnalyticsEvent.USER_FEEDBACK_SUBMITTED.eventName}","appVersion":"$version","os":"$os","installId":"$installId","properties":{"sentiment":"$sentiment","reasons":"$reasons","has_comment":"$hasComment","has_email":"$hasEmail"$emailField$commentField}}]"""
     }
 
     private fun buildInstallPingPayload(): String {
