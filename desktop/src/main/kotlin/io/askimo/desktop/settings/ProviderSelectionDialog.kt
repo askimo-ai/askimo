@@ -252,16 +252,20 @@ fun providerWizardDialog(viewModel: ProviderWizardViewModel) {
         when (viewModel.wizardStep) {
             WizardStep.TYPE_PICKER -> providerTypePickerScreen(viewModel)
 
-            WizardStep.CONFIG -> instanceConfigScreen(viewModel)
+            WizardStep.CONFIG -> Column(modifier = Modifier.padding(vertical = AppComponents.dialogSectionSpacing)) {
+                instanceConfigScreen(viewModel)
+            }
 
-            WizardStep.MODEL -> modelPickerScreen(
-                viewModel = viewModel,
-                filteredModels = filteredModels,
-                searchQuery = searchQuery,
-                isFiltered = isFiltered,
-                showAll = showAll,
-                onShowAll = { showAll = true },
-            )
+            WizardStep.MODEL -> Column(modifier = Modifier.padding(vertical = AppComponents.dialogSectionSpacing)) {
+                modelPickerScreen(
+                    viewModel = viewModel,
+                    filteredModels = filteredModels,
+                    searchQuery = searchQuery,
+                    isFiltered = isFiltered,
+                    showAll = showAll,
+                    onShowAll = { showAll = true },
+                )
+            }
         }
     }
 }

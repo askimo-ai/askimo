@@ -434,6 +434,25 @@ fun notificationPopup(
     }
 }
 
+@Composable
+private fun expandErrorButton(expanded: Boolean, onToggle: () -> Unit) {
+    TextButton(
+        onClick = onToggle,
+        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
+    ) {
+        Text(
+            text = if (expanded) {
+                stringResource("event.shell.error.cause.hide")
+            } else {
+                stringResource("event.shell.error.cause.show")
+            },
+            style = AppTextStyles.hint,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+}
+
 /**
  * A single notification card inside [notificationPopup].
  *
@@ -643,25 +662,11 @@ fun notificationEventCard(
             // ── Expandable stack trace (ShellErrorEvent) ────────────────────────────
             if (isShellError) {
                 var showCause by remember { mutableStateOf(false) }
-                TextButton(
-                    onClick = { showCause = !showCause },
-                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
-                ) {
-                    Text(
-                        text = if (showCause) {
-                            stringResource("event.shell.error.cause.hide")
-                        } else {
-                            stringResource("event.shell.error.cause.show")
-                        },
-                        style = AppTextStyles.hint,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
+                expandErrorButton(expanded = showCause, onToggle = { showCause = !showCause })
                 if (showCause) {
                     SelectionContainer {
                         Text(
-                            text = (event as ShellErrorEvent).cause.stackTraceToString(),
+                            text = event.cause.stackTraceToString(),
                             style = AppTextStyles.hint,
                             fontFamily = FontFamily.Monospace,
                             color = contentColor.copy(alpha = 0.85f),
@@ -673,25 +678,11 @@ fun notificationEventCard(
             // ── Expandable error message (IndexingFailedEvent) ──────────────────────
             if (isIndexingFailed) {
                 var showError by remember { mutableStateOf(false) }
-                TextButton(
-                    onClick = { showError = !showError },
-                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
-                ) {
-                    Text(
-                        text = if (showError) {
-                            stringResource("event.shell.error.cause.hide")
-                        } else {
-                            stringResource("event.shell.error.cause.show")
-                        },
-                        style = AppTextStyles.hint,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
+                expandErrorButton(expanded = showError, onToggle = { showError = !showError })
                 if (showError) {
                     SelectionContainer {
                         Text(
-                            text = (event as IndexingFailedEvent).errorMessage,
+                            text = event.errorMessage,
                             style = AppTextStyles.hint,
                             fontFamily = FontFamily.Monospace,
                             color = contentColor.copy(alpha = 0.85f),
@@ -732,6 +723,7 @@ fun notificationEventCard(
                         Text(
                             text = stringResource("event.update.download"),
                             style = AppTextStyles.fieldLabel,
+                            color = MaterialTheme.colorScheme.onPrimary,
                         )
                     }
                 }

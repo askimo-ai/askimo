@@ -765,10 +765,20 @@ object AppComponents {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(contentPadding),
-                            verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+                                .padding(vertical = contentPadding),
+                            verticalArrangement = Arrangement.Top,
                         ) {
-                            scaffoldDialogHeader(title, onCloseRequest, stickyHeader, sectionSpacing)
+                            // Header/sticky-header carry their own horizontal padding so that
+                            // the section dividers can bleed edge-to-edge.
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = contentPadding)
+                                    .padding(bottom = sectionSpacing),
+                                verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+                            ) {
+                                scaffoldDialogHeader(title, onCloseRequest, stickyHeader, sectionSpacing)
+                            }
 
                             if (showSectionDividers) HorizontalDivider()
 
@@ -780,6 +790,7 @@ object AppComponents {
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .padding(horizontal = contentPadding)
                                         .padding(end = dialogScrollbarPadding)
                                         .verticalScroll(scrollState),
                                     verticalArrangement = Arrangement.spacedBy(sectionSpacing),
@@ -803,7 +814,9 @@ object AppComponents {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .heightIn(min = dialogActionBarMinHeight),
+                                        .heightIn(min = dialogActionBarMinHeight)
+                                        .padding(horizontal = contentPadding)
+                                        .padding(top = sectionSpacing),
                                     horizontalArrangement = Arrangement.End,
                                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                                     content = actions,
@@ -857,10 +870,18 @@ object AppComponents {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(contentPadding),
-                            verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+                                .padding(vertical = contentPadding),
+                            verticalArrangement = Arrangement.Top,
                         ) {
-                            scaffoldDialogHeader(title, onCloseRequest, stickyHeader, sectionSpacing)
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = contentPadding)
+                                    .padding(bottom = sectionSpacing),
+                                verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+                            ) {
+                                scaffoldDialogHeader(title, onCloseRequest, stickyHeader, sectionSpacing)
+                            }
 
                             Box(
                                 modifier = Modifier
@@ -871,7 +892,9 @@ object AppComponents {
                                     state = listState,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(end = dialogScrollbarPadding),
+                                        .padding(horizontal = contentPadding)
+                                        .padding(end = dialogScrollbarPadding)
+                                        .padding(vertical = sectionSpacing),
                                     verticalArrangement = Arrangement.spacedBy(sectionSpacing),
                                     content = content,
                                 )
@@ -888,7 +911,9 @@ object AppComponents {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .heightIn(min = dialogActionBarMinHeight),
+                                    .heightIn(min = dialogActionBarMinHeight)
+                                    .padding(horizontal = contentPadding)
+                                    .padding(top = sectionSpacing),
                                 horizontalArrangement = Arrangement.End,
                                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                                 content = actions,
