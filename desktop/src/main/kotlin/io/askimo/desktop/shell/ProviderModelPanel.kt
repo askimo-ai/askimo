@@ -518,9 +518,6 @@ private fun modelListColumn(
                                         isSelected = isCurrent,
                                     )
                                 }
-                                item(key = "pinned_divider") {
-                                    HorizontalDivider(modifier = Modifier.padding(horizontal = 8.dp))
-                                }
                             }
 
                             // ── Grouped remaining models ──────────────────────────────────

@@ -1150,7 +1150,7 @@ private fun toolsIndicatorButton(
                         contentDescription = stringResource("chat.tools.button"),
                         tint = when {
                             !modelSupportsTools -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                            hasDisabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            hasDisabled -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f)
                             totalServers > 0 -> MaterialTheme.colorScheme.onSecondaryContainer
                             else -> MaterialTheme.colorScheme.onSurface
                         },

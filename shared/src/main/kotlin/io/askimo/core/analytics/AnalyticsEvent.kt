@@ -363,6 +363,18 @@ enum class AnalyticsEvent(
         "install_ping",
         "Anonymous one-time install count ping. Only appVersion and os are sent — no device identity.",
     ),
+
+    // ── Launch ping ───────────────────────────────────────────────────────────
+
+    /**
+     * Fired on every app open regardless of analytics opt-in.
+     * Only appVersion and os are sent — no installId, no device identity.
+     * Provides raw launch volume (DAU proxy) without tracking individuals.
+     */
+    LAUNCH_PING(
+        "launch_ping",
+        "Anonymous per-launch ping. Fires every app open without consent. Only appVersion and os are sent — no installId.",
+    ),
     ;
 
     override fun toString(): String = eventName

@@ -24,6 +24,7 @@ import io.askimo.core.exception.ExceptionHandler
 import io.askimo.core.exception.LocalServerException
 import io.askimo.core.exception.ModelNotFoundChatException
 import io.askimo.core.exception.ToolExecutionException
+import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.intent.DetectAiResponseIntentCommand
 import io.askimo.core.intent.FollowUpSuggestion
 import io.askimo.core.intent.ToolRegistry
@@ -55,6 +56,122 @@ private fun Throwable.isUnsupportedSamplingError(): Boolean {
                 message.contains("Unsupported value") ||
                 message.contains("cannot both be specified")
             )
+}
+
+/**
+ * Result of classifying a streaming error.
+ * @see classifyStreamingError
+ */
+internal sealed class StreamingErrorResult {
+    /** Retry silently — no message shown to the user. */
+    object Retryable : StreamingErrorResult()
+
+    /** Stop retrying — show [message] in the chat and mark the response as failed. */
+    data class Terminal(val message: String) : StreamingErrorResult()
+}
+
+/**
+ * Pure classification function: maps a streaming [Throwable] to a [StreamingErrorResult].
+ *
+ * Has no side-effects (no logging, no cache mutations). Side-effects such as cache
+ * updates and logging remain in the call site so that this function is fully
+ * unit-testable without any infrastructure.
+ */
+internal fun classifyStreamingError(
+    e: Throwable,
+    provider: ModelProvider,
+    model: String,
+): StreamingErrorResult {
+    val errorMessage = e.message ?: ""
+
+    // ── RETRYABLE ─────────────────────────────────────────────────────────────
+
+    // InsufficientContextException must be checked BEFORE isContextLengthError because
+    // its rendered message contains "context" + "too long" which would falsely match.
+    if (e is InsufficientContextException) {
+        return StreamingErrorResult.Terminal(
+            e.message ?: "Insufficient context window",
+        )
+    }
+
+    if (e.isContextLengthError()) return StreamingErrorResult.Retryable
+    if (e.isUnsupportedSamplingError()) return StreamingErrorResult.Retryable
+
+    // ── TERMINAL ──────────────────────────────────────────────────────────────
+
+    val msg: String = when {
+        e is InsufficientContextException ->
+            e.message ?: "Insufficient context window"
+
+        // unreachable, handled above
+
+        e is ToolExecutionException ->
+            e.errorDetails ?: "Tool execution failed"
+
+        e is InternalServerException ->
+            ExceptionHandler.handle(e)
+
+        errorMessage.contains("process has terminated", ignoreCase = true) ||
+            errorMessage.contains("llama-server", ignoreCase = true) ||
+            errorMessage.contains("llama_model_loader", ignoreCase = true) ||
+            errorMessage.contains("error loading model", ignoreCase = true) ||
+            (
+                errorMessage.contains("api_error", ignoreCase = true) &&
+                    errorMessage.contains("exit status", ignoreCase = true)
+                ) ->
+            ExceptionHandler.handle(LocalServerException(details = errorMessage, cause = e))
+
+        e.cause is UnresolvedAddressException ->
+            """
+            ⚠️  Unable to connect to the server!
+
+            Cannot resolve the server address. Please check:
+            1. Your internet connection is working
+            2. The server URL/endpoint is correct
+            3. There are no firewall or proxy issues blocking the connection
+            """.trimIndent()
+
+        run {
+            val causeMsg = e.cause?.message ?: ""
+            errorMessage.contains("header parser received no bytes", ignoreCase = true) ||
+                causeMsg.contains("header parser received no bytes", ignoreCase = true)
+        } -> {
+            val providerHint = when (provider) {
+                ModelProvider.DOCKER -> LocalizationManager.getString("error.empty_http_response.hint.docker")
+                ModelProvider.OLLAMA -> LocalizationManager.getString("error.empty_http_response.hint.ollama")
+                ModelProvider.LMSTUDIO -> LocalizationManager.getString("error.empty_http_response.hint.lmstudio")
+                ModelProvider.LOCALAI -> LocalizationManager.getString("error.empty_http_response.hint.localai")
+                else -> LocalizationManager.getString("error.empty_http_response.hint.generic")
+            }
+            LocalizationManager.getString(
+                "error.empty_http_response",
+                "${provider.providerKey()}:$model",
+                providerHint,
+            )
+        }
+
+        e is ModelNotFoundException ->
+            ExceptionHandler.handle(ModelNotFoundChatException(model = model, cause = e))
+
+        errorMessage.contains("model is required", ignoreCase = true) ||
+            errorMessage.contains("No model provided", ignoreCase = true) ||
+            errorMessage.contains("model not found", ignoreCase = true) ||
+            errorMessage.contains("invalid model", ignoreCase = true) ->
+            ExceptionHandler.handle(ModelNotFoundChatException(model = model, cause = e))
+
+        errorMessage.contains("api key") ||
+            errorMessage.contains("authentication") ||
+            errorMessage.contains("unauthorized") ||
+            errorMessage.contains("invalid API key") ||
+            errorMessage.contains("Incorrect API key provided") ||
+            errorMessage.contains("invalid_api_key") ||
+            e is dev.langchain4j.exception.AuthenticationException ->
+            ExceptionHandler.handle(AuthenticationException(cause = e))
+
+        else -> "\n[error] ${e.message ?: "unknown error"}\n"
+    }
+
+    return StreamingErrorResult.Terminal(msg)
 }
 
 /**
@@ -115,7 +232,9 @@ fun ChatClient.sendStreamingMessageWithCallback(
                     val sb = StringBuilder()
                     val done = CountDownLatch(1)
                     var errorOccurred = false
-                    var isConfigurationError = false
+                    // Non-null when the error is terminal: holds the rendered message already
+                    // sent to the UI via onToken. Causes ConfigurationErrorException after done.await().
+                    var terminalErrorMessage: String? = null
                     var capturedError: Throwable? = null
                     val streamStartTime = System.currentTimeMillis()
 
@@ -174,148 +293,36 @@ fun ChatClient.sendStreamingMessageWithCallback(
                             errorOccurred = true
                             capturedError = e
 
-                            val errorMessage = e.message ?: ""
-
-                            // Check for context length errors first - let it bubble up for immediate retry
-                            if (e?.isContextLengthError() == true) {
-                                done.countDown()
-                                val modelKey = ModelCapabilitiesCache.modelKey(provider, model)
-                                val currentSize = ModelCapabilitiesCache.get(modelKey).contextSize
-                                val newSize = ModelCapabilitiesCache.reduceContextSize(modelKey, currentSize)
-
-                                log.warn("Context length exceeded for $modelKey (attempt $contextRetryCount/${maxContextRetries + 1}). Reducing context size: $currentSize → $newSize tokens. Retrying immediately...")
-                                return@onError
-                            }
-
-                            // Check for insufficient context window - non-transient, show helpful message
-                            if (e is InsufficientContextException) {
-                                isConfigurationError = true
-                                sb.append(e.message)
-                                onToken(e.message ?: "Insufficient context window")
-                                done.countDown()
-                                contextRetryCount++
-                                return@onError
-                            }
-
-                            // Check for unsupported sampling parameters (temperature, topP)
-                            if (e.isUnsupportedSamplingError()) {
-                                log.warn("Unsupported sampling parameters detected. Falling back to non sampling settings.")
-                                ModelCapabilitiesCache.setSamplingSupport(provider, model, false)
-                                done.countDown()
-                                return@onError
-                            }
-
-                            if (e is ToolExecutionException) {
-                                sb.append(e.errorDetails)
-                                onToken(e.errorDetails ?: "Tool execution failed")
-                                done.countDown()
-                                return@onError
-                            }
-
-                            // InternalServerException (HTTP 5xx) — delegate to ExceptionHandler/ExceptionMapper
-                            // which sub-classifies by message content:
-                            //   • local-server crash patterns → LocalServerException (non-retryable)
-                            //   • remote provider errors (overloaded, 529, 503, etc.) → RemoteServerException
-                            if (e is InternalServerException) {
-                                isConfigurationError = true
-                                val serverErrorMsg = ExceptionHandler.handle(e)
-                                sb.append(serverErrorMsg)
-                                onToken(serverErrorMsg)
-                                done.countDown()
-                                return@onError
-                            }
-
-                            // Check for local AI server errors identified purely by message patterns
-                            // (covers wrapped exceptions where InternalServerException is not in the chain).
-                            // These are non-retryable: the server crashed, the model is broken, or OOM.
-                            val isLocalServerError =
-                                errorMessage.contains("process has terminated", ignoreCase = true) ||
-                                    errorMessage.contains("llama-server", ignoreCase = true) ||
-                                    errorMessage.contains("llama_model_loader", ignoreCase = true) ||
-                                    errorMessage.contains("error loading model", ignoreCase = true) ||
-                                    (errorMessage.contains("api_error", ignoreCase = true) && errorMessage.contains("exit status", ignoreCase = true))
-
-                            if (isLocalServerError) {
-                                isConfigurationError = true
-                                val localServerErrorMsg = ExceptionHandler.handle(
-                                    LocalServerException(details = errorMessage, cause = e),
-                                )
-                                sb.append(localServerErrorMsg)
-                                onToken(localServerErrorMsg)
-                                done.countDown()
-                                return@onError
-                            }
-
-                            // Check if the underlying cause is a network connection issue
-                            if (e.cause is UnresolvedAddressException) {
-                                isConfigurationError = true
-                                val connectionErrorMsg = """
-                                ⚠️  Unable to connect to the server!
-
-                                Cannot resolve the server address. Please check:
-                                1. Your internet connection is working
-                                2. The server URL/endpoint is correct
-                                3. There are no firewall or proxy issues blocking the connection
-                                """.trimIndent()
-                                sb.append(connectionErrorMsg)
-                                onToken(connectionErrorMsg)
-                                done.countDown()
-                                return@onError
-                            }
-
-                            // Check for model not found (e.g. deprecated or removed model)
-                            if (e is ModelNotFoundException) {
-                                isConfigurationError = true
-                                val modelNotFoundMsg = ExceptionHandler.handle(
-                                    ModelNotFoundChatException(model = model, cause = e),
-                                )
-                                sb.append(modelNotFoundMsg)
-                                onToken(modelNotFoundMsg)
-                                done.countDown()
-                                return@onError
-                            }
-
-                            val isModelError = errorMessage.contains("model is required", ignoreCase = true) ||
-                                errorMessage.contains("No model provided", ignoreCase = true) ||
-                                errorMessage.contains("model not found", ignoreCase = true) ||
-                                errorMessage.contains("invalid model", ignoreCase = true)
-
-                            val isApiKeyError = errorMessage.contains("api key") ||
-                                errorMessage.contains("authentication") ||
-                                errorMessage.contains("unauthorized") ||
-                                errorMessage.contains("invalid API key") ||
-                                errorMessage.contains("Incorrect API key provided") ||
-                                errorMessage.contains("invalid_api_key") ||
-                                e is dev.langchain4j.exception.AuthenticationException
-
-                            if (isModelError || isApiKeyError) {
-                                isConfigurationError = true
-                                val helpMessage = when {
-                                    isModelError -> ExceptionHandler.handle(
-                                        ModelNotFoundChatException(model = model, cause = e),
-                                    )
-
-                                    else -> ExceptionHandler.handle(
-                                        AuthenticationException(cause = e),
-                                    )
+                            when (val result = classifyStreamingError(e, provider, model)) {
+                                is StreamingErrorResult.Retryable -> {
+                                    // Apply side-effects for the specific retryable type,
+                                    // then countDown so the outer catch can loop.
+                                    if (e.isContextLengthError()) {
+                                        val modelKey = ModelCapabilitiesCache.modelKey(provider, model)
+                                        val currentSize = ModelCapabilitiesCache.get(modelKey).contextSize
+                                        val newSize = ModelCapabilitiesCache.reduceContextSize(modelKey, currentSize)
+                                        log.warn("Context length exceeded for $modelKey (attempt $contextRetryCount/${maxContextRetries + 1}). Reducing context size: $currentSize → $newSize tokens. Retrying immediately...")
+                                    } else if (e.isUnsupportedSamplingError()) {
+                                        log.warn("Unsupported sampling parameters detected. Falling back to non-sampling settings.")
+                                        ModelCapabilitiesCache.setSamplingSupport(provider, model, false)
+                                    }
+                                    done.countDown()
                                 }
 
-                                sb.append(helpMessage)
-                                onToken(helpMessage)
-                            } else {
-                                val errorMsg = "\n[error] ${e.message ?: "unknown error"}\n"
-                                sb.append(errorMsg)
-                                onToken(errorMsg)
+                                is StreamingErrorResult.Terminal -> {
+                                    terminalErrorMessage = result.message
+                                    sb.append(result.message)
+                                    onToken(result.message)
+                                    done.countDown()
+                                }
                             }
-
-                            done.countDown()
                         }.start()
 
                     done.await()
 
                     val result = sb.toString()
 
-                    if (isConfigurationError) {
+                    if (terminalErrorMessage != null) {
                         throw ConfigurationErrorException(result)
                     }
 
@@ -340,6 +347,9 @@ fun ChatClient.sendStreamingMessageWithCallback(
                     result
                 }
             } catch (e: Exception) {
+                // ConfigurationErrorException is always terminal — never retry regardless of message content
+                if (e is ConfigurationErrorException) throw e
+
                 // Check if this is a context length error - immediate retry without backoff
                 if ((e.isContextLengthError() || e.isUnsupportedSamplingError()) && contextRetryCount < maxContextRetries) {
                     contextRetryCount++

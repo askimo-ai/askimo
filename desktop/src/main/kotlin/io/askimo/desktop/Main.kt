@@ -581,6 +581,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     LaunchedEffect(Unit) {
         Analytics.initialize()
         Analytics.sendInstallPingIfNeeded()
+        Analytics.sendLaunchPing()
         val hasRag = withContext(Dispatchers.IO) {
             AskimoHome.projectsDir().toFile().let { it.exists() && it.listFiles()?.isNotEmpty() == true }
         }

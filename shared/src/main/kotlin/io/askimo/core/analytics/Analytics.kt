@@ -139,6 +139,29 @@ object Analytics {
         }, "askimo-install-ping").also { it.isDaemon = true }.start()
     }
 
+    fun sendLaunchPing() {
+        if (runCatching { AppConfig.developer.active }.getOrDefault(false)) return
+        val endpoint = runCatching { AppConfig.analytics.endpoint }.getOrNull() ?: return
+        val (os, version) = osAndVersion()
+        val payload = """[{"event":"${AnalyticsEvent.LAUNCH_PING.eventName}","appVersion":"$version","os":"$os"}]"""
+        Thread({
+            runCatching {
+                val (status, _) = httpPost(
+                    url = endpoint,
+                    body = payload,
+                    connectTimeoutMs = 10_000,
+                    readTimeoutMs = 15_000,
+                    httpVersion = HttpClient.Version.HTTP_2,
+                )
+                if (status in 200..299) {
+                    log.debug("Launch ping sent (HTTP $status)")
+                } else {
+                    log.trace("Launch ping HTTP $status")
+                }
+            }.onFailure { log.trace("Launch ping failed: ${it.message}") }
+        }, "askimo-launch-ping").also { it.isDaemon = true }.start()
+    }
+
     /**
      * Sends [AnalyticsEvent.USER_FEEDBACK_SUBMITTED] directly
      *
@@ -220,9 +243,9 @@ object Analytics {
 
     private fun buildRetentionPingPayload(bucket: String): String {
         val (os, version) = osAndVersion()
-        val installId = AnalyticsDeviceInfo.installId
-            .replace("\\", "\\\\").replace("\"", "\\\"")
-        return """[{"event":"${AnalyticsEvent.RETURNING_USER.eventName}","appVersion":"$version","os":"$os","installId":"$installId","properties":{"launch_count_bucket":"$bucket"}}]"""
+        // No installId — retention pings can fire without consent, so we send only
+        // appVersion + os (same posture as the install/launch pings) to stay GDPR-safe.
+        return """[{"event":"${AnalyticsEvent.RETURNING_USER.eventName}","appVersion":"$version","os":"$os","properties":{"launch_count_bucket":"$bucket"}}]"""
     }
 
     private fun osAndVersion(): Pair<String, String> {
