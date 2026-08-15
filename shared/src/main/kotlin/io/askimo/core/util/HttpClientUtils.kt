@@ -18,6 +18,10 @@ import java.time.Duration
  * Proxy is automatically bypassed for localhost/private-IP URLs when [baseUrl] is provided.
  * Pass `null` for cloud providers (e.g. Anthropic, Gemini) where no local bypass is needed.
  *
+ * [builderTransform] is an optional lambda applied to the configured [HttpClient.Builder]
+ * before it is passed to [JdkHttpClient.builder]. Use it to wrap the builder in a decorator
+ * without duplicating proxy/timeout logic.
+ *
  * This is the shared HTTP-client factory used by all model factories — both those that extend
  * [io.askimo.core.providers.openaicompatible.OpenAiCompatibleChatModelFactory] and standalone factories
  * (Anthropic, Gemini) that implement [io.askimo.core.providers.ChatModelFactory] directly.
@@ -25,13 +29,18 @@ import java.time.Duration
 fun createJdkHttpClientBuilder(
     baseUrl: String? = null,
     httpVersion: HttpVersion = HttpVersion.HTTP_2,
-): JdkHttpClientBuilder = JdkHttpClient.builder().httpClientBuilder(
-    ProxyUtil.configureProxy(
+    builderTransform: ((HttpClient.Builder) -> HttpClient.Builder)? = null,
+): JdkHttpClientBuilder {
+    val httpClientBuilder = ProxyUtil.configureProxy(
         HttpClient.newBuilder().version(httpVersion.toJdkVersion()),
         baseUrl,
-    ).withLoggingIfDebug(),
-).readTimeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
-    .connectTimeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
+    ).withLoggingIfDebug()
+    val finalBuilder = builderTransform?.invoke(httpClientBuilder) ?: httpClientBuilder
+    return JdkHttpClient.builder()
+        .httpClientBuilder(finalBuilder)
+        .readTimeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
+        .connectTimeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
+}
 
 /**
  * Maps the provider-agnostic [HttpVersion] enum to the JDK [HttpClient.Version] enum

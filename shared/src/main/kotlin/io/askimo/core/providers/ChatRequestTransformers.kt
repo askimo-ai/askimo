@@ -102,9 +102,23 @@ object ChatRequestTransformers {
             }
         }
 
+        // Remove consecutive duplicate non-system messages of the same type.
+        // Retries cause the same user message to be appended to memory on each attempt,
+        // producing back-to-back identical USER (or AI) messages. Drop any message whose
+        // type + text is identical to the immediately preceding message of the same type.
+        val deduplicatedNonSystem = nonSystemMessages.fold(mutableListOf<ChatMessage>()) { acc, msg ->
+            val lastSameType = acc.lastOrNull { it.type() == msg.type() }
+            if (lastSameType != null && getMessageText(lastSameType) == getMessageText(msg)) {
+                log.debug("Dropping consecutive duplicate {} message", msg.type())
+                acc
+            } else {
+                acc.also { it.add(msg) }
+            }
+        }
+
         // Preserve existing system messages (e.g. tool instructions from AiServiceBuilder),
-        // append new non-duplicate ones after, then all conversation messages
-        val rebuiltMessages = existingSystemMessages + additionalSystemMessages + nonSystemMessages
+        // append new non-duplicate ones after, then deduplicated conversation messages
+        val rebuiltMessages = existingSystemMessages + additionalSystemMessages + deduplicatedNonSystem
         return chatRequest.toBuilder().messages(rebuiltMessages).build()
     }
 

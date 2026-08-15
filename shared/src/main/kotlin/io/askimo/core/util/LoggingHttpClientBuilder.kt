@@ -153,10 +153,14 @@ class LoggingHttpClient(
         sb.appendHeaders(responseInfo.headers())
         if (bodyBytes.isNotEmpty()) {
             val text = bodyBytes.toString(Charsets.UTF_8)
+            val sizeLabel = if (truncated) "≥${MAX_RESPONSE_LOG_BYTES} bytes (truncated)" else "${bodyBytes.size} bytes"
             sb.appendLine()
-            sb.appendLine("Body${if (truncated) " [truncated at $MAX_RESPONSE_LOG_BYTES bytes]" else ""}:")
+            sb.appendLine("Body [$sizeLabel]:")
             sb.append("  ")
             sb.appendLine(text.replace("\n", "\n  "))
+        } else {
+            sb.appendLine()
+            sb.appendLine("Body [0 bytes]")
         }
         sb.append("───────────────────────────────────────────────────────────────────────")
         log.debug(sb.toString())
@@ -263,10 +267,16 @@ class LoggingHttpClient(
         sb.appendLine()
         sb.appendHeaders(request.headers())
         if (body != null) {
+            val byteSize = body.toByteArray(Charsets.UTF_8).size
+            val truncated = body.endsWith("[truncated at 4 096 chars]")
+            val sizeLabel = if (truncated) "≥$byteSize bytes (truncated)" else "$byteSize bytes"
             sb.appendLine()
-            sb.appendLine("Body:")
+            sb.appendLine("Body [$sizeLabel]:")
             sb.append("  ")
             sb.appendLine(body.replace("\n", "\n  "))
+        } else {
+            sb.appendLine()
+            sb.appendLine("Body [0 bytes]")
         }
         sb.append("───────────────────────────────────────────────────────────────────────")
         log.debug(sb.toString())
