@@ -776,20 +776,17 @@ fun chatInputField(
                         )
 
                         // ── Directive chip — inline in controls row ─────────────────
-                        // Shown whenever directives exist; styled to match toolsIndicatorButton.
-                        if (availableDirectives.isNotEmpty()) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            directiveChip(
-                                availableDirectives = availableDirectives,
-                                selectedDirective = selectedDirective,
-                                isLoading = isLoading,
-                                onToggleDirective = onToggleDirective,
-                                directivePopupExpanded = directivePopupExpanded,
-                                onDirectivePopupExpandedChange = { directivePopupExpanded = it },
-                                onShowNewDirectiveDialog = { showNewDirectiveDialog = true },
-                                onShowManageDirectivesDialog = { showManageDirectivesDialog = true },
-                            )
-                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                        directiveChip(
+                            availableDirectives = availableDirectives,
+                            selectedDirective = selectedDirective,
+                            isLoading = isLoading,
+                            onToggleDirective = onToggleDirective,
+                            directivePopupExpanded = directivePopupExpanded,
+                            onDirectivePopupExpandedChange = { directivePopupExpanded = it },
+                            onShowNewDirectiveDialog = { showNewDirectiveDialog = true },
+                            onShowManageDirectivesDialog = { showManageDirectivesDialog = true },
+                        )
 
                         // ── Web search in RAG chip — only in project sessions when web search is configured ──
                         if (isProjectSession && AppConfig.webSearch.enabled) {
@@ -1843,6 +1840,16 @@ private fun directiveChip(
                         .heightIn(max = 280.dp)
                         .verticalScroll(rememberScrollState()),
                 ) {
+                    if (availableDirectives.isEmpty()) {
+                        Text(
+                            text = stringResource("chat.directive.empty"),
+                            style = AppTextStyles.bodySecondary,
+                            modifier = Modifier.padding(
+                                horizontal = Spacing.medium,
+                                vertical = Spacing.medium,
+                            ),
+                        )
+                    }
                     availableDirectives.forEach { directive ->
                         val isSelected = selectedDirective == directive.id
                         themedRichTooltip(

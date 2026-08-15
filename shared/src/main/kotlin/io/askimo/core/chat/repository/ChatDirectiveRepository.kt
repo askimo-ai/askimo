@@ -72,6 +72,8 @@ class ChatDirectiveRepository internal constructor(
     databaseManager: DatabaseManager = DatabaseManager.getInstance(),
 ) : AbstractSQLiteRepository(databaseManager) {
 
+    val log = logger<ChatDirectiveRepository>()
+
     /**
      * Save a new directive or update existing one.
      * @throws IllegalArgumentException if name or content exceed max length
@@ -279,7 +281,6 @@ class ChatDirectiveRepository internal constructor(
      * into the local database.
      */
     fun seedDefaultDirectives() {
-        val log = logger<ChatDirectiveRepository>()
         val resourceUrl = ChatDirectiveRepository::class.java.getResource("/directives/")
         if (resourceUrl == null) {
             log.debug("No /directives/ resource directory found on classpath — skipping seed")
