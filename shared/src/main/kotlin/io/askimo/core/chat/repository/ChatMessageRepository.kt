@@ -94,7 +94,15 @@ class ChatMessageRepository internal constructor(
 
     private val log = logger<ChatMessageRepository>()
 
-    fun addMessage(message: ChatMessage): ChatMessage {
+    /**
+     * Inserts [message] into the local database.
+     *
+     * @param syncedAt When non-null, the `syncedAt` column is set during the INSERT so the
+     *   message is immediately invisible to [getUnsyncedMessages]. Use this for messages that
+     *   are already persisted server-side (e.g. via the Askimo Team proxy call) to avoid a
+     *   separate UPDATE round-trip and a redundant sync push.
+     */
+    fun addMessage(message: ChatMessage, syncedAt: Instant? = null): ChatMessage {
         val messageWithInjectedFields = message.copy(
             id = message.id.ifBlank { UUID.randomUUID().toString() },
         )
@@ -114,6 +122,9 @@ class ChatMessageRepository internal constructor(
                 it[ChatMessagesTable.outputTokens] = messageWithInjectedFields.outputTokens
                 it[ChatMessagesTable.totalTokens] = messageWithInjectedFields.totalTokens
                 it[ChatMessagesTable.durationMs] = messageWithInjectedFields.durationMs
+                // Set syncedAt during INSERT when the message is already on the server —
+                // avoids a separate markSynced() UPDATE call.
+                if (syncedAt != null) it[ChatMessagesTable.syncedAt] = syncedAt.toString()
             }
 
             // Save attachments if any

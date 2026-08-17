@@ -1818,8 +1818,15 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                     if (showFeedbackPromptDialog) {
                         feedbackPromptDialog(
                             onSubmit = { reasons, comment, email ->
+                                val effectiveSentiment = if (
+                                    feedbackSentiment in listOf("unhappy", "neutral") && comment.isBlank()
+                                ) {
+                                    "no_comment"
+                                } else {
+                                    feedbackSentiment
+                                }
                                 Analytics.sendFeedbackDirect(
-                                    sentiment = feedbackSentiment,
+                                    sentiment = effectiveSentiment,
                                     reasons = reasons.joinToString(",") { it.name.lowercase() },
                                     comment = comment,
                                     email = email.trim(),
@@ -1836,6 +1843,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                 showFeedbackPromptDialog = false
                             },
                             showReminderOnSkip = !feedbackOpenedFromMenu,
+                            pathSentiment = if (feedbackOpenedFromMenu) null else feedbackSentiment,
                         )
                     }
 

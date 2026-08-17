@@ -39,6 +39,7 @@ import io.askimo.core.logging.logger
 import io.askimo.core.memory.MemoryMessage
 import io.askimo.core.memory.TokenAwareSummarizingMemory
 import io.askimo.core.providers.ChatClient
+import io.askimo.core.providers.ModelProvider
 import io.askimo.core.rag.RagUtils
 import io.askimo.core.util.formatFileSize
 import io.askimo.core.vision.toUserMessage
@@ -572,10 +573,12 @@ class ChatSessionService(
      * Add a message to a session and update the session's timestamp.
      *
      * @param message The message to add
+     * @param syncedAt When non-null, the message is pre-marked synced at insert time (single DB call).
+     *   Pass [java.time.Instant.now] when the message is already persisted server-side so the sync push skips it.
      * @return The created message with generated ID
      */
-    fun addMessage(message: ChatMessage): ChatMessage {
-        val createdMessage = messageRepository.addMessage(message)
+    fun addMessage(message: ChatMessage, syncedAt: java.time.Instant? = null): ChatMessage {
+        val createdMessage = messageRepository.addMessage(message, syncedAt)
         sessionRepository.touchSession(message.sessionId)
         EventBus.post(PushDataToServerEvent(reason = "message written"))
         return createdMessage
@@ -584,15 +587,29 @@ class ChatSessionService(
     fun saveAiResponse(
         sessionId: String,
         response: String,
+        /**
+         * Pre-generated ID for the assistant message.
+         *
+         * When supplied, this ID is used as-is so the client and server agree on the same
+         * stable message identity. Leaving this blank (default) causes a new UUID to be
+         * generated at insert time, preserving backward-compatible behaviour for callers
+         * that do not pre-generate IDs.
+         */
+        messageId: String = "",
         isFailed: Boolean = false,
         inputTokens: Int? = null,
         outputTokens: Int? = null,
         totalTokens: Int? = null,
         durationMs: Long? = null,
     ): ChatMessage {
-        val message = addMessage(
+        // When a stable messageId was supplied and the message is not a failure, the server
+        // already persisted the assistant message. Pre-mark synced at INSERT time so no
+        // separate markSynced() UPDATE is needed — single DB call.
+        val isPreSynced = messageId.isNotBlank() && !isFailed &&
+            appContext.getActiveProvider() == ModelProvider.ASKIMO_PRO
+        return addMessage(
             ChatMessage(
-                id = "",
+                id = messageId,
                 sessionId = sessionId,
                 role = MessageRole.ASSISTANT,
                 content = response,
@@ -602,9 +619,8 @@ class ChatSessionService(
                 totalTokens = totalTokens,
                 durationMs = durationMs,
             ),
+            syncedAt = if (isPreSynced) Instant.now() else null,
         )
-
-        return message
     }
 
     /**
@@ -836,6 +852,13 @@ class ChatSessionService(
         willSaveUserMessage: Boolean,
     ): List<Content> {
         if (willSaveUserMessage) {
+            // Pre-mark the user message as synced at INSERT time when the active provider
+            // persists messages server-side — single DB call, no separate UPDATE needed.
+            val preSyncedAt = if (appContext.getActiveProvider() == ModelProvider.ASKIMO_PRO) {
+                Instant.now()
+            } else {
+                null
+            }
             messageRepository.addMessage(
                 ChatMessage(
                     id = userMessage.id!!,
@@ -844,6 +867,7 @@ class ChatSessionService(
                     content = userMessage.content,
                     attachments = userMessage.attachments.toDomain(sessionId),
                 ),
+                syncedAt = preSyncedAt,
             )
         }
 

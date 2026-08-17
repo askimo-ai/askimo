@@ -310,6 +310,40 @@ class ConversationSyncRepositoryIT {
         }
 
         @Test
+        fun `message inserted with syncedAt is excluded from push queue`() {
+            // This is the proxy-path invariant: messages saved via the Askimo Team proxy
+            // are pre-marked synced at INSERT time so the sync push never re-uploads them.
+            val session = createSession()
+            val syncTime = Instant.now()
+
+            val msg = messageRepository.addMessage(
+                ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Proxy user message"),
+                syncedAt = syncTime,
+            )
+
+            assertFalse(
+                messageRepository.getUnsyncedMessages(session.id).any { it.id == msg.id },
+                "A message inserted with syncedAt must not appear in the unsynced push queue",
+            )
+        }
+
+        @Test
+        fun `message inserted without syncedAt still appears in push queue`() {
+            // Non-proxy messages (failed, local-only, non-ASKIMO_PRO) must still be pushed.
+            val session = createSession()
+
+            val msg = messageRepository.addMessage(
+                ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "Regular message"),
+                syncedAt = null,
+            )
+
+            assertTrue(
+                messageRepository.getUnsyncedMessages(session.id).any { it.id == msg.id },
+                "A message inserted without syncedAt must appear in the unsynced push queue",
+            )
+        }
+
+        @Test
         fun `respects limit parameter`() {
             val session = createSession()
             repeat(5) { i ->

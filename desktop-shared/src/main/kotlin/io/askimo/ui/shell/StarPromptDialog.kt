@@ -71,8 +71,12 @@ enum class FeedbackReason(val emoji: String, val i18nKey: String) {
  *
  * Tracks sentiment via [Analytics.track] — respects the user's analytics opt-in.
  * - Happy   → [onHappy]   caller shows the star/share prompt
- * - Neutral → [onNeutral] caller dismisses
- * - Unhappy → [onUnhappy] caller opens the contact/feedback page in the browser
+ * - Neutral → [onNeutral] caller shows [feedbackPromptDialog]
+ *             `USER_SENTIMENT_NEUTRAL` is NOT fired here — deferred to [feedbackPromptDialog]
+ *             and only fired when the user submits with a comment.
+ * - Unhappy → [onUnhappy] caller shows [feedbackPromptDialog] in unhappy path mode.
+ *             `USER_SENTIMENT_UNHAPPY` is NOT fired here — deferred to [feedbackPromptDialog]
+ *             and only fired when the user submits with a comment.
  */
 @Composable
 fun happinessGateDialog(
@@ -124,14 +128,12 @@ fun happinessGateDialog(
                 sentimentButton(
                     label = stringResource("happiness.gate.neutral"),
                     onClick = {
-                        Analytics.track(AnalyticsEvent.USER_SENTIMENT_NEUTRAL)
                         onNeutral()
                     },
                 )
                 sentimentButton(
                     label = stringResource("happiness.gate.unhappy"),
                     onClick = {
-                        Analytics.track(AnalyticsEvent.USER_SENTIMENT_UNHAPPY)
                         onUnhappy()
                     },
                 )
@@ -186,7 +188,12 @@ fun feedbackPromptDialog(
     onClose: () -> Unit,
     onSnooze: () -> Unit,
     showReminderOnSkip: Boolean = true,
+    /** `"unhappy"`, `"neutral"`, or `null` (menu-opened). Controls copy and analytics gating. */
+    pathSentiment: String? = null,
 ) {
+    val isUnhappyPath = pathSentiment == "unhappy"
+    val isNeutralPath = pathSentiment == "neutral"
+    val isWeakSentimentPath = isUnhappyPath || isNeutralPath
     var selectedReasons by remember { mutableStateOf(emptySet<FeedbackReason>()) }
     var comment by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -261,12 +268,24 @@ fun feedbackPromptDialog(
                         verticalArrangement = Arrangement.spacedBy(Spacing.small),
                     ) {
                         Text(
-                            text = stringResource("feedback.dialog.title"),
+                            text = stringResource(
+                                when {
+                                    isUnhappyPath -> "feedback.unhappy.dialog.title"
+                                    isNeutralPath -> "feedback.neutral.dialog.title"
+                                    else -> "feedback.dialog.title"
+                                },
+                            ),
                             style = AppTextStyles.sectionTitle,
                             textAlign = TextAlign.Center,
                         )
                         Text(
-                            text = stringResource("feedback.dialog.subtitle"),
+                            text = stringResource(
+                                when {
+                                    isUnhappyPath -> "feedback.unhappy.dialog.subtitle"
+                                    isNeutralPath -> "feedback.neutral.dialog.subtitle"
+                                    else -> "feedback.dialog.subtitle"
+                                },
+                            ),
                             style = AppTextStyles.bodySecondary,
                             textAlign = TextAlign.Center,
                         )
@@ -299,24 +318,47 @@ fun feedbackPromptDialog(
                             }
                         }
                     }
-                    // ── Optional comment (required when MISSING_FEATURE or OTHER is selected) ────
+                    // ── Comment field — encouraged on weak-sentiment paths, optional otherwise ──
                     OutlinedTextField(
                         value = comment,
                         onValueChange = { comment = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = {
                             Text(
-                                text = stringResource("feedback.comment.label"),
+                                text = stringResource(
+                                    when {
+                                        isUnhappyPath -> "feedback.comment.label.unhappy"
+                                        isNeutralPath -> "feedback.comment.label.neutral"
+                                        else -> "feedback.comment.label"
+                                    },
+                                ),
                                 style = AppTextStyles.caption,
                             )
                         },
                         placeholder = {
                             Text(
-                                text = stringResource("feedback.comment.placeholder"),
+                                text = stringResource(
+                                    when {
+                                        isUnhappyPath -> "feedback.comment.placeholder.unhappy"
+                                        isNeutralPath -> "feedback.comment.placeholder.neutral"
+                                        else -> "feedback.comment.placeholder"
+                                    },
+                                ),
                                 style = AppTextStyles.caption,
                             )
                         },
-                        minLines = 3,
+                        supportingText = if (isWeakSentimentPath) {
+                            {
+                                Text(
+                                    text = stringResource("feedback.comment.encourage.hint"),
+                                    style = AppTextStyles.caption,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        } else {
+                            null
+                        },
+                        minLines = if (isWeakSentimentPath) 4 else 3,
                         maxLines = 5,
                         shape = MaterialTheme.shapes.medium,
                     )
@@ -357,6 +399,12 @@ fun feedbackPromptDialog(
                         }
                         Button(
                             onClick = {
+                                if (comment.isNotBlank()) {
+                                    when {
+                                        isUnhappyPath -> Analytics.track(AnalyticsEvent.USER_SENTIMENT_UNHAPPY)
+                                        isNeutralPath -> Analytics.track(AnalyticsEvent.USER_SENTIMENT_NEUTRAL)
+                                    }
+                                }
                                 onSubmit(selectedReasons, comment.trim(), email.trim())
                                 submitted = true
                             },

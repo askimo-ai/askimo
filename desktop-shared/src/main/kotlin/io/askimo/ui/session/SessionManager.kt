@@ -21,6 +21,8 @@ import io.askimo.core.exception.ContextLengthException
 import io.askimo.core.exception.ExceptionHandler
 import io.askimo.core.logging.logger
 import io.askimo.core.providers.ConfigurationErrorException
+import io.askimo.core.providers.ModelProvider
+import io.askimo.core.providers.ProxyChatContext
 import io.askimo.core.providers.isContextLengthError
 import io.askimo.core.providers.sendStreamingMessageWithCallback
 import io.askimo.core.vision.ImageProcessor
@@ -41,6 +43,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.time.Instant
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -295,47 +298,73 @@ class SessionManager(
                     var capturedTotalTokens: Int? = null
                     var capturedDurationMs: Long? = null
 
-                    val fullResponse = chatSessionService
-                        .getOrCreateClientForSession(sessionId)
-                        .sendStreamingMessageWithCallback(
-                            projectId = projectId,
-                            userContents = promptWithContext,
-                            enabledServerIds = enabledServerIds,
-                            onToken = { token ->
-                                streamingScope.launch {
-                                    thread.appendChunk(token)
-                                }
-                            },
-                            onFollowUpSuggestion = { suggestion ->
-                                log.debug("Follow-up suggestion for session $sessionId: ${suggestion.question}")
-                            },
-                            onTokenUsage = { input, output, total, durationMs ->
-                                capturedInputTokens = input
-                                capturedOutputTokens = output
-                                capturedTotalTokens = total
-                                capturedDurationMs = durationMs
-                                log.debug("Token usage for session $sessionId: input=$input, output=$output, total=$total, duration=${durationMs}ms")
-                            },
-                            onToolStarted = { toolName, arguments ->
-                                streamingScope.launch {
-                                    thread.markToolRunning(toolName, arguments)
-                                }
-                            },
-                            onToolFinished = { toolName, arguments, result, hasFailed ->
-                                streamingScope.launch {
-                                    thread.markToolDone(toolName, arguments, result, hasFailed)
-                                }
-                            },
-                            onThinkingToken = { token ->
-                                streamingScope.launch {
-                                    thread.appendThinkingChunk(token)
-                                }
-                            },
+                    // Pre-generate the assistant message ID and set the ProxyChatContext
+                    // ThreadLocal on this thread so the correlating HTTP client can inject
+                    // the tracking headers into the outgoing proxy request.
+                    // The ThreadLocal is safe here because sendStreamingMessageWithCallback is
+                    // a blocking call that stays on this thread until the stream is complete.
+                    val needsMessageCorrelation = AppContext.getInstance().getActiveProvider() == ModelProvider.ASKIMO_PRO
+                    val assistantMessageId = if (needsMessageCorrelation) UUID.randomUUID().toString() else ""
+                    if (needsMessageCorrelation) {
+                        ProxyChatContext.set(
+                            ProxyChatContext.Context(
+                                sessionId = sessionId,
+                                userMessageId = userMessage.id!!,
+                                assistantMessageId = assistantMessageId,
+                            ),
                         )
+                    }
+
+                    val fullResponse = try {
+                        chatSessionService
+                            .getOrCreateClientForSession(sessionId)
+                            .sendStreamingMessageWithCallback(
+                                projectId = projectId,
+                                userContents = promptWithContext,
+                                enabledServerIds = enabledServerIds,
+                                onToken = { token ->
+                                    streamingScope.launch {
+                                        thread.appendChunk(token)
+                                    }
+                                },
+                                onFollowUpSuggestion = { suggestion ->
+                                    log.debug("Follow-up suggestion for session $sessionId: ${suggestion.question}")
+                                },
+                                onTokenUsage = { input, output, total, durationMs ->
+                                    capturedInputTokens = input
+                                    capturedOutputTokens = output
+                                    capturedTotalTokens = total
+                                    capturedDurationMs = durationMs
+                                    log.debug("Token usage for session $sessionId: input=$input, output=$output, total=$total, duration=${durationMs}ms")
+                                },
+                                onToolStarted = { toolName, arguments ->
+                                    streamingScope.launch {
+                                        thread.markToolRunning(toolName, arguments)
+                                    }
+                                },
+                                onToolFinished = { toolName, arguments, result, hasFailed ->
+                                    streamingScope.launch {
+                                        thread.markToolDone(toolName, arguments, result, hasFailed)
+                                    }
+                                },
+                                onThinkingToken = { token ->
+                                    streamingScope.launch {
+                                        thread.appendThinkingChunk(token)
+                                    }
+                                },
+                            )
+                    } finally {
+                        // Always clear the ThreadLocal — prevents leaking context into
+                        // subsequent requests on the same thread from the pool.
+                        if (needsMessageCorrelation) ProxyChatContext.clear()
+                    }
 
                     val savedMessage = chatSessionService.saveAiResponse(
                         sessionId = sessionId,
                         response = fullResponse,
+                        // Pass the pre-generated ID so the server and local DB agree on
+                        // the same message identity, and saveAiResponse can mark it synced.
+                        messageId = assistantMessageId,
                         inputTokens = capturedInputTokens,
                         outputTokens = capturedOutputTokens,
                         totalTokens = capturedTotalTokens,
