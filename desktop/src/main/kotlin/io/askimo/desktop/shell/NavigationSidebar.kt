@@ -15,11 +15,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Text
@@ -45,6 +50,7 @@ import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.LocalFontScale
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.session.SessionsViewModel
+import io.askimo.ui.shell.SidebarNavItem
 import io.askimo.ui.shell.rememberAvatarImage
 import io.askimo.ui.shell.sidebarUserAvatar
 import io.askimo.ui.shell.navigationSidebar as sharedNavigationSidebar
@@ -88,29 +94,65 @@ fun navigationSidebar(
     onNavigateToSkills: () -> Unit = {},
     onNavigateToDiscover: () -> Unit = {},
 ) {
+    val isProjectsSelected = currentView == View.PROJECTS
+    val navItems = listOf(
+        SidebarNavItem(
+            id = "projects",
+            labelRes = "project.title",
+            icon = Icons.Default.FolderOpen,
+            isSelected = isProjectsSelected,
+            isVisible = showProjectsInSidebar,
+            onClick = onToggleProjects,
+            badge = { isHovered ->
+                if (isHovered) {
+                    val bfs = LocalFontScale.current
+                    themedTooltip(text = stringResource("project.new.dialog.title")) {
+                        IconButton(
+                            onClick = onNewProject,
+                            modifier = Modifier.size((24 * bfs).dp).pointerHoverIcon(PointerIcon.Hand),
+                        ) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = stringResource("project.new.dialog.title"),
+                                tint = if (isProjectsSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppTextStyles.secondaryContent,
+                                modifier = Modifier.size((18 * bfs).dp),
+                            )
+                        }
+                    }
+                }
+            },
+        ),
+        SidebarNavItem(
+            id = "plans",
+            labelRes = "plans.nav.title",
+            icon = Icons.Default.PlayCircle,
+            isSelected = currentView == View.PLANS || currentView == View.PLAN_DETAIL,
+            isVisible = showPlansInSidebar,
+            onClick = onNavigateToPlans,
+        ),
+        SidebarNavItem(
+            id = "skills",
+            labelRes = "skills.nav.title",
+            icon = Icons.Default.Extension,
+            isSelected = currentView == View.SKILLS,
+            isVisible = showSkillsInSidebar,
+            onClick = onNavigateToSkills,
+        ),
+    )
     sharedNavigationSidebar(
         isExpanded = isExpanded,
         width = width,
-        isPlansSelected = currentView == View.PLANS || currentView == View.PLAN_DETAIL,
-        isSkillsSelected = currentView == View.SKILLS,
-        isProjectsSelected = currentView == View.PROJECTS,
-        isSessionsSelected = currentView == View.SESSIONS,
-        showPlansInSidebar = showPlansInSidebar,
-        showSkillsInSidebar = showSkillsInSidebar,
-        showProjectsInSidebar = showProjectsInSidebar,
+        navItems = navItems,
         isSessionsExpanded = isSessionsExpanded,
+        isSessionsSelected = currentView == View.SESSIONS,
         projectsState = projectsViewModel,
         pinnedState = sessionsViewModel,
         sessionsViewModel = sessionsViewModel,
         currentSessionId = currentSessionId,
         onToggleExpand = onToggleExpand,
         onNewChat = onNewChat,
-        onNavigateToProjects = onToggleProjects,
         onToggleSessions = onToggleSessions,
         onNavigateToSessions = onNavigateToSessions,
-        onNavigateToPlans = onNavigateToPlans,
-        onNavigateToSkills = onNavigateToSkills,
-        onNewProject = onNewProject,
         onSelectProject = onSelectProject,
         onResumeSession = onResumeSession,
         onDeleteSession = onDeleteSession,

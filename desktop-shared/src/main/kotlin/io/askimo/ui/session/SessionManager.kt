@@ -182,7 +182,7 @@ class SessionManager(
         suspend fun markToolRunning(toolName: String, arguments: String?) {
             mutex.withLock {
                 if (_toolCalls.value.none { it.toolName == toolName }) {
-                    _toolCalls.value = _toolCalls.value + ToolCallInfo(
+                    _toolCalls.value += ToolCallInfo(
                         toolName = toolName,
                         status = ToolCallStatus.RUNNING,
                         arguments = arguments,

@@ -31,12 +31,10 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.CircularProgressIndicator
@@ -118,26 +116,22 @@ interface PinnedSidebarState {
  * Shared navigation sidebar component with collapsible/expandable functionality.
  *
  * The caller is responsible for two variable parts:
- * - Selection state: pass `isXxxSelected` booleans derived from the module's own View enum
- * - User profile footer: pass a `userProfileContent` composable slot
+ * - Nav items: pass an ordered [navItems] list — each entry controls icon, label, selection,
+ *   visibility, click action, and an optional hover-sensitive badge composable.
+ * - User profile footer: pass a [userProfileContent] composable slot.
  *
- * This keeps the sidebar decoupled from module-specific View enums and auth concerns
+ * This keeps the sidebar decoupled from module-specific View enums and auth concerns.
  */
 @Composable
 fun navigationSidebar(
     isExpanded: Boolean,
     width: Dp,
-    // Selection state — callers derive these from their own View enum
-    isPlansSelected: Boolean = false,
-    isSkillsSelected: Boolean = false,
-    isProjectsSelected: Boolean = false,
-    isSessionsSelected: Boolean = false,
-    // Visibility toggles controlled from View menu
-    showPlansInSidebar: Boolean = true,
-    showSkillsInSidebar: Boolean = true,
-    showProjectsInSidebar: Boolean = true,
-    // Session/project state
+    // Primary nav items — ordered, visibility-controlled, injected by caller
+    navItems: List<SidebarNavItem>,
+    // Session state
     isSessionsExpanded: Boolean,
+    isSessionsSelected: Boolean = false,
+    // Session/project state
     projectsState: ProjectsSidebarState,
     pinnedState: PinnedSidebarState,
     sessionsViewModel: SessionsViewModel,
@@ -145,12 +139,8 @@ fun navigationSidebar(
     // Actions
     onToggleExpand: () -> Unit,
     onNewChat: () -> Unit,
-    onNavigateToProjects: () -> Unit = {},
     onToggleSessions: () -> Unit,
     onNavigateToSessions: () -> Unit,
-    onNavigateToPlans: () -> Unit = {},
-    onNavigateToSkills: () -> Unit = {},
-    onNewProject: () -> Unit = {},
     onSelectProject: (String) -> Unit = {},
     onResumeSession: (String) -> Unit,
     onDeleteSession: (String) -> Unit,
@@ -174,26 +164,17 @@ fun navigationSidebar(
     if (isExpanded) {
         expandedNavigationSidebar(
             animatedWidth = animatedWidth,
-            isPlansSelected = isPlansSelected,
-            isSkillsSelected = isSkillsSelected,
-            isProjectsSelected = isProjectsSelected,
-            isSessionsSelected = isSessionsSelected,
-            showPlansInSidebar = showPlansInSidebar,
-            showSkillsInSidebar = showSkillsInSidebar,
-            showProjectsInSidebar = showProjectsInSidebar,
+            navItems = navItems,
             isSessionsExpanded = isSessionsExpanded,
+            isSessionsSelected = isSessionsSelected,
             projectsState = projectsState,
             pinnedState = pinnedState,
             sessionsViewModel = sessionsViewModel,
             currentSessionId = currentSessionId,
             onToggleExpand = onToggleExpand,
             onNewChat = onNewChat,
-            onNavigateToProjects = onNavigateToProjects,
             onToggleSessions = onToggleSessions,
             onNavigateToSessions = onNavigateToSessions,
-            onNavigateToPlans = onNavigateToPlans,
-            onNavigateToSkills = onNavigateToSkills,
-            onNewProject = onNewProject,
             onSelectProject = onSelectProject,
             onResumeSession = onResumeSession,
             onDeleteSession = onDeleteSession,
@@ -210,19 +191,11 @@ fun navigationSidebar(
     } else {
         collapsedNavigationSidebar(
             animatedWidth = animatedWidth,
-            isPlansSelected = isPlansSelected,
-            isSkillsSelected = isSkillsSelected,
-            isProjectsSelected = isProjectsSelected,
+            navItems = navItems,
             isSessionsSelected = isSessionsSelected,
-            showPlansInSidebar = showPlansInSidebar,
-            showSkillsInSidebar = showSkillsInSidebar,
-            showProjectsInSidebar = showProjectsInSidebar,
             onToggleExpand = onToggleExpand,
             onNewChat = onNewChat,
-            onNavigateToProjects = onNavigateToProjects,
             onNavigateToSessions = onNavigateToSessions,
-            onNavigateToPlans = onNavigateToPlans,
-            onNavigateToSkills = onNavigateToSkills,
             userProfileContent = userProfileContent,
         )
     }
@@ -235,26 +208,17 @@ fun navigationSidebar(
 @Composable
 private fun expandedNavigationSidebar(
     animatedWidth: Dp,
-    isPlansSelected: Boolean,
-    isSkillsSelected: Boolean,
-    isProjectsSelected: Boolean,
-    isSessionsSelected: Boolean,
-    showPlansInSidebar: Boolean,
-    showSkillsInSidebar: Boolean,
-    showProjectsInSidebar: Boolean,
+    navItems: List<SidebarNavItem>,
     isSessionsExpanded: Boolean,
+    isSessionsSelected: Boolean,
     projectsState: ProjectsSidebarState,
     pinnedState: PinnedSidebarState,
     sessionsViewModel: SessionsViewModel,
     currentSessionId: String?,
     onToggleExpand: () -> Unit,
     onNewChat: () -> Unit,
-    onNavigateToProjects: () -> Unit,
     onToggleSessions: () -> Unit,
     onNavigateToSessions: () -> Unit,
-    onNavigateToPlans: () -> Unit,
-    onNavigateToSkills: () -> Unit,
-    onNewProject: () -> Unit,
     onSelectProject: (String) -> Unit,
     onResumeSession: (String) -> Unit,
     onDeleteSession: (String) -> Unit,
@@ -334,93 +298,9 @@ private fun expandedNavigationSidebar(
                 )
             }
 
-            // Projects
-            if (showProjectsInSidebar) {
-                val projectsInteractionSource = remember { MutableInteractionSource() }
-                val isProjectsHovered by projectsInteractionSource.collectIsHoveredAsState()
-
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = Spacing.medium)
-                        .hoverable(projectsInteractionSource),
-                ) {
-                    NavigationDrawerItem(
-                        icon = { Icon(Icons.Default.FolderOpen, contentDescription = null) },
-                        label = {
-                            Text(
-                                stringResource("project.title"),
-                                style = AppTextStyles.groupTitle,
-                                color = if (isProjectsSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppTextStyles.primaryContent,
-                            )
-                        },
-                        selected = isProjectsSelected,
-                        onClick = onNavigateToProjects,
-                        badge = {
-                            if (isProjectsHovered) {
-                                themedTooltip(text = stringResource("project.new.dialog.title")) {
-                                    IconButton(
-                                        onClick = onNewProject,
-                                        modifier = Modifier
-                                            .size((24 * fontScale).dp)
-                                            .pointerHoverIcon(PointerIcon.Hand),
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Add,
-                                            contentDescription = stringResource("project.new.dialog.title"),
-                                            tint = if (isProjectsSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppTextStyles.secondaryContent,
-                                            modifier = Modifier.size((18 * fontScale).dp),
-                                        )
-                                    }
-                                }
-                            }
-                        },
-                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                        shape = AppComponents.navigationItemShape,
-                        colors = AppComponents.navigationDrawerItemColors(),
-                    )
-                }
-            }
-
-            // Plans
-            if (showPlansInSidebar) {
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.PlayCircle, contentDescription = null) },
-                    label = {
-                        Text(
-                            stringResource("plans.nav.title"),
-                            style = AppTextStyles.groupTitle,
-                            color = if (isPlansSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppTextStyles.primaryContent,
-                        )
-                    },
-                    selected = isPlansSelected,
-                    onClick = onNavigateToPlans,
-                    modifier = Modifier
-                        .padding(horizontal = Spacing.medium)
-                        .pointerHoverIcon(PointerIcon.Hand),
-                    shape = AppComponents.navigationItemShape,
-                    colors = AppComponents.navigationDrawerItemColors(),
-                )
-            }
-
-            // Skills
-            if (showSkillsInSidebar) {
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.Extension, contentDescription = null) },
-                    label = {
-                        Text(
-                            stringResource("skills.nav.title"),
-                            style = AppTextStyles.groupTitle,
-                            color = if (isSkillsSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppTextStyles.primaryContent,
-                        )
-                    },
-                    selected = isSkillsSelected,
-                    onClick = onNavigateToSkills,
-                    modifier = Modifier
-                        .padding(horizontal = Spacing.medium)
-                        .pointerHoverIcon(PointerIcon.Hand),
-                    shape = AppComponents.navigationItemShape,
-                    colors = AppComponents.navigationDrawerItemColors(),
-                )
+            // Primary nav items (injected by caller — order and visibility controlled externally)
+            navItems.filter { it.isVisible }.forEach { item ->
+                sidebarNavItemRow(item = item)
             }
 
             // Pinned section (starred projects + starred sessions)
@@ -527,19 +407,11 @@ private fun expandedNavigationSidebar(
 @Composable
 private fun collapsedNavigationSidebar(
     animatedWidth: Dp,
-    isPlansSelected: Boolean,
-    isSkillsSelected: Boolean,
-    isProjectsSelected: Boolean,
+    navItems: List<SidebarNavItem>,
     isSessionsSelected: Boolean,
-    showPlansInSidebar: Boolean,
-    showSkillsInSidebar: Boolean,
-    showProjectsInSidebar: Boolean,
     onToggleExpand: () -> Unit,
     onNewChat: () -> Unit,
-    onNavigateToProjects: () -> Unit,
     onNavigateToSessions: () -> Unit,
-    onNavigateToPlans: () -> Unit,
-    onNavigateToSkills: () -> Unit,
     userProfileContent: @Composable () -> Unit,
 ) {
     val fontScale = LocalFontScale.current
@@ -607,39 +479,13 @@ private fun collapsedNavigationSidebar(
                 )
             }
 
-            themedTooltip(text = stringResource("project.title")) {
-                if (showProjectsInSidebar) {
+            navItems.filter { it.isVisible }.forEach { item ->
+                themedTooltip(text = stringResource(item.labelRes)) {
                     NavigationRailItem(
-                        icon = { Icon(Icons.Default.FolderOpen, contentDescription = stringResource("project.title")) },
+                        icon = { Icon(item.icon, contentDescription = stringResource(item.labelRes)) },
                         label = null,
-                        selected = isProjectsSelected,
-                        onClick = onNavigateToProjects,
-                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                        colors = AppComponents.navigationRailItemColors(),
-                    )
-                }
-            }
-
-            themedTooltip(text = stringResource("plans.nav.title")) {
-                if (showPlansInSidebar) {
-                    NavigationRailItem(
-                        icon = { Icon(Icons.Default.PlayCircle, contentDescription = stringResource("plans.nav.title")) },
-                        label = null,
-                        selected = isPlansSelected,
-                        onClick = onNavigateToPlans,
-                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                        colors = AppComponents.navigationRailItemColors(),
-                    )
-                }
-            }
-
-            themedTooltip(text = stringResource("skills.nav.title")) {
-                if (showSkillsInSidebar) {
-                    NavigationRailItem(
-                        icon = { Icon(Icons.Default.Extension, contentDescription = stringResource("skills.nav.title")) },
-                        label = null,
-                        selected = isSkillsSelected,
-                        onClick = onNavigateToSkills,
+                        selected = item.isSelected,
+                        onClick = item.onClick,
                         modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         colors = AppComponents.navigationRailItemColors(),
                     )
@@ -660,6 +506,39 @@ private fun collapsedNavigationSidebar(
 
         HorizontalDivider()
         userProfileContent()
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Nav item row (expanded sidebar)
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun sidebarNavItemRow(item: SidebarNavItem) {
+    val interactionSource = remember(item.id) { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+
+    Box(
+        modifier = Modifier
+            .padding(horizontal = Spacing.medium)
+            .hoverable(interactionSource),
+    ) {
+        NavigationDrawerItem(
+            icon = { Icon(item.icon, contentDescription = null) },
+            label = {
+                Text(
+                    stringResource(item.labelRes),
+                    style = AppTextStyles.groupTitle,
+                    color = if (item.isSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppTextStyles.primaryContent,
+                )
+            },
+            selected = item.isSelected,
+            onClick = item.onClick,
+            badge = item.badge?.let { badgeFn -> { badgeFn(isHovered) } },
+            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+            shape = AppComponents.navigationItemShape,
+            colors = AppComponents.navigationDrawerItemColors(),
+        )
     }
 }
 
@@ -912,9 +791,9 @@ private fun pinnedSessionItem(
             isSelected = isSelected,
             isChatInProgress = isChatInProgress,
             isHovered = isHovered || showMenu,
-            bookmarkCount = bookmarkCount,
             onResumeSession = onResumeSession,
             onMenuClick = { showMenu = true },
+            bookmarkCount = bookmarkCount,
         )
 
         Box(modifier = Modifier.align(Alignment.CenterEnd).padding(end = Spacing.small)) {
