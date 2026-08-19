@@ -791,6 +791,7 @@ object AppComponents {
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(horizontal = contentPadding)
+                                        .padding(top = sectionSpacing, bottom = sectionSpacing)
                                         .padding(end = dialogScrollbarPadding)
                                         .verticalScroll(scrollState),
                                     verticalArrangement = Arrangement.spacedBy(sectionSpacing),

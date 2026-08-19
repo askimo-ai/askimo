@@ -128,11 +128,6 @@ fun projectView(
     }
 
     // Local UI state
-    var inputText by remember { mutableStateOf(TextFieldValue("")) }
-    var attachments by remember { mutableStateOf<List<FileAttachmentDTO>>(emptyList()) }
-    var currentEnabledServerIds by remember { mutableStateOf(emptySet<String>()) }
-    var selectedDirective by remember { mutableStateOf<String?>(null) }
-    var webSearchInRag by remember { mutableStateOf(false) }
     var showProjectMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showReIndexConfirmDialog by remember { mutableStateOf(false) }
@@ -353,41 +348,14 @@ fun projectView(
                 }
             } // end scrollable content column
 
-            // Fixed chat input footer — width-constrained, outside scroll
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.TopCenter,
-            ) {
-                Column(
-                    modifier = Modifier
-                        .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
-                        .fillMaxWidth()
-                        .padding(start = 24.dp, end = 36.dp, bottom = 24.dp),
-                ) {
-                    chatInputField(
-                        inputText = inputText,
-                        onInputTextChange = { inputText = it },
-                        attachments = attachments,
-                        onAttachmentsChange = { attachments = it },
-                        onSendMessage = { mode ->
-                            if (inputText.text.isNotBlank()) {
-                                onStartChat(currentProject.id, mode, inputText.text, attachments, currentEnabledServerIds, selectedDirective, webSearchInRag)
-                                inputText = TextFieldValue("")
-                                attachments = emptyList()
-                            }
-                        },
-                        onEnabledServerIdsChange = { currentEnabledServerIds = it },
-                        onNavigateToMcpSettings = onNavigateToMcpSettings,
-                        selectedDirective = selectedDirective,
-                        onToggleDirective = { selectedDirective = it },
-                        isProjectSession = true,
-                        onWebSearchInRagChange = { webSearchInRag = it },
-                        sessionId = currentProject.id,
-                        placeholder = stringResource("project.new.chat.placeholder", currentProject.name),
-                        modifier = Modifier.padding(top = Spacing.large),
-                    )
-                }
-            }
+            // Fixed chat input footer — isolated composable so keystrokes only
+            // recompose the footer, not the entire project view.
+            projectChatInputFooter(
+                projectId = currentProject.id,
+                projectName = currentProject.name,
+                onStartChat = onStartChat,
+                onNavigateToMcpSettings = onNavigateToMcpSettings,
+            )
         } // end outer Column
 
         VerticalScrollbar(
@@ -1099,6 +1067,60 @@ private fun skippedFilesWarning(skippedFileNames: List<String>) {
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * Isolated footer composable that owns all chat-input state.
+ * Keeping state here prevents keystrokes from recomposing the heavy scrollable
+ * content above (hero card, knowledge sources panel, session cards).
+ */
+@Composable
+private fun projectChatInputFooter(
+    projectId: String,
+    projectName: String,
+    onStartChat: (projectId: String, mode: CreationMode, message: String, attachments: List<FileAttachmentDTO>, enabledServerIds: Set<String>, directiveId: String?, useWebSearch: Boolean) -> Unit,
+    onNavigateToMcpSettings: (() -> Unit)? = null,
+) {
+    var inputText by remember { mutableStateOf(TextFieldValue("")) }
+    var attachments by remember { mutableStateOf<List<FileAttachmentDTO>>(emptyList()) }
+    var currentEnabledServerIds by remember { mutableStateOf(emptySet<String>()) }
+    var selectedDirective by remember { mutableStateOf<String?>(null) }
+    var webSearchInRag by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        Column(
+            modifier = Modifier
+                .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
+                .fillMaxWidth()
+                .padding(start = 24.dp, end = 36.dp, bottom = 24.dp),
+        ) {
+            chatInputField(
+                inputText = inputText,
+                onInputTextChange = { inputText = it },
+                attachments = attachments,
+                onAttachmentsChange = { attachments = it },
+                onSendMessage = { mode ->
+                    if (inputText.text.isNotBlank()) {
+                        onStartChat(projectId, mode, inputText.text, attachments, currentEnabledServerIds, selectedDirective, webSearchInRag)
+                        inputText = TextFieldValue("")
+                        attachments = emptyList()
+                    }
+                },
+                onEnabledServerIdsChange = { currentEnabledServerIds = it },
+                onNavigateToMcpSettings = onNavigateToMcpSettings,
+                selectedDirective = selectedDirective,
+                onToggleDirective = { selectedDirective = it },
+                isProjectSession = true,
+                onWebSearchInRagChange = { webSearchInRag = it },
+                sessionId = projectId,
+                placeholder = stringResource("project.new.chat.placeholder", projectName),
+                modifier = Modifier.padding(top = Spacing.large),
+            )
         }
     }
 }

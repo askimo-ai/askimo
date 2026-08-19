@@ -313,6 +313,14 @@ fun chatInputField(
     // Session-scoped web-search-in-RAG toggle. Resets when the session changes.
     var webSearchInRag by remember(sessionId) { mutableStateOf(false) }
 
+    // Cache web-search enabled flag — AppConfig.webSearch hits the OS keychain on every
+    // call (SecureKeyManager.retrieveSecretKey). Read off the UI thread so the first
+    // composition is never blocked (avoids navigation lag into ProjectView).
+    var webSearchEnabled by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        webSearchEnabled = withContext(Dispatchers.IO) { AppConfig.webSearch.enabled }
+    }
+
     // Notify caller whenever the user changes the enabled server selection.
     LaunchedEffect(enabledServerIds) {
         onEnabledServerIdsChange?.invoke(enabledServerIds)
@@ -789,7 +797,7 @@ fun chatInputField(
                         )
 
                         // ── Web search in RAG chip — only in project sessions when web search is configured ──
-                        if (isProjectSession && AppConfig.webSearch.enabled) {
+                        if (isProjectSession && webSearchEnabled) {
                             Spacer(modifier = Modifier.width(4.dp))
                             webSearchRagChip(
                                 active = webSearchInRag,
