@@ -278,47 +278,85 @@ private fun providerTypePickerScreen(viewModel: ProviderWizardViewModel) {
     val mainEntries = remember(entries) { entries.filterNot { it is ProviderEntry.Custom } }
     val hasCustom = remember(entries) { entries.any { it is ProviderEntry.Custom } }
 
+    var searchQuery by remember(viewModel.wizardStep) { mutableStateOf("") }
+    val filteredMainEntries = remember(mainEntries, searchQuery) {
+        if (searchQuery.isBlank()) {
+            mainEntries
+        } else {
+            mainEntries.filter { entry ->
+                val name = when (entry) {
+                    is ProviderEntry.Native -> entry.provider.name
+                    is ProviderEntry.Template -> entry.template.displayName
+                    is ProviderEntry.Custom -> ""
+                }
+                name.contains(searchQuery, ignoreCase = true)
+            }
+        }
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(460.dp),
     ) {
-        // ── Left column: scrollable provider list ─────────────────────────────────────────
+        // ── Left column: search field + scrollable provider list ──────────────────────────
         val listState = rememberLazyListState()
-        Box(modifier = Modifier.width(260.dp).fillMaxHeight()) {
-            LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-                items(mainEntries, key = { entry ->
-                    when (entry) {
-                        is ProviderEntry.Native -> "native_${entry.provider.name}"
-                        is ProviderEntry.Template -> "template_${entry.template.name}"
-                        is ProviderEntry.Custom -> "custom"
-                    }
-                }) { entry ->
-                    providerPickerEntryRow(
-                        entry = entry,
-                        isSelected = viewModel.selectedEntry == entry,
-                        onClick = { viewModel.selectEntryForPreview(entry) },
-                    )
-                }
-
-                if (hasCustom) {
-                    item(key = "custom_divider") {
-                        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.extraSmall))
-                    }
-                    item(key = "custom_entry") {
-                        providerPickerEntryRow(
-                            entry = ProviderEntry.Custom,
-                            isSelected = viewModel.selectedEntry is ProviderEntry.Custom,
-                            onClick = { viewModel.selectEntryForPreview(ProviderEntry.Custom) },
-                        )
-                    }
-                }
-            }
-            VerticalScrollbar(
-                adapter = rememberScrollbarAdapter(listState),
-                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 2.dp),
-                style = AppComponents.scrollbarStyle(),
+        Column(modifier = Modifier.width(260.dp).fillMaxHeight()) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
+                placeholder = { Text(stringResource("provider.search.placeholder"), style = AppTextStyles.caption) },
+                singleLine = true,
+                colors = AppComponents.outlinedTextFieldColors(),
+                textStyle = AppTextStyles.caption,
             )
+            Box(modifier = Modifier.weight(1f)) {
+                LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                    if (filteredMainEntries.isEmpty() && searchQuery.isNotBlank()) {
+                        item(key = "no_results") {
+                            Text(
+                                text = stringResource("provider.search.no_results"),
+                                style = AppTextStyles.caption,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = Spacing.medium),
+                            )
+                        }
+                    } else {
+                        items(filteredMainEntries, key = { entry ->
+                            when (entry) {
+                                is ProviderEntry.Native -> "native_${entry.provider.name}"
+                                is ProviderEntry.Template -> "template_${entry.template.name}"
+                                is ProviderEntry.Custom -> "custom"
+                            }
+                        }) { entry ->
+                            providerPickerEntryRow(
+                                entry = entry,
+                                isSelected = viewModel.selectedEntry == entry,
+                                onClick = { viewModel.selectEntryForPreview(entry) },
+                            )
+                        }
+                    }
+
+                    if (hasCustom) {
+                        item(key = "custom_divider") {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.extraSmall))
+                        }
+                        item(key = "custom_entry") {
+                            providerPickerEntryRow(
+                                entry = ProviderEntry.Custom,
+                                isSelected = viewModel.selectedEntry is ProviderEntry.Custom,
+                                onClick = { viewModel.selectEntryForPreview(ProviderEntry.Custom) },
+                            )
+                        }
+                    }
+                }
+                VerticalScrollbar(
+                    adapter = rememberScrollbarAdapter(listState),
+                    modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 2.dp),
+                    style = AppComponents.scrollbarStyle(),
+                )
+            }
         }
 
         // ── Vertical divider ──────────────────────────────────────────────────────────────

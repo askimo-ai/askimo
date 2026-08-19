@@ -120,4 +120,14 @@ enum class OpenAiCompatibleTemplate(
         httpVersion = HttpVersion.HTTP_1_1,
         helpTextKey = "provider.template.together_ai.help",
     ),
+
+    LITE_LLM(
+        displayName = "LiteLLM",
+        initials = "LL",
+        taglineKey = "provider.template.lite_llm.tagline",
+        baseUrl = "http://localhost:4000/v1",
+        apiKeyRequired = false,
+        apiKeyUrl = "",
+        helpTextKey = "provider.template.lite_llm.help",
+    ),
 }
