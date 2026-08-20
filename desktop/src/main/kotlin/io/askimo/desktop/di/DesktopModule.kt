@@ -94,6 +94,7 @@ val desktopModule = module {
         SessionManager(
             chatSessionService = get(),
             scope = CoroutineScope(Dispatchers.Default + SupervisorJob()),
+            mcpInstanceService = get(),
         )
     }
 

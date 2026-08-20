@@ -5,6 +5,9 @@
 package io.askimo.ui.mcp
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
@@ -39,13 +43,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
+import io.askimo.core.intent.ToolApprovalPolicy
 import io.askimo.core.intent.ToolCategory
 import io.askimo.core.intent.ToolConfig
 import io.askimo.core.intent.ToolStrategy
-import io.askimo.core.mcp.McpClientFactory
 import io.askimo.core.mcp.McpInstance
+import io.askimo.core.mcp.McpInstanceService
 import io.askimo.core.mcp.SecretDetector
 import io.askimo.core.mcp.config.McpServersConfig
 import io.askimo.ui.common.components.inlineErrorMessage
@@ -70,7 +82,7 @@ fun mcpToolsDialog(
     onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val mcpClientFactory = get<McpClientFactory>(McpClientFactory::class.java)
+    val mcpInstanceService = remember { get<McpInstanceService>(McpInstanceService::class.java) }
     val serverDefinition = remember(instance.serverId) { McpServersConfig.get(instance.serverId) }
     var tools by remember { mutableStateOf<List<ToolConfig>?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -94,7 +106,7 @@ fun mcpToolsDialog(
         isLoading = true
         dialogState.clearError()
         try {
-            val result = withContext(Dispatchers.IO) { mcpClientFactory.listTools(instance) }
+            val result = withContext(Dispatchers.IO) { mcpInstanceService.listTools(instance.id) }
             result.fold(
                 onSuccess = { tools = it },
                 onFailure = { e ->
@@ -360,6 +372,18 @@ fun mcpToolsDialog(
                                     toolCategoryChip(tool.category)
                                     toolStrategyChip(tool.strategy)
                                 }
+                                toolApprovalPolicyControl(
+                                    current = tool.approvalPolicy,
+                                    onPolicyChanged = { newPolicy ->
+                                        scope.launch(Dispatchers.IO) {
+                                            mcpInstanceService.setToolApproval(instance.id, tool.specification.name(), newPolicy)
+                                            // Reflect change locally so the UI updates instantly
+                                            tools = tools?.map { t ->
+                                                if (t.specification.name() == tool.specification.name()) t.copy(approvalPolicy = newPolicy) else t
+                                            }
+                                        }
+                                    },
+                                )
                             }
                         }
                     }
@@ -428,6 +452,79 @@ private fun String?.toJsonString(): String {
         .replace("\r", "\\r")
         .replace("\t", "\\t")
     return "\"$escaped\""
+}
+
+@Composable
+private fun toolApprovalPolicyControl(
+    current: ToolApprovalPolicy,
+    onPolicyChanged: (ToolApprovalPolicy) -> Unit,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource("mcp.tool.approval.label"),
+            style = AppTextStyles.caption,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        ToolApprovalPolicy.entries.forEach { policy ->
+            approvalPolicyButton(
+                label = stringResource("mcp.tool.approval.${policy.name.lowercase()}"),
+                tooltip = stringResource("mcp.tool.approval.${policy.name.lowercase()}.hint"),
+                isSelected = policy == current,
+                onClick = { if (policy != current) onPolicyChanged(policy) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun approvalPolicyButton(
+    label: String,
+    tooltip: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+    val density = LocalDensity.current
+
+    Box(modifier = Modifier.hoverable(interactionSource)) {
+        if (isSelected) {
+            primaryButton(onClick = onClick) { Text(label, style = MaterialTheme.typography.labelSmall) }
+        } else {
+            secondaryButton(onClick = onClick) { Text(label, style = MaterialTheme.typography.labelSmall) }
+        }
+        if (isHovered) {
+            AppComponents.anchoredPopup(
+                positionProvider = remember(density) {
+                    object : PopupPositionProvider {
+                        override fun calculatePosition(
+                            anchorBounds: IntRect,
+                            windowSize: IntSize,
+                            layoutDirection: LayoutDirection,
+                            popupContentSize: IntSize,
+                        ): IntOffset = IntOffset(
+                            x = anchorBounds.left,
+                            y = anchorBounds.bottom + with(density) { 4.dp.roundToPx() },
+                        )
+                    }
+                },
+                onDismissRequest = {},
+                shape = MaterialTheme.shapes.small,
+                properties = PopupProperties(focusable = false),
+            ) {
+                Text(
+                    text = tooltip,
+                    style = AppTextStyles.hint,
+                    modifier = Modifier
+                        .widthIn(max = 220.dp)
+                        .padding(Spacing.small),
+                )
+            }
+        }
+    }
 }
 
 @Composable

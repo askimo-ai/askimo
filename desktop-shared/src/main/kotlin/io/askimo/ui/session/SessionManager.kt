@@ -11,6 +11,7 @@ import io.askimo.core.chat.domain.ChatMessage
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
+import io.askimo.core.chat.dto.ToolApprovalRequest
 import io.askimo.core.chat.dto.ToolCallInfo
 import io.askimo.core.chat.dto.ToolCallStatus
 import io.askimo.core.chat.service.ChatSessionService
@@ -19,7 +20,10 @@ import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.SessionCreatedEvent
 import io.askimo.core.exception.ContextLengthException
 import io.askimo.core.exception.ExceptionHandler
+import io.askimo.core.i18n.LocalizationManager
+import io.askimo.core.intent.ToolConfig
 import io.askimo.core.logging.logger
+import io.askimo.core.mcp.McpInstanceService
 import io.askimo.core.providers.ConfigurationErrorException
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ProxyChatContext
@@ -32,7 +36,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -65,6 +68,7 @@ import java.util.concurrent.ConcurrentHashMap
 class SessionManager(
     private val chatSessionService: ChatSessionService,
     private val scope: CoroutineScope,
+    private val mcpInstanceService: McpInstanceService? = null,
 ) {
     private val log = logger<SessionManager>()
 
@@ -139,12 +143,24 @@ class SessionManager(
         private val _savedMessage: MutableStateFlow<ChatMessage?> = MutableStateFlow(null),
         private val _toolCalls: MutableStateFlow<List<ToolCallInfo>> = MutableStateFlow(emptyList()),
         private val _thinkingChunks: MutableStateFlow<List<String>> = MutableStateFlow(emptyList()),
+        private val _pendingApproval: MutableStateFlow<ToolApprovalRequest?> = MutableStateFlow(null),
     ) {
         val chunks: StateFlow<List<String>> = _chunks.asStateFlow()
         val isComplete: StateFlow<Boolean> = _isComplete.asStateFlow()
         val savedMessage: StateFlow<ChatMessage?> = _savedMessage.asStateFlow()
         val toolCalls: StateFlow<List<ToolCallInfo>> = _toolCalls.asStateFlow()
         val thinkingChunks: StateFlow<List<String>> = _thinkingChunks.asStateFlow()
+        val pendingApproval: StateFlow<ToolApprovalRequest?> = _pendingApproval.asStateFlow()
+
+        /** Sets the pending approval request, surfacing Approve/Deny buttons in the UI. */
+        fun requestApproval(request: ToolApprovalRequest) {
+            _pendingApproval.value = request
+        }
+
+        /** Clears the pending approval request after the user has responded. */
+        fun clearApproval() {
+            _pendingApproval.value = null
+        }
 
         private val mutex = Mutex()
 
@@ -298,6 +314,14 @@ class SessionManager(
                     var capturedTotalTokens: Int? = null
                     var capturedDurationMs: Long? = null
 
+                    // Fetch resolved tools for the approval guardrail.
+                    // Only fetched when MCP servers are enabled and the service is available.
+                    val resolvedTools: List<ToolConfig> = if (enabledServerIds.isNotEmpty() && mcpInstanceService != null) {
+                        mcpInstanceService.getGlobalTools().getOrDefault(emptyList())
+                    } else {
+                        emptyList()
+                    }
+
                     // Pre-generate the assistant message ID and set the ProxyChatContext
                     // ThreadLocal on this thread so the correlating HTTP client can inject
                     // the tracking headers into the outgoing proxy request.
@@ -350,6 +374,33 @@ class SessionManager(
                                 onThinkingToken = { token ->
                                     streamingScope.launch {
                                         thread.appendThinkingChunk(token)
+                                    }
+                                },
+                                resolvedTools = resolvedTools,
+                                onToolApprovalRequired = { toolName, arguments, approve, deny ->
+                                    streamingScope.launch {
+                                        val argBlock = if (!arguments.isNullOrBlank()) {
+                                            ":\n```json\n$arguments\n```"
+                                        } else {
+                                            "."
+                                        }
+                                        thread.appendChunk(
+                                            LocalizationManager.getString("chat.tool.approval.required", toolName, argBlock),
+                                        )
+                                        thread.requestApproval(
+                                            ToolApprovalRequest(
+                                                toolName = toolName,
+                                                arguments = arguments,
+                                                approve = {
+                                                    streamingScope.launch { thread.clearApproval() }
+                                                    approve()
+                                                },
+                                                deny = {
+                                                    streamingScope.launch { thread.clearApproval() }
+                                                    deny()
+                                                },
+                                            ),
+                                        )
                                     }
                                 },
                             )
@@ -437,7 +488,7 @@ class SessionManager(
                 val savedMessage = chatSessionService.saveAiResponse(sessionId, failedResponse, isFailed = true)
                 thread.setSavedMessage(savedMessage)
 
-                if (failedResponse != partialResponse) {
+                if (failedResponse != partialResponse && failedResponse.length > partialResponse.length) {
                     val remainingContent = failedResponse.substring(partialResponse.length)
                     if (remainingContent.isNotEmpty()) {
                         thread.appendChunk(remainingContent)
@@ -607,9 +658,6 @@ class SessionManager(
 
                 // Navigate to chat view
                 onComplete()
-
-                // Small delay to ensure UI and ViewModel are ready
-                delay(100)
 
                 // Now send the message - ViewModel is ready
                 val viewModel = getOrCreateChatViewModel(newSession.id)

@@ -109,7 +109,7 @@ object ChatRequestTransformers {
         val deduplicatedNonSystem = nonSystemMessages.fold(mutableListOf<ChatMessage>()) { acc, msg ->
             val lastSameType = acc.lastOrNull { it.type() == msg.type() }
             if (lastSameType != null && getMessageText(lastSameType) == getMessageText(msg)) {
-                log.debug("Dropping consecutive duplicate {} message", msg.type())
+                log.debug("Dropping consecutive duplicate {} message: {}", msg.type(), getMessageText(msg).take(100))
                 acc
             } else {
                 acc.also { it.add(msg) }

@@ -27,7 +27,10 @@ import io.askimo.core.exception.ToolExecutionException
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.intent.DetectAiResponseIntentCommand
 import io.askimo.core.intent.FollowUpSuggestion
+import io.askimo.core.intent.ToolApprovalPolicy
+import io.askimo.core.intent.ToolConfig
 import io.askimo.core.intent.ToolRegistry
+import io.askimo.core.intent.defaultApprovalPolicy
 import io.askimo.core.logging.logger
 import io.askimo.core.memory.SessionConversationSummary
 import io.askimo.core.memory.UserMemorySummary
@@ -36,11 +39,13 @@ import io.askimo.core.util.RetryPresets
 import io.askimo.core.util.RetryUtils
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import java.nio.channels.UnresolvedAddressException
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * Extension function to detect if an exception is due to unsupported sampling parameters.
@@ -204,6 +209,24 @@ fun ChatClient.sendStreamingMessageWithCallback(
     onToolStarted: ((toolName: String, arguments: String?) -> Unit)? = null,
     onToolFinished: ((toolName: String, arguments: String?, result: String?, hasFailed: Boolean) -> Unit)? = null,
     onThinkingToken: ((String) -> Unit)? = null,
+    /**
+     * Resolved [ToolConfig] list for the current session.
+     * Used to look up each tool's [io.askimo.core.intent.ToolApprovalPolicy] before execution.
+     * When empty, no approval checks are performed and all tools run automatically.
+     */
+    resolvedTools: List<ToolConfig> = emptyList(),
+    /**
+     * Called in [beforeToolExecution] when the resolved approval policy for a tool is
+     * [ToolApprovalPolicy.REQUIRE_APPROVAL] (either explicitly set or implied by the tool's
+     * [io.askimo.core.intent.ToolCategory.defaultApprovalPolicy]).
+     *
+     * The callback **must** eventually invoke either [approve] or [deny] — failing to do so
+     * will stall the streaming thread until the 120-second timeout fires.
+     *
+     * - Invoke [approve] to let the tool proceed.
+     * - Invoke [deny] to cancel the tool call (surfaces as a [ToolExecutionException]).
+     */
+    onToolApprovalRequired: ((toolName: String, arguments: String?, approve: () -> Unit, deny: () -> Unit) -> Unit)? = null,
 ): String {
     val log = logger<ChatClient>()
 
@@ -281,6 +304,37 @@ fun ChatClient.sendStreamingMessageWithCallback(
                             val arguments = before.request().arguments()
                             log.debug("Tool starting: {}", toolName)
                             onToolStarted?.invoke(toolName, arguments)
+
+                            // ── Approval guardrail ─────────────────────────────────────────────
+                            if (onToolApprovalRequired != null) {
+                                val toolConfig = resolvedTools.find { it.specification.name() == toolName }
+                                val effectivePolicy = when (toolConfig?.approvalPolicy ?: ToolApprovalPolicy.DEFAULT) {
+                                    ToolApprovalPolicy.DEFAULT -> toolConfig?.category?.defaultApprovalPolicy()
+                                        ?: ToolApprovalPolicy.DEFAULT
+
+                                    ToolApprovalPolicy.REQUIRE_APPROVAL -> ToolApprovalPolicy.REQUIRE_APPROVAL
+                                }
+
+                                if (effectivePolicy == ToolApprovalPolicy.REQUIRE_APPROVAL) {
+                                    val latch = CountDownLatch(1)
+                                    var approved = false
+                                    onToolApprovalRequired.invoke(
+                                        toolName,
+                                        arguments,
+                                        {
+                                            approved = true
+                                            latch.countDown()
+                                        },
+                                        { latch.countDown() },
+                                    )
+                                    if (!latch.await(120, TimeUnit.SECONDS)) {
+                                        throw ToolExecutionException(toolName = toolName, errorDetails = LocalizationManager.getString("chat.tool.approval.timed_out", toolName))
+                                    }
+                                    if (!approved) {
+                                        throw ToolExecutionException(toolName = toolName, errorDetails = LocalizationManager.getString("chat.tool.approval.denied", toolName))
+                                    }
+                                }
+                            }
                         }.onToolExecuted { tool ->
                             val toolName = tool.request().name()
                             val arguments = tool.request().arguments()
@@ -638,7 +692,7 @@ internal fun normalizeJsonFieldTypes(
         val root = jsonParser.parseToJsonElement(jsonText)
         if (root !is JsonObject) return jsonText
 
-        fun normalizeValue(key: String, value: kotlinx.serialization.json.JsonElement): kotlinx.serialization.json.JsonElement = when {
+        fun normalizeValue(key: String, value: JsonElement): JsonElement = when {
             key in arrayKeys -> when (value) {
                 is JsonArray -> value
 

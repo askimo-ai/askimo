@@ -112,13 +112,22 @@ class PlanExecutor(private val chatModel: ChatModel) {
         } catch (e: IllegalArgumentException) {
             Analytics.track(
                 AnalyticsEvent.PLAN_FAILED,
-                mapOf("step_count" to stepCount.toString(), "error_type" to "missing_input"),
+                mapOf(
+                    "step_count" to stepCount.toString(),
+                    "error_type" to "missing_input",
+                    "error_message" to (e.message ?: "unknown"),
+                ),
             )
             throw e
         } catch (e: Exception) {
             Analytics.track(
                 AnalyticsEvent.PLAN_FAILED,
-                mapOf("step_count" to stepCount.toString(), "error_type" to "step_failed"),
+                mapOf(
+                    "step_count" to stepCount.toString(),
+                    "error_type" to "step_failed",
+                    "error_class" to e::class.simpleName.orEmpty(),
+                    "error_message" to (e.message ?: "unknown"),
+                ),
             )
             throw e
         }

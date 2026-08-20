@@ -97,6 +97,8 @@ import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.rag.ProjectIndexer
 import io.askimo.core.util.TimeUtil.formatDisplay
 import io.askimo.core.util.formatFileSize
+import io.askimo.ui.common.components.primaryButton
+import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.keymap.KeyMapManager
 import io.askimo.ui.common.keymap.KeyMapManager.AppShortcut
@@ -177,6 +179,7 @@ fun chatView(
     val activeThinkingContent = state.activeThinkingContent
     val bookmarkedMessageIds = state.bookmarkedMessageIds
     val pendingScrollToMessageId = state.pendingScrollToMessageId
+    val pendingToolApproval = state.pendingToolApproval
 
     // Internal state management for ChatView
     val scope = rememberCoroutineScope()
@@ -1148,6 +1151,45 @@ fun chatView(
                         adapter = rememberScrollbarAdapter(messagesScrollState),
                         style = AppComponents.scrollbarStyle(),
                     )
+                }
+
+                // Tool approval banner — inline between messages and input field
+                if (pendingToolApproval != null) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Card(
+                            modifier = Modifier
+                                .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            colors = AppComponents.bannerCardColors(),
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(Spacing.medium),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = stringResource("chat.tool.approval.prompt", pendingToolApproval.toolName),
+                                    style = AppTextStyles.caption,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {
+                                    secondaryButton(onClick = pendingToolApproval.deny) {
+                                        Text(stringResource("chat.tool.approval.deny"))
+                                    }
+                                    primaryButton(onClick = pendingToolApproval.approve) {
+                                        Text(stringResource("chat.tool.approval.approve"))
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // Input area

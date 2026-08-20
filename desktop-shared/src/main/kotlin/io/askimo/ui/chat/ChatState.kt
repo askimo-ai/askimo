@@ -6,6 +6,7 @@ package io.askimo.ui.chat
 
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.dto.ChatMessageDTO
+import io.askimo.core.chat.dto.ToolApprovalRequest
 import io.askimo.core.chat.dto.ToolCallInfo
 
 /**
@@ -44,6 +45,10 @@ data class ChatState(
 
     // Tool call state — ephemeral, populated only during active streaming
     val activeToolCalls: List<ToolCallInfo> = emptyList(),
+
+    // Pending tool approval — non-null when the AI wants to run a tool that requires user consent.
+    // Cleared automatically once the user approves or denies.
+    val pendingToolApproval: ToolApprovalRequest? = null,
 
     // Thinking/reasoning content — ephemeral, streamed from models that expose reasoning.
     // Populated during active streaming; cleared when a new message starts.

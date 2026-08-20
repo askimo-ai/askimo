@@ -14,10 +14,12 @@ import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import dev.langchain4j.agent.tool.ToolSpecification
 import dev.langchain4j.mcp.client.DefaultMcpClient
+import io.askimo.core.intent.ToolApprovalPolicy
 import io.askimo.core.intent.ToolCategory
 import io.askimo.core.intent.ToolConfig
 import io.askimo.core.intent.ToolSource
 import io.askimo.core.intent.ToolVectorIndex
+import io.askimo.core.intent.defaultApprovalPolicy
 import io.askimo.core.logging.logger
 import io.askimo.core.mcp.config.McpInstancesConfig
 import io.askimo.core.mcp.config.McpServersConfig
@@ -41,6 +43,11 @@ private data class ToolConfigData(
     val strategy: Int,
     val autoInferred: Boolean = true,
     val updatedAt: LocalDateTime = LocalDateTime.now(),
+    /**
+     * Explicit user-set approval policy. Null means "use the category default"
+     * ([ToolCategory.defaultApprovalPolicy]).
+     */
+    val approvalPolicy: ToolApprovalPolicy? = null,
 )
 
 private data class GlobalToolsConfigWrapper(val tools: List<ToolConfigData>)
@@ -265,12 +272,14 @@ class McpInstanceService(
 
                 if (userConfig != null && !userConfig.autoInferred) {
                     log.trace("Using user-customized config for tool '{}': {}, {}", toolName, userConfig.category, userConfig.strategy)
+                    val category = ToolCategory.valueOf(userConfig.category)
                     ToolConfig(
                         specification = toolSpec,
-                        category = ToolCategory.valueOf(userConfig.category),
+                        category = category,
                         strategy = userConfig.strategy,
                         source = ToolSource.MCP_EXTERNAL,
                         serverId = instance.id,
+                        approvalPolicy = userConfig.approvalPolicy ?: category.defaultApprovalPolicy(),
                     )
                 } else {
                     val inferredCategory = inferToolCategory(toolSpec)
@@ -295,6 +304,7 @@ class McpInstanceService(
                         strategy = inferredStrategy,
                         source = ToolSource.MCP_EXTERNAL,
                         serverId = instance.id,
+                        approvalPolicy = userConfig?.approvalPolicy ?: inferredCategory.defaultApprovalPolicy(),
                     )
                 }
             },
@@ -347,7 +357,34 @@ class McpInstanceService(
     suspend fun listTools(instanceId: String): Result<List<ToolConfig>> {
         val instance = getInstance(instanceId)
             ?: return Result.failure(IllegalArgumentException("Instance not found: $instanceId"))
-        return fetchToolsFromInstance(instance)
+        val userConfigs = loadToolConfigs()
+        return fetchToolsFromInstance(instance, userConfigs)
+    }
+
+    /**
+     * Persists a user-defined [ToolApprovalPolicy] for a specific tool on an instance.
+     * Invalidates the global tools cache so the change takes effect immediately.
+     */
+    fun setToolApproval(instanceId: String, toolName: String, policy: ToolApprovalPolicy) {
+        val configs = loadToolConfigs().toMutableMap()
+        val key = "$instanceId:$toolName"
+        val existing = configs[key]
+        configs[key] = (
+            existing ?: ToolConfigData(
+                toolName = toolName,
+                instanceId = instanceId,
+                category = ToolCategory.OTHER.name,
+                strategy = io.askimo.core.intent.ToolStrategy.INTENT_BASED,
+                autoInferred = true,
+            )
+            ).copy(
+            approvalPolicy = policy,
+            autoInferred = false,
+            updatedAt = LocalDateTime.now(),
+        )
+        saveGlobalToolConfigs(configs)
+        invalidateCache()
+        log.debug("Set approval policy for tool '{}' on instance '{}': {}", toolName, instanceId, policy)
     }
 
     fun getMcpClientForTool(toolName: String): DefaultMcpClient? = mcpClientsByToolCache.getIfPresent(toolName)

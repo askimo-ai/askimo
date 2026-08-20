@@ -12,6 +12,7 @@ import io.askimo.core.analytics.AnalyticsEvent
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
+import io.askimo.core.chat.dto.ToolApprovalRequest
 import io.askimo.core.chat.dto.ToolCallInfo
 import io.askimo.core.chat.mapper.ChatMessageMapper.toDTO
 import io.askimo.core.chat.repository.PaginationDirection
@@ -115,6 +116,9 @@ class ChatViewModel(
     var activeToolCalls by mutableStateOf<List<ToolCallInfo>>(emptyList())
         private set
 
+    var pendingToolApproval by mutableStateOf<ToolApprovalRequest?>(null)
+        private set
+
     var activeThinkingContent by mutableStateOf("")
         private set
 
@@ -144,6 +148,7 @@ class ChatViewModel(
             sessionTitle = sessionTitle ?: "",
             project = project,
             activeToolCalls = activeToolCalls,
+            pendingToolApproval = pendingToolApproval,
             activeThinkingContent = activeThinkingContent,
             bookmarkedMessageIds = bookmarkedMessageIds,
             pendingScrollToMessageId = pendingScrollToMessageId,
@@ -278,6 +283,51 @@ class ChatViewModel(
     fun getSpinnerFrame(): Char = spinnerFrames[thinkingFrameIndex % spinnerFrames.size]
 
     /**
+     * Inserts [message] at [retryInsertPosition] (retry mode) or replaces a trailing
+     * AI message / appends (normal mode). Use for first-time placement of a new bubble.
+     */
+    private fun insertAiMessage(message: ChatMessageDTO) {
+        messages = if (retryInsertPosition != null) {
+            messages.toMutableList().apply { add(retryInsertPosition!!, message) }
+        } else {
+            val last = messages.lastOrNull()
+            if (last != null && !last.isUser) messages.dropLast(1) + message else messages + message
+        }
+    }
+
+    /**
+     * Updates an already-present streaming bubble (id=null) in-place, or falls back to
+     * [insertAiMessage] if the bubble does not exist yet. Use inside `chunks.collect`.
+     */
+    private fun upsertStreamingAiMessage(message: ChatMessageDTO) {
+        messages = if (retryInsertPosition != null) {
+            val list = messages.toMutableList()
+            val pos = retryInsertPosition!!
+            if (pos < list.size && !list[pos].isUser && list[pos].id == null) {
+                list[pos] = message
+                list
+            } else {
+                list.apply { add(pos, message) }
+            }
+        } else {
+            val last = messages.lastOrNull()
+            if (last != null && !last.isUser) messages.dropLast(1) + message else messages + message
+        }
+    }
+
+    /**
+     * Ensures a placeholder AI message (id=null) exists in [messages].
+     * If one already exists this is a no-op. Otherwise inserts an empty bubble via
+     * [insertAiMessage] and stops the thinking indicator.
+     */
+    private fun ensurePlaceholderAiMessage() {
+        if (messages.any { !it.isUser && it.id == null }) return
+        isThinking = false
+        stopThinkingTimer()
+        insertAiMessage(ChatMessageDTO(content = "", isUser = false, id = null, timestamp = null))
+    }
+
+    /**
      * Subscribe to a SPECIFIC thread by sessionId.
      * This ensures we only get chunks from THIS specific question, not old ones.
      */
@@ -304,18 +354,7 @@ class ChatViewModel(
                 )
 
                 // Insert at retry position or append to end
-                messages = if (retryInsertPosition != null) {
-                    messages.toMutableList().apply {
-                        add(retryInsertPosition!!, newAiMessage)
-                    }
-                } else {
-                    val lastMessage = messages.lastOrNull()
-                    if (lastMessage != null && !lastMessage.isUser) {
-                        messages.dropLast(1) + newAiMessage
-                    } else {
-                        messages + newAiMessage
-                    }
-                }
+                insertAiMessage(newAiMessage)
             }
 
             // Create a single job for this SPECIFIC threadId's subscription
@@ -341,28 +380,7 @@ class ChatViewModel(
                         )
 
                         // Insert at retry position or update/append at end
-                        messages = if (retryInsertPosition != null) {
-                            // Check if message already exists at retry position
-                            val messagesList = messages.toMutableList()
-                            if (retryInsertPosition!! < messagesList.size &&
-                                !messagesList[retryInsertPosition!!].isUser &&
-                                messagesList[retryInsertPosition!!].id == null
-                            ) {
-                                // Replace existing streaming message
-                                messagesList[retryInsertPosition!!] = newAiMessage
-                                messagesList
-                            } else {
-                                // Insert new message
-                                messagesList.apply { add(retryInsertPosition!!, newAiMessage) }
-                            }
-                        } else {
-                            val lastMessage = messages.lastOrNull()
-                            if (lastMessage != null && !lastMessage.isUser) {
-                                messages.dropLast(1) + newAiMessage
-                            } else {
-                                messages + newAiMessage
-                            }
-                        }
+                        upsertStreamingAiMessage(newAiMessage)
                     }
                 }
             }
@@ -376,28 +394,8 @@ class ChatViewModel(
             scope.launch {
                 activeThread.toolCalls.collect { calls ->
                     if (currentSessionId.value == sessionId) {
-                        activeToolCalls = calls
-                        // No streaming bubble yet — create placeholder so tool chips are visible
-                        if (calls.isNotEmpty() && messages.none { !it.isUser && it.id == null }) {
-                            isThinking = false
-                            stopThinkingTimer()
-                            val placeholder = ChatMessageDTO(
-                                content = "",
-                                isUser = false,
-                                id = null,
-                                timestamp = null,
-                            )
-                            messages = if (retryInsertPosition != null) {
-                                messages.toMutableList().apply { add(retryInsertPosition!!, placeholder) }
-                            } else {
-                                val lastMsg = messages.lastOrNull()
-                                if (lastMsg != null && !lastMsg.isUser) {
-                                    messages.dropLast(1) + placeholder
-                                } else {
-                                    messages + placeholder
-                                }
-                            }
-                        }
+                        activeToolCalls = calls // No streaming bubble yet — create placeholder so tool chips are visible
+                        if (calls.isNotEmpty()) ensurePlaceholderAiMessage()
                     }
                 }
             }
@@ -405,31 +403,20 @@ class ChatViewModel(
             // Subscribe to thinking/reasoning tokens streamed by models that expose reasoning.
             // Accumulate chunks into a single string; UI renders them in a collapsible section.
             scope.launch {
+                activeThread.pendingApproval.collect { request ->
+                    if (currentSessionId.value == sessionId) {
+                        pendingToolApproval = request
+                    }
+                }
+            }
+
+            scope.launch {
                 activeThread.thinkingChunks.collect { chunks ->
                     if (currentSessionId.value == sessionId) {
                         activeThinkingContent = chunks.joinToString("")
                         // Ensure a placeholder bubble exists so the thinking section is visible
                         // even before the first response token arrives.
-                        if (chunks.isNotEmpty() && messages.none { !it.isUser && it.id == null }) {
-                            isThinking = false
-                            stopThinkingTimer()
-                            val placeholder = ChatMessageDTO(
-                                content = "",
-                                isUser = false,
-                                id = null,
-                                timestamp = null,
-                            )
-                            messages = if (retryInsertPosition != null) {
-                                messages.toMutableList().apply { add(retryInsertPosition!!, placeholder) }
-                            } else {
-                                val lastMsg = messages.lastOrNull()
-                                if (lastMsg != null && !lastMsg.isUser) {
-                                    messages.dropLast(1) + placeholder
-                                } else {
-                                    messages + placeholder
-                                }
-                            }
-                        }
+                        if (chunks.isNotEmpty()) ensurePlaceholderAiMessage()
                     }
                 }
             }
@@ -608,6 +595,7 @@ class ChatViewModel(
 
                 // Clear tool chips and thinking content from the previous response before retrying
                 activeToolCalls = emptyList()
+                pendingToolApproval = null
                 activeThinkingContent = ""
 
                 startThinkingTimer()
@@ -689,6 +677,7 @@ class ChatViewModel(
 
         // Clear tool chips and thinking content from the previous response now that a new message is starting
         activeToolCalls = emptyList()
+        pendingToolApproval = null
         activeThinkingContent = ""
 
         // Session ID must be set by this point (from resumeSession)

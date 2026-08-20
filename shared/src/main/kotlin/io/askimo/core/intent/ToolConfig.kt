@@ -16,7 +16,39 @@ data class ToolConfig(
     val source: ToolSource,
     /** The MCP instance ID this tool belongs to. Null for built-in Askimo tools. */
     val serverId: String? = null,
+    /**
+     * Resolved approval policy for this tool.
+     * [ToolApprovalPolicy.DEFAULT] means the runtime falls back to [ToolCategory.defaultApprovalPolicy].
+     */
+    val approvalPolicy: ToolApprovalPolicy = ToolApprovalPolicy.DEFAULT,
 )
+
+/**
+ * Per-tool execution approval policy configured by the user.
+ */
+enum class ToolApprovalPolicy {
+    /**
+     * Derive behaviour from the tool's [ToolCategory]:
+     * mutating categories require approval automatically; read-only categories run freely.
+     */
+    DEFAULT,
+
+    /** Always pause and ask the user before the AI executes this tool. */
+    REQUIRE_APPROVAL,
+}
+
+/**
+ * Returns the approval policy implied by this category when the user has not set an explicit override.
+ * Mutating / side-effectful categories default to [ToolApprovalPolicy.REQUIRE_APPROVAL];
+ * safe read-only categories default to [ToolApprovalPolicy.DEFAULT] (auto-run).
+ */
+fun ToolCategory.defaultApprovalPolicy(): ToolApprovalPolicy = when (this) {
+    ToolCategory.FILE_WRITE,
+    ToolCategory.EXECUTE,
+    -> ToolApprovalPolicy.REQUIRE_APPROVAL
+
+    else -> ToolApprovalPolicy.DEFAULT
+}
 
 /**
  * Tool execution strategy using bitwise flags.

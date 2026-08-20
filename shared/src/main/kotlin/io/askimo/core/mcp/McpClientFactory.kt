@@ -7,8 +7,6 @@ package io.askimo.core.mcp
 import dev.langchain4j.agent.tool.ToolSpecification
 import dev.langchain4j.mcp.client.DefaultMcpClient
 import io.askimo.core.intent.ToolCategory
-import io.askimo.core.intent.ToolConfig
-import io.askimo.core.intent.ToolSource
 import io.askimo.core.intent.ToolStrategy
 import io.askimo.core.logging.logger
 import io.askimo.core.mcp.config.McpServersConfig
@@ -84,77 +82,6 @@ class McpClientFactory(
             Result.failure(
                 IllegalStateException(
                     "Failed to create MCP client for '${instance.name}': ${e.message}",
-                    e,
-                ),
-            )
-        }
-    }
-
-    /**
-     * Connects using a fully-resolved [definition] (no local config lookup).
-     * Intended for org-managed / remote servers whose definition is not stored in [McpServersConfig].
-     *
-     * Returns [Result.failure] with the root cause so callers can surface a meaningful message.
-     */
-    suspend fun listTools(name: String, definition: McpServerDefinition): Result<List<ToolConfig>> {
-        val clientKey = "list_${definition.id}_${System.currentTimeMillis()}"
-        return try {
-            val connector = McpInstance(
-                id = definition.id,
-                serverId = definition.id,
-                name = name,
-                parameterValues = emptyMap(),
-                enabled = true,
-                createdAt = java.time.LocalDateTime.now(),
-                updatedAt = java.time.LocalDateTime.now(),
-            ).toConnector(definition)
-
-            val transport = connector.createTransport()
-            val client = DefaultMcpClient.builder()
-                .key(clientKey)
-                .transport(transport)
-                .build()
-
-            val tools = client.listTools().map { toolSpec ->
-                ToolConfig(
-                    specification = toolSpec,
-                    category = inferToolCategory(toolSpec),
-                    strategy = inferToolStrategy(toolSpec),
-                    source = ToolSource.MCP_EXTERNAL,
-                )
-            }
-            Result.success(tools)
-        } catch (e: Exception) {
-            Result.failure(
-                IllegalStateException("Failed to list tools from '$name': ${e.message}", e),
-            )
-        }
-    }
-
-    /**
-     * Connects to [instance], fetches its tool list, and returns classified [ToolConfig]s.
-     *
-     * Returns [Result.failure] with the root cause so callers can surface a meaningful message.
-     */
-    suspend fun listTools(instance: McpInstance): Result<List<ToolConfig>> {
-        val clientKey = "list_${instance.id}_${System.currentTimeMillis()}"
-        val mcpClient = createMcpClient(instance, clientKey)
-            .getOrElse { return Result.failure(it) }
-
-        return try {
-            val tools = mcpClient.listTools().map { toolSpec ->
-                ToolConfig(
-                    specification = toolSpec,
-                    category = inferToolCategory(toolSpec),
-                    strategy = inferToolStrategy(toolSpec),
-                    source = ToolSource.MCP_EXTERNAL,
-                )
-            }
-            Result.success(tools)
-        } catch (e: Exception) {
-            Result.failure(
-                IllegalStateException(
-                    "Failed to list tools from '${instance.name}': ${e.message}",
                     e,
                 ),
             )
