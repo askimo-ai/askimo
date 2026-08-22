@@ -62,7 +62,6 @@ class AskimoFeature : Feature {
             HasApiKey::class.java,
             HasBaseUrl::class.java,
             SettingField::class.java,
-            OpenAiSettings::class.java,
             AnthropicSettings::class.java,
             GeminiSettings::class.java,
             OpenAiSettings::class.java,
