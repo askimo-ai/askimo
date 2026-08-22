@@ -25,23 +25,13 @@ import java.net.URI
 
 /**
  * Native menu bar handler that provides OS-specific menu implementations.
- * - macOS: Uses system menu bar at the top of screen
- * - Windows/Linux: Uses AWT MenuBar with native look and feel
+ * - macOS: Uses system/native menu bar at the top of screen
+ * - Windows/Linux: Native AWT menu bar is disabled (Compose UI handles actions)
  */
 object NativeMenuBar {
     private var updateSidebarMenuItem: ((Boolean) -> Unit)? = null
 
-    private fun menuLabel(key: String, vararg args: Any): String = sanitizeMenuLabelForPlatform(LocalizationManager.getString(key, *args))
-
-    private fun sanitizeMenuLabelForPlatform(text: String): String {
-        if (!Platform.isWindows) return text
-
-        // AWT menu rendering on Windows often lacks proper emoji fallback.
-        // Strip leading symbol emoji and variation selectors for menu labels.
-        return text
-            .replace("\uFE0F", "")
-            .replace(Regex("^[\\p{So}\\p{Cn}]+\\s*"), "")
-    }
+    private fun menuLabel(key: String, vararg args: Any): String = LocalizationManager.getString(key, *args)
 
     fun updateSidebarMenuLabel(isSidebarExpanded: Boolean) {
         updateSidebarMenuItem?.invoke(isSidebarExpanded)
@@ -72,7 +62,7 @@ object NativeMenuBar {
         onShowSettings: () -> Unit,
         onShowEventLog: () -> Unit,
         onCheckForUpdates: () -> Unit,
-        onEnterFullScreen: () -> Unit,
+        onToggleFullScreen: () -> Unit,
         onNavigateToSessions: () -> Unit,
         onNavigateToProjects: () -> Unit,
         onNavigateToDiscover: () -> Unit,
@@ -90,6 +80,7 @@ object NativeMenuBar {
         isPlansVisible: Boolean = true,
         isSkillsVisible: Boolean = true,
         isProjectsVisible: Boolean = true,
+        isFullScreen: Boolean = false,
         onShowSystemDiagnostics: () -> Unit = {},
         onNavigateToBookmarks: () -> Unit,
         onSupportAskimo: () -> Unit = {},
@@ -97,11 +88,11 @@ object NativeMenuBar {
     ) {
         val window = frameWindowScope.window
 
-        // Setup AWT menu bar for all platforms (includes Documentation)
-        setupAWTMenuBar(window, onShowAbout, onNewChat, onNewProject, onSearchInSessions, onShowSettings, onShowEventLog, onCheckForUpdates, onEnterFullScreen, onNavigateToSessions, onNavigateToProjects, onNavigateToDiscover, onToggleSidebar, onInvalidateCaches, onExportBackup, onImportBackup, onShowGettingStarted, onOpenTerminal, onClearPreferences, onClearAccountPreferences, onTogglePlans, onToggleSkills, onToggleProjects, isPlansVisible, isSkillsVisible, isProjectsVisible, onShowSystemDiagnostics, onNavigateToBookmarks, onSupportAskimo, onShareFeedback)
-
-        // On macOS, also register the About handler for the app menu
+        // Use native AWT menu bar only on macOS to avoid CJK glyph issues on some platforms.
         if (Platform.isMac) {
+            setupAWTMenuBar(window, onShowAbout, onNewChat, onNewProject, onSearchInSessions, onShowSettings, onShowEventLog, onCheckForUpdates, onToggleFullScreen, onNavigateToSessions, onNavigateToProjects, onNavigateToDiscover, onToggleSidebar, onInvalidateCaches, onExportBackup, onImportBackup, onShowGettingStarted, onOpenTerminal, onClearPreferences, onClearAccountPreferences, onTogglePlans, onToggleSkills, onToggleProjects, isPlansVisible, isSkillsVisible, isProjectsVisible, isFullScreen, onShowSystemDiagnostics, onNavigateToBookmarks, onSupportAskimo, onShareFeedback)
+
+            // Register About handler in the macOS application menu.
             setupMacAboutHandler(onShowAbout)
         }
     }
@@ -129,7 +120,7 @@ object NativeMenuBar {
         onShowSettings: () -> Unit,
         onShowEventLog: () -> Unit,
         onCheckForUpdates: () -> Unit,
-        onEnterFullScreen: () -> Unit,
+        onToggleFullScreen: () -> Unit,
         onNavigateToSessions: () -> Unit,
         onNavigateToProjects: () -> Unit,
         onNavigateToDiscover: () -> Unit,
@@ -147,6 +138,7 @@ object NativeMenuBar {
         isPlansVisible: Boolean,
         isSkillsVisible: Boolean,
         isProjectsVisible: Boolean,
+        isFullScreen: Boolean,
         onShowSystemDiagnostics: () -> Unit,
         onNavigateToBookmarks: () -> Unit,
         onSupportAskimo: () -> Unit,
@@ -155,10 +147,10 @@ object NativeMenuBar {
         if (window is Frame) {
             val menuBar = MenuBar()
 
-            val fileMenu = Menu(LocalizationManager.getString("menu.file"))
+            val fileMenu = Menu(menuLabel("menu.file"))
 
             val newChatItem = MenuItem(
-                LocalizationManager.getString("chat.new"),
+                menuLabel("chat.new"),
                 MenuShortcut(KeyEvent.VK_N),
             )
             newChatItem.addActionListener {
@@ -167,7 +159,7 @@ object NativeMenuBar {
             fileMenu.add(newChatItem)
 
             val newProjectItem = MenuItem(
-                LocalizationManager.getString("menu.new.project"),
+                menuLabel("menu.new.project"),
                 MenuShortcut(KeyEvent.VK_N, true), // Shift+Ctrl+N (or Shift+Cmd+N on Mac)
             )
             newProjectItem.addActionListener {
@@ -178,7 +170,7 @@ object NativeMenuBar {
             fileMenu.addSeparator()
 
             val searchSessionsItem = MenuItem(
-                LocalizationManager.getString("menu.search.sessions"),
+                menuLabel("menu.search.sessions"),
                 MenuShortcut(KeyEvent.VK_F, true), // Shift+Ctrl+F (or Shift+Cmd+F on Mac)
             )
             searchSessionsItem.addActionListener {
@@ -189,7 +181,7 @@ object NativeMenuBar {
             fileMenu.addSeparator()
 
             val exportBackupItem = MenuItem(
-                LocalizationManager.getString("menu.export.backup"),
+                menuLabel("menu.export.backup"),
                 MenuShortcut(KeyEvent.VK_E, true), // Shift+Ctrl+E (or Shift+Cmd+E on Mac)
             )
             exportBackupItem.addActionListener {
@@ -198,7 +190,7 @@ object NativeMenuBar {
             fileMenu.add(exportBackupItem)
 
             val importBackupItem = MenuItem(
-                LocalizationManager.getString("menu.import.backup"),
+                menuLabel("menu.import.backup"),
                 MenuShortcut(KeyEvent.VK_I, true), // Shift+Ctrl+I (or Shift+Cmd+I on Mac)
             )
             importBackupItem.addActionListener {
@@ -209,7 +201,7 @@ object NativeMenuBar {
             fileMenu.addSeparator()
 
             val invalidateCachesItem = MenuItem(
-                LocalizationManager.getString("menu.invalidate.caches"),
+                menuLabel("menu.invalidate.caches"),
             )
             invalidateCachesItem.addActionListener {
                 onInvalidateCaches()
@@ -217,7 +209,7 @@ object NativeMenuBar {
             fileMenu.add(invalidateCachesItem)
 
             val clearPreferencesItem = MenuItem(
-                LocalizationManager.getString("menu.clear.preferences"),
+                menuLabel("menu.clear.preferences"),
             )
             clearPreferencesItem.addActionListener {
                 onClearPreferences()
@@ -227,7 +219,7 @@ object NativeMenuBar {
             fileMenu.addSeparator()
 
             val settingsItem = MenuItem(
-                LocalizationManager.getString("settings.title"),
+                menuLabel("settings.title"),
                 MenuShortcut(KeyEvent.VK_COMMA),
             )
             settingsItem.addActionListener {
@@ -237,9 +229,9 @@ object NativeMenuBar {
 
             menuBar.add(fileMenu)
 
-            val viewMenu = Menu(LocalizationManager.getString("menu.view"))
+            val viewMenu = Menu(menuLabel("menu.view"))
 
-            val appearanceMenu = Menu(LocalizationManager.getString("menu.view.appearance"))
+            val appearanceMenu = Menu(menuLabel("menu.view.appearance"))
 
             val systemThemeItem = MenuItem("")
             val lightThemeItem = MenuItem("")
@@ -249,11 +241,11 @@ object NativeMenuBar {
             fun updateThemeMenuItems() {
                 val currentTheme = ThemePreferences.themeMode.value
                 systemThemeItem.label = (if (currentTheme == ThemeMode.SYSTEM) "✓ " else "  ") +
-                    LocalizationManager.getString("menu.view.appearance.system")
+                    menuLabel("menu.view.appearance.system")
                 lightThemeItem.label = (if (currentTheme == ThemeMode.LIGHT) "✓ " else "  ") +
-                    LocalizationManager.getString("menu.view.appearance.light")
+                    menuLabel("menu.view.appearance.light")
                 darkThemeItem.label = (if (currentTheme == ThemeMode.DARK) "✓ " else "  ") +
-                    LocalizationManager.getString("menu.view.appearance.dark")
+                    menuLabel("menu.view.appearance.dark")
             }
 
             // Initialize labels
@@ -284,7 +276,7 @@ object NativeMenuBar {
 
             // Discover — standalone menu item
             val discoverItemGo = MenuItem(
-                LocalizationManager.getString("menu.view.discover"),
+                menuLabel("menu.view.discover"),
                 MenuShortcut(KeyEvent.VK_D),
             )
             discoverItemGo.addActionListener { onNavigateToDiscover() }
@@ -294,7 +286,7 @@ object NativeMenuBar {
                 val plansToggleItem = MenuItem("")
                 val updatePlansMenuItemFunc: (Boolean) -> Unit = { visible ->
                     plansToggleItem.label = (if (visible) "✓ " else "  ") +
-                        LocalizationManager.getString("menu.view.plans")
+                        menuLabel("menu.view.plans")
                 }
                 updatePlansMenuItem = updatePlansMenuItemFunc
                 updatePlansMenuItemFunc(isPlansVisible)
@@ -306,7 +298,7 @@ object NativeMenuBar {
                 val skillsToggleItem = MenuItem("")
                 val updateSkillsMenuItemFunc: (Boolean) -> Unit = { visible ->
                     skillsToggleItem.label = (if (visible) "✓ " else "  ") +
-                        LocalizationManager.getString("menu.view.skills")
+                        menuLabel("menu.view.skills")
                 }
                 updateSkillsMenuItem = updateSkillsMenuItemFunc
                 updateSkillsMenuItemFunc(isSkillsVisible)
@@ -318,7 +310,7 @@ object NativeMenuBar {
                 val projectsToggleItem = MenuItem("")
                 val updateProjectsMenuItemFunc: (Boolean) -> Unit = { visible ->
                     projectsToggleItem.label = (if (visible) "✓ " else "  ") +
-                        LocalizationManager.getString("menu.view.projects")
+                        menuLabel("menu.view.projects")
                 }
                 updateProjectsMenuItem = updateProjectsMenuItemFunc
                 updateProjectsMenuItemFunc(isProjectsVisible)
@@ -332,9 +324,9 @@ object NativeMenuBar {
 
             val updateSidebarMenuItemFunc: (Boolean) -> Unit = { isSidebarExpanded ->
                 toggleSidebarItem.label = if (isSidebarExpanded) {
-                    LocalizationManager.getString("menu.view.hide.sidebar")
+                    menuLabel("menu.view.hide.sidebar")
                 } else {
-                    LocalizationManager.getString("menu.view.show.sidebar")
+                    menuLabel("menu.view.show.sidebar")
                 }
             }
 
@@ -348,18 +340,22 @@ object NativeMenuBar {
             viewMenu.add(toggleSidebarItem)
 
             val fullScreenItem = MenuItem(
-                LocalizationManager.getString("menu.view.fullscreen"),
+                if (isFullScreen) {
+                    menuLabel("menu.view.exit.fullscreen")
+                } else {
+                    menuLabel("menu.view.fullscreen")
+                },
                 MenuShortcut(KeyEvent.VK_F, true), // Ctrl+Cmd+F on Mac, Ctrl+F on others
             )
             fullScreenItem.addActionListener {
-                onEnterFullScreen()
+                onToggleFullScreen()
             }
             viewMenu.add(fullScreenItem)
 
             // Bookmarks — navigate to the global Bookmarks view
             viewMenu.addSeparator()
             val bookmarksItem = MenuItem(
-                LocalizationManager.getString("menu.view.bookmarks"),
+                menuLabel("menu.view.bookmarks"),
                 MenuShortcut(KeyEvent.VK_B, true), // Shift+Cmd+B on Mac, Shift+Ctrl+B on others
             )
             bookmarksItem.addActionListener { onNavigateToBookmarks() }
@@ -368,10 +364,10 @@ object NativeMenuBar {
             menuBar.add(viewMenu)
 
             // Terminal Menu
-            val terminalMenu = Menu(LocalizationManager.getString("menu.terminal"))
+            val terminalMenu = Menu(menuLabel("menu.terminal"))
 
             val newTerminalItem = MenuItem(
-                LocalizationManager.getString("menu.terminal.new"),
+                menuLabel("menu.terminal.new"),
                 MenuShortcut(KeyEvent.VK_T, true), // Shift+Ctrl+T (or Shift+Cmd+T on Mac)
             )
             newTerminalItem.addActionListener {

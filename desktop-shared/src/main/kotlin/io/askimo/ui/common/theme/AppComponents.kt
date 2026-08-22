@@ -481,6 +481,7 @@ object AppComponents {
         showDivider: Boolean = false,
         enabled: Boolean = true,
         trailingIcon: (@Composable () -> Unit)? = null,
+        contentPadding: PaddingValues = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
     ) {
         DropdownMenuItem(
             text = text,
@@ -497,7 +498,7 @@ object AppComponents {
             },
             trailingIcon = trailingIcon,
             colors = menuItemColors(),
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            contentPadding = contentPadding,
         )
         if (showDivider) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))

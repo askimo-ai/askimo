@@ -94,6 +94,7 @@ import io.askimo.desktop.settings.aboutDialog
 import io.askimo.desktop.settings.fileViewerDialog
 import io.askimo.desktop.settings.providerWizardDialog
 import io.askimo.desktop.settings.settingsViewWithSidebar
+import io.askimo.desktop.shell.composeTopMenuBar
 import io.askimo.desktop.shell.footerBar
 import io.askimo.desktop.shell.navigationSidebar
 import io.askimo.desktop.shell.telemetryPanel
@@ -325,6 +326,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     var showTokenUsageCard by remember { mutableStateOf(ApplicationPreferences.getShowTokenUsageCard()) }
     var selectedProjectId by remember { mutableStateOf<String?>(null) }
     var sidebarWidthFraction by remember { mutableStateOf(ThemePreferences.getMainSidebarWidthFraction()) }
+    var isFullScreen by remember { mutableStateOf(windowState?.placement == WindowPlacement.Fullscreen) }
     var showQuitDialog by remember { mutableStateOf(false) }
     var showInvalidateCacheDialog by remember { mutableStateOf(false) }
     var showCacheDeletedDialog by remember { mutableStateOf(false) }
@@ -630,6 +632,16 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
             }
     }
 
+    // Watch for window placement changes to update full screen state
+    LaunchedEffect(windowState) {
+        windowState?.let { state ->
+            snapshotFlow { state.placement }
+                .collect { placement ->
+                    isFullScreen = (placement == WindowPlacement.Fullscreen)
+                }
+        }
+    }
+
     LaunchedEffect(preferredResponseAILocale, locale) {
         val localeString = preferredResponseAILocale
         val aiLocale = if (localeString.isNullOrBlank()) {
@@ -645,6 +657,109 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
         appContext.setLanguageDirective(aiLocale)
     }
 
+    val onShowAboutMenuAction = {
+        showAboutDialog = true
+    }
+    val onShowEventLogMenuAction = {
+        // Toggle between attached panel and detached window.
+        if (!showEventLogPanel && !showEventLogWindow) {
+            showEventLogPanel = true
+        } else if (showEventLogPanel) {
+            showEventLogPanel = false
+        }
+    }
+    val onNewChatMenuAction = {
+        sessionManager.clearActiveSession()
+        chatViewModel?.clearChat()
+        currentView = View.CHAT
+    }
+    val onNewProjectMenuAction = {
+        showNewProjectDialog = true
+    }
+    val onSearchInSessionsMenuAction = {
+        showGlobalSearchDialog = true
+    }
+    val onShowSettingsMenuAction = {
+        currentView = View.SETTINGS
+    }
+    val onCheckForUpdatesMenuAction = {
+        updateViewModel.checkForUpdates(silent = false)
+    }
+    val onToggleFullScreenMenuAction: () -> Unit = {
+        val state = windowState
+        if (state != null) {
+            state.placement = if (state.placement == WindowPlacement.Fullscreen) {
+                WindowPlacement.Floating
+            } else {
+                WindowPlacement.Fullscreen
+            }
+        }
+    }
+    val onNavigateToSessionsMenuAction = {
+        currentView = View.SESSIONS
+    }
+    val onNavigateToProjectsMenuAction = {
+        currentView = View.PROJECTS
+        Analytics.track(AnalyticsEvent.RAG_PANEL_OPENED)
+    }
+    val onNavigateToDiscoverMenuAction = {
+        currentView = View.DISCOVER
+    }
+    val onToggleSidebarMenuAction = {
+        isSidebarExpanded = !isSidebarExpanded
+        NativeMenuBar.updateSidebarMenuLabel(isSidebarExpanded)
+    }
+    val onInvalidateCachesMenuAction = {
+        showInvalidateCacheDialog = true
+    }
+    val onExportBackupMenuAction = {
+        exportBackup()
+    }
+    val onImportBackupMenuAction = {
+        importBackup()
+    }
+    val onShowGettingStartedMenuAction = {
+        showOnboardingWizard = true
+    }
+    val onOpenTerminalMenuAction = {
+        val opening = !showTerminalPanel
+        showTerminalPanel = opening
+        if (opening) Analytics.track(AnalyticsEvent.TERMINAL_OPENED, mapOf("source" to "toolbar"))
+    }
+    val onClearPreferencesMenuAction = {
+        showClearPreferencesDialog = true
+    }
+    val onTogglePlansMenuAction = {
+        showPlansInSidebar = !showPlansInSidebar
+        ApplicationPreferences.setShowPlansInSidebar(showPlansInSidebar)
+        NativeMenuBar.updatePlansMenuLabel(showPlansInSidebar)
+    }
+    val onToggleSkillsMenuAction = {
+        showSkillsInSidebar = !showSkillsInSidebar
+        ApplicationPreferences.setShowSkillsInSidebar(showSkillsInSidebar)
+        NativeMenuBar.updateSkillsMenuLabel(showSkillsInSidebar)
+    }
+    val onToggleProjectsMenuAction = {
+        showProjectsInSidebar = !showProjectsInSidebar
+        ApplicationPreferences.setShowProjectsInSidebar(showProjectsInSidebar)
+        NativeMenuBar.updateProjectsMenuLabel(showProjectsInSidebar)
+    }
+    val onShowSystemDiagnosticsMenuAction = {
+        showSystemDiagnosticsDialog = true
+    }
+    val onNavigateToBookmarksMenuAction = {
+        currentView = View.BOOKMARKS
+    }
+    val onSupportAskimoMenuAction = {
+        starPromptOpenedFromMenu = true
+        showStarPromptDialog = true
+    }
+    val onShareFeedbackMenuAction = {
+        feedbackSentiment = "direct"
+        feedbackOpenedFromMenu = true
+        showFeedbackPromptDialog = true
+    }
+
     // React to locale changes - update menu bar and language settings
     LaunchedEffect(locale, frameWindowScope) {
         LocalizationManager.setLocale(locale)
@@ -652,106 +767,35 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
         frameWindowScope?.let { scope ->
             NativeMenuBar.setup(
                 frameWindowScope = scope,
-                onShowAbout = { showAboutDialog = true },
-                onShowEventLog = {
-                    // Toggle between attached panel and detached window
-                    if (!showEventLogPanel && !showEventLogWindow) {
-                        showEventLogPanel = true // Default to attached
-                    } else if (showEventLogPanel) {
-                        showEventLogPanel = false // Close if already open
-                    } else {
-                        // If detached window is open, bring it to focus (handled by window manager)
-                    }
-                },
-                onNewChat = {
-                    sessionManager.clearActiveSession()
-                    chatViewModel?.clearChat()
-                    currentView = View.CHAT
-                },
-                onNewProject = {
-                    showNewProjectDialog = true
-                },
-                onSearchInSessions = {
-                    showGlobalSearchDialog = true
-                },
-                onShowSettings = {
-                    currentView = View.SETTINGS
-                },
-                onCheckForUpdates = {
-                    updateViewModel.checkForUpdates(silent = false)
-                },
-                onEnterFullScreen = {
-                    windowState?.let { state ->
-                        state.placement = if (state.placement == WindowPlacement.Fullscreen) {
-                            WindowPlacement.Floating
-                        } else {
-                            WindowPlacement.Fullscreen
-                        }
-                    }
-                },
-                onNavigateToSessions = {
-                    currentView = View.SESSIONS
-                },
-                onNavigateToProjects = {
-                    currentView = View.PROJECTS
-                    Analytics.track(AnalyticsEvent.RAG_PANEL_OPENED)
-                },
-                onNavigateToDiscover = {
-                    currentView = View.DISCOVER
-                },
-                onToggleSidebar = {
-                    isSidebarExpanded = !isSidebarExpanded
-                    NativeMenuBar.updateSidebarMenuLabel(isSidebarExpanded)
-                },
-                onInvalidateCaches = {
-                    showInvalidateCacheDialog = true
-                },
-                onExportBackup = {
-                    exportBackup()
-                },
-                onImportBackup = {
-                    importBackup()
-                },
-                onShowGettingStarted = {
-                    showOnboardingWizard = true
-                },
-                onOpenTerminal = {
-                    val opening = !showTerminalPanel
-                    showTerminalPanel = opening
-                    if (opening) Analytics.track(AnalyticsEvent.TERMINAL_OPENED, mapOf("source" to "toolbar"))
-                },
-                onClearPreferences = {
-                    showClearPreferencesDialog = true
-                },
-                onTogglePlans = {
-                    showPlansInSidebar = !showPlansInSidebar
-                    ApplicationPreferences.setShowPlansInSidebar(showPlansInSidebar)
-                    NativeMenuBar.updatePlansMenuLabel(showPlansInSidebar)
-                },
-                onToggleSkills = {
-                    showSkillsInSidebar = !showSkillsInSidebar
-                    ApplicationPreferences.setShowSkillsInSidebar(showSkillsInSidebar)
-                    NativeMenuBar.updateSkillsMenuLabel(showSkillsInSidebar)
-                },
-                onToggleProjects = {
-                    showProjectsInSidebar = !showProjectsInSidebar
-                    ApplicationPreferences.setShowProjectsInSidebar(showProjectsInSidebar)
-                    NativeMenuBar.updateProjectsMenuLabel(showProjectsInSidebar)
-                },
+                onShowAbout = onShowAboutMenuAction,
+                onShowEventLog = onShowEventLogMenuAction,
+                onNewChat = onNewChatMenuAction,
+                onNewProject = onNewProjectMenuAction,
+                onSearchInSessions = onSearchInSessionsMenuAction,
+                onShowSettings = onShowSettingsMenuAction,
+                onCheckForUpdates = onCheckForUpdatesMenuAction,
+                onToggleFullScreen = onToggleFullScreenMenuAction,
+                onNavigateToSessions = onNavigateToSessionsMenuAction,
+                onNavigateToProjects = onNavigateToProjectsMenuAction,
+                onNavigateToDiscover = onNavigateToDiscoverMenuAction,
+                onToggleSidebar = onToggleSidebarMenuAction,
+                onInvalidateCaches = onInvalidateCachesMenuAction,
+                onExportBackup = onExportBackupMenuAction,
+                onImportBackup = onImportBackupMenuAction,
+                onShowGettingStarted = onShowGettingStartedMenuAction,
+                onOpenTerminal = onOpenTerminalMenuAction,
+                onClearPreferences = onClearPreferencesMenuAction,
+                onTogglePlans = onTogglePlansMenuAction,
+                onToggleSkills = onToggleSkillsMenuAction,
+                onToggleProjects = onToggleProjectsMenuAction,
                 isPlansVisible = showPlansInSidebar,
                 isSkillsVisible = showSkillsInSidebar,
                 isProjectsVisible = showProjectsInSidebar,
-                onShowSystemDiagnostics = { showSystemDiagnosticsDialog = true },
-                onNavigateToBookmarks = { currentView = View.BOOKMARKS },
-                onSupportAskimo = {
-                    starPromptOpenedFromMenu = true
-                    showStarPromptDialog = true
-                },
-                onShareFeedback = {
-                    feedbackSentiment = "direct"
-                    feedbackOpenedFromMenu = true
-                    showFeedbackPromptDialog = true
-                },
+                isFullScreen = isFullScreen,
+                onShowSystemDiagnostics = onShowSystemDiagnosticsMenuAction,
+                onNavigateToBookmarks = onNavigateToBookmarksMenuAction,
+                onSupportAskimo = onSupportAskimoMenuAction,
+                onShareFeedback = onShareFeedbackMenuAction,
             )
         }
     }
@@ -825,6 +869,39 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                     },
                                 ),
                         ) {
+                            if (Platform.isWindows || Platform.isLinux) {
+                                composeTopMenuBar(
+                                    onShowAbout = onShowAboutMenuAction,
+                                    onNewChat = onNewChatMenuAction,
+                                    onNewProject = onNewProjectMenuAction,
+                                    onSearchInSessions = onSearchInSessionsMenuAction,
+                                    onShowSettings = onShowSettingsMenuAction,
+                                    onShowEventLog = onShowEventLogMenuAction,
+                                    onCheckForUpdates = onCheckForUpdatesMenuAction,
+                                    onToggleFullScreen = onToggleFullScreenMenuAction,
+                                    onNavigateToDiscover = onNavigateToDiscoverMenuAction,
+                                    onToggleSidebar = onToggleSidebarMenuAction,
+                                    onInvalidateCaches = onInvalidateCachesMenuAction,
+                                    onExportBackup = onExportBackupMenuAction,
+                                    onImportBackup = onImportBackupMenuAction,
+                                    onShowGettingStarted = onShowGettingStartedMenuAction,
+                                    onOpenTerminal = onOpenTerminalMenuAction,
+                                    onClearPreferences = onClearPreferencesMenuAction,
+                                    onTogglePlans = onTogglePlansMenuAction,
+                                    onToggleSkills = onToggleSkillsMenuAction,
+                                    onToggleProjects = onToggleProjectsMenuAction,
+                                    isPlansVisible = showPlansInSidebar,
+                                    isSkillsVisible = showSkillsInSidebar,
+                                    isProjectsVisible = showProjectsInSidebar,
+                                    isFullScreen = isFullScreen,
+                                    onShowSystemDiagnostics = onShowSystemDiagnosticsMenuAction,
+                                    onNavigateToBookmarks = onNavigateToBookmarksMenuAction,
+                                    onSupportAskimo = onSupportAskimoMenuAction,
+                                    onShareFeedback = onShareFeedbackMenuAction,
+                                    isSidebarExpanded = isSidebarExpanded,
+                                )
+                            }
+
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
