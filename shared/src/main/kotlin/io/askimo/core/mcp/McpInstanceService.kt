@@ -48,6 +48,11 @@ private data class ToolConfigData(
      * ([ToolCategory.defaultApprovalPolicy]).
      */
     val approvalPolicy: ToolApprovalPolicy? = null,
+    /**
+     * Whether this tool is included in the tool context forwarded to the AI.
+     * Defaults to true so existing behavior is preserved for tools without an explicit setting.
+     */
+    val enabled: Boolean = true,
 )
 
 private data class GlobalToolsConfigWrapper(val tools: List<ToolConfigData>)
@@ -250,6 +255,7 @@ class McpInstanceService(
         instance: McpInstance,
         userConfigs: Map<String, ToolConfigData> = emptyMap(),
         newlyInferredConfigs: MutableList<ToolConfigData> = mutableListOf(),
+        filterDisabled: Boolean = false,
     ): Result<List<ToolConfig>> {
         val clientKey = "global_tools_${instance.id}"
         val mcpClient = mcpClientFactory.createMcpClient(instance, clientKey)
@@ -264,51 +270,53 @@ class McpInstanceService(
 
         log.debug("Fetched ${toolSpecs.size} tools from global instance '${instance.name}'")
 
-        return Result.success(
-            toolSpecs.map { toolSpec ->
-                val toolName = toolSpec.name()
-                val compositeKey = "${instance.id}:$toolName"
-                val userConfig = userConfigs[compositeKey]
+        val allTools = toolSpecs.map { toolSpec ->
+            val toolName = toolSpec.name()
+            val compositeKey = "${instance.id}:$toolName"
+            val userConfig = userConfigs[compositeKey]
 
-                if (userConfig != null && !userConfig.autoInferred) {
-                    log.trace("Using user-customized config for tool '{}': {}, {}", toolName, userConfig.category, userConfig.strategy)
-                    val category = ToolCategory.valueOf(userConfig.category)
-                    ToolConfig(
-                        specification = toolSpec,
-                        category = category,
-                        strategy = userConfig.strategy,
-                        source = ToolSource.MCP_EXTERNAL,
-                        serverId = instance.id,
-                        approvalPolicy = userConfig.approvalPolicy ?: category.defaultApprovalPolicy(),
-                    )
-                } else {
-                    val inferredCategory = inferToolCategory(toolSpec)
-                    val inferredStrategy = inferToolStrategy(toolSpec)
-                    log.trace("Auto-inferred global tool '{}': {}, {}", toolName, inferredCategory, inferredStrategy)
+            if (userConfig != null && !userConfig.autoInferred) {
+                log.trace("Using user-customized config for tool '{}': {}, {}", toolName, userConfig.category, userConfig.strategy)
+                val category = ToolCategory.valueOf(userConfig.category)
+                ToolConfig(
+                    specification = toolSpec,
+                    category = category,
+                    strategy = userConfig.strategy,
+                    source = ToolSource.MCP_EXTERNAL,
+                    serverId = instance.id,
+                    approvalPolicy = userConfig.approvalPolicy ?: category.defaultApprovalPolicy(),
+                    enabled = userConfig.enabled,
+                )
+            } else {
+                val inferredCategory = inferToolCategory(toolSpec)
+                val inferredStrategy = inferToolStrategy(toolSpec)
+                log.trace("Auto-inferred global tool '{}': {}, {}", toolName, inferredCategory, inferredStrategy)
 
-                    if (userConfig == null) {
-                        newlyInferredConfigs.add(
-                            ToolConfigData(
-                                toolName = toolName,
-                                instanceId = instance.id,
-                                category = inferredCategory.name,
-                                strategy = inferredStrategy,
-                                autoInferred = true,
-                            ),
-                        )
-                    }
-
-                    ToolConfig(
-                        specification = toolSpec,
-                        category = inferredCategory,
-                        strategy = inferredStrategy,
-                        source = ToolSource.MCP_EXTERNAL,
-                        serverId = instance.id,
-                        approvalPolicy = userConfig?.approvalPolicy ?: inferredCategory.defaultApprovalPolicy(),
+                if (userConfig == null) {
+                    newlyInferredConfigs.add(
+                        ToolConfigData(
+                            toolName = toolName,
+                            instanceId = instance.id,
+                            category = inferredCategory.name,
+                            strategy = inferredStrategy,
+                            autoInferred = true,
+                        ),
                     )
                 }
-            },
-        )
+
+                ToolConfig(
+                    specification = toolSpec,
+                    category = inferredCategory,
+                    strategy = inferredStrategy,
+                    source = ToolSource.MCP_EXTERNAL,
+                    serverId = instance.id,
+                    approvalPolicy = userConfig?.approvalPolicy ?: inferredCategory.defaultApprovalPolicy(),
+                    enabled = userConfig?.enabled ?: true,
+                )
+            }
+        }
+
+        return Result.success(if (filterDisabled) allTools.filter { it.enabled } else allTools)
     }
 
     suspend fun getGlobalTools(): Result<List<ToolConfig>> = runCatching {
@@ -331,7 +339,7 @@ class McpInstanceService(
         val allTools = mutableListOf<ToolConfig>()
 
         instances.forEach { instance ->
-            val tools = fetchToolsFromInstance(instance, userConfigs, newlyInferredConfigs)
+            val tools = fetchToolsFromInstance(instance, userConfigs, newlyInferredConfigs, filterDisabled = true)
                 .getOrElse { e ->
                     log.warn("Skipping global instance '${instance.name}': ${e.message}")
                     return@forEach
@@ -362,29 +370,73 @@ class McpInstanceService(
     }
 
     /**
+     * Returns only the tools on this instance that are enabled for AI use — i.e. excludes
+     * any tool the user has explicitly disabled via [setToolEnabled]. This is the source of
+     * truth for "what tools does the AI actually see for this instance", used both when
+     * assembling the tool context sent to the model ([getGlobalTools]) and by any UI surface
+     * (e.g. the chat input tools popup) that needs to reflect the same active set.
+     */
+    suspend fun listActiveTools(instanceId: String): Result<List<ToolConfig>> {
+        val instance = getInstance(instanceId)
+            ?: return Result.failure(IllegalArgumentException("Instance not found: $instanceId"))
+        val userConfigs = loadToolConfigs()
+        return fetchToolsFromInstance(instance, userConfigs, filterDisabled = true)
+    }
+
+    /**
      * Persists a user-defined [ToolApprovalPolicy] for a specific tool on an instance.
      * Invalidates the global tools cache so the change takes effect immediately.
      */
     fun setToolApproval(instanceId: String, toolName: String, policy: ToolApprovalPolicy) {
+        upsertToolConfig(instanceId, toolName) {
+            copy(
+                approvalPolicy = policy,
+                autoInferred = false,
+                updatedAt = LocalDateTime.now(),
+            )
+        }
+        log.debug("Set approval policy for tool '{}' on instance '{}': {}", toolName, instanceId, policy)
+    }
+
+    /**
+     * Persists whether a specific tool on an instance is included in the tool context
+     * forwarded to the AI. Disabled tools remain visible in the UI but are excluded from
+     * model requests. Invalidates the global tools cache so the change takes effect immediately.
+     */
+    fun setToolEnabled(instanceId: String, toolName: String, enabled: Boolean) {
+        upsertToolConfig(instanceId, toolName) {
+            copy(
+                enabled = enabled,
+                autoInferred = false,
+                updatedAt = LocalDateTime.now(),
+            )
+        }
+        log.debug("Set enabled={} for tool '{}' on instance '{}'", enabled, toolName, instanceId)
+    }
+
+    /**
+     * Loads the current tool config map, applies [update] to the existing entry for
+     * `instanceId:toolName` (or a freshly-inferred default if none exists yet), persists the
+     * result, and invalidates the tools cache. Shared by [setToolApproval] and [setToolEnabled]
+     * to avoid duplicating the load/default/copy/save/invalidate sequence.
+     */
+    private fun upsertToolConfig(
+        instanceId: String,
+        toolName: String,
+        update: ToolConfigData.() -> ToolConfigData,
+    ) {
         val configs = loadToolConfigs().toMutableMap()
         val key = "$instanceId:$toolName"
-        val existing = configs[key]
-        configs[key] = (
-            existing ?: ToolConfigData(
-                toolName = toolName,
-                instanceId = instanceId,
-                category = ToolCategory.OTHER.name,
-                strategy = io.askimo.core.intent.ToolStrategy.INTENT_BASED,
-                autoInferred = true,
-            )
-            ).copy(
-            approvalPolicy = policy,
-            autoInferred = false,
-            updatedAt = LocalDateTime.now(),
+        val existing = configs[key] ?: ToolConfigData(
+            toolName = toolName,
+            instanceId = instanceId,
+            category = ToolCategory.OTHER.name,
+            strategy = io.askimo.core.intent.ToolStrategy.INTENT_BASED,
+            autoInferred = true,
         )
+        configs[key] = existing.update()
         saveGlobalToolConfigs(configs)
         invalidateCache()
-        log.debug("Set approval policy for tool '{}' on instance '{}': {}", toolName, instanceId, policy)
     }
 
     fun getMcpClientForTool(toolName: String): DefaultMcpClient? = mcpClientsByToolCache.getIfPresent(toolName)

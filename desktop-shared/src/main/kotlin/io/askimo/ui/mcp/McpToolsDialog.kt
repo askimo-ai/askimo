@@ -30,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -40,6 +41,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -340,7 +342,9 @@ fun mcpToolsDialog(
                 } else {
                     filteredTools.forEach { tool ->
                         Card(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .alpha(if (tool.enabled) 1f else 0.5f),
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
                             ),
@@ -351,11 +355,39 @@ fun mcpToolsDialog(
                                     .padding(Spacing.medium),
                                 verticalArrangement = Arrangement.spacedBy(Spacing.small),
                             ) {
-                                SelectionContainer {
-                                    Text(
-                                        text = tool.specification.name(),
-                                        style = AppTextStyles.sectionTitle,
-                                    )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    SelectionContainer {
+                                        Text(
+                                            text = tool.specification.name(),
+                                            style = AppTextStyles.sectionTitle,
+                                        )
+                                    }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                                    ) {
+                                        Text(
+                                            text = stringResource("mcp.tool.enabled.label"),
+                                            style = AppTextStyles.caption,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                        Switch(
+                                            checked = tool.enabled,
+                                            onCheckedChange = { enabled ->
+                                                // Reflect change locally so the UI updates instantly
+                                                tools = tools?.map { t ->
+                                                    if (t.specification.name() == tool.specification.name()) t.copy(enabled = enabled) else t
+                                                }
+                                                scope.launch(Dispatchers.IO) {
+                                                    mcpInstanceService.setToolEnabled(instance.id, tool.specification.name(), enabled)
+                                                }
+                                            },
+                                        )
+                                    }
                                 }
                                 tool.specification.description()?.let { desc ->
                                     SelectionContainer {

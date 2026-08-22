@@ -21,6 +21,11 @@ data class ToolConfig(
      * [ToolApprovalPolicy.DEFAULT] means the runtime falls back to [ToolCategory.defaultApprovalPolicy].
      */
     val approvalPolicy: ToolApprovalPolicy = ToolApprovalPolicy.DEFAULT,
+    /**
+     * Whether this tool is included in the tool context forwarded to the AI.
+     * Disabled tools are still fetched and shown in the UI, but excluded from model requests.
+     */
+    val enabled: Boolean = true,
 )
 
 /**

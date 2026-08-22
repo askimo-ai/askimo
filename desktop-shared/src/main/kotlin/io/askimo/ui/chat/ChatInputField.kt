@@ -1089,7 +1089,7 @@ private fun toolsIndicatorButton(
         mcpServers = withContext(Dispatchers.IO) {
             // Load global MCP servers with their tools
             globalMcpService?.getInstances()?.filter { it.enabled }?.forEach { instance ->
-                val tools = globalMcpService.listTools(instance.id)
+                val tools = globalMcpService.listActiveTools(instance.id)
                     .getOrElse { e ->
                         log.error("Error loading tools for global server ${instance.name}", e)
                         EventBus.emit(
