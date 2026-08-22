@@ -78,6 +78,16 @@ enum class OpenAiCompatibleTemplate(
         },
     ),
 
+    DEEPSEEK(
+        displayName = "DeepSeek",
+        initials = "DS",
+        taglineKey = "provider.template.deepseek.tagline",
+        baseUrl = "https://api.deepseek.com/v1",
+        apiKeyRequired = true,
+        apiKeyUrl = "https://platform.deepseek.com/api_keys",
+        helpTextKey = "provider.template.deepseek.help",
+    ),
+
     GROQ(
         displayName = "Groq",
         initials = "GR",
