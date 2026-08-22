@@ -5669,7 +5669,38 @@
       "parameterTypes": [ ]
     } ]
   }, {
-    "type": "io.askimo.core.providers.anthropic.AnthropicSettings"
+    "type": "io.askimo.core.providers.anthropic.AnthropicSettings",
+    "methods": [ {
+      "name": "getApiKey",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getBaseUrl",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getDefaultModel",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getEmbeddingModel",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getImageModel",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getMaxTokens",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getThinkingBudgetTokens",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getThinkingMaxTokens",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getUtilityModel",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getVisionModel",
+      "parameterTypes": [ ]
+    } ]
   }, {
     "type": "io.askimo.core.providers.gemini.GeminiModelFactoryTest",
     "allDeclaredFields": true,
@@ -5911,7 +5942,33 @@
       "parameterTypes": [ ]
     } ]
   }, {
-    "type": "io.askimo.core.providers.xai.XAiSettings"
+    "type": "io.askimo.core.providers.xai.XAiSettings",
+    "methods": [ {
+      "name": "getApiKey",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getBaseUrl",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getDefaultModel",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getEmbeddingModel",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getImageModel",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getUtilityModel",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getVisionModel",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "io.askimo.core.providers.xai.XAiSettings$$serializer"
+  }, {
+    "type": "io.askimo.core.providers.xai.XAiSettings$Companion"
   }, {
     "type": "io.askimo.core.recipes.DefaultRecipeInitializerTest",
     "allDeclaredFields": true,

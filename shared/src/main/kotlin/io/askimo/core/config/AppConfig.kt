@@ -714,8 +714,40 @@ object AppConfig {
         val path = resolveOrCreateConfigPath()
         return if (path != null && path.isRegularFile()) {
             val raw = Files.readString(path)
+            // ── One-time migration for removed local provider enums ──────────────────────────
+            // 1) If a legacy provider instance still has template_name: null, set the matching
+            //    OpenAI-compatible template so the UI keeps the right preset.
+            // 2) Always migrate legacy provider_type values to OPENAI_COMPATIBLE.
+            val legacyWithNullTemplatePattern = Regex(
+                """(?ms)(-\s+id:.*?provider_type\s*:\s*"?)(DOCKER|LMSTUDIO|OLLAMA|LOCALAI)("?.*?template_name\s*:\s*)(null|~|""|'')(\s*(?:\n|$))""",
+            )
+            val withTemplateNames = legacyWithNullTemplatePattern.replace(raw) { m ->
+                val legacyType = m.groupValues[2]
+                val templateName = when (legacyType) {
+                    "DOCKER_AI" -> "DOCKER_AI"
+                    "LMSTUDIO" -> "LMSTUDIO"
+                    "OLLAMA" -> "OLLAMA"
+                    "LOCALAI" -> "LOCALAI"
+                    else -> ""
+                }
+                "${m.groupValues[1]}$legacyType${m.groupValues[3]}$templateName${m.groupValues[5]}"
+            }
+
+            val legacyTypePattern = Regex("""(provider_type\s*:\s*"?)(DOCKER_AI|LMSTUDIO|OLLAMA|LOCALAI)("?)""")
+            val migrated = legacyTypePattern.replace(withTemplateNames) { m ->
+                "${m.groupValues[1]}OPENAI_COMPATIBLE${m.groupValues[3]}"
+            }
+
+            if (migrated != raw) {
+                log.info("Migrated legacy provider instances (provider_type and template_name)")
+                try {
+                    Files.writeString(path, migrated)
+                } catch (e: Exception) {
+                    log.displayError("Failed to write migrated config", e)
+                }
+            }
             try {
-                val loaded = mapper.readValue<AppConfigData>(raw)
+                val loaded = mapper.readValue<AppConfigData>(migrated)
                 loaded.copy(memory = normalizeMemoryConfig(loaded.memory))
             } catch (e: Exception) {
                 log.displayError("Config parse failed at $path ", e)

@@ -7,7 +7,11 @@ package io.askimo.core.config
 import io.askimo.core.context.AppContextParams
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ProviderInstance
+import io.askimo.core.providers.anthropic.AnthropicSettings
 import io.askimo.core.providers.openai.OpenAiSettings
+import io.askimo.core.providers.openaicompatible.OpenAiCompatibleSettings
+import io.askimo.core.providers.openaicompatible.OpenAiCompatibleTemplate
+import io.askimo.core.providers.xai.XAiSettings
 import io.askimo.core.util.AskimoHome
 import io.askimo.test.extensions.AskimoTestHome
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -458,28 +462,59 @@ class AppConfigTest {
 
     @Test
     fun `saveContext overwrites a previously saved context`() {
-        val openAiInstance = ProviderInstance.create(
-            displayName = "OpenAI",
-            providerType = ModelProvider.OPENAI,
-            settings = OpenAiSettings(defaultModel = "gpt-4o"),
+        val xaiInstance = ProviderInstance.create(
+            displayName = "xAI",
+            providerType = ModelProvider.XAI,
+            // Fill all constructor args to ensure agent captures the full reflective signature.
+            settings = XAiSettings(
+                baseUrl = "https://api.x.ai/v1",
+                apiKey = "xai-test-key",
+                defaultModel = "grok-4",
+                utilityModel = "grok-4-fast",
+                visionModel = "grok-vision-beta",
+                imageModel = "grok-image-beta",
+                embeddingModel = "grok-embed-beta",
+            ),
         )
         val firstParams = AppContextParams(
-            currentInstanceId = openAiInstance.id,
-            providerInstances = mutableListOf(openAiInstance),
+            currentInstanceId = xaiInstance.id,
+            providerInstances = mutableListOf(xaiInstance),
         )
         AppConfig.saveContext(firstParams)
-        assertEquals(ModelProvider.OPENAI, AppConfig.context.activeProviderType)
+        assertEquals(ModelProvider.XAI, AppConfig.context.activeProviderType)
 
-        val geminiInstance = ProviderInstance.create(
-            displayName = "Gemini",
-            providerType = ModelProvider.GEMINI,
+        val anthropicInstance = ProviderInstance.create(
+            displayName = "Anthropic",
+            providerType = ModelProvider.ANTHROPIC,
+            settings = AnthropicSettings(defaultModel = "claude-sonnet-4-20250514"),
         )
         val secondParams = AppContextParams(
-            currentInstanceId = geminiInstance.id,
-            providerInstances = mutableListOf(geminiInstance),
+            currentInstanceId = anthropicInstance.id,
+            providerInstances = mutableListOf(anthropicInstance),
         )
         AppConfig.saveContext(secondParams)
+        assertEquals(ModelProvider.ANTHROPIC, AppConfig.context.activeProviderType)
 
-        assertEquals(ModelProvider.GEMINI, AppConfig.context.activeProviderType)
+        val ollamaSettings = OpenAiCompatibleSettings(
+            baseUrl = OpenAiCompatibleTemplate.OLLAMA.baseUrl,
+            defaultModel = "llama3.1",
+            apiMode = OpenAiCompatibleTemplate.OLLAMA.apiMode,
+            httpVersion = OpenAiCompatibleTemplate.OLLAMA.httpVersion,
+            isTemplate = true,
+            templateName = OpenAiCompatibleTemplate.OLLAMA.name,
+        )
+        val ollamaInstance = ProviderInstance.create(
+            displayName = "Ollama",
+            providerType = ModelProvider.OPENAI_COMPATIBLE,
+            settings = ollamaSettings,
+        )
+        val thirdParams = AppContextParams(
+            currentInstanceId = ollamaInstance.id,
+            providerInstances = mutableListOf(ollamaInstance),
+        )
+        AppConfig.saveContext(thirdParams)
+
+        assertEquals(ModelProvider.OPENAI_COMPATIBLE, AppConfig.context.activeProviderType)
+        assertEquals("llama3.1", AppConfig.context.activeInstance?.settings?.defaultModel)
     }
 }
