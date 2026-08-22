@@ -8,7 +8,7 @@ import io.askimo.core.context.AppContext
 import io.askimo.core.context.AppContextParams
 import io.askimo.core.context.ExecutionMode
 import io.askimo.core.error.AppError
-import io.askimo.core.providers.ollama.OllamaSettings
+import io.askimo.core.providers.openaicompatible.OpenAiCompatibleSettings
 import io.askimo.test.extensions.AskimoTestHome
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -31,17 +31,17 @@ class ProviderInstanceServiceTest {
     // ── Helpers ───────────────────────────────────────────────────────────────────────────
 
     /**
-     * Creates a test [ProviderInstance] with [OllamaSettings] so that [ProviderInstanceService.setModel]
+     * Creates a test [ProviderInstance] with [OpenAiCompatibleSettings] so that [ProviderInstanceService.setModel]
      * (which calls [ProviderSettings.updateField]) works correctly in tests.
      */
     private fun makeInstance(
         displayName: String,
-        provider: ModelProvider = ModelProvider.OLLAMA,
+        provider: ModelProvider = ModelProvider.OPENAI_COMPATIBLE,
         model: String = "",
     ): ProviderInstance = ProviderInstance.create(
         displayName = displayName,
         providerType = provider,
-        settings = OllamaSettings(defaultModel = model),
+        settings = OpenAiCompatibleSettings(defaultModel = model),
     )
 
     @BeforeEach
@@ -177,7 +177,7 @@ class ProviderInstanceServiceTest {
 
         @Test
         fun `adding multiple distinct providers succeeds`() {
-            service.add(makeInstance("Ollama Dev", ModelProvider.OLLAMA))
+            service.add(makeInstance("Ollama Dev", ModelProvider.OPENAI_COMPATIBLE))
             service.add(makeInstance("OpenAI Prod", ModelProvider.OPENAI))
 
             assertEquals(2, service.all.size)

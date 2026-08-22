@@ -4,8 +4,8 @@
  */
 package io.askimo.core.providers
 
-import io.askimo.core.providers.ollama.OllamaModelFactory
-import io.askimo.core.providers.ollama.OllamaSettings
+import io.askimo.core.providers.openaicompatible.OpenAiCompatibleModelFactory
+import io.askimo.core.providers.openaicompatible.OpenAiCompatibleSettings
 import io.askimo.test.extensions.AskimoTestHome
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -17,8 +17,8 @@ class EmbeddingModelConfigurationTest {
     @Test
     fun `missing embedding model explains how to configure one`() {
         val exception = assertThrows<IllegalStateException> {
-            OllamaModelFactory().createEmbeddingModel(
-                OllamaSettings(
+            OpenAiCompatibleModelFactory().createEmbeddingModel(
+                OpenAiCompatibleSettings(
                     baseUrl = "http://localhost:11434/v1",
                     embeddingModel = "",
                 ),
@@ -26,7 +26,7 @@ class EmbeddingModelConfigurationTest {
         }
 
         assertEquals(
-            "No embedding model is configured for OLLAMA. " +
+            "No embedding model is configured for OPENAI_COMPATIBLE. " +
                 "Go to Settings > AI Provider and select an embedding model under the provider configuration card.",
             exception.message,
         )

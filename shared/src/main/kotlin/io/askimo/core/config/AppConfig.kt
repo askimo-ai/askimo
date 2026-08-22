@@ -4,7 +4,6 @@
  */
 package io.askimo.core.config
 
-import com.fasterxml.jackson.annotation.JsonAlias
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.core.JsonToken
 import com.fasterxml.jackson.databind.DeserializationContext
@@ -390,8 +389,8 @@ data class RagConfig(
  *   accommodate slow local models and cloud reasoning models with extended thinking.
  */
 data class ModelTimeoutsConfig(
-    @field:JsonAlias("utilityModelTimeoutSeconds") val utilityModelTimeoutSeconds: Long = 600,
-    @field:JsonAlias("defaultModelTimeoutSeconds") val defaultModelTimeoutSeconds: Long = 600,
+    val utilityModelTimeoutSeconds: Long = 600,
+    val defaultModelTimeoutSeconds: Long = 600,
 )
 
 /**
@@ -487,7 +486,7 @@ data class AppConfigData(
     val analytics: AnalyticsConfig = AnalyticsConfig(),
     val webSearch: WebSearchConfig = WebSearchConfig(),
     val context: AppContextParams = AppContextParams.noOp(),
-    @field:JsonAlias("current_locale") val currentLocale: String? = null,
+    val currentLocale: String? = null,
 )
 
 object AppConfig {
@@ -620,93 +619,88 @@ object AppConfig {
         """
         # Askimo application configuration
         # This file was auto-generated because none was found.
-        # You can override any value via environment variables using ${'$'}{ENV:default} placeholders.
-
 
         embedding:
-          max_chars_per_chunk: ${'$'}{ASKIMO_EMBED_MAX_CHARS_PER_CHUNK:4000}
-          chunk_overlap:       ${'$'}{ASKIMO_EMBED_CHUNK_OVERLAP:200}
-
+          max_chars_per_chunk: 4000
+          chunk_overlap: 200
 
         retry:
-          attempts:      ${'$'}{ASKIMO_EMBED_RETRY_ATTEMPTS:4}
-          base_delay_ms: ${'$'}{ASKIMO_EMBED_RETRY_BASE_MS:150}
+          attempts: 4
+          base_delay_ms: 150
 
         throttle:
-          per_request_sleep_ms: ${'$'}{ASKIMO_EMBED_SLEEP_MS:30}
+          per_request_sleep_ms: 30
 
         indexing:
-          max_file_bytes:              ${'$'}{ASKIMO_EMBED_MAX_FILE_BYTES:2000000}
-          concurrent_indexing_threads: ${'$'}{ASKIMO_INDEXING_CONCURRENT_THREADS:10}
-          supported_extensions: ${'$'}{ASKIMO_INDEXING_SUPPORTED_EXTENSIONS:java,kt,kts,py,js,ts,jsx,tsx,go,rs,c,cpp,h,hpp,cs,rb,php,swift,scala,groovy,sh,bash,yaml,yml,json,xml,md,txt,gradle,properties,toml,pdf}
-          binary_extensions: ${'$'}{ASKIMO_INDEXING_BINARY_EXTENSIONS:png,jpg,jpeg,gif,svg,ico,webp,bmp,mp4,avi,mov,mkv,mp3,wav,ogg,flac,zip,tar,gz,7z,rar,exe,dll,so,dylib,bin,db,sqlite,doc,docx,xls,xlsx,ppt,pptx,ttf,otf,woff,woff2,class,jar,pyc,icns}
-          exclude_file_names: ${'$'}{ASKIMO_INDEXING_EXCLUDE_FILE_NAMES:.DS_Store,Thumbs.db,desktop.ini,package-lock.json,yarn.lock,pnpm-lock.yaml,poetry.lock,Gemfile.lock,.project,.classpath,.factorypath}
-          common_excludes: ${'$'}{ASKIMO_INDEXING_COMMON_EXCLUDES:.git/,.svn/,.hg/,.idea/,.vscode/,.DS_Store,*.log,*.tmp,*.temp,*.swp,*.bak,.history/}
+          max_file_bytes: 2000000
+          concurrent_indexing_threads: 10
+          supported_extensions: java,kt,kts,py,js,ts,jsx,tsx,go,rs,c,cpp,h,hpp,cs,rb,php,swift,scala,groovy,sh,bash,yaml,yml,json,xml,md,txt,gradle,properties,toml,pdf
+          binary_extensions: png,jpg,jpeg,gif,svg,ico,webp,bmp,mp4,avi,mov,mkv,mp3,wav,ogg,flac,zip,tar,gz,7z,rar,exe,dll,so,dylib,bin,db,sqlite,doc,docx,xls,xlsx,ppt,pptx,ttf,otf,woff,woff2,class,jar,pyc,icns
+          exclude_file_names: .DS_Store,Thumbs.db,desktop.ini,package-lock.json,yarn.lock,pnpm-lock.yaml,poetry.lock,Gemfile.lock,.project,.classpath,.factorypath
+          common_excludes: .git/,.svn/,.hg/,.idea/,.vscode/,.DS_Store,*.log,*.tmp,*.temp,*.swp,*.bak,.history/
           filters:
-            gitignore:    ${'$'}{ASKIMO_INDEXING_FILTER_GITIGNORE:true}
-            dockerignore: ${'$'}{ASKIMO_INDEXING_FILTER_DOCKERIGNORE:false}
-            projecttype:  ${'$'}{ASKIMO_INDEXING_FILTER_PROJECTTYPE:true}
-            binary:       ${'$'}{ASKIMO_INDEXING_FILTER_BINARY:true}
-            filesize:     ${'$'}{ASKIMO_INDEXING_FILTER_FILESIZE:true}
-            custom:       ${'$'}{ASKIMO_INDEXING_FILTER_CUSTOM:true}
-          # Project types are configured with default values and can be customized via environment variables
-          # ASKIMO_INDEXING_PROJECT_TYPES_<TYPE>_MARKERS and ASKIMO_INDEXING_PROJECT_TYPES_<TYPE>_EXCLUDES
+            gitignore: true
+            dockerignore: false
+            projecttype: true
+            binary: true
+            filesize: true
+            custom: true
 
         chat:
-          max_tokens:                    ${'$'}{ASKIMO_CHAT_MAX_TOKENS:8000}
-          summarization_timeout_seconds: ${'$'}{ASKIMO_CHAT_SUMMARIZATION_TIMEOUT:60}
-          default_response_ai_locale:    ${'$'}{ASKIMO_CHAT_DEFAULT_RESPONSE_LOCALE:}
+          max_tokens: 8000
+          summarization_timeout_seconds: 60
+          default_response_ai_locale:
 
         memory:
-          mode:                          ${'$'}{ASKIMO_MEMORY_MODE:BALANCED}
-          summarization_threshold:       ${'$'}{ASKIMO_MEMORY_SUMMARIZATION_THRESHOLD:0.40}
-          protected_recent_turns:        ${'$'}{ASKIMO_MEMORY_PROTECTED_RECENT_TURNS:6}
-          summarization_prune_fraction:  ${'$'}{ASKIMO_MEMORY_SUMMARIZATION_PRUNE_FRACTION:0.65}
-          max_key_facts:                 ${'$'}{ASKIMO_MEMORY_MAX_KEY_FACTS:30}
-          max_main_topics:               ${'$'}{ASKIMO_MEMORY_MAX_MAIN_TOPICS:15}
-          max_summary_length:            ${'$'}{ASKIMO_MEMORY_MAX_SUMMARY_LENGTH:2000}
-          memory_budget_fraction:        ${'$'}{ASKIMO_MEMORY_BUDGET_FRACTION:0.40}
+          mode: BALANCED
+          summarization_threshold: 0.40
+          protected_recent_turns: 6
+          summarization_prune_fraction: 0.65
+          max_key_facts: 30
+          max_main_topics: 15
+          max_summary_length: 2000
+          memory_budget_fraction: 0.40
 
         rag:
-          vector_search_max_results:      ${'$'}{ASKIMO_RAG_VECTOR_SEARCH_MAX_RESULTS:20}
-          vector_search_min_score:        ${'$'}{ASKIMO_RAG_VECTOR_SEARCH_MIN_SCORE:0.3}
-          hybrid_max_results:             ${'$'}{ASKIMO_RAG_HYBRID_MAX_RESULTS:15}
-          rank_fusion_constant:           ${'$'}{ASKIMO_RAG_RANK_FUSION_CONSTANT:60}
-          use_absolute_path_in_citations: ${'$'}{ASKIMO_RAG_USE_ABSOLUTE_PATH:true}
+          vector_search_max_results: 20
+          vector_search_min_score: 0.3
+          hybrid_max_results: 15
+          rank_fusion_constant: 60
+          use_absolute_path_in_citations: true
 
         models:
-          max_tool_calling_round_trips: ${'$'}{ASKIMO_MAX_TOOL_CALLING_ROUND_TRIPS:10}
+          max_tool_calling_round_trips: 10
           timeouts:
-            utility_model_timeout_seconds: ${'$'}{ASKIMO_UTILITY_MODEL_TIMEOUT:45}
-            default_model_timeout_seconds: ${'$'}{ASKIMO_DEFAULT_MODEL_TIMEOUT:300}
+            utility_model_timeout_seconds: 45
+            default_model_timeout_seconds: 300
 
         proxy:
-          type: ${'$'}{ASKIMO_PROXY_TYPE:NONE}
-          host: ${'$'}{ASKIMO_PROXY_HOST:}
-          port: ${'$'}{ASKIMO_PROXY_PORT:8080}
-          username: ${'$'}{ASKIMO_PROXY_USERNAME:}
-          password: ${'$'}{ASKIMO_PROXY_PASSWORD:}
+          type: NONE
+          host:
+          port: 8080
+          username:
+          password:
 
         developer:
-          enabled: ${'$'}{ASKIMO_DEVELOPER_ENABLED:true}
-          active:  ${'$'}{ASKIMO_DEVELOPER_ACTIVE:false}
+          enabled: true
+          active: false
 
         analytics:
-          opted_in: ${'$'}{ASKIMO_ANALYTICS_OPTED_IN:false}
-          endpoint: ${'$'}{ASKIMO_ANALYTICS_ENDPOINT:https://analytics.askimo.chat/ingest}
+          opted_in: false
+          endpoint: https://analytics.askimo.chat/ingest
 
         web_search:
-          backend:          ${'$'}{ASKIMO_WEB_SEARCH_BACKEND:DUCKDUCKGO}
-          searxng_endpoint: ${'$'}{ASKIMO_SEARXNG_ENDPOINT:https://searx.be}
-          brave_api_key:    ${'$'}{BRAVE_SEARCH_API_KEY:}
-          tavily_api_key:   ${'$'}{TAVILY_API_KEY:}
-          enabled:          ${'$'}{ASKIMO_WEB_SEARCH_ENABLED:true}
+          backend: DUCKDUCKGO
+          searxng_endpoint: https://searx.be
+          brave_api_key:
+          tavily_api_key:
+          enabled: true
 
         context:
           current_instance_id: ""
           provider_instances: []
 
-        current_locale: ${'$'}{ASKIMO_UI_LOCALE:}
+        current_locale:
         """.trimIndent()
 
     // Lazy, thread-safe init
@@ -720,67 +714,16 @@ object AppConfig {
         val path = resolveOrCreateConfigPath()
         return if (path != null && path.isRegularFile()) {
             val raw = Files.readString(path)
-            val migrated = migrateCamelToSnake(raw)
-            if (migrated != raw) {
-                try {
-                    Files.writeString(path, migrated)
-                    log.info("Migrated $path from camelCase to snake_case keys")
-                } catch (e: Exception) {
-                    log.displayError("Failed to write migrated config at $path", e)
-                }
-            }
-            val interpolated = interpolateEnv(migrated)
             try {
-                val loaded = mapper.readValue<AppConfigData>(interpolated)
+                val loaded = mapper.readValue<AppConfigData>(raw)
                 loaded.copy(memory = normalizeMemoryConfig(loaded.memory))
             } catch (e: Exception) {
                 log.displayError("Config parse failed at $path ", e)
-                envFallback()
+                AppConfigData()
             }
         } else {
-            envFallback()
+            AppConfigData()
         }
-    }
-
-    /**
-     * One-time migration: rewrites camelCase YAML keys to snake_case in-place.
-     * This handles users upgrading from versions prior to the snake_case config format.
-     *
-     * TODO: Remove this method in v1.2.30 along with all @field:JsonAlias camelCase annotations.
-     */
-    private fun migrateCamelToSnake(yaml: String): String {
-        val replacements = mapOf(
-            "utilityModel:" to "utility_model:",
-            "utilityModelTimeoutSeconds:" to "utility_model_timeout_seconds:",
-            "embeddingModel:" to "embedding_model:",
-            "visionModel:" to "vision_model:",
-            "imageModel:" to "image_model:",
-            "maxCharsPerChunk:" to "max_chars_per_chunk:",
-            "chunkOverlap:" to "chunk_overlap:",
-            "baseDelayMs:" to "base_delay_ms:",
-            "perRequestSleepMs:" to "per_request_sleep_ms:",
-            "maxFileBytes:" to "max_file_bytes:",
-            "concurrentIndexingThreads:" to "concurrent_indexing_threads:",
-            "supportedExtensions:" to "supported_extensions:",
-            "binaryExtensions:" to "binary_extensions:",
-            "excludeFileNames:" to "exclude_file_names:",
-            "commonExcludes:" to "common_excludes:",
-            "projectTypes:" to "project_types:",
-            "excludePaths:" to "exclude_paths:",
-            "maxTokens:" to "max_tokens:",
-            "summarizationTimeoutSeconds:" to "summarization_timeout_seconds:",
-            "defaultResponseAILocale:" to "default_response_ai_locale:",
-            "vectorSearchMaxResults:" to "vector_search_max_results:",
-            "vectorSearchMinScore:" to "vector_search_min_score:",
-            "hybridMaxResults:" to "hybrid_max_results:",
-            "rankFusionConstant:" to "rank_fusion_constant:",
-            "useAbsolutePathInCitations:" to "use_absolute_path_in_citations:",
-        )
-        var result = yaml
-        for ((camel, snake) in replacements) {
-            result = result.replace(camel, snake)
-        }
-        return result
     }
 
     /**
@@ -827,134 +770,6 @@ object AppConfig {
         } catch (e: Exception) {
             log.displayError("Failed to create default config at $target ", e)
         }
-    }
-
-    /** Supports ${ENV} or ${ENV:default} inside YAML. */
-    private val placeholder = "\\$\\{([A-Za-z_][A-Za-z0-9_]*)(?::([^}]*))?}".toRegex()
-
-    private fun interpolateEnv(text: String): String = placeholder.replace(text) { m ->
-        val key = m.groupValues[1]
-        val def = m.groupValues.getOrNull(2)
-        propOrEnv(key) ?: def.orEmpty()
-    }
-
-    private fun propOrEnv(key: String): String? = System.getProperty(key) ?: System.getenv(key)
-
-    /** Env-only fallback (works even without YAML). */
-    private fun envFallback(): AppConfigData {
-        fun env(
-            k: String,
-            def: String,
-        ) = System.getenv(k) ?: def
-
-        fun envInt(
-            k: String,
-            def: Int,
-        ) = System.getenv(k)?.toIntOrNull() ?: def
-
-        fun envLong(
-            k: String,
-            def: Long,
-        ) = System.getenv(k)?.toLongOrNull() ?: def
-
-        fun envList(k: String, def: String): Set<String> = System.getenv(k)?.split(",")?.map { it.trim() }?.toSet() ?: def.split(",").map { it.trim() }.toSet()
-
-        val emb =
-            EmbeddingConfig(
-                maxCharsPerChunk = envInt("ASKIMO_EMBED_MAX_CHARS_PER_CHUNK", 4000),
-                chunkOverlap = envInt("ASKIMO_EMBED_CHUNK_OVERLAP", 200),
-            )
-        val r =
-            RetryConfig(
-                attempts = envInt("ASKIMO_EMBED_RETRY_ATTEMPTS", 4),
-                baseDelayMs = envLong("ASKIMO_EMBED_RETRY_BASE_MS", 150L),
-            )
-        val t =
-            ThrottleConfig(
-                perRequestSleepMs = envLong("ASKIMO_EMBED_SLEEP_MS", 30L),
-            )
-        val idx =
-            IndexingConfig(
-                maxFileBytes = envLong("ASKIMO_EMBED_MAX_FILE_BYTES", 5_000_000L),
-                concurrentIndexingThreads = envInt("ASKIMO_INDEXING_CONCURRENT_THREADS", 10),
-                supportedExtensions = envList("ASKIMO_INDEXING_SUPPORTED_EXTENSIONS", "java,kt,kts,py,js,ts,jsx,tsx,go,rs,c,cpp,h,hpp,cs,rb,php,swift,scala,groovy,sh,bash,yaml,yml,json,xml,md,txt,gradle,properties,toml,pdf"),
-                binaryExtensions = envList("ASKIMO_INDEXING_BINARY_EXTENSIONS", "png,jpg,jpeg,gif,svg,ico,webp,bmp,mp4,avi,mov,mkv,mp3,wav,ogg,flac,zip,tar,gz,7z,rar,exe,dll,so,dylib,bin,db,sqlite,doc,docx,xls,xlsx,ppt,pptx,ttf,otf,woff,woff2,class,jar,pyc,icns"),
-                excludeFileNames = envList("ASKIMO_INDEXING_EXCLUDE_FILE_NAMES", ".DS_Store,Thumbs.db,desktop.ini,package-lock.json,yarn.lock,pnpm-lock.yaml,poetry.lock,Gemfile.lock"),
-                commonExcludes = envList("ASKIMO_INDEXING_COMMON_EXCLUDES", ".git/,.svn/,.hg/,.idea/,.vscode/,.DS_Store,*.log,*.tmp,*.temp,*.swp,*.bak,.history/"),
-                filters = FilterConfig(
-                    gitignore = System.getenv("ASKIMO_INDEXING_FILTER_GITIGNORE")?.toBoolean() ?: true,
-                    dockerignore = System.getenv("ASKIMO_INDEXING_FILTER_DOCKERIGNORE")?.toBoolean() ?: false,
-                    projecttype = System.getenv("ASKIMO_INDEXING_FILTER_PROJECTTYPE")?.toBoolean() ?: true,
-                    binary = System.getenv("ASKIMO_INDEXING_FILTER_BINARY")?.toBoolean() ?: true,
-                    filesize = System.getenv("ASKIMO_INDEXING_FILTER_FILESIZE")?.toBoolean() ?: true,
-                    custom = System.getenv("ASKIMO_INDEXING_FILTER_CUSTOM")?.toBoolean() ?: true,
-                ),
-            )
-        val dev =
-            DeveloperConfig(
-                enabled = System.getenv("ASKIMO_DEVELOPER_ENABLED")?.toBoolean() ?: false,
-                active = System.getenv("ASKIMO_DEVELOPER_ACTIVE")?.toBoolean() ?: false,
-            )
-
-        fun envDouble(k: String, def: Double) = System.getenv(k)?.toDoubleOrNull() ?: def
-
-        val chat =
-            ChatConfig(
-                maxTokens = envInt("ASKIMO_CHAT_MAX_TOKENS", 8000),
-                summarizationTimeoutSeconds = envLong("ASKIMO_CHAT_SUMMARIZATION_TIMEOUT", 300L),
-                defaultResponseAILocale = System.getenv("ASKIMO_CHAT_DEFAULT_RESPONSE_LOCALE")?.takeIf { it.isNotBlank() },
-            )
-
-        val rag =
-            RagConfig(
-                vectorSearchMaxResults = envInt("ASKIMO_RAG_VECTOR_SEARCH_MAX_RESULTS", 20),
-                vectorSearchMinScore = envDouble("ASKIMO_RAG_VECTOR_SEARCH_MIN_SCORE", 0.3),
-                hybridMaxResults = envInt("ASKIMO_RAG_HYBRID_MAX_RESULTS", 15),
-                rankFusionConstant = envInt("ASKIMO_RAG_RANK_FUSION_CONSTANT", 60),
-                useAbsolutePathInCitations = System.getenv("ASKIMO_RAG_USE_ABSOLUTE_PATH")?.toBoolean() ?: true,
-            )
-
-        val models = ModelsConfig(
-            timeouts = ModelTimeoutsConfig(
-                utilityModelTimeoutSeconds = envLong("ASKIMO_UTILITY_MODEL_TIMEOUT", 600L),
-                defaultModelTimeoutSeconds = envLong("ASKIMO_DEFAULT_MODEL_TIMEOUT", 600L),
-            ),
-        )
-
-        val proxy =
-            ProxyConfig(
-                type = System.getenv("ASKIMO_PROXY_TYPE")?.let { ProxyType.valueOf(it) } ?: ProxyType.NONE,
-                host = env("ASKIMO_PROXY_HOST", ""),
-                port = envInt("ASKIMO_PROXY_PORT", 8080),
-                username = env("ASKIMO_PROXY_USERNAME", ""),
-                password = env("ASKIMO_PROXY_PASSWORD", ""),
-            )
-
-        val webSearch = WebSearchConfig(
-            backend = System.getenv("ASKIMO_WEB_SEARCH_BACKEND")
-                ?.let { runCatching { WebSearchBackend.valueOf(it) }.getOrNull() }
-                ?: WebSearchBackend.DUCKDUCKGO,
-            searxngEndpoint = env("ASKIMO_SEARXNG_ENDPOINT", "https://searx.be"),
-            braveApiKey = env("BRAVE_SEARCH_API_KEY", ""),
-            tavilyApiKey = env("TAVILY_API_KEY", ""),
-            enabled = System.getenv("ASKIMO_WEB_SEARCH_ENABLED")?.toBoolean() ?: true,
-        )
-
-        val memoryMode = System.getenv("ASKIMO_MEMORY_MODE")
-            ?.let { runCatching { MemoryMode.valueOf(it) }.getOrNull() }
-            ?: MemoryMode.BALANCED
-        val memoryBase = MemoryConfig.preset(memoryMode)
-        val memory = memoryBase.copy(
-            summarizationThreshold = System.getenv("ASKIMO_MEMORY_SUMMARIZATION_THRESHOLD")?.toDoubleOrNull() ?: memoryBase.summarizationThreshold,
-            protectedRecentTurns = System.getenv("ASKIMO_MEMORY_PROTECTED_RECENT_TURNS")?.toIntOrNull() ?: memoryBase.protectedRecentTurns,
-            summarizationPruneFraction = System.getenv("ASKIMO_MEMORY_SUMMARIZATION_PRUNE_FRACTION")?.toDoubleOrNull() ?: memoryBase.summarizationPruneFraction,
-            maxKeyFacts = System.getenv("ASKIMO_MEMORY_MAX_KEY_FACTS")?.toIntOrNull() ?: memoryBase.maxKeyFacts,
-            maxMainTopics = System.getenv("ASKIMO_MEMORY_MAX_MAIN_TOPICS")?.toIntOrNull() ?: memoryBase.maxMainTopics,
-            maxSummaryLength = System.getenv("ASKIMO_MEMORY_MAX_SUMMARY_LENGTH")?.toIntOrNull() ?: memoryBase.maxSummaryLength,
-            memoryBudgetFraction = System.getenv("ASKIMO_MEMORY_BUDGET_FRACTION")?.toDoubleOrNull() ?: memoryBase.memoryBudgetFraction,
-        )
-
-        return AppConfigData(emb, r, t, idx, dev, chat, memory = memory, rag = rag, models = models, proxy = proxy, webSearch = webSearch)
     }
 
     /**

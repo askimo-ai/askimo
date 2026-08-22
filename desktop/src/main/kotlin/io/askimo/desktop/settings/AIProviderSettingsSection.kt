@@ -176,19 +176,10 @@ fun aiProviderSettingsSection(viewModel: AIProviderViewModel) {
 @Composable
 private fun providerModelConfigCard(instance: ProviderInstance, viewModel: AIProviderViewModel) {
     val provider = instance.providerType
-    val isLocalProvider = provider in setOf(
-        ModelProvider.OLLAMA,
-        ModelProvider.DOCKER,
-        ModelProvider.LOCALAI,
-        ModelProvider.LMSTUDIO,
-    )
+    val isLocalProvider = false
     val supportsEmbedding = provider in setOf(
         ModelProvider.OPENAI,
         ModelProvider.GEMINI,
-        ModelProvider.OLLAMA,
-        ModelProvider.DOCKER,
-        ModelProvider.LOCALAI,
-        ModelProvider.LMSTUDIO,
         ModelProvider.OPENAI_COMPATIBLE,
     )
 

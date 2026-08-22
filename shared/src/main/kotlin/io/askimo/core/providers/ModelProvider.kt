@@ -34,34 +34,10 @@ enum class ModelProvider {
     GEMINI,
 
     /**
-     * Represents Ollama's locally-hosted models.
-     */
-    @SerialName("OLLAMA")
-    OLLAMA,
-
-    /**
-     * Represents Docker AI's locally-hosted models.
-     */
-    @SerialName("DOCKER")
-    DOCKER,
-
-    /**
      * Represents Anthropic's models
      */
     @SerialName("ANTHROPIC")
     ANTHROPIC,
-
-    /**
-     * Represents LocalAI's locally-hosted models.
-     */
-    @SerialName("LOCALAI")
-    LOCALAI,
-
-    /**
-     * Represents LMStudio's locally-hosted models (OpenAI-compatible API).
-     */
-    @SerialName("LMSTUDIO")
-    LMSTUDIO,
 
     /**
      * Represents any OpenAI API-compatible provider (e.g., custom endpoints, proxies, etc.).
@@ -90,11 +66,7 @@ enum class ModelProvider {
         OPENAI -> "openai"
         XAI -> "xai"
         GEMINI -> "gemini"
-        OLLAMA -> "ollama"
-        DOCKER -> "docker-ai"
         ANTHROPIC -> "anthropic"
-        LOCALAI -> "localai"
-        LMSTUDIO -> "lmstudio"
         OPENAI_COMPATIBLE -> "openai-compatible"
         ASKIMO_PRO -> "askimo-pro"
         UNKNOWN -> "unknown"
@@ -108,10 +80,6 @@ enum class ModelProvider {
         ANTHROPIC -> "AN"
         GEMINI -> "GM"
         XAI -> "xA"
-        OLLAMA -> "OL"
-        DOCKER -> "DA"
-        LOCALAI -> "LA"
-        LMSTUDIO -> "LM"
         OPENAI_COMPATIBLE -> "OC"
         ASKIMO_PRO -> "AP"
         UNKNOWN -> "?"

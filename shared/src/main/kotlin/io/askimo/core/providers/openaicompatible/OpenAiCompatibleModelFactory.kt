@@ -60,7 +60,15 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
         return modelIds.map { ModelDTO.of(getProvider(), it) }
     }
 
-    override fun canFetchModels(settings: OpenAiCompatibleSettings): Boolean = settings.baseUrl.isNotBlank() && settings.apiKey.isNotBlank()
+    override fun canFetchModels(settings: OpenAiCompatibleSettings): Boolean {
+        if (settings.baseUrl.isBlank()) return false
+        val template = settings.templateName
+            ?.let { name -> OpenAiCompatibleTemplate.entries.find { it.name == name } }
+        // For templates that don't require an API key (Ollama, LM Studio, etc.) we can
+        // fetch models without one. For unknown / cloud templates an API key is required.
+        val apiKeyNeeded = template?.apiKeyRequired ?: true
+        return !apiKeyNeeded || settings.apiKey.isNotBlank()
+    }
 
     override fun probeThinkingSupport(settings: OpenAiCompatibleSettings): Boolean = delegate(settings).probeThinkingSupport(
         baseUrl = settings.baseUrl,
@@ -124,14 +132,5 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
             .apiKey(resolveApiKey(settings))
             .modelName(modelName)
             .build()
-    }
-
-    override fun getEmbeddingTokenLimit(settings: OpenAiCompatibleSettings): Int {
-        val modelName = settings.embeddingModel.lowercase()
-        return when {
-            modelName.contains("text-embedding-3") -> 8191
-            modelName.contains("ada-002") -> 8191
-            else -> 8191
-        }
     }
 }

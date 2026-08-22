@@ -20,32 +20,32 @@ class StreamingErrorClassifierTest {
     @Test
     fun `context length exceeded is retryable`() {
         val e = RuntimeException("context length exceeded")
-        assertIs<StreamingErrorResult.Retryable>(classifyStreamingError(e, ModelProvider.OLLAMA, "llama3"))
+        assertIs<StreamingErrorResult.Retryable>(classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "llama3"))
     }
 
     @Test
     fun `context length - token limit variant is retryable`() {
         // Must contain both "context" and a matching second keyword to trigger isContextLengthError
         val e = RuntimeException("context token limit has been exceeded")
-        assertIs<StreamingErrorResult.Retryable>(classifyStreamingError(e, ModelProvider.OLLAMA, "llama3"))
+        assertIs<StreamingErrorResult.Retryable>(classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "llama3"))
     }
 
     @Test
     fun `context length - maximum context variant is retryable`() {
         val e = RuntimeException("maximum context size exceeded")
-        assertIs<StreamingErrorResult.Retryable>(classifyStreamingError(e, ModelProvider.DOCKER, "gemma4"))
+        assertIs<StreamingErrorResult.Retryable>(classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "gemma4"))
     }
 
     @Test
     fun `unsupported temperature is retryable`() {
         val e = RuntimeException("temperature does not support values above 1")
-        assertIs<StreamingErrorResult.Retryable>(classifyStreamingError(e, ModelProvider.OLLAMA, "llama3"))
+        assertIs<StreamingErrorResult.Retryable>(classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "llama3"))
     }
 
     @Test
     fun `unsupported top_p is retryable`() {
         val e = RuntimeException("top_p is not supported by this model")
-        assertIs<StreamingErrorResult.Retryable>(classifyStreamingError(e, ModelProvider.LMSTUDIO, "mistral"))
+        assertIs<StreamingErrorResult.Retryable>(classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "mistral"))
     }
 
     @Test
@@ -59,31 +59,31 @@ class StreamingErrorClassifierTest {
     @Test
     fun `llama-server crash is terminal`() {
         val e = RuntimeException("llama-server process has terminated unexpectedly")
-        assertIs<StreamingErrorResult.Terminal>(classifyStreamingError(e, ModelProvider.OLLAMA, "llama3"))
+        assertIs<StreamingErrorResult.Terminal>(classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "llama3"))
     }
 
     @Test
     fun `process has terminated is terminal`() {
         val e = RuntimeException("process has terminated with exit code 1")
-        assertIs<StreamingErrorResult.Terminal>(classifyStreamingError(e, ModelProvider.OLLAMA, "llama3"))
+        assertIs<StreamingErrorResult.Terminal>(classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "llama3"))
     }
 
     @Test
     fun `llama_model_loader failure is terminal`() {
         val e = RuntimeException("llama_model_loader: failed to load model")
-        assertIs<StreamingErrorResult.Terminal>(classifyStreamingError(e, ModelProvider.OLLAMA, "llama3"))
+        assertIs<StreamingErrorResult.Terminal>(classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "llama3"))
     }
 
     @Test
     fun `error loading model is terminal`() {
         val e = RuntimeException("error loading model: no such file")
-        assertIs<StreamingErrorResult.Terminal>(classifyStreamingError(e, ModelProvider.OLLAMA, "llama3"))
+        assertIs<StreamingErrorResult.Terminal>(classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "llama3"))
     }
 
     @Test
     fun `api_error with exit status is terminal`() {
         val e = RuntimeException("api_error: exit status 1")
-        assertIs<StreamingErrorResult.Terminal>(classifyStreamingError(e, ModelProvider.OLLAMA, "llama3"))
+        assertIs<StreamingErrorResult.Terminal>(classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "llama3"))
     }
 
     // ── Terminal: empty HTTP response ─────────────────────────────────────────
@@ -91,7 +91,7 @@ class StreamingErrorClassifierTest {
     @Test
     fun `empty HTTP response on direct message is terminal`() {
         val e = IOException("HTTP/1.1 header parser received no bytes")
-        val result = classifyStreamingError(e, ModelProvider.DOCKER, "gemma4")
+        val result = classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "gemma4")
         assertIs<StreamingErrorResult.Terminal>(result)
     }
 
@@ -99,13 +99,13 @@ class StreamingErrorClassifierTest {
     fun `empty HTTP response on cause message is terminal`() {
         val cause = IOException("HTTP/1.1 header parser received no bytes")
         val e = RuntimeException("streaming failed", cause)
-        assertIs<StreamingErrorResult.Terminal>(classifyStreamingError(e, ModelProvider.OLLAMA, "llama3"))
+        assertIs<StreamingErrorResult.Terminal>(classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "llama3"))
     }
 
     @Test
-    fun `empty HTTP response for Docker is terminal`() {
+    fun `empty HTTP response for local provider is terminal`() {
         val e = IOException("HTTP/1.1 header parser received no bytes")
-        val result = classifyStreamingError(e, ModelProvider.DOCKER, "gemma4") as StreamingErrorResult.Terminal
+        val result = classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "gemma4") as StreamingErrorResult.Terminal
         // When i18n resources aren't loaded, LocalizationManager returns the key itself
         assertContains(result.message, "error.empty_http_response")
     }
@@ -113,14 +113,14 @@ class StreamingErrorClassifierTest {
     @Test
     fun `empty HTTP response for Ollama is terminal`() {
         val e = IOException("HTTP/1.1 header parser received no bytes")
-        val result = classifyStreamingError(e, ModelProvider.OLLAMA, "llama3") as StreamingErrorResult.Terminal
+        val result = classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "llama3") as StreamingErrorResult.Terminal
         assertContains(result.message, "error.empty_http_response")
     }
 
     @Test
-    fun `empty HTTP response for LM Studio is terminal`() {
+    fun `empty HTTP response for openai compatible is terminal`() {
         val e = IOException("HTTP/1.1 header parser received no bytes")
-        val result = classifyStreamingError(e, ModelProvider.LMSTUDIO, "mistral") as StreamingErrorResult.Terminal
+        val result = classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "mistral") as StreamingErrorResult.Terminal
         assertContains(result.message, "error.empty_http_response")
     }
 
@@ -130,7 +130,7 @@ class StreamingErrorClassifierTest {
     fun `unresolved address is terminal with connection message`() {
         val cause = UnresolvedAddressException()
         val e = IOException("Connection failed", cause)
-        val result = classifyStreamingError(e, ModelProvider.OLLAMA, "llama3") as StreamingErrorResult.Terminal
+        val result = classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "llama3") as StreamingErrorResult.Terminal
         assertContains(result.message, "Unable to connect")
     }
 
@@ -147,7 +147,7 @@ class StreamingErrorClassifierTest {
     @Test
     fun `ModelNotFoundException is terminal`() {
         val e = ModelNotFoundException("model not found")
-        assertIs<StreamingErrorResult.Terminal>(classifyStreamingError(e, ModelProvider.OLLAMA, "bad-model"))
+        assertIs<StreamingErrorResult.Terminal>(classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "bad-model"))
     }
 
     @Test
@@ -213,7 +213,7 @@ class StreamingErrorClassifierTest {
             usedByMessages = 4000,
             availableForResponse = 96,
         )
-        val result = classifyStreamingError(e, ModelProvider.OLLAMA, "llama3") as StreamingErrorResult.Terminal
+        val result = classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "llama3") as StreamingErrorResult.Terminal
         assertContains(result.message, "Insufficient context window space")
     }
 

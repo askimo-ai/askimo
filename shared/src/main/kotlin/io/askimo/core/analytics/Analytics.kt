@@ -56,7 +56,7 @@ object Analytics {
      * Never includes the model ID — only the tier matters for analytics.
      */
     fun modelTier(provider: String): String {
-        val local = setOf("OLLAMA", "LMSTUDIO", "LOCALAI", "DOCKER")
+        val local = emptySet<String>()
         return if (provider.uppercase() in local) "local" else "cloud"
     }
 

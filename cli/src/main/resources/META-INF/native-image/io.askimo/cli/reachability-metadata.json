@@ -1991,6 +1991,9 @@
     }, {
       "name": "parameters",
       "parameterTypes": [ ]
+    }, {
+      "name": "parametersJsonSchema",
+      "parameterTypes": [ ]
     } ]
   }, {
     "type": "dev.langchain4j.model.googleai.GeminiFunctionDeclaration[]"
@@ -3011,6 +3014,12 @@
       "parameterTypes": [ "io.askimo.core.chat.repository.ConversationSyncRepositoryIT" ]
     }, {
       "name": "does not return outdated messages",
+      "parameterTypes": [ ]
+    }, {
+      "name": "message inserted with syncedAt is excluded from push queue",
+      "parameterTypes": [ ]
+    }, {
+      "name": "message inserted without syncedAt still appears in push queue",
       "parameterTypes": [ ]
     }, {
       "name": "respects limit parameter",
@@ -5637,6 +5646,8 @@
   }, {
     "type": "io.askimo.core.providers.SettingField"
   }, {
+    "type": "io.askimo.core.providers.SettingField$TextField"
+  }, {
     "type": "io.askimo.core.providers.TestToolProviderFactory"
   }, {
     "type": "io.askimo.core.providers.anthropic.AnthropicModelFactoryTest",
@@ -5659,8 +5670,6 @@
     } ]
   }, {
     "type": "io.askimo.core.providers.anthropic.AnthropicSettings"
-  }, {
-    "type": "io.askimo.core.providers.docker.DockerAiSettings"
   }, {
     "type": "io.askimo.core.providers.gemini.GeminiModelFactoryTest",
     "allDeclaredFields": true,
@@ -5719,10 +5728,6 @@
   }, {
     "type": "io.askimo.core.providers.gemini.GeminiSettings$Companion"
   }, {
-    "type": "io.askimo.core.providers.lmstudio.LmStudioSettings"
-  }, {
-    "type": "io.askimo.core.providers.localai.LocalAiSettings"
-  }, {
     "type": "io.askimo.core.providers.ollama.OllamaModelFactoryTest",
     "allDeclaredFields": true,
     "methods": [ {
@@ -5738,31 +5743,6 @@
       "name": "setUp",
       "parameterTypes": [ ]
     } ]
-  }, {
-    "type": "io.askimo.core.providers.ollama.OllamaSettings",
-    "methods": [ {
-      "name": "getBaseUrl",
-      "parameterTypes": [ ]
-    }, {
-      "name": "getDefaultModel",
-      "parameterTypes": [ ]
-    }, {
-      "name": "getEmbeddingModel",
-      "parameterTypes": [ ]
-    }, {
-      "name": "getImageModel",
-      "parameterTypes": [ ]
-    }, {
-      "name": "getUtilityModel",
-      "parameterTypes": [ ]
-    }, {
-      "name": "getVisionModel",
-      "parameterTypes": [ ]
-    } ]
-  }, {
-    "type": "io.askimo.core.providers.ollama.OllamaSettings$$serializer"
-  }, {
-    "type": "io.askimo.core.providers.ollama.OllamaSettings$Companion"
   }, {
     "type": "io.askimo.core.providers.openai.OpenAiModelFactoryProxyTest",
     "allDeclaredFields": true,
@@ -5868,7 +5848,43 @@
   }, {
     "type": "io.askimo.core.providers.openai.OpenAiSettings$Companion"
   }, {
-    "type": "io.askimo.core.providers.openaicompatible.OpenAiCompatibleSettings"
+    "type": "io.askimo.core.providers.openaicompatible.OpenAiApiMode"
+  }, {
+    "type": "io.askimo.core.providers.openaicompatible.OpenAiCompatibleSettings",
+    "methods": [ {
+      "name": "getApiKey",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getApiMode",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getBaseUrl",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getDefaultModel",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getEmbeddingModel",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getHttpVersion",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getImageModel",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getTemplateName",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getUtilityModel",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getVisionModel",
+      "parameterTypes": [ ]
+    }, {
+      "name": "isTemplate",
+      "parameterTypes": [ ]
+    } ]
   }, {
     "type": "io.askimo.core.providers.xai.XAiModelFactoryTest",
     "allDeclaredFields": true,

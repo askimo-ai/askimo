@@ -227,13 +227,4 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
             .modelName(settings.embeddingModel)
             .build()
     }
-
-    override fun getEmbeddingTokenLimit(settings: GeminiSettings): Int {
-        val modelName = settings.embeddingModel.lowercase()
-        return when {
-            modelName.contains("embedding-001") -> 2048
-            modelName.contains("text-embedding-004") -> 2048
-            else -> 2048
-        }
-    }
 }

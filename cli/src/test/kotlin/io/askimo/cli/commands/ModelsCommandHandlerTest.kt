@@ -78,7 +78,7 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
 
     @Test
     fun `handle with Ollama provider shows models or helpful message`() {
-        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OLLAMA
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OPENAI_COMPATIBLE
         whenever(appContext.getActiveInstance()) doReturn null
 
         val parsedLine = mockParsedLine(":models")
@@ -86,10 +86,10 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
         handler.handle(parsedLine)
 
         val output = getOutput()
-        // Ollama might have no models if not installed, or might list available ones
+        // OpenAI-compatible provider might have no models if not configured
         assertTrue(
-            output.contains("Available models for 'ollama'") ||
-                output.contains("❌ No models available for 'ollama'"),
+            output.contains("Available models for 'openai_compatible'") ||
+                output.contains("❌ No models available for 'openai_compatible'"),
         )
         // Should always show some helpful information (usage hint on success, help text on error)
         assertTrue(output.contains("💡"))
@@ -97,7 +97,7 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
 
     @Test
     fun `handle with Ollama and no models shows helpful message`() {
-        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OLLAMA
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OPENAI_COMPATIBLE
         whenever(appContext.getActiveInstance()) doReturn null
 
         val parsedLine = mockParsedLine(":models")
@@ -105,10 +105,9 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
         handler.handle(parsedLine)
 
         val output = getOutput()
-        // If no models are available, should show helpful Ollama-specific guidance
+        // If no models are available, should show helpful OpenAI-compatible-specific guidance
         if (output.contains("❌ No models available")) {
-            assertTrue(output.contains("ollama pull"))
-            assertTrue(output.contains("https://ollama.com/library"))
+            assertTrue(output.contains("Base URL") || output.contains("API key") || output.contains("openai-compatible"))
         }
     }
 
@@ -233,7 +232,7 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
         val testCases =
             listOf(
                 ModelProvider.OPENAI to "openai",
-                ModelProvider.OLLAMA to "ollama",
+                ModelProvider.OPENAI_COMPATIBLE to "openai_compatible",
                 ModelProvider.ANTHROPIC to "anthropic",
                 ModelProvider.GEMINI to "gemini",
                 ModelProvider.XAI to "xai",
@@ -260,9 +259,9 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
     fun `handle with instance display name uses it as label`() {
         val instance = io.askimo.core.providers.ProviderInstance.create(
             displayName = "My Ollama",
-            providerType = ModelProvider.OLLAMA,
+            providerType = ModelProvider.OPENAI_COMPATIBLE,
         )
-        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OLLAMA
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OPENAI_COMPATIBLE
         whenever(appContext.getActiveInstance()) doReturn instance
 
         val parsedLine = mockParsedLine(":models")
@@ -298,7 +297,7 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
 
     @Test
     fun `handle with no active instance uses factory defaults`() {
-        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OLLAMA
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OPENAI_COMPATIBLE
         whenever(appContext.getActiveInstance()) doReturn null
 
         val parsedLine = mockParsedLine(":models")
@@ -308,7 +307,7 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
         val output = getOutput()
         // Should not crash, should show models or no models message
         assertTrue(
-            output.contains("ollama") ||
+            output.contains("openai_compatible") ||
                 output.contains("Available models") ||
                 output.contains("❌ No models available"),
         )
@@ -317,7 +316,7 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
     @Test
     fun `handle shows appropriate guidance based on provider`() {
         // Test Ollama guidance
-        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OLLAMA
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OPENAI_COMPATIBLE
         whenever(appContext.getActiveInstance()) doReturn null
 
         var parsedLine = mockParsedLine(":models")
@@ -325,7 +324,7 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
         var output = getOutput()
 
         if (output.contains("❌ No models available")) {
-            assertTrue(output.contains("ollama") && output.contains("pull"))
+            assertTrue(output.contains("openai_compatible") || output.contains("Base URL") || output.contains("API key"))
         }
 
         // Reset and test OpenAI guidance
@@ -343,7 +342,7 @@ class ModelsCommandHandlerTest : CommandHandlerTestBase() {
 
     @Test
     fun `handle with null active instance does not crash`() {
-        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OLLAMA
+        whenever(appContext.getActiveProvider()) doReturn ModelProvider.OPENAI_COMPATIBLE
         whenever(appContext.getActiveInstance()) doReturn null
 
         val parsedLine = mockParsedLine(":models")

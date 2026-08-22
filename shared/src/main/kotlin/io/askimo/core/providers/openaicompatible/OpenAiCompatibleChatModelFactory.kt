@@ -21,7 +21,6 @@ import io.askimo.core.providers.AiServiceBuilder
 import io.askimo.core.providers.ChatClient
 import io.askimo.core.providers.ChatModelFactory
 import io.askimo.core.providers.HasBaseUrl
-import io.askimo.core.providers.LocalEmbeddingTokenLimits
 import io.askimo.core.providers.ModelCapabilitiesCache
 import io.askimo.core.providers.ModelDTO
 import io.askimo.core.providers.ProviderModelUtils
@@ -66,7 +65,8 @@ abstract class OpenAiCompatibleChatModelFactory<T>(
     /**
      * Returns the API key sent in every HTTP request to this provider.
      *
-     * Local providers (Ollama, LocalAI, LmStudio, Docker AI) don't require a real key but
+     * Local providers (Ollama, LocalAI, and OpenAI-compatible templates like LM Studio, Docker AI)
+     * don't require a real key but
      * include one as a placeholder to satisfy defensive null/blank checks in certain server
      * implementations. The default value `"not-needed"` is safe for all such servers.
      *
@@ -80,7 +80,7 @@ abstract class OpenAiCompatibleChatModelFactory<T>(
      * is configured in [AppConfig].
      *
      * Defaults to [ProviderSettings.defaultModel]. Override for providers where the active
-     * model is tracked elsewhere (e.g., LmStudio and Docker AI read from AppContext.params.model).
+     * model is tracked elsewhere (e.g., OpenAI-compatible template instances read from AppContext.params.model).
      */
     protected open fun utilityModelFallback(settings: T): String = settings.defaultModel
 
@@ -95,7 +95,7 @@ abstract class OpenAiCompatibleChatModelFactory<T>(
     /**
      * Template method for embedding model availability verification.
      *
-     * **Local providers** (Ollama, LocalAI, LmStudio, Docker AI) override this to call
+     * **Local providers** (Ollama, LocalAI, and OpenAI-compatible templates) override this to call
      * [io.askimo.core.providers.ensureLocalEmbeddingModelAvailable], which verifies the server is reachable and the
      * requested model is pulled/available.
      *
@@ -108,8 +108,7 @@ abstract class OpenAiCompatibleChatModelFactory<T>(
      * Hook to apply additional configuration to the [OpenAiEmbeddingModelBuilder] before [build].
      *
      * The default is an identity transform (no changes).
-     * Override when the provider needs extra builder settings for embeddings
-     * (e.g., LmStudio injects an HTTP/1.1 client via [createJdkHttpClientBuilder]).
+     * Override when the provider needs extra builder settings for embeddings.
      */
     protected open fun customizeEmbeddingBuilder(
         settings: T,
@@ -274,8 +273,4 @@ abstract class OpenAiCompatibleChatModelFactory<T>(
                 .modelName(modelName),
         ).build()
     }
-
-    override fun getEmbeddingTokenLimit(settings: T): Int = LocalEmbeddingTokenLimits.resolve(
-        settings.embeddingModel,
-    )
 }

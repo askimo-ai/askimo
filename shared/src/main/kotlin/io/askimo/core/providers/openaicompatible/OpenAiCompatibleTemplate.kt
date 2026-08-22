@@ -140,4 +140,52 @@ enum class OpenAiCompatibleTemplate(
         apiKeyUrl = "",
         helpTextKey = "provider.template.lite_llm.help",
     ),
+
+    LMSTUDIO(
+        displayName = "LM Studio",
+        initials = "LM",
+        taglineKey = "provider.template.lmstudio.tagline",
+        baseUrl = "http://localhost:1234/v1",
+        apiKeyRequired = false,
+        apiKeyUrl = "",
+        helpTextKey = "provider.template.lmstudio.help",
+        apiMode = OpenAiApiMode.CHAT_COMPLETIONS,
+        httpVersion = HttpVersion.HTTP_1_1,
+    ),
+
+    DOCKER_AI(
+        displayName = "Docker AI",
+        initials = "DA",
+        taglineKey = "provider.template.docker_ai.tagline",
+        baseUrl = "http://localhost:12434/v1",
+        apiKeyRequired = false,
+        apiKeyUrl = "",
+        helpTextKey = "provider.template.docker_ai.help",
+        apiMode = OpenAiApiMode.RESPONSES,
+        httpVersion = HttpVersion.HTTP_1_1,
+    ),
+
+    LOCALAI(
+        displayName = "LocalAI",
+        initials = "LA",
+        taglineKey = "provider.template.localai.tagline",
+        baseUrl = "http://localhost:8080/v1",
+        apiKeyRequired = false,
+        apiKeyUrl = "",
+        helpTextKey = "provider.template.localai.help",
+        apiMode = OpenAiApiMode.CHAT_COMPLETIONS,
+        httpVersion = HttpVersion.HTTP_1_1,
+    ),
+
+    OLLAMA(
+        displayName = "Ollama",
+        initials = "OL",
+        taglineKey = "provider.template.ollama.tagline",
+        baseUrl = "http://localhost:11434/v1",
+        apiKeyRequired = false,
+        apiKeyUrl = "",
+        helpTextKey = "provider.template.ollama.help",
+        apiMode = OpenAiApiMode.RESPONSES,
+        httpVersion = HttpVersion.HTTP_1_1,
+    ),
 }

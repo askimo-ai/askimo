@@ -433,20 +433,6 @@ class AppContext private constructor(
     }
 
     /**
-     * Returns the maximum token limit for the active provider's embedding model.
-     * Falls back to a conservative default (2048) if the limit cannot be determined.
-     *
-     * @return Maximum number of tokens the embedding model can handle
-     */
-    fun getEmbeddingTokenLimit(): Int {
-        val instance = params.activeInstance ?: return 2048
-        val factory = ProviderRegistry.getFactory(instance.providerType) ?: return 2048
-
-        @Suppress("UNCHECKED_CAST")
-        return (factory as ChatModelFactory<ProviderSettings>).getEmbeddingTokenLimit(instance.settings)
-    }
-
-    /**
      * Creates a fresh ChatClient instance without using cache.
      * This should be used when you need a clean client as a base delegate for session-specific clients.
      *

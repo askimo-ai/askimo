@@ -141,13 +141,7 @@ internal fun classifyStreamingError(
             errorMessage.contains("header parser received no bytes", ignoreCase = true) ||
                 causeMsg.contains("header parser received no bytes", ignoreCase = true)
         } -> {
-            val providerHint = when (provider) {
-                ModelProvider.DOCKER -> LocalizationManager.getString("error.empty_http_response.hint.docker")
-                ModelProvider.OLLAMA -> LocalizationManager.getString("error.empty_http_response.hint.ollama")
-                ModelProvider.LMSTUDIO -> LocalizationManager.getString("error.empty_http_response.hint.lmstudio")
-                ModelProvider.LOCALAI -> LocalizationManager.getString("error.empty_http_response.hint.localai")
-                else -> LocalizationManager.getString("error.empty_http_response.hint.generic")
-            }
+            val providerHint = LocalizationManager.getString("error.empty_http_response.hint.generic")
             LocalizationManager.getString(
                 "error.empty_http_response",
                 "${provider.providerKey()}:$model",

@@ -446,7 +446,7 @@ class ChatRequestTransformersTest {
                 sessionId = null,
                 chatRequest = chatRequest,
                 memoryId = null,
-                provider = ModelProvider.OLLAMA,
+                provider = ModelProvider.OPENAI_COMPATIBLE,
                 settings = OpenAiSettings(defaultModel = "llama3"),
             )
 

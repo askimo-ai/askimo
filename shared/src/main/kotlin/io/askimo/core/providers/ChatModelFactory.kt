@@ -156,15 +156,6 @@ interface ChatModelFactory<T : ProviderSettings> {
     )
 
     /**
-     * Returns the maximum token limit for the embedding model of this provider.
-     * Returns a safe conservative default if not overridden.
-     *
-     * @param settings Provider-specific settings
-     * @return Maximum number of tokens the embedding model can handle
-     */
-    fun getEmbeddingTokenLimit(settings: T): Int = 2048
-
-    /**
      * Probes whether the model supports tool calling by sending a minimal test request
      * with tools attached. Called once per model — result should be cached in
      * [ModelCapabilitiesCache] by the calling [create] implementation.

@@ -9,6 +9,7 @@ import dev.langchain4j.data.segment.TextSegment
 import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
 import io.askimo.core.logging.logger
+import io.askimo.core.providers.EmbeddingTokenLimits
 
 /**
  * Handles generic text processing operations: chunking and segment creation.
@@ -24,7 +25,7 @@ class TextProcessor(
 
     /**
      * Dynamically calculated maximum characters per chunk based on the embedding model's token limit.
-     * Uses 80% of the model's token limit as a safety buffer, with ~4 chars per token as the conversion ratio.
+     * Uses 70% of the model's token limit as a safety buffer, with ~4 chars/token as the conversion ratio.
      */
     private val maxCharsPerChunk: Int by lazy {
         calculateSafeMaxChars()
@@ -44,46 +45,36 @@ class TextProcessor(
     }
 
     /**
-     * Calculate safe maximum characters per chunk based on the embedding model's token limit.
-     * Uses conservative ratios that work across all embedding models and languages.
+     * Calculates the maximum characters per chunk from the configured embedding model name.
+     *
+     * Resolves the model's token limit via [EmbeddingTokenLimits] — no factory
+     * indirection needed. Applies a 70 % safety factor and a 4 chars/token ratio
+     * (realistic for English; conservative enough for CJK and code).
      */
     private fun calculateSafeMaxChars(): Int {
-        val tokenLimit = try {
-            appContext.getEmbeddingTokenLimit()
-        } catch (e: Exception) {
-            log.warn("Failed to get model token limit, using default from config: ${e.message}")
-            return AppConfig.embedding.maxCharsPerChunk
-        }
+        val modelName = appContext.getActiveInstance()
+            ?.settings?.embeddingModel
+            ?.takeIf { it.isNotBlank() }
+            ?: run {
+                log.debug("No embedding model configured — using AppConfig default chunk size")
+                return AppConfig.embedding.maxCharsPerChunk
+            }
 
-        // Apply 30% safety buffer to handle:
-        // - Tokenization overhead (special tokens, padding)
-        // - Variability across languages (CJK, emoji, etc.)
-        // - Different encoding schemes per model
-        // This ultra-conservative approach ensures we NEVER exceed token limits
-        val safetyFactor = 0.3
-        val safeTokenLimit = (tokenLimit * safetyFactor).toInt()
+        val tokenLimit = EmbeddingTokenLimits.resolve(modelName)
 
-        // Conservative estimate: 2 characters per token
-        // Works for worst-case scenarios:
-        // - Non-Latin scripts (CJK: 1-2 chars/token)
-        // - Mixed languages and special characters
-        // - Code with lots of symbols
-        // - Different tokenizers (BPE, WordPiece, SentencePiece)
-        val charsPerToken = 2
-        val safeChars = safeTokenLimit * charsPerToken
-
-        // Respect configured bounds
+        // 70 % safety factor leaves headroom for tokenisation overhead and non-Latin scripts.
+        // 4 chars/token is a reasonable average across English prose, code, and CJK.
+        val safeChars = (tokenLimit * 0.7 * 4).toInt()
         val configuredMax = AppConfig.embedding.maxCharsPerChunk
-        val minChars = 500
-
-        val calculated = safeChars.coerceIn(minChars, configuredMax)
+        val calculated = safeChars.coerceIn(500, configuredMax)
 
         log.trace(
-            "Calculated chunk size: $calculated chars " +
-                "(model limit: $tokenLimit tokens, " +
-                "safe limit: $safeTokenLimit tokens @ ${(safetyFactor * 100).toInt()}% safety, " +
-                "ratio: $charsPerToken:1, " +
-                "configured max: $configuredMax)",
+            "Chunk size for '{}': {} chars (limit: {} tokens, safe: {}%, ratio: 4:1, max: {})",
+            modelName,
+            calculated,
+            tokenLimit,
+            70,
+            configuredMax,
         )
 
         return calculated

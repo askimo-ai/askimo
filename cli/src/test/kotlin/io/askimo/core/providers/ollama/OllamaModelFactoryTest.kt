@@ -8,7 +8,12 @@ import dev.langchain4j.data.message.TextContent
 import io.askimo.core.context.AppContext
 import io.askimo.core.context.ExecutionMode
 import io.askimo.core.providers.ChatClient
+import io.askimo.core.providers.HttpVersion
 import io.askimo.core.providers.TestToolProviderFactory
+import io.askimo.core.providers.openaicompatible.OpenAiApiMode
+import io.askimo.core.providers.openaicompatible.OpenAiCompatibleModelFactory
+import io.askimo.core.providers.openaicompatible.OpenAiCompatibleSettings
+import io.askimo.core.providers.openaicompatible.OpenAiCompatibleTemplate
 import io.askimo.core.providers.sendStreamingMessageWithCallback
 import io.askimo.test.extensions.AskimoTestHome
 import io.askimo.test.extensions.RetryOnFailure
@@ -52,9 +57,16 @@ class OllamaModelFactoryTest {
     }
 
     private fun createChatService(baseUrl: String): ChatClient {
-        val settings = OllamaSettings(baseUrl = baseUrl, defaultModel = "qwen2.5:0.5b")
+        val settings = OpenAiCompatibleSettings(
+            baseUrl = baseUrl,
+            defaultModel = "qwen2.5:0.5b",
+            apiMode = OpenAiApiMode.RESPONSES,
+            httpVersion = HttpVersion.HTTP_1_1,
+            isTemplate = true,
+            templateName = OpenAiCompatibleTemplate.OLLAMA.name,
+        )
 
-        return OllamaModelFactory().create(
+        return OpenAiCompatibleModelFactory().create(
             settings = settings,
             toolProvider = TestToolProviderFactory.createCountEntriesToolProvider(),
             retriever = null,

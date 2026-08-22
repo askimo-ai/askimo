@@ -8,11 +8,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import io.askimo.core.providers.anthropic.AnthropicSettings
-import io.askimo.core.providers.docker.DockerAiSettings
 import io.askimo.core.providers.gemini.GeminiSettings
-import io.askimo.core.providers.lmstudio.LmStudioSettings
-import io.askimo.core.providers.localai.LocalAiSettings
-import io.askimo.core.providers.ollama.OllamaSettings
 import io.askimo.core.providers.openai.OpenAiSettings
 import io.askimo.core.providers.openaicompatible.OpenAiCompatibleSettings
 import io.askimo.core.providers.xai.XAiSettings
@@ -43,10 +39,6 @@ enum class HttpVersion {
     JsonSubTypes.Type(value = AnthropicSettings::class, name = "anthropic"),
     JsonSubTypes.Type(value = GeminiSettings::class, name = "gemini"),
     JsonSubTypes.Type(value = XAiSettings::class, name = "xai"),
-    JsonSubTypes.Type(value = OllamaSettings::class, name = "ollama"),
-    JsonSubTypes.Type(value = DockerAiSettings::class, name = "docker"),
-    JsonSubTypes.Type(value = LocalAiSettings::class, name = "localai"),
-    JsonSubTypes.Type(value = LmStudioSettings::class, name = "lmstudio"),
     JsonSubTypes.Type(value = OpenAiCompatibleSettings::class, name = "openai_compatible"),
 )
 interface ProviderSettings {
@@ -55,7 +47,7 @@ interface ProviderSettings {
     /**
      * HTTP protocol version for connections to this provider's endpoint.
      * Defaults to [HttpVersion.HTTP_2]. Override in settings classes that target servers
-     * without full HTTP/2 support (e.g. [DockerAiSettings]).
+     * without full HTTP/2 support (e.g. self-hosted local servers).
      */
     val httpVersion: HttpVersion get() = HttpVersion.HTTP_2
 

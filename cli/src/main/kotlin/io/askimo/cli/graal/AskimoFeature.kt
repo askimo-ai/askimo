@@ -23,14 +23,9 @@ import io.askimo.core.providers.NoopProviderSettings
 import io.askimo.core.providers.ProviderSettings
 import io.askimo.core.providers.SettingField
 import io.askimo.core.providers.anthropic.AnthropicSettings
-import io.askimo.core.providers.docker.DockerAiSettings
 import io.askimo.core.providers.gemini.GeminiSettings
-import io.askimo.core.providers.lmstudio.LmStudioSettings
-import io.askimo.core.providers.localai.LocalAiSettings
-import io.askimo.core.providers.ollama.OllamaSettings
 import io.askimo.core.providers.openai.OpenAiSettings
 import io.askimo.core.providers.openaicompatible.OpenAiCompatibleSettings
-import io.askimo.core.providers.xai.XAiSettings
 import io.askimo.tools.fs.LocalFsTools
 import io.askimo.tools.git.GitTools
 import org.graalvm.nativeimage.hosted.Feature
@@ -69,11 +64,7 @@ class AskimoFeature : Feature {
             OpenAiSettings::class.java,
             AnthropicSettings::class.java,
             GeminiSettings::class.java,
-            XAiSettings::class.java,
-            OllamaSettings::class.java,
-            DockerAiSettings::class.java,
-            LocalAiSettings::class.java,
-            LmStudioSettings::class.java,
+            OpenAiSettings::class.java,
             OpenAiCompatibleSettings::class.java,
             NoopProviderSettings::class.java,
         )

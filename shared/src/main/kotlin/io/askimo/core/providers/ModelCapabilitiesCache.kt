@@ -68,34 +68,6 @@ object ModelCapabilitiesCache {
             supportsStreaming = true,
             reasoningLevel = ReasoningEffort.MEDIUM,
         ),
-        ModelProvider.OLLAMA to ModelCapabilities(
-            contextSize = 262_144,
-            supportsTools = null,
-            supportsVision = null,
-            supportsStreaming = true,
-            reasoningLevel = ReasoningEffort.MEDIUM,
-        ),
-        ModelProvider.DOCKER to ModelCapabilities(
-            contextSize = 262_144,
-            supportsTools = null,
-            supportsVision = null,
-            supportsStreaming = true,
-            reasoningLevel = ReasoningEffort.MEDIUM,
-        ),
-        ModelProvider.LOCALAI to ModelCapabilities(
-            contextSize = 262_144,
-            supportsTools = null,
-            supportsVision = null,
-            supportsStreaming = true,
-            reasoningLevel = ReasoningEffort.MEDIUM,
-        ),
-        ModelProvider.LMSTUDIO to ModelCapabilities(
-            contextSize = 262_144,
-            supportsTools = null,
-            supportsVision = null,
-            supportsStreaming = true,
-            reasoningLevel = ReasoningEffort.MEDIUM,
-        ),
     )
 
     // Fallback default for unknown providers

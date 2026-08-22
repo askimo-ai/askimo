@@ -31,7 +31,7 @@ class ModelFilterUtilsTest {
     // ── Helpers ───────────────────────────────────────────────────────────────────────────
 
     /** Builds a minimal [ModelDTO] using Ollama as a stand-in provider. */
-    private fun model(id: String, category: ModelCategory? = null): ModelDTO = ModelDTO(provider = ModelProvider.OLLAMA, modelId = id, category = category)
+    private fun model(id: String, category: ModelCategory? = null): ModelDTO = ModelDTO(provider = ModelProvider.OPENAI_COMPATIBLE, modelId = id, category = category)
 
     // ── filterChatModels ──────────────────────────────────────────────────────────────────
 
