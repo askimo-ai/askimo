@@ -44,6 +44,7 @@ private fun ResultRow.toProject(): Project = Project(
     isStarred = this[ProjectsTable.isStarred] == 1,
     spaceId = this[ProjectsTable.spaceId],
     spaceName = this[ProjectsTable.spaceName],
+    defaultDirectiveId = this[ProjectsTable.defaultDirectiveId],
 )
 
 /**
@@ -73,6 +74,7 @@ class ProjectRepository internal constructor(
                 it[knowledgeSourcesConfig] = KnowledgeSourceSerializer.serialize(projectWithInjectedFields.knowledgeSources)
                 it[createdAt] = projectWithInjectedFields.createdAt
                 it[updatedAt] = projectWithInjectedFields.updatedAt
+                it[defaultDirectiveId] = projectWithInjectedFields.defaultDirectiveId
             }
         }
 
@@ -170,6 +172,27 @@ class ProjectRepository internal constructor(
         if (updated) {
             log.debug("Updated project $projectId")
             EventBus.post(PushDataToServerEvent(reason = "project updated"))
+        }
+        updated
+    }
+
+    /**
+     * Set (or clear) the default directive automatically applied to new chats started
+     * within this project. Pass `null` to clear the project-level default.
+     *
+     * @param projectId The project id
+     * @param directiveId The directive id to use as default, or null to clear it
+     * @return true if updated successfully
+     */
+    fun setDefaultDirective(projectId: String, directiveId: String?): Boolean = transaction(database) {
+        val updated = ProjectsTable.update({ ProjectsTable.id eq projectId }) {
+            it[ProjectsTable.defaultDirectiveId] = directiveId
+            it[updatedAt] = Instant.now()
+        } > 0
+
+        if (updated) {
+            log.debug("Set default directive for project $projectId to $directiveId")
+            EventBus.post(PushDataToServerEvent(reason = "project default directive updated"))
         }
         updated
     }
@@ -333,6 +356,7 @@ class ProjectRepository internal constructor(
                         it[syncedAt] = nowStr
                         it[spaceId] = project.spaceId
                         it[spaceName] = project.spaceName
+                        it[defaultDirectiveId] = project.defaultDirectiveId
                     }
                     log.debug("upsertFromServer: inserted project {}", project.id)
                 } else if (project.updatedAt.isAfter(storedUpdatedAt)) {
@@ -344,6 +368,7 @@ class ProjectRepository internal constructor(
                         it[syncedAt] = nowStr
                         it[spaceId] = project.spaceId
                         it[spaceName] = project.spaceName
+                        it[defaultDirectiveId] = project.defaultDirectiveId
                     }
                     log.debug("upsertFromServer: updated project {} (server newer)", project.id)
                 } else {

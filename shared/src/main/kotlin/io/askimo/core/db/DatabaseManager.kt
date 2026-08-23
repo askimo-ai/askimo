@@ -219,6 +219,14 @@ class DatabaseManager private constructor(
             } catch (_: Exception) {
                 // Column already exists — safe to ignore.
             }
+
+            try {
+                stmt.executeUpdate(
+                    "ALTER TABLE projects ADD COLUMN default_directive_id TEXT",
+                )
+            } catch (_: Exception) {
+                // Column already exists — safe to ignore.
+            }
         }
     }
 

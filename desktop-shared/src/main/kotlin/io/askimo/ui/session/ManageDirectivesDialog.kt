@@ -19,10 +19,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
@@ -72,6 +74,8 @@ fun manageDirectivesDialog(
     onDelete: (id: String) -> Unit,
     onExport: () -> String,
     onImport: (json: String) -> DirectiveImportResult,
+    defaultDirectiveId: String? = null,
+    onSetDefault: (id: String?) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var showNewDirectiveDialog by remember { mutableStateOf(false) }
@@ -194,6 +198,29 @@ fun manageDirectivesDialog(
 
                                 if (directive.scope != DirectiveScope.TEAM) {
                                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+                                        val isDefault = directive.id == defaultDirectiveId
+                                        themedTooltip(
+                                            text = if (isDefault) {
+                                                stringResource("directive.default.unset")
+                                            } else {
+                                                stringResource("directive.default.set")
+                                            },
+                                        ) {
+                                            IconButton(
+                                                onClick = { onSetDefault(if (isDefault) null else directive.id) },
+                                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                            ) {
+                                                Icon(
+                                                    if (isDefault) Icons.Filled.Star else Icons.Outlined.StarOutline,
+                                                    contentDescription = stringResource("directive.default.set"),
+                                                    tint = if (isDefault) {
+                                                        MaterialTheme.colorScheme.primary
+                                                    } else {
+                                                        AppTextStyles.primaryContent
+                                                    },
+                                                )
+                                            }
+                                        }
                                         IconButton(
                                             onClick = { editingDirective = directive },
                                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),

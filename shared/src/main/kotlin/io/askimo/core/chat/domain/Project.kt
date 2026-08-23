@@ -32,6 +32,11 @@ data class Project(
     val spaceId: String? = null,
     /** Display name of the Space, denormalised for offline access. Null for personal projects. */
     val spaceName: String? = null,
+    /**
+     * Id of the directive automatically applied to new chats started within this project.
+     * Takes precedence over the user's global default directive. Null means no project-level default.
+     */
+    val defaultDirectiveId: String? = null,
 )
 
 /**
@@ -49,6 +54,7 @@ object ProjectsTable : Table("projects") {
     val isStarred = integer("is_starred").default(0)
     val spaceId = varchar("space_id", 36).nullable()
     val spaceName = varchar("space_name", 255).nullable()
+    val defaultDirectiveId = varchar("default_directive_id", 36).nullable()
 
     override val primaryKey = PrimaryKey(id)
 }

@@ -335,8 +335,10 @@ fun chatInputField(
         KoinJavaComponent.get<ChatDirectiveService>(ChatDirectiveService::class.java)
     }
     var availableDirectives by remember { mutableStateOf<List<ChatDirective>>(emptyList()) }
+    var defaultDirectiveId by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         availableDirectives = directiveService.listAllDirectives()
+        defaultDirectiveId = directiveService.getGlobalDefaultDirectiveId()
     }
 
     // State for resizable text field.
@@ -1027,6 +1029,11 @@ fun chatInputField(
                 val result = directiveService.importFromJson(json)
                 availableDirectives = directiveService.listAllDirectives()
                 result
+            },
+            defaultDirectiveId = defaultDirectiveId,
+            onSetDefault = { id ->
+                directiveService.setGlobalDefaultDirectiveId(id)
+                defaultDirectiveId = directiveService.getGlobalDefaultDirectiveId()
             },
         )
     }

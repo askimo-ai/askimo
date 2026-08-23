@@ -14,6 +14,7 @@ import io.askimo.core.chat.dto.FileAttachmentDTO
 import io.askimo.core.chat.dto.ToolApprovalRequest
 import io.askimo.core.chat.dto.ToolCallInfo
 import io.askimo.core.chat.dto.ToolCallStatus
+import io.askimo.core.chat.service.ChatDirectiveService
 import io.askimo.core.chat.service.ChatSessionService
 import io.askimo.core.context.AppContext
 import io.askimo.core.event.EventBus
@@ -68,6 +69,7 @@ import java.util.concurrent.ConcurrentHashMap
 class SessionManager(
     private val chatSessionService: ChatSessionService,
     private val scope: CoroutineScope,
+    private val chatDirectiveService: ChatDirectiveService,
     private val mcpInstanceService: McpInstanceService? = null,
 ) {
     private val log = logger<SessionManager>()
@@ -556,6 +558,7 @@ class SessionManager(
             sessionManager = this,
             scope = scope,
             chatSessionService = chatSessionService,
+            chatDirectiveService = chatDirectiveService,
         )
 
         chatViewModels[sessionId] = viewModel

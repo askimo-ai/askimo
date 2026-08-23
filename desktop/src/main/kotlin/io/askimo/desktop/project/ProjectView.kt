@@ -72,6 +72,7 @@ import io.askimo.core.chat.domain.LocalFoldersKnowledgeSourceConfig
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.domain.UrlKnowledgeSourceConfig
 import io.askimo.core.chat.dto.FileAttachmentDTO
+import io.askimo.core.chat.service.ChatDirectiveService
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.ProjectIndexingRequestedEvent
@@ -1086,7 +1087,13 @@ private fun projectChatInputFooter(
     var inputText by remember { mutableStateOf(TextFieldValue("")) }
     var attachments by remember { mutableStateOf<List<FileAttachmentDTO>>(emptyList()) }
     var currentEnabledServerIds by remember { mutableStateOf(emptySet<String>()) }
-    var selectedDirective by remember { mutableStateOf<String?>(null) }
+    // Pre-select this project's default directive (falling back to the user's global
+    // default) so new chats in this project start with the right instructions.
+    var selectedDirective by remember(projectId) {
+        mutableStateOf(
+            GlobalContext.get().get<ChatDirectiveService>().resolveDefaultDirectiveId(projectId),
+        )
+    }
     var webSearchInRag by remember { mutableStateOf(false) }
 
     Box(
