@@ -144,6 +144,11 @@ class SessionManager(
         private val _toolCalls: MutableStateFlow<List<ToolCallInfo>> = MutableStateFlow(emptyList()),
         private val _thinkingChunks: MutableStateFlow<List<String>> = MutableStateFlow(emptyList()),
         private val _pendingApproval: MutableStateFlow<ToolApprovalRequest?> = MutableStateFlow(null),
+        // Wall-clock time the thread started "thinking" (before the first chunk arrives).
+        // Used to compute the correct elapsed "thinking" time when a ViewModel re-subscribes
+        // to this thread after the user switches away and back to this session, instead of
+        // resetting the on-screen timer to 0.
+        val startTimeMillis: Long = System.currentTimeMillis(),
     ) {
         val chunks: StateFlow<List<String>> = _chunks.asStateFlow()
         val isComplete: StateFlow<Boolean> = _isComplete.asStateFlow()

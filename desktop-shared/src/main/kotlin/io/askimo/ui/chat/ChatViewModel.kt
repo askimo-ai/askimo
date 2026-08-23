@@ -32,6 +32,7 @@ import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
@@ -339,11 +340,18 @@ class ChatViewModel(
         val activeThread = sessionManager.getActiveThread(sessionId)
 
         if (activeThread != null) {
+            // Parent job + child scope for ALL collectors spawned below so a single
+            // cancel() (on resubscribe or completion) tears down every one of them
+            // together
+            val subscriptionJob = SupervisorJob(scope.coroutineContext[Job])
+            val subscriptionScope = CoroutineScope(scope.coroutineContext + subscriptionJob)
+            activeSubscriptions[sessionId] = subscriptionJob
+
             val hasChunks = activeThread.chunks.value.isNotEmpty()
 
             if (!hasChunks) {
                 isThinking = true
-                startThinkingTimer()
+                startThinkingTimer(activeThread.startTimeMillis)
             } else {
                 val streamingContent = activeThread.chunks.value.joinToString("")
                 val newAiMessage = ChatMessageDTO(
@@ -358,7 +366,7 @@ class ChatViewModel(
             }
 
             // Create a single job for this SPECIFIC threadId's subscription
-            val subscriptionJob = scope.launch {
+            subscriptionScope.launch {
                 var firstTokenReceived = hasChunks
 
                 activeThread.chunks.collect { chunks ->
@@ -385,13 +393,10 @@ class ChatViewModel(
                 }
             }
 
-            // Track this subscription by sessionId
-            activeSubscriptions[sessionId] = subscriptionJob
-
             // Subscribe to tool call state for the streaming message.
             // When a tool fires before any text token arrives (no id=null message exists yet),
             // inject a placeholder AI message so the bubble appears and can render tool chips.
-            scope.launch {
+            subscriptionScope.launch {
                 activeThread.toolCalls.collect { calls ->
                     if (currentSessionId.value == sessionId) {
                         activeToolCalls = calls // No streaming bubble yet — create placeholder so tool chips are visible
@@ -402,7 +407,7 @@ class ChatViewModel(
 
             // Subscribe to thinking/reasoning tokens streamed by models that expose reasoning.
             // Accumulate chunks into a single string; UI renders them in a collapsible section.
-            scope.launch {
+            subscriptionScope.launch {
                 activeThread.pendingApproval.collect { request ->
                     if (currentSessionId.value == sessionId) {
                         pendingToolApproval = request
@@ -410,7 +415,7 @@ class ChatViewModel(
                 }
             }
 
-            scope.launch {
+            subscriptionScope.launch {
                 activeThread.thinkingChunks.collect { chunks ->
                     if (currentSessionId.value == sessionId) {
                         activeThinkingContent = chunks.joinToString("")
@@ -422,7 +427,7 @@ class ChatViewModel(
             }
 
             // Monitor completion in a separate job
-            scope.launch {
+            subscriptionScope.launch {
                 activeThread.isComplete.collect { isComplete ->
                     if (currentSessionId.value == sessionId && isComplete) {
                         isLoading = false
@@ -482,7 +487,9 @@ class ChatViewModel(
                         // past its coroutine completion specifically for this read.
                         sessionManager.removeThread(sessionId)
 
-                        // Cancel and clean up subscription when thread completes
+                        // Cancel and clean up ALL collectors (chunks, toolCalls,
+                        // pendingApproval, thinkingChunks, isComplete) for this session
+                        // now that the thread is done.
                         activeSubscriptions[sessionId]?.cancel()
                         activeSubscriptions.remove(sessionId)
                     }
@@ -802,15 +809,18 @@ class ChatViewModel(
         }
     }
 
-    private fun startThinkingTimer() {
-        thinkingElapsedSeconds = 0
+    private fun startThinkingTimer(startTimeMillis: Long = System.currentTimeMillis()) {
+        // Compute elapsed from the real start time so that re-subscribing to an
+        // already-running thread (e.g. after switching sessions and back) shows
+        // the correct elapsed time instead of restarting from 0.
+        thinkingElapsedSeconds = ((System.currentTimeMillis() - startTimeMillis) / 1000).toInt()
         thinkingFrameIndex = 0
 
         // Timer for elapsed seconds
         thinkingJob = scope.launch {
             while (isThinking) {
                 delay(1000)
-                thinkingElapsedSeconds++
+                thinkingElapsedSeconds = ((System.currentTimeMillis() - startTimeMillis) / 1000).toInt()
             }
         }
 

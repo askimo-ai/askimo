@@ -669,7 +669,9 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
         }
     }
     val onNewChatMenuAction = {
-        chatViewModel?.clearChat()
+        sessionManager.activeSessionId
+            ?.let { sessionManager.getOrCreateChatViewModel(it) }
+            ?.clearChat()
         currentView = View.CHAT
     }
     val onNewProjectMenuAction = {
