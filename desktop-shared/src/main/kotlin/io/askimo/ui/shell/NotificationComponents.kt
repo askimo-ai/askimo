@@ -325,7 +325,7 @@ fun notificationPopup(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Notifications (${events.size})",
+                text = stringResource("event.notification.title", events.size),
                 style = AppTextStyles.sectionTitle,
             )
 

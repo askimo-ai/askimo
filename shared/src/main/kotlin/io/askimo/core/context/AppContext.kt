@@ -15,6 +15,7 @@ import io.askimo.core.config.AppConfig
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.ModelChangedEvent
+import io.askimo.core.exception.EmbeddingModelNotConfiguredException
 import io.askimo.core.exception.ProviderNotConfiguredException
 import io.askimo.core.logging.logger
 import io.askimo.core.memory.UserMemorySummary
@@ -421,6 +422,10 @@ class AppContext private constructor(
                     "${instance.providerType.name} does not support embedding models. " +
                         "Please switch to a provider that supports embeddings (OpenAI, Gemini, Ollama, etc.) to use RAG features.",
                 )
+            }
+
+            if (instance.settings.embeddingModel.isBlank()) {
+                throw EmbeddingModelNotConfiguredException(instance.displayName)
             }
 
             @Suppress("UNCHECKED_CAST")

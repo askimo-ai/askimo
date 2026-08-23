@@ -25,6 +25,8 @@ import io.askimo.core.event.user.IndexingCompletedEvent
 import io.askimo.core.event.user.IndexingFailedEvent
 import io.askimo.core.event.user.IndexingQueuedEvent
 import io.askimo.core.event.user.IndexingStartedEvent
+import io.askimo.core.exception.ExceptionHandler
+import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
 import io.askimo.core.rag.indexing.IndexingCoordinator
 import io.askimo.core.rag.indexing.IndexingCoordinatorFactory
@@ -663,10 +665,12 @@ class ProjectIndexer(
         } catch (e: Exception) {
             log.error("Failed to handle indexing request for project ${event.projectId}", e)
 
+            val message = ExceptionHandler.handle(e, contextId = event.projectId)
+
             EventBus.emit(
                 AppErrorEvent(
-                    title = "Failed to index knowledge source",
-                    message = e.message.takeIf { !it.isNullOrBlank() } ?: "Unknown error",
+                    title = LocalizationManager.getString("error.indexing.failed.title"),
+                    message = message,
                 ),
             )
 
@@ -674,7 +678,7 @@ class ProjectIndexer(
                 IndexingFailedEvent(
                     projectId = event.projectId,
                     projectName = event.projectId,
-                    errorMessage = e.message.takeIf { !it.isNullOrBlank() } ?: "Unknown error",
+                    errorMessage = message,
                 ),
             )
         }

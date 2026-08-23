@@ -179,3 +179,19 @@ class ProviderNotConfiguredException :
 
     override fun getMessageArgs() = emptyMap<String, String>()
 }
+
+/**
+ * No embedding model has been selected for the active provider instance.
+ *
+ * @param providerDisplayName The display name of the active provider instance (e.g. "ollama-local").
+ */
+class EmbeddingModelNotConfiguredException(
+    val providerDisplayName: String,
+) : UserException(
+    "No embedding model is configured for '$providerDisplayName'.",
+) {
+    override fun getMessageKey() = "error.embedding_model_not_configured"
+
+    override fun getMessageArgs() = mapOf("provider" to providerDisplayName)
+}
+
