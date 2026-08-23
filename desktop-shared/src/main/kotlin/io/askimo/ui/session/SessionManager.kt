@@ -680,11 +680,11 @@ class SessionManager(
                 // batches these state writes atomically for Compose observers instead.
 
                 val viewModel = getOrCreateChatViewModel(newSession.id)
+                createdSessions.add(newSession.id)
                 Snapshot.withMutableSnapshot {
                     // bindNewSession (not switchToSession/resumeSession) avoids an async DB
                     // reload racing sendMessage()'s in-memory mutation below.
                     activeSessionId = newSession.id
-                    createdSessions.add(newSession.id)
                     viewModel.bindNewSession(sessionId = newSession.id, title = message, project = project, defaultDirectiveId = resolvedDirectiveId)
                 }
                 onComplete()
