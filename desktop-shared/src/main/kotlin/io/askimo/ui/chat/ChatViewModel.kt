@@ -863,8 +863,16 @@ class ChatViewModel(
      * empty) DB state, making the first user question and AI response disappear from the
      * UI/history. Since this is a brand-new session there is nothing to load from the DB
      * anyway, so we just set the fields directly.
+     *
+     * @param defaultDirectiveId The directive id to pre-select, already resolved by the
+     *   caller (e.g. via [ChatDirectiveService.resolveDefaultDirectiveId] on
+     *   `Dispatchers.IO`). Resolving it here instead would perform blocking Exposed DB
+     *   transactions (`ChatDirectiveRepository.exists()` /
+     *   `UserProfileRepository.getPreference()`), which is unsafe when this method is
+     *   called from inside a Compose `Snapshot.withMutableSnapshot` block on a
+     *   non-IO dispatcher — this keeps [bindNewSession] pure state initialization.
      */
-    fun bindNewSession(sessionId: String, title: String, project: Project?) {
+    fun bindNewSession(sessionId: String, title: String, project: Project?, defaultDirectiveId: String?) {
         currentSessionId.value = sessionId
         sessionTitle = title
         this.project = project
@@ -872,7 +880,7 @@ class ChatViewModel(
         currentCursor = null
         hasMoreMessages = false
         bookmarkedMessageIds = emptySet()
-        selectedDirective = chatDirectiveService.resolveDefaultDirectiveId(project)
+        selectedDirective = defaultDirectiveId
         errorMessage = null
     }
 
