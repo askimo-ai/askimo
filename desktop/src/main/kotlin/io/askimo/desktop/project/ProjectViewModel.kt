@@ -190,8 +190,10 @@ class ProjectViewModel(
                     ),
                 )
 
-                // Trigger re-indexing if knowledge sources changed
-                if (oldKnowledgeSources != knowledgeSources) {
+                // Trigger re-indexing if knowledge sources changed (only when an embedding
+                // model is configured — otherwise the sources are saved but left un-indexed
+                // until the user configures one; see the embedding-not-configured banner).
+                if (oldKnowledgeSources != knowledgeSources && embeddingModelConfigured) {
                     EventBus.post(
                         ProjectReIndexEvent(
                             projectId = projectId,

@@ -148,14 +148,19 @@ fun projectView(
 
     // Broadcast indexing request when entering the project view so that
     // all knowledge sources are (re-)indexed / watched for changes.
-    LaunchedEffect(currentProject.id) {
-        EventBus.post(
-            ProjectIndexingRequestedEvent(
-                projectId = currentProject.id,
-                knowledgeSources = null,
-                watchForChanges = true,
-            ),
-        )
+    // Gated on embeddingModelConfigured — otherwise ProjectIndexer would call
+    // appContext.getEmbeddingModel(), throw, and surface a global AppErrorEvent dialog
+    // on top of the "configure embedding model" banner shown below.
+    LaunchedEffect(currentProject.id, viewModel.embeddingModelConfigured) {
+        if (viewModel.embeddingModelConfigured) {
+            EventBus.post(
+                ProjectIndexingRequestedEvent(
+                    projectId = currentProject.id,
+                    knowledgeSources = null,
+                    watchForChanges = true,
+                ),
+            )
+        }
     }
 
     // ProjectView has a sticky chat input at the bottom — it needs a bounded Column
@@ -291,7 +296,10 @@ fun projectView(
                                         },
                                         onReindexProject = {
                                             showProjectMenu = false
-                                            if (indexProgress.status == IndexStatus.INDEXING) {
+                                            if (!viewModel.embeddingModelConfigured) {
+                                                // No-op: banner above already prompts the user to
+                                                // configure an embedding model first.
+                                            } else if (indexProgress.status == IndexStatus.INDEXING) {
                                                 showReIndexConfirmDialog = true
                                             } else {
                                                 EventBus.post(
@@ -428,14 +436,18 @@ fun projectView(
                     knowledgeSources = mergedConfigs,
                 )
 
-                // Trigger re-indexing for the new sources
-                EventBus.post(
-                    ProjectIndexingRequestedEvent(
-                        projectId = currentProject.id,
-                        knowledgeSources = newConfigs,
-                        watchForChanges = true,
-                    ),
-                )
+                // Trigger re-indexing for the new sources (only if embeddings are configured;
+                // otherwise the sources are saved but left un-indexed until the user configures
+                // an embedding model — see the banner above).
+                if (viewModel.embeddingModelConfigured) {
+                    EventBus.post(
+                        ProjectIndexingRequestedEvent(
+                            projectId = currentProject.id,
+                            knowledgeSources = newConfigs,
+                            watchForChanges = true,
+                        ),
+                    )
+                }
 
                 showAddReferenceMaterialDialog = false
             },

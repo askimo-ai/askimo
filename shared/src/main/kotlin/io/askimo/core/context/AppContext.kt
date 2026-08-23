@@ -235,10 +235,23 @@ class AppContext private constructor(
     /**
      * Updates the settings of an existing instance in-place.
      * No-op if no instance with [instanceId] is found.
+     *
+     * When [instanceId] is the currently active instance, all cached models derived from its
+     * settings (utility client, secondary model, image model, embedding model) are invalidated
+     * so the next call rebuilds them from the new settings.
      */
     fun setInstanceSettings(instanceId: String, settings: ProviderSettings) {
         val instance = params.providerInstances.firstOrNull { it.id == instanceId } ?: return
         params.replaceInstance(instance.copy(settings = settings))
+
+        if (params.activeInstance?.id == instanceId) {
+            synchronized(this) {
+                cachedUtilityClient = null
+                cachedSecondaryModel = null
+                cachedImageModel = null
+                cachedEmbeddingModel = null
+            }
+        }
     }
 
     // ── Provider-level API (transitional, backed by instance list) ───────────────────────────
@@ -411,6 +424,21 @@ class AppContext private constructor(
         val instance = getActiveInstance() ?: return false
         val factory = ProviderRegistry.getFactory(instance.providerType) ?: return false
         return factory.supportsEmbedding() && instance.settings.embeddingModel.isNotBlank()
+    }
+
+    /**
+     * Returns a stable identity string for the currently active embedding model
+     * (e.g. `"OPENAI:text-embedding-3-small"`), or null if no active instance is configured.
+     *
+     * Unlike the embedding *dimension* (which several distinct models can share), this
+     * identity changes whenever the user switches provider instance or embedding model,
+     * even if the resulting vector dimension happens to stay the same. RAG indexing uses
+     * this to detect stale project indexes that a dimension-only check would miss — see
+     * [io.askimo.core.rag.ProjectIndexer].
+     */
+    fun activeEmbeddingModelIdentity(): String? {
+        val instance = getActiveInstance() ?: return null
+        return "${instance.providerType}:${instance.settings.embeddingModel}"
     }
 
     /**

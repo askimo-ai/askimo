@@ -91,14 +91,41 @@ object RagUtils {
     }
 
     /**
-     * Persist the current embedding dimension to index.meta for the given project.
+     * Read the stored embedding model identity (e.g. `"OPENAI:text-embedding-3-small"`) from
+     * index.meta for the given project. Returns null if the file/property does not exist,
+     * which is the case for indexes created before this field was introduced.
+     *
+     * This detects model changes that a dimension-only comparison would miss — e.g. switching
+     * between two different models (or providers) that happen to share the same output
+     * dimension, which would otherwise silently reuse stale, semantically-incompatible vectors.
+     * See [io.askimo.core.context.AppContext.activeEmbeddingModelIdentity].
      */
-    fun saveEmbeddingDimension(projectId: String, dimension: Int) {
+    fun getStoredEmbeddingModelId(projectId: String): String? {
+        val metaFile = getProjectIndexDir(projectId, createIfNotExists = false)
+            .resolve("index.meta").toFile()
+        if (!metaFile.exists()) return null
+        return try {
+            val props = Properties()
+            metaFile.inputStream().use { props.load(it) }
+            props.getProperty("embeddingModelId")
+        } catch (e: Exception) {
+            log.warn("Failed to read embeddingModelId from index.meta for project {}", projectId, e)
+            null
+        }
+    }
+
+    /**
+     * Persist the current embedding dimension and model identity to index.meta for the given
+     * project. The model identity is optional (omitted when unavailable, e.g. no active
+     * instance) for backward compatibility with the dimension-only mismatch check.
+     */
+    fun saveEmbeddingMetadata(projectId: String, dimension: Int, modelId: String?) {
         val metaFile = getProjectIndexDir(projectId, createIfNotExists = true)
             .resolve("index.meta").toFile()
         try {
             val props = Properties()
             props.setProperty("embeddingDimension", dimension.toString())
+            modelId?.let { props.setProperty("embeddingModelId", it) }
             metaFile.outputStream().use { props.store(it, "Askimo RAG index metadata") }
         } catch (e: Exception) {
             log.warn("Failed to write index.meta for project {}", projectId, e)
