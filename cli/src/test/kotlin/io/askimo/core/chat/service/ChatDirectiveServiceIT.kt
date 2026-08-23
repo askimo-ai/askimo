@@ -74,8 +74,7 @@ class ChatDirectiveServiceIT {
         }
     }
 
-    private fun createDirective(name: String): ChatDirective =
-        directiveRepository.save(ChatDirective(name = name, content = "Some instructions"))
+    private fun createDirective(name: String): ChatDirective = directiveRepository.save(ChatDirective(name = name, content = "Some instructions"))
 
     private fun createProject(name: String, defaultDirectiveId: String? = null): Project {
         val project = projectRepository.createProject(

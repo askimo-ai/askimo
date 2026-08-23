@@ -7,8 +7,10 @@ package io.askimo.ui.session
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.Snapshot
 import io.askimo.core.chat.domain.ChatMessage
 import io.askimo.core.chat.domain.ChatSession
+import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
 import io.askimo.core.chat.dto.ToolApprovalRequest
@@ -634,12 +636,16 @@ class SessionManager(
      * Create a new session associated with a project and send the first message.
      * This is used when starting a chat from ProjectView.
      *
+     * @param project The project the session belongs to (already loaded by the caller;
+     *   passed directly instead of being reloaded from the DB to avoid a race — see
+     *   [ChatViewModel.bindNewSession])
      * @param projectId The project ID to associate with the session
      * @param message The first message to send
      * @param attachments The file attachments to include with the message
      * @param onComplete Callback when the session is ready (for navigation)
      */
     fun createProjectSessionAndSendMessage(
+        project: Project?,
         projectId: String?,
         mode: CreationMode,
         message: String,
@@ -651,27 +657,43 @@ class SessionManager(
     ) {
         scope.launch {
             try {
-                // Create a new session associated with the project
-                val newSession = chatSessionService.createSession(
-                    ChatSession(
-                        id = "",
-                        title = message,
-                        directiveId = directiveId,
-                        projectId = projectId,
-                    ),
-                )
+                // Create a new session associated with the project. This is blocking DB I/O —
+                // run it explicitly off the UI thread regardless of what dispatcher `scope`
+                // happens to use.
+                val newSession = withContext(Dispatchers.IO) {
+                    chatSessionService.createSession(
+                        ChatSession(
+                            id = "",
+                            title = message,
+                            directiveId = directiveId,
+                            projectId = projectId,
+                        ),
+                    )
+                }
 
-                // Switch to the new session (this sets up the ViewModel properly)
-                switchToSession(newSession.id)
+                // `scope` runs on Dispatchers.Default and this project has no Dispatchers.Main
+                // artifact on the classpath, so we can't hop to Main. Snapshot.withMutableSnapshot
+                // batches these state writes atomically for Compose observers instead.
+                lateinit var viewModel: ChatViewModel
+                Snapshot.withMutableSnapshot {
+                    // bindNewSession (not switchToSession/resumeSession) avoids an async DB
+                    // reload racing sendMessage()'s in-memory mutation below.
+                    activeSessionId = newSession.id
+                    createdSessions.add(newSession.id)
+                    viewModel = getOrCreateChatViewModel(newSession.id)
+                    viewModel.bindNewSession(sessionId = newSession.id, title = message, project = project)
+                }
 
                 // Navigate to chat view
                 onComplete()
 
-                // Now send the message - ViewModel is ready
-                val viewModel = getOrCreateChatViewModel(newSession.id)
                 if (directiveId != null) viewModel.setDirective(directiveId)
                 // Apply web search flag before sendMessage so the retriever is built correctly
-                if (useWebSearch) chatSessionService.setWebSearchForSession(newSession.id, true)
+                if (useWebSearch) {
+                    withContext(Dispatchers.IO) {
+                        chatSessionService.setWebSearchForSession(newSession.id, true)
+                    }
+                }
                 viewModel.sendMessage(projectId, mode, message, attachments, enabledServerIds)
             } catch (e: Exception) {
                 log.error("Failed to create project session and send message", e)

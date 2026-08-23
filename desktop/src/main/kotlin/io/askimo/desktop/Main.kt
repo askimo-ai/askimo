@@ -2217,6 +2217,7 @@ fun mainContent(
                             onBack = onNavigateToProjects,
                             onStartChat = { projId, mode, message, attachments, enabledServerIds, directiveId, useWebSearch ->
                                 sessionManager.createProjectSessionAndSendMessage(
+                                    project = project,
                                     projectId = projId,
                                     mode = mode,
                                     message = message,

@@ -694,6 +694,14 @@ class ChatViewModel(
             UUID.randomUUID().toString()
         }
 
+        // Reflect the title immediately using the raw message text instead of waiting for
+        // the AI-generated summary (fired async in ChatSessionService.createSession) or for
+        // refreshSessionTitle() to run after the response completes. refreshSessionTitle()
+        // will overwrite this with the AI-summarized title once it's ready.
+        if (messages.isEmpty() && sessionTitle.isNullOrBlank()) {
+            sessionTitle = message
+        }
+
         currentJob?.cancel()
         currentJob = null
 
@@ -840,6 +848,32 @@ class ChatViewModel(
         thinkingJob = null
         animationJob?.cancel()
         animationJob = null
+    }
+
+    /**
+     * Bind this (freshly obtained) ViewModel to a brand-new, already-persisted-but-empty
+     * session, WITHOUT performing the async DB reload that [resumeSession] does.
+     *
+     * This is used right before immediately calling [sendMessage] for the very first
+     * message of a session (e.g. starting a chat from the Project view). Calling
+     * [resumeSession] in that situation would kick off an async DB read of messages that
+     * races against [sendMessage]'s synchronous, in-memory `messages` mutation: if the DB
+     * read resolves after the user message (and any streamed response) had already been
+     * appended in memory, it would overwrite `messages` back to the (still essentially
+     * empty) DB state, making the first user question and AI response disappear from the
+     * UI/history. Since this is a brand-new session there is nothing to load from the DB
+     * anyway, so we just set the fields directly.
+     */
+    fun bindNewSession(sessionId: String, title: String, project: Project?) {
+        currentSessionId.value = sessionId
+        sessionTitle = title
+        this.project = project
+        messages = emptyList()
+        currentCursor = null
+        hasMoreMessages = false
+        bookmarkedMessageIds = emptySet()
+        selectedDirective = chatDirectiveService.resolveDefaultDirectiveId(projectId = project?.id)
+        errorMessage = null
     }
 
     /**

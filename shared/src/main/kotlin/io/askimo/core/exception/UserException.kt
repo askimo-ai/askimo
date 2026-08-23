@@ -194,4 +194,3 @@ class EmbeddingModelNotConfiguredException(
 
     override fun getMessageArgs() = mapOf("provider" to providerDisplayName)
 }
-
