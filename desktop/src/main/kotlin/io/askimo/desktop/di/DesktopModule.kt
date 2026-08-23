@@ -49,6 +49,7 @@ val desktopModule = module {
     single { get<DatabaseManager>().getChatMessageRepository() }
     single { get<DatabaseManager>().getChatDirectiveRepository() }
     single { get<DatabaseManager>().getProjectRepository() }
+    single { get<DatabaseManager>().getUserProfileRepository() }
     single { get<DatabaseManager>().getPlanExecutionRepository() }
     single { get<DatabaseManager>().getLlmUsageRepository() }
 
@@ -79,7 +80,7 @@ val desktopModule = module {
             messageRepository = get(),
         )
     }
-    single { ChatDirectiveService(repository = get()) }
+    single { ChatDirectiveService(repository = get(), userProfileRepository = get(), projectRepository = get()) }
 
     single { McpClientFactory() }
     single { McpInstanceService(mcpClientFactory = get()) }
@@ -95,6 +96,7 @@ val desktopModule = module {
             chatSessionService = get(),
             scope = CoroutineScope(Dispatchers.Default + SupervisorJob()),
             mcpInstanceService = get(),
+            chatDirectiveService = get(),
         )
     }
 

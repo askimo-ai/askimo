@@ -2018,6 +2018,9 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                 showEditProjectDialog = false
                                 editingProjectId = null
                             },
+                            onSetDefaultDirective = { projectId, directiveId ->
+                                projectsViewModel.setDefaultDirective(projectId, directiveId)
+                            },
                         )
                     }
 

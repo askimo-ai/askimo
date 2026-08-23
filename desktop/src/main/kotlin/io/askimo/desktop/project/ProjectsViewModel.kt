@@ -214,6 +214,19 @@ class ProjectsViewModel(
     }
 
     /**
+     * Set (or clear) the default directive automatically applied to new chats
+     * started within this project.
+     */
+    fun setDefaultDirective(projectId: String, directiveId: String?) {
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                projectRepository.setDefaultDirective(projectId, directiveId)
+            }
+            refresh()
+        }
+    }
+
+    /**
      * Delete a project by ID.
      */
     fun deleteProject(projectId: String) {

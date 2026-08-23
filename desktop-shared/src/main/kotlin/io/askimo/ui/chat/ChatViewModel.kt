@@ -16,6 +16,7 @@ import io.askimo.core.chat.dto.ToolApprovalRequest
 import io.askimo.core.chat.dto.ToolCallInfo
 import io.askimo.core.chat.mapper.ChatMessageMapper.toDTO
 import io.askimo.core.chat.repository.PaginationDirection
+import io.askimo.core.chat.service.ChatDirectiveService
 import io.askimo.core.chat.service.ChatSessionService
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
@@ -54,6 +55,7 @@ class ChatViewModel(
     private val sessionManager: SessionManager,
     private val scope: CoroutineScope,
     private val chatSessionService: ChatSessionService,
+    private val chatDirectiveService: ChatDirectiveService,
 ) : ChatActions {
     private val log = logger<ChatViewModel>()
 
@@ -104,7 +106,7 @@ class ChatViewModel(
     var isSearchMode by mutableStateOf(false)
         private set
 
-    var selectedDirective by mutableStateOf<String?>(null)
+    var selectedDirective by mutableStateOf<String?>(chatDirectiveService.resolveDefaultDirectiveId(projectId = null))
         private set
 
     var sessionTitle by mutableStateOf<String?>(null)
@@ -1235,8 +1237,8 @@ class ChatViewModel(
         // Clear search state
         clearSearch()
 
-        // Reset directive to null for new chat session
-        selectedDirective = null
+        // Reset directive to new chat's default: global default directive (no project context here).
+        selectedDirective = chatDirectiveService.resolveDefaultDirectiveId(projectId = null)
 
         // Clear the active session in the manager so that when the first message of the
         // new chat is sent (and SessionCreatedEvent fires), the manager correctly adopts

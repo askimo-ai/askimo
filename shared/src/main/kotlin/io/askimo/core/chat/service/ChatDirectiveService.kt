@@ -7,8 +7,11 @@ package io.askimo.core.chat.service
 import io.askimo.core.chat.domain.ChatDirective
 import io.askimo.core.chat.domain.DirectiveScope
 import io.askimo.core.chat.repository.ChatDirectiveRepository
+import io.askimo.core.chat.repository.ProjectRepository
+import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.DirectiveDeletedEvent
+import io.askimo.core.user.repository.UserProfileRepository
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -48,7 +51,50 @@ private val json = Json {
  */
 class ChatDirectiveService(
     private val repository: ChatDirectiveRepository,
+    private val userProfileRepository: UserProfileRepository = DatabaseManager.getInstance().getUserProfileRepository(),
+    private val projectRepository: ProjectRepository = DatabaseManager.getInstance().getProjectRepository(),
 ) {
+    companion object {
+        /** User-preference key used to persist the global default directive id. */
+        const val PREF_DEFAULT_DIRECTIVE_ID = "default_directive_id"
+    }
+
+    /**
+     * Get the id of the user's global default directive, if one is set and still exists.
+     */
+    fun getGlobalDefaultDirectiveId(): String? {
+        val id = userProfileRepository.getPreference(PREF_DEFAULT_DIRECTIVE_ID) ?: return null
+        return if (repository.exists(id)) id else null
+    }
+
+    /**
+     * Set (or clear) the user's global default directive, applied to new chats
+     * that aren't started within a project (or whose project has no default).
+     */
+    fun setGlobalDefaultDirectiveId(directiveId: String?) {
+        userProfileRepository.setPreference(PREF_DEFAULT_DIRECTIVE_ID, directiveId ?: "")
+    }
+
+    /**
+     * Resolve the directive that should be pre-selected for a new chat, following
+     * this priority:
+     *  1. The project's default directive (if [projectId] is given and it has one set)
+     *  2. The user's global default directive
+     *  3. null (no directive pre-selected)
+     *
+     * Stale references (e.g. to a deleted directive) are ignored and fall through
+     * to the next priority level.
+     */
+    fun resolveDefaultDirectiveId(projectId: String?): String? {
+        if (projectId != null) {
+            val projectDefault = projectRepository.getProject(projectId)?.defaultDirectiveId
+            if (projectDefault != null && repository.exists(projectDefault)) {
+                return projectDefault
+            }
+        }
+        return getGlobalDefaultDirectiveId()
+    }
+
     /**
      * Create a new directive.
      */

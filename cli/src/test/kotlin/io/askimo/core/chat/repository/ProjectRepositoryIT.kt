@@ -202,6 +202,35 @@ class ProjectRepositoryIT {
     }
 
     @Test
+    fun `should set and clear default directive for a project`() {
+        val project = projectRepository.createProject(
+            Project(
+                id = "",
+                name = "Directive Project",
+                description = null,
+                knowledgeSources = emptyList(),
+                createdAt = Instant.now(),
+                updatedAt = Instant.now(),
+            ),
+        )
+        assertNull(project.defaultDirectiveId)
+
+        val setResult = projectRepository.setDefaultDirective(project.id, "directive-123")
+        assertTrue(setResult)
+        assertEquals("directive-123", projectRepository.getProject(project.id)?.defaultDirectiveId)
+
+        val clearResult = projectRepository.setDefaultDirective(project.id, null)
+        assertTrue(clearResult)
+        assertNull(projectRepository.getProject(project.id)?.defaultDirectiveId)
+    }
+
+    @Test
+    fun `should return false when setting default directive on non-existent project`() {
+        val result = projectRepository.setDefaultDirective("non-existent-id", "directive-123")
+        assertFalse(result)
+    }
+
+    @Test
     fun `should cascade delete sessions when project is deleted`() {
         // Create a project
         val project = projectRepository.createProject(

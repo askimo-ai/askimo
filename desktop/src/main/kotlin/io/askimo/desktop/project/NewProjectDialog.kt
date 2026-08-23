@@ -40,7 +40,10 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import io.askimo.core.chat.domain.ChatDirective
+import io.askimo.core.chat.service.ChatDirectiveService
 import io.askimo.core.chat.service.ProjectService
+import io.askimo.core.db.DatabaseManager
 import io.askimo.core.logging.logger
 import io.askimo.ui.common.components.inlineErrorMessage
 import io.askimo.ui.common.components.primaryButton
@@ -51,8 +54,10 @@ import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.util.FileDialogUtils
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.core.context.GlobalContext
 import java.util.UUID
 import kotlin.collections.plus
@@ -83,6 +88,18 @@ fun newProjectDialog(
     var showSuccess by remember { mutableStateOf(false) }
     var createdProjectName by remember { mutableStateOf("") }
     var countdown by remember { mutableStateOf(SUCCESS_COUNTDOWN_SECONDS) }
+
+    val chatDirectiveService = remember { DatabaseManager.getInstance().let { ChatDirectiveService(repository = it.getChatDirectiveRepository()) } }
+    val projectRepository = remember { DatabaseManager.getInstance().getProjectRepository() }
+    var availableDirectives by remember { mutableStateOf<List<ChatDirective>>(emptyList()) }
+    var selectedDefaultDirectiveId by remember { mutableStateOf<String?>(null) }
+    var showDirectiveMenu by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        availableDirectives = withContext(Dispatchers.IO) {
+            chatDirectiveService.listAllDirectives()
+        }
+    }
 
     val scope = rememberCoroutineScope()
     val dialogState = rememberDialogState()
@@ -156,6 +173,12 @@ fun newProjectDialog(
                     description = projectDescription.takeIf { it.isNotBlank() },
                     knowledgeSources = knowledgeSourceConfigs,
                 )
+
+                if (selectedDefaultDirectiveId != null) {
+                    withContext(Dispatchers.IO) {
+                        projectRepository.setDefaultDirective(createdProject.id, selectedDefaultDirectiveId)
+                    }
+                }
 
                 createdProjectName = projectName.trim()
                 showSuccess = true
@@ -322,6 +345,62 @@ fun newProjectDialog(
                                     HorizontalDivider(
                                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                                     )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ── Default directive ───────────────────────────────────────────
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+                    Text(
+                        text = stringResource("project.dialog.defaultDirective.label"),
+                        style = AppTextStyles.body,
+                    )
+
+                    Box {
+                        val selectedDirectiveName = availableDirectives
+                            .find { it.id == selectedDefaultDirectiveId }
+                            ?.name
+                            ?: stringResource("project.dialog.defaultDirective.none")
+
+                        OutlinedButton(
+                            onClick = { showDirectiveMenu = true },
+                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                        ) {
+                            Text(selectedDirectiveName)
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                        }
+
+                        AppComponents.dropdownMenu(
+                            expanded = showDirectiveMenu,
+                            onDismissRequest = { showDirectiveMenu = false },
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        showDirectiveMenu = false
+                                        selectedDefaultDirectiveId = null
+                                    }
+                                    .pointerHoverIcon(PointerIcon.Hand)
+                                    .padding(horizontal = Spacing.medium, vertical = Spacing.small),
+                            ) {
+                                Text(stringResource("project.dialog.defaultDirective.none"), style = AppTextStyles.body)
+                            }
+                            availableDirectives.forEach { directive ->
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            showDirectiveMenu = false
+                                            selectedDefaultDirectiveId = directive.id
+                                        }
+                                        .pointerHoverIcon(PointerIcon.Hand)
+                                        .padding(horizontal = Spacing.medium, vertical = Spacing.small),
+                                ) {
+                                    Text(directive.name, style = AppTextStyles.body)
                                 }
                             }
                         }
