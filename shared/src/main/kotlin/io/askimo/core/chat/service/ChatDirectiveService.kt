@@ -6,6 +6,7 @@ package io.askimo.core.chat.service
 
 import io.askimo.core.chat.domain.ChatDirective
 import io.askimo.core.chat.domain.DirectiveScope
+import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.repository.ChatDirectiveRepository
 import io.askimo.core.chat.repository.ProjectRepository
 import io.askimo.core.db.DatabaseManager
@@ -86,11 +87,18 @@ class ChatDirectiveService(
      * to the next priority level.
      */
     fun resolveDefaultDirectiveId(projectId: String?): String? {
-        if (projectId != null) {
-            val projectDefault = projectRepository.getProject(projectId)?.defaultDirectiveId
-            if (projectDefault != null && repository.exists(projectDefault)) {
-                return projectDefault
-            }
+        val project = projectId?.let { projectRepository.getProject(it) }
+        return resolveDefaultDirectiveId(project)
+    }
+
+    /**
+     * Same as [resolveDefaultDirectiveId] but takes an already-loaded [project] instead
+     * of a projectId.
+     */
+    fun resolveDefaultDirectiveId(project: Project?): String? {
+        val projectDefault = project?.defaultDirectiveId
+        if (projectDefault != null && repository.exists(projectDefault)) {
+            return projectDefault
         }
         return getGlobalDefaultDirectiveId()
     }

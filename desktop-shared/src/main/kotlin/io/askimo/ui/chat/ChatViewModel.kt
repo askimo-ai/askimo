@@ -872,7 +872,7 @@ class ChatViewModel(
         currentCursor = null
         hasMoreMessages = false
         bookmarkedMessageIds = emptySet()
-        selectedDirective = chatDirectiveService.resolveDefaultDirectiveId(projectId = project?.id)
+        selectedDirective = chatDirectiveService.resolveDefaultDirectiveId(project)
         errorMessage = null
     }
 
