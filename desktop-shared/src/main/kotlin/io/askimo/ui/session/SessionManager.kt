@@ -682,19 +682,21 @@ class SessionManager(
                     createdSessions.add(newSession.id)
                     viewModel = getOrCreateChatViewModel(newSession.id)
                     viewModel.bindNewSession(sessionId = newSession.id, title = message, project = project)
+                    if (directiveId != null) viewModel.setDirective(directiveId)
+
+                    onComplete()
                 }
 
-                // Navigate to chat view
-                onComplete()
-
-                if (directiveId != null) viewModel.setDirective(directiveId)
                 // Apply web search flag before sendMessage so the retriever is built correctly
                 if (useWebSearch) {
                     withContext(Dispatchers.IO) {
                         chatSessionService.setWebSearchForSession(newSession.id, true)
                     }
                 }
-                viewModel.sendMessage(projectId, mode, message, attachments, enabledServerIds)
+
+                Snapshot.withMutableSnapshot {
+                    viewModel.sendMessage(projectId, mode, message, attachments, enabledServerIds)
+                }
             } catch (e: Exception) {
                 log.error("Failed to create project session and send message", e)
             }
