@@ -657,6 +657,10 @@ class SessionManager(
     ) {
         scope.launch {
             try {
+                val resolvedDirectiveId = directiveId ?: withContext(Dispatchers.IO) {
+                    chatDirectiveService.resolveDefaultDirectiveId(project)
+                }
+
                 // Create a new session associated with the project. This is blocking DB I/O —
                 // run it explicitly off the UI thread regardless of what dispatcher `scope`
                 // happens to use.
@@ -665,7 +669,7 @@ class SessionManager(
                         ChatSession(
                             id = "",
                             title = message,
-                            directiveId = directiveId,
+                            directiveId = resolvedDirectiveId,
                             projectId = projectId,
                         ),
                     )
@@ -674,32 +678,13 @@ class SessionManager(
                 // `scope` runs on Dispatchers.Default and this project has no Dispatchers.Main
                 // artifact on the classpath, so we can't hop to Main. Snapshot.withMutableSnapshot
                 // batches these state writes atomically for Compose observers instead.
-                //
-                // IMPORTANT: only plain State writes go here. Snapshot.withMutableSnapshot
-                // throws if the snapshot fails to apply (e.g. a concurrent write conflict), in
-                // which case none of the writes above become visible. Side effects like
-                // onComplete() (navigation) or sendMessage() (kicks off network I/O / coroutines)
-                // are NOT part of the snapshot's transactional guarantee — if they ran *inside*
-                // the block, they'd fire even when apply() fails, leaving the UI
-                // navigated/streaming for state that was never actually committed. So they are
-                // invoked only after the block returns successfully.
-                //
-                // The default directive id is also resolved here, on Dispatchers.IO, BEFORE
-                // entering the snapshot: ChatDirectiveService.resolveDefaultDirectiveId performs
-                // blocking Exposed DB transactions (ChatDirectiveRepository.exists() /
-                // UserProfileRepository.getPreference()), which must not run inside the snapshot
-                // block on a non-IO dispatcher.
-                val resolvedDirectiveId = directiveId ?: withContext(Dispatchers.IO) {
-                    chatDirectiveService.resolveDefaultDirectiveId(project)
-                }
 
-                lateinit var viewModel: ChatViewModel
+                val viewModel = getOrCreateChatViewModel(newSession.id)
                 Snapshot.withMutableSnapshot {
                     // bindNewSession (not switchToSession/resumeSession) avoids an async DB
                     // reload racing sendMessage()'s in-memory mutation below.
                     activeSessionId = newSession.id
                     createdSessions.add(newSession.id)
-                    viewModel = getOrCreateChatViewModel(newSession.id)
                     viewModel.bindNewSession(sessionId = newSession.id, title = message, project = project, defaultDirectiveId = resolvedDirectiveId)
                 }
                 onComplete()
