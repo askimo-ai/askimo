@@ -33,12 +33,14 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -62,6 +64,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.util.TimeUtil
+import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.tablePageSizeSelector
 import io.askimo.ui.common.components.tablePagination
 import io.askimo.ui.common.i18n.stringResource
@@ -80,6 +83,7 @@ fun projectsView(
     onSelectProject: (String) -> Unit,
     onEditProject: (String) -> Unit,
     onNewProject: () -> Unit,
+    onNavigateToAiProviderSettings: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val scrollState = rememberScrollState()
@@ -127,6 +131,11 @@ fun projectsView(
                     style = AppTextStyles.bodySecondary,
                     modifier = Modifier.padding(top = 6.dp, bottom = 4.dp),
                 )
+
+                if (!viewModel.embeddingModelConfigured && onNavigateToAiProviderSettings != null) {
+                    Spacer(modifier = Modifier.height(Spacing.medium))
+                    embeddingModelNotConfiguredBanner(onConfigureClick = onNavigateToAiProviderSettings)
+                }
 
                 Spacer(modifier = Modifier.height(Spacing.large))
 
@@ -269,6 +278,55 @@ fun projectsView(
             modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
             style = AppComponents.scrollbarStyle(),
         )
+    }
+}
+
+/**
+ * Banner shown when the active AI provider instance has no embedding model configured,
+ * which means RAG indexing (project knowledge sources) cannot run.
+ *
+ * Reused by both [projectsView] (project list) and `projectView` (single project detail)
+ * since they live in the same package.
+ *
+ * @param onConfigureClick Navigates the user to the AI Provider settings section so they
+ *   can configure (or override) an embedding model for the active instance.
+ */
+@Composable
+internal fun embeddingModelNotConfiguredBanner(onConfigureClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = AppComponents.bannerCardColors(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.medium),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    Icons.Default.Info,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(
+                    text = stringResource("projects.rag.embedding.not.configured"),
+                    style = AppTextStyles.caption,
+                )
+            }
+            linkButton(onClick = onConfigureClick) {
+                Text(
+                    text = stringResource("projects.rag.embedding.configure"),
+                    style = AppTextStyles.caption,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
     }
 }
 

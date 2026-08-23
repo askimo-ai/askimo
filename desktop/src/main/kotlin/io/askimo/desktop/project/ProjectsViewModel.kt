@@ -10,11 +10,14 @@ import androidx.compose.runtime.setValue
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.service.ProjectService
+import io.askimo.core.context.AppContext
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.db.Pageable
 import io.askimo.core.event.EventBus
+import io.askimo.core.event.internal.ModelChangedEvent
 import io.askimo.core.event.internal.ProjectRefreshEvent
 import io.askimo.core.event.internal.ProjectsRefreshEvent
+import io.askimo.core.event.internal.ProviderInstanceSavedEvent
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
 import io.askimo.ui.shell.ProjectsSidebarState
@@ -24,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.context.GlobalContext
@@ -58,6 +62,17 @@ class ProjectsViewModel(
     var searchQuery by mutableStateOf("")
         private set
 
+    /**
+     * True when the active provider instance has an embedding model configured, meaning
+     * RAG project indexing can run.
+     *
+     * Kept in sync via [subscribeToEmbeddingModelEvents] — refreshed whenever the active
+     * provider/model changes or a provider instance is saved (including inline overrides
+     * made from the AI Provider settings model-config card).
+     */
+    var embeddingModelConfigured by mutableStateOf(AppContext.getInstance().isEmbeddingModelConfigured())
+        private set
+
     private var searchDebounceJob: Job? = null
 
     private var projectsPerPage = 10
@@ -71,6 +86,30 @@ class ProjectsViewModel(
         loadProjects()
         loadProjectsPaged(1)
         subscribeToProjectEvents()
+        subscribeToEmbeddingModelEvents()
+    }
+
+    /**
+     * Re-checks [embeddingModelConfigured] against the current [AppContext] state.
+     * Called on init and whenever a relevant event fires (see [subscribeToEmbeddingModelEvents]).
+     */
+    fun refreshEmbeddingModelStatus() {
+        embeddingModelConfigured = AppContext.getInstance().isEmbeddingModelConfigured()
+    }
+
+    /**
+     * Subscribe to events that can affect embedding-model availability: switching the active
+     * provider/model, or saving provider instance settings (including inline model overrides).
+     */
+    private fun subscribeToEmbeddingModelEvents() {
+        scope.launch {
+            merge(
+                EventBus.internalEvents.filterIsInstance<ModelChangedEvent>(),
+                EventBus.internalEvents.filterIsInstance<ProviderInstanceSavedEvent>(),
+            ).collect {
+                refreshEmbeddingModelStatus()
+            }
+        }
     }
 
     /**

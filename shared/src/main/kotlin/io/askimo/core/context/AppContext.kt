@@ -401,6 +401,19 @@ class AppContext private constructor(
     }
 
     /**
+     * Returns whether the currently active provider instance is fully configured for
+     * embeddings (i.e. RAG project indexing can run without throwing).
+     *
+     * @return true if there is an active instance, its factory supports embeddings, and an
+     *         embedding model has been configured (either explicitly or via a sensible default)
+     */
+    fun isEmbeddingModelConfigured(): Boolean {
+        val instance = getActiveInstance() ?: return false
+        val factory = ProviderRegistry.getFactory(instance.providerType) ?: return false
+        return factory.supportsEmbedding() && instance.settings.embeddingModel.isNotBlank()
+    }
+
+    /**
      * Returns the embedding model for the currently active provider.
      * The model is cached and reused until the provider or model changes.
      *

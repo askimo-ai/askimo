@@ -1266,6 +1266,11 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                             previousView = currentView
                                                             currentView = View.SETTINGS
                                                         },
+                                                        onNavigateToAiProviderSettings = {
+                                                            settingsSection = SettingsSection.AI_PROVIDER
+                                                            previousView = currentView
+                                                            currentView = View.SETTINGS
+                                                        },
                                                     )
                                                 } else {
                                                     Box(
@@ -2105,6 +2110,7 @@ fun mainContent(
     onNavigateToPlanDetail: () -> Unit = {},
     onNavigateToPlanEditor: () -> Unit = {},
     onNavigateToMcpSettings: () -> Unit = {},
+    onNavigateToAiProviderSettings: () -> Unit = {},
     activeSessionId: String?,
     sessionChatState: ChatViewState?,
     onChatStateChange: (TextFieldValue, List<FileAttachmentDTO>, ChatMessageDTO?) -> Unit,
@@ -2205,6 +2211,7 @@ fun mainContent(
                 onSelectProject = onSelectProject,
                 onEditProject = onEditProject,
                 onNewProject = onNewProject,
+                onNavigateToAiProviderSettings = onNavigateToAiProviderSettings,
                 modifier = Modifier.fillMaxSize(),
             )
 
@@ -2242,6 +2249,7 @@ fun mainContent(
                                 onNavigateToSessions()
                             },
                             onNavigateToMcpSettings = onNavigateToMcpSettings,
+                            onNavigateToAiProviderSettings = onNavigateToAiProviderSettings,
                             modifier = Modifier.fillMaxSize(),
                         )
                     } else {

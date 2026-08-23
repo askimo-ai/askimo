@@ -153,6 +153,17 @@ class AIProviderViewModel(
             withContext(Dispatchers.IO) {
                 appContext.save()
             }
+
+            // Emits [ProviderInstanceSavedEvent] so other view models (e.g. project list/detail
+            // screens tracking embedding-model availability for RAG) can react without direct
+            // coupling to this view model.
+            EventBus.emit(
+                ProviderInstanceSavedEvent(
+                    instanceId = instanceId,
+                    displayName = instance.displayName,
+                    isNewInstance = false,
+                ),
+            )
         }
     }
 

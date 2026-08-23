@@ -19,9 +19,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -120,6 +122,7 @@ fun projectView(
     onEditProject: (String) -> Unit,
     onDeleteProject: (String) -> Unit,
     onNavigateToMcpSettings: (() -> Unit)? = null,
+    onNavigateToAiProviderSettings: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     // Create ViewModel
@@ -205,6 +208,11 @@ fun projectView(
                                 style = AppTextStyles.caption,
                             )
                         }
+                    }
+
+                    if (!viewModel.embeddingModelConfigured && onNavigateToAiProviderSettings != null) {
+                        embeddingModelNotConfiguredBanner(onConfigureClick = onNavigateToAiProviderSettings)
+                        Spacer(modifier = Modifier.height(Spacing.large))
                     }
 
                     // ── Project hero card ───────────────────────────────────

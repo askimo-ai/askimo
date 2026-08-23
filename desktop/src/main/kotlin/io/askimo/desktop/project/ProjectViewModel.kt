@@ -10,12 +10,15 @@ import androidx.compose.runtime.setValue
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
 import io.askimo.core.chat.domain.Project
+import io.askimo.core.context.AppContext
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
+import io.askimo.core.event.internal.ModelChangedEvent
 import io.askimo.core.event.internal.ProjectIndexRemovalEvent
 import io.askimo.core.event.internal.ProjectReIndexEvent
 import io.askimo.core.event.internal.ProjectRefreshEvent
 import io.askimo.core.event.internal.ProjectSessionsRefreshEvent
+import io.askimo.core.event.internal.ProviderInstanceSavedEvent
 import io.askimo.core.event.user.IndexingCompletedEvent
 import io.askimo.core.event.user.IndexingFailedEvent
 import io.askimo.core.event.user.IndexingInProgressEvent
@@ -71,6 +74,14 @@ class ProjectViewModel(
     var indexProgress by mutableStateOf(IndexProgress())
         private set
 
+    /**
+     * True when the active provider instance has an embedding model configured, meaning
+     * RAG indexing can run for this project. See [ProjectsViewModel.embeddingModelConfigured]
+     * for the list-view equivalent.
+     */
+    var embeddingModelConfigured by mutableStateOf(AppContext.getInstance().isEmbeddingModelConfigured())
+        private set
+
     init {
         loadProject()
         loadSessions()
@@ -78,6 +89,7 @@ class ProjectViewModel(
         observeProjectEvents()
         observeIndexProgress()
         syncInitialIndexProgress()
+        observeEmbeddingModelEvents()
     }
 
     /**
@@ -383,6 +395,30 @@ class ProjectViewModel(
 
                     else -> indexProgress
                 }
+            }
+        }
+    }
+
+    /**
+     * Re-checks [embeddingModelConfigured] against the current [AppContext] state.
+     * Called on init and whenever a relevant event fires (see [observeEmbeddingModelEvents]).
+     */
+    fun refreshEmbeddingModelStatus() {
+        embeddingModelConfigured = AppContext.getInstance().isEmbeddingModelConfigured()
+    }
+
+    /**
+     * Subscribe to events that can affect embedding-model availability: switching the active
+     * provider/model, or saving provider instance settings (including inline model overrides
+     * made from the AI Provider settings model-config card).
+     */
+    private fun observeEmbeddingModelEvents() {
+        scope.launch {
+            merge(
+                EventBus.internalEvents.filterIsInstance<ModelChangedEvent>(),
+                EventBus.internalEvents.filterIsInstance<ProviderInstanceSavedEvent>(),
+            ).collect {
+                refreshEmbeddingModelStatus()
             }
         }
     }
