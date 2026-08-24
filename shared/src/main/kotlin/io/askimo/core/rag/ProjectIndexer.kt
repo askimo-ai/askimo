@@ -295,6 +295,17 @@ class ProjectIndexer(
     /**
      * Common indexing logic used by both initial indexing and re-indexing.
      *
+     * @param embeddingModelId The provider-model identity snapshot captured by the caller at
+     *   the *same time* as [embeddingModel] (e.g. right after `appContext.getEmbeddingModel()`).
+     *   Deliberately passed in rather than re-read from [appContext] here: this method can run
+     *   long after that snapshot was taken (tasks wait in the single-project FIFO queue, and
+     *   the mismatch checks in `handleIndexingRequest` perform real embedding API calls before
+     *   reaching this point). Re-querying `appContext.activeEmbeddingModelIdentity()` at save
+     *   time would read whatever provider happens to be active *now* — which can differ from
+     *   the provider that actually produced [embeddingModel] if the user switches providers
+     *   mid-flight, or if cached-model invalidation lags the switch. That would persist old
+     *   vectors tagged with the new model's identity, causing future mismatch checks to see a
+     *   false match and skip rebuilding — silently serving stale, incompatible vectors forever.
      * @param appendCoordinators When true, new coordinators are merged with any existing ones
      *   (used when adding a new knowledge source to an already-indexed project).
      *   When false (default), the coordinator list is replaced entirely.
@@ -304,6 +315,7 @@ class ProjectIndexer(
         knowledgeSources: List<KnowledgeSourceConfig>,
         embeddingStore: EmbeddingStore<TextSegment>,
         embeddingModel: EmbeddingModel,
+        embeddingModelId: String?,
         watchForChanges: Boolean,
         appendCoordinators: Boolean = false,
     ) {
@@ -312,7 +324,7 @@ class ProjectIndexer(
         val indexingStartMs = System.currentTimeMillis()
 
         val dimension = RagUtils.getDimensionForModel(embeddingModel)
-        RagUtils.saveEmbeddingMetadata(projectId, dimension, appContext.activeEmbeddingModelIdentity())
+        RagUtils.saveEmbeddingMetadata(projectId, dimension, embeddingModelId)
 
         // Register the store so removeCoordinator can close it and free in-memory vectors
         embeddingStores[projectId] = embeddingStore
@@ -498,6 +510,7 @@ class ProjectIndexer(
 
             if (project != null) {
                 val embeddingModel = appContext.getEmbeddingModel()
+                val embeddingModelId = appContext.activeEmbeddingModelIdentity()
                 checkEmbeddingModelAvailable(embeddingModel)
 
                 val dimension = RagUtils.getDimensionForModel(embeddingModel)
@@ -508,6 +521,7 @@ class ProjectIndexer(
                     knowledgeSources = project.knowledgeSources,
                     embeddingStore = embeddingStore,
                     embeddingModel = embeddingModel,
+                    embeddingModelId = embeddingModelId,
                     watchForChanges = true,
                 )
             }
@@ -669,6 +683,7 @@ class ProjectIndexer(
                         knowledgeSources = newSources,
                         embeddingStore = embeddingStore,
                         embeddingModel = embeddingModel,
+                        embeddingModelId = currentModelId,
                         watchForChanges = event.watchForChanges,
                         appendCoordinators = true,
                     )
@@ -679,6 +694,7 @@ class ProjectIndexer(
                         knowledgeSources = project.knowledgeSources,
                         embeddingStore = embeddingStore,
                         embeddingModel = embeddingModel,
+                        embeddingModelId = currentModelId,
                         watchForChanges = event.watchForChanges,
                     )
                 }

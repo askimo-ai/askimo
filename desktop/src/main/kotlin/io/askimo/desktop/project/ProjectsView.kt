@@ -134,7 +134,10 @@ fun projectsView(
 
                 if (!viewModel.embeddingModelConfigured && onNavigateToAiProviderSettings != null) {
                     Spacer(modifier = Modifier.height(Spacing.medium))
-                    embeddingModelNotConfiguredBanner(onConfigureClick = onNavigateToAiProviderSettings)
+                    embeddingModelNotConfiguredBanner(
+                        providerSupportsEmbedding = viewModel.embeddingSupportedByProvider,
+                        onConfigureClick = onNavigateToAiProviderSettings,
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(Spacing.large))
@@ -282,17 +285,26 @@ fun projectsView(
 }
 
 /**
- * Banner shown when the active AI provider instance has no embedding model configured,
- * which means RAG indexing (project knowledge sources) cannot run.
+ * Banner shown when RAG project indexing is unavailable due to the active AI provider's
+ * embedding configuration. Two distinct states are handled with different copy/action:
+ *  - [providerSupportsEmbedding] true: the provider supports embeddings but none is configured
+ *    yet — links to the AI Provider settings model-config card to pick one.
+ *  - [providerSupportsEmbedding] false: the active provider (e.g. Anthropic, xAI) never
+ *    supports embeddings and has no embedding-model field to configure at all — links to the
+ *    same settings screen, but with "switch provider" copy/action instead, since "configure
+ *    embedding model" would be a dead end for the user.
  *
  * Reused by both [projectsView] (project list) and `projectView` (single project detail)
  * since they live in the same package.
  *
- * @param onConfigureClick Navigates the user to the AI Provider settings section so they
- *   can configure (or override) an embedding model for the active instance.
+ * @param onConfigureClick Navigates the user to the AI Provider settings section, where they
+ *   can either configure an embedding model override or change the active provider.
  */
 @Composable
-internal fun embeddingModelNotConfiguredBanner(onConfigureClick: () -> Unit) {
+internal fun embeddingModelNotConfiguredBanner(
+    providerSupportsEmbedding: Boolean,
+    onConfigureClick: () -> Unit,
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = AppComponents.bannerCardColors(),
@@ -315,13 +327,25 @@ internal fun embeddingModelNotConfiguredBanner(onConfigureClick: () -> Unit) {
                     modifier = Modifier.size(18.dp),
                 )
                 Text(
-                    text = stringResource("projects.rag.embedding.not.configured"),
+                    text = stringResource(
+                        if (providerSupportsEmbedding) {
+                            "projects.rag.embedding.not.configured"
+                        } else {
+                            "projects.rag.embedding.unsupported.provider"
+                        },
+                    ),
                     style = AppTextStyles.caption,
                 )
             }
             linkButton(onClick = onConfigureClick) {
                 Text(
-                    text = stringResource("projects.rag.embedding.configure"),
+                    text = stringResource(
+                        if (providerSupportsEmbedding) {
+                            "projects.rag.embedding.configure"
+                        } else {
+                            "projects.rag.embedding.switch.provider"
+                        },
+                    ),
                     style = AppTextStyles.caption,
                     fontWeight = FontWeight.SemiBold,
                 )

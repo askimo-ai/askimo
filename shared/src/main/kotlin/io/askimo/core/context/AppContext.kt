@@ -427,6 +427,16 @@ class AppContext private constructor(
     }
 
     /**
+     * Returns whether the active provider instance's factory supports embedding models *at all*,
+     * regardless of whether one has actually been configured.
+     */
+    fun activeProviderSupportsEmbedding(): Boolean {
+        val instance = getActiveInstance() ?: return false
+        val factory = ProviderRegistry.getFactory(instance.providerType) ?: return false
+        return factory.supportsEmbedding()
+    }
+
+    /**
      * Returns a stable identity string for the currently active embedding model
      * (e.g. `"OPENAI:text-embedding-3-small"`), or null if no active instance is configured.
      *

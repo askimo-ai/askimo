@@ -82,6 +82,13 @@ class ProjectViewModel(
     var embeddingModelConfigured by mutableStateOf(AppContext.getInstance().isEmbeddingModelConfigured())
         private set
 
+    /**
+     * True when the active provider instance's factory supports embedding models at all.
+     * See [ProjectsViewModel.embeddingSupportedByProvider] for the list-view equivalent.
+     */
+    var embeddingSupportedByProvider by mutableStateOf(AppContext.getInstance().activeProviderSupportsEmbedding())
+        private set
+
     init {
         loadProject()
         loadSessions()
@@ -402,11 +409,13 @@ class ProjectViewModel(
     }
 
     /**
-     * Re-checks [embeddingModelConfigured] against the current [AppContext] state.
-     * Called on init and whenever a relevant event fires (see [observeEmbeddingModelEvents]).
+     * Re-checks [embeddingModelConfigured] and [embeddingSupportedByProvider] against the
+     * current [AppContext] state. Called on init and whenever a relevant event fires (see
+     * [observeEmbeddingModelEvents]).
      */
     fun refreshEmbeddingModelStatus() {
         embeddingModelConfigured = AppContext.getInstance().isEmbeddingModelConfigured()
+        embeddingSupportedByProvider = AppContext.getInstance().activeProviderSupportsEmbedding()
     }
 
     /**

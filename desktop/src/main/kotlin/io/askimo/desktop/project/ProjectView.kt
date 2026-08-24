@@ -216,7 +216,10 @@ fun projectView(
                     }
 
                     if (!viewModel.embeddingModelConfigured && onNavigateToAiProviderSettings != null) {
-                        embeddingModelNotConfiguredBanner(onConfigureClick = onNavigateToAiProviderSettings)
+                        embeddingModelNotConfiguredBanner(
+                            providerSupportsEmbedding = viewModel.embeddingSupportedByProvider,
+                            onConfigureClick = onNavigateToAiProviderSettings,
+                        )
                         Spacer(modifier = Modifier.height(Spacing.large))
                     }
 

@@ -73,6 +73,15 @@ class ProjectsViewModel(
     var embeddingModelConfigured by mutableStateOf(AppContext.getInstance().isEmbeddingModelConfigured())
         private set
 
+    /**
+     * True when the active provider instance's factory supports embedding models at all
+     * (regardless of whether one is configured). False for providers like Anthropic/xAI that
+     * never support embeddings — used to switch the "RAG disabled" banner's copy/action from
+     * "configure embedding model" to "switch provider" when configuring one is impossible.
+     */
+    var embeddingSupportedByProvider by mutableStateOf(AppContext.getInstance().activeProviderSupportsEmbedding())
+        private set
+
     private var searchDebounceJob: Job? = null
 
     private var projectsPerPage = 10
@@ -90,11 +99,13 @@ class ProjectsViewModel(
     }
 
     /**
-     * Re-checks [embeddingModelConfigured] against the current [AppContext] state.
-     * Called on init and whenever a relevant event fires (see [subscribeToEmbeddingModelEvents]).
+     * Re-checks [embeddingModelConfigured] and [embeddingSupportedByProvider] against the
+     * current [AppContext] state. Called on init and whenever a relevant event fires (see
+     * [subscribeToEmbeddingModelEvents]).
      */
     fun refreshEmbeddingModelStatus() {
         embeddingModelConfigured = AppContext.getInstance().isEmbeddingModelConfigured()
+        embeddingSupportedByProvider = AppContext.getInstance().activeProviderSupportsEmbedding()
     }
 
     /**
