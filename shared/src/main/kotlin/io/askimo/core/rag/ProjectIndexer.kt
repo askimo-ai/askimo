@@ -495,12 +495,6 @@ class ProjectIndexer(
         try {
             val projectId = event.projectId
 
-            // Always stop and clean up regardless of current status — re-index takes priority.
-            // Note: no job cancellation needed here; the channel consumer handles that before
-            // dispatching this handler.
-            removeCoordinator(projectId, false)
-            log.info("Cleaned up existing index data for project $projectId, starting re-index")
-
             val project = try {
                 projectRepository.getProject(projectId)
             } catch (e: Exception) {
@@ -510,8 +504,11 @@ class ProjectIndexer(
 
             if (project != null) {
                 val embeddingModel = appContext.getEmbeddingModel()
-                val embeddingModelId = appContext.activeEmbeddingModelIdentity()
                 checkEmbeddingModelAvailable(embeddingModel)
+                val embeddingModelId = appContext.activeEmbeddingModelIdentity()
+
+                removeCoordinator(projectId, false)
+                log.info("Cleaned up existing index data for project $projectId, starting re-index")
 
                 val dimension = RagUtils.getDimensionForModel(embeddingModel)
                 val embeddingStore = RagUtils.getEmbeddingStoreWithDimension(projectId, dimension)
