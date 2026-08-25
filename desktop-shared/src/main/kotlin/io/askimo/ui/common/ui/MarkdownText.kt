@@ -339,9 +339,9 @@ private fun renderSingleNode(node: Node, viewportTopY: Float? = null, isStreamin
 
         is Heading -> renderHeading(node, codeFontFamily, onLinkClick)
 
-        is BulletList -> renderBulletList(node, codeFontFamily, onLinkClick)
+        is BulletList -> renderBulletList(node, codeFontFamily, onLinkClick, viewportTopY, isStreaming, onRunRequest, messageId)
 
-        is OrderedList -> renderOrderedList(node, codeFontFamily, onLinkClick)
+        is OrderedList -> renderOrderedList(node, codeFontFamily, onLinkClick, viewportTopY, isStreaming, onRunRequest, messageId)
 
         is FencedCodeBlock -> renderCodeBlock(
             node,
@@ -354,7 +354,9 @@ private fun renderSingleNode(node: Node, viewportTopY: Float? = null, isStreamin
         is BlockQuote -> renderBlockQuote(
             node,
             viewportTopY,
+            isStreaming,
             onRunRequest,
+            messageId,
             onLinkClick,
         )
 
@@ -434,14 +436,22 @@ private fun renderHeading(
 }
 
 @Composable
-private fun renderBulletList(list: BulletList, codeFontFamily: FontFamily, onLinkClick: ((url: String) -> Unit)? = null) {
+private fun renderBulletList(
+    list: BulletList,
+    codeFontFamily: FontFamily,
+    onLinkClick: ((url: String) -> Unit)? = null,
+    viewportTopY: Float? = null,
+    isStreaming: Boolean = false,
+    onRunRequest: ((String, String) -> Unit)? = null,
+    messageId: String? = null,
+) {
     val inlineCodeBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
 
     Column(modifier = Modifier.padding(start = Spacing.large, top = Spacing.extraSmall, bottom = Spacing.extraSmall)) {
         var item = list.firstChild
         while (item != null) {
             if (item is ListItem) {
-                renderListItem(item, "• ", inlineCodeBg, codeFontFamily, onLinkClick)
+                renderListItem(item, "• ", inlineCodeBg, codeFontFamily, onLinkClick, viewportTopY, isStreaming, onRunRequest, messageId)
             }
             item = item.next
         }
@@ -449,7 +459,15 @@ private fun renderBulletList(list: BulletList, codeFontFamily: FontFamily, onLin
 }
 
 @Composable
-private fun renderOrderedList(list: OrderedList, codeFontFamily: FontFamily, onLinkClick: ((url: String) -> Unit)? = null) {
+private fun renderOrderedList(
+    list: OrderedList,
+    codeFontFamily: FontFamily,
+    onLinkClick: ((url: String) -> Unit)? = null,
+    viewportTopY: Float? = null,
+    isStreaming: Boolean = false,
+    onRunRequest: ((String, String) -> Unit)? = null,
+    messageId: String? = null,
+) {
     val inlineCodeBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
 
     Column(modifier = Modifier.padding(start = Spacing.large, top = Spacing.extraSmall, bottom = Spacing.extraSmall)) {
@@ -458,7 +476,7 @@ private fun renderOrderedList(list: OrderedList, codeFontFamily: FontFamily, onL
         var index = list.markerStartNumber
         while (item != null) {
             if (item is ListItem) {
-                renderListItem(item, "$index. ", inlineCodeBg, codeFontFamily, onLinkClick)
+                renderListItem(item, "$index. ", inlineCodeBg, codeFontFamily, onLinkClick, viewportTopY, isStreaming, onRunRequest, messageId)
                 index++
             }
             item = item.next
@@ -473,51 +491,61 @@ private fun renderListItem(
     inlineCodeBg: Color,
     codeFontFamily: FontFamily,
     onLinkClick: ((url: String) -> Unit)? = null,
+    viewportTopY: Float? = null,
+    isStreaming: Boolean = false,
+    onRunRequest: ((String, String) -> Unit)? = null,
+    messageId: String? = null,
 ) {
     val linkColor = MaterialTheme.colorScheme.tertiary
 
     Column(modifier = Modifier.padding(vertical = 2.dp)) {
-        // First, collect inline content and nested blocks
         val inlineContent = mutableListOf<Node>()
-        val nestedBlocks = mutableListOf<Node>()
+        // Block-level children (fenced code blocks, blockquotes, tables, nested lists) are kept
+        // in a single list in document order — rendering them via renderSingleNode/render*List
+        // instead of buildInlineContent, which can't flatten them (e.g. FencedCodeBlock stores
+        // text in `.literal`, not child Text nodes, so it would silently disappear otherwise).
+        val blockContent = mutableListOf<Node>()
 
         var child = item.firstChild
         while (child != null) {
             when (child) {
-                is BulletList, is OrderedList -> nestedBlocks.add(child)
+                is BulletList, is OrderedList, is FencedCodeBlock, is BlockQuote, is TableBlock -> blockContent.add(child)
                 else -> inlineContent.add(child)
             }
             child = child.next
         }
 
-        // Render inline content with marker
-        if (inlineContent.isNotEmpty()) {
-            val annotatedText = buildAnnotatedString {
-                append(marker)
-                inlineContent.forEach { node ->
-                    append(
-                        buildInlineContentForNode(
-                            node,
-                            inlineCodeBg,
-                            linkColor,
-                            codeFontFamily,
-                            onLinkClick,
-                        ),
-                    )
-                }
+        // Render inline content with marker. The marker must always be rendered — even when
+        // the item has no inline text (e.g. a list item consisting solely of a fenced code
+        // block or a nested list) — otherwise the bullet/number silently disappears and the
+        // list structure becomes visually broken.
+        val annotatedText = buildAnnotatedString {
+            append(marker)
+            inlineContent.forEach { node ->
+                append(
+                    buildInlineContentForNode(
+                        node,
+                        inlineCodeBg,
+                        linkColor,
+                        codeFontFamily,
+                        onLinkClick,
+                    ),
+                )
             }
-
-            Text(
-                text = annotatedText,
-                style = AppTextStyles.body,
-            )
         }
 
-        // Render nested lists
-        nestedBlocks.forEach { block ->
+        Text(
+            text = annotatedText,
+            style = AppTextStyles.body,
+        )
+
+        // Render block-level content (code blocks, blockquotes, tables, nested lists) found
+        // inside this list item, in their original document order.
+        blockContent.forEach { block ->
             when (block) {
-                is BulletList -> renderBulletList(block, codeFontFamily, onLinkClick)
-                is OrderedList -> renderOrderedList(block, codeFontFamily, onLinkClick)
+                is BulletList -> renderBulletList(block, codeFontFamily, onLinkClick, viewportTopY, isStreaming, onRunRequest, messageId)
+                is OrderedList -> renderOrderedList(block, codeFontFamily, onLinkClick, viewportTopY, isStreaming, onRunRequest, messageId)
+                else -> renderSingleNode(block, viewportTopY, isStreaming, onRunRequest, messageId, onLinkClick)
             }
         }
     }
@@ -780,7 +808,14 @@ private fun renderCodeBlock(codeBlock: FencedCodeBlock, viewportTopY: Float? = n
 }
 
 @Composable
-private fun renderBlockQuote(blockQuote: BlockQuote, viewportTopY: Float? = null, onRunRequest: ((String, String) -> Unit)? = null, onLinkClick: ((url: String) -> Unit)? = null) {
+private fun renderBlockQuote(
+    blockQuote: BlockQuote,
+    viewportTopY: Float? = null,
+    isStreaming: Boolean = false,
+    onRunRequest: ((String, String) -> Unit)? = null,
+    messageId: String? = null,
+    onLinkClick: ((url: String) -> Unit)? = null,
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -788,7 +823,7 @@ private fun renderBlockQuote(blockQuote: BlockQuote, viewportTopY: Float? = null
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
             .padding(Spacing.small),
     ) {
-        renderNode(blockQuote, viewportTopY, false, onRunRequest, null, onLinkClick)
+        renderNode(blockQuote, viewportTopY, isStreaming, onRunRequest, messageId, onLinkClick)
     }
 }
 
