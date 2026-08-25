@@ -499,55 +499,67 @@ private fun renderListItem(
     val linkColor = MaterialTheme.colorScheme.tertiary
 
     Column(modifier = Modifier.padding(vertical = 2.dp)) {
-        val inlineContent = mutableListOf<Node>()
-        // Block-level children (fenced code blocks, blockquotes, tables, nested lists) are kept
-        // in a single list in document order — rendering them via renderSingleNode/render*List
-        // instead of buildInlineContent, which can't flatten them (e.g. FencedCodeBlock stores
-        // text in `.literal`, not child Text nodes, so it would silently disappear otherwise).
-        val blockContent = mutableListOf<Node>()
+        // Single pass over the item's children in document order. Consecutive inline nodes are
+        // buffered and flushed as one Text whenever a block node (code block, blockquote, table,
+        // nested list) is hit, and once more at the end — so e.g. Paragraph → FencedCodeBlock →
+        // Paragraph renders in that exact order instead of all inline content before all blocks.
+        // Blocks can't be flattened into inline text anyway: buildInlineContent iterates child
+        // nodes, but a FencedCodeBlock stores its text in `.literal`, not as child Text nodes.
+        var markerEmitted = false
+        val pendingInline = mutableListOf<Node>()
+
+        @Composable
+        fun flushInline() {
+            // Emit buffered inline content as one Text. The marker is prefixed only the first
+            // time anything (inline or block) is rendered for this item, so a block-only item
+            // (e.g. a code block with no leading text) still shows its bullet/number, and a
+            // later flush never repeats the marker.
+            if (pendingInline.isNotEmpty() || !markerEmitted) {
+                val annotatedText = buildAnnotatedString {
+                    if (!markerEmitted) {
+                        append(marker)
+                        markerEmitted = true
+                    }
+                    pendingInline.forEach { node ->
+                        append(
+                            buildInlineContentForNode(
+                                node,
+                                inlineCodeBg,
+                                linkColor,
+                                codeFontFamily,
+                                onLinkClick,
+                            ),
+                        )
+                    }
+                }
+                Text(text = annotatedText, style = AppTextStyles.body)
+                pendingInline.clear()
+            }
+        }
 
         var child = item.firstChild
         while (child != null) {
             when (child) {
-                is BulletList, is OrderedList, is FencedCodeBlock, is BlockQuote, is TableBlock -> blockContent.add(child)
-                else -> inlineContent.add(child)
+                is BulletList -> {
+                    flushInline()
+                    renderBulletList(child, codeFontFamily, onLinkClick, viewportTopY, isStreaming, onRunRequest, messageId)
+                }
+
+                is OrderedList -> {
+                    flushInline()
+                    renderOrderedList(child, codeFontFamily, onLinkClick, viewportTopY, isStreaming, onRunRequest, messageId)
+                }
+
+                is FencedCodeBlock, is BlockQuote, is TableBlock -> {
+                    flushInline()
+                    renderSingleNode(child, viewportTopY, isStreaming, onRunRequest, messageId, onLinkClick)
+                }
+
+                else -> pendingInline.add(child)
             }
             child = child.next
         }
-
-        // Render inline content with marker. The marker must always be rendered — even when
-        // the item has no inline text (e.g. a list item consisting solely of a fenced code
-        // block or a nested list) — otherwise the bullet/number silently disappears and the
-        // list structure becomes visually broken.
-        val annotatedText = buildAnnotatedString {
-            append(marker)
-            inlineContent.forEach { node ->
-                append(
-                    buildInlineContentForNode(
-                        node,
-                        inlineCodeBg,
-                        linkColor,
-                        codeFontFamily,
-                        onLinkClick,
-                    ),
-                )
-            }
-        }
-
-        Text(
-            text = annotatedText,
-            style = AppTextStyles.body,
-        )
-
-        // Render block-level content (code blocks, blockquotes, tables, nested lists) found
-        // inside this list item, in their original document order.
-        blockContent.forEach { block ->
-            when (block) {
-                is BulletList -> renderBulletList(block, codeFontFamily, onLinkClick, viewportTopY, isStreaming, onRunRequest, messageId)
-                is OrderedList -> renderOrderedList(block, codeFontFamily, onLinkClick, viewportTopY, isStreaming, onRunRequest, messageId)
-                else -> renderSingleNode(block, viewportTopY, isStreaming, onRunRequest, messageId, onLinkClick)
-            }
-        }
+        flushInline()
     }
 }
 
