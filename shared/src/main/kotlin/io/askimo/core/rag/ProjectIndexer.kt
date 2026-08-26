@@ -18,6 +18,7 @@ import io.askimo.core.context.AppContext
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.error.AppErrorEvent
+import io.askimo.core.event.internal.KnowledgeSourceRescanRequestedEvent
 import io.askimo.core.event.internal.KnowledgeSourceWatchToggledEvent
 import io.askimo.core.event.internal.ProjectDeletedEvent
 import io.askimo.core.event.internal.ProjectIndexRemovalEvent
@@ -110,6 +111,11 @@ class ProjectIndexer(
             override val projectId: String,
             val event: KnowledgeSourceWatchToggledEvent,
         ) : IndexingTask()
+
+        data class RescanSource(
+            override val projectId: String,
+            val event: KnowledgeSourceRescanRequestedEvent,
+        ) : IndexingTask()
     }
 
     // The ID of the project whose task is currently executing. Written only by the consumer
@@ -200,6 +206,18 @@ class ProjectIndexer(
                 }
         }
 
+        scope.launch {
+            EventBus.internalEvents
+                .filterIsInstance<KnowledgeSourceRescanRequestedEvent>()
+                .collect { event ->
+                    log.info(
+                        "Rescan requested for project ${event.projectId}, " +
+                            "source ${event.knowledgeSource.resourceIdentifier}",
+                    )
+                    taskChannel.send(IndexingTask.RescanSource(event.projectId, event))
+                }
+        }
+
         // ── Single consumer — one task at a time ────────────────────────────────────────────
         scope.launch {
             for (task in taskChannel) {
@@ -233,6 +251,8 @@ class ProjectIndexer(
                         is IndexingTask.RemoveSource -> handleRemoveIndexEvent(task.event)
 
                         is IndexingTask.ToggleWatch -> handleWatchToggleEvent(task.event)
+
+                        is IndexingTask.RescanSource -> handleRescanSourceEvent(task.event)
                     }
                 }
                 activeJob?.join() // process tasks sequentially — next task only starts after this one finishes
@@ -655,6 +675,82 @@ class ProjectIndexer(
         } catch (e: Exception) {
             log.error(
                 "The request to toggle change tracking could not be processed ${event.projectId}",
+                e,
+            )
+        }
+    }
+
+    private suspend fun handleRescanSourceEvent(event: KnowledgeSourceRescanRequestedEvent) {
+        try {
+            val projectId = event.projectId
+            val knowledgeSource = event.knowledgeSource
+
+            val projectCoordinators = coordinators[projectId]
+            if (projectCoordinators != null) {
+                val coordinatorToRescan = projectCoordinators.find {
+                    it.knowledgeSourceConfig.resourceIdentifier == event.knowledgeSource.resourceIdentifier
+                }
+
+                if (coordinatorToRescan != null) {
+                    try {
+                        val indexing = coordinatorToRescan.startIndexing()
+                        if (indexing) {
+                            EventBus.emit(
+                                IndexingCompletedEvent(
+                                    projectId = projectId,
+                                    projectName = projectRepository.getProject(projectId)?.name ?: "",
+                                    filesIndexed = coordinatorToRescan.progress.value.processedFiles,
+                                    skippedFileNames = coordinatorToRescan.progress.value.skippedFileNames,
+                                ),
+                            )
+                        } else {
+                            log.warn(
+                                "Rescan did not complete successfully for knowledge source " +
+                                    "${knowledgeSource.resourceIdentifier} in project $projectId",
+                            )
+                            EventBus.emit(
+                                AppErrorEvent(
+                                    title = "Failed to rescan knowledge source",
+                                    message = "Rescan of ${knowledgeSource.resourceIdentifier} did not complete successfully.",
+                                ),
+                            )
+                        }
+                    } catch (e: Exception) {
+                        log.error(
+                            "Failed to rescan knowledge source for project ${event.projectId}",
+                            e,
+                        )
+                        EventBus.emit(
+                            AppErrorEvent(
+                                title = "Failed to rescan knowledge source",
+                                message = e.message.takeIf { !it.isNullOrBlank() }
+                                    ?: "Unknown error",
+                            ),
+                        )
+                    }
+                } else {
+                    log.warn("No coordinator found for knowledge source ${knowledgeSource.resourceIdentifier} in project $projectId")
+                    EventBus.emit(
+                        AppErrorEvent(
+                            title = "Failed to rescan knowledge source",
+                            message = "${knowledgeSource.resourceIdentifier} hasn't finished indexing yet. " +
+                                "Try rescanning again once indexing completes.",
+                        ),
+                    )
+                }
+            } else {
+                log.warn("No coordinators found for project $projectId when trying to rescan source ${knowledgeSource.resourceIdentifier}")
+                EventBus.emit(
+                    AppErrorEvent(
+                        title = "Failed to rescan knowledge source",
+                        message = "${knowledgeSource.resourceIdentifier} hasn't finished indexing yet. " +
+                            "Try rescanning again once indexing completes.",
+                    ),
+                )
+            }
+        } catch (e: Exception) {
+            log.error(
+                "The request to rescan knowledge source could not be processed for project ${event.projectId}",
                 e,
             )
         }

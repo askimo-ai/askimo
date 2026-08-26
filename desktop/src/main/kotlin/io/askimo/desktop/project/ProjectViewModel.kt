@@ -14,6 +14,7 @@ import io.askimo.core.chat.domain.Project
 import io.askimo.core.context.AppContext
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
+import io.askimo.core.event.internal.KnowledgeSourceRescanRequestedEvent
 import io.askimo.core.event.internal.KnowledgeSourceWatchToggledEvent
 import io.askimo.core.event.internal.ModelChangedEvent
 import io.askimo.core.event.internal.ProjectIndexRemovalEvent
@@ -265,6 +266,33 @@ class ProjectViewModel(
                     e,
                     "deleting knowledge source",
                     LocalizationManager.getString("project.error.deleting_knowledge_source"),
+                )
+            }
+        }
+    }
+
+    /**
+     * Request a manual rescan of a single knowledge source (issue #619).
+     * Does not change any persisted config — just asks ProjectIndexer to re-index this
+     * one source, without touching the rest of the project's knowledge sources.
+     */
+    fun rescanKnowledgeSource(source: KnowledgeSourceConfig) {
+        scope.launch {
+            try {
+                val project = currentProject ?: return@launch
+
+                EventBus.post(
+                    KnowledgeSourceRescanRequestedEvent(
+                        projectId = project.id,
+                        knowledgeSource = source,
+                    ),
+                )
+            } catch (e: Exception) {
+                log.error("Failed to request rescan for knowledge source", e)
+                errorMessage = ErrorHandler.getUserFriendlyError(
+                    e,
+                    "rescanning knowledge source",
+                    LocalizationManager.getString("project.error.rescanning_knowledge_source"),
                 )
             }
         }

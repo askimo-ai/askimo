@@ -41,9 +41,11 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -804,6 +806,7 @@ private fun knowledgeSourcesPanel(
                                 knowledgeSourceItem(
                                     source = source,
                                     onDelete = { viewModel.deleteKnowledgeSource(source) },
+                                    onRescan = { viewModel.rescanKnowledgeSource(source) },
                                     onWatchToggle = { watch ->
                                         if (source is LocalFoldersKnowledgeSourceConfig) {
                                             viewModel.toggleWatchForChanges(source, watch)
@@ -841,8 +844,11 @@ private fun knowledgeSourcesPanel(
 private fun knowledgeSourceItem(
     source: KnowledgeSourceConfig,
     onDelete: () -> Unit = {},
+    onRescan: () -> Unit = {},
     onWatchToggle: (Boolean) -> Unit = {},
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -883,19 +889,47 @@ private fun knowledgeSourceItem(
                 }
             }
 
-            // Delete button
-            themedTooltip(text = stringResource("projects.sources.delete.tooltip")) {
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier
-                        .size(32.dp)
-                        .pointerHoverIcon(PointerIcon.Hand),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = stringResource("projects.sources.delete.tooltip"),
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(18.dp),
+            // Actions menu — Rescan / Delete
+            Box {
+                themedTooltip(text = stringResource("projects.sources.more.tooltip")) {
+                    IconButton(
+                        onClick = { showMenu = true },
+                        modifier = Modifier
+                            .size(32.dp)
+                            .pointerHoverIcon(PointerIcon.Hand),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = stringResource("projects.sources.more.tooltip"),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+                AppComponents.dropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource("action.rescan")) },
+                        onClick = {
+                            showMenu = false
+                            onRescan()
+                        },
+                        leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) },
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource("action.delete"), color = MaterialTheme.colorScheme.error) },
+                        onClick = {
+                            showMenu = false
+                            onDelete()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                        },
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                     )
                 }
             }
