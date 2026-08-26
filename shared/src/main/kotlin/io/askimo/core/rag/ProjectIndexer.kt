@@ -11,12 +11,14 @@ import dev.langchain4j.store.embedding.EmbeddingStore
 import io.askimo.core.analytics.Analytics
 import io.askimo.core.analytics.AnalyticsEvent
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
+import io.askimo.core.chat.domain.LocalFoldersKnowledgeSourceConfig
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.repository.ProjectRepository
 import io.askimo.core.context.AppContext
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.error.AppErrorEvent
+import io.askimo.core.event.internal.KnowledgeSourceWatchToggledEvent
 import io.askimo.core.event.internal.ProjectDeletedEvent
 import io.askimo.core.event.internal.ProjectIndexRemovalEvent
 import io.askimo.core.event.internal.ProjectIndexingRequestedEvent
@@ -103,6 +105,11 @@ class ProjectIndexer(
             override val projectId: String,
             val event: ProjectIndexRemovalEvent,
         ) : IndexingTask()
+
+        data class ToggleWatch(
+            override val projectId: String,
+            val event: KnowledgeSourceWatchToggledEvent,
+        ) : IndexingTask()
     }
 
     // The ID of the project whose task is currently executing. Written only by the consumer
@@ -181,6 +188,18 @@ class ProjectIndexer(
                 }
         }
 
+        scope.launch {
+            EventBus.internalEvents
+                .filterIsInstance<KnowledgeSourceWatchToggledEvent>()
+                .collect { event ->
+                    log.info(
+                        "Watch toggle requested for project ${event.projectId}, " +
+                            "source ${event.knowledgeSource.resourceIdentifier}: ${event.watchForChanges}",
+                    )
+                    taskChannel.send(IndexingTask.ToggleWatch(event.projectId, event))
+                }
+        }
+
         // ── Single consumer — one task at a time ────────────────────────────────────────────
         scope.launch {
             for (task in taskChannel) {
@@ -212,6 +231,8 @@ class ProjectIndexer(
                         is IndexingTask.Delete -> removeCoordinator(task.projectId, deleteProjectFolder = true)
 
                         is IndexingTask.RemoveSource -> handleRemoveIndexEvent(task.event)
+
+                        is IndexingTask.ToggleWatch -> handleWatchToggleEvent(task.event)
                     }
                 }
                 activeJob?.join() // process tasks sequentially — next task only starts after this one finishes
@@ -423,7 +444,15 @@ class ProjectIndexer(
             if (watchForChanges) {
                 projectCoordinators.forEach { coordinator ->
                     try {
-                        coordinator.startWatching(scope)
+                        val shouldWatch = when (val config = coordinator.knowledgeSourceConfig) {
+                            is LocalFoldersKnowledgeSourceConfig -> config.watchForChanges
+                            else -> true
+                        }
+                        if (shouldWatch) {
+                            coordinator.startWatching(scope)
+                        } else {
+                            return@forEach
+                        }
                     } catch (e: Exception) {
                         log.error("Failed to start watching for project $projectId", e)
                     }
@@ -578,6 +607,56 @@ class ProjectIndexer(
             }
         } catch (e: Exception) {
             log.error("Failed to handle index removal request for project ${event.projectId}", e)
+        }
+    }
+
+    private suspend fun handleWatchToggleEvent(event: KnowledgeSourceWatchToggledEvent) {
+        try {
+            val projectId = event.projectId
+            val knowledgeSource = event.knowledgeSource
+
+            val projectCoordinators = coordinators[projectId]
+            if (projectCoordinators != null) {
+                val coordinatorToToggle = projectCoordinators.find {
+                    it.knowledgeSourceConfig.resourceIdentifier == event.knowledgeSource.resourceIdentifier
+                }
+
+                if (coordinatorToToggle != null) {
+                    if (event.watchForChanges) {
+                        try {
+                            coordinatorToToggle.startWatching(scope)
+                        } catch (e: Exception) {
+                            log.error(
+                                "Failed to start watching for project ${event.projectId}",
+                                e,
+                            )
+                            EventBus.emit(
+                                AppErrorEvent(
+                                    title = "Failed to watch knowledge source for changes",
+                                    message = e.message.takeIf { !it.isNullOrBlank() }
+                                        ?: "Unknown error",
+                                ),
+                            )
+                        }
+                    } else {
+                        coordinatorToToggle.stopWatching()
+                    }
+
+                    log.info(
+                        "Updated watch state for knowledge source ${knowledgeSource.resourceIdentifier} " +
+                            "in project $projectId (watching=${event.watchForChanges})",
+                    )
+                } else {
+                    log.warn("No coordinator found for knowledge source ${knowledgeSource.resourceIdentifier} in project $projectId")
+                }
+            } else {
+                log.warn("No coordinators found for project $projectId when trying to toggle watch for source ${knowledgeSource.resourceIdentifier}")
+            }
+        } catch (e: Exception) {
+            log.error(
+                "The request to toggle change tracking could not be processed ${event.projectId}",
+                e,
+            )
         }
     }
 

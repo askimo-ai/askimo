@@ -9,10 +9,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
+import io.askimo.core.chat.domain.LocalFoldersKnowledgeSourceConfig
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.context.AppContext
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
+import io.askimo.core.event.internal.KnowledgeSourceWatchToggledEvent
 import io.askimo.core.event.internal.ModelChangedEvent
 import io.askimo.core.event.internal.ProjectIndexRemovalEvent
 import io.askimo.core.event.internal.ProjectReIndexEvent
@@ -263,6 +265,56 @@ class ProjectViewModel(
                     e,
                     "deleting knowledge source",
                     LocalizationManager.getString("project.error.deleting_knowledge_source"),
+                )
+            }
+        }
+    }
+
+    /**
+     * Toggle the "watch for changes" setting for a local folder knowledge source.
+     * Persists the new preference and lets ProjectIndexer start/stop the live file
+     * watcher for the already-running coordinator — no re-index needed.
+     */
+    fun toggleWatchForChanges(source: LocalFoldersKnowledgeSourceConfig, watch: Boolean) {
+        scope.launch {
+            try {
+                val project = currentProject ?: return@launch
+                val updatedSource = source.copy(watchForChanges = watch)
+                val updatedSources = project.knowledgeSources.map {
+                    if (it.resourceIdentifier == source.resourceIdentifier) updatedSource else it
+                }
+
+                withContext(Dispatchers.IO) {
+                    projectRepository.updateProject(
+                        projectId = projectId,
+                        name = project.name,
+                        description = project.description,
+                        knowledgeSources = updatedSources,
+                    )
+                }
+
+                EventBus.post(
+                    KnowledgeSourceWatchToggledEvent(
+                        projectId = project.id,
+                        knowledgeSource = updatedSource,
+                        watchForChanges = watch,
+                    ),
+                )
+
+                EventBus.post(
+                    ProjectRefreshEvent(
+                        projectId = projectId,
+                        reason = "Knowledge source watch setting changed",
+                    ),
+                )
+
+                loadProject()
+            } catch (e: Exception) {
+                log.error("Failed to toggle watch for changes", e)
+                errorMessage = ErrorHandler.getUserFriendlyError(
+                    e,
+                    "toggling watch for changes",
+                    LocalizationManager.getString("project.error.updating_knowledge_source"),
                 )
             }
         }

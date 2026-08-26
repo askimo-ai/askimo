@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -803,6 +804,11 @@ private fun knowledgeSourcesPanel(
                                 knowledgeSourceItem(
                                     source = source,
                                     onDelete = { viewModel.deleteKnowledgeSource(source) },
+                                    onWatchToggle = { watch ->
+                                        if (source is LocalFoldersKnowledgeSourceConfig) {
+                                            viewModel.toggleWatchForChanges(source, watch)
+                                        }
+                                    },
                                 )
                             }
                         }
@@ -835,6 +841,7 @@ private fun knowledgeSourcesPanel(
 private fun knowledgeSourceItem(
     source: KnowledgeSourceConfig,
     onDelete: () -> Unit = {},
+    onWatchToggle: (Boolean) -> Unit = {},
 ) {
     Row(
         modifier = Modifier
@@ -862,20 +869,35 @@ private fun knowledgeSourceItem(
             )
         }
 
-        // Delete button
-        themedTooltip(text = stringResource("projects.sources.delete.tooltip")) {
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier
-                    .size(32.dp)
-                    .pointerHoverIcon(PointerIcon.Hand),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = stringResource("projects.sources.delete.tooltip"),
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(18.dp),
-                )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Watch-for-changes toggle — only folders can be watched (files/URLs never are)
+            if (source is LocalFoldersKnowledgeSourceConfig) {
+                themedTooltip(text = stringResource("projects.sources.watch.tooltip")) {
+                    Checkbox(
+                        checked = source.watchForChanges,
+                        onCheckedChange = onWatchToggle,
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                    )
+                }
+            }
+
+            // Delete button
+            themedTooltip(text = stringResource("projects.sources.delete.tooltip")) {
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .pointerHoverIcon(PointerIcon.Hand),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = stringResource("projects.sources.delete.tooltip"),
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
             }
         }
     }

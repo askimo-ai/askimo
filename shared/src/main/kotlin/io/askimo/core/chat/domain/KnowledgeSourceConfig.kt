@@ -22,11 +22,13 @@ sealed class KnowledgeSourceConfig {
 
 /**
  * Configuration for local folder knowledge sources.
- * Folders are watched for changes.
+ * Folders are watched for changes, unless [watchForChanges] is disabled.
  *
  * @property resourceIdentifier Folder path (e.g., "/path/to/folder")
+ * @property watchForChanges Whether Askimo should watch this folder for file changes
+ *   and re-index automatically. Disable for very large trees to avoid exhausting the
+ *   OS file-watch limit (e.g. inotify on Linux) — use manual rescan instead.
  * @property config Configuration options:
- *   - watchForChanges: "true" or "false"
  *   - fileExtensions: ".kt,.java,.md" (comma-separated)
  *   - excludePatterns: "node_modules,build,.git" (comma-separated)
  * @property createdAt Timestamp when this source was added
@@ -35,6 +37,7 @@ sealed class KnowledgeSourceConfig {
 @SerialName("local_folders")
 data class LocalFoldersKnowledgeSourceConfig(
     override val resourceIdentifier: String,
+    val watchForChanges: Boolean = true,
     override val config: Map<String, String> = emptyMap(),
 ) : KnowledgeSourceConfig()
 
