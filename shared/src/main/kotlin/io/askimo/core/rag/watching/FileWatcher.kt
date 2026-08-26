@@ -31,6 +31,7 @@ import kotlin.io.path.listDirectoryEntries
 class FileWatcher(
     private val projectId: String,
     private val onFileChange: suspend (Path, WatchEvent.Kind<*>) -> Unit,
+    private val onWatchError: (Path, Exception) -> Unit = { _, _ -> },
 ) {
     private val log = logger<FileWatcher>()
     private var watchService: WatchService? = null
@@ -38,6 +39,17 @@ class FileWatcher(
 
     @Volatile
     private var isShuttingDown = false
+
+    // Registering directories can fail dozens/hundreds of times in a row once a resource
+    // limit (e.g. Linux inotify) is hit — report it to the caller once, not once per directory.
+    @Volatile
+    private var watchErrorReported = false
+
+    private fun reportWatchError(path: Path, e: Exception) {
+        if (watchErrorReported) return
+        watchErrorReported = true
+        onWatchError(path, e)
+    }
 
     // Build filter chain once - works for all paths
     private val filterChain: FilterChain by lazy {
@@ -93,6 +105,7 @@ class FileWatcher(
             }
         } catch (e: Exception) {
             log.error("Failed to start file watching for project $projectId", e)
+            reportWatchError(path, e)
         }
     }
 
@@ -123,9 +136,11 @@ class FileWatcher(
                 }
             } catch (e: Exception) {
                 log.warn("Failed to list directory ${dir.fileName}: ${e.message}")
+                reportWatchError(dir, e)
             }
         } catch (e: Exception) {
             log.warn("Failed to register directory ${dir.fileName}: ${e.message}")
+            reportWatchError(dir, e)
         }
     }
 

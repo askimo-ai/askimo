@@ -11,6 +11,7 @@ import io.askimo.core.chat.domain.LocalFoldersKnowledgeSourceConfig
 import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
 import io.askimo.core.event.EventBus
+import io.askimo.core.event.error.AppErrorEvent
 import io.askimo.core.event.user.IndexingInProgressEvent
 import io.askimo.core.logging.logger
 import io.askimo.core.rag.filter.FilterChain
@@ -265,6 +266,18 @@ class LocalFoldersIndexingCoordinator(
         fileWatcher = FileWatcher(
             projectId = projectId,
             onFileChange = { path, kind -> changeHandler.handleFileChange(path, kind) },
+            onWatchError = { path, e ->
+                log.error("File watching failed for $path in project $projectId", e)
+                EventBus.post(
+                    AppErrorEvent(
+                        title = "File watching could not be started",
+                        message = "Changes to \"${knowledgeSourceConfig.resourceIdentifier}\" may not be detected " +
+                            "automatically. You can rescan manually, or increase your OS's file-watch limit " +
+                            "(e.g. fs.inotify.max_user_watches on Linux).",
+                        cause = e,
+                    ),
+                )
+            },
         )
         fileWatcher?.startWatching(filePath, scope)
         log.info("Started file watching for project $projectId")
