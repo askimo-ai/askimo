@@ -60,6 +60,8 @@ data class PageParams(
  * Reusable across any repository that needs offset-based pagination over an
  * Exposed query — avoids duplicating the total-pages/clamped-page/offset math.
  *
+ * @throws IllegalArgumentException if [pageSize] is not positive.
+ *
  * @sample
  * ```kotlin
  * val totalItems = baseQuery.count().toInt()
@@ -81,9 +83,13 @@ data class PageParams(
  * ```
  */
 fun resolvePageParams(totalItems: Int, page: Int, pageSize: Int): PageParams? {
+    require(pageSize > 0) { "pageSize must be positive, but was $pageSize" }
     if (totalItems == 0) return null
-    val totalPages = (totalItems + pageSize - 1) / pageSize
+
+    val totalPages = ((totalItems.toLong() + pageSize - 1) / pageSize)
+        .coerceAtMost(Int.MAX_VALUE.toLong())
+        .toInt()
     val validPage = page.coerceIn(1, totalPages)
-    val offset = ((validPage - 1) * pageSize).toLong()
+    val offset = (validPage - 1).toLong() * pageSize
     return PageParams(validPage, totalPages, offset)
 }

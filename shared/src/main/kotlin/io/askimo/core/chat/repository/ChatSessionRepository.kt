@@ -508,6 +508,7 @@ class ChatSessionRepository internal constructor(
                         storedUpdatedAt,
                         e,
                     )
+                    e
                 }
             }
         }
