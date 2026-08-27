@@ -126,5 +126,5 @@ data class FileRemovedFromIndexEvent(
 ) : Event {
     override val type = EventType.INTERNAL
 
-    override fun getDetails(): String = "'$fileName' was detected removed and has been removed from the index for project '$projectName'"
+    override fun getDetails(): String = "'$fileName' was detected as removed and has been removed from the index for project '$projectName'"
 }
