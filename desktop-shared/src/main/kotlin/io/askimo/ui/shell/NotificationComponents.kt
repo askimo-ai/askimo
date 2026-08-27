@@ -210,6 +210,7 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
                             event = event,
                             projectId = "removed_${event.projectId}_${event.fileName}_${event.timestamp.toEpochMilli()}",
                         ),
+                    )
                     unreadCount++
                     trimEvents()
                 }

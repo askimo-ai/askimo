@@ -6,10 +6,12 @@ package io.askimo.core.chat.repository
 
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.domain.ChatSessionsTable
+import io.askimo.core.chat.domain.ProjectsTable
 import io.askimo.core.chat.domain.SESSION_TITLE_MAX_LENGTH
 import io.askimo.core.db.AbstractSQLiteRepository
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.db.Pageable
+import io.askimo.core.db.resolvePageParams
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.PushDataToServerEvent
 import io.askimo.core.logging.logger
@@ -134,20 +136,8 @@ class ChatSessionRepository internal constructor(
 
         // Get total count
         val totalItems = baseQuery.count().toInt()
-
-        if (totalItems == 0) {
-            return@transaction Pageable(
-                items = emptyList(),
-                currentPage = 1,
-                totalPages = 0,
-                totalItems = 0,
-                pageSize = pageSize,
-            )
-        }
-
-        val totalPages = (totalItems + pageSize - 1) / pageSize
-        val validPage = page.coerceIn(1, totalPages)
-        val offset = ((validPage - 1) * pageSize).toLong()
+        val pageParams = resolvePageParams(totalItems, page, pageSize)
+            ?: return@transaction Pageable.empty(pageSize)
 
         // Query only the records for the current page
         val pageSessions = ChatSessionsTable.selectAll().apply {
@@ -162,13 +152,13 @@ class ChatSessionRepository internal constructor(
                 Pair(ChatSessionsTable.updatedAt, sortOrder),
             )
             .limit(pageSize)
-            .offset(offset)
+            .offset(pageParams.offset)
             .map { it.toChatSession() }
 
         Pageable(
             items = pageSessions,
-            currentPage = validPage,
-            totalPages = totalPages,
+            currentPage = pageParams.validPage,
+            totalPages = pageParams.totalPages,
             totalItems = totalItems,
             pageSize = pageSize,
         )
@@ -384,20 +374,8 @@ class ChatSessionRepository internal constructor(
             }
 
         val totalItems = baseQuery.count().toInt()
-
-        if (totalItems == 0) {
-            return@transaction Pageable(
-                items = emptyList(),
-                currentPage = 1,
-                totalPages = 0,
-                totalItems = 0,
-                pageSize = pageSize,
-            )
-        }
-
-        val totalPages = (totalItems + pageSize - 1) / pageSize
-        val validPage = page.coerceIn(1, totalPages)
-        val offset = ((validPage - 1) * pageSize).toLong()
+        val pageParams = resolvePageParams(totalItems, page, pageSize)
+            ?: return@transaction Pageable.empty(pageSize)
 
         val pageSessions = ChatSessionsTable
             .selectAll()
@@ -410,13 +388,13 @@ class ChatSessionRepository internal constructor(
                 Pair(ChatSessionsTable.updatedAt, sortOrder),
             )
             .limit(pageSize)
-            .offset(offset)
+            .offset(pageParams.offset)
             .map { it.toChatSession() }
 
         Pageable(
             items = pageSessions,
-            currentPage = validPage,
-            totalPages = totalPages,
+            currentPage = pageParams.validPage,
+            totalPages = pageParams.totalPages,
             totalItems = totalItems,
             pageSize = pageSize,
         )
@@ -484,32 +462,52 @@ class ChatSessionRepository internal constructor(
             for (session in sessions) {
                 val storedUpdatedAt = existingById[session.id]
 
-                if (storedUpdatedAt == null) {
-                    // Brand-new row — insert and mark as synced
-                    ChatSessionsTable.insert {
-                        it[id] = session.id
-                        it[title] = session.title.take(SESSION_TITLE_MAX_LENGTH)
-                        it[createdAt] = session.createdAt
-                        it[updatedAt] = session.updatedAt
-                        it[projectId] = session.projectId
-                        it[directiveId] = session.directiveId
-                        it[isStarred] = if (session.isStarred) 1 else 0
-                        it[syncedAt] = nowStr
+                try {
+                    if (storedUpdatedAt == null) {
+                        // Brand-new row — insert and mark as synced
+                        ChatSessionsTable.insert {
+                            it[id] = session.id
+                            it[title] = session.title.take(SESSION_TITLE_MAX_LENGTH)
+                            it[createdAt] = session.createdAt
+                            it[updatedAt] = session.updatedAt
+                            it[projectId] = session.projectId
+                            it[directiveId] = session.directiveId
+                            it[isStarred] = if (session.isStarred) 1 else 0
+                            it[syncedAt] = nowStr
+                        }
+                        log.debug("upsertFromServer: inserted session {}", session.id)
+                    } else if (session.updatedAt.isAfter(storedUpdatedAt)) {
+                        // Server version is newer — overwrite
+                        ChatSessionsTable.update({ ChatSessionsTable.id eq session.id }) {
+                            it[title] = session.title.take(SESSION_TITLE_MAX_LENGTH)
+                            it[updatedAt] = session.updatedAt
+                            it[projectId] = session.projectId
+                            it[directiveId] = session.directiveId
+                            it[isStarred] = if (session.isStarred) 1 else 0
+                            it[syncedAt] = nowStr
+                        }
+                        log.debug("upsertFromServer: updated session {} (server newer)", session.id)
+                    } else {
+                        log.debug("upsertFromServer: skipped session {} (local is same age or newer)", session.id)
                     }
-                    log.debug("upsertFromServer: inserted session {}", session.id)
-                } else if (session.updatedAt.isAfter(storedUpdatedAt)) {
-                    // Server version is newer — overwrite
-                    ChatSessionsTable.update({ ChatSessionsTable.id eq session.id }) {
-                        it[title] = session.title.take(SESSION_TITLE_MAX_LENGTH)
-                        it[updatedAt] = session.updatedAt
-                        it[projectId] = session.projectId
-                        it[directiveId] = session.directiveId
-                        it[isStarred] = if (session.isStarred) 1 else 0
-                        it[syncedAt] = nowStr
+                } catch (e: Exception) {
+                    val projectExists = session.projectId?.let { pid ->
+                        ProjectsTable.selectAll().where { ProjectsTable.id eq pid }.count() > 0
                     }
-                    log.debug("upsertFromServer: updated session {} (server newer)", session.id)
-                } else {
-                    log.debug("upsertFromServer: skipped session {} (local is same age or newer)", session.id)
+                    log.error(
+                        "upsertFromServer: failed to upsert session id={}, title='{}', " +
+                            "projectId={} (existsLocally={}), directiveId={}, createdAt={}, updatedAt={}, " +
+                            "storedUpdatedAt={}",
+                        session.id,
+                        session.title,
+                        session.projectId,
+                        projectExists,
+                        session.directiveId,
+                        session.createdAt,
+                        session.updatedAt,
+                        storedUpdatedAt,
+                        e,
+                    )
                 }
             }
         }

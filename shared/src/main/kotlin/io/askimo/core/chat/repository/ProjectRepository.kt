@@ -12,6 +12,7 @@ import io.askimo.core.chat.domain.ProjectsTable
 import io.askimo.core.db.AbstractSQLiteRepository
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.db.Pageable
+import io.askimo.core.db.resolvePageParams
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.PushDataToServerEvent
 import io.askimo.core.logging.logger
@@ -206,32 +207,20 @@ class ProjectRepository internal constructor(
     fun getProjectsPaged(page: Int = 1, pageSize: Int = 10): Pageable<Project> = transaction(database) {
         val countExpr = ProjectsTable.id.count()
         val totalItems = ProjectsTable.select(countExpr).first()[countExpr].toInt()
-
-        if (totalItems == 0) {
-            return@transaction Pageable(
-                items = emptyList(),
-                currentPage = 1,
-                totalPages = 0,
-                totalItems = 0,
-                pageSize = pageSize,
-            )
-        }
-
-        val totalPages = (totalItems + pageSize - 1) / pageSize
-        val validPage = page.coerceIn(1, totalPages)
-        val offset = ((validPage - 1) * pageSize).toLong()
+        val pageParams = resolvePageParams(totalItems, page, pageSize)
+            ?: return@transaction Pageable.empty(pageSize)
 
         val pageProjects = ProjectsTable
             .selectAll()
             .orderBy(ProjectsTable.updatedAt, SortOrder.DESC)
             .limit(pageSize)
-            .offset(offset)
+            .offset(pageParams.offset)
             .map { it.toProject() }
 
         Pageable(
             items = pageProjects,
-            currentPage = validPage,
-            totalPages = totalPages,
+            currentPage = pageParams.validPage,
+            totalPages = pageParams.totalPages,
             totalItems = totalItems,
             pageSize = pageSize,
         )
@@ -253,20 +242,8 @@ class ProjectRepository internal constructor(
             .select(countExpr)
             .where { ProjectsTable.name like pattern }
             .first()[countExpr].toInt()
-
-        if (totalItems == 0) {
-            return@transaction Pageable(
-                items = emptyList(),
-                currentPage = 1,
-                totalPages = 0,
-                totalItems = 0,
-                pageSize = pageSize,
-            )
-        }
-
-        val totalPages = (totalItems + pageSize - 1) / pageSize
-        val validPage = page.coerceIn(1, totalPages)
-        val offset = ((validPage - 1) * pageSize).toLong()
+        val pageParams = resolvePageParams(totalItems, page, pageSize)
+            ?: return@transaction Pageable.empty(pageSize)
 
         val pageProjects = ProjectsTable
             .selectAll()
@@ -274,13 +251,13 @@ class ProjectRepository internal constructor(
             .orderBy(ProjectsTable.isStarred, SortOrder.DESC)
             .orderBy(ProjectsTable.updatedAt, SortOrder.DESC)
             .limit(pageSize)
-            .offset(offset)
+            .offset(pageParams.offset)
             .map { it.toProject() }
 
         Pageable(
             items = pageProjects,
-            currentPage = validPage,
-            totalPages = totalPages,
+            currentPage = pageParams.validPage,
+            totalPages = pageParams.totalPages,
             totalItems = totalItems,
             pageSize = pageSize,
         )
