@@ -8,6 +8,11 @@ import dev.langchain4j.data.segment.TextSegment
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.store.embedding.EmbeddingStore
 import io.askimo.core.context.AppContext
+import io.askimo.core.event.EventBus
+import io.askimo.core.event.user.FileRemovedFromIndexEvent
+import io.askimo.core.event.user.IndexingCompletedEvent
+import io.askimo.core.event.user.IndexingFailedEvent
+import io.askimo.core.event.user.IndexingStartedEvent
 import io.askimo.core.logging.logger
 import io.askimo.core.rag.filter.FilterChain
 import io.askimo.core.rag.indexing.HybridIndexer
@@ -25,6 +30,7 @@ import kotlin.io.path.walk
  */
 class FileChangeHandler(
     private val projectId: String,
+    private val projectName: String,
     private val embeddingStore: EmbeddingStore<TextSegment>,
     private val embeddingModel: EmbeddingModel,
     private val appContext: AppContext,
@@ -48,19 +54,44 @@ class FileChangeHandler(
             log.debug("Path deleted: {}, removing from index...", filePath.fileName)
             batchIndexer.removeDirectoryFromIndex(filePath)
             batchIndexer.removeFileFromIndex(filePath)
+            EventBus.emit(
+                FileRemovedFromIndexEvent(
+                    projectId = projectId,
+                    projectName = projectName,
+                    fileName = filePath.fileName.toString(),
+                ),
+            )
             return
         }
 
         // New directory created — index all files inside it
         if (kind == StandardWatchEventKinds.ENTRY_CREATE && filePath.isDirectory()) {
             log.debug("Directory created: {}, indexing all files inside...", filePath.fileName)
+            EventBus.emit(IndexingStartedEvent(projectId = projectId, projectName = projectName))
             try {
+                var indexedCount = 0
                 filePath.walk()
                     .filter { it.isRegularFile() && !shouldExcludePath(it) }
-                    .forEach { file -> reindexFile(file) }
+                    .forEach { file ->
+                        if (reindexFile(file)) indexedCount++
+                    }
                 batchIndexer.flushRemainingSegments()
+                EventBus.emit(
+                    IndexingCompletedEvent(
+                        projectId = projectId,
+                        projectName = projectName,
+                        filesIndexed = indexedCount,
+                    ),
+                )
             } catch (e: Exception) {
                 log.error("Failed to index new directory {}", filePath.fileName, e)
+                EventBus.emit(
+                    IndexingFailedEvent(
+                        projectId = projectId,
+                        projectName = projectName,
+                        errorMessage = e.message ?: "Failed to index new directory ${filePath.fileName}",
+                    ),
+                )
             }
             return
         }
@@ -75,28 +106,47 @@ class FileChangeHandler(
             StandardWatchEventKinds.ENTRY_MODIFY,
             -> {
                 log.debug("File changed: {}, re-indexing...", filePath.fileName)
-                reindexFile(filePath)
+                EventBus.emit(IndexingStartedEvent(projectId = projectId, projectName = projectName))
+                val success = reindexFile(filePath)
+                if (success) {
+                    EventBus.emit(
+                        IndexingCompletedEvent(
+                            projectId = projectId,
+                            projectName = projectName,
+                            filesIndexed = 1,
+                        ),
+                    )
+                } else {
+                    EventBus.emit(
+                        IndexingFailedEvent(
+                            projectId = projectId,
+                            projectName = projectName,
+                            errorMessage = "Failed to re-index '${filePath.fileName}'",
+                        ),
+                    )
+                }
             }
         }
     }
 
     /**
-     * Re-index a file
+     * Re-index a file. Returns `true` if the file was (re-)indexed successfully or
+     * intentionally skipped (e.g. blank/no extractable content), `false` if an error occurred.
      */
-    private suspend fun reindexFile(filePath: Path) {
+    private suspend fun reindexFile(filePath: Path): Boolean {
         if (!filePath.exists()) {
             log.warn("Cannot re-index non-existent file: ${filePath.fileName}")
-            return
+            return false
         }
 
         try {
             batchIndexer.removeFileFromIndex(filePath)
 
-            val text = resourceContentProcessor.extractTextFromFile(filePath) ?: return
+            val text = resourceContentProcessor.extractTextFromFile(filePath) ?: return true
 
             if (text.isBlank()) {
                 log.debug("Skipping re-index of file with blank content: {}", filePath.fileName)
-                return
+                return true
             }
 
             // Check if this is a text file where line numbers are meaningful
@@ -108,7 +158,7 @@ class FileChangeHandler(
 
                 if (chunksWithLineNumbers.isEmpty()) {
                     log.debug("No valid chunks created for file: {}", filePath.fileName)
-                    return
+                    return true
                 }
 
                 for ((idx, chunkData) in chunksWithLineNumbers.withIndex()) {
@@ -132,7 +182,7 @@ class FileChangeHandler(
 
                 if (chunks.isEmpty()) {
                     log.debug("No valid chunks created for file: {}", filePath.fileName)
-                    return
+                    return true
                 }
 
                 for ((idx, chunk) in chunks.withIndex()) {
@@ -150,8 +200,10 @@ class FileChangeHandler(
 
                 log.debug("Re-indexed {} ({} chunks)", filePath.fileName, chunks.size)
             }
+            return true
         } catch (e: Exception) {
             log.error("Failed to re-index file {}", filePath.fileName, e)
+            return false
         }
     }
 }

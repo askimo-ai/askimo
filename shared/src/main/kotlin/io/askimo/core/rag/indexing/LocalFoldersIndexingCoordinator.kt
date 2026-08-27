@@ -259,6 +259,7 @@ class LocalFoldersIndexingCoordinator(
         }
         val changeHandler = FileChangeHandler(
             projectId = projectId,
+            projectName = projectName,
             embeddingStore = embeddingStore,
             embeddingModel = embeddingModel,
             appContext = appContext,

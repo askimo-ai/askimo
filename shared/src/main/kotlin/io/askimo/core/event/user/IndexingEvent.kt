@@ -111,3 +111,20 @@ data class IndexingFailedEvent(
 
     override fun getDetails(): String = "Failed to index project '$projectName': $errorMessage"
 }
+
+/**
+ * Event emitted when the file watcher detects that a watched file (or directory) was
+ * deleted from disk and it has been removed from the project's index.
+ * This is a user-facing event shown in the notification footer.
+ */
+data class FileRemovedFromIndexEvent(
+    val projectId: String,
+    val projectName: String,
+    val fileName: String,
+    override val timestamp: Instant = Instant.now(),
+    override val source: EventSource = EventSource.SYSTEM,
+) : Event {
+    override val type = EventType.INTERNAL
+
+    override fun getDetails(): String = "'$fileName' was detected removed and has been removed from the index for project '$projectName'"
+}

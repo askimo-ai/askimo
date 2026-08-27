@@ -33,6 +33,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.outlined.CheckCircleOutline
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.outlined.Sync
@@ -66,6 +67,7 @@ import io.askimo.core.event.Event
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.system.ShellErrorEvent
 import io.askimo.core.event.system.UpdateAvailableEvent
+import io.askimo.core.event.user.FileRemovedFromIndexEvent
 import io.askimo.core.event.user.IndexingCompletedEvent
 import io.askimo.core.event.user.IndexingFailedEvent
 import io.askimo.core.event.user.IndexingQueuedEvent
@@ -196,6 +198,21 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
                         ),
                     )
                     showEventPopup = true // User must see failures
+                }
+
+                is FileRemovedFromIndexEvent -> {
+                    // Each removal is its own notification — not deduped by projectId,
+                    // since multiple files can be removed independently.
+                    events.add(
+                        0,
+                        NotificationEventItem(
+                            id = "${eventCounter++}_${event.timestamp.toEpochMilli()}",
+                            event = event,
+                            projectId = null,
+                        ),
+                    )
+                    unreadCount++
+                    trimEvents()
                 }
             }
         }
@@ -472,7 +489,8 @@ fun notificationEventCard(
     val isIndexingStarted = event is IndexingStartedEvent
     val isIndexingCompleted = event is IndexingCompletedEvent
     val isIndexingFailed = event is IndexingFailedEvent
-    val isIndexingEvent = isIndexingQueued || isIndexingStarted || isIndexingCompleted || isIndexingFailed
+    val isFileRemoved = event is FileRemovedFromIndexEvent
+    val isIndexingEvent = isIndexingQueued || isIndexingStarted || isIndexingCompleted || isIndexingFailed || isFileRemoved
 
     val eventName = when (event) {
         is UpdateAvailableEvent -> stringResource("event.update.available")
@@ -481,6 +499,7 @@ fun notificationEventCard(
         is IndexingStartedEvent -> stringResource("event.indexing.started")
         is IndexingCompletedEvent -> stringResource("event.indexing.completed")
         is IndexingFailedEvent -> stringResource("event.indexing.failed")
+        is FileRemovedFromIndexEvent -> stringResource("event.file.removed")
         else -> event::class.simpleName ?: "Unknown"
     }
 
@@ -574,6 +593,13 @@ fun notificationEventCard(
                             tint = contentColor,
                             modifier = Modifier.size(16.dp),
                         )
+
+                        isFileRemoved -> Icon(
+                            imageVector = Icons.Outlined.DeleteOutline,
+                            contentDescription = null,
+                            tint = contentColor,
+                            modifier = Modifier.size(16.dp),
+                        )
                     }
                     Text(
                         text = eventName,
@@ -626,6 +652,7 @@ fun notificationEventCard(
                     is IndexingStartedEvent -> event.projectName
                     is IndexingCompletedEvent -> event.projectName
                     is IndexingFailedEvent -> event.projectName
+                    is FileRemovedFromIndexEvent -> event.projectName
                     else -> null
                 }
                 if (projectName != null) {
