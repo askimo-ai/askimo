@@ -9,7 +9,25 @@ import org.slf4j.LoggerFactory
 
 inline fun <reified T> logger() = LoggerFactory.getLogger(T::class.java)
 
-fun currentFileLogger(): Logger = LoggerFactory.getLogger(object {}.javaClass.enclosingClass.name)
+/**
+ * Returns a [Logger] named after the *caller's* class/file, resolved via the current
+ * thread's stack trace at call time. Works correctly for both top-level file properties
+ * (e.g. `private val log = currentFileLogger()` at file scope, named e.g. `FooKt`) and
+ * properties declared inside a class (named after the actual class).
+ */
+fun currentFileLogger(): Logger {
+    val stackTrace = Thread.currentThread().stackTrace
+    val callerClassName = stackTrace.getOrNull(2)?.className
+        ?: Logger::class.java.name.also {
+            LoggerFactory.getLogger(Logger::class.java)
+                .warn(
+                    "currentFileLogger(): could not resolve caller from stack trace (size={}), falling back to {}",
+                    stackTrace.size,
+                    it,
+                )
+        }
+    return LoggerFactory.getLogger(callerClassName)
+}
 
 fun Logger.display(message: String) {
     println(message)
