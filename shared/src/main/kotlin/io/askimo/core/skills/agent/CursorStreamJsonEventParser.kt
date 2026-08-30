@@ -59,7 +59,7 @@ object CursorStreamJsonEventParser {
      */
     fun parse(line: String): StreamJsonEvent? {
         if (line.isBlank() || !line.trimStart().startsWith("{")) return null
-        val fields = GeminiStreamJsonEventParser.parseObject(line.trim()) ?: return null
+        val fields = JsonLineParser.parseObject(line.trim()) ?: return null
         val type = fields["type"] as? String ?: return null
 
         // Extract subtype if present
@@ -129,7 +129,7 @@ object CursorStreamJsonEventParser {
         while (i < source.length) {
             if (source[i] == '{') {
                 val end = findMatchingBrace(source, i) ?: break
-                val obj = GeminiStreamJsonEventParser.parseObject(source.substring(i, end + 1))
+                val obj = JsonLineParser.parseObject(source.substring(i, end + 1))
                 if (obj != null && (obj["type"] as? String) == "text") {
                     val text = obj["text"] as? String
                     if (!text.isNullOrEmpty()) parts += text

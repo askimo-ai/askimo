@@ -263,7 +263,7 @@ enum class AnalyticsEvent(
 
     /**
      * A skill was executed via an external agent.
-     * Properties: `agent=gemini|claude`, `has_user_input=true|false`,
+     * Properties: `agent=antigravity|claude`, `has_user_input=true|false`,
      * `success=true|false`, `duration_bucket=<5s|5-30s|30-120s|>120s`.
      */
     SKILL_AGENT_RUN(

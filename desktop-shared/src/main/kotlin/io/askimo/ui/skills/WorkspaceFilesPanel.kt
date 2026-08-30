@@ -9,15 +9,19 @@ import androidx.compose.foundation.HorizontalScrollbar
 import androidx.compose.foundation.PointerMatcher
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -31,14 +35,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DriveFileRenameOutline
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -72,8 +80,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import io.askimo.core.db.DatabaseManager
+import io.askimo.core.skills.domain.Workspace
 import io.askimo.ui.common.i18n.stringResource
-import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.AppTextStyles
@@ -133,6 +142,22 @@ internal fun workspaceFilesPanel(
     var newItemTarget by remember { mutableStateOf<Pair<File, Boolean>?>(null) }
     var newItemName by remember { mutableStateOf("") }
     var headerMenuExpanded by remember { mutableStateOf(false) }
+
+    // ── Workspace switcher state ───────────────────────────────────────────────
+    val workspaceRepo = remember { DatabaseManager.getInstance().getWorkspaceRepository() }
+    var workspaces by remember { mutableStateOf<List<Workspace>>(emptyList()) }
+    var workspaceMenuExpanded by remember { mutableStateOf(false) }
+    var workspaceListVersion by remember { mutableStateOf(0) }
+    var renameWorkspaceTarget by remember { mutableStateOf<Workspace?>(null) }
+    var renameWorkspaceText by remember { mutableStateOf("") }
+    var deleteWorkspaceTarget by remember { mutableStateOf<Workspace?>(null) }
+    val currentWorkspace = remember(workspaces, workDir) {
+        workspaces.firstOrNull { it.path == workDir.absoluteFile.normalize().path }
+    }
+
+    LaunchedEffect(workDir, workspaceListVersion) {
+        workspaces = withContext(Dispatchers.IO) { workspaceRepo.findAll() }
+    }
 
     LaunchedEffect(workDir, refreshKey, internalRefreshKey) {
         isLoading = true
@@ -224,6 +249,68 @@ internal fun workspaceFilesPanel(
         )
     }
 
+    // ── Rename workspace dialog ────────────────────────────────────────────────
+    renameWorkspaceTarget?.let { target ->
+        val focusRequester = remember { FocusRequester() }
+        AlertDialog(
+            onDismissRequest = { renameWorkspaceTarget = null },
+            title = { Text(stringResource("skills.view.workspace.switcher.rename")) },
+            text = {
+                OutlinedTextField(
+                    value = renameWorkspaceText,
+                    onValueChange = { renameWorkspaceText = it },
+                    singleLine = true,
+                    colors = AppComponents.outlinedTextFieldColors(),
+                    modifier = Modifier.fillMaxWidth().focusRequester(focusRequester).onKeyEvent { event ->
+                        if (event.key == Key.Enter && renameWorkspaceText.trim().isNotBlank()) {
+                            workspaceRepo.rename(target.id, renameWorkspaceText.trim())
+                            renameWorkspaceTarget = null
+                            workspaceListVersion++
+                            true
+                        } else {
+                            false
+                        }
+                    },
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = renameWorkspaceText.trim().isNotBlank(),
+                    onClick = {
+                        workspaceRepo.rename(target.id, renameWorkspaceText.trim())
+                        renameWorkspaceTarget = null
+                        workspaceListVersion++
+                    },
+                ) { Text(stringResource("action.rename")) }
+            },
+            dismissButton = {
+                TextButton(onClick = { renameWorkspaceTarget = null }) { Text(stringResource("action.cancel")) }
+            },
+        )
+        LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    }
+
+    // ── Remove workspace confirmation ─────────────────────────────────────────
+    deleteWorkspaceTarget?.let { target ->
+        AlertDialog(
+            onDismissRequest = { deleteWorkspaceTarget = null },
+            title = { Text(stringResource("skills.view.workspace.switcher.remove.title", target.name)) },
+            text = { Text(stringResource("skills.view.workspace.switcher.remove.message")) },
+            confirmButton = {
+                TextButton(onClick = {
+                    workspaceRepo.delete(target.id)
+                    deleteWorkspaceTarget = null
+                    workspaceListVersion++
+                }) {
+                    Text(stringResource("action.remove"), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteWorkspaceTarget = null }) { Text(stringResource("action.cancel")) }
+            },
+        )
+    }
+
     // ── New item dialog ───────────────────────────────────────────────────────
     newItemTarget?.let { (parentDir, isFolder) ->
         val focusRequester = remember { FocusRequester() }
@@ -297,20 +384,176 @@ internal fun workspaceFilesPanel(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                Icon(
-                    Icons.Default.FolderOpen,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    workDir.name.ifEmpty { workDir.path },
-                    style = AppTextStyles.fieldLabel,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f).padding(start = 4.dp),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                if (onWorkDirChanged != null) {
+                    // ── Workspace switcher ───────────────────────────────────
+                    Box(modifier = Modifier.weight(1f)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = { workspaceMenuExpanded = true },
+                                )
+                                .pointerHoverIcon(PointerIcon.Hand)
+                                .padding(start = 4.dp, end = 2.dp, top = 2.dp, bottom = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.FolderOpen,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                currentWorkspace?.name ?: workDir.name.ifEmpty { workDir.path },
+                                style = AppTextStyles.fieldLabel,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Icon(
+                                Icons.Default.ExpandMore,
+                                contentDescription = stringResource("skills.view.workspace.switcher.title"),
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+
+                        dropdownMenu(expanded = workspaceMenuExpanded, onDismissRequest = { workspaceMenuExpanded = false }) {
+                            if (workspaces.isEmpty()) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            stringResource("skills.view.workspace.switcher.empty"),
+                                            style = AppTextStyles.caption,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                        )
+                                    },
+                                    onClick = {},
+                                    enabled = false,
+                                )
+                            }
+                            workspaces.forEach { ws ->
+                                val isCurrent = ws.id == currentWorkspace?.id
+                                DropdownMenuItem(
+                                    text = {
+                                        Column(modifier = Modifier.widthIn(max = 220.dp)) {
+                                            Text(
+                                                ws.name,
+                                                style = AppTextStyles.body,
+                                                fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                            Text(
+                                                ws.path,
+                                                style = AppTextStyles.hint,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                        }
+                                    },
+                                    leadingIcon = {
+                                        if (isCurrent) {
+                                            Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                                        } else {
+                                            Spacer(modifier = Modifier.size(16.dp))
+                                        }
+                                    },
+                                    trailingIcon = {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                            IconButton(
+                                                onClick = {
+                                                    workspaceRepo.setPinned(ws.id, !ws.pinned)
+                                                    workspaceListVersion++
+                                                },
+                                                modifier = Modifier.size(24.dp).pointerHoverIcon(PointerIcon.Hand),
+                                            ) {
+                                                Icon(
+                                                    if (ws.pinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
+                                                    contentDescription = stringResource("skills.view.workspace.switcher.pin"),
+                                                    modifier = Modifier.size(13.dp),
+                                                    tint = if (ws.pinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
+                                            IconButton(
+                                                onClick = {
+                                                    renameWorkspaceTarget = ws
+                                                    renameWorkspaceText = ws.name
+                                                    workspaceMenuExpanded = false
+                                                },
+                                                modifier = Modifier.size(24.dp).pointerHoverIcon(PointerIcon.Hand),
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.DriveFileRenameOutline,
+                                                    contentDescription = stringResource("action.rename"),
+                                                    modifier = Modifier.size(13.dp),
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
+                                            IconButton(
+                                                onClick = {
+                                                    deleteWorkspaceTarget = ws
+                                                    workspaceMenuExpanded = false
+                                                },
+                                                modifier = Modifier.size(24.dp).pointerHoverIcon(PointerIcon.Hand),
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Delete,
+                                                    contentDescription = stringResource("action.remove"),
+                                                    modifier = Modifier.size(13.dp),
+                                                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                                                )
+                                            }
+                                        }
+                                    },
+                                    onClick = {
+                                        workspaceMenuExpanded = false
+                                        if (!isCurrent) onWorkDirChanged(File(ws.path))
+                                    },
+                                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                )
+                            }
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text(stringResource("skills.view.workspace.switcher.add")) },
+                                leadingIcon = { Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp)) },
+                                onClick = {
+                                    workspaceMenuExpanded = false
+                                    val chooser = JFileChooser().apply {
+                                        fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
+                                        currentDirectory = workDir
+                                        dialogTitle = "Select Working Directory"
+                                    }
+                                    if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+                                        onWorkDirChanged(chooser.selectedFile)
+                                        workspaceListVersion++
+                                    }
+                                },
+                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                            )
+                        }
+                    }
+                } else {
+                    Icon(
+                        Icons.Default.FolderOpen,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        workDir.name.ifEmpty { workDir.path },
+                        style = AppTextStyles.fieldLabel,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f).padding(start = 4.dp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
 
                 // ── + New button ───────────────────────────────────────────
                 Box {
@@ -351,45 +594,18 @@ internal fun workspaceFilesPanel(
                     }
                 } // closes Box
 
-                // ── Change / open workdir button ───────────────────────────
-                if (onWorkDirChanged != null) {
-                    themedTooltip(text = stringResource("skills.view.workdir.change")) {
-                        IconButton(
-                            onClick = {
-                                val chooser = JFileChooser().apply {
-                                    fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
-                                    currentDirectory = workDir
-                                    dialogTitle = "Select Working Directory"
-                                }
-                                if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
-                                    val selected = chooser.selectedFile
-                                    ApplicationPreferences.setSkillsWorkspaceDir(selected.absolutePath)
-                                    onWorkDirChanged(selected)
-                                }
-                            },
-                            modifier = Modifier.size(24.dp).pointerHoverIcon(PointerIcon.Hand),
-                        ) {
-                            Icon(
-                                Icons.Default.FolderOpen,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                } else {
-                    themedTooltip(text = stringResource("skills.view.workdir.open")) {
-                        IconButton(
-                            onClick = { runCatching { Desktop.getDesktop().open(workDir.also { it.mkdirs() }) } },
-                            modifier = Modifier.size(24.dp).pointerHoverIcon(PointerIcon.Hand),
-                        ) {
-                            Icon(
-                                Icons.Default.FolderOpen,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                // ── Open workdir in Finder/Explorer ─────────────────────────
+                themedTooltip(text = stringResource("skills.view.workdir.open")) {
+                    IconButton(
+                        onClick = { runCatching { Desktop.getDesktop().open(workDir.also { it.mkdirs() }) } },
+                        modifier = Modifier.size(24.dp).pointerHoverIcon(PointerIcon.Hand),
+                    ) {
+                        Icon(
+                            Icons.Default.FolderOpen,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }

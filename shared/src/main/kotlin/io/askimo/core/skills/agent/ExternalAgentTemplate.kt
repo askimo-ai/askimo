@@ -39,6 +39,9 @@ abstract class ExternalAgentTemplate : ExternalAgent {
     @Volatile
     private var executionWorkspaceDir: String? = null
 
+    @Volatile
+    private var resultErrorMessage: String? = null
+
     override val lastExecutionSessionId: String?
         get() = executionSessionId
 
@@ -163,6 +166,19 @@ abstract class ExternalAgentTemplate : ExternalAgent {
         executionWorkspaceDir = workspaceDir
     }
 
+    /**
+     * Subclasses call this from within [parseStdoutLine] when the agent's own stream
+     * reports an application-level failure (e.g. "Not logged in · Please run /login")
+     * even though the OS process exits with code 0. Without this, such messages would
+     * silently be treated as a normal successful response and shown to the user as if
+     * the run succeeded.
+     *
+     * Once set, [run] converts the outcome to a [Result.failure] carrying [message].
+     */
+    protected fun reportResultError(message: String) {
+        resultErrorMessage = message
+    }
+
     override fun isBinaryAvailable(): Boolean {
         val found = resolveAgentPath() != null
         if (!found) log.debug("{} binary not found on PATH", name)
@@ -180,6 +196,7 @@ abstract class ExternalAgentTemplate : ExternalAgent {
         val agentPath = resolveAgentPath() ?: error("$name binary not found on PATH")
         val effectiveWorkDir = workDir ?: File(System.getProperty("user.home"))
         updateExecutionMetadata(sessionId = null, workspaceDir = effectiveWorkDir.absolutePath)
+        resultErrorMessage = null
 
         log.debug(
             "Starting {} for skill execution ({} chars systemPrompt, workDir={})",
@@ -253,6 +270,13 @@ abstract class ExternalAgentTemplate : ExternalAgent {
 
         val exitCode = process.waitFor()
         stderrThread.join(2_000)
+
+        // An application-level failure reported by the agent's own stream (e.g. "Not logged
+        // in · Please run /login") is the most accurate error message we have — prefer it over
+        // a generic "exited with code N" message, regardless of the OS exit code.
+        resultErrorMessage?.let { errMsg ->
+            error(errMsg)
+        }
 
         if (exitCode != 0) {
             val errMsg = buildString {

@@ -81,6 +81,21 @@ class ProcessBuilderExt(vararg command: String) {
 
     companion object {
 
+        /**
+         * Resolves [executableName] to an absolute path on the current `PATH`, using the same
+         * search strategy as command execution (absolute-path check, common install dirs,
+         * Windows extensions, then a login-shell fallback via `where`/`which`).
+         *
+         * Unlike [findExecutable] (used internally when launching a process), this returns
+         * `null` when the binary can't be located instead of falling back to the bare name —
+         * making it suitable for "is this agent installed?" checks (e.g. [ExternalAgent.isBinaryAvailable]).
+         */
+        fun which(executableName: String): String? {
+            val resolved = findExecutable(executableName)
+            val file = File(resolved)
+            return if (file.isAbsolute && file.exists() && !file.isDirectory) resolved else null
+        }
+
         fun resolveCommand(command: List<String>): List<String> {
             if (command.isEmpty()) return command
             val resolved = findExecutable(command[0])
@@ -116,11 +131,18 @@ class ProcessBuilderExt(vararg command: String) {
             val windowsExtensions = if (isWindows()) listOf(".exe", ".cmd", ".bat", ".com") else listOf("")
 
             val windowsBasePaths = if (isWindows()) {
-                listOf(
+                val localAppData = System.getenv("LOCALAPPDATA")
+                val appData = System.getenv("APPDATA")
+                listOfNotNull(
                     System.getenv("ProgramFiles"),
                     System.getenv("ProgramFiles(x86)"),
-                    System.getenv("LOCALAPPDATA"),
+                    localAppData,
                     (System.getenv("windir") ?: "C:\\Windows") + "\\System32",
+                    // Common per-tool installer layout: %LOCALAPPDATA%\<tool>\bin\<tool>.exe
+                    // (e.g. `agy`, several Node-based CLI installers).
+                    localAppData?.let { "$it\\$executableName\\bin" },
+                    localAppData?.let { "$it\\Programs\\$executableName" },
+                    appData?.let { "$it\\$executableName\\bin" },
                 )
             } else {
                 emptyList()

@@ -6,6 +6,7 @@ package io.askimo.core.skills.agent
 
 import io.askimo.core.analytics.Analytics
 import io.askimo.core.analytics.AnalyticsEvent
+import io.askimo.core.skills.domain.SkillDefinition
 
 /**
  * Represents an external CLI agent capable of running a skill non-interactively.
@@ -17,7 +18,7 @@ import io.askimo.core.analytics.AnalyticsEvent
  */
 interface ExternalAgent {
 
-    /** Stable identifier, e.g. `"claude"` or `"gemini"`. */
+    /** Stable identifier, e.g. `"claude"` or `"antigravity"`. */
     val id: String
 
     /** Human-readable display name shown in the UI. */
@@ -35,7 +36,7 @@ interface ExternalAgent {
 
     /**
      * Whether Askimo can collect an API key from the user and inject it into the agent process.
-     * `true`  → show inline API key input when [isConfigured] returns false (e.g. Gemini CLI).
+     * `true`  → show inline API key input when [isConfigured] returns false (e.g. Antigravity CLI).
      * `false` → show [configurationHint] as a read-only banner (e.g. Claude Code uses OAuth login).
      */
     val requiresApiKey: Boolean get() = false
@@ -78,6 +79,26 @@ interface ExternalAgent {
      * Convenience combining [isBinaryAvailable] and [isConfigured].
      */
     fun isAvailable(): Boolean = isBinaryAvailable() && isConfigured()
+
+    /**
+     * Optionally materializes [skill] into this agent's own native skill/context discovery
+     * location under [workDir] (e.g. Claude Code's `.claude/skills/<name>/`), so the agent's
+     * built-in mechanism — not just the system prompt injected via [run] — is also aware of it.
+     *
+     * This lets Askimo's agent-agnostic skill library "plug into" each agent's native
+     * conventions at run time, scoped to the workspace the skill is being run against,
+     * instead of the agent's own default (usually home-directory) location.
+     *
+     * Default: no-op — agents with no native skill-folder convention rely solely on the
+     * system-prompt injection already performed in [run].
+     *
+     * @return An [AutoCloseable] cleanup handle. Callers should invoke [AutoCloseable.close]
+     *         after the run completes to remove any run-scoped artifacts this call created.
+     *         Implementations that found an already-existing native skill with the same name
+     *         (rather than creating one) must return a no-op handle so nothing the user owns
+     *         is ever deleted.
+     */
+    fun materializeSkill(skill: SkillDefinition, workDir: java.io.File): AutoCloseable = AutoCloseable {}
 
     /**
      * Saves an API key for this agent via [io.askimo.core.security.SecureKeyManager]

@@ -6,7 +6,7 @@ package io.askimo.core.skills.agent
 
 /**
  * Parses a single `stream-json` event line emitted by the Claude CLI (`claude --output-format stream-json`).
- * Reuses the JSON parsing infrastructure from [GeminiStreamJsonEventParser].
+ * Uses [JsonLineParser] for the underlying JSON parsing, independent of the other agent parsers.
  *
  * Claude events embed interesting data inside `message.content[]` — a JSON array of content blocks.
  * This parser extracts that array into a typed list so [ClaudeAgent] can iterate over content blocks.
@@ -25,12 +25,12 @@ object ClaudeStreamJsonEventParser {
         val fields: Map<String, Any>,
     )
 
-    fun parse(line: String): GeminiStreamJsonEventParser.StreamJsonEvent? {
+    fun parse(line: String): StreamJsonEvent? {
         if (line.isBlank() || !line.trimStart().startsWith("{")) return null
-        val fields = GeminiStreamJsonEventParser.parseObject(line.trim()) ?: return null
+        val fields = JsonLineParser.parseObject(line.trim()) ?: return null
         val type = fields["type"] as? String ?: return null
         val remaining = fields.filterKeys { it !in EXCLUDED_FIELDS }
-        return GeminiStreamJsonEventParser.StreamJsonEvent(type = type, fields = remaining)
+        return StreamJsonEvent(type = type, fields = remaining)
     }
 
     /**
@@ -42,7 +42,7 @@ object ClaudeStreamJsonEventParser {
         val message = fields["message"] as? Map<String, Any> ?: return emptyList()
         val contentRaw = message["content"] ?: return emptyList()
 
-        // content is stored as a raw JSON array string by GeminiStreamJsonEventParser.readValue
+        // content is stored as a raw JSON array string by JsonLineParser
         val contentJson = contentRaw as? String ?: return emptyList()
         if (!contentJson.startsWith("[")) return emptyList()
 
@@ -62,18 +62,5 @@ object ClaudeStreamJsonEventParser {
     /**
      * Parses a JSON array string `[...]` into a list of values (String, Boolean, Map, etc.).
      */
-    internal fun parseArray(json: String): List<Any> {
-        val s = json.trim()
-        if (!s.startsWith("[") || !s.endsWith("]")) return emptyList()
-        val result = mutableListOf<Any>()
-        var i = 1 // skip '['
-        while (i < s.length) {
-            while (i < s.length && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r' || s[i] == ',')) i++
-            if (i >= s.length || s[i] == ']') break
-            val (value, afterValue) = GeminiStreamJsonEventParser.readValue(s, i) ?: break
-            result.add(value)
-            i = afterValue
-        }
-        return result
-    }
+    internal fun parseArray(json: String): List<Any> = JsonLineParser.parseArray(json)
 }

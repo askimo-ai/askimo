@@ -51,13 +51,7 @@ class CursorAgent : ExternalAgentTemplate() {
 
     // ── Binary resolution ──────────────────────────────────────────────────
 
-    override fun resolveAgentPath(): String? = runCatching {
-        val proc = ProcessBuilderExt("which", "agent")
-            .redirectErrorStream(true)
-            .start()
-        val path = proc.inputStream.bufferedReader().readText().trim()
-        if (proc.waitFor() == 0 && path.isNotBlank()) path else null
-    }.getOrNull()
+    override fun resolveAgentPath(): String? = ProcessBuilderExt.which("agent")
 
     // ── Command construction ────────────────────────────────────────────────
 

@@ -5,21 +5,24 @@
 package io.askimo.ui.skills
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.PlayArrow
@@ -32,6 +35,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,22 +47,29 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.skills.agent.ExternalAgent
 import io.askimo.core.skills.agent.ExternalAgentLoader
 import io.askimo.core.skills.domain.SkillDefinition
 import io.askimo.core.skills.domain.SkillRunRecord
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.keymap.KeyMapManager
+import io.askimo.ui.common.keymap.onImeAwarePreviewKeyEvent
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
-import io.askimo.ui.common.ui.markdownText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -85,9 +96,11 @@ internal fun agenticRunArea(
     skills: List<SkillDefinition>,
     workDir: File,
     onRunCompleted: () -> Unit = {},
+    onNavigateToSkillsSettings: () -> Unit = {},
+    preloadRecord: SkillRunRecord? = null,
+    onPreloadConsumed: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
-    val clipboardManager = LocalClipboardManager.current
     val historyRepo = remember { DatabaseManager.getInstance().getSkillRunHistoryRepository() }
 
     // ── Agent state ──────────────────────────────────────────────────────────
@@ -115,20 +128,25 @@ internal fun agenticRunArea(
         allAgents.firstOrNull { it.id == selectedAgentId && agentStateMap[it.id] == AgentCardState.READY }
             ?: allAgents.firstOrNull { agentStateMap[it.id] == AgentCardState.READY }
     }
+
+    val selectedAgentRaw = remember(selectedAgentId, allAgents) {
+        allAgents.firstOrNull { it.id == selectedAgentId } ?: allAgents.firstOrNull()
+    }
     val selectedAgentReady = agentStateMap[selectedAgent?.id] == AgentCardState.READY
     var agentDropdownExpanded by remember { mutableStateOf(false) }
 
     // ── Run state ────────────────────────────────────────────────────────────
-    var goalInput by remember { mutableStateOf("") }
+    var goalInput by remember { mutableStateOf(TextFieldValue("")) }
     var followUpInput by remember { mutableStateOf("") }
     var isRunning by remember { mutableStateOf(false) }
     var responseText by remember { mutableStateOf("") }
     var runError by remember { mutableStateOf<String?>(null) }
-    var currentStatusLine by remember { mutableStateOf<String?>(null) }
+    var timeline by remember { mutableStateOf<List<RunTimelineEntry>>(emptyList()) }
     var displayText by remember { mutableStateOf("") }
     var isInThinkingPhase by remember { mutableStateOf(false) }
     var elapsedSeconds by remember { mutableStateOf(0) }
     val hasResponse = responseText.isNotBlank()
+    var skillsListExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(isRunning) {
         if (isRunning) {
@@ -150,48 +168,63 @@ internal fun agenticRunArea(
         displayText = ""
         isInThinkingPhase = false
         runError = null
-        currentStatusLine = null
+        timeline = emptyList()
         scope.launch {
-            withContext(Dispatchers.IO) {
-                agent.runTracked(
-                    systemPrompt = agenticSystemPrompt,
-                    userInput = goal,
-                    workDir = workDir,
-                    onToken = { token ->
-                        scope.launch {
-                            if (isInThinkingPhase) {
-                                displayText = ""
-                                isInThinkingPhase = false
+            val result = withContext(Dispatchers.IO) {
+                // Materialize every skill in the catalog into the agent's own native
+                // skill-discovery location (e.g. Claude Code's `.claude/skills/<name>/`) so its
+                // built-in Skill tool can find and invoke them — not just rely on the full skill
+                // text injected into agenticSystemPrompt below, which the agent can only read as
+                // background instructions, not "run" as a discrete skill.
+                val materialized = skills.map { skill -> agent.materializeSkill(skill, workDir) }
+                try {
+                    agent.runTracked(
+                        systemPrompt = agenticSystemPrompt,
+                        userInput = goal,
+                        workDir = workDir,
+                        onToken = { token ->
+                            scope.launch {
+                                if (isInThinkingPhase) {
+                                    displayText = ""
+                                    isInThinkingPhase = false
+                                }
+                                responseText += token
+                                displayText += token
+                                timeline = timeline.appendText(token)
                             }
-                            responseText += token
-                            displayText += token
-                        }
-                    },
-                    onStatus = { status ->
-                        scope.launch {
-                            if (isInThinkingPhase) {
-                                displayText = ""
-                                isInThinkingPhase = false
+                        },
+                        onStatus = { status ->
+                            scope.launch {
+                                if (isInThinkingPhase) {
+                                    displayText = ""
+                                    isInThinkingPhase = false
+                                }
+                                timeline = timeline.appendActivity(status)
                             }
-                            currentStatusLine = status
-                        }
-                    },
-                    onThinking = { chunk ->
-                        scope.launch {
-                            if (!isInThinkingPhase) {
-                                displayText = ""
-                                isInThinkingPhase = true
+                        },
+                        onThinking = { chunk ->
+                            scope.launch {
+                                if (!isInThinkingPhase) {
+                                    displayText = ""
+                                    isInThinkingPhase = true
+                                }
+                                displayText += chunk
                             }
-                            displayText += chunk
-                        }
-                    },
-                ).onFailure { e ->
-                    scope.launch { runError = e.message ?: "Execution failed" }
+                        },
+                    )
+                } finally {
+                    materialized.forEach { it.close() }
                 }
             }
-            currentStatusLine = null
+            // Update state on the same coroutine, right after the run completes, so the
+            // error (if any) is guaranteed to be captured before we build the history record
+            // below — no race with a separately-launched coroutine.
+            result.onFailure { e -> runError = e.message ?: "Execution failed" }
             isRunning = false
             isInThinkingPhase = false
+            // timeline is intentionally NOT cleared here — like ChatView keeps
+            // thinking/tool-call context visible after a message completes, the full
+            // interleaved text/status history stays visible instead of disappearing.
             val record = SkillRunRecord(
                 skillPath = AGENTIC_RUN_SKILL_PATH,
                 userInput = goal,
@@ -199,10 +232,26 @@ internal fun agenticRunArea(
                 error = runError,
                 agentSessionId = agent.lastExecutionSessionId,
                 workspaceDir = agent.lastExecutionWorkspaceDir ?: workDir.absolutePath,
-                activityLog = emptyList(),
+                activityLog = timeline.filterIsInstance<RunTimelineEntry.Activity>().map { it.message },
             )
             withContext(Dispatchers.IO) { historyRepo.save(record) }
             onRunCompleted()
+        }
+    }
+
+    fun sendGoal() {
+        val agent = selectedAgent ?: return
+        if (goalInput.text.isNotBlank()) executeAgentic(agent, goalInput.text.trim())
+    }
+
+    LaunchedEffect(preloadRecord) {
+        if (preloadRecord != null) {
+            goalInput = TextFieldValue(text = preloadRecord.userInput, selection = TextRange(preloadRecord.userInput.length))
+            responseText = preloadRecord.response
+            runError = preloadRecord.error
+            timeline = timelineFromRecord(preloadRecord)
+            isRunning = false
+            onPreloadConsumed()
         }
     }
 
@@ -216,47 +265,156 @@ internal fun agenticRunArea(
     ) {
         // ── Skills-as-context pill row ───────────────────────────────────────
         if (skills.isNotEmpty()) {
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                shape = MaterialTheme.shapes.small,
-            ) {
-                Row(
+            var pillHeightPx by remember { mutableStateOf(0) }
+            Box {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    shape = MaterialTheme.shapes.small,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Spacing.medium, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                        .clickable(onClick = { skillsListExpanded = true })
+                        .pointerHoverIcon(PointerIcon.Hand)
+                        .onGloballyPositioned { coordinates -> pillHeightPx = coordinates.size.height },
                 ) {
-                    Icon(
-                        Icons.Default.Extension,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = stringResource("skills.agentic.skills.available", skills.size),
-                        style = AppTextStyles.hint,
-                        modifier = Modifier.weight(1f),
-                    )
-                    val maxVisible = 4
-                    skills.take(maxVisible).forEach { skill ->
-                        Surface(
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f),
-                            shape = MaterialTheme.shapes.extraSmall,
-                        ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Spacing.medium, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                    ) {
+                        Icon(
+                            Icons.Default.Extension,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = stringResource("skills.agentic.skills.available", skills.size),
+                            style = AppTextStyles.hint,
+                            modifier = Modifier.weight(1f),
+                        )
+                        val maxVisible = 4
+                        skills.take(maxVisible).forEach { skill ->
+                            Surface(
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f),
+                                shape = MaterialTheme.shapes.extraSmall,
+                            ) {
+                                Text(
+                                    text = skill.name,
+                                    style = AppTextStyles.hint,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    maxLines = 1,
+                                )
+                            }
+                        }
+                        if (skills.size > maxVisible) {
                             Text(
-                                text = skill.name,
+                                text = "+${skills.size - maxVisible}",
                                 style = AppTextStyles.hint,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                maxLines = 1,
                             )
                         }
-                    }
-                    if (skills.size > maxVisible) {
-                        Text(
-                            text = "+${skills.size - maxVisible}",
-                            style = AppTextStyles.hint,
+                        Icon(
+                            Icons.Default.ExpandMore,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                }
+
+                if (skillsListExpanded) {
+                    val skillsScrollState = rememberScrollState()
+                    Popup(
+                        alignment = Alignment.TopStart,
+                        offset = IntOffset(0, pillHeightPx + with(LocalDensity.current) { 4.dp.roundToPx() }),
+                        onDismissRequest = { skillsListExpanded = false },
+                        properties = PopupProperties(focusable = true),
+                    ) {
+                        MaterialTheme(colorScheme = AppComponents.popupColorScheme()) {
+                            Surface(
+                                modifier = Modifier.width(380.dp),
+                                color = AppComponents.popupContainerColor(),
+                                border = AppComponents.popupBorderStroke(),
+                                shape = RoundedCornerShape(8.dp),
+                                tonalElevation = AppComponents.popupSurfaceTonalElevation,
+                                shadowElevation = AppComponents.popupElevation,
+                            ) {
+                                Column {
+                                    // ── Scrollable skill list (height wraps content, capped) ──
+                                    Box(modifier = Modifier.heightIn(max = 320.dp)) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .verticalScroll(skillsScrollState)
+                                                .padding(vertical = Spacing.extraSmall),
+                                        ) {
+                                            skills.forEach { skill ->
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .clickable(onClick = { skillsListExpanded = false })
+                                                        .pointerHoverIcon(PointerIcon.Hand)
+                                                        .padding(horizontal = Spacing.medium, vertical = Spacing.small),
+                                                    verticalAlignment = Alignment.Top,
+                                                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Extension,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(16.dp).padding(top = 2.dp),
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    )
+                                                    Column {
+                                                        Text(
+                                                            text = skill.name,
+                                                            style = AppTextStyles.body,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                        )
+                                                        if (skill.description.isNotBlank()) {
+                                                            Text(
+                                                                text = skill.description,
+                                                                style = AppTextStyles.hint,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                maxLines = 2,
+                                                                overflow = TextOverflow.Ellipsis,
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        VerticalScrollbar(
+                                            adapter = rememberScrollbarAdapter(skillsScrollState),
+                                            modifier = Modifier.matchParentSize().padding(end = 2.dp),
+                                            style = AppComponents.scrollbarStyle(),
+                                        )
+                                    }
+
+                                    // ── Sticky footer — always visible, outside the scroll area ──
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable(
+                                                onClick = {
+                                                    skillsListExpanded = false
+                                                    onNavigateToSkillsSettings()
+                                                },
+                                            )
+                                            .pointerHoverIcon(PointerIcon.Hand)
+                                            .padding(horizontal = Spacing.medium, vertical = Spacing.medium),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(
+                                            text = stringResource("skills.view.manage"),
+                                            style = AppTextStyles.body,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -281,7 +439,14 @@ internal fun agenticRunArea(
                     Text(
                         text = stringResource("skills.agentic.no.skills.hint"),
                         style = AppTextStyles.hint,
+                        modifier = Modifier.weight(1f),
                     )
+                    TextButton(
+                        onClick = onNavigateToSkillsSettings,
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                    ) {
+                        Text(text = stringResource("skills.view.manage"), style = AppTextStyles.hint)
+                    }
                 }
             }
         }
@@ -295,7 +460,26 @@ internal fun agenticRunArea(
                     value = goalInput,
                     onValueChange = { goalInput = it },
                     placeholder = { Text(stringResource("skills.agentic.goal.placeholder")) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth()
+                        .onImeAwarePreviewKeyEvent(goalInput.composition) { keyEvent ->
+                            when (KeyMapManager.handleKeyEvent(keyEvent)) {
+                                KeyMapManager.AppShortcut.NEW_LINE -> {
+                                    val cursor = goalInput.selection.start
+                                    val newText = goalInput.text.substring(0, cursor) + "\n" + goalInput.text.substring(cursor)
+                                    goalInput = TextFieldValue(text = newText, selection = TextRange(cursor + 1))
+                                    true
+                                }
+
+                                KeyMapManager.AppShortcut.SEND_MESSAGE -> {
+                                    if (goalInput.text.isNotBlank() && selectedAgentReady && !isRunning) {
+                                        sendGoal()
+                                    }
+                                    true
+                                }
+
+                                else -> false
+                            }
+                        },
                     minLines = 4,
                     maxLines = 10,
                     colors = AppComponents.outlinedTextFieldColors(),
@@ -453,11 +637,8 @@ internal fun agenticRunArea(
 
                     // Run button
                     IconButton(
-                        onClick = {
-                            val agent = selectedAgent ?: return@IconButton
-                            if (goalInput.isNotBlank()) executeAgentic(agent, goalInput.trim())
-                        },
-                        enabled = selectedAgentReady && goalInput.isNotBlank() && !isRunning,
+                        onClick = { sendGoal() },
+                        enabled = selectedAgentReady && goalInput.text.isNotBlank() && !isRunning,
                         colors = AppComponents.primaryIconButtonColors(),
                         modifier = Modifier
                             .size(36.dp)
@@ -477,135 +658,42 @@ internal fun agenticRunArea(
             }
         }
 
-        // ── Response panel ───────────────────────────────────────────────────
-        if (isRunning || hasResponse || runError != null) {
+        // ── Agent setup hint (needs auth) ────────────────────────────────────
+        if (agentStateMap[selectedAgentRaw?.id] == AgentCardState.NEEDS_SETUP) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surface,
-                shape = MaterialTheme.shapes.medium,
-                shadowElevation = 1.dp,
-                tonalElevation = 1.dp,
+                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
+                shape = MaterialTheme.shapes.small,
             ) {
-                Column(modifier = Modifier.padding(Spacing.large)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.medium),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(
-                                imageVector = if (isRunning) Icons.Default.Refresh else Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = if (runError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(18.dp),
-                            )
-                            Text(
-                                text = when {
-                                    isRunning -> stringResource("skills.view.running")
-                                    runError != null -> stringResource("skills.view.response.error")
-                                    else -> stringResource("skills.view.response.title")
-                                },
-                                style = AppTextStyles.sectionTitle,
-                            )
-                            if (isRunning) {
-                                Text(
-                                    text = "${elapsedSeconds}s",
-                                    style = AppTextStyles.hint,
-                                )
-                            }
-                        }
-                        if (hasResponse) {
-                            IconButton(
-                                onClick = { clipboardManager.setText(AnnotatedString(responseText)) },
-                                modifier = Modifier.size(28.dp).pointerHoverIcon(PointerIcon.Hand),
-                            ) {
-                                Icon(
-                                    Icons.Default.ContentCopy,
-                                    contentDescription = stringResource("skills.view.copy"),
-                                    modifier = Modifier.size(14.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
-                    when {
-                        runError != null -> Text(
-                            text = runError!!,
-                            style = AppTextStyles.body,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(top = Spacing.medium),
-                        )
-
-                        isRunning && isInThinkingPhase && displayText.isNotBlank() -> {
-                            val blockquote = displayText.lines().joinToString("\n") { "> $it" }
-                            markdownText(
-                                markdown = blockquote,
-                                isStreaming = true,
-                                modifier = Modifier.fillMaxWidth().padding(top = Spacing.medium),
-                            )
-                        }
-
-                        responseText.isNotBlank() -> markdownText(
-                            markdown = responseText,
-                            isStreaming = isRunning,
-                            modifier = Modifier.fillMaxWidth().padding(top = Spacing.medium),
-                        )
-
-                        else -> Box(
-                            modifier = Modifier.fillMaxWidth().height(48.dp).padding(top = Spacing.medium),
-                            contentAlignment = Alignment.CenterStart,
-                        ) {
-                            Text(
-                                text = "▌",
-                                style = AppTextStyles.body,
-                            )
-                        }
-                    }
-                    if (isRunning && currentStatusLine != null) {
-                        Text(
-                            text = currentStatusLine!!,
-                            style = AppTextStyles.hint,
-                            modifier = Modifier.padding(top = Spacing.small),
-                        )
-                    }
-                }
-            }
-
-            // ── Follow-up ────────────────────────────────────────────────────
-            Spacer(modifier = Modifier.height(Spacing.small))
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                shape = MaterialTheme.shapes.medium,
-            ) {
-                Column(modifier = Modifier.padding(Spacing.large)) {
+                Column(modifier = Modifier.padding(Spacing.medium), verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
                     Text(
-                        text = stringResource("skills.view.followup.label"),
-                        style = AppTextStyles.fieldLabel,
-                        modifier = Modifier.padding(bottom = Spacing.small),
-                    )
-                    agentInputField(
-                        value = followUpInput,
-                        onValueChange = { followUpInput = it },
-                        placeholder = stringResource("skills.view.followup.placeholder"),
-                        enabled = hasResponse && !isRunning,
-                        onSend = {
-                            val agent = selectedAgent ?: return@agentInputField
-                            if (followUpInput.isNotBlank()) {
-                                val followUpContext = "$responseText\n\n---\n\n${followUpInput.trim()}"
-                                followUpInput = ""
-                                executeAgentic(agent, followUpContext)
-                            }
-                        },
-                        sendContentDescription = stringResource("skills.view.followup.send"),
+                        text = selectedAgentRaw?.configurationHint ?: "",
+                        style = AppTextStyles.caption,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
                     )
                 }
             }
         }
+
+        // ── Response panel + follow-up ────────────────────────────────────────
+        skillRunResultSection(
+            isRunning = isRunning,
+            hasResponse = hasResponse,
+            responseText = responseText,
+            displayText = displayText,
+            isInThinkingPhase = isInThinkingPhase,
+            runError = runError,
+            timeline = timeline,
+            elapsedSeconds = elapsedSeconds,
+            followUpInput = followUpInput,
+            onFollowUpInputChange = { followUpInput = it },
+            onFollowUpSend = { trimmed ->
+                val agent = selectedAgent ?: return@skillRunResultSection
+                val followUpContext = "$responseText\n\n---\n\n$trimmed"
+                followUpInput = ""
+                executeAgentic(agent, followUpContext)
+            },
+        )
     }
 }
 

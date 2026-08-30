@@ -914,6 +914,157 @@ tasks.register("detectMissingLocalizations") {
     }
 }
 
+/*
+ * Reorders keys in all locale .properties files to match the order in the base messages.properties.
+ *
+ * Run with: ./gradlew sortI18nKeys
+ *
+ * The base file's structure (comments, blank lines, key order) is used as the template.
+ * Each locale file is rewritten with:
+ *   - The same structure and comments as the base
+ *   - Each key replaced with the locale's translation
+ *   - Keys missing in the locale file written with value "TBT" (To Be Translated)
+ *   - Any locale-only keys (not in base) appended at the end under a separator comment
+ */
+tasks.register("sortI18nKeys") {
+    group = "i18n"
+    description = "Reorders keys in all locale .properties files to match messages.properties key order"
+
+    doLast {
+        val i18nDir = file("$projectDir/../desktop-shared/src/main/resources/i18n")
+        val baseFile = File(i18nDir, "messages.properties")
+
+        check(baseFile.exists()) { "Base file not found: ${baseFile.absolutePath}" }
+
+        // ── Parsers ────────────────────────────────────────────────────────────────────────────
+
+        // Returns true when a physical line ends with an odd number of backslashes (line continuation).
+        fun isContinuation(line: String): Boolean {
+            var count = 0
+            var i = line.length - 1
+            while (i >= 0 && line[i] == '\\') {
+                count++
+                i--
+            }
+            return count % 2 == 1
+        }
+
+        // Joins physical lines into logical lines, respecting the .properties continuation syntax.
+        // The returned strings may contain embedded '\n' for multi-line values.
+        fun readLogicalLines(file: File): List<String> {
+            val physical = file.readLines(Charsets.UTF_8)
+            val result = mutableListOf<String>()
+            var i = 0
+            while (i < physical.size) {
+                val sb = StringBuilder(physical[i])
+                while (isContinuation(physical[i]) && i + 1 < physical.size) {
+                    i++
+                    sb.append('\n').append(physical[i])
+                }
+                result.add(sb.toString())
+                i++
+            }
+            return result
+        }
+
+        // Each element is Pair<key?, logicalLine>. key==null means a structural line (comment/blank).
+        // logicalLine may span multiple physical lines (embedded '\n') for multi-line values.
+        fun parseBaseLines(file: File): List<Pair<String?, String>> =
+            readLogicalLines(file).map { logical ->
+                val firstLine = logical.substringBefore('\n').trim()
+                if (firstLine.isEmpty() || firstLine.startsWith("#") || firstLine.startsWith("!")) {
+                    null to logical
+                } else {
+                    val eqIdx = firstLine.indexOfFirst { it == '=' || it == ':' }
+                    if (eqIdx > 0) {
+                        firstLine.substring(0, eqIdx).trim() to logical
+                    } else {
+                        null to logical
+                    }
+                }
+            }
+
+        // Maps key -> full raw logical line (verbatim, may be multi-line) so it can be written back as-is.
+        fun parseLocaleValues(file: File): LinkedHashMap<String, String> {
+            val map = LinkedHashMap<String, String>()
+            for (logical in readLogicalLines(file)) {
+                val firstLine = logical.substringBefore('\n').trim()
+                if (firstLine.isEmpty() || firstLine.startsWith("#") || firstLine.startsWith("!")) continue
+                val eqIdx = firstLine.indexOfFirst { it == '=' || it == ':' }
+                if (eqIdx > 0) map[firstLine.substring(0, eqIdx).trim()] = logical
+            }
+            return map
+        }
+
+        // ── Process ────────────────────────────────────────────────────────────────────────────
+        val baseLines = parseBaseLines(baseFile)
+
+        val localeFiles =
+            i18nDir
+                .listFiles { f ->
+                    f.name.startsWith("messages_") && f.name.endsWith(".properties")
+                }?.sortedBy { it.name } ?: emptyList()
+
+        var totalReordered = 0
+
+        for (localeFile in localeFiles) {
+            val localeValues = parseLocaleValues(localeFile)
+            val usedKeys = mutableSetOf<String>()
+            var tbtCount = 0
+            val output = StringBuilder()
+
+            for ((key, rawLine) in baseLines) {
+                if (key == null) {
+                    output.appendLine(rawLine)
+                } else {
+                    val rawLogical = localeValues[key]
+                    if (rawLogical != null) {
+                        output.appendLine(rawLogical) // verbatim — preserves multi-line continuations
+                    } else {
+                        output.appendLine("$key=TBT")
+                        tbtCount++
+                    }
+                    usedKeys += key
+                }
+            }
+
+            // Append locale-only keys not present in the base file
+            val extraKeys = localeValues.keys - usedKeys
+            if (extraKeys.isNotEmpty()) {
+                output.appendLine()
+                output.appendLine("# ── Keys not yet in base messages.properties ─────────────────────────")
+                for (key in extraKeys) {
+                    output.appendLine(localeValues[key]!!) // verbatim
+                }
+            }
+
+            val newContent = output.toString().trimEnd() + "\n"
+            val oldContent = localeFile.readText(Charsets.UTF_8)
+
+            if (newContent != oldContent) {
+                localeFile.writeText(newContent, Charsets.UTF_8)
+                val summary =
+                    buildString {
+                        append("reordered ${localeValues.size} keys")
+                        if (tbtCount > 0) append(", $tbtCount marked TBT")
+                        if (extraKeys.isNotEmpty()) append(", ${extraKeys.size} locale-only key(s) appended")
+                    }
+                logger.lifecycle("✅ ${localeFile.name} — $summary")
+                totalReordered++
+            } else {
+                logger.lifecycle("⬜ ${localeFile.name} — already in correct order, skipped")
+            }
+        }
+
+        logger.lifecycle("")
+        if (totalReordered == 0) {
+            logger.lifecycle("✅ All locale files already match the base key order.")
+        } else {
+            logger.lifecycle("✅ Reordered $totalReordered locale file(s).")
+        }
+    }
+}
+
 // =============================================================================
 // macOS Code Signing and Notarization Tasks
 //
@@ -2334,156 +2485,5 @@ tasks.register("customNotarizeMacApp") {
         logger.lifecycle("  - Applications folder (for drag-and-drop installation)")
         logger.lifecycle("")
         logger.lifecycle("The app will launch without security warnings.")
-    }
-}
-
-/*
- * Reorders keys in all locale .properties files to match the order in the base messages.properties.
- *
- * Run with: ./gradlew sortI18nKeys
- *
- * The base file's structure (comments, blank lines, key order) is used as the template.
- * Each locale file is rewritten with:
- *   - The same structure and comments as the base
- *   - Each key replaced with the locale's translation
- *   - Keys missing in the locale file written with value "TBT" (To Be Translated)
- *   - Any locale-only keys (not in base) appended at the end under a separator comment
- */
-tasks.register("sortI18nKeys") {
-    group = "i18n"
-    description = "Reorders keys in all locale .properties files to match messages.properties key order"
-
-    doLast {
-        val i18nDir = file("$projectDir/../desktop-shared/src/main/resources/i18n")
-        val baseFile = File(i18nDir, "messages.properties")
-
-        check(baseFile.exists()) { "Base file not found: ${baseFile.absolutePath}" }
-
-        // ── Parsers ────────────────────────────────────────────────────────────────────────────
-
-        // Returns true when a physical line ends with an odd number of backslashes (line continuation).
-        fun isContinuation(line: String): Boolean {
-            var count = 0
-            var i = line.length - 1
-            while (i >= 0 && line[i] == '\\') {
-                count++
-                i--
-            }
-            return count % 2 == 1
-        }
-
-        // Joins physical lines into logical lines, respecting the .properties continuation syntax.
-        // The returned strings may contain embedded '\n' for multi-line values.
-        fun readLogicalLines(file: File): List<String> {
-            val physical = file.readLines(Charsets.UTF_8)
-            val result = mutableListOf<String>()
-            var i = 0
-            while (i < physical.size) {
-                val sb = StringBuilder(physical[i])
-                while (isContinuation(physical[i]) && i + 1 < physical.size) {
-                    i++
-                    sb.append('\n').append(physical[i])
-                }
-                result.add(sb.toString())
-                i++
-            }
-            return result
-        }
-
-        // Each element is Pair<key?, logicalLine>. key==null means a structural line (comment/blank).
-        // logicalLine may span multiple physical lines (embedded '\n') for multi-line values.
-        fun parseBaseLines(file: File): List<Pair<String?, String>> =
-            readLogicalLines(file).map { logical ->
-                val firstLine = logical.substringBefore('\n').trim()
-                if (firstLine.isEmpty() || firstLine.startsWith("#") || firstLine.startsWith("!")) {
-                    null to logical
-                } else {
-                    val eqIdx = firstLine.indexOfFirst { it == '=' || it == ':' }
-                    if (eqIdx > 0) {
-                        firstLine.substring(0, eqIdx).trim() to logical
-                    } else {
-                        null to logical
-                    }
-                }
-            }
-
-        // Maps key -> full raw logical line (verbatim, may be multi-line) so it can be written back as-is.
-        fun parseLocaleValues(file: File): LinkedHashMap<String, String> {
-            val map = LinkedHashMap<String, String>()
-            for (logical in readLogicalLines(file)) {
-                val firstLine = logical.substringBefore('\n').trim()
-                if (firstLine.isEmpty() || firstLine.startsWith("#") || firstLine.startsWith("!")) continue
-                val eqIdx = firstLine.indexOfFirst { it == '=' || it == ':' }
-                if (eqIdx > 0) map[firstLine.substring(0, eqIdx).trim()] = logical
-            }
-            return map
-        }
-
-        // ── Process ────────────────────────────────────────────────────────────────────────────
-        val baseLines = parseBaseLines(baseFile)
-
-        val localeFiles =
-            i18nDir
-                .listFiles { f ->
-                    f.name.startsWith("messages_") && f.name.endsWith(".properties")
-                }?.sortedBy { it.name } ?: emptyList()
-
-        var totalReordered = 0
-
-        for (localeFile in localeFiles) {
-            val localeValues = parseLocaleValues(localeFile)
-            val usedKeys = mutableSetOf<String>()
-            var tbtCount = 0
-            val output = StringBuilder()
-
-            for ((key, rawLine) in baseLines) {
-                if (key == null) {
-                    output.appendLine(rawLine)
-                } else {
-                    val rawLogical = localeValues[key]
-                    if (rawLogical != null) {
-                        output.appendLine(rawLogical) // verbatim — preserves multi-line continuations
-                    } else {
-                        output.appendLine("$key=TBT")
-                        tbtCount++
-                    }
-                    usedKeys += key
-                }
-            }
-
-            // Append locale-only keys not present in the base file
-            val extraKeys = localeValues.keys - usedKeys
-            if (extraKeys.isNotEmpty()) {
-                output.appendLine()
-                output.appendLine("# ── Keys not yet in base messages.properties ─────────────────────────")
-                for (key in extraKeys) {
-                    output.appendLine(localeValues[key]!!) // verbatim
-                }
-            }
-
-            val newContent = output.toString().trimEnd() + "\n"
-            val oldContent = localeFile.readText(Charsets.UTF_8)
-
-            if (newContent != oldContent) {
-                localeFile.writeText(newContent, Charsets.UTF_8)
-                val summary =
-                    buildString {
-                        append("reordered ${localeValues.size} keys")
-                        if (tbtCount > 0) append(", $tbtCount marked TBT")
-                        if (extraKeys.isNotEmpty()) append(", ${extraKeys.size} locale-only key(s) appended")
-                    }
-                logger.lifecycle("✅ ${localeFile.name} — $summary")
-                totalReordered++
-            } else {
-                logger.lifecycle("⬜ ${localeFile.name} — already in correct order, skipped")
-            }
-        }
-
-        logger.lifecycle("")
-        if (totalReordered == 0) {
-            logger.lifecycle("✅ All locale files already match the base key order.")
-        } else {
-            logger.lifecycle("✅ Reordered $totalReordered locale file(s).")
-        }
     }
 }

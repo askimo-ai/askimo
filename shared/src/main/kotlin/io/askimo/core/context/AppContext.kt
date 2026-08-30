@@ -280,7 +280,7 @@ class AppContext private constructor(
      * added to [params.providerInstances].
      *
      * Prefer [requireActiveInstance] for active-instance operations. This method is intended
-     * only for callers that need settings for a *specific* provider type (e.g. CodexAgent, GeminiAgent).
+     * only for callers that need settings for a *specific* provider type (e.g. CodexAgent, AntigravityAgent).
      */
     fun getOrCreateProviderSettings(provider: ModelProvider): ProviderSettings {
         val existing = params.providerInstances.firstOrNull { it.providerType == provider }

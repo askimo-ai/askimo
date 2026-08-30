@@ -68,13 +68,7 @@ class CodexAgent : ExternalAgentTemplate() {
         return SecureKeyManager.retrieveSecretKey(ModelProvider.OPENAI.providerKey())
     }
 
-    override fun resolveAgentPath(): String? = runCatching {
-        val proc = ProcessBuilderExt("which", "codex")
-            .redirectErrorStream(true)
-            .start()
-        val path = proc.inputStream.bufferedReader().readText().trim()
-        if (proc.waitFor() == 0 && path.isNotBlank()) path else null
-    }.getOrNull()
+    override fun resolveAgentPath(): String? = ProcessBuilderExt.which("codex")
 
     override fun isConfigured(): Boolean {
         if (!super.isBinaryAvailable()) return false

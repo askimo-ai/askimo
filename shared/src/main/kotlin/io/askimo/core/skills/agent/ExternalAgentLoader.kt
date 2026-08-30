@@ -21,14 +21,14 @@ object ExternalAgentLoader {
     /** All known agent implementations, in preferred display order. */
     private val ALL: List<ExternalAgent> = listOf(
         ClaudeAgent(),
-        GeminiAgent(),
+        AntigravityAgent(),
         CodexAgent(),
         CursorAgent(),
     )
 
     /**
      * Returns the display names of all known agents in preferred display order.
-     * Use this to build UI labels like "Claude Code, Gemini CLI, or Codex".
+     * Use this to build UI labels like "Claude Code, Antigravity CLI, or Codex".
      */
     fun displayNames(): List<String> = ALL.map { it.name }
 

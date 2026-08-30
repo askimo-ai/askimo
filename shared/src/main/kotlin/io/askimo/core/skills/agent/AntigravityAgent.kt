@@ -15,81 +15,18 @@ import java.io.File
 
 /**
  * External agent implementation for the
- * [Gemini CLI](https://github.com/google-gemini/gemini-cli).
- *
- * Install: `npm install -g @google/gemini-cli`
- * Free tier: 60 requests/min, 1 000 requests/day with a Google account.
- *
- * Invocation:
- * ```
- * gemini -p "<userInput>" --output-format stream-json --yolo
- * ```
- * - `-p / --prompt`         Non-interactive (headless) mode; appended to stdin content.
- * - `--output-format stream-json` Newline-delimited JSON events streamed in real-time.
- * - `--yolo`                Auto-approve all tool actions (no interactive confirmation).
- *
- * The skill system prompt is written to **stdin** so it acts as ambient context
- * that Gemini receives before the `-p` user prompt.
- *
- * Prompt written to stdin:
- * ```
- * <systemPrompt>
- *
- * ---
- *
- * ```
- * Then `-p` carries the `userInput` (or a single space when blank so `-p` is always present).
+ * [Antigravity CLI](https://antigravity.google) (`agy`)
  */
-class GeminiAgent : ExternalAgentTemplate() {
+class AntigravityAgent : ExternalAgentTemplate() {
 
-    override val log = logger<GeminiAgent>()
+    override val log = logger<AntigravityAgent>()
 
-    override val id = "gemini"
-    override val name = "Gemini CLI"
-    override val installUrl = "https://github.com/google-gemini/gemini-cli"
-
-    override val commands: List<AgentCommand> = listOf(
-        AgentCommand(
-            name = "/tools",
-            description = "Display available tools",
-            usage = "/tools [desc|nodesc]",
-            subCommands = listOf(
-                AgentCommand("desc", "Show tool names with full descriptions"),
-                AgentCommand("nodesc", "Show tool names only"),
-            ),
-        ),
-        AgentCommand(
-            name = "/permissions",
-            description = "Manage folder trust settings",
-            usage = "/permissions trust [<path>]",
-            subCommands = listOf(
-                AgentCommand("trust", "Trust a directory for file access"),
-            ),
-        ),
-        AgentCommand(
-            name = "/memory",
-            description = "Manage Gemini memory",
-            usage = "/memory [show|refresh|add]",
-            subCommands = listOf(
-                AgentCommand("show", "Show current memory contents"),
-                AgentCommand("refresh", "Reload memory from disk"),
-                AgentCommand("add", "Add a new memory entry"),
-            ),
-        ),
-        AgentCommand(
-            name = "/stats",
-            description = "Show session token usage and costs",
-            usage = "/stats",
-        ),
-        AgentCommand(
-            name = "/quit",
-            description = "Exit the Gemini CLI session",
-            usage = "/quit",
-        ),
-    )
+    override val id = "antigravity"
+    override val name = "Antigravity CLI"
+    override val installUrl = "https://antigravity.google"
 
     /**
-     * Resolves the Gemini API key from:
+     * Resolves the Google/Gemini API key from:
      * 1. AppContext GeminiSettings (if initialized) — handles keychain/encrypted refs
      * 2. SecureKeyManager direct lookup by provider key "gemini"
      * Returns null if no key is configured (user may rely on OAuth login instead).
@@ -111,23 +48,17 @@ class GeminiAgent : ExternalAgentTemplate() {
     }
 
     /**
-     * Resolves the absolute path to the `gemini` executable via `which gemini`.
-     * Returns null if not found on PATH.
+     * Resolves the absolute path to the `agy` executable on `PATH`.
+     * Returns null if not found.
      */
-    override fun resolveAgentPath(): String? = runCatching {
-        val proc = ProcessBuilderExt("which", "gemini")
-            .redirectErrorStream(true)
-            .start()
-        val path = proc.inputStream.bufferedReader().readText().trim()
-        if (proc.waitFor() == 0 && path.isNotBlank()) path else null
-    }.getOrNull()
+    override fun resolveAgentPath(): String? = ProcessBuilderExt.which("agy")
 
     override val requiresApiKey = true
 
     override fun isConfigured(): Boolean {
         if (!super.isBinaryAvailable()) return false
         val hasKey = resolveApiKey()?.isNotBlank() == true
-        if (!hasKey) log.debug("gemini CLI found but no GEMINI_API_KEY configured")
+        if (!hasKey) log.debug("antigravity CLI found but no GEMINI_API_KEY configured")
         return hasKey
     }
 
@@ -158,12 +89,13 @@ class GeminiAgent : ExternalAgentTemplate() {
         val promptArg = userInput.ifBlank { " " }
         return listOf(
             agentPath,
-            "-p",
+            "--print",
             promptArg,
             "--output-format",
             "stream-json",
-            "--yolo",
-            "--skip-trust",
+            "--dangerously-skip-permissions",
+            "--add-dir",
+            effectiveWorkDir.absolutePath,
         )
     }
 
@@ -174,9 +106,6 @@ class GeminiAgent : ExternalAgentTemplate() {
         systemPrompt: String,
         userInput: String,
     ) {
-        if (requestedWorkDir != null) {
-            ensureGeminiTrusted(effectiveWorkDir)
-        }
         loadDotEnv(requestedWorkDir)?.forEach { (k, v) -> builder.environment()[k] = v }
         resolveApiKey()?.takeIf { it.isNotBlank() }?.let { key ->
             log.debug("Injecting GEMINI_API_KEY from Askimo provider settings")
@@ -205,20 +134,34 @@ class GeminiAgent : ExternalAgentTemplate() {
         onThinking: (String) -> Unit,
         output: StringBuilder,
     ) {
-        val event = GeminiStreamJsonEventParser.parse(line)
+        val event = AntigravityStreamJsonEventParser.parse(line)
         if (event == null) {
-            log.debug("gemini unparseable line: {}", line)
+            log.debug("antigravity unparseable line: {}", line)
             return
         }
-        log.debug("gemini event: type={}, line {}", event.type, line)
+        log.debug("antigravity event: type={}, line {}", event.type, line)
         when (event.type) {
-            "message" -> {
-                val isDelta = event.fields["delta"] as? Boolean ?: false
-                if (!isDelta) return
-                val content = event.fields["content"] as? String ?: return
-                if (content.isNotBlank()) {
-                    output.append(content)
-                    onToken(content)
+            "init" -> {
+                // Session metadata (cwd, available tools, permission mode) — capture the
+                // conversation id for history/session tracking; nothing to show the user.
+                val conversationId = event.fields["conversation_id"] as? String
+                if (conversationId != null) updateExecutionMetadata(sessionId = conversationId)
+            }
+
+            "step_update" -> {
+                val stepType = event.fields["step_type"] as? String
+                val state = event.fields["state"] as? String
+                val textDelta = event.fields["text_delta"] as? String
+                when {
+                    !textDelta.isNullOrEmpty() -> {
+                        output.append(textDelta)
+                        onToken(textDelta)
+                    }
+
+                    // "user_input DONE" is just an ack of our own prompt — nothing to surface.
+                    stepType != null && stepType != "user_input" -> {
+                        onStatus(if (state != null) "$stepType ($state)" else stepType)
+                    }
                 }
             }
 
@@ -226,60 +169,25 @@ class GeminiAgent : ExternalAgentTemplate() {
                 val status = event.fields["status"] as? String ?: "done"
 
                 @Suppress("UNCHECKED_CAST")
-                val stats = event.fields["stats"] as? Map<String, Any>
-                val totalTokens = stats?.get("total_tokens")
-                val durationMs = stats?.get("duration_ms")
-                val toolCalls = stats?.get("tool_calls")
+                val usage = event.fields["usage"] as? Map<String, Any>
+                val totalTokens = usage?.get("total_tokens")
+                val durationSeconds = event.fields["duration_seconds"]
                 val summary = buildString {
                     append("result: $status")
                     if (totalTokens != null) append(" | tokens: $totalTokens")
-                    if (toolCalls != null) append(" | tool calls: $toolCalls")
-                    if (durationMs != null) {
-                        val secs = (durationMs.toString().toDoubleOrNull() ?: 0.0) / 1000.0
+                    if (durationSeconds != null) {
+                        val secs = durationSeconds.toString().toDoubleOrNull() ?: 0.0
                         append(" | duration: ${"%.1f".format(secs)}s")
                     }
                 }
                 onStatus(summary)
             }
 
-            else -> onStatus(GeminiStreamJsonEventParser.render(event))
+            else -> onStatus(AntigravityStreamJsonEventParser.render(event))
         }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-
-    /**
-     * Ensures [workDir] (and its canonical path) is present in
-     * `~/.gemini/trustedFolders.json` so Gemini CLI accepts it without
-     * an interactive trust prompt.
-     *
-     * Uses the `gemini /permissions trust <path>` sub-command so the CLI manages
-     * its own trust state rather than us editing the JSON file directly.
-     */
-    private fun ensureGeminiTrusted(workDir: File) {
-        runCatching {
-            val geminiPath = resolveAgentPath() ?: return
-            val canonicalPath = workDir.canonicalPath
-            log.debug("Trusting '{}' via gemini /permissions trust", canonicalPath)
-            val proc = ProcessBuilderExt(geminiPath, "/permissions", "trust", canonicalPath)
-                .apply {
-                    val env = environment()
-                    env["HOME"] = System.getProperty("user.home")
-                    resolveApiKey()?.takeIf { it.isNotBlank() }?.let { env["GEMINI_API_KEY"] = it }
-                }
-                .redirectErrorStream(true)
-                .start()
-            val output = proc.inputStream.bufferedReader().readText().trim()
-            val exit = proc.waitFor()
-            if (exit == 0) {
-                log.debug("gemini /permissions trust succeeded: {}", output)
-            } else {
-                log.warn("gemini /permissions trust exited {}: {}", exit, output)
-            }
-        }.onFailure { e ->
-            log.warn("Failed to trust workDir via gemini /permissions trust: {}", e.message)
-        }
-    }
 
     private fun buildStdin(systemPrompt: String): String = buildString {
         if (systemPrompt.isNotBlank()) {
@@ -314,14 +222,12 @@ class GeminiAgent : ExternalAgentTemplate() {
     }
 
     companion object {
-
         /**
-         * Stderr lines containing these substrings are noise emitted by the Gemini CLI
+         * Stderr lines containing these substrings are noise emitted by the Antigravity CLI
          * regardless of the actual response — filtered out when reporting errors.
          */
         private val STDERR_NOISE_PATTERNS = listOf(
             "256-color support not detected",
-            "YOLO mode is enabled",
             "Ripgrep is not available",
             "Falling back to GrepTool",
         )

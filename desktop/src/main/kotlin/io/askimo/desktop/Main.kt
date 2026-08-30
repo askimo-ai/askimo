@@ -164,7 +164,7 @@ import io.askimo.ui.shell.rememberThemeState
 import io.askimo.ui.shell.splashScreen
 import io.askimo.ui.shell.starPromptDialog
 import io.askimo.ui.shell.systemResourcesDialog
-import io.askimo.ui.skills.skillsView
+import io.askimo.ui.skills.agenticSkillsView
 import io.askimo.ui.terminal.PendingTerminalCommand
 import io.askimo.ui.terminal.terminalPanel
 import io.askimo.ui.util.Platform
@@ -2325,7 +2325,7 @@ fun mainContent(
                 modifier = Modifier.fillMaxSize(),
             )
 
-            View.SKILLS -> skillsView(
+            View.SKILLS -> agenticSkillsView(
                 onNavigateToSkillsSettings = onNavigateToSkillsSettings,
             )
 

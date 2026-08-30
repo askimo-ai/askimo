@@ -17,6 +17,7 @@ import io.askimo.core.chat.repository.SessionMemoryRepository
 import io.askimo.core.chat.repository.UserMemoryRepository
 import io.askimo.core.plan.repository.PlanExecutionRepository
 import io.askimo.core.skills.repository.SkillRunHistoryRepository
+import io.askimo.core.skills.repository.WorkspaceRepository
 import io.askimo.core.telemetry.LlmUsageRepository
 import io.askimo.core.user.repository.UserProfileRepository
 import io.askimo.core.util.AskimoHome
@@ -113,6 +114,7 @@ class DatabaseManager private constructor(
         createIndexFileStateTable(connection)
         createPlanExecutionsTable(connection)
         createSkillRunHistoryTable(connection)
+        createWorkspacesTable(connection)
         createLlmUsageRecordsTable(connection)
     }
 
@@ -747,6 +749,37 @@ class DatabaseManager private constructor(
         }
     }
 
+    private fun createWorkspacesTable(conn: Connection) {
+        conn.createStatement().use { stmt ->
+            stmt.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS workspaces (
+                    id            TEXT PRIMARY KEY,
+                    name          TEXT NOT NULL,
+                    path          TEXT NOT NULL,
+                    created_at    TEXT NOT NULL,
+                    last_used_at  TEXT NOT NULL,
+                    pinned        INTEGER NOT NULL DEFAULT 0
+                )
+                """.trimIndent(),
+            )
+
+            stmt.executeUpdate(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_workspaces_path
+                ON workspaces (path)
+                """.trimIndent(),
+            )
+
+            stmt.executeUpdate(
+                """
+                CREATE INDEX IF NOT EXISTS idx_workspaces_last_used
+                ON workspaces (pinned, last_used_at)
+                """.trimIndent(),
+            )
+        }
+    }
+
     private fun createLlmUsageRecordsTable(conn: Connection) {
         conn.createStatement().use { stmt ->
             stmt.executeUpdate(
@@ -821,6 +854,10 @@ class DatabaseManager private constructor(
 
     private val _skillRunHistoryRepository: SkillRunHistoryRepository by lazy {
         SkillRunHistoryRepository(this)
+    }
+
+    private val _workspaceRepository: WorkspaceRepository by lazy {
+        WorkspaceRepository(this)
     }
 
     private val _llmUsageRepository: LlmUsageRepository by lazy {
@@ -898,6 +935,12 @@ class DatabaseManager private constructor(
      * All access to skill run history should go through this repository.
      */
     fun getSkillRunHistoryRepository(): SkillRunHistoryRepository = _skillRunHistoryRepository
+
+    /**
+     * Get the singleton WorkspaceRepository instance.
+     * All access to known skills workspaces should go through this repository.
+     */
+    fun getWorkspaceRepository(): WorkspaceRepository = _workspaceRepository
 
     /**
      * Get the singleton LlmUsageRepository instance.

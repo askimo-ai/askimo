@@ -101,10 +101,11 @@ object ApplicationPreferences {
     fun getSkillsSidePanelExpanded(): Boolean = safeGetBoolean(SKILLS_SIDE_PANEL_EXPANDED_KEY, true)
     fun setSkillsSidePanelExpanded(expanded: Boolean) = safePutBoolean(SKILLS_SIDE_PANEL_EXPANDED_KEY, expanded)
 
-    private const val SKILLS_WORKSPACE_DIR_KEY = "ui.skills_workspace_dir"
+    private const val SKILLS_SELECTED_WORKSPACE_ID_KEY = "ui.skills_selected_workspace_id"
 
-    fun getSkillsWorkspaceDir(): String? = safeGet(SKILLS_WORKSPACE_DIR_KEY, null)?.takeIf { it.isNotBlank() }
-    fun setSkillsWorkspaceDir(path: String) = safePut(SKILLS_WORKSPACE_DIR_KEY, path)
+    /** Id of the [io.askimo.core.skills.domain.Workspace] last selected in the Skills view, if any. */
+    fun getSkillsSelectedWorkspaceId(): String? = safeGet(SKILLS_SELECTED_WORKSPACE_ID_KEY, null)?.takeIf { it.isNotBlank() }
+    fun setSkillsSelectedWorkspaceId(id: String) = safePut(SKILLS_SELECTED_WORKSPACE_ID_KEY, id)
 
     private const val SKILLS_SELECTED_AGENT_KEY = "ui.skills_selected_agent"
     private const val SKILLS_RIGHT_RAIL_TAB_KEY = "ui.skills_right_rail_tab"
