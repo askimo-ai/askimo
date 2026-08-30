@@ -138,8 +138,14 @@ fun agenticSkillsView(
         }
     }
 
-    // User-chosen workspace dir (persisted across sessions)
-    var workDir by remember { mutableStateOf(resolveSkillsWorkspaceDir()) }
+    // User-chosen workspace dir (persisted across sessions). Start with a cheap synchronous
+    // default (no DB access) and resolve the real persisted/most-recent workspace off the UI
+    // thread — resolveSkillsWorkspaceDir() does several blocking DB transactions plus a
+    // preferences write, which would otherwise stall the first composition/frame.
+    var workDir by remember { mutableStateOf(AskimoHome.skillsWorkspaceDir().toFile()) }
+    LaunchedEffect(Unit) {
+        workDir = withContext(Dispatchers.IO) { resolveSkillsWorkspaceDir() }
+    }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isWide = maxWidth >= 1100.dp

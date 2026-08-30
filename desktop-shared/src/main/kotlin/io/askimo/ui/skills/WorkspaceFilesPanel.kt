@@ -62,6 +62,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -89,6 +90,7 @@ import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.ui.codeViewerBlock
 import io.askimo.ui.common.ui.themedTooltip
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.awt.Desktop
 import java.awt.Toolkit
@@ -128,6 +130,7 @@ internal fun workspaceFilesPanel(
     refreshKey: Int = 0,
     onWorkDirChanged: ((File) -> Unit)? = null,
 ) {
+    val scope = rememberCoroutineScope()
     var rootChildren by remember(workDir, refreshKey) { mutableStateOf<List<WorkspaceNode>>(emptyList()) }
     var isLoading by remember(workDir, refreshKey) { mutableStateOf(true) }
     val expandedPaths = remember(workDir) { mutableStateMapOf<String, Boolean>() }
@@ -263,9 +266,12 @@ internal fun workspaceFilesPanel(
                     colors = AppComponents.outlinedTextFieldColors(),
                     modifier = Modifier.fillMaxWidth().focusRequester(focusRequester).onKeyEvent { event ->
                         if (event.key == Key.Enter && renameWorkspaceText.trim().isNotBlank()) {
-                            workspaceRepo.rename(target.id, renameWorkspaceText.trim())
-                            renameWorkspaceTarget = null
-                            workspaceListVersion++
+                            val newName = renameWorkspaceText.trim()
+                            scope.launch {
+                                withContext(Dispatchers.IO) { workspaceRepo.rename(target.id, newName) }
+                                renameWorkspaceTarget = null
+                                workspaceListVersion++
+                            }
                             true
                         } else {
                             false
@@ -277,9 +283,12 @@ internal fun workspaceFilesPanel(
                 TextButton(
                     enabled = renameWorkspaceText.trim().isNotBlank(),
                     onClick = {
-                        workspaceRepo.rename(target.id, renameWorkspaceText.trim())
-                        renameWorkspaceTarget = null
-                        workspaceListVersion++
+                        val newName = renameWorkspaceText.trim()
+                        scope.launch {
+                            withContext(Dispatchers.IO) { workspaceRepo.rename(target.id, newName) }
+                            renameWorkspaceTarget = null
+                            workspaceListVersion++
+                        }
                     },
                 ) { Text(stringResource("action.rename")) }
             },
@@ -298,9 +307,11 @@ internal fun workspaceFilesPanel(
             text = { Text(stringResource("skills.view.workspace.switcher.remove.message")) },
             confirmButton = {
                 TextButton(onClick = {
-                    workspaceRepo.delete(target.id)
-                    deleteWorkspaceTarget = null
-                    workspaceListVersion++
+                    scope.launch {
+                        withContext(Dispatchers.IO) { workspaceRepo.delete(target.id) }
+                        deleteWorkspaceTarget = null
+                        workspaceListVersion++
+                    }
                 }) {
                     Text(stringResource("action.remove"), color = MaterialTheme.colorScheme.error)
                 }
@@ -468,8 +479,10 @@ internal fun workspaceFilesPanel(
                                         Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                                             IconButton(
                                                 onClick = {
-                                                    workspaceRepo.setPinned(ws.id, !ws.pinned)
-                                                    workspaceListVersion++
+                                                    scope.launch {
+                                                        withContext(Dispatchers.IO) { workspaceRepo.setPinned(ws.id, !ws.pinned) }
+                                                        workspaceListVersion++
+                                                    }
                                                 },
                                                 modifier = Modifier.size(24.dp).pointerHoverIcon(PointerIcon.Hand),
                                             ) {
