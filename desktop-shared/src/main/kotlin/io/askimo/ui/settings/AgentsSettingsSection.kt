@@ -114,7 +114,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 @Composable
-fun skillsSettingsSection() {
+fun agentsSettingsSection() {
     val skillRepository = remember { SkillRepository() }
     var refreshKey by remember { mutableStateOf(0) }
     val tree by remember(refreshKey) { mutableStateOf(skillRepository.getTree()) }

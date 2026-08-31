@@ -57,6 +57,7 @@ import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.LocalBackgroundActive
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
+import io.askimo.ui.settings.agentsSettingsSection
 import io.askimo.ui.settings.appearanceSettingsSection
 import io.askimo.ui.settings.shortcutsSettingsSection
 import org.jetbrains.skia.Image
@@ -277,7 +278,7 @@ fun settingsViewWithSidebar(
                         SettingsSection.WEB_SEARCH -> webSearchSettingsSection()
                         SettingsSection.SHORTCUTS -> shortcutsSettingsSection()
                         SettingsSection.MCP_SERVERS -> mcpServerTemplatesSection()
-                        SettingsSection.SKILLS -> skillsSettingsSection()
+                        SettingsSection.SKILLS -> agentsSettingsSection()
                         SettingsSection.ADVANCED -> advancedSettingsSection()
                         SettingsSection.ABOUT -> aboutSettingsSection()
                     }
