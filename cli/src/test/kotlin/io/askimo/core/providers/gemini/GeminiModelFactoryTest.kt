@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestInstance.Lifecycle
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 @EnabledIfEnvironmentVariable(
@@ -111,6 +112,24 @@ class GeminiModelFactoryTest {
         val models = GeminiModelFactory().availableModels(settings)
 
         assertTrue(models.isNotEmpty(), "Expected non-empty list of models when API key is provided")
+    }
+
+    @Test
+    @DisplayName("probeContextSize returns a positive token count for gemini-2.5-flash via Gemini REST API")
+    fun probeContextSizeReturnsValidValue() {
+        val settings = GeminiSettings(apiKey = apiKey, defaultModel = "gemini-2.5-flash")
+
+        val contextSize = GeminiModelFactory().probeContextSize(settings)
+
+        println("Probed context size for gemini-2.5-flash: $contextSize tokens")
+
+        assertNotNull(contextSize, "probeContextSize should return a non-null value for a known Gemini model")
+        assertTrue(contextSize > 0, "Context size should be positive, got: $contextSize")
+        assertTrue(
+            contextSize in 1..2_097_152,
+            "Context size $contextSize is outside the plausible range [1, 2_097_152]",
+        )
+        println("✅ Context size probe passed: $contextSize tokens")
     }
 
     @Test

@@ -36,11 +36,16 @@ import io.askimo.core.providers.ReasoningEffort
 import io.askimo.core.providers.sendStreamingMessageWithCallback
 import io.askimo.core.telemetry.TelemetryChatModelListener
 import io.askimo.core.util.ApiKeyUtils.safeApiKey
+import io.askimo.core.util.appJson
 import io.askimo.core.util.createJdkHttpClientBuilder
+import io.askimo.core.util.httpGet
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.time.Duration
 
 class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
@@ -103,6 +108,17 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
             }
         }
 
+        // Probe the real context-window size once — run async so it never blocks the caller.
+        // Gemini uses a dedicated REST endpoint (not the OpenAI-compat one) for model metadata.
+        val modelKey = ModelCapabilitiesCache.modelKey(GEMINI, settings.defaultModel)
+        if (!ModelCapabilitiesCache.isContextSizeLearned(modelKey)) {
+            CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+                probeContextSize(settings)?.let { size ->
+                    ModelCapabilitiesCache.setContextSize(modelKey, size)
+                }
+            }
+        }
+
         return AiServiceBuilder.buildChatClient(
             sessionId = sessionId,
             settings = settings,
@@ -113,6 +129,29 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
             toolProvider = toolProvider,
             retriever = retriever,
         )
+    }
+
+    /**
+     * Probes the real context-window size from the Gemini model-info endpoint.
+     * Uses the dedicated REST API (not the OpenAI-compatible one):
+     * `GET https://generativelanguage.googleapis.com/v1beta/models/{modelName}?key={apiKey}`
+     * → `inputTokenLimit` field.
+     */
+    override fun probeContextSize(settings: GeminiSettings): Int? = try {
+        val normalizedName = if (settings.defaultModel.startsWith("models/")) settings.defaultModel else "models/${settings.defaultModel}"
+        val url = "https://generativelanguage.googleapis.com/v1beta/$normalizedName?key=${settings.apiKey}"
+        val (status, body) = httpGet(url, connectTimeoutMs = 5_000, readTimeoutMs = 8_000)
+        if (status == 200) {
+            appJson.parseToJsonElement(body)
+                .jsonObject["inputTokenLimit"]?.jsonPrimitive?.intOrNull
+                ?.also { log.debug("Probed context size for '{}' (Gemini): {} tokens", settings.defaultModel, it) }
+        } else {
+            log.debug("Context size probe returned HTTP {} for '{}' (Gemini)", status, settings.defaultModel)
+            null
+        }
+    } catch (e: Exception) {
+        log.debug("Context size probe failed for '{}' (Gemini): {}", settings.defaultModel, e.message)
+        null
     }
 
     /**

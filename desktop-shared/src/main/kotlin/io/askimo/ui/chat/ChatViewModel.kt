@@ -28,6 +28,7 @@ import io.askimo.core.event.internal.DiagramFixedEvent
 import io.askimo.core.event.internal.ProjectRefreshEvent
 import io.askimo.core.event.internal.SessionTitleUpdatedEvent
 import io.askimo.core.logging.logger
+import io.askimo.core.memory.MemoryPressureLevel
 import io.askimo.ui.session.SessionManager
 import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
@@ -131,6 +132,24 @@ class ChatViewModel(
     var pendingScrollToMessageId by mutableStateOf<String?>(null)
         private set
 
+    var memoryPressureLevel by mutableStateOf(MemoryPressureLevel.NORMAL)
+        private set
+
+    var memoryUtilization by mutableStateOf(0f)
+        private set
+
+    var memoryUsedTokens by mutableStateOf(0)
+        private set
+
+    var memoryBudgetTokens by mutableStateOf(0)
+        private set
+
+    var isCompressing by mutableStateOf(false)
+        private set
+
+    var isContextSizeLearned by mutableStateOf(false)
+        private set
+
     val state: ChatState
         get() = ChatState(
             messages = messages,
@@ -155,6 +174,12 @@ class ChatViewModel(
             activeThinkingContent = activeThinkingContent,
             bookmarkedMessageIds = bookmarkedMessageIds,
             pendingScrollToMessageId = pendingScrollToMessageId,
+            memoryPressureLevel = memoryPressureLevel,
+            memoryUtilization = memoryUtilization,
+            memoryUsedTokens = memoryUsedTokens,
+            memoryBudgetTokens = memoryBudgetTokens,
+            isCompressing = isCompressing,
+            isContextSizeLearned = isContextSizeLearned,
         )
 
     /**
@@ -952,6 +977,9 @@ class ChatViewModel(
                             .toSet()
                     }
 
+                    // Subscribe to memory pressure for this session
+                    subscribeToMemoryPressure(sessionId)
+
                     // Reset thinking state
                     isThinking = false
                     stopThinkingTimer()
@@ -1470,6 +1498,77 @@ class ChatViewModel(
             } catch (e: Exception) {
                 log.error("Failed to fork session from message {}", messageId, e)
                 errorMessage = "Failed to fork conversation. Please try again."
+            }
+        }
+    }
+
+    /**
+     * Subscribe to [TokenAwareSummarizingMemory.pressureLevel] for [sessionId].
+     * Cancels any previous pressure subscription before starting a new one so that
+     * switching sessions never leaves a stale collector running.
+     */
+    private fun subscribeToMemoryPressure(sessionId: String) {
+        pressureSubscriptionJob?.cancel()
+        pressureSubscriptionJob = scope.launch {
+            // resumeSessionPaginated now eagerly creates the memory synchronously before
+            // returning, so this is always a Caffeine cache hit — no polling needed.
+            val memory = withContext(Dispatchers.IO) {
+                chatSessionService.getOrCreateMemoryForSession(sessionId)
+            }
+            launch {
+                memory.pressureLevel.collect { level ->
+                    memoryPressureLevel = level
+                }
+            }
+            launch {
+                memory.usedTokens.collect { used ->
+                    memoryUsedTokens = used
+                }
+            }
+            launch {
+                memory.budgetTokens.collect { budget ->
+                    memoryBudgetTokens = budget
+                }
+            }
+            launch {
+                memory.isContextSizeLearned.collect { learned ->
+                    isContextSizeLearned = learned
+                }
+            }
+            memory.utilization.collect { u ->
+                memoryUtilization = u.coerceIn(0f, 1f)
+            }
+        }
+    }
+
+    private var pressureSubscriptionJob: Job? = null
+
+    /**
+     * Trigger an aggressive (COMPACT-mode) summarization on the current session's memory.
+     * Updates [isCompressing] while the cycle runs; pressure updates automatically when done.
+     */
+    override fun compressMemory() {
+        if (isCompressing) return
+        val sessionId = currentSessionId.value ?: return
+
+        scope.launch {
+            isCompressing = true
+            try {
+                val memory = withContext(Dispatchers.IO) {
+                    chatSessionService.getMemoryForSession(sessionId)
+                }
+                if (memory != null) {
+                    memory.forceCompact()
+                    // forceCompact is async — wait a short tick then stop spinner;
+                    // the pressure StateFlow will update on its own when the cycle completes.
+                    delay(500)
+                } else {
+                    log.warn("compressMemory: no memory in cache for session {}", sessionId)
+                }
+            } catch (e: Exception) {
+                log.error("compressMemory failed for session {}", sessionId, e)
+            } finally {
+                isCompressing = false
             }
         }
     }

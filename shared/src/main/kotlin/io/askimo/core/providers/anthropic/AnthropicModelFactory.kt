@@ -105,6 +105,17 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
             }
         }
 
+        // Probe the real context-window size once — run async so it never blocks the caller.
+        val modelKey = ModelCapabilitiesCache.modelKey(ANTHROPIC, settings.defaultModel)
+        if (!ModelCapabilitiesCache.isContextSizeLearned(modelKey)) {
+            val capturedSettings = settings
+            CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+                probeContextSize(capturedSettings)?.let { size ->
+                    ModelCapabilitiesCache.setContextSize(modelKey, size)
+                }
+            }
+        }
+
         return AiServiceBuilder.buildChatClient(
             sessionId = sessionId,
             settings = settings,
@@ -116,6 +127,10 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
             retriever = retriever,
         )
     }
+
+    // probeContextSize() intentionally not overridden — Anthropic's API does not expose
+    // context_window in any endpoint. Returns null (interface default); the UI chip shows "?"
+    // until a context-length error fires reduceContextSize().
 
     /**
      * Probes whether the model supports thinking by building a minimal thinking-enabled

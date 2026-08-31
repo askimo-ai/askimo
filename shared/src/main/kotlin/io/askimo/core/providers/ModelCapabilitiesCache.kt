@@ -137,7 +137,7 @@ object ModelCapabilitiesCache {
     fun reduceContextSize(modelKey: String, currentSize: Int): Int {
         val newSize = (currentSize * REDUCTION_FACTOR).toInt().coerceAtLeast(4096)
 
-        update(modelKey) { it.copy(contextSize = newSize) }
+        update(modelKey) { it.copy(contextSize = newSize, isContextSizeLearned = true) }
 
         log.info("Reduced context size for $modelKey: $currentSize → $newSize tokens (binary search)")
         return newSize
@@ -418,12 +418,33 @@ object ModelCapabilitiesCache {
         }
     }
 
+    /**
+     * Returns true when the context size for [modelKey] has been learned at runtime
+     * (i.e. it comes from the persistent cache file or a context-reduction cycle),
+     * rather than from the hard-coded provider defaults.
+     */
+    fun isContextSizeLearned(modelKey: String): Boolean = get(modelKey).isContextSizeLearned
+
+    /**
+     * Store the probed context size for [modelKey] and mark it as learned.
+     * Persists to the cache file so subsequent sessions use the real value immediately.
+     *
+     * @param modelKey The model key in format "provider:model"
+     * @param size     The real context window size in tokens returned by the provider API
+     */
+    fun setContextSize(modelKey: String, size: Int) {
+        update(modelKey) { it.copy(contextSize = size, isContextSizeLearned = true) }
+        log.info("Learned context size for {}: {} tokens", modelKey, size)
+    }
+
     private fun loadFromFile() {
         try {
             if (cacheFile.exists()) {
                 val json = Files.readString(cacheFile)
                 val cacheData = JsonUtils.json.decodeFromString<CacheData>(json)
-                cache.putAll(cacheData.capabilities)
+                // All entries read from disk are considered "learned" — mark them as such
+                // so the UI can show a real utilisation percentage instead of "?".
+                cache.putAll(cacheData.capabilities.mapValues { (_, v) -> v.copy(isContextSizeLearned = true) })
                 log.info("Loaded ${cache.size} cached model capabilities from $cacheFile")
             } else {
                 log.debug("No cached model capabilities found, using defaults")
@@ -473,6 +494,15 @@ data class ModelCapabilities(
     val reasoningLevel: ReasoningEffort = ReasoningEffort.MEDIUM, // Default reasoning effort
     // For future extensibility
     val customAttributes: Map<String, String> = emptyMap(),
+    /**
+     * Whether the context size has been learned at runtime (from the persistent cache file or a
+     * context-length-exceeded reduction cycle). False means we're still using the provider
+     * default, which can be wildly inaccurate for small local models.
+     *
+     * Not persisted to the cache file — all entries read from disk are implicitly learned.
+     */
+    @kotlinx.serialization.Transient
+    val isContextSizeLearned: Boolean = false,
 )
 
 /**

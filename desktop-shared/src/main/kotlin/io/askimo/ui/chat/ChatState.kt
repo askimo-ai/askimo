@@ -8,6 +8,7 @@ import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.ToolApprovalRequest
 import io.askimo.core.chat.dto.ToolCallInfo
+import io.askimo.core.memory.MemoryPressureLevel
 
 /**
  * State for the chat view.
@@ -61,4 +62,23 @@ data class ChatState(
     // Set by jumpToMessage so ChatView can scroll to the target after messages reload.
     // Cleared by ChatView after consuming via actions.clearPendingScroll().
     val pendingScrollToMessageId: String? = null,
+
+    // Memory pressure — reactively updated from TokenAwareSummarizingMemory.pressureLevel.
+    // Drives the memory chip colour and the contextual banner above the input field.
+    val memoryPressureLevel: MemoryPressureLevel = MemoryPressureLevel.NORMAL,
+
+    // Current token utilisation (0..1) against the effective budget. Drives the chip arc.
+    val memoryUtilization: Float = 0f,
+
+    // Raw token counts for the memory chip tooltip.
+    val memoryUsedTokens: Int = 0,
+    val memoryBudgetTokens: Int = 0,
+
+    // True while a forceCompact() cycle is running (user pressed "Compress").
+    val isCompressing: Boolean = false,
+
+    // False until the model's context size has been verified at runtime (loaded from the
+    // persistent cache file or narrowed by a context-reduction cycle). When false the chip
+    // shows "?" instead of a potentially misleading utilisation percentage.
+    val isContextSizeLearned: Boolean = false,
 )

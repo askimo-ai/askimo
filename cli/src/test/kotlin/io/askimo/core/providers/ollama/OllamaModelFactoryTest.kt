@@ -25,6 +25,7 @@ import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestInstance.Lifecycle
 import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable
 import org.testcontainers.junit.jupiter.Testcontainers
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 @DisabledIfEnvironmentVariable(
@@ -83,6 +84,27 @@ class OllamaModelFactoryTest {
 
         println("\nFinal output: '$output'")
         return output
+    }
+
+    @Test
+    @DisplayName("probeContextSize returns a positive token count for qwen2.5:0.5b via /api/show")
+    fun probeContextSizeReturnsValidValue() {
+        val baseUrl = setupOllamaContainer()
+        val settings = OllamaSettings(baseUrl = baseUrl, defaultModel = "qwen2.5:0.5b")
+
+        val contextSize = OllamaModelFactory().probeContextSize(settings)
+
+        println("Probed context size for qwen2.5:0.5b: $contextSize tokens")
+
+        assertNotNull(contextSize, "probeContextSize should return a non-null value for a running Ollama model")
+        assertTrue(contextSize > 0, "Context size should be positive, got: $contextSize")
+
+        // qwen2.5:0.5b typically has a 32768 token context window
+        assertTrue(
+            contextSize in 1..1_048_576,
+            "Context size $contextSize is outside the plausible range [1, 1_048_576]",
+        )
+        println("✅ Context size probe passed: $contextSize tokens")
     }
 
     @Test

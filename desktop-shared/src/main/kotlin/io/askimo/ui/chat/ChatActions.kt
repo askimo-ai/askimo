@@ -34,4 +34,11 @@ interface ChatActions {
      * then navigate to the new session immediately.
      */
     fun forkFromMessage(messageId: String)
+
+    /**
+     * Trigger an aggressive (COMPACT-mode) summarization cycle on the current session's
+     * memory. Fire-and-forget — [ChatState.isCompressing] tracks progress reactively.
+     * No-op if a cycle is already running.
+     */
+    fun compressMemory()
 }

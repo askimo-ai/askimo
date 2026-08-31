@@ -14,6 +14,7 @@ import io.askimo.core.chat.domain.SessionMemory
 import io.askimo.core.chat.repository.SessionMemoryRepository
 import io.askimo.core.chat.repository.UserMemoryRepository
 import io.askimo.core.config.AppConfig
+import io.askimo.core.config.MemoryConfig
 import io.askimo.core.context.AppContext
 import io.askimo.core.context.MessageRole
 import io.askimo.core.logging.logger
@@ -21,6 +22,9 @@ import io.askimo.core.providers.ModelCapabilitiesCache
 import io.askimo.core.providers.getSummary
 import io.askimo.core.providers.getUserMemoryFacts
 import io.askimo.core.util.JsonUtils.json
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import java.time.Instant
@@ -32,6 +36,15 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+
+/**
+ * Memory pressure level — updated reactively after every add(), batch load, and post-summarization.
+ *
+ * - [NORMAL]   — below 70 % of the effective budget; no action needed.
+ * - [WARNING]  — 70–90 %; UI shows a soft dismissible banner and highlights the memory chip.
+ * - [CRITICAL] — above 90 %; UI shows a persistent banner; manual compress is strongly advised.
+ */
+enum class MemoryPressureLevel { NORMAL, WARNING, CRITICAL }
 
 /**
  * Structured summary format for conversation analysis
@@ -182,6 +195,41 @@ class TokenAwareSummarizingMemory(
      */
     private val messagesSinceLastSummary = AtomicInteger(0)
 
+    private val _pressureLevel = MutableStateFlow(MemoryPressureLevel.NORMAL)
+
+    /**
+     * Reactive memory pressure — updated after every [add], [loadFromFilteredMemory],
+     * [importState], and after each summarization cycle completes.
+     *
+     * Collect this in the UI layer (e.g. ChatViewModel) to drive banners and chip colour.
+     */
+    val pressureLevel: StateFlow<MemoryPressureLevel> = _pressureLevel.asStateFlow()
+
+    private val _utilization = MutableStateFlow(0f)
+    val utilization: StateFlow<Float> = _utilization.asStateFlow()
+
+    private val _usedTokens = MutableStateFlow(0)
+
+    /** Reactive estimated token count currently held in memory. Updated on every mutation. */
+    val usedTokens: StateFlow<Int> = _usedTokens.asStateFlow()
+
+    private val _budgetTokens = MutableStateFlow(0)
+
+    /** Reactive effective token budget (maxTokens minus emergency reserve). Updated on every mutation. */
+    val budgetTokens: StateFlow<Int> = _budgetTokens.asStateFlow()
+
+    private val _isContextSizeLearned = MutableStateFlow(false)
+
+    /**
+     * Whether the context size used for memory budgeting has been verified at runtime
+     * (loaded from the persistent capabilities cache or from a context-reduction cycle).
+     *
+     * When false the system is using the provider's default value, which may be very
+     * different from the actual model limit — especially for small local models.
+     * The UI should show an indeterminate "?" state instead of a potentially misleading %.
+     */
+    val isContextSizeLearned: StateFlow<Boolean> = _isContextSizeLearned.asStateFlow()
+
     private val log = logger<TokenAwareSummarizingMemory>()
 
     init {
@@ -189,7 +237,7 @@ class TokenAwareSummarizingMemory(
     }
 
     /**
-     * Maximum tokens for memory, dynamically calculated from model's context size.
+     * Raw maximum tokens for memory, dynamically calculated from model's context size.
      * This is a computed property that recalculates every time to ensure it always
      * reflects the latest context size from ModelCapabilitiesCache (which may be updated
      * as the system learns the actual model capabilities).
@@ -199,6 +247,18 @@ class TokenAwareSummarizingMemory(
      */
     private val maxTokens: Int
         get() = calculateMaxTokensFromCurrentModel()
+
+    /**
+     * Effective token budget = [maxTokens] minus a small permanent emergency reserve
+     * ([EMERGENCY_RESERVE_FRACTION]). The reserve keeps a safe headroom so that a
+     * large paste arriving during an active summarization cycle never silently overflows
+     * the model's hard context limit.
+     *
+     * All internal threshold calculations and pressure-level measurements use this value
+     * instead of the raw [maxTokens].
+     */
+    private val effectiveMaxTokens: Int
+        get() = (maxTokens * (1.0 - EMERGENCY_RESERVE_FRACTION)).toInt()
 
     private fun calculateMaxTokensFromCurrentModel(): Int {
         val provider = appContext.getActiveProvider()
@@ -247,14 +307,16 @@ class TokenAwareSummarizingMemory(
         persistToDatabase()
 
         val totalTokens = estimateTotalTokens()
-        val threshold = (maxTokens * AppConfig.memory.summarizationThreshold).toInt()
+        val threshold = (effectiveMaxTokens * AppConfig.memory.summarizationThreshold).toInt()
 
-        log.debug("Current tokens: $totalTokens, Threshold: $threshold, Max: $maxTokens")
+        log.debug("Current tokens: $totalTokens, Threshold: $threshold, EffectiveMax: $effectiveMaxTokens")
 
         if (totalTokens > threshold && !summarizationInProgress.get()) {
             log.info("Token count ($totalTokens) exceeded threshold ($threshold). Triggering async summarization.")
             triggerAsyncSummarization()
         }
+
+        updatePressure()
     }
 
     override fun messages(): List<ChatMessage> = buildList {
@@ -321,13 +383,13 @@ class TokenAwareSummarizingMemory(
         )
 
         val totalTokens = estimateTotalTokens()
-        val threshold = (maxTokens * AppConfig.memory.summarizationThreshold).toInt()
+        val threshold = (effectiveMaxTokens * AppConfig.memory.summarizationThreshold).toInt()
 
         log.debug(
-            "After batch load - Total tokens: {}, Threshold: {}, Max: {}",
+            "After batch load - Total tokens: {}, Threshold: {}, EffectiveMax: {}",
             totalTokens,
             threshold,
-            maxTokens,
+            effectiveMaxTokens,
         )
 
         persistToDatabase()
@@ -343,6 +405,8 @@ class TokenAwareSummarizingMemory(
             )
             triggerAsyncSummarization()
         }
+
+        updatePressure()
     }
 
     /**
@@ -405,7 +469,10 @@ class TokenAwareSummarizingMemory(
         CompletableFuture.runAsync({
             val startTime = System.currentTimeMillis()
             try {
-                summarizeAndPrune()
+                summarizeAndPruneWithParams(
+                    protectedTurns = AppConfig.memory.protectedRecentTurns,
+                    pruneFraction = AppConfig.memory.summarizationPruneFraction,
+                )
                 val elapsedSec = (System.currentTimeMillis() - startTime) / 1000.0
                 log.debug("Summarization completed in {}s", String.format("%.1f", elapsedSec))
             } catch (e: Exception) {
@@ -429,6 +496,7 @@ class TokenAwareSummarizingMemory(
             } finally {
                 // Always reset on the same thread that set it — AtomicBoolean is safe here.
                 summarizationInProgress.set(false)
+                updatePressure()
                 val totalTime = (System.currentTimeMillis() - startTime) / 1000.0
                 if (totalTime > summarizationTimeoutSeconds) {
                     log.warn("Summarization took {}s, exceeding timeout of {}s", String.format("%.1f", totalTime), summarizationTimeoutSeconds)
@@ -439,13 +507,47 @@ class TokenAwareSummarizingMemory(
     }
 
     /**
-     * Summarizes the oldest portion of the conversation and removes those messages
-     * to free up token space while preserving context.
+     * Manually trigger an aggressive summarization cycle using COMPACT-mode parameters,
+     * bypassing the normal threshold check.
+     *
+     * Called when the user presses "Compress" from the UI at [MemoryPressureLevel.WARNING]
+     * or [MemoryPressureLevel.CRITICAL] pressure.
+     * Runs asynchronously; [pressureLevel] updates when the cycle completes.
+     *
+     * No-op if a summarization cycle is already in progress.
+     */
+    fun forceCompact() {
+        if (!summarizationInProgress.compareAndSet(false, true)) {
+            log.debug("forceCompact: summarization already in progress, skipping")
+            return
+        }
+        log.info("forceCompact: triggering aggressive (COMPACT) summarization for session $sessionId")
+
+        CompletableFuture.runAsync({
+            try {
+                summarizeAndPruneWithParams(
+                    protectedTurns = MemoryConfig.COMPACT.protectedRecentTurns,
+                    pruneFraction = MemoryConfig.COMPACT.summarizationPruneFraction,
+                )
+            } catch (e: Exception) {
+                log.error("forceCompact summarization failed", e)
+            } finally {
+                summarizationInProgress.set(false)
+                updatePressure()
+            }
+        }, executorService)
+    }
+
+    /**
+     * Core summarize-and-prune logic parameterized by [protectedTurns] and [pruneFraction].
+     *
+     * Used both by the normal threshold-triggered path ([triggerAsyncSummarization]) and
+     * the user-initiated aggressive path ([forceCompact]).
      *
      * System messages are excluded from summarization as they contain instructions,
      * not conversation content. They are preserved in the message list.
      */
-    private fun summarizeAndPrune() {
+    private fun summarizeAndPruneWithParams(protectedTurns: Int, pruneFraction: Double) {
         // Get only user and AI messages (exclude system messages from conversation)
         val conversationMessages = synchronized(messages) {
             messages.filterNot { it.type() == ChatMessageType.SYSTEM }
@@ -456,20 +558,20 @@ class TokenAwareSummarizingMemory(
         // Always protect the most recent turns verbatim. Summarize the configured fraction of the
         // remaining candidates (oldest first) so each cycle creates significant
         // breathing room before the next trigger fires.
-        val summarizableCandidates = (conversationMessages.size - AppConfig.memory.protectedRecentTurns).coerceAtLeast(0)
-        val messagesToSummarizeCount = (summarizableCandidates * AppConfig.memory.summarizationPruneFraction).toInt().coerceAtLeast(
+        val summarizableCandidates = (conversationMessages.size - protectedTurns).coerceAtLeast(0)
+        val messagesToSummarizeCount = (summarizableCandidates * pruneFraction).toInt().coerceAtLeast(
             if (summarizableCandidates > 0) 1 else 0,
         )
 
         if (messagesToSummarizeCount == 0) {
-            log.debug("Not enough non-protected messages to summarize yet (total: ${conversationMessages.size}, protected: ${AppConfig.memory.protectedRecentTurns})")
+            log.debug("Not enough non-protected messages to summarize yet (total: ${conversationMessages.size}, protected: $protectedTurns)")
             return
         }
 
         // Copy messages to avoid holding lock during AI call
         val messagesToSummarize = conversationMessages.take(messagesToSummarizeCount)
 
-        log.info("Summarizing $messagesToSummarizeCount out of ${conversationMessages.size} conversation messages (protected last ${AppConfig.memory.protectedRecentTurns})")
+        log.info("Summarizing $messagesToSummarizeCount out of ${conversationMessages.size} conversation messages (protected last $protectedTurns)")
 
         try {
             generateStructuredSummary(messagesToSummarize)
@@ -650,6 +752,7 @@ class TokenAwareSummarizingMemory(
         messages.addAll(state.messages.map { it.toChatMessage() })
         structuredSummary = state.summary
         basicSummary = null // Clear basic summary when importing
+        updatePressure()
     }
 
     /**
@@ -747,7 +850,49 @@ class TokenAwareSummarizingMemory(
         return MemoryState(messages = messages, summary = summary)
     }
 
+    /**
+     * Recomputes [pressureLevel] from the current token count relative to [effectiveMaxTokens].
+     * Must be called from the same thread that mutated [messages] (or any thread after the
+     * mutation is visible, since [estimateTotalTokens] is synchronized).
+     */
+    private fun updatePressure() {
+        val tokens = estimateTotalTokens()
+        val max = effectiveMaxTokens
+        val ratio = if (max > 0) tokens.toDouble() / max else 0.0
+        _pressureLevel.value = when {
+            ratio >= CRITICAL_FRACTION -> MemoryPressureLevel.CRITICAL
+            ratio >= WARNING_FRACTION -> MemoryPressureLevel.WARNING
+            else -> MemoryPressureLevel.NORMAL
+        }
+        log.debug("Pressure updated: {} ({}/{} {}%)", _pressureLevel.value, tokens, max, String.format("%.1f", ratio * 100))
+        _utilization.value = ratio.toFloat().coerceIn(0f, 1f)
+        _usedTokens.value = tokens
+        _budgetTokens.value = max
+        // Reflect whether the cache has a learned (non-default) context size for this model.
+        val modelKey = ModelCapabilitiesCache.modelKey(appContext.getActiveProvider(), appContext.params.model)
+        _isContextSizeLearned.value = ModelCapabilitiesCache.isContextSizeLearned(modelKey)
+    }
+
+    /**
+     * Returns the current token utilization as a fraction in [0, 1] against [effectiveMaxTokens].
+     * Used by the UI chip arc to visually represent how full the session context is.
+     */
+    fun currentUtilization(): Float {
+        val max = effectiveMaxTokens
+        return if (max > 0) (estimateTotalTokens().toFloat() / max).coerceIn(0f, 1f) else 0f
+    }
+
     companion object {
+
+        /** Fraction of [maxTokens] permanently reserved as emergency headroom.
+         *  Subtracted before any threshold or pressure calculation. */
+        const val EMERGENCY_RESERVE_FRACTION = 0.05 // 5 % of the 40 % slice
+
+        /** Utilization ratio at which pressure transitions to [MemoryPressureLevel.WARNING]. */
+        const val WARNING_FRACTION = 0.70
+
+        /** Utilization ratio at which pressure transitions to [MemoryPressureLevel.CRITICAL]. */
+        const val CRITICAL_FRACTION = 0.90
 
         /**
          * Default token estimator: word count × 1.75.

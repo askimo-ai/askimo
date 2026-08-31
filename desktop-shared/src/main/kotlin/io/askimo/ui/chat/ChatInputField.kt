@@ -4,6 +4,7 @@
  */
 package io.askimo.ui.chat
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -46,6 +47,7 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -72,6 +74,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
@@ -112,6 +116,7 @@ import io.askimo.core.intent.ToolConfig
 import io.askimo.core.intent.ToolRegistry
 import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.mcp.McpInstanceService
+import io.askimo.core.memory.MemoryPressureLevel
 import io.askimo.core.providers.ModelCapabilitiesCache
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ReasoningEffort
@@ -188,6 +193,13 @@ fun chatInputField(
     onToggleDirective: (String?) -> Unit = {},
     isProjectSession: Boolean = false,
     onWebSearchInRagChange: ((Boolean) -> Unit)? = null,
+    memoryPressureLevel: MemoryPressureLevel = MemoryPressureLevel.NORMAL,
+    memoryUtilization: Float = 0f,
+    memoryUsedTokens: Int = 0,
+    memoryBudgetTokens: Int = 0,
+    isCompressing: Boolean = false,
+    isContextSizeLearned: Boolean = false,
+    onCompressMemory: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val inputFocusRequester = remember { FocusRequester() }
@@ -843,12 +855,24 @@ fun chatInputField(
                             }
                         }
 
-                        // ── Push reasoning chip to the far right ───────────────────
+                        // ── Push right-side controls to the far right ─────────────
                         Spacer(modifier = Modifier.weight(1f))
+
+                        // ── Memory usage chip — grouped with reasoning chip on far right ──
+                        memoryUsageChip(
+                            utilization = memoryUtilization,
+                            pressureLevel = memoryPressureLevel,
+                            isCompressing = isCompressing,
+                            isContextSizeLearned = isContextSizeLearned,
+                            onCompress = onCompressMemory,
+                            usedTokens = memoryUsedTokens,
+                            budgetTokens = memoryBudgetTokens,
+                        )
 
                         // Reasoning effort chip — only shown for models that support it;
                         // positioned far right as a model-setting indicator.
                         if (supportsReasoning) {
+                            Spacer(modifier = Modifier.width(8.dp))
                             Box {
                                 themedTooltip(text = stringResource("chat.reasoning.effort.tooltip")) {
                                     Surface(
@@ -934,7 +958,7 @@ fun chatInputField(
                         }
 
                         // ── Send / Stop button — beside reasoning chip ──────────────
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
                         if (isLoading || isThinking) {
                             IconButton(
                                 onClick = onStopResponse,
@@ -2014,6 +2038,142 @@ private fun webSearchRagChip(
                         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     },
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Circular arc chip that shows current memory utilisation.
+ *
+ * - Arc colour is [MemoryPressureLevel.NORMAL] → primary, WARNING → amber, CRITICAL → error.
+ * - At WARNING or CRITICAL the chip becomes clickable (calls [onCompress]).
+ * - While [isCompressing] is true the arc is replaced with a [CircularProgressIndicator].
+ */
+@Composable
+private fun memoryUsageChip(
+    utilization: Float,
+    pressureLevel: MemoryPressureLevel,
+    isCompressing: Boolean,
+    isContextSizeLearned: Boolean,
+    onCompress: (() -> Unit)?,
+    usedTokens: Int = 0,
+    budgetTokens: Int = 0,
+) {
+    val fillColor = when (pressureLevel) {
+        MemoryPressureLevel.NORMAL -> MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+        MemoryPressureLevel.WARNING -> androidx.compose.ui.graphics.Color(0xFFF59E0B)
+        MemoryPressureLevel.CRITICAL -> MaterialTheme.colorScheme.error
+    }
+    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+    val chipSize = 20.dp
+    val strokeDp = 2.5.dp
+
+    fun formatTokens(n: Int): String = when {
+        n >= 1_000_000 -> "${"%.1f".format(n / 1_000_000f)}M"
+        n >= 1_000 -> "${"%.1f".format(n / 1_000f)}K"
+        else -> "$n"
+    }
+
+    val tooltipText = when {
+        isCompressing -> stringResource("memory.pressure.compressing")
+
+        !isContextSizeLearned -> {
+            if (usedTokens > 0) {
+                "${formatTokens(usedTokens)} tokens used — ${stringResource("memory.pressure.chip.tooltip.unknown")}"
+            } else {
+                stringResource("memory.pressure.chip.tooltip.unknown")
+            }
+        }
+
+        budgetTokens > 0 -> {
+            val pct = (utilization * 100).toInt()
+            val actionHint = when (pressureLevel) {
+                MemoryPressureLevel.NORMAL -> stringResource("memory.pressure.chip.tooltip.normal")
+                MemoryPressureLevel.WARNING -> stringResource("memory.pressure.chip.tooltip.warning")
+                MemoryPressureLevel.CRITICAL -> stringResource("memory.pressure.chip.tooltip.critical")
+            }
+            "${formatTokens(usedTokens)} / ${formatTokens(budgetTokens)} tokens ($pct%) — $actionHint"
+        }
+
+        else -> "${(utilization * 100).toInt()}% ${stringResource("memory.pressure.chip.tooltip.normal")}"
+    }
+
+    val isClickable = isContextSizeLearned && pressureLevel != MemoryPressureLevel.NORMAL && onCompress != null && !isCompressing
+
+    themedTooltip(text = tooltipText) {
+        Box(
+            modifier = Modifier
+                .size(chipSize)
+                .then(
+                    if (isClickable) {
+                        Modifier
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = { onCompress() },
+                            )
+                            .pointerHoverIcon(PointerIcon.Hand)
+                    } else {
+                        Modifier
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (isCompressing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(chipSize),
+                    strokeWidth = strokeDp,
+                    color = fillColor,
+                )
+            } else if (!isContextSizeLearned) {
+                // Context size not yet calibrated — show a dashed ring with a "?" label
+                Canvas(modifier = Modifier.size(chipSize)) {
+                    val stroke = Stroke(
+                        width = strokeDp.toPx(),
+                        cap = StrokeCap.Round,
+                        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(
+                            floatArrayOf(4f, 3f),
+                            0f,
+                        ),
+                    )
+                    drawArc(
+                        color = trackColor,
+                        startAngle = -90f,
+                        sweepAngle = 360f,
+                        useCenter = false,
+                        style = stroke,
+                    )
+                }
+                androidx.compose.material3.Text(
+                    text = "?",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 8.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ),
+                )
+            } else {
+                Canvas(modifier = Modifier.size(chipSize)) {
+                    val stroke = Stroke(width = strokeDp.toPx(), cap = StrokeCap.Round)
+                    // Track (full circle)
+                    drawArc(
+                        color = trackColor,
+                        startAngle = -90f,
+                        sweepAngle = 360f,
+                        useCenter = false,
+                        style = stroke,
+                    )
+                    // Fill arc proportional to utilization
+                    if (utilization > 0f) {
+                        drawArc(
+                            color = fillColor,
+                            startAngle = -90f,
+                            sweepAngle = 360f * utilization,
+                            useCenter = false,
+                            style = stroke,
+                        )
+                    }
+                }
             }
         }
     }

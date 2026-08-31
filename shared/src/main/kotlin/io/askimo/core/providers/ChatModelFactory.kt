@@ -306,4 +306,17 @@ interface ChatModelFactory<T : ProviderSettings> {
             false
         }
     }
+
+    /**
+     * Probes the real context-window size from the provider's model-info API.
+     *
+     * Called once per model asynchronously from [create]; result is stored in
+     * [ModelCapabilitiesCache] via [ModelCapabilitiesCache.setContextSize].
+     *
+     * Default returns `null` — no probe, keep the provider default, chip stays "?".
+     * Each provider factory that supports a model-info endpoint should override this.
+     *
+     * @return Context window size in tokens, or `null` if the probe is not supported or fails.
+     */
+    fun probeContextSize(settings: T): Int? = null
 }

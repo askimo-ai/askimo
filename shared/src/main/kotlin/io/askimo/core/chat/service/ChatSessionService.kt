@@ -231,7 +231,7 @@ class ChatSessionService(
      * @param sessionId The session ID
      * @return Shared TokenAwareSummarizingMemory instance
      */
-    private fun getOrCreateSharedMemory(sessionId: String): TokenAwareSummarizingMemory = memoryCache.get(sessionId) { _ ->
+    internal fun getOrCreateSharedMemory(sessionId: String): TokenAwareSummarizingMemory = memoryCache.get(sessionId) { _ ->
         TokenAwareSummarizingMemory(
             appContext,
             sessionId = sessionId,
@@ -366,8 +366,21 @@ class ChatSessionService(
     fun getSessionsPagedWithoutProject(page: Int, pageSize: Int, sortOrder: SortOrder = SortOrder.DESC): Pageable<ChatSession> = sessionRepository.getSessionsPaged(page, pageSize, projectFilter = false, sortOrder = sortOrder)
 
     /**
-     * Get a session by ID.
+     * Returns the cached [TokenAwareSummarizingMemory] for [sessionId] if it is currently
+     * loaded in the memory cache, or null if the session has never been accessed / was evicted.
+     *
+     * Used by [io.askimo.ui.chat.ChatViewModel] to subscribe to [TokenAwareSummarizingMemory.pressureLevel]
+     * and to call [TokenAwareSummarizingMemory.forceCompact].
      */
+    fun getMemoryForSession(sessionId: String): TokenAwareSummarizingMemory? = memoryCache.getIfPresent(sessionId)
+
+    /**
+     * Returns the [TokenAwareSummarizingMemory] for [sessionId], creating and caching it
+     * synchronously if not already present. Memory creation is a fast local DB read —
+     * safe to call on any background thread immediately after session resume.
+     */
+    fun getOrCreateMemoryForSession(sessionId: String): TokenAwareSummarizingMemory = getOrCreateSharedMemory(sessionId)
+
     fun getSessionById(sessionId: String): ChatSession? = sessionRepository.getSession(sessionId)
 
     /**
@@ -729,9 +742,14 @@ class ChatSessionService(
                 projectRepository.getProject(projectId)
             }
 
-            // Pre-create/cache the chat client for this session asynchronously in the background
-            // This is optional and doesn't block message rendering - if it fails (e.g., no model configured in tests),
-            // we can still show messages. The client will be created on-demand when user sends a message.
+            // Eagerly create and cache the memory synchronously so that pressureLevel /
+            // utilization StateFlows are immediately live when ChatViewModel subscribes.
+            // This is a fast local DB read (loads saved summary + message list) and safe
+            // to call on the calling thread — the session already exists at this point.
+            getOrCreateSharedMemory(sessionId)
+
+            // Pre-create the full chat client (model + retriever) asynchronously in the
+            // background — this is heavier and must not block UI message rendering.
             eventScope.launch {
                 try {
                     getOrCreateClientForSession(sessionId)

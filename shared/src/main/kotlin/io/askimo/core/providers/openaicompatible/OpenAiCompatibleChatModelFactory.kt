@@ -129,6 +129,11 @@ abstract class OpenAiCompatibleChatModelFactory<T>(
         log = log,
     )
 
+    // probeContextSize() intentionally not overridden here — returns null (interface default).
+    // OpenAI-compatible providers do not reliably expose context_window via their API.
+    // The UI chip shows "?" until a context-length error fires reduceContextSize().
+    // Ollama overrides this with the native /api/show probe.
+
     // ── Shared helpers ─────────────────────────────────────────────────────────
 
     /**
@@ -192,6 +197,19 @@ abstract class OpenAiCompatibleChatModelFactory<T>(
             CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
                 val supportsImage = probeImageCapability(provider, modelName, streamingModel)
                 ModelCapabilitiesCache.setImageSupport(provider, modelName, supportsImage)
+            }
+        }
+
+        // Probe the real context-window size once — run async so it never blocks the caller.
+        // Until the probe resolves the UI shows "?" (isContextSizeLearned = false).
+        // On success the cache is updated and the memory chip re-renders with a real %.
+        val modelKey = ModelCapabilitiesCache.modelKey(getProvider(), settings.defaultModel)
+        if (!ModelCapabilitiesCache.isContextSizeLearned(modelKey)) {
+            val capturedSettings = settings
+            CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+                probeContextSize(capturedSettings)?.let { size ->
+                    ModelCapabilitiesCache.setContextSize(modelKey, size)
+                }
             }
         }
 

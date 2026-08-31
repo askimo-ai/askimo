@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -94,6 +95,7 @@ import io.askimo.core.event.user.IndexingInProgressEvent
 import io.askimo.core.event.user.IndexingQueuedEvent
 import io.askimo.core.event.user.IndexingStartedEvent
 import io.askimo.core.logging.currentFileLogger
+import io.askimo.core.memory.MemoryPressureLevel
 import io.askimo.core.rag.ProjectIndexer
 import io.askimo.core.util.TimeUtil.formatDisplay
 import io.askimo.core.util.formatFileSize
@@ -180,6 +182,12 @@ fun chatView(
     val bookmarkedMessageIds = state.bookmarkedMessageIds
     val pendingScrollToMessageId = state.pendingScrollToMessageId
     val pendingToolApproval = state.pendingToolApproval
+    val memoryPressureLevel = state.memoryPressureLevel
+    val memoryUtilization = state.memoryUtilization
+    val memoryUsedTokens = state.memoryUsedTokens
+    val memoryBudgetTokens = state.memoryBudgetTokens
+    val isCompressing = state.isCompressing
+    val isContextSizeLearned = state.isContextSizeLearned
 
     // Internal state management for ChatView
     val scope = rememberCoroutineScope()
@@ -1193,6 +1201,27 @@ fun chatView(
                 }
 
                 // Input area
+                var warningBannerDismissed by remember(sessionId) { mutableStateOf(false) }
+
+                if (memoryPressureLevel == MemoryPressureLevel.WARNING && !warningBannerDismissed) {
+                    memoryPressureBanner(
+                        message = stringResource("memory.pressure.warning.message"),
+                        isCritical = false,
+                        isCompressing = isCompressing,
+                        onDismiss = { warningBannerDismissed = true },
+                        onCompress = { actions.compressMemory() },
+                    )
+                }
+                if (memoryPressureLevel == MemoryPressureLevel.CRITICAL) {
+                    memoryPressureBanner(
+                        message = stringResource("memory.pressure.critical.message"),
+                        isCritical = true,
+                        isCompressing = isCompressing,
+                        onDismiss = null,
+                        onCompress = { actions.compressMemory() },
+                    )
+                }
+
                 Box(
                     modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center,
@@ -1234,6 +1263,13 @@ fun chatView(
                         onToggleDirective = { id -> actions.setDirective(id) },
                         isProjectSession = project != null,
                         onWebSearchInRagChange = { enabled -> actions.setWebSearchInRag(enabled) },
+                        memoryPressureLevel = memoryPressureLevel,
+                        memoryUtilization = memoryUtilization,
+                        memoryUsedTokens = memoryUsedTokens,
+                        memoryBudgetTokens = memoryBudgetTokens,
+                        isCompressing = isCompressing,
+                        isContextSizeLearned = isContextSizeLearned,
+                        onCompressMemory = { actions.compressMemory() },
                         modifier = Modifier
                             .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                             .fillMaxWidth()
@@ -1339,5 +1375,79 @@ fun chatView(
                 sessionMemorySessionId = null
             },
         )
+    }
+}
+
+/**
+ * Banner shown above the chat input when memory pressure is [MemoryPressureLevel.WARNING]
+ * or [MemoryPressureLevel.CRITICAL].
+ *
+ * - WARNING  → amber container, soft, dismissible.
+ * - CRITICAL → error container, persistent (no dismiss button).
+ */
+@Composable
+private fun memoryPressureBanner(
+    message: String,
+    isCritical: Boolean,
+    isCompressing: Boolean,
+    onDismiss: (() -> Unit)?,
+    onCompress: () -> Unit,
+) {
+    val bg = if (isCritical) {
+        MaterialTheme.colorScheme.errorContainer
+    } else {
+        MaterialTheme.colorScheme.tertiaryContainer
+    }
+    val fg = if (isCritical) {
+        MaterialTheme.colorScheme.onErrorContainer
+    } else {
+        MaterialTheme.colorScheme.onTertiaryContainer
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(bg)
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = message,
+            style = AppTextStyles.hint,
+            color = fg,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(
+            onClick = onCompress,
+            enabled = !isCompressing,
+        ) {
+            if (isCompressing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 2.dp,
+                    color = fg,
+                )
+            } else {
+                Text(
+                    text = stringResource("memory.pressure.action.compress"),
+                    color = fg,
+                    style = AppTextStyles.hint,
+                )
+            }
+        }
+        if (onDismiss != null) {
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.size(28.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = null,
+                    tint = fg,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+        }
     }
 }
