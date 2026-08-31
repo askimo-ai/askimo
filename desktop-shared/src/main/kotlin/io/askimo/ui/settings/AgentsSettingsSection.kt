@@ -431,7 +431,7 @@ private fun skillsMainContent(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = stringResource("settings.skills"),
+                            text = stringResource("settings.agents"),
                             style = AppTextStyles.pageTitle,
                         )
                         val runtimes = ExternalAgentLoader.displayNames()
@@ -440,7 +440,7 @@ private fun skillsMainContent(
                         }.joinToString(", ")
                         Spacer(Modifier.height(Spacing.extraSmall))
                         Text(
-                            text = stringResource("settings.skills.description", runtimesLabel),
+                            text = stringResource("settings.agents.description", runtimesLabel),
                             style = AppTextStyles.bodySecondary,
                         )
                         Spacer(Modifier.height(Spacing.small))
@@ -449,7 +449,7 @@ private fun skillsMainContent(
                             horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                         ) {
                             Text(
-                                text = stringResource("settings.skills.runtimes"),
+                                text = stringResource("settings.agents.runtimes"),
                                 style = AppTextStyles.caption,
                             )
                             runtimes.forEach { runtime ->
@@ -466,14 +466,14 @@ private fun skillsMainContent(
                             }
                         }
                     }
-                    themedTooltip(text = stringResource("skills.view.docs.tooltip")) {
+                    themedTooltip(text = stringResource("agents.view.docs.tooltip")) {
                         IconButton(
                             onClick = { runCatching { Desktop.getDesktop().browse(URI("https://$DOMAIN/docs/desktop/skills/")) } },
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         ) {
                             Icon(
                                 Icons.Default.Info,
-                                contentDescription = stringResource("skills.view.docs.tooltip"),
+                                contentDescription = stringResource("agents.view.docs.tooltip"),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
@@ -502,7 +502,7 @@ private fun skillsMainContent(
                                     Icon(Icons.Default.FolderOpen, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Column {
                                         Text(
-                                            text = stringResource("settings.skills.directory"),
+                                            text = stringResource("settings.agents.directory"),
                                             style = AppTextStyles.fieldLabel,
                                             color = AppTextStyles.secondaryContent,
                                         )
@@ -519,7 +519,7 @@ private fun skillsMainContent(
                                         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                     ),
                                 ) {
-                                    Text(stringResource("settings.skills.open.folder"))
+                                    Text(stringResource("settings.agents.open.folder"))
                                 }
                             }
                         }
@@ -568,7 +568,7 @@ private fun skillsMainSelectPrompt() {
                 tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
             )
             Text(
-                text = stringResource("settings.skills.select.prompt"),
+                text = stringResource("settings.agents.select.prompt"),
                 style = AppTextStyles.bodySecondary,
             )
         }
@@ -594,11 +594,11 @@ private fun skillsMainEmptyState() {
                 tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
             )
             Text(
-                text = stringResource("settings.skills.empty"),
+                text = stringResource("settings.agents.empty"),
                 style = AppTextStyles.bodySecondary,
             )
             Text(
-                text = stringResource("settings.skills.empty.hint"),
+                text = stringResource("settings.agents.empty.hint"),
                 style = AppTextStyles.caption,
             )
         }
@@ -719,7 +719,7 @@ private fun skillEditorContent(
                         }
                     } else {
                         Text(
-                            text = name.ifBlank { stringResource("settings.skills.new.skill") },
+                            text = name.ifBlank { stringResource("settings.agents.new.skill") },
                             style = AppTextStyles.sectionTitle,
                             modifier = Modifier.weight(1f),
                         )
@@ -766,7 +766,7 @@ private fun skillEditorContent(
                         }
                     } else {
                         Text(
-                            text = description.ifBlank { stringResource("settings.skills.editor.description") },
+                            text = description.ifBlank { stringResource("settings.agents.editor.description") },
                             style = AppTextStyles.caption,
                             modifier = Modifier.weight(1f),
                         )
@@ -794,12 +794,12 @@ private fun skillEditorContent(
             ) {
                 Column {
                     Text(
-                        text = stringResource("settings.skills.editor.system.prompt"),
+                        text = stringResource("settings.agents.editor.system.prompt"),
                         style = AppTextStyles.fieldLabel,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        text = stringResource("settings.skills.editor.system.prompt.hint"),
+                        text = stringResource("settings.agents.editor.system.prompt.hint"),
                         style = AppTextStyles.hint,
                     )
                 }
@@ -818,7 +818,7 @@ private fun skillEditorContent(
                 Box(modifier = Modifier.padding(16.dp)) {
                     if (isPreviewMode) {
                         revealingMarkdownText(
-                            markdown = body.ifBlank { "*${stringResource("settings.skills.editor.system.prompt.placeholder")}*" },
+                            markdown = body.ifBlank { "*${stringResource("settings.agents.editor.system.prompt.placeholder")}*" },
                             modifier = Modifier.fillMaxWidth(),
                         )
                     } else {
@@ -836,7 +836,7 @@ private fun skillEditorContent(
                             decorationBox = { innerTextField ->
                                 if (body.isEmpty()) {
                                     Text(
-                                        text = stringResource("settings.skills.editor.system.prompt.placeholder"),
+                                        text = stringResource("settings.agents.editor.system.prompt.placeholder"),
                                         style = TextStyle(
                                             fontFamily = FontFamily.Monospace,
                                             fontSize = 13.sp,
@@ -1003,7 +1003,7 @@ private fun fileEditorContent(
             Box(modifier = Modifier.padding(16.dp).fillMaxSize()) {
                 if (isMarkdown && isPreviewMode) {
                     revealingMarkdownText(
-                        markdown = body.ifBlank { "*${stringResource("settings.skills.editor.empty.file")}*" },
+                        markdown = body.ifBlank { "*${stringResource("settings.agents.editor.empty.file")}*" },
                         modifier = Modifier.fillMaxWidth(),
                     )
                 } else {
@@ -1026,9 +1026,9 @@ private fun fileEditorContent(
         // ── Footer: line count ────────────────────────────────────────────────
         Text(
             text = if (lineCount == 1) {
-                stringResource("settings.skills.editor.line.count").replace("{0}", "$lineCount")
+                stringResource("settings.agents.editor.line.count").replace("{0}", "$lineCount")
             } else {
-                stringResource("settings.skills.editor.line.count.plural").replace("{0}", "$lineCount")
+                stringResource("settings.agents.editor.line.count.plural").replace("{0}", "$lineCount")
             },
             style = AppTextStyles.hint,
         )
@@ -1073,7 +1073,7 @@ private fun skillsTreePanel(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = stringResource("settings.skills"),
+                text = stringResource("settings.agents"),
                 style = AppTextStyles.itemTitle,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
@@ -1090,7 +1090,7 @@ private fun skillsTreePanel(
                         onDismissRequest = { showAddMenu = false },
                     ) {
                         DropdownMenuItem(
-                            text = { Text(stringResource("settings.skills.new.skill"), style = AppTextStyles.body) },
+                            text = { Text(stringResource("settings.agents.new.skill"), style = AppTextStyles.body) },
                             onClick = {
                                 showAddMenu = false
                                 onNewSkill()
@@ -1100,7 +1100,7 @@ private fun skillsTreePanel(
                         )
                         HorizontalDivider()
                         DropdownMenuItem(
-                            text = { Text(stringResource("settings.skills.import.github"), style = AppTextStyles.body) },
+                            text = { Text(stringResource("settings.agents.import.github"), style = AppTextStyles.body) },
                             onClick = {
                                 showAddMenu = false
                                 onImportFromGitHub()
@@ -1109,7 +1109,7 @@ private fun skillsTreePanel(
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource("settings.skills.import.zip"), style = AppTextStyles.body) },
+                            text = { Text(stringResource("settings.agents.import.zip"), style = AppTextStyles.body) },
                             onClick = {
                                 showAddMenu = false
                                 onImportFromZip()
@@ -1140,7 +1140,7 @@ private fun skillsTreePanel(
         appOutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text(stringResource("skills.view.search.placeholder")) },
+            placeholder = { Text(stringResource("agents.view.search.placeholder")) },
             leadingIcon = {
                 Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
             },
@@ -1150,7 +1150,7 @@ private fun skillsTreePanel(
                         onClick = { searchQuery = "" },
                         modifier = Modifier.size(20.dp).pointerHoverIcon(PointerIcon.Hand),
                     ) {
-                        Icon(Icons.Default.Close, contentDescription = stringResource("skills.view.search.clear"), modifier = Modifier.size(14.dp))
+                        Icon(Icons.Default.Close, contentDescription = stringResource("agents.view.search.clear"), modifier = Modifier.size(14.dp))
                     }
                 }
             },
@@ -1185,9 +1185,9 @@ private fun skillsTreePanel(
                     ) {
                         Text(
                             text = if (searchQuery.isBlank()) {
-                                stringResource("settings.skills.empty")
+                                stringResource("settings.agents.empty")
                             } else {
-                                stringResource("skills.view.empty.search")
+                                stringResource("agents.view.empty.search")
                             },
                             style = AppTextStyles.caption,
                         )
@@ -1310,7 +1310,7 @@ private fun skillTreeNodeItem(
                                 onDismissRequest = { showAddMenu = false },
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource("settings.skills.add.file"), style = AppTextStyles.body) },
+                                    text = { Text(stringResource("settings.agents.add.file"), style = AppTextStyles.body) },
                                     leadingIcon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp)) },
                                     onClick = {
                                         showAddMenu = false
@@ -1319,7 +1319,7 @@ private fun skillTreeNodeItem(
                                     modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                                 )
                                 DropdownMenuItem(
-                                    text = { Text(stringResource("settings.skills.add.folder"), style = AppTextStyles.body) },
+                                    text = { Text(stringResource("settings.agents.add.folder"), style = AppTextStyles.body) },
                                     leadingIcon = { Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(14.dp)) },
                                     onClick = {
                                         showAddMenu = false
@@ -1511,7 +1511,7 @@ private fun readEditToggle(
         // Read (preview) segment
         previewEditSegmentButton(
             isPreview = true,
-            label = stringResource("settings.skills.editor.mode.read"),
+            label = stringResource("settings.agents.editor.mode.read"),
             icon = Icons.Default.Visibility,
             isActive = isPreviewMode,
             hasBorderStart = false,
@@ -1520,7 +1520,7 @@ private fun readEditToggle(
         // Edit segment
         previewEditSegmentButton(
             isPreview = false,
-            label = stringResource("settings.skills.editor.mode.edit"),
+            label = stringResource("settings.agents.editor.mode.edit"),
             icon = Icons.Default.Edit,
             isActive = !isPreviewMode,
             hasBorderStart = true,
@@ -1608,7 +1608,7 @@ private fun newSkillInFolderDialog(
     var fileName by remember { mutableStateOf("") }
     AppComponents.alertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource("settings.skills.new.skill")) },
+        title = { Text(stringResource("settings.agents.new.skill")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
                 Text(
@@ -1618,8 +1618,8 @@ private fun newSkillInFolderDialog(
                 OutlinedTextField(
                     value = fileName,
                     onValueChange = { fileName = it.replace(" ", "-").lowercase() },
-                    label = { Text(stringResource("settings.skills.editor.name")) },
-                    placeholder = { Text(stringResource("settings.skills.new.skill.placeholder")) },
+                    label = { Text(stringResource("settings.agents.editor.name")) },
+                    placeholder = { Text(stringResource("settings.agents.new.skill.placeholder")) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -1645,18 +1645,18 @@ private fun importFromGitHubDialog(
     onImported: (message: String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val importSuccessTemplate = stringResource("settings.skills.import.success.message")
+    val importSuccessTemplate = stringResource("settings.agents.import.success.message")
     var repoUrl by remember { mutableStateOf("") }
     var isImporting by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     AppComponents.alertDialog(
         onDismissRequest = { if (!isImporting) onDismiss() },
-        title = { Text(stringResource("settings.skills.import.github")) },
+        title = { Text(stringResource("settings.agents.import.github")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
                 Text(
-                    text = stringResource("settings.skills.import.github.description"),
+                    text = stringResource("settings.agents.import.github.description"),
                     style = AppTextStyles.caption,
                 )
                 appOutlinedTextField(
@@ -1665,7 +1665,7 @@ private fun importFromGitHubDialog(
                         repoUrl = it
                         errorMessage = null
                     },
-                    label = { Text(stringResource("settings.skills.import.github.url.label")) },
+                    label = { Text(stringResource("settings.agents.import.github.url.label")) },
                     placeholder = { Text("https://github.com/user/my-skills") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -1704,7 +1704,7 @@ private fun importFromGitHubDialog(
                 },
                 enabled = repoUrl.isNotBlank() && !isImporting,
             ) {
-                Text(if (isImporting) stringResource("settings.skills.import.github.importing") else stringResource("settings.skills.import.github.button"))
+                Text(if (isImporting) stringResource("settings.agents.import.github.importing") else stringResource("settings.agents.import.github.button"))
             }
         },
         dismissButton = {
@@ -1721,19 +1721,19 @@ private fun importFromZipDialog(
     onImported: (message: String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val importSuccessTemplate = stringResource("settings.skills.import.success.message")
-    val zipPickerTitle = stringResource("settings.skills.import.zip.picker.title")
+    val importSuccessTemplate = stringResource("settings.agents.import.success.message")
+    val zipPickerTitle = stringResource("settings.agents.import.zip.picker.title")
     var selectedZipPath by remember { mutableStateOf<String?>(null) }
     var isImporting by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     AppComponents.alertDialog(
         onDismissRequest = { if (!isImporting) onDismiss() },
-        title = { Text(stringResource("settings.skills.import.zip")) },
+        title = { Text(stringResource("settings.agents.import.zip")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
                 Text(
-                    text = stringResource("settings.skills.import.zip.description"),
+                    text = stringResource("settings.agents.import.zip.description"),
                     style = AppTextStyles.caption,
                 )
 
@@ -1751,7 +1751,7 @@ private fun importFromZipDialog(
                     },
                     enabled = !isImporting,
                 ) {
-                    Text(stringResource("settings.skills.import.zip.pick.button"))
+                    Text(stringResource("settings.agents.import.zip.pick.button"))
                 }
 
                 if (selectedZipPath != null) {
@@ -1796,9 +1796,9 @@ private fun importFromZipDialog(
             ) {
                 Text(
                     if (isImporting) {
-                        stringResource("settings.skills.import.zip.importing")
+                        stringResource("settings.agents.import.zip.importing")
                     } else {
-                        stringResource("settings.skills.import.zip.button")
+                        stringResource("settings.agents.import.zip.button")
                     },
                 )
             }
@@ -1820,7 +1820,7 @@ private fun addFileInFolderDialog(
     var fileName by remember { mutableStateOf("") }
     AppComponents.alertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource("settings.skills.add.file")) },
+        title = { Text(stringResource("settings.agents.add.file")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
                 Text(
@@ -1830,7 +1830,7 @@ private fun addFileInFolderDialog(
                 OutlinedTextField(
                     value = fileName,
                     onValueChange = { fileName = it },
-                    label = { Text(stringResource("settings.skills.add.file.name")) },
+                    label = { Text(stringResource("settings.agents.add.file.name")) },
                     placeholder = { Text("notes.md") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -1860,7 +1860,7 @@ private fun addFolderInFolderDialog(
     var folderName by remember { mutableStateOf("") }
     AppComponents.alertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource("settings.skills.add.folder")) },
+        title = { Text(stringResource("settings.agents.add.folder")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
                 Text(
@@ -1870,7 +1870,7 @@ private fun addFolderInFolderDialog(
                 OutlinedTextField(
                     value = folderName,
                     onValueChange = { folderName = it.replace(" ", "-").lowercase() },
-                    label = { Text(stringResource("settings.skills.add.folder.name")) },
+                    label = { Text(stringResource("settings.agents.add.folder.name")) },
                     placeholder = { Text("examples") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -1899,10 +1899,10 @@ private fun deleteFileConfirmDialog(
 ) {
     AppComponents.alertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource("settings.skills.delete.file.title")) },
+        title = { Text(stringResource("settings.agents.delete.file.title")) },
         text = {
             Text(
-                text = stringResource("settings.skills.delete.file.confirm").replace("{0}", fileName),
+                text = stringResource("settings.agents.delete.file.confirm").replace("{0}", fileName),
                 style = AppTextStyles.body,
             )
         },
@@ -1923,10 +1923,10 @@ private fun deleteFolderConfirmDialog(
 ) {
     AppComponents.alertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource("settings.skills.delete.folder.title")) },
+        title = { Text(stringResource("settings.agents.delete.folder.title")) },
         text = {
             Text(
-                text = stringResource("settings.skills.delete.folder.confirm").replace("{0}", folderName),
+                text = stringResource("settings.agents.delete.folder.confirm").replace("{0}", folderName),
                 style = AppTextStyles.body,
             )
         },
@@ -1946,10 +1946,10 @@ private fun deleteAllSkillsDialog(
 ) {
     AppComponents.alertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource("settings.skills.delete.all.title")) },
+        title = { Text(stringResource("settings.agents.delete.all.title")) },
         text = {
             Text(
-                text = stringResource("settings.skills.delete.all.confirm"),
+                text = stringResource("settings.agents.delete.all.confirm"),
                 style = AppTextStyles.body,
             )
         },
@@ -1969,7 +1969,7 @@ private fun importSuccessDialog(
 ) {
     AppComponents.alertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource("settings.skills.import.success.title")) },
+        title = { Text(stringResource("settings.agents.import.success.title")) },
         text = {
             Text(
                 text = message,

@@ -101,17 +101,16 @@ object ApplicationPreferences {
     fun getSkillsSidePanelExpanded(): Boolean = safeGetBoolean(SKILLS_SIDE_PANEL_EXPANDED_KEY, true)
     fun setSkillsSidePanelExpanded(expanded: Boolean) = safePutBoolean(SKILLS_SIDE_PANEL_EXPANDED_KEY, expanded)
 
-    private const val SKILLS_SELECTED_WORKSPACE_ID_KEY = "ui.skills_selected_workspace_id"
+    private const val AGENT_SELECTED_WORKSPACE_ID_KEY = "ui.agent_selected_workspace_id"
 
     /** Id of the [io.askimo.core.agent.domain.Workspace] last selected in the Skills view, if any. */
-    fun getSkillsSelectedWorkspaceId(): String? = safeGet(SKILLS_SELECTED_WORKSPACE_ID_KEY, null)?.takeIf { it.isNotBlank() }
-    fun setSkillsSelectedWorkspaceId(id: String) = safePut(SKILLS_SELECTED_WORKSPACE_ID_KEY, id)
+    fun getAgentSelectedWorkspaceId(): String? = safeGet(AGENT_SELECTED_WORKSPACE_ID_KEY, null)?.takeIf { it.isNotBlank() }
+    fun setAgentSelectedWorkspaceId(id: String) = safePut(AGENT_SELECTED_WORKSPACE_ID_KEY, id)
 
-    private const val SKILLS_SELECTED_AGENT_KEY = "ui.skills_selected_agent"
-    private const val SKILLS_RIGHT_RAIL_TAB_KEY = "ui.skills_right_rail_tab"
+    private const val SELECTED_AGENT_KEY = "ui.selected_agent"
 
-    fun getSkillsSelectedAgentId(): String? = safeGet(SKILLS_SELECTED_AGENT_KEY, null)?.takeIf { it.isNotBlank() }
-    fun setSkillsSelectedAgentId(agentId: String) = safePut(SKILLS_SELECTED_AGENT_KEY, agentId)
+    fun getSelectedAgentId(): String? = safeGet(SELECTED_AGENT_KEY, null)?.takeIf { it.isNotBlank() }
+    fun setSelectedAgentId(agentId: String) = safePut(SELECTED_AGENT_KEY, agentId)
 
     fun getShowPlansInSidebar(): Boolean = safeGetBoolean(SHOW_PLANS_IN_SIDEBAR_KEY, true)
     fun setShowPlansInSidebar(show: Boolean) = safePutBoolean(SHOW_PLANS_IN_SIDEBAR_KEY, show)

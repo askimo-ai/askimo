@@ -42,7 +42,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.askimo.core.agent.domain.SkillRunRecord
+import io.askimo.core.agent.domain.AgentRunRecord
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
@@ -57,7 +57,7 @@ internal val RUN_TIME_FMT: DateTimeFormatter =
 
 @Composable
 private fun skillRunHistoryPanelRow(
-    record: SkillRunRecord,
+    record: AgentRunRecord,
     onClick: () -> Unit,
     onDelete: () -> Unit,
     showSkillName: Boolean = true,
@@ -159,10 +159,10 @@ private fun skillRunHistoryPanelRow(
  */
 @Composable
 internal fun skillsHistoryContent(
-    runHistory: List<SkillRunRecord>,
+    runHistory: List<AgentRunRecord>,
     filterSkillName: String? = null,
-    onSelectRecord: (SkillRunRecord) -> Unit = {},
-    onDeleteRecord: (SkillRunRecord) -> Unit = {},
+    onSelectRecord: (AgentRunRecord) -> Unit = {},
+    onDeleteRecord: (AgentRunRecord) -> Unit = {},
 ) {
     if (runHistory.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -171,7 +171,7 @@ internal fun skillsHistoryContent(
                 verticalArrangement = Arrangement.spacedBy(Spacing.small),
             ) {
                 Icon(Icons.Default.History, null, modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
-                Text(stringResource("skills.view.history.empty"), style = AppTextStyles.caption, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+                Text(stringResource("agents.view.history.empty"), style = AppTextStyles.caption, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
             }
         }
     } else {

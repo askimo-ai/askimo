@@ -234,8 +234,8 @@ internal fun workspaceFilesPanel(
     deleteConfirmNode?.let { node ->
         AlertDialog(
             onDismissRequest = { deleteConfirmNode = null },
-            title = { Text(stringResource("skills.view.workspace.delete.confirm.title", node.displayName)) },
-            text = { Text(stringResource("skills.view.workspace.delete.confirm.message")) },
+            title = { Text(stringResource("agents.view.workspace.delete.confirm.title", node.displayName)) },
+            text = { Text(stringResource("agents.view.workspace.delete.confirm.message")) },
             confirmButton = {
                 TextButton(onClick = {
                     deleteNode(node)
@@ -257,7 +257,7 @@ internal fun workspaceFilesPanel(
         val focusRequester = remember { FocusRequester() }
         AlertDialog(
             onDismissRequest = { renameWorkspaceTarget = null },
-            title = { Text(stringResource("skills.view.workspace.switcher.rename")) },
+            title = { Text(stringResource("agents.view.workspace.switcher.rename")) },
             text = {
                 OutlinedTextField(
                     value = renameWorkspaceText,
@@ -303,8 +303,8 @@ internal fun workspaceFilesPanel(
     deleteWorkspaceTarget?.let { target ->
         AlertDialog(
             onDismissRequest = { deleteWorkspaceTarget = null },
-            title = { Text(stringResource("skills.view.workspace.switcher.remove.title", target.name)) },
-            text = { Text(stringResource("skills.view.workspace.switcher.remove.message")) },
+            title = { Text(stringResource("agents.view.workspace.switcher.remove.title", target.name)) },
+            text = { Text(stringResource("agents.view.workspace.switcher.remove.message")) },
             confirmButton = {
                 TextButton(onClick = {
                     scope.launch {
@@ -333,9 +333,9 @@ internal fun workspaceFilesPanel(
             title = {
                 Text(
                     if (isFolder) {
-                        stringResource("skills.view.workspace.new.folder")
+                        stringResource("agents.view.workspace.new.folder")
                     } else {
-                        stringResource("skills.view.workspace.new.file")
+                        stringResource("agents.view.workspace.new.file")
                     },
                 )
             },
@@ -343,7 +343,7 @@ internal fun workspaceFilesPanel(
                 OutlinedTextField(
                     value = newItemName,
                     onValueChange = { newItemName = it },
-                    placeholder = { Text(stringResource("skills.view.workspace.name.placeholder")) },
+                    placeholder = { Text(stringResource("agents.view.workspace.name.placeholder")) },
                     singleLine = true,
                     colors = AppComponents.outlinedTextFieldColors(),
                     modifier = Modifier.fillMaxWidth().focusRequester(focusRequester).onKeyEvent { event ->
@@ -427,7 +427,7 @@ internal fun workspaceFilesPanel(
                             )
                             Icon(
                                 Icons.Default.ExpandMore,
-                                contentDescription = stringResource("skills.view.workspace.switcher.title"),
+                                contentDescription = stringResource("agents.view.workspace.switcher.title"),
                                 modifier = Modifier.size(16.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -438,7 +438,7 @@ internal fun workspaceFilesPanel(
                                 DropdownMenuItem(
                                     text = {
                                         Text(
-                                            stringResource("skills.view.workspace.switcher.empty"),
+                                            stringResource("agents.view.workspace.switcher.empty"),
                                             style = AppTextStyles.caption,
                                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                                         )
@@ -488,7 +488,7 @@ internal fun workspaceFilesPanel(
                                             ) {
                                                 Icon(
                                                     if (ws.pinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
-                                                    contentDescription = stringResource("skills.view.workspace.switcher.pin"),
+                                                    contentDescription = stringResource("agents.view.workspace.switcher.pin"),
                                                     modifier = Modifier.size(13.dp),
                                                     tint = if (ws.pinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                                 )
@@ -533,7 +533,7 @@ internal fun workspaceFilesPanel(
                             }
                             HorizontalDivider()
                             DropdownMenuItem(
-                                text = { Text(stringResource("skills.view.workspace.switcher.add")) },
+                                text = { Text(stringResource("agents.view.workspace.switcher.add")) },
                                 leadingIcon = { Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp)) },
                                 onClick = {
                                     workspaceMenuExpanded = false
@@ -570,7 +570,7 @@ internal fun workspaceFilesPanel(
 
                 // ── + New button ───────────────────────────────────────────
                 Box {
-                    themedTooltip(text = stringResource("skills.view.workspace.new")) {
+                    themedTooltip(text = stringResource("agents.view.workspace.new")) {
                         IconButton(
                             onClick = { headerMenuExpanded = true },
                             modifier = Modifier.size(24.dp).pointerHoverIcon(PointerIcon.Hand),
@@ -585,7 +585,7 @@ internal fun workspaceFilesPanel(
                     }
                     dropdownMenu(expanded = headerMenuExpanded, onDismissRequest = { headerMenuExpanded = false }) {
                         DropdownMenuItem(
-                            text = { Text(stringResource("skills.view.workspace.new.folder")) },
+                            text = { Text(stringResource("agents.view.workspace.new.folder")) },
                             leadingIcon = { Icon(Icons.Default.CreateNewFolder, null, modifier = Modifier.size(16.dp)) },
                             onClick = {
                                 newItemTarget = Pair(workDir, true)
@@ -595,7 +595,7 @@ internal fun workspaceFilesPanel(
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource("skills.view.workspace.new.file")) },
+                            text = { Text(stringResource("agents.view.workspace.new.file")) },
                             leadingIcon = { Icon(Icons.AutoMirrored.Filled.InsertDriveFile, null, modifier = Modifier.size(16.dp)) },
                             onClick = {
                                 newItemTarget = Pair(workDir, false)
@@ -608,7 +608,7 @@ internal fun workspaceFilesPanel(
                 } // closes Box
 
                 // ── Open workdir in Finder/Explorer ─────────────────────────
-                themedTooltip(text = stringResource("skills.view.workdir.open")) {
+                themedTooltip(text = stringResource("agents.view.workdir.open")) {
                     IconButton(
                         onClick = { runCatching { Desktop.getDesktop().open(workDir.also { it.mkdirs() }) } },
                         modifier = Modifier.size(24.dp).pointerHoverIcon(PointerIcon.Hand),
@@ -636,7 +636,7 @@ internal fun workspaceFilesPanel(
 
                 rootChildren.isEmpty() -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        stringResource("skills.view.workspace.empty"),
+                        stringResource("agents.view.workspace.empty"),
                         style = AppTextStyles.caption,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                         modifier = Modifier.padding(16.dp),
@@ -885,7 +885,7 @@ private fun workspaceNodeRow(
                 when (node) {
                     is WorkspaceFolderNode -> {
                         DropdownMenuItem(
-                            text = { Text(stringResource("skills.view.workspace.new.file.here")) },
+                            text = { Text(stringResource("agents.view.workspace.new.file.here")) },
                             leadingIcon = { Icon(Icons.AutoMirrored.Filled.InsertDriveFile, null, modifier = Modifier.size(16.dp)) },
                             onClick = {
                                 onNewFileHere(node.file)
@@ -894,7 +894,7 @@ private fun workspaceNodeRow(
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource("skills.view.workspace.new.subfolder")) },
+                            text = { Text(stringResource("agents.view.workspace.new.subfolder")) },
                             leadingIcon = { Icon(Icons.Default.CreateNewFolder, null, modifier = Modifier.size(16.dp)) },
                             onClick = {
                                 onNewSubfolderHere(node.file)
@@ -913,7 +913,7 @@ private fun workspaceNodeRow(
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource("skills.view.workdir.open")) },
+                            text = { Text(stringResource("agents.view.workdir.open")) },
                             leadingIcon = { Icon(Icons.Default.FolderOpen, null, modifier = Modifier.size(16.dp)) },
                             onClick = {
                                 runCatching { Desktop.getDesktop().open(node.file) }
@@ -922,7 +922,7 @@ private fun workspaceNodeRow(
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource("skills.view.workspace.copy.path")) },
+                            text = { Text(stringResource("agents.view.workspace.copy.path")) },
                             leadingIcon = { Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(16.dp)) },
                             onClick = {
                                 workspaceCopyToClipboard(node.file.absolutePath)
@@ -953,7 +953,7 @@ private fun workspaceNodeRow(
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource("skills.view.workspace.duplicate")) },
+                            text = { Text(stringResource("agents.view.workspace.duplicate")) },
                             leadingIcon = { Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(16.dp)) },
                             onClick = {
                                 onDuplicate(node)
@@ -963,7 +963,7 @@ private fun workspaceNodeRow(
                         )
                         HorizontalDivider()
                         DropdownMenuItem(
-                            text = { Text(stringResource("skills.view.workspace.open.file")) },
+                            text = { Text(stringResource("agents.view.workspace.open.file")) },
                             leadingIcon = { Icon(Icons.AutoMirrored.Filled.InsertDriveFile, null, modifier = Modifier.size(16.dp)) },
                             onClick = {
                                 runCatching { Desktop.getDesktop().open(node.file) }
@@ -972,7 +972,7 @@ private fun workspaceNodeRow(
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource("skills.view.workspace.open.folder")) },
+                            text = { Text(stringResource("agents.view.workspace.open.folder")) },
                             leadingIcon = { Icon(Icons.Default.FolderOpen, null, modifier = Modifier.size(16.dp)) },
                             onClick = {
                                 runCatching { Desktop.getDesktop().open(node.file.parentFile) }
@@ -981,7 +981,7 @@ private fun workspaceNodeRow(
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource("skills.view.workspace.copy.path")) },
+                            text = { Text(stringResource("agents.view.workspace.copy.path")) },
                             leadingIcon = { Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(16.dp)) },
                             onClick = {
                                 workspaceCopyToClipboard(node.file.absolutePath)

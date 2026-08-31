@@ -26,7 +26,7 @@ import java.util.UUID
  * @param durationMs   Best-effort run duration (ms) reported by the agent itself, if any.
  * @param createdAt   When this run was recorded.
  */
-data class SkillRunRecord(
+data class AgentRunRecord(
     val id: String = UUID.randomUUID().toString(),
     val skillPath: String,
     val userInput: String,
@@ -43,13 +43,13 @@ data class SkillRunRecord(
 )
 
 /**
- * Exposed table definition for skill_run_history.
+ * Exposed table definition for agent_run_history.
  *
  * [activityLog] is stored as a newline-delimited text block — no JSON dependency needed.
  * Token usage columns are nullable — older rows and agents that don't expose structured
  * usage (e.g. Codex today) simply have `null` here.
  */
-object SkillRunHistoryTable : Table("skill_run_history") {
+object AgentRunHistoryTable : Table("agent_run_history") {
     val id = varchar("id", 36)
     val skillPath = text("skill_path")
     val userInput = text("user_input").default("")

@@ -62,8 +62,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.agent.ExternalAgentLoader
+import io.askimo.core.agent.domain.AgentRunRecord
 import io.askimo.core.agent.domain.SkillDefinition
-import io.askimo.core.agent.domain.SkillRunRecord
 import io.askimo.core.agent.repository.SkillRepository
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.util.AskimoHome
@@ -84,23 +84,23 @@ import java.net.URI
 
 /**
  * Returns the user-selected workspace dir, falling back to the most recently used known
- * workspace, or the default skills-workspace dir if none are known yet.
+ * workspace, or the default agent-workspace dir if none are known yet.
  */
-internal fun resolveSkillsWorkspaceDir(): File {
+internal fun resolveAgentWorkspaceDir(): File {
     val repo = DatabaseManager.getInstance().getWorkspaceRepository()
 
-    val selected = ApplicationPreferences.getSkillsSelectedWorkspaceId()?.let { repo.findById(it) }
+    val selected = ApplicationPreferences.getAgentSelectedWorkspaceId()?.let { repo.findById(it) }
     if (selected != null) return File(selected.path)
 
     val mostRecent = repo.findAll().firstOrNull()
     if (mostRecent != null) {
-        ApplicationPreferences.setSkillsSelectedWorkspaceId(mostRecent.id)
+        ApplicationPreferences.setAgentSelectedWorkspaceId(mostRecent.id)
         return File(mostRecent.path)
     }
 
     val default = AskimoHome.skillsWorkspaceDir().toFile()
     val workspace = repo.upsertByPath(default, displayName = "Default")
-    ApplicationPreferences.setSkillsSelectedWorkspaceId(workspace.id)
+    ApplicationPreferences.setAgentSelectedWorkspaceId(workspace.id)
     return File(workspace.path)
 }
 
@@ -109,10 +109,10 @@ internal fun resolveSkillsWorkspaceDir(): File {
  * last-used timestamp otherwise) and remembers it as the selected workspace.
  * Call this whenever the user opens/switches to a workspace directory.
  */
-internal fun selectSkillsWorkspace(dir: File, displayName: String? = null): File {
+internal fun selectAgentWorkspace(dir: File, displayName: String? = null): File {
     val repo = DatabaseManager.getInstance().getWorkspaceRepository()
     val workspace = repo.upsertByPath(dir, displayName)
-    ApplicationPreferences.setSkillsSelectedWorkspaceId(workspace.id)
+    ApplicationPreferences.setAgentSelectedWorkspaceId(workspace.id)
     return File(workspace.path)
 }
 
@@ -122,23 +122,23 @@ internal fun selectSkillsWorkspace(dir: File, displayName: String? = null): File
  * The agent autonomously selects skills from the full catalog.
  */
 @Composable
-fun agenticSkillsView(
+fun agentsView(
     onNavigateToSkillsSettings: () -> Unit = {},
 ) {
     val skillRepository = remember { SkillRepository() }
-    val historyRepo = remember { DatabaseManager.getInstance().getSkillRunHistoryRepository() }
+    val historyRepo = remember { DatabaseManager.getInstance().getAgentRunHistoryRepository() }
     val scope = rememberCoroutineScope()
     val skills by remember { mutableStateOf(skillRepository.getSkillsOnly()) }
     var allHistoryRefreshKey by remember { mutableStateOf(0) }
     var showOverlayPanel by remember { mutableStateOf(false) }
 
-    var runHistory by remember { mutableStateOf(listOf<SkillRunRecord>()) }
+    var runHistory by remember { mutableStateOf(listOf<AgentRunRecord>()) }
     LaunchedEffect(allHistoryRefreshKey) {
         runHistory = withContext(Dispatchers.IO) { historyRepo.findBySkillPath(AGENTIC_RUN_SKILL_PATH) }
     }
-    var pendingHistoryRecord by remember { mutableStateOf<SkillRunRecord?>(null) }
+    var pendingHistoryRecord by remember { mutableStateOf<AgentRunRecord?>(null) }
 
-    fun deleteHistoryRecord(record: SkillRunRecord) {
+    fun deleteHistoryRecord(record: AgentRunRecord) {
         scope.launch {
             withContext(Dispatchers.IO) { historyRepo.deleteById(record.id) }
             allHistoryRefreshKey++
@@ -151,7 +151,7 @@ fun agenticSkillsView(
     // preferences write, which would otherwise stall the first composition/frame.
     var workDir by remember { mutableStateOf(AskimoHome.skillsWorkspaceDir().toFile()) }
     LaunchedEffect(Unit) {
-        workDir = withContext(Dispatchers.IO) { resolveSkillsWorkspaceDir() }
+        workDir = withContext(Dispatchers.IO) { resolveAgentWorkspaceDir() }
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -163,7 +163,7 @@ fun agenticSkillsView(
                 workDir = workDir,
                 workDirRefreshKey = allHistoryRefreshKey,
                 runHistory = runHistory,
-                onWorkDirChanged = { workDir = selectSkillsWorkspace(it) },
+                onWorkDirChanged = { workDir = selectAgentWorkspace(it) },
                 onSelectRecord = { pendingHistoryRecord = it },
                 onDeleteRecord = ::deleteHistoryRecord,
             )
@@ -222,7 +222,7 @@ fun agenticSkillsView(
 // ── Skills page header — title, docs link, manage button, panel toggle ─────
 
 @Composable
-internal fun skillsPageHeader(
+internal fun agentsPageHeader(
     onNavigateToSkillsSettings: () -> Unit,
     showPanelToggle: Boolean = false,
     panelVisible: Boolean = false,
@@ -240,12 +240,12 @@ internal fun skillsPageHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = stringResource("skills.view.title"),
+            text = stringResource("agents.view.title"),
             style = AppTextStyles.pageTitle,
             modifier = Modifier.weight(1f),
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
-            themedTooltip(text = stringResource("skills.view.docs.tooltip")) {
+            themedTooltip(text = stringResource("agents.view.docs.tooltip")) {
                 IconButton(
                     onClick = {
                         runCatching { Desktop.getDesktop().browse(URI("https://$DOMAIN/docs/desktop/skills/")) }
@@ -254,7 +254,7 @@ internal fun skillsPageHeader(
                 ) {
                     Icon(
                         Icons.Default.Info,
-                        contentDescription = stringResource("skills.view.docs.tooltip"),
+                        contentDescription = stringResource("agents.view.docs.tooltip"),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -264,13 +264,13 @@ internal fun skillsPageHeader(
                 modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
             ) {
                 Text(
-                    text = stringResource("skills.view.manage"),
+                    text = stringResource("agents.view.manage"),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             if (showPanelToggle) {
                 val panelTooltip = stringResource(
-                    if (panelVisible) "skills.view.panel.collapse" else "skills.view.panel.expand",
+                    if (panelVisible) "agents.view.panel.collapse" else "agents.view.panel.expand",
                 )
                 themedTooltip(text = panelTooltip) {
                     IconButton(
@@ -291,7 +291,7 @@ internal fun skillsPageHeader(
     // ── Description + runtimes: full width below the title row ─────────────
     Spacer(modifier = Modifier.height(4.dp))
     Text(
-        text = stringResource("settings.skills.description", runtimesLabel),
+        text = stringResource("agents.view.description", runtimesLabel),
         style = AppTextStyles.bodySecondary,
         modifier = Modifier.fillMaxWidth(),
     )
@@ -301,7 +301,7 @@ internal fun skillsPageHeader(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
-            text = stringResource("settings.skills.runtimes"),
+            text = stringResource("settings.agents.runtimes"),
             style = AppTextStyles.caption,
         )
         runtimes.forEach { runtime ->
@@ -330,7 +330,7 @@ private fun agenticContent(
     showPanelToggle: Boolean = false,
     panelVisible: Boolean = false,
     onTogglePanel: () -> Unit = {},
-    preloadRecord: SkillRunRecord? = null,
+    preloadRecord: AgentRunRecord? = null,
     onPreloadConsumed: () -> Unit = {},
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -342,7 +342,7 @@ private fun agenticContent(
                 .fillMaxWidth()
                 .padding(start = 24.dp, end = 36.dp, top = 24.dp, bottom = 8.dp),
         ) {
-            skillsPageHeader(
+            agentsPageHeader(
                 onNavigateToSkillsSettings = onNavigateToSkillsSettings,
                 showPanelToggle = showPanelToggle,
                 panelVisible = panelVisible,
@@ -371,18 +371,18 @@ private enum class AgenticRightTab(
     val icon: ImageVector,
     val labelKey: String,
 ) {
-    WORKSPACE(Icons.Default.FolderOpen, "skills.view.tab.workspace"),
-    HISTORY(Icons.Default.History, "skills.view.tab.history"),
+    WORKSPACE(Icons.Default.FolderOpen, "agents.view.tab.workspace"),
+    HISTORY(Icons.Default.History, "agents.view.tab.history"),
 }
 
 @Composable
 private fun agenticWorkspacePanel(
     workDir: File,
     workDirRefreshKey: Int,
-    runHistory: List<SkillRunRecord>,
+    runHistory: List<AgentRunRecord>,
     onWorkDirChanged: (File) -> Unit,
-    onSelectRecord: (SkillRunRecord) -> Unit,
-    onDeleteRecord: (SkillRunRecord) -> Unit,
+    onSelectRecord: (AgentRunRecord) -> Unit,
+    onDeleteRecord: (AgentRunRecord) -> Unit,
 ) {
     var isExpanded by remember { mutableStateOf(ApplicationPreferences.getSkillsSidePanelExpanded()) }
     var panelWidth by remember { mutableStateOf(ApplicationPreferences.getSkillsSidePanelWidth().dp) }
@@ -452,7 +452,7 @@ private fun agenticWorkspacePanel(
                             overflow = TextOverflow.Ellipsis,
                         )
                         themedTooltip(
-                            text = stringResource("skills.view.panel.collapse"),
+                            text = stringResource("agents.view.panel.collapse"),
                             placement = TooltipPlacement.LEFT,
                         ) {
                             IconButton(
@@ -464,7 +464,7 @@ private fun agenticWorkspacePanel(
                             ) {
                                 Icon(
                                     Icons.Default.ChevronRight,
-                                    contentDescription = stringResource("skills.view.panel.collapse"),
+                                    contentDescription = stringResource("agents.view.panel.collapse"),
                                     modifier = Modifier.size(16.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )

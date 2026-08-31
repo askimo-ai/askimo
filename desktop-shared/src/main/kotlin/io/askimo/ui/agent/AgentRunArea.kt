@@ -62,8 +62,8 @@ import androidx.compose.ui.window.PopupProperties
 import io.askimo.core.agent.AgentUsage
 import io.askimo.core.agent.ExternalAgent
 import io.askimo.core.agent.ExternalAgentLoader
+import io.askimo.core.agent.domain.AgentRunRecord
 import io.askimo.core.agent.domain.SkillDefinition
-import io.askimo.core.agent.domain.SkillRunRecord
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.ToolCallInfo
 import io.askimo.core.chat.dto.ToolCallStatus
@@ -144,11 +144,11 @@ internal fun agenticRunArea(
     workDir: File,
     onRunCompleted: () -> Unit = {},
     onNavigateToSkillsSettings: () -> Unit = {},
-    preloadRecord: SkillRunRecord? = null,
+    preloadRecord: AgentRunRecord? = null,
     onPreloadConsumed: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
-    val historyRepo = remember { DatabaseManager.getInstance().getSkillRunHistoryRepository() }
+    val historyRepo = remember { DatabaseManager.getInstance().getAgentRunHistoryRepository() }
 
     // ── Agent state ──────────────────────────────────────────────────────────
     val allAgents = remember { ExternalAgentLoader.all() }
@@ -168,7 +168,7 @@ internal fun agenticRunArea(
     }
 
     var selectedAgentId by remember {
-        mutableStateOf(ApplicationPreferences.getSkillsSelectedAgentId())
+        mutableStateOf(ApplicationPreferences.getSelectedAgentId())
     }
     // Resolve selected agent; fall back to first ready one if saved pref is unavailable
     val selectedAgent = remember(selectedAgentId, allAgents, agentStateMap) {
@@ -201,7 +201,7 @@ internal fun agenticRunArea(
     // arrives — mirrors ChatViewModel.isThinking (shows the "Thinking…" spinner row).
     var isWaitingForFirstEvent by remember { mutableStateOf(false) }
 
-    // Accumulates this turn's raw response text — used only to build the SkillRunRecord
+    // Accumulates this turn's raw response text — used only to build the AgentRunRecord
     // saved to history; the displayed transcript is `messages`.
     var currentTurnResponse by remember { mutableStateOf("") }
 
@@ -326,7 +326,7 @@ internal fun agenticRunArea(
                     usage = usage,
                 )
 
-            val record = SkillRunRecord(
+            val record = AgentRunRecord(
                 skillPath = AGENTIC_RUN_SKILL_PATH,
                 userInput = input,
                 response = currentTurnResponse,
@@ -453,7 +453,7 @@ internal fun agenticRunArea(
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                     Text(
-                                        text = stringResource("skills.agentic.skills.available", skills.size),
+                                        text = stringResource("agents.agentic.skills.available", skills.size),
                                         style = AppTextStyles.hint,
                                         modifier = Modifier.weight(1f),
                                     )
@@ -571,7 +571,7 @@ internal fun agenticRunArea(
                                                     verticalAlignment = Alignment.CenterVertically,
                                                 ) {
                                                     Text(
-                                                        text = stringResource("skills.view.manage"),
+                                                        text = stringResource("agents.view.manage"),
                                                         style = AppTextStyles.body,
                                                         color = MaterialTheme.colorScheme.primary,
                                                     )
@@ -601,7 +601,7 @@ internal fun agenticRunArea(
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                 )
                                 Text(
-                                    text = stringResource("skills.agentic.no.skills.hint"),
+                                    text = stringResource("agents.agentic.no.skills.hint"),
                                     style = AppTextStyles.hint,
                                     modifier = Modifier.weight(1f),
                                 )
@@ -609,7 +609,7 @@ internal fun agenticRunArea(
                                     onClick = onNavigateToSkillsSettings,
                                     modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                                 ) {
-                                    Text(text = stringResource("skills.view.manage"), style = AppTextStyles.hint)
+                                    Text(text = stringResource("agents.view.manage"), style = AppTextStyles.hint)
                                 }
                             }
                         }
@@ -643,12 +643,6 @@ internal fun agenticRunArea(
                         )
                     } else {
                         // ── Empty-state hint — shown before the first message is sent ────
-                        Text(
-                            text = stringResource("skills.agentic.goal.placeholder"),
-                            style = AppTextStyles.hint,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            modifier = Modifier.padding(top = Spacing.medium),
-                        )
                     }
                 }
             }
@@ -674,7 +668,7 @@ internal fun agenticRunArea(
                     OutlinedTextField(
                         value = inputText,
                         onValueChange = { inputText = it },
-                        placeholder = { Text(stringResource("skills.agentic.goal.placeholder")) },
+                        placeholder = { Text(stringResource("agents.agentic.goal.placeholder")) },
                         enabled = !isRunning,
                         modifier = Modifier.fillMaxWidth()
                             .onImeAwarePreviewKeyEvent(inputText.composition) { keyEvent ->
@@ -721,7 +715,7 @@ internal fun agenticRunArea(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
                                 Text(
-                                    text = stringResource("skills.agentic.model.default"),
+                                    text = stringResource("agents.agentic.model.default"),
                                     style = AppTextStyles.hint,
                                 )
                                 Icon(
@@ -739,7 +733,7 @@ internal fun agenticRunArea(
                             DropdownMenuItem(
                                 text = {
                                     Text(
-                                        text = stringResource("skills.agentic.model.default"),
+                                        text = stringResource("agents.agentic.model.default"),
                                         style = AppTextStyles.body,
                                     )
                                 },
@@ -813,7 +807,7 @@ internal fun agenticRunArea(
                                             ),
                                     )
                                     Text(
-                                        text = selectedAgent?.name ?: stringResource("skills.view.no.agent"),
+                                        text = selectedAgent?.name ?: stringResource("agents.view.no.agent"),
                                         style = AppTextStyles.hint,
                                     )
                                     Icon(
@@ -852,7 +846,7 @@ internal fun agenticRunArea(
                                                 )
                                                 if (!agentReady) {
                                                     Text(
-                                                        text = stringResource("skills.view.agent.not.installed"),
+                                                        text = stringResource("agents.view.agent.not.installed"),
                                                         style = AppTextStyles.hint,
                                                     )
                                                 }
@@ -860,7 +854,7 @@ internal fun agenticRunArea(
                                         },
                                         onClick = {
                                             selectedAgentId = agent.id
-                                            ApplicationPreferences.setSkillsSelectedAgentId(agent.id)
+                                            ApplicationPreferences.setSelectedAgentId(agent.id)
                                             agentDropdownExpanded = false
                                             agentStateVersion++
                                             // A resume/session id is only meaningful to the CLI that produced it.
@@ -884,9 +878,9 @@ internal fun agenticRunArea(
                             Icon(
                                 imageVector = if (isRunning) Icons.Default.Refresh else Icons.Default.PlayArrow,
                                 contentDescription = if (isRunning) {
-                                    stringResource("skills.view.running")
+                                    stringResource("agents.view.running")
                                 } else {
-                                    stringResource("skills.agentic.run")
+                                    stringResource("agents.agentic.run")
                                 },
                                 modifier = Modifier.size(18.dp),
                             )

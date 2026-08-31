@@ -59,7 +59,6 @@ import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.settings.appearanceSettingsSection
 import io.askimo.ui.settings.shortcutsSettingsSection
-import io.askimo.ui.settings.skillsSettingsSection
 import org.jetbrains.skia.Image
 import java.awt.Cursor
 
@@ -207,7 +206,7 @@ fun settingsViewWithSidebar(
                         onClick = { onSectionChange(SettingsSection.MCP_SERVERS) },
                     )
                     settingsSidebarItem(
-                        title = stringResource("settings.skills"),
+                        title = stringResource("settings.agents"),
                         icon = Icons.Outlined.Extension,
                         isSelected = selectedSection == SettingsSection.SKILLS,
                         onClick = { onSectionChange(SettingsSection.SKILLS) },

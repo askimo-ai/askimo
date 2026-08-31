@@ -99,7 +99,7 @@ import io.askimo.desktop.shell.footerBar
 import io.askimo.desktop.shell.navigationSidebar
 import io.askimo.desktop.shell.telemetryPanel
 import io.askimo.desktop.user.userProfileDialog
-import io.askimo.ui.agent.agenticSkillsView
+import io.askimo.ui.agent.agentsView
 import io.askimo.ui.bookmarks.BookmarksViewModel
 import io.askimo.ui.bookmarks.bookmarksView
 import io.askimo.ui.chat.ChatViewModel
@@ -2325,7 +2325,7 @@ fun mainContent(
                 modifier = Modifier.fillMaxSize(),
             )
 
-            View.SKILLS -> agenticSkillsView(
+            View.SKILLS -> agentsView(
                 onNavigateToSkillsSettings = onNavigateToSkillsSettings,
             )
 

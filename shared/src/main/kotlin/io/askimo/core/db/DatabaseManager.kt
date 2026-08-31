@@ -6,7 +6,7 @@ package io.askimo.core.db
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
-import io.askimo.core.agent.repository.SkillRunHistoryRepository
+import io.askimo.core.agent.repository.AgentRunHistoryRepository
 import io.askimo.core.agent.repository.WorkspaceRepository
 import io.askimo.core.chat.repository.ChatDirectiveRepository
 import io.askimo.core.chat.repository.ChatMessageAttachmentRepository
@@ -113,7 +113,7 @@ class DatabaseManager private constructor(
         createModelClassificationsTable(connection)
         createIndexFileStateTable(connection)
         createPlanExecutionsTable(connection)
-        createSkillRunHistoryTable(connection)
+        createAgentRunHistoryTable(connection)
         createWorkspacesTable(connection)
         createLlmUsageRecordsTable(connection)
     }
@@ -710,60 +710,32 @@ class DatabaseManager private constructor(
         }
     }
 
-    private fun createSkillRunHistoryTable(conn: Connection) {
+    private fun createAgentRunHistoryTable(conn: Connection) {
         conn.createStatement().use { stmt ->
             stmt.executeUpdate(
                 """
-                CREATE TABLE IF NOT EXISTS skill_run_history (
-                    id           TEXT PRIMARY KEY,
-                    skill_path   TEXT NOT NULL,
-                    user_input   TEXT NOT NULL DEFAULT '',
-                    response     TEXT NOT NULL DEFAULT '',
-                    error        TEXT,
+                CREATE TABLE IF NOT EXISTS agent_run_history (
+                    id               TEXT PRIMARY KEY,
+                    skill_path       TEXT NOT NULL,
+                    user_input       TEXT NOT NULL DEFAULT '',
+                    response         TEXT NOT NULL DEFAULT '',
+                    error            TEXT,
                     agent_session_id TEXT,
-                    workspace_dir TEXT,
-                    activity_log TEXT NOT NULL DEFAULT '',
-                    created_at   TEXT NOT NULL
+                    workspace_dir    TEXT,
+                    activity_log     TEXT NOT NULL DEFAULT '',
+                    input_tokens     INTEGER,
+                    output_tokens    INTEGER,
+                    total_tokens     INTEGER,
+                    duration_ms      INTEGER,
+                    created_at       TEXT NOT NULL
                 )
                 """.trimIndent(),
             )
 
-            // Migration: add agent session/workspace columns for existing databases.
-            try {
-                stmt.executeUpdate("ALTER TABLE skill_run_history ADD COLUMN agent_session_id TEXT")
-            } catch (_: Exception) {
-                // Column already exists — safe to ignore.
-            }
-            try {
-                stmt.executeUpdate("ALTER TABLE skill_run_history ADD COLUMN workspace_dir TEXT")
-            } catch (_: Exception) {
-                // Column already exists — safe to ignore.
-            }
-
-            // Migration: add best-effort token usage / duration columns. NULL = agent didn't
-            // report structured usage for that run (e.g. Codex today) — additive-only,
-            // no backfill for existing rows, consistent with the chat_messages precedent.
-            try {
-                stmt.executeUpdate("ALTER TABLE skill_run_history ADD COLUMN input_tokens INTEGER")
-            } catch (_: Exception) {
-            }
-            try {
-                stmt.executeUpdate("ALTER TABLE skill_run_history ADD COLUMN output_tokens INTEGER")
-            } catch (_: Exception) {
-            }
-            try {
-                stmt.executeUpdate("ALTER TABLE skill_run_history ADD COLUMN total_tokens INTEGER")
-            } catch (_: Exception) {
-            }
-            try {
-                stmt.executeUpdate("ALTER TABLE skill_run_history ADD COLUMN duration_ms INTEGER")
-            } catch (_: Exception) {
-            }
-
             stmt.executeUpdate(
                 """
-                CREATE INDEX IF NOT EXISTS idx_skill_run_history_skill_path
-                ON skill_run_history (skill_path, created_at)
+                CREATE INDEX IF NOT EXISTS idx_agent_run_history_skill_path
+                ON agent_run_history (skill_path, created_at)
                 """.trimIndent(),
             )
         }
@@ -872,8 +844,8 @@ class DatabaseManager private constructor(
         PlanExecutionRepository(this)
     }
 
-    private val _skillRunHistoryRepository: SkillRunHistoryRepository by lazy {
-        SkillRunHistoryRepository(this)
+    private val _agentRunHistoryRepository: AgentRunHistoryRepository by lazy {
+        AgentRunHistoryRepository(this)
     }
 
     private val _workspaceRepository: WorkspaceRepository by lazy {
@@ -951,14 +923,14 @@ class DatabaseManager private constructor(
     fun getPlanExecutionRepository(): PlanExecutionRepository = _planExecutionRepository
 
     /**
-     * Get the singleton SkillRunHistoryRepository instance.
-     * All access to skill run history should go through this repository.
+     * Get the singleton AgentRunHistoryRepository instance.
+     * All access to agent run history should go through this repository.
      */
-    fun getSkillRunHistoryRepository(): SkillRunHistoryRepository = _skillRunHistoryRepository
+    fun getAgentRunHistoryRepository(): AgentRunHistoryRepository = _agentRunHistoryRepository
 
     /**
      * Get the singleton WorkspaceRepository instance.
-     * All access to known skills workspaces should go through this repository.
+     * All access to agent workspaces should go through this repository.
      */
     fun getWorkspaceRepository(): WorkspaceRepository = _workspaceRepository
 

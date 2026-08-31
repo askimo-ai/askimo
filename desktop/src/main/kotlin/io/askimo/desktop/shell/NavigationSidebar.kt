@@ -132,7 +132,7 @@ fun navigationSidebar(
         ),
         SidebarNavItem(
             id = "skills",
-            labelRes = "skills.nav.title",
+            labelRes = "agents.nav.title",
             icon = Icons.Default.Extension,
             isSelected = currentView == View.SKILLS,
             isVisible = showSkillsInSidebar,

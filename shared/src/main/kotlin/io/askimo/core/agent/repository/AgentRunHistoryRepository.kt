@@ -4,8 +4,8 @@
  */
 package io.askimo.core.agent.repository
 
-import io.askimo.core.agent.domain.SkillRunHistoryTable
-import io.askimo.core.agent.domain.SkillRunRecord
+import io.askimo.core.agent.domain.AgentRunHistoryTable
+import io.askimo.core.agent.domain.AgentRunRecord
 import io.askimo.core.db.AbstractSQLiteRepository
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.logging.logger
@@ -18,23 +18,23 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
- * Repository for persisting and querying [SkillRunRecord] entries.
+ * Repository for persisting and querying [AgentRunRecord] entries.
  *
- * [SkillRunRecord.activityLog] is stored as a newline-delimited text block so the
+ * [AgentRunRecord.activityLog] is stored as a newline-delimited text block so the
  * SQLite file stays human-readable without requiring a JSON library.
  */
-class SkillRunHistoryRepository internal constructor(
+class AgentRunHistoryRepository internal constructor(
     databaseManager: DatabaseManager = DatabaseManager.getInstance(),
 ) : AbstractSQLiteRepository(databaseManager) {
 
-    private val log = logger<SkillRunHistoryRepository>()
+    private val log = logger<AgentRunHistoryRepository>()
 
     /**
      * Persists a new run record. The [record.id] must already be set (UUID).
      */
-    fun save(record: SkillRunRecord) {
+    fun save(record: AgentRunRecord) {
         transaction(database) {
-            SkillRunHistoryTable.insert {
+            AgentRunHistoryTable.insert {
                 it[id] = record.id
                 it[skillPath] = record.skillPath
                 it[userInput] = record.userInput
@@ -56,10 +56,10 @@ class SkillRunHistoryRepository internal constructor(
     /**
      * Returns up to [limit] run records across all skills, newest first.
      */
-    fun findAll(limit: Int = 200): List<SkillRunRecord> = transaction(database) {
-        SkillRunHistoryTable
+    fun findAll(limit: Int = 200): List<AgentRunRecord> = transaction(database) {
+        AgentRunHistoryTable
             .selectAll()
-            .orderBy(SkillRunHistoryTable.createdAt, SortOrder.DESC)
+            .orderBy(AgentRunHistoryTable.createdAt, SortOrder.DESC)
             .limit(limit)
             .map(::toRecord)
     }
@@ -67,11 +67,11 @@ class SkillRunHistoryRepository internal constructor(
     /**
      * Returns up to [limit] run records for the given [skillPath], newest first.
      */
-    fun findBySkillPath(skillPath: String, limit: Int = 50): List<SkillRunRecord> = transaction(database) {
-        SkillRunHistoryTable
+    fun findBySkillPath(skillPath: String, limit: Int = 50): List<AgentRunRecord> = transaction(database) {
+        AgentRunHistoryTable
             .selectAll()
-            .where { SkillRunHistoryTable.skillPath eq skillPath }
-            .orderBy(SkillRunHistoryTable.createdAt, SortOrder.DESC)
+            .where { AgentRunHistoryTable.skillPath eq skillPath }
+            .orderBy(AgentRunHistoryTable.createdAt, SortOrder.DESC)
             .limit(limit)
             .map(::toRecord)
     }
@@ -81,7 +81,7 @@ class SkillRunHistoryRepository internal constructor(
      */
     fun deleteById(id: String) {
         transaction(database) {
-            SkillRunHistoryTable.deleteWhere { SkillRunHistoryTable.id eq id }
+            AgentRunHistoryTable.deleteWhere { AgentRunHistoryTable.id eq id }
         }
         log.debug("Deleted skill run record '{}'", id)
     }
@@ -91,27 +91,27 @@ class SkillRunHistoryRepository internal constructor(
      */
     fun deleteBySkillPath(skillPath: String) {
         transaction(database) {
-            SkillRunHistoryTable.deleteWhere { SkillRunHistoryTable.skillPath eq skillPath }
+            AgentRunHistoryTable.deleteWhere { AgentRunHistoryTable.skillPath eq skillPath }
         }
         log.debug("Deleted all run records for skill '{}'", skillPath)
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private fun toRecord(row: ResultRow): SkillRunRecord = SkillRunRecord(
-        id = row[SkillRunHistoryTable.id],
-        skillPath = row[SkillRunHistoryTable.skillPath],
-        userInput = row[SkillRunHistoryTable.userInput],
-        response = row[SkillRunHistoryTable.response],
-        error = row[SkillRunHistoryTable.error],
-        agentSessionId = row[SkillRunHistoryTable.agentSessionId],
-        workspaceDir = row[SkillRunHistoryTable.workspaceDir],
-        activityLog = decodeLog(row[SkillRunHistoryTable.activityLog]),
-        inputTokens = row[SkillRunHistoryTable.inputTokens],
-        outputTokens = row[SkillRunHistoryTable.outputTokens],
-        totalTokens = row[SkillRunHistoryTable.totalTokens],
-        durationMs = row[SkillRunHistoryTable.durationMs],
-        createdAt = row[SkillRunHistoryTable.createdAt],
+    private fun toRecord(row: ResultRow): AgentRunRecord = AgentRunRecord(
+        id = row[AgentRunHistoryTable.id],
+        skillPath = row[AgentRunHistoryTable.skillPath],
+        userInput = row[AgentRunHistoryTable.userInput],
+        response = row[AgentRunHistoryTable.response],
+        error = row[AgentRunHistoryTable.error],
+        agentSessionId = row[AgentRunHistoryTable.agentSessionId],
+        workspaceDir = row[AgentRunHistoryTable.workspaceDir],
+        activityLog = decodeLog(row[AgentRunHistoryTable.activityLog]),
+        inputTokens = row[AgentRunHistoryTable.inputTokens],
+        outputTokens = row[AgentRunHistoryTable.outputTokens],
+        totalTokens = row[AgentRunHistoryTable.totalTokens],
+        durationMs = row[AgentRunHistoryTable.durationMs],
+        createdAt = row[AgentRunHistoryTable.createdAt],
     )
 
     private fun encodeLog(entries: List<String>): String = entries.joinToString("\n") { it.replace("\n", "\\n") }
