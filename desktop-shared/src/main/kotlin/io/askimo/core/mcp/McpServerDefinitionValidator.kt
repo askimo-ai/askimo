@@ -74,6 +74,11 @@ val mcpServerDefinitionValidator = Validation {
         }
     }
 
+    // protocolVersion: if provided, must be a known MCP protocol version string
+    McpServerDefinition::protocolVersion ifPresent {
+        pattern("^\\d{4}-\\d{2}-\\d{2}$") hint "Protocol version must be a date string (e.g. \"2025-11-25\")"
+    }
+
     // HTTP: require a non-blank, well-formed urlTemplate
     McpServerDefinition::httpConfig ifPresent {
         HttpConfig::urlTemplate {

@@ -21,6 +21,11 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -175,6 +180,14 @@ fun addMcpInstanceDialog(
         )
     }
 
+    // MCP protocol version — null means auto-detect (default)
+    var protocolVersion by remember {
+        mutableStateOf(
+            existingServerDef?.protocolVersion
+                ?: templateDefinition?.protocolVersion,
+        )
+    }
+
     // Connection test state
     var isTesting by remember { mutableStateOf(false) }
     var testSuccess by remember { mutableStateOf<Boolean?>(null) }
@@ -253,7 +266,7 @@ fun addMcpInstanceDialog(
             instanceId = serverId,
             instanceName = instanceName,
             paramValues = templateParamValues.value,
-        ).copy(description = description)
+        ).copy(description = description, protocolVersion = protocolVersion)
     } else if (transportType == TransportType.STDIO) {
         // Parse the command field as a complete command line
         val commandList = buildList {
@@ -276,6 +289,7 @@ fun addMcpInstanceDialog(
                 workingDirectory = workingDir.ifBlank { null },
             ),
             httpConfig = null,
+            protocolVersion = protocolVersion,
             tags = listOf("global"),
         )
     } else {
@@ -293,6 +307,7 @@ fun addMcpInstanceDialog(
                 headersTemplate = headersMap,
                 timeoutMs = timeout,
             ),
+            protocolVersion = protocolVersion,
             tags = listOf("global"),
         )
     }
@@ -517,6 +532,7 @@ fun addMcpInstanceDialog(
                     url = url, onUrlChange = { url = it },
                     headers = headers, onHeadersChange = { headers = it },
                     timeoutMs = timeoutMs, onTimeoutMsChange = { timeoutMs = it },
+                    protocolVersion = protocolVersion, onProtocolVersionChange = { protocolVersion = it },
                 )
             }
         } else {
@@ -530,6 +546,7 @@ fun addMcpInstanceDialog(
                 url = url, onUrlChange = { url = it },
                 headers = headers, onHeadersChange = { headers = it },
                 timeoutMs = timeoutMs, onTimeoutMsChange = { timeoutMs = it },
+                protocolVersion = protocolVersion, onProtocolVersionChange = { protocolVersion = it },
             )
         }
 
@@ -715,7 +732,10 @@ private fun templateParameterFields(
 /**
  * The transport configuration fields (STDIO / HTTP tabs + all raw inputs).
  * Shared between manual mode and the Advanced section in template mode.
+ *
+ * [protocolVersion] is `null` when auto-detection is desired (the default).
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun advancedTransportFields(
     selectedTab: Int,
@@ -734,7 +754,13 @@ private fun advancedTransportFields(
     onHeadersChange: (String) -> Unit,
     timeoutMs: String,
     onTimeoutMsChange: (String) -> Unit,
+    protocolVersion: String?,
+    onProtocolVersionChange: (String?) -> Unit,
 ) {
+    // Known protocol versions — null sentinel = auto-detect
+    val versions: List<String?> = listOf(null, "2025-11-25", "2024-11-05")
+    var protocolVersionExpanded by remember { mutableStateOf(false) }
+
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
         Text(
             text = stringResource("mcp.instance.field.transport"),
@@ -843,6 +869,41 @@ private fun advancedTransportFields(
                     singleLine = true,
                     colors = AppComponents.outlinedTextFieldColors(),
                 )
+            }
+        }
+
+        HorizontalDivider()
+
+        // ── Protocol version ──────────────────────────────────────────────
+        ExposedDropdownMenuBox(
+            expanded = protocolVersionExpanded,
+            onExpandedChange = { protocolVersionExpanded = it },
+        ) {
+            OutlinedTextField(
+                value = protocolVersion ?: stringResource("mcp.instance.protocol.version.auto"),
+                onValueChange = {},
+                readOnly = true,
+                label = { Text(stringResource("mcp.instance.protocol.version.label")) },
+                supportingText = { Text(stringResource("mcp.instance.protocol.version.hint")) },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = protocolVersionExpanded) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                colors = AppComponents.outlinedTextFieldColors(),
+            )
+            ExposedDropdownMenu(
+                expanded = protocolVersionExpanded,
+                onDismissRequest = { protocolVersionExpanded = false },
+            ) {
+                versions.forEach { v ->
+                    DropdownMenuItem(
+                        text = { Text(v ?: stringResource("mcp.instance.protocol.version.auto")) },
+                        onClick = {
+                            onProtocolVersionChange(v)
+                            protocolVersionExpanded = false
+                        },
+                    )
+                }
             }
         }
     }

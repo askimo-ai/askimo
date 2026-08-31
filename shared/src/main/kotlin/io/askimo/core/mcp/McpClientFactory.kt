@@ -70,10 +70,14 @@ class McpClientFactory(
             }
 
             log.trace("Creating MCP client for instance '${instance.name}'")
-            val client = DefaultMcpClient.builder()
+            val builder = DefaultMcpClient.builder()
                 .key(clientKey)
                 .transport(transport)
-                .build()
+            resolvedDefinition.protocolVersion?.let {
+                log.debug("Using explicit MCP protocol version '{}' for '{}'", it, instance.name)
+                builder.protocolVersion(it)
+            }
+            val client = builder.build()
 
             log.debug("Successfully created MCP client for '${instance.name}'")
             Result.success(client)

@@ -25,7 +25,15 @@ data class McpServerDefinition(
     val parameters: List<Parameter> = emptyList(),
 
     // Metadata
-    val version: String = "1.0.0",
+    /**
+     * MCP protocol version to use for this server.
+     *
+     * When `null` (the default), the client attempts automatic protocol detection.
+     * Set this explicitly when a server times out during detection, e.g.:
+     * - `"2025-11-25"` — current stable protocol
+     * - `"2024-11-05"` — legacy protocol
+     */
+    val protocolVersion: String? = null,
     val author: String? = null,
     val tags: List<String> = emptyList(),
 ) {
