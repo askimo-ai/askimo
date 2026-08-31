@@ -103,7 +103,7 @@ object ApplicationPreferences {
 
     private const val SKILLS_SELECTED_WORKSPACE_ID_KEY = "ui.skills_selected_workspace_id"
 
-    /** Id of the [io.askimo.core.skills.domain.Workspace] last selected in the Skills view, if any. */
+    /** Id of the [io.askimo.core.agent.domain.Workspace] last selected in the Skills view, if any. */
     fun getSkillsSelectedWorkspaceId(): String? = safeGet(SKILLS_SELECTED_WORKSPACE_ID_KEY, null)?.takeIf { it.isNotBlank() }
     fun setSkillsSelectedWorkspaceId(id: String) = safePut(SKILLS_SELECTED_WORKSPACE_ID_KEY, id)
 

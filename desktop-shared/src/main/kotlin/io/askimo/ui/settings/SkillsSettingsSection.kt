@@ -85,11 +85,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.askimo.core.AppConstants.DOMAIN
-import io.askimo.core.skills.SkillImporter
-import io.askimo.core.skills.SkillRepository
-import io.askimo.core.skills.agent.ExternalAgentLoader
-import io.askimo.core.skills.domain.SkillDefinition
-import io.askimo.core.skills.domain.SkillTreeNode
+import io.askimo.core.agent.ExternalAgentLoader
+import io.askimo.core.agent.SkillImporter
+import io.askimo.core.agent.domain.SkillDefinition
+import io.askimo.core.agent.domain.SkillTreeNode
+import io.askimo.core.agent.repository.SkillRepository
 import io.askimo.core.util.AskimoHome
 import io.askimo.ui.common.components.dangerButton
 import io.askimo.ui.common.components.primaryButton

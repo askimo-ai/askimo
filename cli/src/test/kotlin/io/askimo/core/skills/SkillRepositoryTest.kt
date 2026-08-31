@@ -4,6 +4,8 @@
  */
 package io.askimo.core.skills
 
+import io.askimo.core.agent.domain.SkillTreeNode
+import io.askimo.core.agent.repository.SkillRepository
 import io.askimo.core.util.AskimoHome
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -276,7 +278,7 @@ class SkillRepositoryTest {
             write("reviewer/skill.md", "---\nname: Reviewer\n---\nContent")
             val tree = repo().getTree()
             assertEquals(1, tree.size)
-            val node = tree[0] as io.askimo.core.skills.domain.SkillTreeNode.Category
+            val node = tree[0] as SkillTreeNode.Category
             assertEquals(true, node.isSkillFolder)
             assertNotNull(node.skill)
         }
@@ -287,12 +289,12 @@ class SkillRepositoryTest {
             val tree = repo().getTree()
             // top-level: "coding" category
             assertEquals(1, tree.size)
-            val category = tree[0] as io.askimo.core.skills.domain.SkillTreeNode.Category
+            val category = tree[0] as SkillTreeNode.Category
             assertEquals("coding", category.name)
             assertEquals(false, category.isSkillFolder)
             // child: "reviewer" skill
             assertEquals(1, category.children.size)
-            val skill = category.children[0] as io.askimo.core.skills.domain.SkillTreeNode.Category
+            val skill = category.children[0] as SkillTreeNode.Category
             assertEquals(true, skill.isSkillFolder)
         }
 
@@ -302,10 +304,10 @@ class SkillRepositoryTest {
             val tree = repo().getTree()
             // only "c" (immediate parent) should appear, not "a" or "b"
             assertEquals(1, tree.size)
-            val category = tree[0] as io.askimo.core.skills.domain.SkillTreeNode.Category
+            val category = tree[0] as SkillTreeNode.Category
             assertEquals("c", category.name)
             assertEquals(false, category.isSkillFolder)
-            val skill = category.children[0] as io.askimo.core.skills.domain.SkillTreeNode.Category
+            val skill = category.children[0] as SkillTreeNode.Category
             assertEquals(true, skill.isSkillFolder)
         }
 
@@ -314,8 +316,8 @@ class SkillRepositoryTest {
             write("reviewer/skill.md", "---\nname: Reviewer\n---\nContent")
             write("reviewer/examples.md", "Examples")
             val tree = repo().getTree()
-            val skillNode = tree[0] as io.askimo.core.skills.domain.SkillTreeNode.Category
-            assertTrue(skillNode.children.any { it is io.askimo.core.skills.domain.SkillTreeNode.Leaf })
+            val skillNode = tree[0] as SkillTreeNode.Category
+            assertTrue(skillNode.children.any { it is SkillTreeNode.Leaf })
         }
 
         @Test
@@ -323,8 +325,8 @@ class SkillRepositoryTest {
             write("reviewer/skill.md", "---\nname: Reviewer\n---\nContent")
             write("reviewer/src/Helper.java", "// helper")
             val tree = repo().getTree()
-            val skillNode = tree[0] as io.askimo.core.skills.domain.SkillTreeNode.Category
-            assertTrue(skillNode.children.any { it is io.askimo.core.skills.domain.SkillTreeNode.Category })
+            val skillNode = tree[0] as SkillTreeNode.Category
+            assertTrue(skillNode.children.any { it is SkillTreeNode.Category })
         }
 
         @Test
@@ -333,7 +335,7 @@ class SkillRepositoryTest {
             write("coding/formatter/skill.md", "---\nname: Formatter\n---\nContent")
             val tree = repo().getTree()
             assertEquals(1, tree.size)
-            val category = tree[0] as io.askimo.core.skills.domain.SkillTreeNode.Category
+            val category = tree[0] as SkillTreeNode.Category
             assertEquals("coding", category.name)
             assertEquals(2, category.children.size)
         }
@@ -684,10 +686,10 @@ class SkillRepositoryTest {
             gitDir.resolve("config").writeText("[core]")
 
             val tree = repo().getTree()
-            fun collectNames(nodes: List<io.askimo.core.skills.domain.SkillTreeNode>): List<String> = nodes.flatMap { node ->
+            fun collectNames(nodes: List<SkillTreeNode>): List<String> = nodes.flatMap { node ->
                 when (node) {
-                    is io.askimo.core.skills.domain.SkillTreeNode.Category -> listOf(node.name) + collectNames(node.children)
-                    is io.askimo.core.skills.domain.SkillTreeNode.Leaf -> emptyList()
+                    is SkillTreeNode.Category -> listOf(node.name) + collectNames(node.children)
+                    is SkillTreeNode.Leaf -> emptyList()
                 }
             }
             val categoryNames = collectNames(tree)

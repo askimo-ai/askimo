@@ -6,6 +6,8 @@ package io.askimo.core.db
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import io.askimo.core.agent.repository.SkillRunHistoryRepository
+import io.askimo.core.agent.repository.WorkspaceRepository
 import io.askimo.core.chat.repository.ChatDirectiveRepository
 import io.askimo.core.chat.repository.ChatMessageAttachmentRepository
 import io.askimo.core.chat.repository.ChatMessageRepository
@@ -16,8 +18,6 @@ import io.askimo.core.chat.repository.ResourceSegmentRepository
 import io.askimo.core.chat.repository.SessionMemoryRepository
 import io.askimo.core.chat.repository.UserMemoryRepository
 import io.askimo.core.plan.repository.PlanExecutionRepository
-import io.askimo.core.skills.repository.SkillRunHistoryRepository
-import io.askimo.core.skills.repository.WorkspaceRepository
 import io.askimo.core.telemetry.LlmUsageRepository
 import io.askimo.core.user.repository.UserProfileRepository
 import io.askimo.core.util.AskimoHome
@@ -738,6 +738,26 @@ class DatabaseManager private constructor(
                 stmt.executeUpdate("ALTER TABLE skill_run_history ADD COLUMN workspace_dir TEXT")
             } catch (_: Exception) {
                 // Column already exists — safe to ignore.
+            }
+
+            // Migration: add best-effort token usage / duration columns. NULL = agent didn't
+            // report structured usage for that run (e.g. Codex today) — additive-only,
+            // no backfill for existing rows, consistent with the chat_messages precedent.
+            try {
+                stmt.executeUpdate("ALTER TABLE skill_run_history ADD COLUMN input_tokens INTEGER")
+            } catch (_: Exception) {
+            }
+            try {
+                stmt.executeUpdate("ALTER TABLE skill_run_history ADD COLUMN output_tokens INTEGER")
+            } catch (_: Exception) {
+            }
+            try {
+                stmt.executeUpdate("ALTER TABLE skill_run_history ADD COLUMN total_tokens INTEGER")
+            } catch (_: Exception) {
+            }
+            try {
+                stmt.executeUpdate("ALTER TABLE skill_run_history ADD COLUMN duration_ms INTEGER")
+            } catch (_: Exception) {
             }
 
             stmt.executeUpdate(

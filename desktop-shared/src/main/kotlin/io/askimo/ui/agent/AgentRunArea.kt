@@ -1,0 +1,931 @@
+/* SPDX-License-Identifier: AGPLv3
+ *
+ * Copyright (c) 2026 Askimo
+ */
+package io.askimo.ui.agent
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
+import io.askimo.core.agent.AgentUsage
+import io.askimo.core.agent.ExternalAgent
+import io.askimo.core.agent.ExternalAgentLoader
+import io.askimo.core.agent.domain.SkillDefinition
+import io.askimo.core.agent.domain.SkillRunRecord
+import io.askimo.core.chat.dto.ChatMessageDTO
+import io.askimo.core.chat.dto.ToolCallInfo
+import io.askimo.core.chat.dto.ToolCallStatus
+import io.askimo.core.db.DatabaseManager
+import io.askimo.ui.chat.messageList
+import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.keymap.KeyMapManager
+import io.askimo.ui.common.keymap.onImeAwarePreviewKeyEvent
+import io.askimo.ui.common.preferences.ApplicationPreferences
+import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppComponents.dropdownMenu
+import io.askimo.ui.common.theme.AppTextStyles
+import io.askimo.ui.common.theme.Spacing
+import io.askimo.ui.common.theme.ThemePreferences
+import io.askimo.ui.common.ui.themedTooltip
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.time.Instant
+import kotlin.time.Duration.Companion.milliseconds
+
+/** Sentinel skill path used for agentic runs that span multiple skills. */
+internal const val AGENTIC_RUN_SKILL_PATH = "__agentic__"
+
+private enum class AgentCardState {
+    NOT_INSTALLED,
+    NEEDS_SETUP,
+    READY,
+}
+
+/** Appends [token] to the trailing streaming AI message, creating one first if none exists. */
+private fun List<ChatMessageDTO>.appendToken(token: String): List<ChatMessageDTO> {
+    val idx = indexOfLast { !it.isUser && it.id == null }
+    if (idx < 0) {
+        return this + ChatMessageDTO(id = null, content = token, isUser = false, timestamp = null)
+    }
+    val updated = this[idx].copy(content = this[idx].content + token)
+    return toMutableList().also { it[idx] = updated }
+}
+
+/** Ensures a (possibly empty) streaming AI placeholder message exists, so tool/thinking chips can render before the first token arrives. */
+private fun List<ChatMessageDTO>.ensureStreamingAiMessage(): List<ChatMessageDTO> {
+    if (any { !it.isUser && it.id == null }) return this
+    return this + ChatMessageDTO(id = null, content = "", isUser = false, timestamp = null)
+}
+
+/** Finalizes the trailing streaming AI message: assigns a stable id and marks failure/content/usage. */
+private fun List<ChatMessageDTO>.finalizeStreamingAiMessage(
+    finalContent: String,
+    isFailed: Boolean,
+    usage: AgentUsage? = null,
+): List<ChatMessageDTO> {
+    val idx = indexOfLast { !it.isUser && it.id == null }
+    if (idx < 0) return this
+    val updated = this[idx].copy(
+        id = "ai-${System.nanoTime()}",
+        content = finalContent,
+        timestamp = Instant.now(),
+        isFailed = isFailed,
+        inputTokens = usage?.inputTokens,
+        outputTokens = usage?.outputTokens,
+        totalTokens = usage?.totalTokens,
+        durationMs = usage?.durationMs,
+    )
+    return toMutableList().also { it[idx] = updated }
+}
+
+/**
+ * Autonomous run area — user selects an agent and describes a goal;
+ * the agent decides which skills to apply based on the full skills catalog
+ * injected as its system prompt context.
+ */
+@Composable
+internal fun agenticRunArea(
+    skills: List<SkillDefinition>,
+    workDir: File,
+    onRunCompleted: () -> Unit = {},
+    onNavigateToSkillsSettings: () -> Unit = {},
+    preloadRecord: SkillRunRecord? = null,
+    onPreloadConsumed: () -> Unit = {},
+) {
+    val scope = rememberCoroutineScope()
+    val historyRepo = remember { DatabaseManager.getInstance().getSkillRunHistoryRepository() }
+
+    // ── Agent state ──────────────────────────────────────────────────────────
+    val allAgents = remember { ExternalAgentLoader.all() }
+    var agentStateVersion by remember { mutableStateOf(0) }
+    var agentStateMap by remember { mutableStateOf(mapOf<String, AgentCardState>()) }
+    LaunchedEffect(agentStateVersion) {
+        val map = withContext(Dispatchers.IO) {
+            allAgents.associate { agent ->
+                agent.id to when {
+                    !agent.isBinaryAvailable() -> AgentCardState.NOT_INSTALLED
+                    !agent.isConfigured() -> AgentCardState.NEEDS_SETUP
+                    else -> AgentCardState.READY
+                }
+            }
+        }
+        agentStateMap = map
+    }
+
+    var selectedAgentId by remember {
+        mutableStateOf(ApplicationPreferences.getSkillsSelectedAgentId())
+    }
+    // Resolve selected agent; fall back to first ready one if saved pref is unavailable
+    val selectedAgent = remember(selectedAgentId, allAgents, agentStateMap) {
+        allAgents.firstOrNull { it.id == selectedAgentId && agentStateMap[it.id] == AgentCardState.READY }
+            ?: allAgents.firstOrNull { agentStateMap[it.id] == AgentCardState.READY }
+    }
+
+    val selectedAgentRaw = remember(selectedAgentId, allAgents) {
+        allAgents.firstOrNull { it.id == selectedAgentId } ?: allAgents.firstOrNull()
+    }
+    val selectedAgentReady = agentStateMap[selectedAgent?.id] == AgentCardState.READY
+    var agentDropdownExpanded by remember { mutableStateOf(false) }
+
+    // ── Run state ────────────────────────────────────────────────────────────
+    // Single persistent chat input — mirrors chatView's inputText: the first send
+    // starts a new conversation, every subsequent send is a follow-up in the same
+    // conversation (continued via the agent's own session, see activeAgentSessionId).
+    var inputText by remember { mutableStateOf(TextFieldValue("")) }
+    var isRunning by remember { mutableStateOf(false) }
+
+    // The conversation transcript — rendered with ChatView's own messageList/messageBubble
+    // components so an agentic run looks and behaves exactly like a normal chat.
+    var messages by remember { mutableStateOf<List<ChatMessageDTO>>(emptyList()) }
+
+    // Ephemeral streaming state for the *current* turn only (mirrors ChatViewModel's
+    // activeToolCalls/activeThinkingContent) — applied to the trailing streaming AI message.
+    var activeToolCalls by remember { mutableStateOf<List<ToolCallInfo>>(emptyList()) }
+    var activeThinkingContent by remember { mutableStateOf("") }
+    // True from the moment a run starts until the first token/tool-call/thinking chunk
+    // arrives — mirrors ChatViewModel.isThinking (shows the "Thinking…" spinner row).
+    var isWaitingForFirstEvent by remember { mutableStateOf(false) }
+
+    // Accumulates this turn's raw response text — used only to build the SkillRunRecord
+    // saved to history; the displayed transcript is `messages`.
+    var currentTurnResponse by remember { mutableStateOf("") }
+
+    var elapsedSeconds by remember { mutableStateOf(0) }
+    var skillsListExpanded by remember { mutableStateOf(false) }
+
+    // Native session id of the currently active conversation, captured from the agent's own
+    // execution metadata (e.g. Claude Code's session_id). The external agent — not Askimo —
+    // owns the conversation memory/context for this id; follow-up turns pass it back so the
+    // agent's CLI can resume that same conversation (e.g. `claude --resume <id>`) instead of
+    // Askimo reconstructing/replaying prior turns as text.
+    var activeAgentSessionId by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(isRunning) {
+        if (isRunning) {
+            elapsedSeconds = 0
+            while (isRunning) {
+                delay(1_000.milliseconds)
+                elapsedSeconds++
+            }
+        }
+    }
+
+    // Build the combined skills catalog once; re-builds only when skills list changes
+    val agenticSystemPrompt = remember(skills) { buildAgenticSystemPrompt(skills) }
+
+    // ── Execution ────────────────────────────────────────────────────────────
+
+    /**
+     * Runs one turn of an agentic conversation.
+     *
+     * When [isNewConversation] is `true` this starts a brand-new conversation (fresh
+     * transcript, no resume id). Otherwise it continues the conversation identified by
+     * [activeAgentSessionId] via the agent's native resume mechanism — Askimo does not
+     * replay prior [messages] back to the agent as text; the agent's own CLI session
+     * owns that context.
+     */
+    fun executeAgentic(agent: ExternalAgent, input: String, isNewConversation: Boolean) {
+        val resumeSessionId = if (isNewConversation) null else activeAgentSessionId
+        isRunning = true
+        isWaitingForFirstEvent = true
+        activeToolCalls = emptyList()
+        activeThinkingContent = ""
+        currentTurnResponse = ""
+        if (isNewConversation) {
+            messages = emptyList()
+            activeAgentSessionId = null
+        }
+
+        val userMessage = ChatMessageDTO(
+            id = "user-${System.nanoTime()}",
+            content = input,
+            isUser = true,
+            timestamp = Instant.now(),
+        )
+        messages = messages + userMessage
+
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                // Materialize every skill in the catalog into the agent's own native
+                // skill-discovery location (e.g. Claude Code's `.claude/skills/<name>/`) so its
+                // built-in Skill tool can find and invoke them — not just rely on the full skill
+                // text injected into agenticSystemPrompt below, which the agent can only read as
+                // background instructions, not "run" as a discrete skill.
+                val materialized = skills.map { skill -> agent.materializeSkill(skill, workDir) }
+                try {
+                    agent.runTracked(
+                        systemPrompt = agenticSystemPrompt,
+                        userInput = input,
+                        workDir = workDir,
+                        resumeSessionId = resumeSessionId,
+                        onToken = { token ->
+                            scope.launch {
+                                isWaitingForFirstEvent = false
+                                currentTurnResponse += token
+                                messages = messages.appendToken(token)
+                            }
+                        },
+                        onStatus = { status ->
+                            scope.launch {
+                                isWaitingForFirstEvent = false
+                                activeToolCalls = activeToolCalls + ToolCallInfo(toolName = status, status = ToolCallStatus.DONE)
+                                messages = messages.ensureStreamingAiMessage()
+                            }
+                        },
+                        onThinking = { chunk ->
+                            scope.launch {
+                                isWaitingForFirstEvent = false
+                                activeThinkingContent += chunk
+                                messages = messages.ensureStreamingAiMessage()
+                            }
+                        },
+                    )
+                } finally {
+                    materialized.forEach { it.close() }
+                }
+            }
+            // Update state on the same coroutine, right after the run completes, so the
+            // error (if any) is guaranteed to be captured before we build the history record
+            // below — no race with a separately-launched coroutine.
+            val errorText = result.exceptionOrNull()?.message
+            isRunning = false
+            isWaitingForFirstEvent = false
+
+            // Capture (or keep) the session id so the next follow-up turn can resume this
+            // exact conversation. Falls back to the id we resumed with in case this agent's
+            // CLI doesn't re-emit one on every turn.
+            activeAgentSessionId = agent.lastExecutionSessionId ?: resumeSessionId
+
+            // Best-effort token usage / duration reported by the agent's own stream for this
+            // turn (e.g. Claude's/Antigravity's "result" event). Null fields are hidden by
+            // MessageComponents' token-usage row — not every agent (e.g. Codex) exposes this.
+            val usage = agent.lastExecutionUsage
+
+            // Guarantee a bubble exists even if the run failed before any token/tool/thinking
+            // event arrived, then finalize it (stable id, failure flag) so it stops "streaming".
+            messages = messages
+                .ensureStreamingAiMessage()
+                .finalizeStreamingAiMessage(
+                    finalContent = currentTurnResponse.ifBlank { errorText.orEmpty() },
+                    isFailed = errorText != null,
+                    usage = usage,
+                )
+
+            val record = SkillRunRecord(
+                skillPath = AGENTIC_RUN_SKILL_PATH,
+                userInput = input,
+                response = currentTurnResponse,
+                error = errorText,
+                agentSessionId = activeAgentSessionId,
+                workspaceDir = agent.lastExecutionWorkspaceDir ?: workDir.absolutePath,
+                activityLog = activeToolCalls.map { it.toolName },
+                inputTokens = usage?.inputTokens,
+                outputTokens = usage?.outputTokens,
+                totalTokens = usage?.totalTokens,
+                durationMs = usage?.durationMs,
+            )
+            withContext(Dispatchers.IO) { historyRepo.save(record) }
+            onRunCompleted()
+        }
+    }
+
+    fun sendMessage() {
+        val agent = selectedAgent ?: return
+        val text = inputText.text.trim()
+        if (text.isBlank() || !selectedAgentReady || isRunning) return
+
+        // First message in an empty transcript starts a new conversation;
+        // any message after that continues it via the agent's own resume mechanism.
+        val isNewConversation = messages.isEmpty()
+        inputText = TextFieldValue("")
+        executeAgentic(agent, text, isNewConversation = isNewConversation)
+    }
+
+    /** Resets the transcript so the next send starts a brand-new agent conversation. */
+    fun startNewConversation() {
+        inputText = TextFieldValue("")
+        messages = emptyList()
+        activeToolCalls = emptyList()
+        activeThinkingContent = ""
+        currentTurnResponse = ""
+        activeAgentSessionId = null
+    }
+
+    LaunchedEffect(preloadRecord) {
+        if (preloadRecord != null) {
+            inputText = TextFieldValue("")
+            val ts = preloadRecord.createdAt
+            messages = listOf(
+                ChatMessageDTO(
+                    id = "${preloadRecord.id}-user",
+                    content = preloadRecord.userInput,
+                    isUser = true,
+                    timestamp = ts,
+                ),
+                ChatMessageDTO(
+                    id = "${preloadRecord.id}-ai",
+                    content = preloadRecord.response.ifBlank { preloadRecord.error.orEmpty() },
+                    isUser = false,
+                    timestamp = ts,
+                    isFailed = preloadRecord.error != null,
+                    inputTokens = preloadRecord.inputTokens,
+                    outputTokens = preloadRecord.outputTokens,
+                    totalTokens = preloadRecord.totalTokens,
+                    durationMs = preloadRecord.durationMs,
+                ),
+            )
+            activeToolCalls = emptyList()
+            activeThinkingContent = ""
+            currentTurnResponse = preloadRecord.response
+            // Restore the agent's own session id so a follow-up on a re-opened history
+            // entry continues that same conversation rather than starting a new one.
+            activeAgentSessionId = preloadRecord.agentSessionId
+            isRunning = false
+            isWaitingForFirstEvent = false
+            onPreloadConsumed()
+        }
+    }
+
+    // ── UI ───────────────────────────────────────────────────────────────────
+    // Mirrors chatView's layout: a scrollable transcript takes the remaining
+    // vertical space, with a single chat input pinned to the bottom.
+    val transcriptScroll = rememberScrollState()
+
+    // Auto-scroll to the bottom as new content streams in.
+    LaunchedEffect(messages.size, messages.lastOrNull()?.content, activeThinkingContent, activeToolCalls.size) {
+        transcriptScroll.animateScrollTo(transcriptScroll.maxValue)
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(transcriptScroll)
+                    .padding(end = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
+                        .fillMaxWidth()
+                        .padding(start = 24.dp, end = 12.dp, top = 8.dp, bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.medium),
+                ) {
+                    // ── Skills-as-context pill row ───────────────────────────────────────
+                    if (skills.isNotEmpty()) {
+                        var pillHeightPx by remember { mutableStateOf(0) }
+                        Box {
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                shape = MaterialTheme.shapes.small,
+                                modifier = Modifier
+                                    .clickable(onClick = { skillsListExpanded = true })
+                                    .pointerHoverIcon(PointerIcon.Hand)
+                                    .onGloballyPositioned { coordinates -> pillHeightPx = coordinates.size.height },
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = Spacing.medium, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                                ) {
+                                    Icon(
+                                        Icons.Default.Extension,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Text(
+                                        text = stringResource("skills.agentic.skills.available", skills.size),
+                                        style = AppTextStyles.hint,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    val maxVisible = 4
+                                    skills.take(maxVisible).forEach { skill ->
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f),
+                                            shape = MaterialTheme.shapes.extraSmall,
+                                        ) {
+                                            Text(
+                                                text = skill.name,
+                                                style = AppTextStyles.hint,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                maxLines = 1,
+                                            )
+                                        }
+                                    }
+                                    if (skills.size > maxVisible) {
+                                        Text(
+                                            text = "+${skills.size - maxVisible}",
+                                            style = AppTextStyles.hint,
+                                        )
+                                    }
+                                    Icon(
+                                        Icons.Default.ExpandMore,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+
+                            if (skillsListExpanded) {
+                                val skillsScrollState = rememberScrollState()
+                                Popup(
+                                    alignment = Alignment.TopStart,
+                                    offset = IntOffset(0, pillHeightPx + with(LocalDensity.current) { 4.dp.roundToPx() }),
+                                    onDismissRequest = { skillsListExpanded = false },
+                                    properties = PopupProperties(focusable = true),
+                                ) {
+                                    MaterialTheme(colorScheme = AppComponents.popupColorScheme()) {
+                                        Surface(
+                                            modifier = Modifier.width(380.dp),
+                                            color = AppComponents.popupContainerColor(),
+                                            border = AppComponents.popupBorderStroke(),
+                                            shape = RoundedCornerShape(8.dp),
+                                            tonalElevation = AppComponents.popupSurfaceTonalElevation,
+                                            shadowElevation = AppComponents.popupElevation,
+                                        ) {
+                                            Column {
+                                                // ── Scrollable skill list (height wraps content, capped) ──
+                                                Box(modifier = Modifier.heightIn(max = 320.dp)) {
+                                                    Column(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .verticalScroll(skillsScrollState)
+                                                            .padding(vertical = Spacing.extraSmall),
+                                                    ) {
+                                                        skills.forEach { skill ->
+                                                            Row(
+                                                                modifier = Modifier
+                                                                    .fillMaxWidth()
+                                                                    .clickable(onClick = { skillsListExpanded = false })
+                                                                    .pointerHoverIcon(PointerIcon.Hand)
+                                                                    .padding(horizontal = Spacing.medium, vertical = Spacing.small),
+                                                                verticalAlignment = Alignment.Top,
+                                                                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                                                            ) {
+                                                                Icon(
+                                                                    Icons.Default.Extension,
+                                                                    contentDescription = null,
+                                                                    modifier = Modifier.size(16.dp).padding(top = 2.dp),
+                                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                )
+                                                                Column {
+                                                                    Text(
+                                                                        text = skill.name,
+                                                                        style = AppTextStyles.body,
+                                                                        maxLines = 1,
+                                                                        overflow = TextOverflow.Ellipsis,
+                                                                    )
+                                                                    if (skill.description.isNotBlank()) {
+                                                                        Text(
+                                                                            text = skill.description,
+                                                                            style = AppTextStyles.hint,
+                                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                            maxLines = 2,
+                                                                            overflow = TextOverflow.Ellipsis,
+                                                                        )
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                    VerticalScrollbar(
+                                                        adapter = rememberScrollbarAdapter(skillsScrollState),
+                                                        modifier = Modifier.matchParentSize().padding(end = 2.dp),
+                                                        style = AppComponents.scrollbarStyle(),
+                                                    )
+                                                }
+
+                                                // ── Sticky footer — always visible, outside the scroll area ──
+                                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .clickable(
+                                                            onClick = {
+                                                                skillsListExpanded = false
+                                                                onNavigateToSkillsSettings()
+                                                            },
+                                                        )
+                                                        .pointerHoverIcon(PointerIcon.Hand)
+                                                        .padding(horizontal = Spacing.medium, vertical = Spacing.medium),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                ) {
+                                                    Text(
+                                                        text = stringResource("skills.view.manage"),
+                                                        style = AppTextStyles.body,
+                                                        color = MaterialTheme.colorScheme.primary,
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                            shape = MaterialTheme.shapes.small,
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = Spacing.medium, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                            ) {
+                                Icon(
+                                    Icons.Default.Extension,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                )
+                                Text(
+                                    text = stringResource("skills.agentic.no.skills.hint"),
+                                    style = AppTextStyles.hint,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                TextButton(
+                                    onClick = onNavigateToSkillsSettings,
+                                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                ) {
+                                    Text(text = stringResource("skills.view.manage"), style = AppTextStyles.hint)
+                                }
+                            }
+                        }
+                    }
+
+                    // ── Agent setup hint (needs auth) ────────────────────────────────────
+                    if (agentStateMap[selectedAgentRaw?.id] == AgentCardState.NEEDS_SETUP) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
+                            shape = MaterialTheme.shapes.small,
+                        ) {
+                            Column(modifier = Modifier.padding(Spacing.medium), verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+                                Text(
+                                    text = selectedAgentRaw?.configurationHint ?: "",
+                                    style = AppTextStyles.caption,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                )
+                            }
+                        }
+                    }
+
+                    // ── Conversation transcript — same components as ChatView ────────────
+                    if (messages.isNotEmpty() || isRunning) {
+                        messageList(
+                            messages = messages,
+                            isThinking = isWaitingForFirstEvent,
+                            thinkingElapsedSeconds = elapsedSeconds,
+                            activeToolCalls = activeToolCalls,
+                            activeThinkingContent = activeThinkingContent,
+                        )
+                    } else {
+                        // ── Empty-state hint — shown before the first message is sent ────
+                        Text(
+                            text = stringResource("skills.agentic.goal.placeholder"),
+                            style = AppTextStyles.hint,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.padding(top = Spacing.medium),
+                        )
+                    }
+                }
+            }
+
+            VerticalScrollbar(
+                adapter = rememberScrollbarAdapter(transcriptScroll),
+                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 2.dp),
+                style = AppComponents.scrollbarStyle(),
+            )
+        }
+
+        // ── Persistent chat input — pinned to the bottom ────────────────────────
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Column(
+                modifier = Modifier
+                    .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
+                    .fillMaxWidth()
+                    .padding(start = 24.dp, end = 36.dp, top = 8.dp, bottom = 16.dp),
+            ) {
+                var modelDropdownExpanded by remember { mutableStateOf(false) }
+
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = inputText,
+                        onValueChange = { inputText = it },
+                        placeholder = { Text(stringResource("skills.agentic.goal.placeholder")) },
+                        enabled = !isRunning,
+                        modifier = Modifier.fillMaxWidth()
+                            .onImeAwarePreviewKeyEvent(inputText.composition) { keyEvent ->
+                                when (KeyMapManager.handleKeyEvent(keyEvent)) {
+                                    KeyMapManager.AppShortcut.NEW_LINE -> {
+                                        val cursor = inputText.selection.start
+                                        val newText = inputText.text.substring(0, cursor) + "\n" + inputText.text.substring(cursor)
+                                        inputText = TextFieldValue(text = newText, selection = TextRange(cursor + 1))
+                                        true
+                                    }
+
+                                    KeyMapManager.AppShortcut.SEND_MESSAGE -> {
+                                        if (inputText.text.isNotBlank() && selectedAgentReady && !isRunning) {
+                                            sendMessage()
+                                        }
+                                        true
+                                    }
+
+                                    else -> false
+                                }
+                            },
+                        minLines = 4,
+                        maxLines = 10,
+                        colors = AppComponents.outlinedTextFieldColors(),
+                    )
+
+                    // ── Model selector — overlaid inside the field, bottom-left ────────
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(bottom = 6.dp, start = 8.dp),
+                    ) {
+                        Surface(
+                            shape = MaterialTheme.shapes.small,
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)),
+                            modifier = Modifier
+                                .clickable(enabled = !isRunning, onClick = { modelDropdownExpanded = true })
+                                .pointerHoverIcon(PointerIcon.Hand),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(
+                                    text = stringResource("skills.agentic.model.default"),
+                                    style = AppTextStyles.hint,
+                                )
+                                Icon(
+                                    Icons.Default.ExpandMore,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(12.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                )
+                            }
+                        }
+                        dropdownMenu(
+                            expanded = modelDropdownExpanded,
+                            onDismissRequest = { modelDropdownExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = stringResource("skills.agentic.model.default"),
+                                        style = AppTextStyles.body,
+                                    )
+                                },
+                                onClick = { modelDropdownExpanded = false },
+                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                            )
+                        }
+                    }
+
+                    // ── New-conversation + agent picker + elapsed timer + Send — overlaid bottom-right ──
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(bottom = 6.dp, end = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        // Elapsed timer while running
+                        if (isRunning) {
+                            Text(
+                                text = "${elapsedSeconds}s",
+                                style = AppTextStyles.hint,
+                            )
+                        }
+
+                        // Start a new conversation — only relevant once one is underway.
+                        if (messages.isNotEmpty()) {
+                            themedTooltip(text = stringResource("chat.new")) {
+                                IconButton(
+                                    onClick = { startNewConversation() },
+                                    enabled = !isRunning,
+                                    modifier = Modifier
+                                        .size(30.dp)
+                                        .pointerHoverIcon(PointerIcon.Hand),
+                                ) {
+                                    Icon(
+                                        Icons.Default.Add,
+                                        contentDescription = stringResource("chat.new"),
+                                        modifier = Modifier.size(16.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+
+                        // Agent picker pill
+                        Box {
+                            Surface(
+                                shape = MaterialTheme.shapes.small,
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)),
+                                modifier = Modifier
+                                    .clickable(enabled = allAgents.isNotEmpty() && !isRunning, onClick = { agentDropdownExpanded = true })
+                                    .pointerHoverIcon(PointerIcon.Hand),
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(6.dp)
+                                            .background(
+                                                color = when (agentStateMap[selectedAgent?.id]) {
+                                                    AgentCardState.READY -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.8f)
+                                                    AgentCardState.NEEDS_SETUP -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f)
+                                                    else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                                                },
+                                                shape = MaterialTheme.shapes.extraSmall,
+                                            ),
+                                    )
+                                    Text(
+                                        text = selectedAgent?.name ?: stringResource("skills.view.no.agent"),
+                                        style = AppTextStyles.hint,
+                                    )
+                                    Icon(
+                                        Icons.Default.ExpandMore,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(12.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    )
+                                }
+                            }
+                            dropdownMenu(expanded = agentDropdownExpanded, onDismissRequest = { agentDropdownExpanded = false }) {
+                                allAgents.forEach { agent ->
+                                    val agentState = agentStateMap[agent.id] ?: AgentCardState.NOT_INSTALLED
+                                    val agentReady = agentState == AgentCardState.READY
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(7.dp)
+                                                        .background(
+                                                            color = when (agentState) {
+                                                                AgentCardState.READY -> MaterialTheme.colorScheme.tertiary
+                                                                AgentCardState.NEEDS_SETUP -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f)
+                                                                AgentCardState.NOT_INSTALLED -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                                                            },
+                                                            shape = MaterialTheme.shapes.extraSmall,
+                                                        ),
+                                                )
+                                                Text(
+                                                    text = agent.name,
+                                                    style = AppTextStyles.body,
+                                                )
+                                                if (!agentReady) {
+                                                    Text(
+                                                        text = stringResource("skills.view.agent.not.installed"),
+                                                        style = AppTextStyles.hint,
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        onClick = {
+                                            selectedAgentId = agent.id
+                                            ApplicationPreferences.setSkillsSelectedAgentId(agent.id)
+                                            agentDropdownExpanded = false
+                                            agentStateVersion++
+                                            // A resume/session id is only meaningful to the CLI that produced it.
+                                            activeAgentSessionId = null
+                                        },
+                                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                                    )
+                                }
+                            }
+                        }
+
+                        // Send button
+                        IconButton(
+                            onClick = { sendMessage() },
+                            enabled = selectedAgentReady && inputText.text.isNotBlank() && !isRunning,
+                            colors = AppComponents.primaryIconButtonColors(),
+                            modifier = Modifier
+                                .size(36.dp)
+                                .pointerHoverIcon(PointerIcon.Hand),
+                        ) {
+                            Icon(
+                                imageVector = if (isRunning) Icons.Default.Refresh else Icons.Default.PlayArrow,
+                                contentDescription = if (isRunning) {
+                                    stringResource("skills.view.running")
+                                } else {
+                                    stringResource("skills.agentic.run")
+                                },
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── System prompt builder ──────────────────────────────────────────────────
+
+/**
+ * Builds a combined system prompt that injects all available skills as a
+ * named catalog. The agent reads the goal and applies the most relevant skill(s).
+ */
+internal fun buildAgenticSystemPrompt(skills: List<SkillDefinition>): String = buildString {
+    if (skills.isEmpty()) {
+        appendLine("You are an autonomous assistant. Accomplish the user's goal using your best judgment.")
+        return@buildString
+    }
+    appendLine("You are an autonomous assistant with access to the following specialized skill sets.")
+    appendLine("Review the user's goal and autonomously select and apply the most relevant skill(s) to accomplish it.")
+    appendLine("You may combine multiple skills when the goal spans several areas.")
+    appendLine()
+    appendLine("## Available Skills")
+    appendLine()
+    skills.forEach { skill ->
+        append("### ")
+        appendLine(skill.name)
+        if (skill.description.isNotBlank()) {
+            append("> ")
+            appendLine(skill.description)
+            appendLine()
+        }
+        appendLine(skill.content.trim())
+        appendLine()
+        appendLine("---")
+        appendLine()
+    }
+}

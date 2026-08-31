@@ -7,6 +7,7 @@ package io.askimo.ui.mcp
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,11 +22,6 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -735,7 +731,6 @@ private fun templateParameterFields(
  *
  * [protocolVersion] is `null` when auto-detection is desired (the default).
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun advancedTransportFields(
     selectedTab: Int,
@@ -758,7 +753,7 @@ private fun advancedTransportFields(
     onProtocolVersionChange: (String?) -> Unit,
 ) {
     // Known protocol versions — null sentinel = auto-detect
-    val versions: List<String?> = listOf(null, "2025-11-25", "2024-11-05")
+    val versions: List<String?> = listOf(null, "2026-07-28", "2025-11-25", "2025-06-18", "2024-11-05")
     var protocolVersionExpanded by remember { mutableStateOf(false) }
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
@@ -875,33 +870,47 @@ private fun advancedTransportFields(
         HorizontalDivider()
 
         // ── Protocol version ──────────────────────────────────────────────
-        ExposedDropdownMenuBox(
-            expanded = protocolVersionExpanded,
-            onExpandedChange = { protocolVersionExpanded = it },
-        ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = protocolVersion ?: stringResource("mcp.instance.protocol.version.auto"),
                 onValueChange = {},
                 readOnly = true,
                 label = { Text(stringResource("mcp.instance.protocol.version.label")) },
                 supportingText = { Text(stringResource("mcp.instance.protocol.version.hint")) },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = protocolVersionExpanded) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                trailingIcon = {
+                    Icon(
+                        imageVector = if (protocolVersionExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = null,
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
                 colors = AppComponents.outlinedTextFieldColors(),
             )
-            ExposedDropdownMenu(
+            // Transparent click interceptor — captures the click before the read-only TextField does
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clickable { protocolVersionExpanded = true }
+                    .pointerHoverIcon(PointerIcon.Hand),
+            )
+            AppComponents.dropdownMenu(
                 expanded = protocolVersionExpanded,
                 onDismissRequest = { protocolVersionExpanded = false },
             ) {
-                versions.forEach { v ->
-                    DropdownMenuItem(
-                        text = { Text(v ?: stringResource("mcp.instance.protocol.version.auto")) },
+                versions.forEachIndexed { index, v ->
+                    AppComponents.themedDropdownMenuItem(
+                        text = {
+                            Text(
+                                text = v ?: stringResource("mcp.instance.protocol.version.auto"),
+                                style = AppTextStyles.body,
+                            )
+                        },
                         onClick = {
                             onProtocolVersionChange(v)
                             protocolVersionExpanded = false
                         },
+                        isSelected = v == protocolVersion,
+                        showDivider = index < versions.lastIndex,
                     )
                 }
             }

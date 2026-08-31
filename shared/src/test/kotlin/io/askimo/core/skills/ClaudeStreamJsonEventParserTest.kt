@@ -4,7 +4,7 @@
  */
 package io.askimo.core.skills
 
-import io.askimo.core.skills.agent.ClaudeStreamJsonEventParser
+import io.askimo.core.agent.ClaudeStreamJsonEventParser
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull

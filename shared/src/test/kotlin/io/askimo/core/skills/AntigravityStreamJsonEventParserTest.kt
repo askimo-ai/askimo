@@ -4,7 +4,7 @@
  */
 package io.askimo.core.skills
 
-import io.askimo.core.skills.agent.AntigravityStreamJsonEventParser
+import io.askimo.core.agent.AntigravityStreamJsonEventParser
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull

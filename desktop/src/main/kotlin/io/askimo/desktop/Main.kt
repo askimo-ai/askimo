@@ -99,6 +99,7 @@ import io.askimo.desktop.shell.footerBar
 import io.askimo.desktop.shell.navigationSidebar
 import io.askimo.desktop.shell.telemetryPanel
 import io.askimo.desktop.user.userProfileDialog
+import io.askimo.ui.agent.agenticSkillsView
 import io.askimo.ui.bookmarks.BookmarksViewModel
 import io.askimo.ui.bookmarks.bookmarksView
 import io.askimo.ui.chat.ChatViewModel
@@ -164,7 +165,6 @@ import io.askimo.ui.shell.rememberThemeState
 import io.askimo.ui.shell.splashScreen
 import io.askimo.ui.shell.starPromptDialog
 import io.askimo.ui.shell.systemResourcesDialog
-import io.askimo.ui.skills.agenticSkillsView
 import io.askimo.ui.terminal.PendingTerminalCommand
 import io.askimo.ui.terminal.terminalPanel
 import io.askimo.ui.util.Platform

@@ -7,11 +7,11 @@ package io.askimo.ui.discover
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import io.askimo.core.agent.repository.SkillRepository
 import io.askimo.core.chat.repository.ChatSessionRepository
 import io.askimo.core.chat.repository.ProjectRepository
 import io.askimo.core.mcp.McpInstanceService
 import io.askimo.core.plan.repository.PlanDefRepository
-import io.askimo.core.skills.SkillRepository
 import io.askimo.core.util.AskimoHome
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
