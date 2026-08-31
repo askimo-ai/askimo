@@ -10,6 +10,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.condition.DisabledOnOs
+import org.junit.jupiter.api.condition.OS
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
 import java.util.concurrent.CopyOnWriteArrayList
@@ -24,7 +26,14 @@ import kotlin.test.assertEquals
  * was broken. This verifies onWatchError actually fires, and fires only once even when many
  * directories fail the same way (e.g. an exhausted inotify limit would fail every directory
  * registered after the limit is hit — one toast, not hundreds).
+ *
+ * Skipped on Windows: this test simulates unreadable directories via POSIX file permissions,
+ * which Windows' filesystem/JVM does not support (Files.setPosixFilePermissions throws
+ * UnsupportedOperationException there). Windows has no equivalent cheap, reliable way to force
+ * a directory registration failure for a WatchService, so the "reported once" behavior is
+ * covered on POSIX platforms only.
  */
+@DisabledOnOs(OS.WINDOWS)
 class FileWatcherErrorReportingTest {
 
     @Test
