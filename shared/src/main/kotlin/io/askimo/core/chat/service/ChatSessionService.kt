@@ -746,7 +746,11 @@ class ChatSessionService(
             // utilization StateFlows are immediately live when ChatViewModel subscribes.
             // This is a fast local DB read (loads saved summary + message list) and safe
             // to call on the calling thread — the session already exists at this point.
-            getOrCreateSharedMemory(sessionId)
+            try {
+                getOrCreateSharedMemory(sessionId)
+            } catch (e: Exception) {
+                log.debug("Could not eagerly create shared memory for session $sessionId: ${e.message}")
+            }
 
             // Pre-create the full chat client (model + retriever) asynchronously in the
             // background — this is heavier and must not block UI message rendering.
