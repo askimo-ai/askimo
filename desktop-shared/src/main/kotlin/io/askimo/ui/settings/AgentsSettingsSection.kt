@@ -1073,7 +1073,7 @@ private fun skillsTreePanel(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = stringResource("settings.agents"),
+                text = stringResource("settings.agents.skills.title"),
                 style = AppTextStyles.itemTitle,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {

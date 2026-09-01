@@ -64,6 +64,7 @@ import io.askimo.core.agent.ExternalAgent
 import io.askimo.core.agent.ExternalAgentLoader
 import io.askimo.core.agent.domain.AgentRunRecord
 import io.askimo.core.agent.domain.SkillDefinition
+import io.askimo.core.agent.domain.Workspace
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.ToolCallInfo
 import io.askimo.core.chat.dto.ToolCallStatus
@@ -85,10 +86,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.Instant
+import java.util.UUID
 import kotlin.time.Duration.Companion.milliseconds
-
-/** Sentinel skill path used for agentic runs that span multiple skills. */
-internal const val AGENTIC_RUN_SKILL_PATH = "__agentic__"
 
 private enum class AgentCardState {
     NOT_INSTALLED,
@@ -141,12 +140,13 @@ private fun List<ChatMessageDTO>.finalizeStreamingAiMessage(
 @Composable
 internal fun agenticRunArea(
     skills: List<SkillDefinition>,
-    workDir: File,
+    workspace: Workspace,
     onRunCompleted: () -> Unit = {},
     onNavigateToSkillsSettings: () -> Unit = {},
     preloadRecord: AgentRunRecord? = null,
     onPreloadConsumed: () -> Unit = {},
 ) {
+    val workDir = remember(workspace.path) { File(workspace.path) }
     val scope = rememberCoroutineScope()
     val historyRepo = remember { DatabaseManager.getInstance().getAgentRunHistoryRepository() }
 
@@ -215,6 +215,11 @@ internal fun agenticRunArea(
     // Askimo reconstructing/replaying prior turns as text.
     var activeAgentSessionId by remember { mutableStateOf<String?>(null) }
 
+    // Askimo-side identifier grouping every turn of the current conversation together in
+    // history (see AgentRunRecord.conversationId) — independent of the agent's own session id
+    // above, so history stays grouped even for agents that don't expose a session id.
+    var activeConversationId by remember { mutableStateOf(UUID.randomUUID().toString()) }
+
     LaunchedEffect(isRunning) {
         if (isRunning) {
             elapsedSeconds = 0
@@ -249,6 +254,7 @@ internal fun agenticRunArea(
         if (isNewConversation) {
             messages = emptyList()
             activeAgentSessionId = null
+            activeConversationId = UUID.randomUUID().toString()
         }
 
         val userMessage = ChatMessageDTO(
@@ -327,12 +333,12 @@ internal fun agenticRunArea(
                 )
 
             val record = AgentRunRecord(
-                skillPath = AGENTIC_RUN_SKILL_PATH,
+                workspaceId = workspace.id,
+                conversationId = activeConversationId,
                 userInput = input,
                 response = currentTurnResponse,
                 error = errorText,
                 agentSessionId = activeAgentSessionId,
-                workspaceDir = agent.lastExecutionWorkspaceDir ?: workDir.absolutePath,
                 activityLog = activeToolCalls.map { it.toolName },
                 inputTokens = usage?.inputTokens,
                 outputTokens = usage?.outputTokens,
@@ -364,37 +370,44 @@ internal fun agenticRunArea(
         activeThinkingContent = ""
         currentTurnResponse = ""
         activeAgentSessionId = null
+        activeConversationId = UUID.randomUUID().toString()
     }
 
     LaunchedEffect(preloadRecord) {
         if (preloadRecord != null) {
             inputText = TextFieldValue("")
-            val ts = preloadRecord.createdAt
-            messages = listOf(
-                ChatMessageDTO(
-                    id = "${preloadRecord.id}-user",
-                    content = preloadRecord.userInput,
-                    isUser = true,
-                    timestamp = ts,
-                ),
-                ChatMessageDTO(
-                    id = "${preloadRecord.id}-ai",
-                    content = preloadRecord.response.ifBlank { preloadRecord.error.orEmpty() },
-                    isUser = false,
-                    timestamp = ts,
-                    isFailed = preloadRecord.error != null,
-                    inputTokens = preloadRecord.inputTokens,
-                    outputTokens = preloadRecord.outputTokens,
-                    totalTokens = preloadRecord.totalTokens,
-                    durationMs = preloadRecord.durationMs,
-                ),
-            )
+
+            val turns = withContext(Dispatchers.IO) {
+                historyRepo.findByConversationId(preloadRecord.conversationId)
+            }
+            messages = turns.flatMap { r ->
+                listOf(
+                    ChatMessageDTO(
+                        id = "${r.id}-user",
+                        content = r.userInput,
+                        isUser = true,
+                        timestamp = r.createdAt,
+                    ),
+                    ChatMessageDTO(
+                        id = "${r.id}-ai",
+                        content = r.response.ifBlank { r.error.orEmpty() },
+                        isUser = false,
+                        timestamp = r.createdAt,
+                        isFailed = r.error != null,
+                        inputTokens = r.inputTokens,
+                        outputTokens = r.outputTokens,
+                        totalTokens = r.totalTokens,
+                        durationMs = r.durationMs,
+                    ),
+                )
+            }
             activeToolCalls = emptyList()
             activeThinkingContent = ""
-            currentTurnResponse = preloadRecord.response
+            currentTurnResponse = turns.lastOrNull()?.response.orEmpty()
+            activeConversationId = preloadRecord.conversationId
             // Restore the agent's own session id so a follow-up on a re-opened history
             // entry continues that same conversation rather than starting a new one.
-            activeAgentSessionId = preloadRecord.agentSessionId
+            activeAgentSessionId = turns.lastOrNull()?.agentSessionId
             isRunning = false
             isWaitingForFirstEvent = false
             onPreloadConsumed()

@@ -39,7 +39,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.agent.domain.AgentRunRecord
@@ -60,17 +59,11 @@ private fun skillRunHistoryPanelRow(
     record: AgentRunRecord,
     onClick: () -> Unit,
     onDelete: () -> Unit,
-    showSkillName: Boolean = true,
 ) {
     val isError = record.error != null
     val timeLabel = RUN_TIME_FMT.format(record.createdAt)
-    val skillDisplayName = remember(record.skillPath) {
-        record.skillPath.substringAfterLast('/').substringAfterLast('\\').substringBeforeLast('.')
-    }
     val tooltipText = remember(record) {
         buildString {
-            append(skillDisplayName)
-            append(" · ")
             append(timeLabel)
             if (record.userInput.isNotBlank()) {
                 append("\n")
@@ -110,16 +103,6 @@ private fun skillRunHistoryPanelRow(
                 tint = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
             )
             Column(modifier = Modifier.weight(1f)) {
-                if (showSkillName) {
-                    Text(
-                        skillDisplayName,
-                        style = AppTextStyles.hint,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
                 Text(
                     timeLabel,
                     style = AppTextStyles.hint,
@@ -160,7 +143,6 @@ private fun skillRunHistoryPanelRow(
 @Composable
 internal fun skillsHistoryContent(
     runHistory: List<AgentRunRecord>,
-    filterSkillName: String? = null,
     onSelectRecord: (AgentRunRecord) -> Unit = {},
     onDeleteRecord: (AgentRunRecord) -> Unit = {},
 ) {
@@ -186,7 +168,6 @@ internal fun skillsHistoryContent(
                 runHistory.forEach { record ->
                     skillRunHistoryPanelRow(
                         record = record,
-                        showSkillName = filterSkillName == null,
                         onClick = { onSelectRecord(record) },
                         onDelete = { onDeleteRecord(record) },
                     )

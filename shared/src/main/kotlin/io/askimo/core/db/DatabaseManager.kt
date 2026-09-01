@@ -113,8 +113,8 @@ class DatabaseManager private constructor(
         createModelClassificationsTable(connection)
         createIndexFileStateTable(connection)
         createPlanExecutionsTable(connection)
-        createAgentRunHistoryTable(connection)
         createWorkspacesTable(connection)
+        createAgentRunHistoryTable(connection)
         createLlmUsageRecordsTable(connection)
     }
 
@@ -716,12 +716,12 @@ class DatabaseManager private constructor(
                 """
                 CREATE TABLE IF NOT EXISTS agent_run_history (
                     id               TEXT PRIMARY KEY,
-                    skill_path       TEXT NOT NULL,
+                    workspace_id     TEXT NOT NULL REFERENCES workspaces(id),
+                    conversation_id  TEXT NOT NULL,
                     user_input       TEXT NOT NULL DEFAULT '',
                     response         TEXT NOT NULL DEFAULT '',
                     error            TEXT,
                     agent_session_id TEXT,
-                    workspace_dir    TEXT,
                     activity_log     TEXT NOT NULL DEFAULT '',
                     input_tokens     INTEGER,
                     output_tokens    INTEGER,
@@ -734,8 +734,15 @@ class DatabaseManager private constructor(
 
             stmt.executeUpdate(
                 """
-                CREATE INDEX IF NOT EXISTS idx_agent_run_history_skill_path
-                ON agent_run_history (skill_path, created_at)
+                CREATE INDEX IF NOT EXISTS idx_agent_run_history_workspace
+                ON agent_run_history (workspace_id, created_at)
+                """.trimIndent(),
+            )
+
+            stmt.executeUpdate(
+                """
+                CREATE INDEX IF NOT EXISTS idx_agent_run_history_conversation
+                ON agent_run_history (conversation_id, created_at)
                 """.trimIndent(),
             )
         }
@@ -941,14 +948,6 @@ class DatabaseManager private constructor(
     fun getLlmUsageRepository(): LlmUsageRepository = _llmUsageRepository
 
     /**
-     * Get the singleton FileSegmentRepository instance (deprecated - use getResourceSegmentRepository).
-     * All access to file-segment mappings should go through this repository.
-     * @deprecated Use getResourceSegmentRepository() instead
-     */
-    @Deprecated("Use getResourceSegmentRepository() instead", ReplaceWith("getResourceSegmentRepository()"))
-    fun getFileSegmentRepository(): ResourceSegmentRepository = _resourceSegmentRepository
-
-    /**
      * Closes the HikariCP connection pool and releases all database resources.
      */
     override fun close() {
@@ -967,18 +966,6 @@ class DatabaseManager private constructor(
          */
         @Synchronized
         fun getInstance(): DatabaseManager = instance ?: DatabaseManager().also { instance = it }
-
-        /**
-         * Create a test-scoped DatabaseManager with a unique database file.
-         * This allows test isolation by using different database files per test class.
-         *
-         * @param testScope The test class instance (typically use `this` in companion object)
-         * @return A new DatabaseManager instance with a unique database file
-         */
-        fun getTestInstance(testScope: Any): DatabaseManager {
-            val testDbName = "test_${testScope.javaClass.simpleName}_${System.nanoTime()}.db"
-            return DatabaseManager(databaseFileName = testDbName)
-        }
 
         /**
          * Create an in-memory test DatabaseManager.

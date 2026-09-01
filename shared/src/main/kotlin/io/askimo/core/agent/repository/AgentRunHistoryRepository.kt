@@ -36,12 +36,12 @@ class AgentRunHistoryRepository internal constructor(
         transaction(database) {
             AgentRunHistoryTable.insert {
                 it[id] = record.id
-                it[skillPath] = record.skillPath
+                it[workspaceId] = record.workspaceId
+                it[conversationId] = record.conversationId
                 it[userInput] = record.userInput
                 it[response] = record.response
                 it[error] = record.error
                 it[agentSessionId] = record.agentSessionId
-                it[workspaceDir] = record.workspaceDir
                 it[activityLog] = encodeLog(record.activityLog)
                 it[inputTokens] = record.inputTokens
                 it[outputTokens] = record.outputTokens
@@ -50,7 +50,7 @@ class AgentRunHistoryRepository internal constructor(
                 it[createdAt] = record.createdAt
             }
         }
-        log.debug("Saved skill run record '{}' for skill '{}'", record.id, record.skillPath)
+        log.debug("Saved skill run record '{}' for workspace '{}'", record.id, record.workspaceId)
     }
 
     /**
@@ -65,14 +65,29 @@ class AgentRunHistoryRepository internal constructor(
     }
 
     /**
-     * Returns up to [limit] run records for the given [skillPath], newest first.
+     * Returns up to [limit] run records for the given [workspaceId], newest first.
      */
-    fun findBySkillPath(skillPath: String, limit: Int = 50): List<AgentRunRecord> = transaction(database) {
+    fun findByWorkspaceId(workspaceId: String, limit: Int = 200): List<AgentRunRecord> = transaction(database) {
         AgentRunHistoryTable
             .selectAll()
-            .where { AgentRunHistoryTable.skillPath eq skillPath }
+            .where { AgentRunHistoryTable.workspaceId eq workspaceId }
             .orderBy(AgentRunHistoryTable.createdAt, SortOrder.DESC)
             .limit(limit)
+            .map(::toRecord)
+    }
+
+    /**
+     * Returns every turn belonging to [conversationId], oldest first — used to
+     * reconstruct the full multi-turn thread when reopening a history entry.
+     * Turns are strictly serialized when created (a new turn can't start until the
+     * previous one finishes and is saved), so ordering by [AgentRunHistoryTable.createdAt]
+     * alone is reliable here.
+     */
+    fun findByConversationId(conversationId: String): List<AgentRunRecord> = transaction(database) {
+        AgentRunHistoryTable
+            .selectAll()
+            .where { AgentRunHistoryTable.conversationId eq conversationId }
+            .orderBy(AgentRunHistoryTable.createdAt, SortOrder.ASC)
             .map(::toRecord)
     }
 
@@ -87,25 +102,38 @@ class AgentRunHistoryRepository internal constructor(
     }
 
     /**
-     * Deletes all run records for the given [skillPath].
+     * Deletes every turn belonging to [conversationId] — use this instead of [deleteById]
+     * when removing a conversation from the history list, so the whole thread is removed
+     * rather than just its most recent turn.
      */
-    fun deleteBySkillPath(skillPath: String) {
+    fun deleteByConversationId(conversationId: String) {
         transaction(database) {
-            AgentRunHistoryTable.deleteWhere { AgentRunHistoryTable.skillPath eq skillPath }
+            AgentRunHistoryTable.deleteWhere { AgentRunHistoryTable.conversationId eq conversationId }
         }
-        log.debug("Deleted all run records for skill '{}'", skillPath)
+        log.debug("Deleted all run records for conversation '{}'", conversationId)
+    }
+
+    /**
+     * Deletes all run records belonging to the given [workspaceId] — call this when a
+     * [io.askimo.core.agent.domain.Workspace] is removed, to avoid orphaned run history.
+     */
+    fun deleteByWorkspaceId(workspaceId: String) {
+        transaction(database) {
+            AgentRunHistoryTable.deleteWhere { AgentRunHistoryTable.workspaceId eq workspaceId }
+        }
+        log.debug("Deleted all run records for workspace '{}'", workspaceId)
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private fun toRecord(row: ResultRow): AgentRunRecord = AgentRunRecord(
         id = row[AgentRunHistoryTable.id],
-        skillPath = row[AgentRunHistoryTable.skillPath],
+        workspaceId = row[AgentRunHistoryTable.workspaceId],
+        conversationId = row[AgentRunHistoryTable.conversationId],
         userInput = row[AgentRunHistoryTable.userInput],
         response = row[AgentRunHistoryTable.response],
         error = row[AgentRunHistoryTable.error],
         agentSessionId = row[AgentRunHistoryTable.agentSessionId],
-        workspaceDir = row[AgentRunHistoryTable.workspaceDir],
         activityLog = decodeLog(row[AgentRunHistoryTable.activityLog]),
         inputTokens = row[AgentRunHistoryTable.inputTokens],
         outputTokens = row[AgentRunHistoryTable.outputTokens],

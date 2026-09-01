@@ -57,12 +57,6 @@ interface ExternalAgent {
     val lastExecutionSessionId: String? get() = null
 
     /**
-     * Effective workspace directory used by the most recent execution.
-     * Agents that do not expose it return `null`.
-     */
-    val lastExecutionWorkspaceDir: String? get() = null
-
-    /**
      * Best-effort token usage / duration metadata captured from the most recent execution's
      * own stream-json output (e.g. Claude's `result` event, Antigravity's `usage` map).
      * All fields inside are nullable and `null` overall for agents that don't expose

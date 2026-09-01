@@ -52,6 +52,21 @@ class WorkspaceRepository internal constructor(
         WorkspaceTable.selectAll().where { WorkspaceTable.id eq id }.map { it.toWorkspace() }.firstOrNull()
     }
 
+    /**
+     * Returns the workspace with the most recent [Workspace.lastUsedAt], ignoring [Workspace.pinned]
+     * — used to resume the workspace the user was actually last working in on app start.
+     * [findAll]'s pinned-first ordering is for the picker list only; resolving "current workspace"
+     * must not jump to a pinned-but-unopened workspace ahead of the one actually last used.
+     */
+    fun findMostRecentlyUsed(): Workspace? = transaction(database) {
+        WorkspaceTable
+            .selectAll()
+            .orderBy(WorkspaceTable.lastUsedAt, SortOrder.DESC)
+            .limit(1)
+            .map { it.toWorkspace() }
+            .firstOrNull()
+    }
+
     private fun canonicalPath(dir: File): String = dir.absoluteFile.normalize().path
 
     fun findByPath(dir: File): Workspace? = transaction(database) {

@@ -114,9 +114,8 @@ class CursorAgent : ExternalAgentTemplate() {
                 // First init event carries stable session/workspace metadata.
                 if (event.subtype == "init") {
                     val sessionId = event.fields["session_id"] as? String
-                    val cwd = event.fields["cwd"] as? String
-                    if (!sessionId.isNullOrBlank() || !cwd.isNullOrBlank()) {
-                        updateExecutionMetadata(sessionId = sessionId, workspaceDir = cwd)
+                    if (!sessionId.isNullOrBlank()) {
+                        updateExecutionMetadata(sessionId = sessionId)
                     }
                 }
                 onStatus(CursorStreamJsonEventParser.renderStatus(event))

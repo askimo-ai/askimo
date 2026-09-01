@@ -101,12 +101,6 @@ object ApplicationPreferences {
     fun getSkillsSidePanelExpanded(): Boolean = safeGetBoolean(SKILLS_SIDE_PANEL_EXPANDED_KEY, true)
     fun setSkillsSidePanelExpanded(expanded: Boolean) = safePutBoolean(SKILLS_SIDE_PANEL_EXPANDED_KEY, expanded)
 
-    private const val AGENT_SELECTED_WORKSPACE_ID_KEY = "ui.agent_selected_workspace_id"
-
-    /** Id of the [io.askimo.core.agent.domain.Workspace] last selected in the Skills view, if any. */
-    fun getAgentSelectedWorkspaceId(): String? = safeGet(AGENT_SELECTED_WORKSPACE_ID_KEY, null)?.takeIf { it.isNotBlank() }
-    fun setAgentSelectedWorkspaceId(id: String) = safePut(AGENT_SELECTED_WORKSPACE_ID_KEY, id)
-
     private const val SELECTED_AGENT_KEY = "ui.selected_agent"
 
     fun getSelectedAgentId(): String? = safeGet(SELECTED_AGENT_KEY, null)?.takeIf { it.isNotBlank() }

@@ -64,9 +64,10 @@ import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.agent.ExternalAgentLoader
 import io.askimo.core.agent.domain.AgentRunRecord
 import io.askimo.core.agent.domain.SkillDefinition
+import io.askimo.core.agent.domain.Workspace
 import io.askimo.core.agent.repository.SkillRepository
+import io.askimo.core.agent.service.WorkspaceService
 import io.askimo.core.db.DatabaseManager
-import io.askimo.core.util.AskimoHome
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents
@@ -77,44 +78,11 @@ import io.askimo.ui.common.ui.themedTooltip
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.koin.core.context.GlobalContext
 import java.awt.Cursor
 import java.awt.Desktop
 import java.io.File
 import java.net.URI
-
-/**
- * Returns the user-selected workspace dir, falling back to the most recently used known
- * workspace, or the default agent-workspace dir if none are known yet.
- */
-internal fun resolveAgentWorkspaceDir(): File {
-    val repo = DatabaseManager.getInstance().getWorkspaceRepository()
-
-    val selected = ApplicationPreferences.getAgentSelectedWorkspaceId()?.let { repo.findById(it) }
-    if (selected != null) return File(selected.path)
-
-    val mostRecent = repo.findAll().firstOrNull()
-    if (mostRecent != null) {
-        ApplicationPreferences.setAgentSelectedWorkspaceId(mostRecent.id)
-        return File(mostRecent.path)
-    }
-
-    val default = AskimoHome.skillsWorkspaceDir().toFile()
-    val workspace = repo.upsertByPath(default, displayName = "Default")
-    ApplicationPreferences.setAgentSelectedWorkspaceId(workspace.id)
-    return File(workspace.path)
-}
-
-/**
- * Registers [dir] as a known workspace (creating it on first use, or bumping its
- * last-used timestamp otherwise) and remembers it as the selected workspace.
- * Call this whenever the user opens/switches to a workspace directory.
- */
-internal fun selectAgentWorkspace(dir: File, displayName: String? = null): File {
-    val repo = DatabaseManager.getInstance().getWorkspaceRepository()
-    val workspace = repo.upsertByPath(dir, displayName)
-    ApplicationPreferences.setAgentSelectedWorkspaceId(workspace.id)
-    return File(workspace.path)
-}
 
 /**
  * Self-contained agentic skills sub-view — top-level entry point for the Skills feature.
@@ -127,43 +95,60 @@ fun agentsView(
 ) {
     val skillRepository = remember { SkillRepository() }
     val historyRepo = remember { DatabaseManager.getInstance().getAgentRunHistoryRepository() }
+    val workspaceService = remember { GlobalContext.get().get<WorkspaceService>() }
     val scope = rememberCoroutineScope()
     val skills by remember { mutableStateOf(skillRepository.getSkillsOnly()) }
     var allHistoryRefreshKey by remember { mutableStateOf(0) }
     var showOverlayPanel by remember { mutableStateOf(false) }
 
     var runHistory by remember { mutableStateOf(listOf<AgentRunRecord>()) }
-    LaunchedEffect(allHistoryRefreshKey) {
-        runHistory = withContext(Dispatchers.IO) { historyRepo.findBySkillPath(AGENTIC_RUN_SKILL_PATH) }
-    }
     var pendingHistoryRecord by remember { mutableStateOf<AgentRunRecord?>(null) }
 
     fun deleteHistoryRecord(record: AgentRunRecord) {
         scope.launch {
-            withContext(Dispatchers.IO) { historyRepo.deleteById(record.id) }
+            withContext(Dispatchers.IO) { historyRepo.deleteByConversationId(record.conversationId) }
             allHistoryRefreshKey++
         }
     }
 
-    // User-chosen workspace dir (persisted across sessions). Start with a cheap synchronous
-    // default (no DB access) and resolve the real persisted/most-recent workspace off the UI
-    // thread — resolveSkillsWorkspaceDir() does several blocking DB transactions plus a
-    // preferences write, which would otherwise stall the first composition/frame.
-    var workDir by remember { mutableStateOf(AskimoHome.skillsWorkspaceDir().toFile()) }
+    // User-chosen workspace (persisted across sessions). Resolved off the UI thread since
+    // workspaceService.resolveCurrent() does several blocking DB transactions.
+    // Runs/history must never be saved before this resolves — the agent_run_history table
+    // enforces a NOT NULL foreign key on workspace_id, so a real, persisted Workspace row
+    // must exist first.
+    var workspace by remember { mutableStateOf<Workspace?>(null) }
     LaunchedEffect(Unit) {
-        workDir = withContext(Dispatchers.IO) { resolveAgentWorkspaceDir() }
+        workspace = withContext(Dispatchers.IO) { workspaceService.resolveCurrent() }
+    }
+
+    LaunchedEffect(workspace?.id, allHistoryRefreshKey) {
+        workspace?.let { ws ->
+            val all = withContext(Dispatchers.IO) { historyRepo.findByWorkspaceId(ws.id) }
+            // One row per conversation — the latest turn represents the whole thread in the
+            // list; clicking it reconstructs the full multi-turn conversation (see
+            // agenticRunArea's preloadRecord handling).
+            runHistory = all
+                .groupBy { it.conversationId }
+                .map { (_, turns) -> turns.maxBy { it.createdAt } }
+                .sortedByDescending { it.createdAt }
+        }
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isWide = maxWidth >= 1100.dp
         LaunchedEffect(isWide) { if (isWide) showOverlayPanel = false }
 
+        val currentWorkspace =
+            workspace
+                ?: return@BoxWithConstraints
+        val workDir = remember(currentWorkspace.path) { File(currentWorkspace.path) }
+
         val panelContent: @Composable () -> Unit = {
             agenticWorkspacePanel(
                 workDir = workDir,
                 workDirRefreshKey = allHistoryRefreshKey,
                 runHistory = runHistory,
-                onWorkDirChanged = { workDir = selectAgentWorkspace(it) },
+                onWorkDirChanged = { workspace = workspaceService.select(it) },
                 onSelectRecord = { pendingHistoryRecord = it },
                 onDeleteRecord = ::deleteHistoryRecord,
             )
@@ -174,7 +159,7 @@ fun agentsView(
                 Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                     agenticContent(
                         skills = skills,
-                        workDir = workDir,
+                        workspace = currentWorkspace,
                         onRunCompleted = { allHistoryRefreshKey++ },
                         onNavigateToSkillsSettings = onNavigateToSkillsSettings,
                         preloadRecord = pendingHistoryRecord,
@@ -187,7 +172,7 @@ fun agentsView(
             Box(modifier = Modifier.fillMaxSize()) {
                 agenticContent(
                     skills = skills,
-                    workDir = workDir,
+                    workspace = currentWorkspace,
                     onRunCompleted = { allHistoryRefreshKey++ },
                     onNavigateToSkillsSettings = onNavigateToSkillsSettings,
                     showPanelToggle = true,
@@ -324,7 +309,7 @@ internal fun agentsPageHeader(
 @Composable
 private fun agenticContent(
     skills: List<SkillDefinition>,
-    workDir: File,
+    workspace: Workspace,
     onRunCompleted: () -> Unit,
     onNavigateToSkillsSettings: () -> Unit,
     showPanelToggle: Boolean = false,
@@ -355,7 +340,7 @@ private fun agenticContent(
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             agenticRunArea(
                 skills = skills,
-                workDir = workDir,
+                workspace = workspace,
                 onRunCompleted = onRunCompleted,
                 onNavigateToSkillsSettings = onNavigateToSkillsSettings,
                 preloadRecord = preloadRecord,
@@ -482,7 +467,6 @@ private fun agenticWorkspacePanel(
 
                             AgenticRightTab.HISTORY -> skillsHistoryContent(
                                 runHistory = runHistory,
-                                filterSkillName = null,
                                 onSelectRecord = onSelectRecord,
                                 onDeleteRecord = onDeleteRecord,
                             )

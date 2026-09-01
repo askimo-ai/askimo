@@ -37,9 +37,6 @@ abstract class ExternalAgentTemplate : ExternalAgent {
     private var executionSessionId: String? = null
 
     @Volatile
-    private var executionWorkspaceDir: String? = null
-
-    @Volatile
     private var executionUsage: AgentUsage? = null
 
     @Volatile
@@ -47,9 +44,6 @@ abstract class ExternalAgentTemplate : ExternalAgent {
 
     override val lastExecutionSessionId: String?
         get() = executionSessionId
-
-    override val lastExecutionWorkspaceDir: String?
-        get() = executionWorkspaceDir
 
     override val lastExecutionUsage: AgentUsage?
         get() = executionUsage
@@ -172,10 +166,8 @@ abstract class ExternalAgentTemplate : ExternalAgent {
      */
     protected fun updateExecutionMetadata(
         sessionId: String? = executionSessionId,
-        workspaceDir: String? = executionWorkspaceDir,
     ) {
         executionSessionId = sessionId
-        executionWorkspaceDir = workspaceDir
     }
 
     /**
@@ -220,7 +212,7 @@ abstract class ExternalAgentTemplate : ExternalAgent {
         // Seed with resumeSessionId (if any) so lastExecutionSessionId still reflects the
         // conversation we're continuing even if this agent's CLI doesn't re-emit an id on
         // resume. A captured id emitted during this run (via updateExecutionMetadata) overrides it.
-        updateExecutionMetadata(sessionId = resumeSessionId, workspaceDir = effectiveWorkDir.absolutePath)
+        updateExecutionMetadata(sessionId = resumeSessionId)
         resultErrorMessage = null
         executionUsage = null
 

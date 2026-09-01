@@ -3,6 +3,7 @@
  * Copyright (c) 2026 Askimo
  */
 package io.askimo.desktop.di
+import io.askimo.core.agent.service.WorkspaceService
 import io.askimo.core.chat.service.ChatDirectiveService
 import io.askimo.core.chat.service.ChatSessionExporterService
 import io.askimo.core.chat.service.ChatSessionService
@@ -52,10 +53,13 @@ val desktopModule = module {
     single { get<DatabaseManager>().getUserProfileRepository() }
     single { get<DatabaseManager>().getPlanExecutionRepository() }
     single { get<DatabaseManager>().getLlmUsageRepository() }
+    single { get<DatabaseManager>().getWorkspaceRepository() }
 
     single { TelemetryCollector(usageRepository = get()) }
 
     single { ProjectService(projectRepository = get()) }
+
+    single { WorkspaceService(workspaceRepository = get()) }
 
     // Plan repositories & service
     single { PlanDefRepository() }
