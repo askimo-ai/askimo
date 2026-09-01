@@ -49,7 +49,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -87,7 +86,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -1080,6 +1078,7 @@ private fun toolsIndicatorButton(
     iconSize: Dp = 36.dp,
     modelSupportsTools: Boolean = false,
 ) {
+    val scope = rememberCoroutineScope()
     var showToolsPopup by remember { mutableStateOf(false) }
     var mcpServers by remember { mutableStateOf<List<McpServerInfo>>(emptyList()) }
     var isLoadingServers by remember { mutableStateOf(false) }
@@ -1145,6 +1144,7 @@ private fun toolsIndicatorButton(
 
     val totalServers = mcpServers.size
     val enabledServers = mcpServers.count { it.id in enabledServerIds }
+    val hasAnyEnabled = enabledServers > 0
     val hasDisabled = enabledServers < totalServers && totalServers > 0
 
     Box {
@@ -1160,11 +1160,10 @@ private fun toolsIndicatorButton(
                 shape = RoundedCornerShape(8.dp),
                 color = when {
                     !modelSupportsTools -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                    totalServers == 0 -> Color.Transparent
-                    hasDisabled -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                    !hasAnyEnabled -> Color.Transparent
                     else -> MaterialTheme.colorScheme.secondaryContainer
                 },
-                tonalElevation = if (totalServers > 0 && modelSupportsTools) 2.dp else 0.dp,
+                tonalElevation = if (hasAnyEnabled && modelSupportsTools) 2.dp else 0.dp,
                 modifier = Modifier
                     .height(iconSize)
                     .clip(RoundedCornerShape(8.dp))
@@ -1186,15 +1185,15 @@ private fun toolsIndicatorButton(
                         contentDescription = stringResource("chat.tools.button"),
                         tint = when {
                             !modelSupportsTools -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                            hasDisabled -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f)
-                            totalServers > 0 -> MaterialTheme.colorScheme.onSecondaryContainer
+                            !hasAnyEnabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            hasAnyEnabled -> MaterialTheme.colorScheme.onSecondaryContainer
                             else -> MaterialTheme.colorScheme.onSurface
                         },
                         modifier = Modifier.size(16.dp),
                     )
                     if (totalServers > 0 && modelSupportsTools) {
                         Text(
-                            text = if (hasDisabled) "$enabledServers/$totalServers" else "$enabledServers",
+                            text = "$enabledServers/$totalServers",
                             style = AppTextStyles.hint,
                             color = if (hasDisabled) {
                                 MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f)
@@ -1314,7 +1313,30 @@ private fun toolsIndicatorButton(
                                             },
                                         )
                                     },
-                                    onCloseAll = { showToolsPopup = false },
+                                    onToolSelectedChange = { toolName, selected ->
+                                        if (server.isBuiltIn) return@mcpServerItem
+
+                                        // Keep popup state reactive to instant user toggles.
+                                        mcpServers = mcpServers.map { currentServer ->
+                                            if (currentServer.id == server.id) {
+                                                currentServer.copy(
+                                                    tools = currentServer.tools.map { currentTool ->
+                                                        if (currentTool.specification.name() == toolName) {
+                                                            currentTool.copy(selected = selected)
+                                                        } else {
+                                                            currentTool
+                                                        }
+                                                    },
+                                                )
+                                            } else {
+                                                currentServer
+                                            }
+                                        }
+
+                                        scope.launch(Dispatchers.IO) {
+                                            globalMcpService?.setToolSelected(server.id, toolName, selected)
+                                        }
+                                    },
                                 )
                             }
                         }
@@ -1350,7 +1372,7 @@ private fun mcpServerItem(
     server: McpServerInfo,
     isEnabled: Boolean = true,
     onToggle: () -> Unit = {},
-    onCloseAll: () -> Unit = {},
+    onToolSelectedChange: (toolName: String, selected: Boolean) -> Unit = { _, _ -> },
 ) {
     var showToolsSubmenu by remember { mutableStateOf(false) }
 
@@ -1364,149 +1386,191 @@ private fun mcpServerItem(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(
-                        enabled = server.tools.isNotEmpty(),
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = { showToolsSubmenu = true },
-                    )
-                    .pointerHoverIcon(
-                        if (server.tools.isNotEmpty()) PointerIcon.Hand else PointerIcon.Default,
-                    )
                     .padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                @OptIn(ExperimentalMaterial3Api::class)
                 CompositionLocalProvider(LocalRippleConfiguration provides null) {
                     Checkbox(
                         checked = isEnabled,
                         onCheckedChange = { onToggle() },
                         modifier = Modifier
                             .size(36.dp)
-                            .pointerHoverIcon(PointerIcon.Hand)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                onClick = { /* Handled by onCheckedChange */ },
-                            ),
+                            .pointerHoverIcon(PointerIcon.Hand),
                     )
                 }
 
-                // Server info
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = server.name,
-                            style = AppTextStyles.body,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable(
+                            enabled = server.tools.isNotEmpty(),
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {
+                                // One-click flow: disabled -> enable + open tools, enabled -> open tools only.
+                                if (!isEnabled) onToggle()
+                                showToolsSubmenu = true
+                            },
                         )
-                        if (server.tools.isNotEmpty()) {
-                            Badge(
-                                containerColor = if (server.isBuiltIn) {
-                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f * contentAlpha)
-                                } else {
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.2f * contentAlpha)
-                                },
-                                contentColor = if (server.isBuiltIn) {
-                                    MaterialTheme.colorScheme.tertiary.copy(alpha = contentAlpha)
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha)
-                                },
-                            ) {
-                                Text(
-                                    text = server.tools.size.toString(),
-                                    style = AppTextStyles.hint,
-                                )
+                        .pointerHoverIcon(
+                            if (server.tools.isNotEmpty()) PointerIcon.Hand else PointerIcon.Default,
+                        )
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // Server info
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = server.name,
+                                style = AppTextStyles.body,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
+                            )
+                            if (server.tools.isNotEmpty()) {
+                                Badge(
+                                    containerColor = if (server.isBuiltIn) {
+                                        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f * contentAlpha)
+                                    } else {
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.2f * contentAlpha)
+                                    },
+                                    contentColor = if (server.isBuiltIn) {
+                                        MaterialTheme.colorScheme.tertiary.copy(alpha = contentAlpha)
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha)
+                                    },
+                                ) {
+                                    Text(
+                                        text = server.tools.size.toString(),
+                                        style = AppTextStyles.hint,
+                                    )
+                                }
                             }
                         }
+                        Text(
+                            text = if (server.isBuiltIn) {
+                                stringResource("chat.tools.server.scope.builtin")
+                            } else if (server.isGlobal) {
+                                stringResource("chat.tools.server.scope.global")
+                            } else {
+                                stringResource("chat.tools.server.scope.project")
+                            },
+                            style = AppTextStyles.caption,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
+                        )
                     }
-                    Text(
-                        text = if (server.isBuiltIn) {
-                            stringResource("chat.tools.server.scope.builtin")
-                        } else if (server.isGlobal) {
-                            stringResource("chat.tools.server.scope.global")
-                        } else {
-                            stringResource("chat.tools.server.scope.project")
-                        },
-                        style = AppTextStyles.caption,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
-                    )
-                }
 
-                // Submenu indicator — only shown when there are tools to browse
-                if (server.tools.isNotEmpty()) {
-                    Icon(
-                        Icons.Default.ChevronRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
-                        modifier = Modifier.size(20.dp),
-                    )
+                    // Submenu indicator — only shown when there are tools to browse
+                    if (server.tools.isNotEmpty()) {
+                        Icon(
+                            Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
                 }
             }
         }
 
-        // Submenu dropdown with tools
-        dropdownMenu(
-            expanded = showToolsSubmenu,
-            onDismissRequest = {
-                showToolsSubmenu = false
-                onCloseAll()
-            },
-            offset = DpOffset(x = 200.dp, y = (-48).dp),
-        ) {
-            Column(
-                modifier = Modifier
-                    .widthIn(min = 450.dp, max = 600.dp)
-                    .heightIn(max = 400.dp)
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                server.tools.forEachIndexed { index, tool ->
-                    val toolName = tool.specification.name()
-                    val toolDescription =
-                        tool.specification.description() ?: stringResource("chat.tools.tool.no.description")
-                    val rowBackground = if (index % 2 == 0) {
-                        MaterialTheme.colorScheme.surface
-                    } else {
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    }
+        // Submenu popup with tools — top-right of the MCP row to avoid overlapping server rows.
+        if (showToolsSubmenu) {
+            AppComponents.anchoredPopup(
+                positionProvider = object : PopupPositionProvider {
+                    override fun calculatePosition(
+                        anchorBounds: IntRect,
+                        windowSize: IntSize,
+                        layoutDirection: LayoutDirection,
+                        popupContentSize: IntSize,
+                    ): IntOffset {
+                        val spacingPx = 8
+                        val preferredRightX = anchorBounds.right + spacingPx
+                        val fallbackLeftX = anchorBounds.left - popupContentSize.width - spacingPx
+                        val x = when {
+                            preferredRightX + popupContentSize.width <= windowSize.width -> preferredRightX
+                            fallbackLeftX >= 0 -> fallbackLeftX
+                            else -> (windowSize.width - popupContentSize.width).coerceAtLeast(0)
+                        }
 
-                    Box(modifier = Modifier.background(rowBackground)) {
-                        DropdownMenuItem(
-                            text = {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.Top,
-                                    modifier = Modifier.padding(vertical = 6.dp),
-                                ) {
-                                    Text(
-                                        text = "${index + 1}.",
-                                        style = AppTextStyles.caption,
-                                        softWrap = false,
-                                        modifier = Modifier.widthIn(min = 32.dp),
-                                    )
-                                    Column(
-                                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                        val preferredY = anchorBounds.top - spacingPx
+                        val y = preferredY.coerceIn(0, (windowSize.height - popupContentSize.height).coerceAtLeast(0))
+
+                        return IntOffset(x = x, y = y)
+                    }
+                },
+                onDismissRequest = { showToolsSubmenu = false },
+                modifier = Modifier.widthIn(min = 450.dp, max = 600.dp),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 400.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    server.tools.forEachIndexed { index, tool ->
+                        val toolName = tool.specification.name()
+                        val toolDescription =
+                            tool.specification.description() ?: stringResource("chat.tools.tool.no.description")
+                        val canToggleTool = !server.isBuiltIn && tool.enabled
+                        val toolSelected = tool.enabled && tool.selected
+                        val rowBackground = if (index % 2 == 0) {
+                            MaterialTheme.colorScheme.surface
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        }
+
+                        Box(modifier = Modifier.background(rowBackground)) {
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(vertical = 4.dp),
                                     ) {
-                                        Text(
-                                            text = toolName,
-                                            style = AppTextStyles.body,
-                                        )
-                                        Text(
-                                            text = toolDescription,
-                                            style = AppTextStyles.caption,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
+                                        CompositionLocalProvider(LocalRippleConfiguration provides null) {
+                                            Checkbox(
+                                                checked = toolSelected,
+                                                enabled = canToggleTool,
+                                                onCheckedChange = { checked ->
+                                                    onToolSelectedChange(toolName, checked)
+                                                },
+                                                modifier = Modifier
+                                                    .size(20.dp)
+                                                    .pointerHoverIcon(
+                                                        if (canToggleTool) PointerIcon.Hand else PointerIcon.Default,
+                                                    ),
+                                            )
+                                        }
+                                        Column(
+                                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                                        ) {
+                                            Text(
+                                                text = toolName,
+                                                style = AppTextStyles.body,
+                                            )
+                                            themedTooltip(text = toolDescription, placement = TooltipPlacement.RIGHT) {
+                                                Text(
+                                                    text = toolDescription,
+                                                    style = AppTextStyles.caption,
+                                                    maxLines = 2,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                            }
+                                        }
                                     }
-                                }
-                            },
-                            onClick = { /* Tools are read-only for now */ },
-                            colors = AppComponents.menuItemColors(),
-                        )
+                                },
+                                onClick = {
+                                    if (canToggleTool) {
+                                        onToolSelectedChange(toolName, !toolSelected)
+                                    }
+                                },
+                                enabled = canToggleTool,
+                                colors = AppComponents.menuItemColors(),
+                            )
+                        }
                     }
                 }
             }

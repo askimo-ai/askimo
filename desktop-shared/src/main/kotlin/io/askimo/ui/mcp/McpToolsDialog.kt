@@ -380,7 +380,11 @@ fun mcpToolsDialog(
                                             onCheckedChange = { enabled ->
                                                 // Reflect change locally so the UI updates instantly
                                                 tools = tools?.map { t ->
-                                                    if (t.specification.name() == tool.specification.name()) t.copy(enabled = enabled) else t
+                                                    if (t.specification.name() == tool.specification.name()) {
+                                                        t.copy(enabled = enabled, selected = enabled || t.selected)
+                                                    } else {
+                                                        t
+                                                    }
                                                 }
                                                 scope.launch(Dispatchers.IO) {
                                                     mcpInstanceService.setToolEnabled(instance.id, tool.specification.name(), enabled)

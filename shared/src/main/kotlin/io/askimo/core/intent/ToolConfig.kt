@@ -26,6 +26,11 @@ data class ToolConfig(
      * Disabled tools are still fetched and shown in the UI, but excluded from model requests.
      */
     val enabled: Boolean = true,
+    /**
+     * Whether this tool is selected by the user for AI execution when it is enabled.
+     * This is independent from [enabled]: disabled tools are always excluded regardless of this value.
+     */
+    val selected: Boolean = true,
 )
 
 /**

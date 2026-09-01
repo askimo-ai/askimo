@@ -54,6 +54,7 @@ class ToolProviderImpl(
 
         allTools
             .filter { tool -> tool.serverId in enabledServers }
+            .filter { tool -> tool.selected }
             .forEach { tool ->
                 if (tool.source == ToolSource.ASKIMO_BUILTIN) {
                     val className = tool.specification.metadata()["className"]

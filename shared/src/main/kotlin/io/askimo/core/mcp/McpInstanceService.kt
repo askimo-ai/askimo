@@ -53,6 +53,11 @@ private data class ToolConfigData(
      * Defaults to true so existing behavior is preserved for tools without an explicit setting.
      */
     val enabled: Boolean = true,
+    /**
+     * Whether this tool is selected for AI execution from chat input tool selection UI.
+     * Defaults to true so enabled tools are selected unless the user explicitly unselects them.
+     */
+    val selected: Boolean = true,
 )
 
 private data class GlobalToolsConfigWrapper(val tools: List<ToolConfigData>)
@@ -286,6 +291,7 @@ class McpInstanceService(
                     serverId = instance.id,
                     approvalPolicy = userConfig.approvalPolicy ?: category.defaultApprovalPolicy(),
                     enabled = userConfig.enabled,
+                    selected = userConfig.selected,
                 )
             } else {
                 val inferredCategory = inferToolCategory(toolSpec)
@@ -312,6 +318,7 @@ class McpInstanceService(
                     serverId = instance.id,
                     approvalPolicy = userConfig?.approvalPolicy ?: inferredCategory.defaultApprovalPolicy(),
                     enabled = userConfig?.enabled ?: true,
+                    selected = userConfig?.selected ?: true,
                 )
             }
         }
@@ -407,11 +414,28 @@ class McpInstanceService(
         upsertToolConfig(instanceId, toolName) {
             copy(
                 enabled = enabled,
+                // Enabling a tool also makes it selected by default in chat tool picker.
+                selected = if (enabled) true else selected,
                 autoInferred = false,
                 updatedAt = LocalDateTime.now(),
             )
         }
         log.debug("Set enabled={} for tool '{}' on instance '{}'", enabled, toolName, instanceId)
+    }
+
+    /**
+     * Persists whether a specific enabled tool is selected by the user for chat execution.
+     * Disabled tools are excluded regardless of this value.
+     */
+    fun setToolSelected(instanceId: String, toolName: String, selected: Boolean) {
+        upsertToolConfig(instanceId, toolName) {
+            copy(
+                selected = selected,
+                autoInferred = false,
+                updatedAt = LocalDateTime.now(),
+            )
+        }
+        log.debug("Set selected={} for tool '{}' on instance '{}'", selected, toolName, instanceId)
     }
 
     /**
