@@ -63,7 +63,6 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.askimo.core.chat.domain.ChatSession
@@ -291,7 +290,7 @@ private fun expandedNavigationSidebar(
                     selected = false,
                     onClick = onNewChat,
                     modifier = Modifier
-                        .padding(horizontal = Spacing.medium)
+                        .padding(horizontal = Spacing.small)
                         .pointerHoverIcon(PointerIcon.Hand),
                     shape = AppComponents.navigationItemShape,
                     colors = AppComponents.navigationDrawerItemColors(),
@@ -323,18 +322,25 @@ private fun expandedNavigationSidebar(
 
             // Visual separator between pinned and sessions zones
             HorizontalDivider(
-                modifier = Modifier.padding(horizontal = Spacing.medium, vertical = Spacing.extraSmall),
+                modifier = Modifier.padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
             )
 
             // Sessions header (collapsible)
             NavigationDrawerItem(
-                icon = { Icon(Icons.Default.History, contentDescription = null) },
+                icon = {
+                    Icon(
+                        Icons.Default.History,
+                        contentDescription = null,
+                        modifier = Modifier.size((16 * fontScale).dp),
+                        tint = if (isSessionsSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppTextStyles.secondaryContent,
+                    )
+                },
                 label = {
                     Text(
-                        stringResource("chat.sessions"),
-                        style = AppTextStyles.groupTitle,
-                        color = if (isSessionsSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppTextStyles.primaryContent,
+                        stringResource("chat.sessions").uppercase(),
+                        style = AppTextStyles.sidebarSectionHeader,
+                        color = if (isSessionsSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppTextStyles.secondaryContent,
                     )
                 },
                 selected = isSessionsSelected,
@@ -360,11 +366,12 @@ private fun expandedNavigationSidebar(
                             imageVector = if (isSessionsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                             contentDescription = if (isSessionsExpanded) "Collapse" else "Expand",
                             tint = badgeColor,
+                            modifier = Modifier.size((18 * fontScale).dp),
                         )
                     }
                 },
                 modifier = Modifier
-                    .padding(horizontal = Spacing.medium)
+                    .padding(horizontal = Spacing.small, vertical = Spacing.extraSmall)
                     .pointerHoverIcon(PointerIcon.Hand),
                 shape = AppComponents.navigationItemShape,
                 colors = AppComponents.navigationDrawerItemColors(),
@@ -400,7 +407,7 @@ private fun expandedNavigationSidebar(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────��──
 // Collapsed sidebar
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -511,7 +518,7 @@ private fun collapsedNavigationSidebar(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Nav item row (expanded sidebar)
-// ─────────────────────────────────────────────────────────────────────────────
+// ──────────────��──────────────────────────────────────────────────────────────
 
 @Composable
 private fun sidebarNavItemRow(item: SidebarNavItem) {
@@ -520,7 +527,7 @@ private fun sidebarNavItemRow(item: SidebarNavItem) {
 
     Box(
         modifier = Modifier
-            .padding(horizontal = Spacing.medium)
+            .padding(horizontal = Spacing.small)
             .hoverable(interactionSource),
     ) {
         NavigationDrawerItem(
@@ -586,7 +593,7 @@ fun sidebarLogoRow(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────���───────────────��───────────────────
 // Pinned section
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -610,20 +617,28 @@ private fun pinnedSection(
     if (starredProjects.isEmpty() && starredSessions.isEmpty()) return
 
     var isExpanded by remember { mutableStateOf(true) }
+    val fontScale = LocalFontScale.current
 
     Column(
         modifier = Modifier.padding(
-            start = Spacing.medium,
-            end = Spacing.medium,
-            top = Spacing.extraSmall,
+            start = Spacing.small,
+            end = Spacing.small,
+            top = Spacing.small,
         ),
     ) {
         NavigationDrawerItem(
-            icon = { Icon(Icons.Default.Star, contentDescription = null) },
+            icon = {
+                Icon(
+                    Icons.Default.Star,
+                    contentDescription = null,
+                    modifier = Modifier.size((16 * fontScale).dp),
+                    tint = AppTextStyles.secondaryContent,
+                )
+            },
             label = {
                 Text(
-                    stringResource("sidebar.pinned"),
-                    style = AppTextStyles.groupTitle,
+                    stringResource("sidebar.pinned").uppercase(),
+                    style = AppTextStyles.sidebarSectionHeader,
                 )
             },
             selected = false,
@@ -633,15 +648,18 @@ private fun pinnedSection(
                     imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                     contentDescription = null,
                     tint = AppTextStyles.secondaryContent,
+                    modifier = Modifier.size((18 * fontScale).dp),
                 )
             },
-            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+            modifier = Modifier
+                .padding(vertical = Spacing.extraSmall)
+                .pointerHoverIcon(PointerIcon.Hand),
             shape = AppComponents.navigationItemShape,
             colors = AppComponents.navigationDrawerItemColors(),
         )
 
         if (isExpanded) {
-            Column(modifier = Modifier.padding(start = Spacing.large)) {
+            Column(modifier = Modifier.padding(start = Spacing.small)) {
                 starredProjects.forEach { project ->
                     pinnedProjectItem(
                         project = project,
@@ -864,8 +882,8 @@ private fun sessionsList(
 ) {
     Column(
         modifier = Modifier.padding(
-            start = Spacing.large * 2f,
-            end = Spacing.medium,
+            start = Spacing.medium,
+            end = Spacing.small,
             top = Spacing.extraSmall,
             bottom = Spacing.extraSmall,
         ),
@@ -875,7 +893,7 @@ private fun sessionsList(
                 text = "No sessions yet",
                 style = AppTextStyles.caption,
                 modifier = Modifier.padding(
-                    horizontal = Spacing.large,
+                    horizontal = Spacing.small,
                     vertical = Spacing.small,
                 ),
             )
@@ -1005,7 +1023,7 @@ private fun sessionItemWithMenu(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────���─────────────────────────────────────────
 // Shared sub-components
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1069,12 +1087,11 @@ private fun navigationItemLabelWithMenu(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
+        AppComponents.marqueeText(
             text = text,
+            isHovered = isHovered,
             style = AppTextStyles.body,
             color = textColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
         if (isHovered) {

@@ -167,6 +167,24 @@ object AppTextStyles {
         )
 
     /**
+     * Sidebar section header — labels a collapsible group of navigation items
+     * in a drawer/sidebar (e.g. "PINNED", "CONVERSATIONS").
+     *
+     * Deliberately smaller and more muted than the items it groups, so the
+     * hierarchy between the (de-emphasized) header and the (primary) item
+     * text underneath it stays clear. Pair with an uppercase label string
+     * at the call site for the classic "small-caps section label" look.
+     *
+     * Typography: `labelSmall` · Weight: `SemiBold` · Color: `onSurfaceVariant`
+     */
+    val sidebarSectionHeader: TextStyle
+        @Composable get() = MaterialTheme.typography.labelSmall.copy(
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.5.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+    /**
      * Field label — the label shown directly above or beside a single control
      * (slider, dropdown, text field, toggle).
      *
