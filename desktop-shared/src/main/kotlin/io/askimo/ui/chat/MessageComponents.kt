@@ -1450,19 +1450,31 @@ private fun aiProcessingIndicator() {
  * - [TurnTimelineGroup.ToolGroup] — `"tool:"` + each entry's [ToolCallInfo.toolName], joined
  *   with `|` (arguments/result/status are intentionally excluded, since those mutate in place
  *   as a call goes from running to done).
- * - [TurnTimelineGroup.ThinkingGroup] — `"thinking:"` + the group's accumulated text.
- * - [TurnTimelineGroup.TokenGroup] — `"token:"` + the group's accumulated text.
+ * - [TurnTimelineGroup.ThinkingGroup] — `"thinking:"` + a compact digest of the group's
+ *   accumulated text (see [textDigest]), avoiding a full copy of potentially large text on
+ *   every recomposition.
+ * - [TurnTimelineGroup.TokenGroup] — `"token:"` + a compact digest of the group's accumulated
+ *   text (see [textDigest]).
  *
  * Used as the base for the [key] in [turnTimelineView] via [renderKey], which additionally
  * substitutes a fixed marker for the currently-streaming group and appends an occurrence suffix
- * to break ties between groups that resolve to an identical [stableKey].
+ * to break ties between groups that resolve to an identical [stableKey] — this occurrence
+ * suffix also acts as the collision-handling strategy for the (extremely unlikely) case where
+ * two distinct texts share the same digest.
  */
 private fun TurnTimelineGroup.stableKey(): String = when (this) {
     is TurnTimelineGroup.StatusGroup -> "status:" + entries.joinToString("|") { it.text }
     is TurnTimelineGroup.ToolGroup -> "tool:" + entries.joinToString("|") { it.toolCall.toolName }
-    is TurnTimelineGroup.ThinkingGroup -> "thinking:$text"
-    is TurnTimelineGroup.TokenGroup -> "token:$text"
+    is TurnTimelineGroup.ThinkingGroup -> "thinking:" + text.textDigest()
+    is TurnTimelineGroup.TokenGroup -> "token:" + text.textDigest()
 }
+
+/**
+ * Compact, non-copying identity for a (potentially large) accumulated text, used by
+ * [stableKey] instead of the full text to avoid large allocations on every recomposition:
+ * the text's length combined with its [String.hashCode], formatted as `"<length>:<hashCode>"`.
+ */
+private fun String.textDigest(): String = "$length:${hashCode()}"
 
 /**
  * Computes the [key] to use for a group in [turnTimelineView].
