@@ -1227,7 +1227,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                             currentView = View.SKILLS
                                                         },
                                                         onNavigateToSkillsSettings = {
-                                                            settingsSection = SettingsSection.SKILLS
+                                                            settingsSection = SettingsSection.AGENTS
                                                             previousView = currentView
                                                             currentView = View.SETTINGS
                                                         },

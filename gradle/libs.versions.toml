@@ -36,6 +36,7 @@ openpdf = "3.0.5"
 poi = "5.5.1"
 filekit = "0.14.2"
 materialKolor = "5.0.0"
+mp3spi = "1.9.5.4"
 
 [libraries]
 # JLine
@@ -104,6 +105,8 @@ filekit-compose = { module = "io.github.vinceglb:filekit-dialogs-compose", versi
 
 # MaterialKolor (HCT/tonal palette)
 material-kolor = { module = "com.materialkolor:material-kolor", version.ref = "materialKolor" }
+
+mp3spi = { module = "com.googlecode.soundlibs:mp3spi", version.ref = "mp3spi" }
 
 # Logging
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }

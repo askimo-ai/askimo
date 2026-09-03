@@ -37,6 +37,8 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.material.kolor)
+    // MP3 decoding for OpenAI TTS playback (javax.sound.sampled SPI) — see AudioPlayer.kt
+    implementation(libs.mp3spi)
     // Terminal support
     implementation(libs.bundles.jediterm)
     // PDF export (OpenPDF / LibrePDF)

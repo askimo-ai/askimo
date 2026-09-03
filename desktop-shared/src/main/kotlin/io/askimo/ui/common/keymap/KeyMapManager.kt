@@ -69,6 +69,7 @@ object KeyMapManager {
 
         // Input shortcuts
         ATTACH_FILE("shortcut.attach.file", Key.A, requiresPrimaryModifier = true, requiresShift = true),
+        TOGGLE_VOICE_RECORDING("shortcut.toggle.voice.recording", Key.M, requiresPrimaryModifier = true, requiresShift = true),
         SEND_MESSAGE("shortcut.send.message", Key.Enter),
         NEW_LINE("shortcut.new.line", Key.Enter, requiresShift = true),
         ;
@@ -171,6 +172,7 @@ object KeyMapManager {
         ),
         LocalizationManager.getString("shortcut.category.input") to listOf(
             AppShortcut.ATTACH_FILE,
+            AppShortcut.TOGGLE_VOICE_RECORDING,
             AppShortcut.SEND_MESSAGE,
             AppShortcut.NEW_LINE,
         ),

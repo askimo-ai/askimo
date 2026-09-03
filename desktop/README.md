@@ -82,3 +82,20 @@ The application uses:
 - **Material 3**: For modern design components
 - **Kotlin Coroutines**: For asynchronous operations
 
+## Voice Playback (MP3 support)
+
+The optional voice feature (Settings > Voice) plays back synthesized speech via
+[`javax.sound.sampled`](https://docs.oracle.com/javase/8/docs/technotes/guides/sound/), which
+only decodes WAV/AIFF/AU natively. OpenAI's TTS API returns **MP3**-encoded audio, so MP3
+playback requires a third-party `javax.sound.sampled` SPI provider on the runtime classpath:
+
+- **Dependency**: [`com.googlecode.soundlibs:mp3spi`](https://mvnrepository.com/artifact/com.googlecode.soundlibs/mp3spi)
+  (declared once in `desktop-shared/build.gradle.kts` via the `mp3spi` version-catalog entry).
+  Its POM transitively pulls in `tritonus-share` + `jlayer`, so no other libraries need to be
+  added by hand.
+- **Packaging**: no extra jpackage/module-path configuration is needed — it's a plain jar on the
+  classpath (registered via `META-INF/services/javax.sound.sampled.spi.*`), so `packageDmg` /
+  `packageMsi` / `packageDeb` all bundle it automatically like any other dependency.
+- **Local (Piper) TTS** returns WAV instead, which needs no extra SPI.
+- Covered by `io.askimo.ui.voice.Mp3DecodingTest` in `desktop-shared`'s test suite, which fails
+  loudly with an actionable message if this dependency is ever accidentally removed.

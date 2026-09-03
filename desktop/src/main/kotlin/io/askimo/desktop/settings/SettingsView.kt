@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.outlined.Cable
 import androidx.compose.material.icons.outlined.Extension
 import androidx.compose.material.icons.outlined.Keyboard
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.NetworkCheck
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Tune
@@ -68,9 +69,10 @@ enum class SettingsSection {
     AI_PROVIDER,
     NETWORK,
     WEB_SEARCH,
+    VOICE,
     SHORTCUTS,
     MCP_SERVERS,
-    SKILLS,
+    AGENTS,
     ADVANCED,
     ABOUT,
 }
@@ -195,6 +197,12 @@ fun settingsViewWithSidebar(
                         onClick = { onSectionChange(SettingsSection.WEB_SEARCH) },
                     )
                     settingsSidebarItem(
+                        title = stringResource("settings.voice"),
+                        icon = Icons.Outlined.Mic,
+                        isSelected = selectedSection == SettingsSection.VOICE,
+                        onClick = { onSectionChange(SettingsSection.VOICE) },
+                    )
+                    settingsSidebarItem(
                         title = stringResource("settings.shortcuts"),
                         icon = Icons.Outlined.Keyboard,
                         isSelected = selectedSection == SettingsSection.SHORTCUTS,
@@ -209,8 +217,8 @@ fun settingsViewWithSidebar(
                     settingsSidebarItem(
                         title = stringResource("settings.agents"),
                         icon = Icons.Outlined.Extension,
-                        isSelected = selectedSection == SettingsSection.SKILLS,
-                        onClick = { onSectionChange(SettingsSection.SKILLS) },
+                        isSelected = selectedSection == SettingsSection.AGENTS,
+                        onClick = { onSectionChange(SettingsSection.AGENTS) },
                     )
                     settingsSidebarItem(
                         title = stringResource("settings.advanced"),
@@ -276,9 +284,10 @@ fun settingsViewWithSidebar(
                         SettingsSection.APPEARANCE -> appearanceSettingsSection()
                         SettingsSection.NETWORK -> networkSettingsSection()
                         SettingsSection.WEB_SEARCH -> webSearchSettingsSection()
+                        SettingsSection.VOICE -> voiceSettingsSection()
                         SettingsSection.SHORTCUTS -> shortcutsSettingsSection()
                         SettingsSection.MCP_SERVERS -> mcpServerTemplatesSection()
-                        SettingsSection.SKILLS -> agentsSettingsSection()
+                        SettingsSection.AGENTS -> agentsSettingsSection()
                         SettingsSection.ADVANCED -> advancedSettingsSection()
                         SettingsSection.ABOUT -> aboutSettingsSection()
                     }

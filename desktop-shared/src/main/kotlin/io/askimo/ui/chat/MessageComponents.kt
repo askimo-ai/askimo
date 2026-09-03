@@ -34,6 +34,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CallSplit
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
@@ -47,6 +48,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -66,6 +68,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -92,7 +95,9 @@ import io.askimo.core.chat.dto.ToolCallStatus
 import io.askimo.core.chat.dto.TurnTimelineEntry
 import io.askimo.core.chat.dto.TurnTimelineGroup
 import io.askimo.core.chat.dto.grouped
+import io.askimo.core.config.AppConfig
 import io.askimo.core.event.EventBus
+import io.askimo.core.event.error.AppErrorEvent
 import io.askimo.core.event.internal.RunCodeEvent
 import io.askimo.core.event.internal.parseFilePreviewRequestEvent
 import io.askimo.core.i18n.LocalizationManager
@@ -111,6 +116,11 @@ import io.askimo.ui.common.ui.util.FileDialogUtils
 import io.askimo.ui.common.ui.util.highlightSearchText
 import io.askimo.ui.common.ui.util.markdownToPlainText
 import io.askimo.ui.service.MessageExportService
+import io.askimo.ui.voice.AudioPlaybackException
+import io.askimo.ui.voice.AudioPlayer
+import io.askimo.ui.voice.VoiceServiceException
+import io.askimo.ui.voice.VoiceServiceRegistry
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -124,6 +134,73 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+
+/**
+ * Ensures only one AI message's 🔊 playback is active at a time across the whole message list.
+ *
+ * Backed by a single shared [AudioPlayer] instance and Compose [mutableStateOf] properties so
+ * every [aiMessageBubble] instance reactively reflects whichever message (if any) is currently
+ * synthesizing/playing — no per-bubble player instances, no manual cross-bubble coordination.
+ */
+private object VoicePlaybackController {
+    private val player = AudioPlayer()
+
+    /** ID of the message currently awaiting TTS synthesis, or null. */
+    var loadingMessageId by mutableStateOf<String?>(null)
+        private set
+
+    /** ID of the message currently playing back audio, or null. */
+    var playingMessageId by mutableStateOf<String?>(null)
+        private set
+
+    /** Stops whatever is currently playing/loading, regardless of which message it belongs to. */
+    fun stopAll() {
+        player.stop()
+        loadingMessageId = null
+        playingMessageId = null
+    }
+
+    /**
+     * Toggles playback for [messageId]: stops it if it's already playing/loading, otherwise stops
+     * any other message's playback first (single-playback rule) and starts synthesizing+playing
+     * [text] via the configured [io.askimo.core.config.VoiceConfig.ttsProvider].
+     */
+    fun toggle(messageId: String, text: String, scope: CoroutineScope, onError: (String) -> Unit) {
+        if (playingMessageId == messageId || loadingMessageId == messageId) {
+            stopAll()
+            return
+        }
+        stopAll()
+        loadingMessageId = messageId
+        scope.launch {
+            try {
+                val ttsService = withContext(Dispatchers.IO) { VoiceServiceRegistry.textToSpeech(AppConfig.voice) }
+                val audioBytes = withContext(Dispatchers.IO) {
+                    ttsService.synthesize(text)
+                }
+                // A newer toggle may have superseded this request while we were synthesizing.
+                if (loadingMessageId != messageId) return@launch
+                loadingMessageId = null
+                playingMessageId = messageId
+                player.play(audioBytes, ttsService.outputFormat) {
+                    Snapshot.withMutableSnapshot {
+                        if (playingMessageId == messageId) playingMessageId = null
+                    }
+                }
+            } catch (e: VoiceServiceException) {
+                if (loadingMessageId != messageId) return@launch
+                loadingMessageId = null
+                playingMessageId = null
+                onError(e.message ?: "Voice playback failed")
+            } catch (e: AudioPlaybackException) {
+                if (playingMessageId != messageId) return@launch
+                loadingMessageId = null
+                playingMessageId = null
+                onError(e.message ?: "Voice playback failed")
+            }
+        }
+    }
+}
 
 @Composable
 fun messageList(
@@ -159,6 +236,15 @@ fun messageList(
     // Retry confirmation dialog state
     var showRetryConfirmDialog by remember { mutableStateOf(false) }
     var retryMessageId by remember { mutableStateOf<String?>(null) }
+
+    // Cache voice-output enabled flag once for the whole list — AppConfig.voice resolves a key
+    // from the OS keychain, so read it off the UI thread (same pattern as chatInputField's
+    // voiceInputEnabled). Hidden entirely per-bubble when disabled (default) — zero UI impact
+    // for existing users.
+    var voiceOutputEnabled by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        voiceOutputEnabled = withContext(Dispatchers.IO) { AppConfig.voice.enabled }
+    }
 
     // Current date — re-evaluated at midnight so "Today"/"Yesterday" labels stay accurate
     // when the user keeps the app open across a day boundary.
@@ -282,6 +368,7 @@ fun messageList(
                         bookmarkedMessageIds = bookmarkedMessageIds,
                         onToggleBookmark = onToggleBookmark,
                         onForkFromMessage = onForkFromMessage,
+                        voiceOutputEnabled = voiceOutputEnabled,
                     )
                     isFirstMessage = false
                     messageIndex++
@@ -385,6 +472,7 @@ fun messageBubble(
     bookmarkedMessageIds: Set<String> = emptySet(),
     onToggleBookmark: ((String) -> Unit)? = null,
     onForkFromMessage: ((String) -> Unit)? = null,
+    voiceOutputEnabled: Boolean = false,
 ) {
     Box(
         modifier = Modifier
@@ -426,6 +514,7 @@ fun messageBubble(
                 isBookmarked = message.id != null && message.id in bookmarkedMessageIds,
                 onToggleBookmark = if (message.id != null) onToggleBookmark else null,
                 onForkFromMessage = if (message.id != null) onForkFromMessage else null,
+                voiceOutputEnabled = voiceOutputEnabled,
             )
         }
     }
@@ -697,6 +786,7 @@ private fun aiMessageBubble(
     isBookmarked: Boolean = false,
     onToggleBookmark: ((String) -> Unit)? = null,
     onForkFromMessage: ((String) -> Unit)? = null,
+    voiceOutputEnabled: Boolean = false,
 ) {
     val clipboardManager = LocalClipboardManager.current
     var showCopyFeedback by remember { mutableStateOf(false) }
@@ -705,6 +795,7 @@ private fun aiMessageBubble(
     var isExporting by remember { mutableStateOf(false) }
     var isHovered by remember { mutableStateOf(false) }
     val isClickable = onMessageClick != null && message.id != null && message.timestamp != null
+    val voiceErrorTitle = stringResource("chat.voice.error.title")
     val aiContentColor = if (isOutdatedMessage) {
         MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
     } else {
@@ -956,6 +1047,41 @@ private fun aiMessageBubble(
                                 modifier = Modifier.size(16.dp),
                                 tint = AppTextStyles.secondaryContent,
                             )
+                        }
+                    }
+
+                    // ── Voice playback (🔊) — hidden entirely when disabled in Settings > Voice ──
+                    if (voiceOutputEnabled && message.id != null && message.content.isNotBlank()) {
+                        val msgId = message.id!!
+                        val isThisLoading = VoicePlaybackController.loadingMessageId == msgId
+                        val isThisPlaying = VoicePlaybackController.playingMessageId == msgId
+                        themedTooltip(
+                            text = if (isThisPlaying) stringResource("message.voice.stop") else stringResource("message.voice.play"),
+                        ) {
+                            IconButton(
+                                onClick = {
+                                    VoicePlaybackController.toggle(msgId, message.content, coroutineScope) { errorMessage ->
+                                        EventBus.post(AppErrorEvent(title = voiceErrorTitle, message = errorMessage))
+                                    }
+                                },
+                                enabled = !isThisLoading,
+                                modifier = Modifier.size(32.dp).pointerHoverIcon(PointerIcon.Hand),
+                            ) {
+                                if (isThisLoading) {
+                                    AppComponents.loadingSpinner(size = 14.dp)
+                                } else {
+                                    Icon(
+                                        imageVector = if (isThisPlaying) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
+                                        contentDescription = if (isThisPlaying) {
+                                            stringResource("message.voice.stop")
+                                        } else {
+                                            stringResource("message.voice.play")
+                                        },
+                                        modifier = Modifier.size(16.dp),
+                                        tint = if (isThisPlaying) MaterialTheme.colorScheme.primary else AppTextStyles.secondaryContent,
+                                    )
+                                }
+                            }
                         }
                     }
 
