@@ -197,4 +197,15 @@ interface ExternalAgent {
         )
         return result
     }
+
+    companion object {
+        /**
+         * Max length of a tool call's `detail` string before truncation. Implementations of
+         * tool-call detection (e.g. `ClaudeAgent.parseStdoutLine`) should truncate any `detail`
+         * they build to this length before passing it to the `onToolCall` callback in [run] —
+         * some tools (e.g. write/edit) can carry a full file's contents or a large diff as an
+         * argument, and `detail` is documented above as "truncated for display".
+         */
+        const val TOOL_DETAIL_MAX_LENGTH = 200
+    }
 }

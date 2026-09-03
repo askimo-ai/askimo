@@ -196,6 +196,13 @@ class ClaudeAgent : ExternalAgentTemplate() {
                             val detail = input
                                 ?.let { it["file_path"] ?: it["command"] ?: it.values.firstOrNull() }
                                 ?.toString()
+                                ?.let {
+                                    if (it.length > ExternalAgent.TOOL_DETAIL_MAX_LENGTH) {
+                                        it.take(ExternalAgent.TOOL_DETAIL_MAX_LENGTH) + "…"
+                                    } else {
+                                        it
+                                    }
+                                }
                             onToolCall(toolName, detail)
                         }
 

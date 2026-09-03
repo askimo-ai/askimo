@@ -169,6 +169,24 @@ class ModelNotFoundChatException(
 }
 
 /**
+ * The AI model streamed a malformed/hallucinated tool call — e.g. a `tool_calls` entry whose
+ * `name`/`arguments` never got fully populated across the streamed delta chunks — that
+ * langchain4j's internal request builder rejected (e.g.
+ * `ToolExecutionRequest.arguments must be provided`).
+ *
+ * Explicitly classified as a [UserException] (not [SystemException]) because this is a
+ * transient AI/backend glitch, not an Askimo bug — the streaming layer already retries this
+ * automatically (see `ChatClientExtensions.isMalformedToolCallError`); this exception only
+ * surfaces if every automatic retry also failed.
+ */
+class MalformedToolCallException(
+    cause: Throwable? = null,
+) : UserException("The AI model produced an invalid tool call", cause) {
+    override fun getMessageKey() = "error.malformed_tool_call"
+    override fun getMessageArgs() = emptyMap<String, String>()
+}
+
+/**
  * No AI provider has been configured yet (currentProvider == UNKNOWN).
  */
 class ProviderNotConfiguredException :

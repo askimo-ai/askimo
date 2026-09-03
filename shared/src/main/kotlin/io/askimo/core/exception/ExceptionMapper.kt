@@ -218,6 +218,16 @@ object ExceptionMapper {
                 ) || combinedMessage.contains("413", ignoreCase = true) ->
                 ContextLengthException(cause = rootCause)
 
+            // Malformed/hallucinated tool call — the model streamed a tool_calls entry whose
+            // name/arguments never got populated. This is an AI-side glitch, not an Askimo bug.
+            // Checked before the generic "invalid request"/400 bucket below.
+            combinedMessage.contains("ToolExecutionRequest", ignoreCase = true) &&
+                (
+                    combinedMessage.contains("must be provided", ignoreCase = true) ||
+                        combinedMessage.contains("must not be blank", ignoreCase = true)
+                    ) ->
+                MalformedToolCallException(cause = rootCause)
+
             // Invalid request
             combinedMessage.contains("400", ignoreCase = true) ||
                 combinedMessage.contains("bad request", ignoreCase = true) ||

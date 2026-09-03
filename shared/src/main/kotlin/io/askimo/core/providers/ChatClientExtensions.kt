@@ -64,6 +64,27 @@ private fun Throwable.isUnsupportedSamplingError(): Boolean {
 }
 
 /**
+ * Extension function to detect if an exception is due to the model streaming a malformed
+ * tool call — e.g. a hallucinated `tool_calls` entry whose `name`/`arguments` never got
+ * fully populated across the delta stream, which langchain4j's internal request builder
+ * rejects with messages like `ToolExecutionRequest.arguments must be provided`.
+ *
+ * This is a transient AI/backend glitch (weaker or local models occasionally emit an
+ * incomplete tool-call delta stream, especially with several tools enabled or parallel
+ * tool calls) rather than a real configuration problem — so instead of failing the whole
+ * turn with a raw internal error message, it's treated like a context-length error:
+ * retried immediately with a fresh request (see [sendStreamingMessageWithCallback]).
+ */
+private fun Throwable.isMalformedToolCallError(): Boolean {
+    val message = this.message ?: ""
+    return message.contains("ToolExecutionRequest", ignoreCase = true) &&
+        (
+            message.contains("must be provided", ignoreCase = true) ||
+                message.contains("must not be blank", ignoreCase = true)
+            )
+}
+
+/**
  * Result of classifying a streaming error.
  * @see classifyStreamingError
  */
@@ -101,6 +122,7 @@ internal fun classifyStreamingError(
 
     if (e.isContextLengthError()) return StreamingErrorResult.Retryable
     if (e.isUnsupportedSamplingError()) return StreamingErrorResult.Retryable
+    if (e.isMalformedToolCallError()) return StreamingErrorResult.Retryable
 
     // ── TERMINAL ──────────────────────────────────────────────────────────────
 
@@ -353,6 +375,8 @@ fun ChatClient.sendStreamingMessageWithCallback(
                                     } else if (e.isUnsupportedSamplingError()) {
                                         log.warn("Unsupported sampling parameters detected. Falling back to non-sampling settings.")
                                         ModelCapabilitiesCache.setSamplingSupport(provider, model, false)
+                                    } else if (e.isMalformedToolCallError()) {
+                                        log.warn("Model streamed a malformed tool call (${e.message}) — retrying immediately without penalty.")
                                     }
                                     done.countDown()
                                 }
@@ -399,7 +423,7 @@ fun ChatClient.sendStreamingMessageWithCallback(
                 if (e is ConfigurationErrorException) throw e
 
                 // Check if this is a context length error - immediate retry without backoff
-                if ((e.isContextLengthError() || e.isUnsupportedSamplingError()) && contextRetryCount < maxContextRetries) {
+                if ((e.isContextLengthError() || e.isUnsupportedSamplingError() || e.isMalformedToolCallError()) && contextRetryCount < maxContextRetries) {
                     contextRetryCount++
 
                     // Retry immediately with reduced context size (no backoff)

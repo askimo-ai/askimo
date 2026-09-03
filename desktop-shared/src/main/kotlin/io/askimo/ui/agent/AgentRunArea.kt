@@ -296,7 +296,7 @@ internal fun agenticRunArea(
                             scope.launch {
                                 isWaitingForFirstEvent = false
                                 timeline = timeline + TurnTimelineEntry.Tool(
-                                    ToolCallInfo(toolName = toolName, status = ToolCallStatus.DONE, arguments = detail),
+                                    ToolCallInfo.truncated(toolName = toolName, status = ToolCallStatus.DONE, arguments = detail),
                                 )
                             }
                         },

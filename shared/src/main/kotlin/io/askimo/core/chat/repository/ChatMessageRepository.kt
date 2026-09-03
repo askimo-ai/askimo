@@ -61,10 +61,12 @@ enum class SearchSortBy {
  * Extension function to map an Exposed ResultRow to a ChatMessage object.
  */
 private val chatContentJson = Json { ignoreUnknownKeys = true }
+private val chatMessageRepositoryLog = logger<ChatMessageRepository>()
 
 private fun decodeChatContentBlocks(raw: String?): List<TurnTimelineEntry> {
     if (raw.isNullOrBlank()) return emptyList()
     return runCatching { chatContentJson.decodeFromString<List<TurnTimelineEntry>>(raw) }
+        .onFailure { e -> chatMessageRepositoryLog.warn("Failed to decode content_json: {}", e.message) }
         .getOrDefault(emptyList())
 }
 

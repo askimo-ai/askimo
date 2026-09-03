@@ -54,6 +54,20 @@ class StreamingErrorClassifierTest {
         assertIs<StreamingErrorResult.Retryable>(classifyStreamingError(e, ModelProvider.OPENAI, "gpt-4o"))
     }
 
+    // ── Retryable: malformed tool call ─────────────────────────────────────────
+
+    @Test
+    fun `malformed tool call - missing arguments is retryable`() {
+        val e = RuntimeException("[error] ToolExecutionRequest.arguments must be provided")
+        assertIs<StreamingErrorResult.Retryable>(classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "llama3"))
+    }
+
+    @Test
+    fun `malformed tool call - missing name is retryable`() {
+        val e = RuntimeException("ToolExecutionRequest.name must not be blank")
+        assertIs<StreamingErrorResult.Retryable>(classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "qwq"))
+    }
+
     // ── Terminal: local server crash ───────────────────────────────────────────
 
     @Test

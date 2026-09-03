@@ -216,7 +216,7 @@ class SessionManager(
                 }
                 if (!alreadyRunning) {
                     _timeline.value += TurnTimelineEntry.Tool(
-                        ToolCallInfo(toolName = toolName, status = ToolCallStatus.RUNNING, arguments = arguments),
+                        ToolCallInfo.truncated(toolName = toolName, status = ToolCallStatus.RUNNING, arguments = arguments),
                     )
                 }
             }
@@ -229,8 +229,21 @@ class SessionManager(
                 val idx = list.indexOfLast {
                     it is TurnTimelineEntry.Tool && it.toolCall.toolName == toolName && it.toolCall.status == ToolCallStatus.RUNNING
                 }
+                // Preserve the original start time from the RUNNING entry (rather than
+                // defaulting to "now") so a future "took Ns" label on the completed row
+                // remains possible even though the live elapsed-timer UI stops needing it
+                // once status flips to DONE.
+                val startedAtMillis = (list.getOrNull(idx) as? TurnTimelineEntry.Tool)?.toolCall?.startedAtMillis
+                    ?: System.currentTimeMillis()
                 val updated = TurnTimelineEntry.Tool(
-                    ToolCallInfo(toolName = toolName, status = ToolCallStatus.DONE, arguments = arguments, result = result, hasFailed = hasFailed),
+                    ToolCallInfo.truncated(
+                        toolName = toolName,
+                        status = ToolCallStatus.DONE,
+                        arguments = arguments,
+                        result = result,
+                        hasFailed = hasFailed,
+                        startedAtMillis = startedAtMillis,
+                    ),
                 )
                 _timeline.value = if (idx >= 0) {
                     list.toMutableList().also { it[idx] = updated }
