@@ -166,6 +166,7 @@ import java.util.UUID
 import kotlin.collections.minus
 import kotlin.collections.plus
 import kotlin.math.ceil
+import kotlin.math.sqrt
 import kotlin.ranges.coerceIn
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -580,12 +581,13 @@ fun chatInputField(
                 try {
                     Snapshot.withMutableSnapshot { voiceWaveformSamples.clear() }
                     audioRecorder.start { level ->
-                        // Invoked from the capture thread, concurrently with UI-thread calls that
-                        // clear() this same list (e.g. stopRecordingAndTranscribe/onDispose above)
-                        // — wrap in Snapshot.withMutableSnapshot (matching this codebase's other
-                        // background-thread state updates
+                        // `level` is raw linear RMS (see PcmAudioEncoder.computeRmsLevel) — normal
+                        // speech volume is far below full-scale, so raw values (~0.01-0.1) always
+                        // collapse to the waveform's minimum bar height. Apply a perceptual sqrt
+                        // curve + gain (like a real VU meter) so speech visibly moves the bars.
+                        val boostedLevel = (sqrt(level.coerceIn(0f, 1f)) * 1.6f).coerceIn(0f, 1f)
                         Snapshot.withMutableSnapshot {
-                            voiceWaveformSamples.add(level)
+                            voiceWaveformSamples.add(boostedLevel)
                             if (voiceWaveformSamples.size > maxWaveformSamples) {
                                 runCatching { voiceWaveformSamples.removeAt(0) }
                             }
