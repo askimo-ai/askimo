@@ -1336,11 +1336,19 @@ internal fun turnTimelineView(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
     ) {
+        // Tracks how many times each stableKey() value has already been seen while iterating
+        // groups below, so repeated *identical* content (e.g. two StatusGroups with the same
+        // text, or a model repeating a phrase across separate ThinkingGroups) gets a distinct
+        // "#<occurrence>" suffix — see [renderKey] doc.
+        val occurrenceByStableKey = mutableMapOf<String, Int>()
         groups.forEachIndexed { index, group ->
             // Only the *last* group can still be actively receiving new streamed deltas (see
             // grouped()) — every earlier group's content is already frozen. See [renderKey].
             val isStreamingTail = isStreaming && index == groups.lastIndex
-            key(group.renderKey(isStreamingTail)) {
+            val stableKey = group.stableKey()
+            val occurrence = occurrenceByStableKey.getOrDefault(stableKey, 0)
+            occurrenceByStableKey[stableKey] = occurrence + 1
+            key(group.renderKey(isStreamingTail, occurrence)) {
                 when (group) {
                     is TurnTimelineGroup.StatusGroup -> {
                         Text(
@@ -1436,20 +1444,18 @@ private fun aiProcessingIndicator() {
 }
 
 /**
- * A stable, content-derived identity for a [TurnTimelineGroup], used as the [key] in
- * [turnTimelineView] so each group's remembered expand/collapse state stays attached to the
- * group it belongs to — not to whatever group happens to occupy the same list index after
- * `grouped()` drops superseded tool retries (see [turnTimelineView] doc).
+ * A content-derived identity for a [TurnTimelineGroup]:
  *
- * [TurnTimelineGroup.ToolGroup] is keyed by its tool names only (not status/arguments/result),
- * since those mutate in place as a call goes from running to done — the *identity* of "this is
- * the group for tool X (then Y, ...)" is what needs to stay stable, not its current state.
+ * - [TurnTimelineGroup.StatusGroup] — `"status:"` + each entry's text, joined with `|`.
+ * - [TurnTimelineGroup.ToolGroup] — `"tool:"` + each entry's [ToolCallInfo.toolName], joined
+ *   with `|` (arguments/result/status are intentionally excluded, since those mutate in place
+ *   as a call goes from running to done).
+ * - [TurnTimelineGroup.ThinkingGroup] — `"thinking:"` + the group's accumulated text.
+ * - [TurnTimelineGroup.TokenGroup] — `"token:"` + the group's accumulated text.
  *
- * NOTE: [ThinkingGroup]/[TokenGroup]/[StatusGroup] embed their full accumulated text, which
- * `grouped()` keeps growing (via concatenation) for as long as a group is the *streaming tail*
- * — so this key is only stable once a group's content is frozen (i.e. it's no longer the tail
- * receiving new deltas, or the turn isn't streaming at all). While actively streaming, callers
- * must use [renderKey] instead, which substitutes a fixed key for the tail group.
+ * Used as the base for the [key] in [turnTimelineView] via [renderKey], which additionally
+ * substitutes a fixed marker for the currently-streaming group and appends an occurrence suffix
+ * to break ties between groups that resolve to an identical [stableKey].
  */
 private fun TurnTimelineGroup.stableKey(): String = when (this) {
     is TurnTimelineGroup.StatusGroup -> "status:" + entries.joinToString("|") { it.text }
@@ -1459,31 +1465,32 @@ private fun TurnTimelineGroup.stableKey(): String = when (this) {
 }
 
 /**
- * The [key] used for a group in [turnTimelineView] — [stableKey] for every group *except* the
- * one currently receiving new streamed deltas ([isStreamingTail]), which is keyed by a fixed,
- * content-independent marker instead (`"live:thinking"`/`"live:token"`/`"live:status"`).
+ * Computes the [key] to use for a group in [turnTimelineView].
  *
- * Needed because `grouped()` keeps appending new deltas to the *tail* group's accumulated text
- * while streaming, which would otherwise change its [stableKey] on every single delta —
- * discarding the group's `remember`ed state (expand/collapse, [thinkingSection]'s scroll
- * position, etc.) each time, and risking a duplicate-key crash if two tail contents ever
- * coincide. The fixed marker never collides with a [stableKey] value (those never start with
- * `"live:"`), and since only one group can be the streaming tail at a time, no two groups ever
- * compete for it. [TurnTimelineGroup.ToolGroup] is excluded — its [stableKey] already ignores
- * status/arguments/result, so it's already stable while streaming.
- *
- * Once a group stops being the tail, its content is frozen and it reverts to [stableKey].
+ * - If [isStreamingTail] is true, the group is keyed by a fixed, content-independent marker
+ *   (`"live:thinking"`/`"live:token"`/`"live:status"`) instead of [stableKey] — with the
+ *   exception of [TurnTimelineGroup.ToolGroup], which always uses [stableKey] regardless of
+ *   [isStreamingTail], since that key already ignores status/arguments/result. At most one
+ *   group is ever the streaming tail, so this marker never collides with another group's key.
+ * - Otherwise, the base key is [stableKey].
+ * - [occurrence] — the number of prior groups in the same pass that already resolved to the
+ *   same base key — is appended as a `"#<occurrence>"` suffix whenever non-zero, guaranteeing
+ *   the returned key is unique among siblings even when multiple groups share identical
+ *   content. Omitted when [occurrence] is `0`, so the common non-duplicate case keeps the
+ *   plain base key unchanged.
  */
-private fun TurnTimelineGroup.renderKey(isStreamingTail: Boolean): String {
-    if (isStreamingTail) {
+private fun TurnTimelineGroup.renderKey(isStreamingTail: Boolean, occurrence: Int): String {
+    val base = if (isStreamingTail) {
         when (this) {
-            is TurnTimelineGroup.ThinkingGroup -> return "live:thinking"
-            is TurnTimelineGroup.TokenGroup -> return "live:token"
-            is TurnTimelineGroup.StatusGroup -> return "live:status"
-            is TurnTimelineGroup.ToolGroup -> {}
+            is TurnTimelineGroup.ThinkingGroup -> "live:thinking"
+            is TurnTimelineGroup.TokenGroup -> "live:token"
+            is TurnTimelineGroup.StatusGroup -> "live:status"
+            is TurnTimelineGroup.ToolGroup -> stableKey()
         }
+    } else {
+        stableKey()
     }
-    return stableKey()
+    return if (occurrence > 0) "$base#$occurrence" else base
 }
 
 /**
