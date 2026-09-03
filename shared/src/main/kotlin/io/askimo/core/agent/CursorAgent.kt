@@ -98,10 +98,15 @@ class CursorAgent : ExternalAgentTemplate() {
     override fun parseStdoutLine(
         line: String,
         onToken: (String) -> Unit,
+        onToolCall: (toolName: String, detail: String?) -> Unit,
         onStatus: (String) -> Unit,
         onThinking: (String) -> Unit,
         output: StringBuilder,
     ) {
+        // TODO: Cursor's stream-json events are rendered as generic status text via
+        // CursorStreamJsonEventParser.renderStatus — no structured tool-name/args extraction
+        // yet, so real tool invocations aren't routed through onToolCall. Revisit once the
+        // exact event shape for Cursor's tool calls is confirmed against a real CLI run.
         val event = CursorStreamJsonEventParser.parse(line)
         if (event == null) {
             log.debug("cursor unparseable line: {}", line)

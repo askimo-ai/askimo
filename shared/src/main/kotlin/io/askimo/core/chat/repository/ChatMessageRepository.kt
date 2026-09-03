@@ -10,12 +10,16 @@ import io.askimo.core.chat.domain.ChatMessagesTable
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.domain.ChatSessionsTable
 import io.askimo.core.chat.domain.FileAttachment
+import io.askimo.core.chat.dto.TurnTimelineEntry
 import io.askimo.core.context.MessageRole
 import io.askimo.core.db.AbstractSQLiteRepository
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.PushDataToServerEvent
 import io.askimo.core.logging.logger
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -56,6 +60,16 @@ enum class SearchSortBy {
 /**
  * Extension function to map an Exposed ResultRow to a ChatMessage object.
  */
+private val chatContentJson = Json { ignoreUnknownKeys = true }
+
+private fun decodeChatContentBlocks(raw: String?): List<TurnTimelineEntry> {
+    if (raw.isNullOrBlank()) return emptyList()
+    return runCatching { chatContentJson.decodeFromString<List<TurnTimelineEntry>>(raw) }
+        .getOrDefault(emptyList())
+}
+
+private fun encodeChatContentBlocks(blocks: List<TurnTimelineEntry>): String? = if (blocks.isEmpty()) null else chatContentJson.encodeToString(blocks)
+
 private fun ResultRow.toChatMessage(): ChatMessage = ChatMessage(
     id = this[ChatMessagesTable.id],
     sessionId = this[ChatMessagesTable.sessionId],
@@ -71,6 +85,7 @@ private fun ResultRow.toChatMessage(): ChatMessage = ChatMessage(
     totalTokens = this[ChatMessagesTable.totalTokens],
     durationMs = this[ChatMessagesTable.durationMs],
     isBookmarked = this[ChatMessagesTable.isBookmarked] == 1,
+    contentBlocks = decodeChatContentBlocks(this[ChatMessagesTable.contentJson]),
 )
 
 /**
@@ -122,6 +137,7 @@ class ChatMessageRepository internal constructor(
                 it[ChatMessagesTable.outputTokens] = messageWithInjectedFields.outputTokens
                 it[ChatMessagesTable.totalTokens] = messageWithInjectedFields.totalTokens
                 it[ChatMessagesTable.durationMs] = messageWithInjectedFields.durationMs
+                it[ChatMessagesTable.contentJson] = encodeChatContentBlocks(messageWithInjectedFields.contentBlocks)
                 // Set syncedAt during INSERT when the message is already on the server —
                 // avoids a separate markSynced() UPDATE call.
                 if (syncedAt != null) it[ChatMessagesTable.syncedAt] = syncedAt.toString()
@@ -174,6 +190,7 @@ class ChatMessageRepository internal constructor(
                     it[ChatMessagesTable.outputTokens] = msg.outputTokens
                     it[ChatMessagesTable.totalTokens] = msg.totalTokens
                     it[ChatMessagesTable.durationMs] = msg.durationMs
+                    it[ChatMessagesTable.contentJson] = encodeChatContentBlocks(msg.contentBlocks)
                 }
 
                 if (msg.attachments.isNotEmpty()) {
@@ -462,6 +479,11 @@ class ChatMessageRepository internal constructor(
      * Update the content of a message and mark it as edited.
      * This is used when a user edits an AI response message.
      *
+     * Clears any persisted `content_json` (tool-call/text timeline) — once the text is
+     * user-edited, the recorded interleaving no longer matches the displayed content, so
+     * the message falls back to plain-text rendering instead of showing a stale tool-call
+     * timeline alongside the new text.
+     *
      * @param messageId The ID of the message to update
      * @param newContent The new content for the message
      * @return Number of messages updated (should be 1)
@@ -470,6 +492,7 @@ class ChatMessageRepository internal constructor(
         ChatMessagesTable.update({ ChatMessagesTable.id eq messageId }) {
             it[content] = newContent
             it[isEdited] = 1
+            it[contentJson] = null
         }
     }
 
@@ -570,6 +593,7 @@ class ChatMessageRepository internal constructor(
                     it[outputTokens] = message.outputTokens
                     it[totalTokens] = message.totalTokens
                     it[durationMs] = message.durationMs
+                    it[contentJson] = encodeChatContentBlocks(message.contentBlocks)
                     it[syncedAt] = message.createdAt.toString()
                 }
             }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,12 +21,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.PlayArrow
@@ -68,8 +71,13 @@ import io.askimo.core.agent.domain.Workspace
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.ToolCallInfo
 import io.askimo.core.chat.dto.ToolCallStatus
+import io.askimo.core.chat.dto.TurnTimelineEntry
+import io.askimo.core.chat.dto.TurnTimelineGroup
+import io.askimo.core.chat.dto.collapsedEffectiveTools
+import io.askimo.core.chat.dto.grouped
 import io.askimo.core.db.DatabaseManager
 import io.askimo.ui.chat.messageList
+import io.askimo.ui.chat.turnTimelineView
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.keymap.KeyMapManager
 import io.askimo.ui.common.keymap.onImeAwarePreviewKeyEvent
@@ -79,7 +87,6 @@ import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
-import io.askimo.ui.common.ui.themedTooltip
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -95,16 +102,6 @@ private enum class AgentCardState {
     READY,
 }
 
-/** Appends [token] to the trailing streaming AI message, creating one first if none exists. */
-private fun List<ChatMessageDTO>.appendToken(token: String): List<ChatMessageDTO> {
-    val idx = indexOfLast { !it.isUser && it.id == null }
-    if (idx < 0) {
-        return this + ChatMessageDTO(id = null, content = token, isUser = false, timestamp = null)
-    }
-    val updated = this[idx].copy(content = this[idx].content + token)
-    return toMutableList().also { it[idx] = updated }
-}
-
 /** Ensures a (possibly empty) streaming AI placeholder message exists, so tool/thinking chips can render before the first token arrives. */
 private fun List<ChatMessageDTO>.ensureStreamingAiMessage(): List<ChatMessageDTO> {
     if (any { !it.isUser && it.id == null }) return this
@@ -116,11 +113,12 @@ private fun List<ChatMessageDTO>.finalizeStreamingAiMessage(
     finalContent: String,
     isFailed: Boolean,
     usage: AgentUsage? = null,
+    messageId: String = "ai-${System.nanoTime()}",
 ): List<ChatMessageDTO> {
     val idx = indexOfLast { !it.isUser && it.id == null }
     if (idx < 0) return this
     val updated = this[idx].copy(
-        id = "ai-${System.nanoTime()}",
+        id = messageId,
         content = finalContent,
         timestamp = Instant.now(),
         isFailed = isFailed,
@@ -145,6 +143,8 @@ internal fun agenticRunArea(
     onNavigateToSkillsSettings: () -> Unit = {},
     preloadRecord: AgentRunRecord? = null,
     onPreloadConsumed: () -> Unit = {},
+    onConversationStateChanged: (Boolean) -> Unit = {},
+    newConversationRequestKey: Int = 0,
 ) {
     val workDir = remember(workspace.path) { File(workspace.path) }
     val scope = rememberCoroutineScope()
@@ -194,9 +194,16 @@ internal fun agenticRunArea(
     var messages by remember { mutableStateOf<List<ChatMessageDTO>>(emptyList()) }
 
     // Ephemeral streaming state for the *current* turn only (mirrors ChatViewModel's
-    // activeToolCalls/activeThinkingContent) — applied to the trailing streaming AI message.
-    var activeToolCalls by remember { mutableStateOf<List<ToolCallInfo>>(emptyList()) }
-    var activeThinkingContent by remember { mutableStateOf("") }
+    // Chronologically-ordered timeline of everything the agent's stream reported for the
+    // *current* turn — tool calls, thinking chunks, response text chunks, and lifecycle
+    // status — in the exact order they arrived, so the UI can render them interleaved
+    // instead of bucketing into fixed thinking/tools/text sections regardless of timing.
+    var timeline by remember { mutableStateOf<List<TurnTimelineEntry>>(emptyList()) }
+    // Completed turns' groups, keyed by that turn's finalized AI message id — kept in memory
+    // for the current session; also reconstructable from `AgentRunRecord.contentBlocks` when
+    // preloading persisted history (tool calls + text only — thinking/status stay session-only,
+    // never persisted).
+    var completedGroups by remember { mutableStateOf<Map<String, List<TurnTimelineGroup>>>(emptyMap()) }
     // True from the moment a run starts until the first token/tool-call/thinking chunk
     // arrives — mirrors ChatViewModel.isThinking (shows the "Thinking…" spinner row).
     var isWaitingForFirstEvent by remember { mutableStateOf(false) }
@@ -248,8 +255,7 @@ internal fun agenticRunArea(
         val resumeSessionId = if (isNewConversation) null else activeAgentSessionId
         isRunning = true
         isWaitingForFirstEvent = true
-        activeToolCalls = emptyList()
-        activeThinkingContent = ""
+        timeline = emptyList()
         currentTurnResponse = ""
         if (isNewConversation) {
             messages = emptyList()
@@ -283,21 +289,27 @@ internal fun agenticRunArea(
                             scope.launch {
                                 isWaitingForFirstEvent = false
                                 currentTurnResponse += token
-                                messages = messages.appendToken(token)
+                                timeline = timeline + TurnTimelineEntry.Token(token)
+                            }
+                        },
+                        onToolCall = { toolName, detail ->
+                            scope.launch {
+                                isWaitingForFirstEvent = false
+                                timeline = timeline + TurnTimelineEntry.Tool(
+                                    ToolCallInfo(toolName = toolName, status = ToolCallStatus.DONE, arguments = detail),
+                                )
                             }
                         },
                         onStatus = { status ->
                             scope.launch {
                                 isWaitingForFirstEvent = false
-                                activeToolCalls = activeToolCalls + ToolCallInfo(toolName = status, status = ToolCallStatus.DONE)
-                                messages = messages.ensureStreamingAiMessage()
+                                timeline = timeline + TurnTimelineEntry.Status(status)
                             }
                         },
                         onThinking = { chunk ->
                             scope.launch {
                                 isWaitingForFirstEvent = false
-                                activeThinkingContent += chunk
-                                messages = messages.ensureStreamingAiMessage()
+                                timeline = timeline + TurnTimelineEntry.Thinking(chunk)
                             }
                         },
                     )
@@ -324,13 +336,21 @@ internal fun agenticRunArea(
 
             // Guarantee a bubble exists even if the run failed before any token/tool/thinking
             // event arrived, then finalize it (stable id, failure flag) so it stops "streaming".
+            val finalizedMessageId = "ai-${System.nanoTime()}"
             messages = messages
                 .ensureStreamingAiMessage()
                 .finalizeStreamingAiMessage(
                     finalContent = currentTurnResponse.ifBlank { errorText.orEmpty() },
                     isFailed = errorText != null,
                     usage = usage,
+                    messageId = finalizedMessageId,
                 )
+            // Keep this turn's ordered tool/thinking/text trail visible for the rest of the
+            // session (all kinds, including thinking) — in memory only, never written to
+            // AgentRunRecord/the database.
+            if (timeline.isNotEmpty()) {
+                completedGroups = completedGroups + (finalizedMessageId to timeline.grouped())
+            }
 
             val record = AgentRunRecord(
                 workspaceId = workspace.id,
@@ -339,7 +359,8 @@ internal fun agenticRunArea(
                 response = currentTurnResponse,
                 error = errorText,
                 agentSessionId = activeAgentSessionId,
-                activityLog = activeToolCalls.map { it.toolName },
+                activityLog = timeline.collapsedEffectiveTools().filterIsInstance<TurnTimelineEntry.Tool>().map { it.toolCall.toolName },
+                contentBlocks = timeline.collapsedEffectiveTools().filter { it is TurnTimelineEntry.Tool || it is TurnTimelineEntry.Token },
                 inputTokens = usage?.inputTokens,
                 outputTokens = usage?.outputTokens,
                 totalTokens = usage?.totalTokens,
@@ -366,11 +387,23 @@ internal fun agenticRunArea(
     fun startNewConversation() {
         inputText = TextFieldValue("")
         messages = emptyList()
-        activeToolCalls = emptyList()
-        activeThinkingContent = ""
+        timeline = emptyList()
+        completedGroups = emptyMap()
         currentTurnResponse = ""
         activeAgentSessionId = null
         activeConversationId = UUID.randomUUID().toString()
+    }
+
+    // Report "has active conversation" up to the header whenever it changes, so the header's
+    // "New chat" button can enable/disable itself without owning any transcript state.
+    LaunchedEffect(messages.isEmpty()) {
+        onConversationStateChanged(messages.isNotEmpty())
+    }
+
+    // Parent-driven reset — the header's "New chat" button bumps this key instead of calling
+    // into this composable directly, keeping this view the sole owner of `messages`/`timeline`.
+    LaunchedEffect(newConversationRequestKey) {
+        if (newConversationRequestKey > 0) startNewConversation()
     }
 
     LaunchedEffect(preloadRecord) {
@@ -401,8 +434,11 @@ internal fun agenticRunArea(
                     ),
                 )
             }
-            activeToolCalls = emptyList()
-            activeThinkingContent = ""
+            timeline = emptyList()
+            // Reconstruct each turn's ordered tool/text groups from its persisted
+            // `contentBlocks` — thinking/status were never persisted, so those groups simply
+            // won't reappear here (only for turns still live in this session).
+            completedGroups = turns.associate { r -> "${r.id}-ai" to r.contentBlocks.grouped() }.filterValues { it.isNotEmpty() }
             currentTurnResponse = turns.lastOrNull()?.response.orEmpty()
             activeConversationId = preloadRecord.conversationId
             // Restore the agent's own session id so a follow-up on a re-opened history
@@ -420,7 +456,7 @@ internal fun agenticRunArea(
     val transcriptScroll = rememberScrollState()
 
     // Auto-scroll to the bottom as new content streams in.
-    LaunchedEffect(messages.size, messages.lastOrNull()?.content, activeThinkingContent, activeToolCalls.size) {
+    LaunchedEffect(messages.size, messages.lastOrNull()?.content, timeline.size) {
         transcriptScroll.animateScrollTo(transcriptScroll.maxValue)
     }
 
@@ -500,7 +536,7 @@ internal fun agenticRunArea(
                             }
 
                             if (skillsListExpanded) {
-                                val skillsScrollState = rememberScrollState()
+                                val skillsListState = rememberLazyListState()
                                 Popup(
                                     alignment = Alignment.TopStart,
                                     offset = IntOffset(0, pillHeightPx + with(LocalDensity.current) { 4.dp.roundToPx() }),
@@ -517,15 +553,17 @@ internal fun agenticRunArea(
                                             shadowElevation = AppComponents.popupElevation,
                                         ) {
                                             Column {
-                                                // ── Scrollable skill list (height wraps content, capped) ──
-                                                Box(modifier = Modifier.heightIn(max = 320.dp)) {
-                                                    Column(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .verticalScroll(skillsScrollState)
-                                                            .padding(vertical = Spacing.extraSmall),
+                                                Box(modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp)) {
+                                                    LazyColumn(
+                                                        state = skillsListState,
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        contentPadding = PaddingValues(
+                                                            top = Spacing.extraSmall,
+                                                            bottom = Spacing.extraSmall,
+                                                            end = 10.dp,
+                                                        ),
                                                     ) {
-                                                        skills.forEach { skill ->
+                                                        items(skills) { skill ->
                                                             Row(
                                                                 modifier = Modifier
                                                                     .fillMaxWidth()
@@ -562,8 +600,8 @@ internal fun agenticRunArea(
                                                         }
                                                     }
                                                     VerticalScrollbar(
-                                                        adapter = rememberScrollbarAdapter(skillsScrollState),
-                                                        modifier = Modifier.matchParentSize().padding(end = 2.dp),
+                                                        adapter = rememberScrollbarAdapter(skillsListState),
+                                                        modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 2.dp),
                                                         style = AppComponents.scrollbarStyle(),
                                                     )
                                                 }
@@ -651,9 +689,16 @@ internal fun agenticRunArea(
                             messages = messages,
                             isThinking = isWaitingForFirstEvent,
                             thinkingElapsedSeconds = elapsedSeconds,
-                            activeToolCalls = activeToolCalls,
-                            activeThinkingContent = activeThinkingContent,
+                            completedGroupsByMessageId = completedGroups,
                         )
+                        // Live, chronologically-ordered view of the *current* turn — tool
+                        // calls, thinking, response text, and status, interleaved exactly as
+                        // the agent's stream reported them, with consecutive same-kind items
+                        // collapsed into one group. Replaced by the finalized bubble in
+                        // `messages` once the run completes.
+                        if (isRunning && timeline.isNotEmpty()) {
+                            turnTimelineView(timeline.grouped())
+                        }
                     } else {
                         // ── Empty-state hint — shown before the first message is sent ────
                     }
@@ -756,7 +801,7 @@ internal fun agenticRunArea(
                         }
                     }
 
-                    // ── New-conversation + agent picker + elapsed timer + Send — overlaid bottom-right ──
+                    // ── Agent picker + Send — overlaid bottom-right ──
                     Row(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
@@ -764,34 +809,6 @@ internal fun agenticRunArea(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        // Elapsed timer while running
-                        if (isRunning) {
-                            Text(
-                                text = "${elapsedSeconds}s",
-                                style = AppTextStyles.hint,
-                            )
-                        }
-
-                        // Start a new conversation — only relevant once one is underway.
-                        if (messages.isNotEmpty()) {
-                            themedTooltip(text = stringResource("chat.new")) {
-                                IconButton(
-                                    onClick = { startNewConversation() },
-                                    enabled = !isRunning,
-                                    modifier = Modifier
-                                        .size(30.dp)
-                                        .pointerHoverIcon(PointerIcon.Hand),
-                                ) {
-                                    Icon(
-                                        Icons.Default.Add,
-                                        contentDescription = stringResource("chat.new"),
-                                        modifier = Modifier.size(16.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                        }
-
                         // Agent picker pill
                         Box {
                             Surface(

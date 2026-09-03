@@ -4,6 +4,7 @@
  */
 package io.askimo.core.chat.domain
 
+import io.askimo.core.chat.dto.TurnTimelineEntry
 import io.askimo.core.context.MessageRole
 import io.askimo.core.db.sqliteInstant
 import org.jetbrains.exposed.v1.core.ReferenceOption
@@ -26,6 +27,9 @@ data class ChatMessage(
     val totalTokens: Int? = null,
     val durationMs: Long? = null,
     val isBookmarked: Boolean = false,
+    // Ordered tool-call + response-text content blocks (Tool + Token only) — see
+    // ChatMessageDTO.contentBlocks for the full rationale.
+    val contentBlocks: List<TurnTimelineEntry> = emptyList(),
 )
 
 /**
@@ -54,6 +58,9 @@ object ChatMessagesTable : Table("chat_messages") {
     val totalTokens = integer("total_tokens").nullable()
     val durationMs = long("duration_ms").nullable()
     val isBookmarked = integer("is_bookmarked").default(0)
+
+    /** JSON-encoded `List<TurnTimelineEntry>` (Tool + Token only) — mirrors agent_run_history.content_json. */
+    val contentJson = text("content_json").nullable()
 
     val syncedAt = varchar("synced_at", 32).nullable()
 

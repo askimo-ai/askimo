@@ -13,6 +13,7 @@ import io.askimo.core.chat.domain.ChatMessage
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.dto.ChatMessageDTO
+import io.askimo.core.chat.dto.TurnTimelineEntry
 import io.askimo.core.chat.mapper.ChatMessageMapper.toDTO
 import io.askimo.core.chat.mapper.ChatMessageMapper.toDTOs
 import io.askimo.core.chat.mapper.ChatMessageMapper.toDomain
@@ -614,6 +615,10 @@ class ChatSessionService(
         outputTokens: Int? = null,
         totalTokens: Int? = null,
         durationMs: Long? = null,
+        // Ordered tool-call + response-text content blocks for this turn (Tool + Token only,
+        // no Thinking/Status) — mirrors AgentRunRecord.contentBlocks. See
+        // SessionManager.StreamingThread.timeline for the source.
+        contentBlocks: List<TurnTimelineEntry> = emptyList(),
     ): ChatMessage {
         // When a stable messageId was supplied and the message is not a failure, the server
         // already persisted the assistant message. Pre-mark synced at INSERT time so no
@@ -631,6 +636,7 @@ class ChatSessionService(
                 outputTokens = outputTokens,
                 totalTokens = totalTokens,
                 durationMs = durationMs,
+                contentBlocks = contentBlocks,
             ),
             syncedAt = if (isPreSynced) Instant.now() else null,
         )

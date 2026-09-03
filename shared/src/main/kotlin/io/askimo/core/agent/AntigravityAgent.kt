@@ -138,6 +138,7 @@ class AntigravityAgent : ExternalAgentTemplate() {
     override fun parseStdoutLine(
         line: String,
         onToken: (String) -> Unit,
+        onToolCall: (toolName: String, detail: String?) -> Unit,
         onStatus: (String) -> Unit,
         onThinking: (String) -> Unit,
         output: StringBuilder,
@@ -167,6 +168,10 @@ class AntigravityAgent : ExternalAgentTemplate() {
                     }
 
                     // "user_input DONE" is just an ack of our own prompt — nothing to surface.
+                    // TODO: some `stepType`s here likely correspond to actual tool invocations
+                    // (e.g. file read/write, shell exec) rather than generic lifecycle status —
+                    // revisit and route those through onToolCall once the exact stream-json
+                    // shape for Antigravity's tool-call steps is confirmed against a real CLI run.
                     stepType != null && stepType != "user_input" -> {
                         onStatus(if (state != null) "$stepType ($state)" else stepType)
                     }

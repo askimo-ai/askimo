@@ -16,6 +16,8 @@ import io.askimo.core.chat.dto.FileAttachmentDTO
 import io.askimo.core.chat.dto.ToolApprovalRequest
 import io.askimo.core.chat.dto.ToolCallInfo
 import io.askimo.core.chat.dto.ToolCallStatus
+import io.askimo.core.chat.dto.TurnTimelineEntry
+import io.askimo.core.chat.dto.collapsedEffectiveTools
 import io.askimo.core.chat.service.ChatDirectiveService
 import io.askimo.core.chat.service.ChatSessionService
 import io.askimo.core.context.AppContext
@@ -136,17 +138,21 @@ class SessionManager(
     /**
      * Represents a single streaming thread for ONE question-answer pair.
      * Thread closes automatically after completion or failure.
+     *
+     * [_timeline] is the single source of truth for everything the model's stream reported —
+     * response-text tokens, tool calls (running → done), and thinking chunks — kept in the
+     * exact chronological order they arrived, mirroring [io.askimo.core.chat.dto.TurnTimelineEntry]'s
+     * use in agentic runs. This lets the UI render true interleaving (e.g. text → tool call →
+     * more text) instead of bucketing everything into fixed thinking/tools/text sections.
      */
     data class StreamingThread(
         val threadId: String,
         val sessionId: String,
         var job: Job,
-        private val _chunks: MutableStateFlow<List<String>>,
+        private val _timeline: MutableStateFlow<List<TurnTimelineEntry>>,
         private val _isComplete: MutableStateFlow<Boolean>,
         private val _hasFailed: MutableStateFlow<Boolean>,
         private val _savedMessage: MutableStateFlow<ChatMessage?> = MutableStateFlow(null),
-        private val _toolCalls: MutableStateFlow<List<ToolCallInfo>> = MutableStateFlow(emptyList()),
-        private val _thinkingChunks: MutableStateFlow<List<String>> = MutableStateFlow(emptyList()),
         private val _pendingApproval: MutableStateFlow<ToolApprovalRequest?> = MutableStateFlow(null),
         // Wall-clock time the thread started "thinking" (before the first chunk arrives).
         // Used to compute the correct elapsed "thinking" time when a ViewModel re-subscribes
@@ -154,11 +160,9 @@ class SessionManager(
         // resetting the on-screen timer to 0.
         val startTimeMillis: Long = System.currentTimeMillis(),
     ) {
-        val chunks: StateFlow<List<String>> = _chunks.asStateFlow()
+        val timeline: StateFlow<List<TurnTimelineEntry>> = _timeline.asStateFlow()
         val isComplete: StateFlow<Boolean> = _isComplete.asStateFlow()
         val savedMessage: StateFlow<ChatMessage?> = _savedMessage.asStateFlow()
-        val toolCalls: StateFlow<List<ToolCallInfo>> = _toolCalls.asStateFlow()
-        val thinkingChunks: StateFlow<List<String>> = _thinkingChunks.asStateFlow()
         val pendingApproval: StateFlow<ToolApprovalRequest?> = _pendingApproval.asStateFlow()
 
         /** Sets the pending approval request, surfacing Approve/Deny buttons in the UI. */
@@ -173,15 +177,16 @@ class SessionManager(
 
         private val mutex = Mutex()
 
+        /** Appends a response-text chunk as a Token entry, at its true chronological position. */
         suspend fun appendChunk(chunk: String) {
             mutex.withLock {
-                _chunks.value += chunk
+                _timeline.value += TurnTimelineEntry.Token(chunk)
             }
         }
 
         suspend fun appendThinkingChunk(chunk: String) {
             mutex.withLock {
-                _thinkingChunks.value += chunk
+                _timeline.value += TurnTimelineEntry.Thinking(chunk)
             }
         }
 
@@ -203,40 +208,39 @@ class SessionManager(
             }
         }
 
-        /** Mark a tool as RUNNING. Deduplicates: no-op if already tracked. */
+        /** Appends a RUNNING tool entry at its true chronological position. Deduplicates: no-op if already tracked as RUNNING. */
         suspend fun markToolRunning(toolName: String, arguments: String?) {
             mutex.withLock {
-                if (_toolCalls.value.none { it.toolName == toolName }) {
-                    _toolCalls.value += ToolCallInfo(
-                        toolName = toolName,
-                        status = ToolCallStatus.RUNNING,
-                        arguments = arguments,
+                val alreadyRunning = _timeline.value.any {
+                    it is TurnTimelineEntry.Tool && it.toolCall.toolName == toolName && it.toolCall.status == ToolCallStatus.RUNNING
+                }
+                if (!alreadyRunning) {
+                    _timeline.value += TurnTimelineEntry.Tool(
+                        ToolCallInfo(toolName = toolName, status = ToolCallStatus.RUNNING, arguments = arguments),
                     )
                 }
             }
         }
 
-        /** Mark a tool as DONE. Replaces existing RUNNING entry, or appends if not found. */
+        /** Flips the matching RUNNING tool entry to DONE in-place, preserving its original chronological position. */
         suspend fun markToolDone(toolName: String, arguments: String?, result: String?, hasFailed: Boolean) {
             mutex.withLock {
-                val existing = _toolCalls.value
-                val idx = existing.indexOfFirst { it.toolName == toolName }
-                val updated = ToolCallInfo(
-                    toolName = toolName,
-                    status = ToolCallStatus.DONE,
-                    arguments = arguments,
-                    result = result,
-                    hasFailed = hasFailed,
+                val list = _timeline.value
+                val idx = list.indexOfLast {
+                    it is TurnTimelineEntry.Tool && it.toolCall.toolName == toolName && it.toolCall.status == ToolCallStatus.RUNNING
+                }
+                val updated = TurnTimelineEntry.Tool(
+                    ToolCallInfo(toolName = toolName, status = ToolCallStatus.DONE, arguments = arguments, result = result, hasFailed = hasFailed),
                 )
-                _toolCalls.value = if (idx >= 0) {
-                    existing.toMutableList().also { it[idx] = updated }
+                _timeline.value = if (idx >= 0) {
+                    list.toMutableList().also { it[idx] = updated }
                 } else {
-                    existing + updated
+                    list + updated
                 }
             }
         }
 
-        fun getCurrentContent(): String = _chunks.value.joinToString("")
+        fun getCurrentContent(): String = _timeline.value.filterIsInstance<TurnTimelineEntry.Token>().joinToString("") { it.text }
     }
 
     /**
@@ -301,7 +305,7 @@ class SessionManager(
             threadId = threadId,
             sessionId = sessionId,
             job = Job(),
-            _chunks = MutableStateFlow(emptyList()),
+            _timeline = MutableStateFlow(emptyList()),
             _isComplete = MutableStateFlow(false),
             _hasFailed = MutableStateFlow(false),
         )
@@ -429,6 +433,8 @@ class SessionManager(
                         outputTokens = capturedOutputTokens,
                         totalTokens = capturedTotalTokens,
                         durationMs = capturedDurationMs,
+                        contentBlocks = thread.timeline.value.collapsedEffectiveTools()
+                            .filter { it is TurnTimelineEntry.Tool || it is TurnTimelineEntry.Token },
                     )
                     thread.setSavedMessage(savedMessage)
                     log.debug("Streaming thread $threadId completed successfully. Saved response to session $sessionId.")
@@ -494,7 +500,13 @@ class SessionManager(
                     )
                 }
 
-                val savedMessage = chatSessionService.saveAiResponse(sessionId, failedResponse, isFailed = true)
+                val savedMessage = chatSessionService.saveAiResponse(
+                    sessionId,
+                    failedResponse,
+                    isFailed = true,
+                    contentBlocks = thread.timeline.value.collapsedEffectiveTools()
+                        .filter { it is TurnTimelineEntry.Tool || it is TurnTimelineEntry.Token },
+                )
                 thread.setSavedMessage(savedMessage)
 
                 if (failedResponse != partialResponse && failedResponse.length > partialResponse.length) {

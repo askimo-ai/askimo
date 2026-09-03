@@ -154,10 +154,14 @@ class CodexAgent : ExternalAgentTemplate() {
     override fun parseStdoutLine(
         line: String,
         onToken: (String) -> Unit,
+        onToolCall: (toolName: String, detail: String?) -> Unit,
         onStatus: (String) -> Unit,
         onThinking: (String) -> Unit,
         output: StringBuilder,
     ) {
+        // TODO: Codex prints raw stdout lines rather than structured tool-call events —
+        // no reliable way yet to distinguish an actual tool invocation from plain text, so
+        // everything still streams via onToken. Revisit if Codex CLI adds structured events.
         captureSessionId(line)
         output.appendLine(line)
         onToken(line + "\n")

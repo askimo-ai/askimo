@@ -371,6 +371,12 @@ class DatabaseManager private constructor(
                 // Column already exists — safe to ignore.
             }
 
+            try {
+                stmt.executeUpdate("ALTER TABLE chat_messages ADD COLUMN content_json TEXT")
+            } catch (_: Exception) {
+                // Column already exists — safe to ignore.
+            }
+
             // Create composite index for efficient session-based queries with time ordering
             stmt.executeUpdate(
                 """
@@ -745,6 +751,12 @@ class DatabaseManager private constructor(
                 ON agent_run_history (conversation_id, created_at)
                 """.trimIndent(),
             )
+
+            try {
+                stmt.executeUpdate("ALTER TABLE agent_run_history ADD COLUMN content_json TEXT")
+            } catch (_: Exception) {
+                // Column already exists — safe to ignore.
+            }
         }
     }
 

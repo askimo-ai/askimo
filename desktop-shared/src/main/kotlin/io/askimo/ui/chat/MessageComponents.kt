@@ -61,6 +61,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -88,6 +89,9 @@ import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
 import io.askimo.core.chat.dto.ToolCallInfo
 import io.askimo.core.chat.dto.ToolCallStatus
+import io.askimo.core.chat.dto.TurnTimelineEntry
+import io.askimo.core.chat.dto.TurnTimelineGroup
+import io.askimo.core.chat.dto.grouped
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.RunCodeEvent
 import io.askimo.core.event.internal.parseFilePreviewRequestEvent
@@ -137,8 +141,16 @@ fun messageList(
     onRetryMessage: ((String) -> Unit)? = null,
     viewportTopY: Float? = null,
     projectId: String? = null,
-    activeToolCalls: List<ToolCallInfo> = emptyList(),
-    activeThinkingContent: String = "",
+    // Ordered tool-call/text/thinking timeline for the *currently streaming/last* AI turn
+    // (this session only) — replaces the old activeToolCalls/activeThinkingContent pair so
+    // true chronological interleaving can be rendered. See SessionManager.StreamingThread.
+    activeTimeline: List<TurnTimelineEntry> = emptyList(),
+    // Session-only per-message lookup so completed AI messages (this session, or reloaded from
+    // persisted `AgentRunRecord.contentBlocks`/`ChatMessageDTO.contentBlocks`) can show their
+    // ordered tool/thinking/text timeline — e.g. an agentic run (or regular chat) keeping this
+    // visible for every past turn, not just the current "last" message (which instead uses
+    // activeTimeline above).
+    completedGroupsByMessageId: Map<String, List<TurnTimelineGroup>> = emptyMap(),
     bookmarkedMessageIds: Set<String> = emptySet(),
     onToggleBookmark: ((String) -> Unit)? = null,
     onForkFromMessage: ((String) -> Unit)? = null,
@@ -201,18 +213,41 @@ fun messageList(
                     }
 
                     val isActiveResult = searchQuery.isNotBlank() && messageIndex == currentSearchResultIndex
-                    // A message is streaming when it's the last AI message still without a persisted ID
+                    // A message is streaming when it's the last AI message still without a persisted ID.
                     val isStreamingMessage = !group.message.isUser && group.message.id == null
-                    // Show tool chips on the last AI message whether streaming (id=null) or already
-                    // persisted (real id). Matching by id covers both cases:
-                    //   • streaming  → both ids are null        → matched
-                    //   • completed  → real id matches          → matched
-                    //   • older msg  → id differs               → emptyList
+                    // "Last AI message" — used for the *live* activeTimeline. ChatViewModel
+                    // deliberately keeps this populated even after the message is finalized (real
+                    // id assigned) "until the user sends the next message" — so this must match by
+                    // id once finalized, not just while streaming (id == null).
                     val lastAiMessageId = messages.lastOrNull { !it.isUser }?.id
                     val isLastAiMsg = !group.message.isUser && (
                         (group.message.id != null && group.message.id == lastAiMessageId) ||
                             (group.message.id == null && lastAiMessageId == null)
                         )
+                    // Resolve the ordered timeline for this AI message, preferring (in order):
+                    // 1. the live in-progress timeline, if this is the current/last turn
+                    // 2. the session-only completed-timeline cache (keyed by message id)
+                    // 3. the persisted tool/text blocks on the message itself (survives restarts)
+                    val resolvedGroups: List<TurnTimelineGroup> = if (group.message.isUser) {
+                        emptyList()
+                    } else if (isLastAiMsg && activeTimeline.isNotEmpty()) {
+                        activeTimeline.grouped()
+                    } else {
+                        group.message.id?.let { completedGroupsByMessageId[it] }
+                            ?: group.message.contentBlocks.grouped()
+                    }
+                    val hasToolCalls = resolvedGroups.any { it is TurnTimelineGroup.ToolGroup }
+                    // Only switch to the ordered-timeline renderer when there's an actual tool
+                    // call to show — otherwise keep the existing rich-text rendering path
+                    // (streaming reveal, run-code dialog, link clicks, attachments) for the
+                    // common tool-free case.
+                    val fallbackThinkingContent = if (!hasToolCalls && isLastAiMsg) {
+                        resolvedGroups
+                            .filterIsInstance<TurnTimelineGroup.ThinkingGroup>()
+                            .joinToString("") { it.text }
+                    } else {
+                        ""
+                    }
                     messageBubble(
                         message = group.message,
                         searchQuery = searchQuery,
@@ -232,8 +267,17 @@ fun messageList(
                         },
                         isStreaming = isStreamingMessage,
                         projectId = projectId,
-                        toolCalls = if (isLastAiMsg) activeToolCalls else emptyList(),
-                        thinkingContent = if (isLastAiMsg) activeThinkingContent else "",
+                        toolCalls = emptyList(),
+                        thinkingContent = fallbackThinkingContent,
+                        // Any AI message with a resolved tool-call timeline (live, session-cached,
+                        // or persisted) renders the ordered timeline instead of the fixed
+                        // thinking-then-tools-then-text layout — for every past turn, not just
+                        // the last one.
+                        customBody = if (!group.message.isUser && hasToolCalls) {
+                            { turnTimelineView(resolvedGroups) }
+                        } else {
+                            null
+                        },
                         bookmarkedMessageIds = bookmarkedMessageIds,
                         onToggleBookmark = onToggleBookmark,
                         onForkFromMessage = onForkFromMessage,
@@ -333,6 +377,10 @@ fun messageBubble(
     projectId: String? = null,
     toolCalls: List<ToolCallInfo> = emptyList(),
     thinkingContent: String = "",
+    // When non-null, rendered instead of the built-in thinking/toolCalls/text sections —
+    // used to show an ordered (chronological) tool/thinking/text timeline for a message
+    // instead of the fixed thinking-then-tools-then-text layout. See `turnTimelineView`.
+    customBody: (@Composable () -> Unit)? = null,
     bookmarkedMessageIds: Set<String> = emptySet(),
     onToggleBookmark: ((String) -> Unit)? = null,
     onForkFromMessage: ((String) -> Unit)? = null,
@@ -373,6 +421,7 @@ fun messageBubble(
                 projectId = projectId,
                 toolCalls = toolCalls,
                 thinkingContent = thinkingContent,
+                customBody = customBody,
                 isBookmarked = message.id != null && message.id in bookmarkedMessageIds,
                 onToggleBookmark = if (message.id != null) onToggleBookmark else null,
                 onForkFromMessage = if (message.id != null) onForkFromMessage else null,
@@ -643,6 +692,7 @@ private fun aiMessageBubble(
     projectId: String? = null,
     toolCalls: List<ToolCallInfo> = emptyList(),
     thinkingContent: String = "",
+    customBody: (@Composable () -> Unit)? = null,
     isBookmarked: Boolean = false,
     onToggleBookmark: ((String) -> Unit)? = null,
     onForkFromMessage: ((String) -> Unit)? = null,
@@ -728,97 +778,101 @@ private fun aiMessageBubble(
                             ),
                     ) {
                         Column {
-                            // Thinking/reasoning collapsible section — shown when the model exposes reasoning
-                            if (thinkingContent.isNotEmpty()) {
-                                thinkingSection(
-                                    thinkingContent = thinkingContent,
-                                    isStreaming = isStreaming,
-                                    isExpanded = thinkingExpanded,
-                                    onToggle = { thinkingExpanded = !thinkingExpanded },
-                                )
-                            }
-
-                            // Tool call collapsible section — shown only during streaming
-                            if (toolCalls.isNotEmpty()) {
-                                toolCallsSection(
-                                    toolCalls = toolCalls,
-                                    isExpanded = toolCallsExpanded,
-                                    onToggle = { toolCallsExpanded = !toolCallsExpanded },
-                                )
-                            }
-
-                            if (message.attachments.isNotEmpty()) {
-                                Column(
-                                    modifier = Modifier.padding(start = Spacing.medium, end = Spacing.medium, top = Spacing.medium),
-                                    verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-                                ) {
-                                    message.attachments.forEach { attachment ->
-                                        fileAttachmentChip(attachment = attachment, onDownload = onDownloadAttachment)
-                                    }
-                                }
-                            }
-
-                            if (searchQuery.isNotBlank()) {
-                                SelectionContainer {
-                                    Text(
-                                        text = highlightSearchText(
-                                            text = markdownToPlainText(message.content),
-                                            query = searchQuery,
-                                            highlightColor = Color(0xFFFFD54F),
-                                            isActiveResult = isActiveSearchResult,
-                                            activeHighlightColor = Color(0xFFFF8F00),
-                                        ),
-                                        modifier = Modifier.padding(start = Spacing.medium, end = 48.dp, top = Spacing.medium, bottom = Spacing.medium),
-                                        style = AppTextStyles.body,
+                            if (customBody != null) {
+                                customBody()
+                            } else {
+                                // Thinking/reasoning collapsible section — shown when the model exposes reasoning
+                                if (thinkingContent.isNotEmpty()) {
+                                    thinkingSection(
+                                        thinkingContent = thinkingContent,
+                                        isStreaming = isStreaming,
+                                        isExpanded = thinkingExpanded,
+                                        onToggle = { thinkingExpanded = !thinkingExpanded },
                                     )
                                 }
-                            } else {
-                                val onLinkClickHandler: (String) -> Unit = { url ->
-                                    if (url.startsWith("file://")) {
-                                        if (projectId != null) {
-                                            // Project chat — let the side panel handle it in the file viewer
-                                            EventBus.post(parseFilePreviewRequestEvent(url))
-                                        } else {
-                                            // Non-project chat — fall back to OS file browser
-                                            try {
-                                                val filePath = parseFilePreviewRequestEvent(url).filePath
-                                                val file = File(filePath)
-                                                if (file.exists() && Desktop.isDesktopSupported()) {
-                                                    Desktop.getDesktop().open(file)
-                                                }
-                                            } catch (_: Exception) {}
+
+                                // Tool call collapsible section — shown only during streaming
+                                if (toolCalls.isNotEmpty()) {
+                                    toolCallsSection(
+                                        toolCalls = toolCalls,
+                                        isExpanded = toolCallsExpanded,
+                                        onToggle = { toolCallsExpanded = !toolCallsExpanded },
+                                    )
+                                }
+
+                                if (message.attachments.isNotEmpty()) {
+                                    Column(
+                                        modifier = Modifier.padding(start = Spacing.medium, end = Spacing.medium, top = Spacing.medium),
+                                        verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                                    ) {
+                                        message.attachments.forEach { attachment ->
+                                            fileAttachmentChip(attachment = attachment, onDownload = onDownloadAttachment)
                                         }
                                     }
                                 }
-                                if (isStreaming) {
-                                    markdownText(
-                                        markdown = message.content,
-                                        modifier = Modifier.padding(start = Spacing.medium, end = 48.dp, top = Spacing.medium, bottom = Spacing.medium),
-                                        viewportTopY = viewportTopY,
-                                        isStreaming = true,
-                                        onRunRequest = { cmd, lang -> pendingRunRequest = Pair(cmd, lang) },
-                                        messageId = message.id,
-                                        onLinkClick = onLinkClickHandler,
-                                    )
+
+                                if (searchQuery.isNotBlank()) {
+                                    SelectionContainer {
+                                        Text(
+                                            text = highlightSearchText(
+                                                text = markdownToPlainText(message.content),
+                                                query = searchQuery,
+                                                highlightColor = Color(0xFFFFD54F),
+                                                isActiveResult = isActiveSearchResult,
+                                                activeHighlightColor = Color(0xFFFF8F00),
+                                            ),
+                                            modifier = Modifier.padding(start = Spacing.medium, end = 48.dp, top = Spacing.medium, bottom = Spacing.medium),
+                                            style = AppTextStyles.body,
+                                        )
+                                    }
                                 } else {
-                                    revealingMarkdownText(
-                                        markdown = message.content,
-                                        modifier = Modifier.padding(start = Spacing.medium, end = 48.dp, top = Spacing.medium, bottom = Spacing.medium),
-                                        onRunRequest = { cmd, lang -> pendingRunRequest = Pair(cmd, lang) },
-                                        messageId = message.id,
-                                        onLinkClick = onLinkClickHandler,
+                                    val onLinkClickHandler: (String) -> Unit = { url ->
+                                        if (url.startsWith("file://")) {
+                                            if (projectId != null) {
+                                                // Project chat — let the side panel handle it in the file viewer
+                                                EventBus.post(parseFilePreviewRequestEvent(url))
+                                            } else {
+                                                // Non-project chat — fall back to OS file browser
+                                                try {
+                                                    val filePath = parseFilePreviewRequestEvent(url).filePath
+                                                    val file = File(filePath)
+                                                    if (file.exists() && Desktop.isDesktopSupported()) {
+                                                        Desktop.getDesktop().open(file)
+                                                    }
+                                                } catch (_: Exception) {}
+                                            }
+                                        }
+                                    }
+                                    if (isStreaming) {
+                                        markdownText(
+                                            markdown = message.content,
+                                            modifier = Modifier.padding(start = Spacing.medium, end = 48.dp, top = Spacing.medium, bottom = Spacing.medium),
+                                            viewportTopY = viewportTopY,
+                                            isStreaming = true,
+                                            onRunRequest = { cmd, lang -> pendingRunRequest = Pair(cmd, lang) },
+                                            messageId = message.id,
+                                            onLinkClick = onLinkClickHandler,
+                                        )
+                                    } else {
+                                        revealingMarkdownText(
+                                            markdown = message.content,
+                                            modifier = Modifier.padding(start = Spacing.medium, end = 48.dp, top = Spacing.medium, bottom = Spacing.medium),
+                                            onRunRequest = { cmd, lang -> pendingRunRequest = Pair(cmd, lang) },
+                                            messageId = message.id,
+                                            onLinkClick = onLinkClickHandler,
+                                        )
+                                    }
+                                }
+
+                                if (isOutdatedMessage) {
+                                    Text(
+                                        text = stringResource("outdated.label"),
+                                        style = AppTextStyles.hint,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                        fontStyle = FontStyle.Italic,
+                                        modifier = Modifier.padding(start = Spacing.medium, end = Spacing.medium, bottom = Spacing.small, top = Spacing.extraSmall),
                                     )
                                 }
-                            }
-
-                            if (isOutdatedMessage) {
-                                Text(
-                                    text = stringResource("outdated.label"),
-                                    style = AppTextStyles.hint,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                    fontStyle = FontStyle.Italic,
-                                    modifier = Modifier.padding(start = Spacing.medium, end = Spacing.medium, bottom = Spacing.small, top = Spacing.extraSmall),
-                                )
                             }
                         }
                     }
@@ -1156,7 +1210,7 @@ private fun aiMessageBubble(
  * The body uses a muted italic style visually distinct from the main response.
  */
 @Composable
-private fun thinkingSection(
+internal fun thinkingSection(
     thinkingContent: String,
     isStreaming: Boolean,
     isExpanded: Boolean,
@@ -1259,12 +1313,73 @@ private fun thinkingSection(
 }
 
 /**
+ * Renders timeline groups in chronological order — tool-call and thinking groups reuse this
+ * file's own collapsible sections ([toolCallsSection]/[thinkingSection]); token groups render
+ * as normal markdown; status groups show as a small muted subtitle. Each group gets its own
+ * remembered expand/collapse state, keyed by position — stable since groups are only ever
+ * appended at the end for a given message.
+ *
+ * Used both for the live streaming turn (agentic runs) and for finalized/historical AI
+ * messages (via [messageBubble]'s `customBody`), so order is preserved identically in both.
+ */
+@Composable
+internal fun turnTimelineView(groups: List<TurnTimelineGroup>) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+    ) {
+        groups.forEachIndexed { index, group ->
+            key(index) {
+                when (group) {
+                    is TurnTimelineGroup.StatusGroup -> {
+                        Text(
+                            text = group.entries.last().text,
+                            style = AppTextStyles.caption,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+
+                    is TurnTimelineGroup.ToolGroup -> {
+                        var expanded by remember { mutableStateOf(true) }
+                        toolCallsSection(
+                            toolCalls = group.entries.map { it.toolCall },
+                            isExpanded = expanded,
+                            onToggle = { expanded = !expanded },
+                        )
+                    }
+
+                    is TurnTimelineGroup.ThinkingGroup -> {
+                        var expanded by remember { mutableStateOf(true) }
+                        thinkingSection(
+                            thinkingContent = group.text,
+                            isStreaming = false,
+                            isExpanded = expanded,
+                            onToggle = { expanded = !expanded },
+                        )
+                    }
+
+                    is TurnTimelineGroup.TokenGroup -> {
+                        markdownText(
+                            markdown = group.text,
+                            modifier = Modifier.fillMaxWidth().padding(start = Spacing.medium, end = 48.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
  * Collapsible section that displays AI tool calls above the response text.
  * Shows "▶ Running tool…" when any tool is active, "▶ Used N tool(s)" when all are done.
  * Expands automatically when a tool starts running; collapses manually by the user.
  */
 @Composable
-private fun toolCallsSection(
+internal fun toolCallsSection(
     toolCalls: List<ToolCallInfo>,
     isExpanded: Boolean,
     onToggle: () -> Unit,
@@ -1471,18 +1586,20 @@ private fun toolCallDetailSection(
             style = AppTextStyles.hint,
             color = labelColor ?: MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
         )
-        Text(
-            text = content,
-            style = AppTextStyles.codeSecondary,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                    shape = RoundedCornerShape(4.dp),
-                )
-                .padding(horizontal = Spacing.extraSmall, vertical = 2.dp),
-        )
+        SelectionContainer {
+            Text(
+                text = content,
+                style = AppTextStyles.codeSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                        shape = RoundedCornerShape(4.dp),
+                    )
+                    .padding(horizontal = Spacing.extraSmall, vertical = 2.dp),
+            )
+        }
     }
 }
 

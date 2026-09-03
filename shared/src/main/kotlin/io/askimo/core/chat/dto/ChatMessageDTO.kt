@@ -25,4 +25,9 @@ data class ChatMessageDTO(
     val totalTokens: Int? = null,
     val durationMs: Long? = null,
     val isBookmarked: Boolean = false,
+    // Ordered tool-call + response-text content blocks for this message, in the exact order
+    // they occurred (e.g. text → tool → text) — mirrors AgentRunRecord.contentBlocks.
+    // Excludes Thinking/Status: reasoning/lifecycle text stays session-only, never persisted.
+    // Cleared (empty) whenever the message is edited — see ChatMessageRepository.updateMessageContent.
+    val contentBlocks: List<TurnTimelineEntry> = emptyList(),
 )

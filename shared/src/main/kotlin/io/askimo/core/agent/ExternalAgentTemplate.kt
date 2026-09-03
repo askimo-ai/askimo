@@ -118,16 +118,19 @@ abstract class ExternalAgentTemplate : ExternalAgent {
     /**
      * Parses a single line from process stdout.
      * Called for each non-blank line as it arrives.
-     * Should call [onToken] to stream response text and [onStatus] for status updates.
+     * Should call [onToken] to stream response text, [onToolCall] when the agent actually
+     * invokes a tool, and [onStatus] for non-tool lifecycle/status updates.
      *
      * @param line      A non-blank line from stdout.
      * @param onToken   Callback to emit response text tokens.
-     * @param onStatus  Callback to emit status messages (e.g., "Using tool: readFile").
+     * @param onToolCall Callback to emit a discrete tool invocation (name + optional detail).
+     * @param onStatus  Callback to emit non-tool status messages (e.g. session init, run summary).
      * @param output    StringBuilder accumulating all processed output (append final result).
      */
     protected abstract fun parseStdoutLine(
         line: String,
         onToken: (String) -> Unit,
+        onToolCall: (toolName: String, detail: String?) -> Unit,
         onStatus: (String) -> Unit,
         onThinking: (String) -> Unit,
         output: StringBuilder,
@@ -204,6 +207,7 @@ abstract class ExternalAgentTemplate : ExternalAgent {
         workDir: File?,
         resumeSessionId: String?,
         onToken: (String) -> Unit,
+        onToolCall: (toolName: String, detail: String?) -> Unit,
         onStatus: (String) -> Unit,
         onThinking: (String) -> Unit,
     ): Result<String> = runCatching {
@@ -281,7 +285,7 @@ abstract class ExternalAgentTemplate : ExternalAgent {
         val output = StringBuilder()
         process.inputStream.bufferedReader().forEachLine { line ->
             if (line.isBlank()) return@forEachLine
-            parseStdoutLine(line, onToken, onStatus, onThinking, output)
+            parseStdoutLine(line, onToken, onToolCall, onStatus, onThinking, output)
         }
 
         // Wait for stdin to finish (it is almost always done by the time stdout is drained).

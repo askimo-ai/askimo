@@ -4,12 +4,11 @@
  */
 package io.askimo.ui.common.theme
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.MarqueeAnimationMode
 import androidx.compose.foundation.ScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
@@ -31,7 +30,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
@@ -78,20 +76,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -1022,21 +1016,13 @@ object AppComponents {
 
     /**
      * Single-line text that reveals content clipped by ellipsis/truncation when hovered,
-     * by scrolling horizontally at a constant speed and holding at the end — the classic
-     * "marquee on hover" pattern used for long list-item titles (session names, project
-     * names, tab titles, etc.).
+     * by scrolling horizontally at a constant speed — the classic "marquee on hover" pattern
+     * used for long list-item titles (session names, project names, tab titles, etc.).
      *
-     * Both the container width and the text's natural (unbounded) width are captured from
-     * the *same actual layout pass* (via [Modifier.onSizeChanged] on the container, and on
-     * the [Text] itself measured with [Modifier.wrapContentWidth] `unbounded = true`) —
-     * deliberately avoiding a separate `rememberTextMeasurer` estimate, since that can
-     * subtly diverge from the real rendered width and cause the scroll to over/undershoot
-     * the true end of the text. Text that already fits never moves.
+     * Text that already fits the available width never scrolls.
      *
-     * On hover-exit, animates back to the start position so the caller's own truncation
-     * (e.g. `TextOverflow.Ellipsis` used elsewhere for the resting state) reads correctly again.
-     *
-     * @param isHovered Drives the scroll: `true` starts/holds the scroll, `false` resets it.
+     * @param isHovered Drives the scroll: `true` starts/holds the scroll, `false` stops it
+     * immediately and the caller's own truncation (`TextOverflow.Ellipsis`) applies.
      */
     @Composable
     fun marqueeText(
@@ -1046,45 +1032,23 @@ object AppComponents {
         style: TextStyle = LocalTextStyle.current,
         color: Color = Color.Unspecified,
     ) {
-        var containerWidthPx by remember { mutableIntStateOf(0) }
-        var textWidthPx by remember { mutableIntStateOf(0) }
-
-        val overflowPx = (textWidthPx - containerWidthPx).coerceAtLeast(0)
-        val shouldScroll = isHovered && overflowPx > 0
-
-        val offsetPx by animateFloatAsState(
-            targetValue = if (shouldScroll) -overflowPx.toFloat() else 0f,
-            animationSpec = if (shouldScroll) {
-                tween(durationMillis = (overflowPx * 26).coerceAtLeast(1), easing = LinearEasing)
-            } else {
-                tween(durationMillis = 250)
-            },
-            label = "marqueeOffset",
-        )
-
-        Box(
-            modifier = modifier
-                .clipToBounds()
-                .onSizeChanged { containerWidthPx = it.width },
-        ) {
-            Text(
-                text = text,
-                style = style,
-                color = color,
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Clip,
-                modifier = Modifier
-                    // Let the Text measure at its true, full natural width regardless of the
-                    // parent's constraint (e.g. from a Row `weight(1f)`) — otherwise it would be
-                    // clipped down to the container width, leaving nothing to reveal when
-                    // translating. `onSizeChanged` then reports that exact same width used for
-                    // drawing, guaranteeing the scroll ends precisely when the last character
-                    // reaches the visible (clipped) right edge — no separate estimate involved.
-                    .wrapContentWidth(align = androidx.compose.ui.Alignment.Start, unbounded = true)
-                    .onSizeChanged { textWidthPx = it.width }
-                    .graphicsLayer { translationX = offsetPx },
+        val marqueeModifier = if (isHovered) {
+            Modifier.basicMarquee(
+                iterations = Int.MAX_VALUE,
+                animationMode = MarqueeAnimationMode.Immediately,
+                velocity = 40.dp,
+                initialDelayMillis = 0,
             )
+        } else {
+            Modifier
         }
+        Text(
+            text = text,
+            style = style,
+            color = color,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = modifier.then(marqueeModifier),
+        )
     }
 }

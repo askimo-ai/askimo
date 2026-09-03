@@ -141,8 +141,16 @@ interface ExternalAgent {
      *                        to resume instead of starting a new conversation. `null` starts fresh.
      *                        Agents that do not support resuming ignore this.
      * @param onToken         Called for each content token as it arrives (pure response text).
-     * @param onStatus        Called with a short human-readable status string when the agent
-     *                        performs a tool call (e.g. "Using tool: readFile"). Defaults to no-op.
+     * @param onToolCall       Called when the agent actually invokes a tool (e.g. reads a file,
+     *                        runs a command) — `toolName` is the tool's name, `detail` is an
+     *                        optional short, human-readable summary of its arguments (e.g. the
+     *                        file path or command being run), truncated for display. Defaults
+     *                        to no-op. This is distinct from [onStatus]: a tool call is a
+     *                        discrete, structured event the UI renders as a "tool call" chip.
+     * @param onStatus        Called with a short human-readable status string for non-tool
+     *                        lifecycle/informational events (e.g. session init, run summary).
+     *                        Defaults to no-op. Never called for actual tool invocations — see
+     *                        [onToolCall] for those.
      * @return The complete stdout output, or a [Result.failure] on error.
      */
     fun run(
@@ -151,6 +159,7 @@ interface ExternalAgent {
         workDir: File? = null,
         resumeSessionId: String? = null,
         onToken: (String) -> Unit = {},
+        onToolCall: (toolName: String, detail: String?) -> Unit = { _, _ -> },
         onStatus: (String) -> Unit = {},
         onThinking: (String) -> Unit = {},
     ): Result<String>
@@ -165,11 +174,12 @@ interface ExternalAgent {
         workDir: File? = null,
         resumeSessionId: String? = null,
         onToken: (String) -> Unit = {},
+        onToolCall: (toolName: String, detail: String?) -> Unit = { _, _ -> },
         onStatus: (String) -> Unit = {},
         onThinking: (String) -> Unit = {},
     ): Result<String> {
         val startMs = System.currentTimeMillis()
-        val result = run(systemPrompt, userInput, workDir, resumeSessionId, onToken, onStatus, onThinking)
+        val result = run(systemPrompt, userInput, workDir, resumeSessionId, onToken, onToolCall, onStatus, onThinking)
         val durationMs = System.currentTimeMillis() - startMs
         Analytics.track(
             AnalyticsEvent.SKILL_AGENT_RUN,

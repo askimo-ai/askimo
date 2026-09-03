@@ -53,6 +53,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -86,6 +87,7 @@ import io.askimo.ui.session.SessionsViewModel
 import io.askimo.ui.session.deleteSessionDialog
 import io.askimo.ui.session.sessionTooltip
 import io.askimo.ui.util.Platform
+import kotlinx.coroutines.launch
 import java.io.File
 import java.net.URI
 import java.net.http.HttpClient
@@ -160,6 +162,30 @@ fun navigationSidebar(
         animationSpec = tween(durationMillis = 300),
     )
 
+    val scope = rememberCoroutineScope()
+
+    // Optimistic UI override for the selected session.
+    //
+    // `onResumeSession` is async and the caller's `currentSessionId` state only updates once
+    // that navigation completes, which can make the sidebar selection feel laggy on click.
+    // To avoid that, `navigateToSession` sets this immediately on click so the item is
+    // highlighted instantly, while the real navigation happens in the background. Once the
+    // caller's `currentSessionId` catches up (see the LaunchedEffect below), this override is
+    // cleared and the real state takes over again.
+    var optimisticSessionId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(currentSessionId) {
+        // Once the real state (from the caller) catches up, drop the optimistic override.
+        optimisticSessionId = null
+    }
+    val effectiveSessionId = optimisticSessionId ?: currentSessionId
+    val navigateToSession = remember(onResumeSession) {
+        { sessionId: String ->
+            optimisticSessionId = sessionId // 1. set selected background — instant
+            scope.launch { onResumeSession(sessionId) } // 2. async "navigation" event — loads later
+            Unit
+        }
+    }
+
     if (isExpanded) {
         expandedNavigationSidebar(
             animatedWidth = animatedWidth,
@@ -169,13 +195,13 @@ fun navigationSidebar(
             projectsState = projectsState,
             pinnedState = pinnedState,
             sessionsViewModel = sessionsViewModel,
-            currentSessionId = currentSessionId,
+            currentSessionId = effectiveSessionId,
             onToggleExpand = onToggleExpand,
             onNewChat = onNewChat,
             onToggleSessions = onToggleSessions,
             onNavigateToSessions = onNavigateToSessions,
             onSelectProject = onSelectProject,
-            onResumeSession = onResumeSession,
+            onResumeSession = navigateToSession,
             onDeleteSession = onDeleteSession,
             onStarSession = onStarSession,
             onStarProject = onStarProject,

@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.FolderOpen
@@ -212,6 +213,8 @@ internal fun agentsPageHeader(
     showPanelToggle: Boolean = false,
     panelVisible: Boolean = false,
     onTogglePanel: () -> Unit = {},
+    hasActiveConversation: Boolean = false,
+    onNewChat: () -> Unit = {},
 ) {
     val runtimes = ExternalAgentLoader.displayNames()
     val runtimesLabel = runtimes.mapIndexed { i, r ->
@@ -230,6 +233,23 @@ internal fun agentsPageHeader(
             modifier = Modifier.weight(1f),
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
+            themedTooltip(text = stringResource("chat.new")) {
+                IconButton(
+                    onClick = onNewChat,
+                    enabled = hasActiveConversation,
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = stringResource("chat.new"),
+                        tint = if (hasActiveConversation) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                        },
+                    )
+                }
+            }
             themedTooltip(text = stringResource("agents.view.docs.tooltip")) {
                 IconButton(
                     onClick = {
@@ -318,6 +338,9 @@ private fun agenticContent(
     preloadRecord: AgentRunRecord? = null,
     onPreloadConsumed: () -> Unit = {},
 ) {
+    var hasActiveConversation by remember { mutableStateOf(false) }
+    var newConversationRequestKey by remember { mutableStateOf(0) }
+
     Column(modifier = Modifier.fillMaxSize()) {
         // ── Page header (fixed — does not scroll with the conversation) ───
         Column(
@@ -332,6 +355,8 @@ private fun agenticContent(
                 showPanelToggle = showPanelToggle,
                 panelVisible = panelVisible,
                 onTogglePanel = onTogglePanel,
+                hasActiveConversation = hasActiveConversation,
+                onNewChat = { newConversationRequestKey++ },
             )
         }
 
@@ -345,6 +370,8 @@ private fun agenticContent(
                 onNavigateToSkillsSettings = onNavigateToSkillsSettings,
                 preloadRecord = preloadRecord,
                 onPreloadConsumed = onPreloadConsumed,
+                onConversationStateChanged = { hasActiveConversation = it },
+                newConversationRequestKey = newConversationRequestKey,
             )
         }
     }

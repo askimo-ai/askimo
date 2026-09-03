@@ -146,6 +146,7 @@ class ClaudeAgent : ExternalAgentTemplate() {
     override fun parseStdoutLine(
         line: String,
         onToken: (String) -> Unit,
+        onToolCall: (toolName: String, detail: String?) -> Unit,
         onStatus: (String) -> Unit,
         onThinking: (String) -> Unit,
         output: StringBuilder,
@@ -192,21 +193,17 @@ class ClaudeAgent : ExternalAgentTemplate() {
 
                             @Suppress("UNCHECKED_CAST")
                             val input = fields["input"] as? Map<String, Any>
-                            val summary = buildString {
-                                append("tool: $toolName")
-                                if (input != null) {
-                                    val detail = (input["file_path"] ?: input["command"] ?: input.values.firstOrNull())
-                                        ?.toString()?.let {
-                                            if (it.length > 80) it.take(77) + "…" else it
-                                        }
-                                    if (detail != null) append(" → $detail")
-                                }
-                            }
-                            onStatus(summary)
+                            val detail = input
+                                ?.let { it["file_path"] ?: it["command"] ?: it.values.firstOrNull() }
+                                ?.toString()
+                            onToolCall(toolName, detail)
                         }
 
                         "thinking" -> {
                             val thinking = fields["thinking"] as? String ?: continue
+                            if (thinking.isBlank()) {
+                                continue
+                            }
                             log.debug("claude thinking: {}", thinking.take(200))
                             onThinking(thinking)
                         }

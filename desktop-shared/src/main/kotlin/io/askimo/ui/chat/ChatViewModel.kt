@@ -13,7 +13,9 @@ import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
 import io.askimo.core.chat.dto.ToolApprovalRequest
-import io.askimo.core.chat.dto.ToolCallInfo
+import io.askimo.core.chat.dto.TurnTimelineEntry
+import io.askimo.core.chat.dto.TurnTimelineGroup
+import io.askimo.core.chat.dto.grouped
 import io.askimo.core.chat.mapper.ChatMessageMapper.toDTO
 import io.askimo.core.chat.repository.PaginationDirection
 import io.askimo.core.chat.service.ChatDirectiveService
@@ -117,13 +119,16 @@ class ChatViewModel(
     var project by mutableStateOf<Project?>(null)
         private set
 
-    var activeToolCalls by mutableStateOf<List<ToolCallInfo>>(emptyList())
+    var activeTimeline by mutableStateOf<List<TurnTimelineEntry>>(emptyList())
         private set
 
     var pendingToolApproval by mutableStateOf<ToolApprovalRequest?>(null)
         private set
 
-    var activeThinkingContent by mutableStateOf("")
+    // Session-only per-message full timelines (incl. thinking) for turns completed earlier in
+    // this session, keyed by message id — mirrors AgentRunArea's completedGroups. Falls back
+    // to ChatMessageDTO.contentBlocks (persisted, tool+text only) once no longer in this map.
+    var completedTimelines by mutableStateOf<Map<String, List<TurnTimelineGroup>>>(emptyMap())
         private set
 
     var bookmarkedMessageIds by mutableStateOf<Set<String>>(emptySet())
@@ -169,9 +174,9 @@ class ChatViewModel(
             selectedDirective = selectedDirective,
             sessionTitle = sessionTitle ?: "",
             project = project,
-            activeToolCalls = activeToolCalls,
+            activeTimeline = activeTimeline,
             pendingToolApproval = pendingToolApproval,
-            activeThinkingContent = activeThinkingContent,
+            completedTimelines = completedTimelines,
             bookmarkedMessageIds = bookmarkedMessageIds,
             pendingScrollToMessageId = pendingScrollToMessageId,
             memoryPressureLevel = memoryPressureLevel,
@@ -374,13 +379,13 @@ class ChatViewModel(
             val subscriptionScope = CoroutineScope(scope.coroutineContext + subscriptionJob)
             activeSubscriptions[sessionId] = subscriptionJob
 
-            val hasChunks = activeThread.chunks.value.isNotEmpty()
+            val hasEvents = activeThread.timeline.value.isNotEmpty()
 
-            if (!hasChunks) {
+            if (!hasEvents) {
                 isThinking = true
                 startThinkingTimer(activeThread.startTimeMillis)
             } else {
-                val streamingContent = activeThread.chunks.value.joinToString("")
+                val streamingContent = activeThread.timeline.value.filterIsInstance<TurnTimelineEntry.Token>().joinToString("") { it.text }
                 val newAiMessage = ChatMessageDTO(
                     content = streamingContent,
                     isUser = false,
@@ -392,19 +397,26 @@ class ChatViewModel(
                 insertAiMessage(newAiMessage)
             }
 
-            // Create a single job for this SPECIFIC threadId's subscription
+            // Single collector for the unified, chronologically-ordered timeline — tokens,
+            // tool calls, and thinking chunks all arrive through this one flow, preserving
+            // true interleaving order (see SessionManager.StreamingThread.timeline).
             subscriptionScope.launch {
-                var firstTokenReceived = hasChunks
+                var firstEventReceived = hasEvents
 
-                activeThread.chunks.collect { chunks ->
-                    if (currentSessionId.value == sessionId && chunks.isNotEmpty()) {
-                        if (!firstTokenReceived) {
-                            firstTokenReceived = true
+                activeThread.timeline.collect { timeline ->
+                    if (currentSessionId.value == sessionId && timeline.isNotEmpty()) {
+                        if (!firstEventReceived) {
+                            firstEventReceived = true
                             isThinking = false
                             stopThinkingTimer()
                         }
 
-                        val streamingContent = chunks.joinToString("")
+                        activeTimeline = timeline
+                        // Ensure a placeholder bubble exists so tool/thinking chips are visible
+                        // even before the first response token arrives.
+                        ensurePlaceholderAiMessage()
+
+                        val streamingContent = timeline.filterIsInstance<TurnTimelineEntry.Token>().joinToString("") { it.text }
                         currentResponse = streamingContent
 
                         val newAiMessage = ChatMessageDTO(
@@ -420,35 +432,10 @@ class ChatViewModel(
                 }
             }
 
-            // Subscribe to tool call state for the streaming message.
-            // When a tool fires before any text token arrives (no id=null message exists yet),
-            // inject a placeholder AI message so the bubble appears and can render tool chips.
-            subscriptionScope.launch {
-                activeThread.toolCalls.collect { calls ->
-                    if (currentSessionId.value == sessionId) {
-                        activeToolCalls = calls // No streaming bubble yet — create placeholder so tool chips are visible
-                        if (calls.isNotEmpty()) ensurePlaceholderAiMessage()
-                    }
-                }
-            }
-
-            // Subscribe to thinking/reasoning tokens streamed by models that expose reasoning.
-            // Accumulate chunks into a single string; UI renders them in a collapsible section.
             subscriptionScope.launch {
                 activeThread.pendingApproval.collect { request ->
                     if (currentSessionId.value == sessionId) {
                         pendingToolApproval = request
-                    }
-                }
-            }
-
-            subscriptionScope.launch {
-                activeThread.thinkingChunks.collect { chunks ->
-                    if (currentSessionId.value == sessionId) {
-                        activeThinkingContent = chunks.joinToString("")
-                        // Ensure a placeholder bubble exists so the thinking section is visible
-                        // even before the first response token arrives.
-                        if (chunks.isNotEmpty()) ensurePlaceholderAiMessage()
                     }
                 }
             }
@@ -496,6 +483,15 @@ class ChatViewModel(
                                 savedMessage.id,
                                 retryInsertPosition ?: "end",
                             )
+
+                            // Keep this turn's full ordered timeline (incl. thinking) visible for
+                            // the rest of the session, keyed by its now-stable message id — in
+                            // memory only, never written to the database (only Tool/Token blocks
+                            // are persisted, via ChatMessageDTO.contentBlocks).
+                            val finalTimeline = activeThread.timeline.value
+                            if (finalTimeline.isNotEmpty()) {
+                                completedTimelines = completedTimelines + (savedMessage.id to finalTimeline.grouped())
+                            }
                         } else {
                             log.warn("Saved message not available in StreamingThread for session $sessionId")
                         }
@@ -503,7 +499,7 @@ class ChatViewModel(
                         // Clear retry position tracker
                         retryInsertPosition = null
 
-                        // NOTE: activeToolCalls is NOT cleared here — chips stay visible on the
+                        // NOTE: activeTimeline is NOT cleared here — chips stay visible on the
                         // completed message until the user sends the next message.
 
                         // Refresh session title (in case it was auto-generated from first message)
@@ -514,9 +510,8 @@ class ChatViewModel(
                         // past its coroutine completion specifically for this read.
                         sessionManager.removeThread(sessionId)
 
-                        // Cancel and clean up ALL collectors (chunks, toolCalls,
-                        // pendingApproval, thinkingChunks, isComplete) for this session
-                        // now that the thread is done.
+                        // Cancel and clean up ALL collectors (timeline, pendingApproval,
+                        // isComplete) for this session now that the thread is done.
                         activeSubscriptions[sessionId]?.cancel()
                         activeSubscriptions.remove(sessionId)
                     }
@@ -628,9 +623,8 @@ class ChatViewModel(
                 thinkingElapsedSeconds = 0
 
                 // Clear tool chips and thinking content from the previous response before retrying
-                activeToolCalls = emptyList()
+                activeTimeline = emptyList()
                 pendingToolApproval = null
-                activeThinkingContent = ""
 
                 startThinkingTimer()
 
@@ -710,9 +704,8 @@ class ChatViewModel(
         if (message.isBlank() || isLoading) return
 
         // Clear tool chips and thinking content from the previous response now that a new message is starting
-        activeToolCalls = emptyList()
+        activeTimeline = emptyList()
         pendingToolApproval = null
-        activeThinkingContent = ""
 
         // Session ID must be set by this point (from resumeSession)
         val sessionId = currentSessionId.value ?: run {
@@ -1311,8 +1304,9 @@ class ChatViewModel(
         sessionTitle = null
         project = null
 
-        // Clear ephemeral tool call state
-        activeToolCalls = emptyList()
+        // Clear ephemeral tool/thinking timeline state
+        activeTimeline = emptyList()
+        completedTimelines = emptyMap()
 
         // Clear search state
         clearSearch()

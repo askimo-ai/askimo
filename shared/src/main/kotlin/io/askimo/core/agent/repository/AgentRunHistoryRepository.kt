@@ -6,9 +6,13 @@ package io.askimo.core.agent.repository
 
 import io.askimo.core.agent.domain.AgentRunHistoryTable
 import io.askimo.core.agent.domain.AgentRunRecord
+import io.askimo.core.chat.dto.TurnTimelineEntry
 import io.askimo.core.db.AbstractSQLiteRepository
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.logging.logger
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.eq
@@ -28,6 +32,7 @@ class AgentRunHistoryRepository internal constructor(
 ) : AbstractSQLiteRepository(databaseManager) {
 
     private val log = logger<AgentRunHistoryRepository>()
+    private val json = Json { ignoreUnknownKeys = true }
 
     /**
      * Persists a new run record. The [record.id] must already be set (UUID).
@@ -43,6 +48,7 @@ class AgentRunHistoryRepository internal constructor(
                 it[error] = record.error
                 it[agentSessionId] = record.agentSessionId
                 it[activityLog] = encodeLog(record.activityLog)
+                it[contentJson] = if (record.contentBlocks.isEmpty()) null else json.encodeToString(record.contentBlocks)
                 it[inputTokens] = record.inputTokens
                 it[outputTokens] = record.outputTokens
                 it[totalTokens] = record.totalTokens
@@ -135,6 +141,7 @@ class AgentRunHistoryRepository internal constructor(
         error = row[AgentRunHistoryTable.error],
         agentSessionId = row[AgentRunHistoryTable.agentSessionId],
         activityLog = decodeLog(row[AgentRunHistoryTable.activityLog]),
+        contentBlocks = decodeContentBlocks(row[AgentRunHistoryTable.contentJson]),
         inputTokens = row[AgentRunHistoryTable.inputTokens],
         outputTokens = row[AgentRunHistoryTable.outputTokens],
         totalTokens = row[AgentRunHistoryTable.totalTokens],
@@ -147,5 +154,12 @@ class AgentRunHistoryRepository internal constructor(
     private fun decodeLog(raw: String): List<String> {
         if (raw.isBlank()) return emptyList()
         return raw.lines().map { it.replace("\\n", "\n") }
+    }
+
+    private fun decodeContentBlocks(raw: String?): List<TurnTimelineEntry> {
+        if (raw.isNullOrBlank()) return emptyList()
+        return runCatching { json.decodeFromString<List<TurnTimelineEntry>>(raw) }
+            .onFailure { e -> log.warn("Failed to decode content_json: {}", e.message) }
+            .getOrDefault(emptyList())
     }
 }
