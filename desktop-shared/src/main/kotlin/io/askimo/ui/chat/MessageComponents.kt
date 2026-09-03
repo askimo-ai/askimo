@@ -1390,7 +1390,7 @@ internal fun turnTimelineView(
             lastGroup is TurnTimelineGroup.ToolGroup &&
             lastGroup.entries.all { it.toolCall.status == ToolCallStatus.DONE }
         ) {
-            key(lastGroup.stableKey()) {
+            key("processing:" + lastGroup.stableKey()) {
                 aiProcessingIndicator()
             }
         }
