@@ -1336,8 +1336,11 @@ internal fun turnTimelineView(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
     ) {
-        groups.forEach { group ->
-            key(group.stableKey()) {
+        groups.forEachIndexed { index, group ->
+            // Only the *last* group can still be actively receiving new streamed deltas (see
+            // grouped()) — every earlier group's content is already frozen. See [renderKey].
+            val isStreamingTail = isStreaming && index == groups.lastIndex
+            key(group.renderKey(isStreamingTail)) {
                 when (group) {
                     is TurnTimelineGroup.StatusGroup -> {
                         Text(
@@ -1441,12 +1444,46 @@ private fun aiProcessingIndicator() {
  * [TurnTimelineGroup.ToolGroup] is keyed by its tool names only (not status/arguments/result),
  * since those mutate in place as a call goes from running to done — the *identity* of "this is
  * the group for tool X (then Y, ...)" is what needs to stay stable, not its current state.
+ *
+ * NOTE: [ThinkingGroup]/[TokenGroup]/[StatusGroup] embed their full accumulated text, which
+ * `grouped()` keeps growing (via concatenation) for as long as a group is the *streaming tail*
+ * — so this key is only stable once a group's content is frozen (i.e. it's no longer the tail
+ * receiving new deltas, or the turn isn't streaming at all). While actively streaming, callers
+ * must use [renderKey] instead, which substitutes a fixed key for the tail group.
  */
 private fun TurnTimelineGroup.stableKey(): String = when (this) {
     is TurnTimelineGroup.StatusGroup -> "status:" + entries.joinToString("|") { it.text }
     is TurnTimelineGroup.ToolGroup -> "tool:" + entries.joinToString("|") { it.toolCall.toolName }
     is TurnTimelineGroup.ThinkingGroup -> "thinking:$text"
     is TurnTimelineGroup.TokenGroup -> "token:$text"
+}
+
+/**
+ * The [key] used for a group in [turnTimelineView] — [stableKey] for every group *except* the
+ * one currently receiving new streamed deltas ([isStreamingTail]), which is keyed by a fixed,
+ * content-independent marker instead (`"live:thinking"`/`"live:token"`/`"live:status"`).
+ *
+ * Needed because `grouped()` keeps appending new deltas to the *tail* group's accumulated text
+ * while streaming, which would otherwise change its [stableKey] on every single delta —
+ * discarding the group's `remember`ed state (expand/collapse, [thinkingSection]'s scroll
+ * position, etc.) each time, and risking a duplicate-key crash if two tail contents ever
+ * coincide. The fixed marker never collides with a [stableKey] value (those never start with
+ * `"live:"`), and since only one group can be the streaming tail at a time, no two groups ever
+ * compete for it. [TurnTimelineGroup.ToolGroup] is excluded — its [stableKey] already ignores
+ * status/arguments/result, so it's already stable while streaming.
+ *
+ * Once a group stops being the tail, its content is frozen and it reverts to [stableKey].
+ */
+private fun TurnTimelineGroup.renderKey(isStreamingTail: Boolean): String {
+    if (isStreamingTail) {
+        when (this) {
+            is TurnTimelineGroup.ThinkingGroup -> return "live:thinking"
+            is TurnTimelineGroup.TokenGroup -> return "live:token"
+            is TurnTimelineGroup.StatusGroup -> return "live:status"
+            is TurnTimelineGroup.ToolGroup -> {}
+        }
+    }
+    return stableKey()
 }
 
 /**
