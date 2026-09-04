@@ -22,6 +22,13 @@ import java.util.UUID
  *                    (resumed via the agent's own session, see [agentSessionId]) reuses
  *                    the same id, so the full multi-turn thread can be reconstructed
  *                    from history instead of only the single turn that was clicked.
+ * @param title       Human-readable conversation title — never blank. Set to a deterministic
+ *                    truncation of the first turn's [userInput] (see
+ *                    `io.askimo.core.chat.TitleGenerator.fallbackTitle`) the instant a new
+ *                    conversation starts, then optionally replaced with a short AI-generated
+ *                    title (best-effort, async). Every turn of the same [conversationId]
+ *                    shares this same value — kept in sync via a bulk update rather than
+ *                    looked up from the first turn.
  * @param userInput   The context/prompt entered by the user before executing.
  * @param response    The full AI-generated response text; empty if the run failed.
  * @param error       Error message if the run failed; null on success.
@@ -45,6 +52,7 @@ data class AgentRunRecord(
 
     val workspaceId: String,
     val conversationId: String,
+    val title: String,
     val userInput: String,
     val response: String,
     val error: String?,
@@ -71,6 +79,7 @@ object AgentRunHistoryTable : Table("agent_run_history") {
     val id = varchar("id", 36)
     val workspaceId = varchar("workspace_id", 36).references(WorkspaceTable.id)
     val conversationId = varchar("conversation_id", 36)
+    val title = text("title").default("")
     val userInput = text("user_input").default("")
     val response = text("response").default("")
     val error = text("error").nullable()

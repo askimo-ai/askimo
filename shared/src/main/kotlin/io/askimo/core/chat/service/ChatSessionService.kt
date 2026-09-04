@@ -12,6 +12,7 @@ import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever
 import io.askimo.core.chat.domain.ChatMessage
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.domain.Project
+import io.askimo.core.chat.domain.SESSION_TITLE_MAX_LENGTH
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.TurnTimelineEntry
 import io.askimo.core.chat.mapper.ChatMessageMapper.toDTO
@@ -417,7 +418,13 @@ class ChatSessionService(
                     """.trimIndent()
                     val utilityChatClient = appContext.createUtilityClient()
 
-                    val aiTitle = utilityChatClient.sendMessage(prompt).trim()
+                    // Normalize to a single line and cap the length before persisting/broadcasting —
+                    // mirrors TitleGenerator.fallbackTitle's contract, since the model isn't
+                    // guaranteed to honor the "short, no punctuation" instruction above.
+                    val aiTitle = utilityChatClient.sendMessage(prompt)
+                        .trim()
+                        .replace("\n", " ")
+                        .take(SESSION_TITLE_MAX_LENGTH)
 
                     if (aiTitle.isNotBlank()) {
                         sessionRepository.updateSessionTitle(createdSession.id, aiTitle)

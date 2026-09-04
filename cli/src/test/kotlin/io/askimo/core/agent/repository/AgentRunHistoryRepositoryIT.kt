@@ -70,6 +70,7 @@ class AgentRunHistoryRepositoryIT {
 
     private fun newRecord(
         conversationId: String = "conv-${System.nanoTime()}",
+        title: String = "Do something",
         userInput: String = "Do something",
         response: String = "Done",
         error: String? = null,
@@ -83,6 +84,7 @@ class AgentRunHistoryRepositoryIT {
     ) = AgentRunRecord(
         workspaceId = testWorkspace.id,
         conversationId = conversationId,
+        title = title,
         userInput = userInput,
         response = response,
         error = error,
@@ -213,6 +215,7 @@ class AgentRunHistoryRepositoryIT {
             val other = AgentRunRecord(
                 workspaceId = otherWorkspace.id,
                 conversationId = "other-conv",
+                title = "other input",
                 userInput = "other input",
                 response = "other response",
                 error = null,
@@ -253,6 +256,38 @@ class AgentRunHistoryRepositoryIT {
         val thread = historyRepository.findByConversationId("does-not-exist")
 
         assertTrue(thread.isEmpty())
+    }
+
+    @Test
+    fun `should update title on every turn belonging to a conversation`() {
+        val conversationId = "conv-title-${System.nanoTime()}"
+        val turn1 = newRecord(conversationId = conversationId, title = "Original title", userInput = "turn 1")
+        val turn2 = newRecord(conversationId = conversationId, title = "Original title", userInput = "turn 2")
+        val turn3 = newRecord(conversationId = conversationId, title = "Original title", userInput = "turn 3")
+        historyRepository.save(turn1)
+        historyRepository.save(turn2)
+        historyRepository.save(turn3)
+
+        historyRepository.updateTitleForConversation(conversationId, "AI-refined title")
+
+        val thread = historyRepository.findByConversationId(conversationId)
+        assertEquals(3, thread.size)
+        assertTrue(thread.all { it.title == "AI-refined title" })
+    }
+
+    @Test
+    fun `should not update title on turns from other conversations`() {
+        val conversationId = "conv-target-title-${System.nanoTime()}"
+        val otherConversationId = "conv-other-title-${System.nanoTime()}"
+        val target = newRecord(conversationId = conversationId, title = "Original title")
+        val other = newRecord(conversationId = otherConversationId, title = "Original title")
+        historyRepository.save(target)
+        historyRepository.save(other)
+
+        historyRepository.updateTitleForConversation(conversationId, "AI-refined title")
+
+        assertEquals("AI-refined title", historyRepository.findByConversationId(conversationId).single().title)
+        assertEquals("Original title", historyRepository.findByConversationId(otherConversationId).single().title)
     }
 
     @Test

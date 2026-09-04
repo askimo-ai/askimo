@@ -67,8 +67,6 @@ import io.askimo.core.agent.domain.AgentRunRecord
 import io.askimo.core.agent.domain.SkillDefinition
 import io.askimo.core.agent.domain.Workspace
 import io.askimo.core.agent.repository.SkillRepository
-import io.askimo.core.agent.service.WorkspaceService
-import io.askimo.core.db.DatabaseManager
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppComponents
@@ -76,82 +74,38 @@ import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.TooltipPlacement
 import io.askimo.ui.common.ui.themedTooltip
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.koin.core.context.GlobalContext
 import java.awt.Cursor
 import java.awt.Desktop
 import java.io.File
 import java.net.URI
 
-/**
- * Self-contained agentic skills sub-view — top-level entry point for the Skills feature.
- * Owns its own skills loading, layout, and workspace panel.
- * The agent autonomously selects skills from the full catalog.
- */
 @Composable
 fun agentsView(
     onNavigateToSkillsSettings: () -> Unit = {},
 ) {
     val skillRepository = remember { SkillRepository() }
-    val historyRepo = remember { DatabaseManager.getInstance().getAgentRunHistoryRepository() }
-    val workspaceService = remember { GlobalContext.get().get<WorkspaceService>() }
     val scope = rememberCoroutineScope()
+    val viewModel = remember { AgentsViewModel(scope) }
     val skills by remember { mutableStateOf(skillRepository.getSkillsOnly()) }
-    var allHistoryRefreshKey by remember { mutableStateOf(0) }
     var showOverlayPanel by remember { mutableStateOf(false) }
-
-    var runHistory by remember { mutableStateOf(listOf<AgentRunRecord>()) }
-    var pendingHistoryRecord by remember { mutableStateOf<AgentRunRecord?>(null) }
-
-    fun deleteHistoryRecord(record: AgentRunRecord) {
-        scope.launch {
-            withContext(Dispatchers.IO) { historyRepo.deleteByConversationId(record.conversationId) }
-            allHistoryRefreshKey++
-        }
-    }
-
-    // User-chosen workspace (persisted across sessions). Resolved off the UI thread since
-    // workspaceService.resolveCurrent() does several blocking DB transactions.
-    // Runs/history must never be saved before this resolves — the agent_run_history table
-    // enforces a NOT NULL foreign key on workspace_id, so a real, persisted Workspace row
-    // must exist first.
-    var workspace by remember { mutableStateOf<Workspace?>(null) }
-    LaunchedEffect(Unit) {
-        workspace = withContext(Dispatchers.IO) { workspaceService.resolveCurrent() }
-    }
-
-    LaunchedEffect(workspace?.id, allHistoryRefreshKey) {
-        workspace?.let { ws ->
-            val all = withContext(Dispatchers.IO) { historyRepo.findByWorkspaceId(ws.id) }
-            // One row per conversation — the latest turn represents the whole thread in the
-            // list; clicking it reconstructs the full multi-turn conversation (see
-            // agenticRunArea's preloadRecord handling).
-            runHistory = all
-                .groupBy { it.conversationId }
-                .map { (_, turns) -> turns.maxBy { it.createdAt } }
-                .sortedByDescending { it.createdAt }
-        }
-    }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isWide = maxWidth >= 1100.dp
         LaunchedEffect(isWide) { if (isWide) showOverlayPanel = false }
 
         val currentWorkspace =
-            workspace
+            viewModel.workspace
                 ?: return@BoxWithConstraints
         val workDir = remember(currentWorkspace.path) { File(currentWorkspace.path) }
 
         val panelContent: @Composable () -> Unit = {
             agenticWorkspacePanel(
                 workDir = workDir,
-                workDirRefreshKey = allHistoryRefreshKey,
-                runHistory = runHistory,
-                onWorkDirChanged = { workspace = workspaceService.select(it) },
-                onSelectRecord = { pendingHistoryRecord = it },
-                onDeleteRecord = ::deleteHistoryRecord,
+                workDirRefreshKey = viewModel.historyRefreshKey,
+                runHistory = viewModel.runHistory,
+                onWorkDirChanged = { viewModel.selectWorkspace(it) },
+                onSelectRecord = { viewModel.selectHistoryRecord(it) },
+                onDeleteRecord = { viewModel.deleteHistoryRecord(it) },
             )
         }
 
@@ -161,10 +115,10 @@ fun agentsView(
                     agenticContent(
                         skills = skills,
                         workspace = currentWorkspace,
-                        onRunCompleted = { allHistoryRefreshKey++ },
+                        onRunCompleted = { viewModel.onRunCompleted() },
                         onNavigateToSkillsSettings = onNavigateToSkillsSettings,
-                        preloadRecord = pendingHistoryRecord,
-                        onPreloadConsumed = { pendingHistoryRecord = null },
+                        preloadRecord = viewModel.pendingHistoryRecord,
+                        onPreloadConsumed = { viewModel.consumePendingHistoryRecord() },
                     )
                 }
                 panelContent()
@@ -174,13 +128,13 @@ fun agentsView(
                 agenticContent(
                     skills = skills,
                     workspace = currentWorkspace,
-                    onRunCompleted = { allHistoryRefreshKey++ },
+                    onRunCompleted = { viewModel.onRunCompleted() },
                     onNavigateToSkillsSettings = onNavigateToSkillsSettings,
                     showPanelToggle = true,
                     panelVisible = showOverlayPanel,
                     onTogglePanel = { showOverlayPanel = !showOverlayPanel },
-                    preloadRecord = pendingHistoryRecord,
-                    onPreloadConsumed = { pendingHistoryRecord = null },
+                    preloadRecord = viewModel.pendingHistoryRecord,
+                    onPreloadConsumed = { viewModel.consumePendingHistoryRecord() },
                 )
                 if (showOverlayPanel) {
                     Box(
