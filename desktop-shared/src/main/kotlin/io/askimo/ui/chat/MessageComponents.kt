@@ -246,6 +246,50 @@ fun messageList(
         voiceOutputEnabled = withContext(Dispatchers.IO) { AppConfig.voice.enabled }
     }
 
+    // ── Auto-play AI responses (🔊) — opt-in "conversation mode" ──────────────────────
+    // Cache the flag the same way as voiceOutputEnabled above (keychain-adjacent config read).
+    var autoPlayResponses by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        autoPlayResponses = withContext(Dispatchers.IO) { AppConfig.voice.autoPlayResponses }
+    }
+    val voiceErrorTitle = stringResource("chat.voice.error.title")
+    val autoPlayScope = rememberCoroutineScope()
+
+    // Detect "a response just finished streaming" by watching the last AI message's id
+    // transition from null (in-flight placeholder — see ChatViewModel.upsertStreamingAiMessage)
+    // to non-null (persisted). Deliberately NOT keyed on `isThinking`: that flag flips to false
+    // as soon as the *first* token arrives (see ChatViewModel.subscribeToThread), not when the
+    // response actually completes, so it can't be used as a completion signal here.
+    val lastAiMessage = messages.lastOrNull { !it.isUser }
+    val lastAiMessageKey = when {
+        lastAiMessage == null -> "none"
+        lastAiMessage.id != null -> "id:${lastAiMessage.id}"
+        // Same key for every token update while streaming (id stays null, list size is stable)
+        // so this effect only re-fires on an actual streaming→persisted transition, not per token.
+        else -> "streaming:${messages.size}"
+    }
+    var sawStreamingForCurrentTurn by remember { mutableStateOf(false) }
+    var lastAutoPlayedMessageId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(lastAiMessageKey) {
+        val message = lastAiMessage ?: return@LaunchedEffect
+        val id = message.id
+        if (id == null) {
+            // Actively streaming a new AI turn — remember this so the *next* transition to a
+            // real id is treated as "just completed" (not stale history from opening a session).
+            sawStreamingForCurrentTurn = true
+            return@LaunchedEffect
+        }
+        if (!sawStreamingForCurrentTurn) return@LaunchedEffect
+        sawStreamingForCurrentTurn = false
+        if (lastAutoPlayedMessageId == id) return@LaunchedEffect
+        lastAutoPlayedMessageId = id
+        if (!voiceOutputEnabled || !autoPlayResponses) return@LaunchedEffect
+        if (message.content.isBlank()) return@LaunchedEffect
+        VoicePlaybackController.toggle(id, message.content, autoPlayScope) { errorMessage ->
+            EventBus.post(AppErrorEvent(title = voiceErrorTitle, message = errorMessage))
+        }
+    }
+
     // Current date — re-evaluated at midnight so "Today"/"Yesterday" labels stay accurate
     // when the user keeps the app open across a day boundary.
     val zone = ZoneId.systemDefault()

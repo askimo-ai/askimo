@@ -66,6 +66,7 @@ private val sttProviders = listOf(VoiceProvider.OPENAI, VoiceProvider.LOCAL_WHIS
 /** [VoiceProvider] entries valid for text-to-speech (LOCAL_WHISPER_CPP is STT-only). */
 private val ttsProviders = listOf(VoiceProvider.OPENAI, VoiceProvider.LOCAL_PIPER)
 
+
 @Composable
 fun voiceSettingsSection() {
     val scrollState = rememberScrollState()
@@ -120,6 +121,13 @@ private fun voiceConfigCard() {
     var ttsVoice by remember { mutableStateOf(AppConfig.rawVoice.ttsVoice) }
     var localSttEndpoint by remember { mutableStateOf(AppConfig.rawVoice.localSttEndpoint) }
     var localTtsEndpoint by remember { mutableStateOf(AppConfig.rawVoice.localTtsEndpoint) }
+    var autoSendTranscript by remember { mutableStateOf(AppConfig.rawVoice.autoSendTranscript) }
+    var autoPlayResponses by remember { mutableStateOf(AppConfig.rawVoice.autoPlayResponses) }
+    // Sourced from askimo.yml (voice.open_ai_tts_voices) instead of hardcoded — when OpenAI
+    // ships a new voice, users can add it to their config file themselves and pick it up
+    // immediately, without waiting for an Askimo release. Falls back to the built-in defaults
+    // if the list was ever emptied out.
+    val openAiTtsVoices = AppConfig.rawVoice.openAiTtsVoices.ifEmpty { VoiceConfig().openAiTtsVoices }
     // API key loaded async from keychain — starts blank, same pattern as web search / proxy.
     var openAiApiKey by remember { mutableStateOf("") }
     // Guards the debounced save below from firing on the initial blank value before the keychain
@@ -128,6 +136,7 @@ private fun voiceConfigCard() {
     var apiKeyLoaded by remember { mutableStateOf(false) }
     var sttProviderDropdownExpanded by remember { mutableStateOf(false) }
     var ttsProviderDropdownExpanded by remember { mutableStateOf(false) }
+    var ttsVoiceDropdownExpanded by remember { mutableStateOf(false) }
     var reuseKeyStatus by remember { mutableStateOf<String?>(null) }
 
     val showApiKeyField = sttProvider == VoiceProvider.OPENAI || ttsProvider == VoiceProvider.OPENAI
@@ -214,7 +223,12 @@ private fun voiceConfigCard() {
 
             HorizontalDivider()
 
-            // ── STT provider selector ─────────────────────────────────────────────
+            // ── Speech-to-Text section ────────────────────────────────────────────
+            Text(
+                text = stringResource("settings.voice.section.stt"),
+                style = AppTextStyles.groupTitle,
+            )
+
             voiceProviderSelector(
                 label = stringResource("settings.voice.stt_provider"),
                 providers = sttProviders,
@@ -247,9 +261,26 @@ private fun voiceConfigCard() {
                 singleLine = true,
             )
 
+            // Auto-send belongs to dictation (STT) — it decides what happens with the
+            // transcribed text once it's ready.
+            voiceToggleRow(
+                label = stringResource("settings.voice.auto_send"),
+                description = stringResource("settings.voice.auto_send.description"),
+                checked = autoSendTranscript,
+                onCheckedChange = { newValue ->
+                    autoSendTranscript = newValue
+                    AppConfig.updateField("voice.autoSendTranscript", newValue)
+                },
+            )
+
             HorizontalDivider()
 
-            // ── TTS provider selector ─────────────────────────────────────────────
+            // ── Text-to-Speech section ────────────────────────────────────────────
+            Text(
+                text = stringResource("settings.voice.section.tts"),
+                style = AppTextStyles.groupTitle,
+            )
+
             voiceProviderSelector(
                 label = stringResource("settings.voice.tts_provider"),
                 providers = ttsProviders,
@@ -260,6 +291,12 @@ private fun voiceConfigCard() {
                     ttsProvider = newValue
                     AppConfig.updateField("voice.ttsProvider", newValue)
                     ttsProviderDropdownExpanded = false
+                    // Normalize the stored voice when switching into OpenAI — a Piper voice id
+                    // (e.g. "en_US-lessac-medium") is not a valid OpenAI voice name.
+                    if (newValue == VoiceProvider.OPENAI && ttsVoice !in openAiTtsVoices) {
+                        ttsVoice = "alloy"
+                        AppConfig.updateField("voice.ttsVoice", "alloy")
+                    }
                 },
             )
 
@@ -282,13 +319,49 @@ private fun voiceConfigCard() {
                 singleLine = true,
             )
 
-            OutlinedTextField(
-                value = ttsVoice,
-                onValueChange = { ttsVoice = it },
-                label = { Text(stringResource("settings.voice.tts_voice")) },
-                placeholder = { Text(stringResource("settings.voice.tts_voice.placeholder")) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
+            // OpenAI's voice names are a fixed enum — offer a dropdown so users can't type an
+            // invalid value. Piper voice ids are arbitrary local model names the user installs
+            // themselves, so that case stays free text with a hint of the expected format.
+            when (ttsProvider) {
+                VoiceProvider.OPENAI -> voiceOptionSelector(
+                    label = stringResource("settings.voice.tts_voice"),
+                    options = openAiTtsVoices,
+                    selected = ttsVoice.ifBlank { "alloy" },
+                    expanded = ttsVoiceDropdownExpanded,
+                    onExpandedChange = { ttsVoiceDropdownExpanded = it },
+                    onSelect = { newValue ->
+                        ttsVoice = newValue
+                        AppConfig.updateField("voice.ttsVoice", newValue)
+                        ttsVoiceDropdownExpanded = false
+                    },
+                )
+
+                else -> Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+                    OutlinedTextField(
+                        value = ttsVoice,
+                        onValueChange = { ttsVoice = it },
+                        label = { Text(stringResource("settings.voice.tts_voice")) },
+                        placeholder = { Text(stringResource("settings.voice.tts_voice.placeholder_piper")) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+                    Text(
+                        text = stringResource("settings.voice.tts_voice.piper_hint"),
+                        style = AppTextStyles.caption,
+                    )
+                }
+            }
+
+            // Auto-play belongs to voice output (TTS) — it decides what happens once an
+            // AI response is ready to be read aloud.
+            voiceToggleRow(
+                label = stringResource("settings.voice.auto_play"),
+                description = stringResource("settings.voice.auto_play.description"),
+                checked = autoPlayResponses,
+                onCheckedChange = { newValue ->
+                    autoPlayResponses = newValue
+                    AppConfig.updateField("voice.autoPlayResponses", newValue)
+                },
             )
 
             // ── OpenAI API key (separate from any OPENAI chat provider instance key) ──
@@ -445,6 +518,84 @@ private fun voiceProviderSelector(
     }
 }
 
+/**
+ * Simple labeled dropdown for a fixed list of string [options] — like [voiceProviderSelector]
+ * but without per-option descriptions. Used for OpenAI's fixed TTS voice names, where any value
+ * outside the enum is rejected by the API, so free text would be misleading.
+ */
+@Composable
+private fun voiceOptionSelector(
+    label: String,
+    options: List<String>,
+    selected: String,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    onSelect: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = AppTextStyles.fieldLabel,
+            modifier = Modifier.weight(1f).padding(end = Spacing.large),
+        )
+
+        Box(modifier = Modifier.widthIn(min = 160.dp, max = 280.dp)) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickableCard { onExpandedChange(true) },
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = selected.replaceFirstChar { it.uppercase() },
+                        style = AppTextStyles.body,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f).padding(end = Spacing.small),
+                    )
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "Change voice",
+                        tint = AppTextStyles.primaryContent,
+                    )
+                }
+            }
+
+            AppComponents.dropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { onExpandedChange(false) },
+            ) {
+                options.forEachIndexed { index, option ->
+                    AppComponents.themedDropdownMenuItem(
+                        text = {
+                            Text(
+                                text = option.replaceFirstChar { it.uppercase() },
+                                style = AppTextStyles.body,
+                            )
+                        },
+                        onClick = { onSelect(option) },
+                        isSelected = option == selected,
+                        showDivider = index < options.lastIndex,
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun endpointField(
     label: String,
@@ -459,3 +610,28 @@ private fun endpointField(
         singleLine = true,
     )
 }
+
+@Composable
+private fun voiceToggleRow(
+    label: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = Spacing.large)) {
+            Text(text = label, style = AppTextStyles.fieldLabel)
+            Text(text = description, style = AppTextStyles.caption)
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+        )
+    }
+}
+
