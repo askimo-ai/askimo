@@ -263,7 +263,9 @@ fun messageList(
     val lastAiMessage = messages.lastOrNull { !it.isUser }
     val lastAiMessageKey = when {
         lastAiMessage == null -> "none"
+
         lastAiMessage.id != null -> "id:${lastAiMessage.id}"
+
         // Same key for every token update while streaming (id stays null, list size is stable)
         // so this effect only re-fires on an actual streaming→persisted transition, not per token.
         else -> "streaming:${messages.size}"

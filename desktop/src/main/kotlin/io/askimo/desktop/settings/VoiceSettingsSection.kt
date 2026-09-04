@@ -66,7 +66,6 @@ private val sttProviders = listOf(VoiceProvider.OPENAI, VoiceProvider.LOCAL_WHIS
 /** [VoiceProvider] entries valid for text-to-speech (LOCAL_WHISPER_CPP is STT-only). */
 private val ttsProviders = listOf(VoiceProvider.OPENAI, VoiceProvider.LOCAL_PIPER)
 
-
 @Composable
 fun voiceSettingsSection() {
     val scrollState = rememberScrollState()
@@ -634,4 +633,3 @@ private fun voiceToggleRow(
         )
     }
 }
-

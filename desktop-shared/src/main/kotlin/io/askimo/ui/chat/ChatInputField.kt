@@ -1252,8 +1252,10 @@ fun chatInputField(
                                         contentDescription = voiceTooltip,
                                         tint = when (voiceRecordingState) {
                                             VoiceRecordingState.RECORDING -> MaterialTheme.colorScheme.error
+
                                             VoiceRecordingState.TRANSCRIBING ->
                                                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+
                                             VoiceRecordingState.IDLE -> MaterialTheme.colorScheme.onSurface
                                         },
                                         modifier = Modifier.size(16.dp),
