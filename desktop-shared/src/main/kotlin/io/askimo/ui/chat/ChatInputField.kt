@@ -71,7 +71,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -410,7 +409,7 @@ fun chatInputField(
 
     // Rolling window of recent mic amplitude samples (0f..1f), fed from AudioRecorder's
     // capture-thread level callback — drives the live waveform shown while RECORDING.
-    val voiceWaveformSamples = remember { mutableStateListOf<Float>() }
+    var voiceWaveformSamples by remember { mutableStateOf<List<Float>>(emptyList()) }
     val maxWaveformSamples = 40
 
     // Ticking elapsed-seconds counter shown next to the waveform while RECORDING — also
@@ -427,7 +426,7 @@ fun chatInputField(
                     start()
                 }
             }
-            Snapshot.withMutableSnapshot { voiceWaveformSamples.clear() }
+            Snapshot.withMutableSnapshot { voiceWaveformSamples = emptyList() }
         }
     }
 
@@ -541,7 +540,7 @@ fun chatInputField(
     // [MAX_VOICE_RECORDING_SECONDS] (see the LaunchedEffect right below toggleVoiceRecording).
     val stopRecordingAndTranscribe: () -> Unit = {
         voiceRecordingState = VoiceRecordingState.TRANSCRIBING
-        Snapshot.withMutableSnapshot { voiceWaveformSamples.clear() }
+        Snapshot.withMutableSnapshot { voiceWaveformSamples = emptyList() }
         scope.launch {
             try {
                 val wavBytes = withContext(Dispatchers.IO) { audioRecorder.stop() }
@@ -559,6 +558,13 @@ fun chatInputField(
                     onInputTextChange(
                         TextFieldValue(text = newText, selection = TextRange(newText.length)),
                     )
+
+                    // Fully hands-free mode: send immediately instead of waiting for the user
+                    // to press Send. Off by default — see AppConfig.voice.autoSendTranscript.
+                    val autoSend = withContext(Dispatchers.IO) { AppConfig.voice.autoSendTranscript }
+                    if (autoSend && newText.isNotBlank() && !isLoading) {
+                        onSendMessage(creationMode)
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -579,7 +585,7 @@ fun chatInputField(
         when (voiceRecordingState) {
             VoiceRecordingState.IDLE -> {
                 try {
-                    Snapshot.withMutableSnapshot { voiceWaveformSamples.clear() }
+                    Snapshot.withMutableSnapshot { voiceWaveformSamples = emptyList() }
                     audioRecorder.start { level ->
                         // `level` is raw linear RMS (see PcmAudioEncoder.computeRmsLevel) — normal
                         // speech volume is far below full-scale, so raw values (~0.01-0.1) always
@@ -587,10 +593,7 @@ fun chatInputField(
                         // curve + gain (like a real VU meter) so speech visibly moves the bars.
                         val boostedLevel = (sqrt(level.coerceIn(0f, 1f)) * 1.6f).coerceIn(0f, 1f)
                         Snapshot.withMutableSnapshot {
-                            voiceWaveformSamples.add(boostedLevel)
-                            if (voiceWaveformSamples.size > maxWaveformSamples) {
-                                runCatching { voiceWaveformSamples.removeAt(0) }
-                            }
+                            voiceWaveformSamples = (voiceWaveformSamples + boostedLevel).takeLast(maxWaveformSamples)
                         }
                     }
                     voiceRecordingState = VoiceRecordingState.RECORDING
@@ -1216,6 +1219,23 @@ fun chatInputField(
                                 Spacer(modifier = Modifier.width(8.dp))
                             }
 
+                            // Persistent (non-hover) "transcribing" status — the STT request
+                            // round-trips to a remote/mobile AI service and can take a few
+                            // seconds, so show a spinner + label at all times
+                            if (voiceRecordingState == VoiceRecordingState.TRANSCRIBING) {
+                                AppComponents.loadingSpinner(
+                                    size = 14.dp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = stringResource("chat.voice.transcribing"),
+                                    style = AppTextStyles.caption,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                            }
+
                             themedTooltip(text = voiceTooltip) {
                                 IconButton(
                                     onClick = toggleVoiceRecording,
@@ -1224,20 +1244,22 @@ fun chatInputField(
                                         .size(28.dp)
                                         .pointerHoverIcon(PointerIcon.Hand),
                                 ) {
-                                    if (voiceRecordingState == VoiceRecordingState.TRANSCRIBING) {
-                                        AppComponents.loadingSpinner(size = 16.dp)
-                                    } else {
-                                        Icon(
-                                            Icons.Default.Mic,
-                                            contentDescription = voiceTooltip,
-                                            tint = if (voiceRecordingState == VoiceRecordingState.RECORDING) {
-                                                MaterialTheme.colorScheme.error
-                                            } else {
-                                                MaterialTheme.colorScheme.onSurface
-                                            },
-                                            modifier = Modifier.size(16.dp),
-                                        )
-                                    }
+                                    // The spinner + "Transcribing…" label to the left already
+                                    // carries the busy indicator during TRANSCRIBING — keep the
+                                    // mic icon here too (dimmed) instead of a second spinner.
+                                    Icon(
+                                        Icons.Default.Mic,
+                                        contentDescription = voiceTooltip,
+                                        tint = when (voiceRecordingState) {
+                                            VoiceRecordingState.RECORDING -> MaterialTheme.colorScheme.error
+
+                                            VoiceRecordingState.TRANSCRIBING ->
+                                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+
+                                            VoiceRecordingState.IDLE -> MaterialTheme.colorScheme.onSurface
+                                        },
+                                        modifier = Modifier.size(16.dp),
+                                    )
                                 }
                             }
                         }

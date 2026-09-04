@@ -527,6 +527,29 @@ data class VoiceConfig(
     val localSttEndpoint: String = "http://localhost:8081",
     /** Base URL of a user-hosted Piper HTTP server. */
     val localTtsEndpoint: String = "http://localhost:5000",
+    /**
+     * When true, stopping a voice dictation recording automatically sends the transcribed
+     * text as a chat message instead of just inserting it into the input field for review —
+     * makes the whole record → transcribe → send flow fully hands-free. Off by default so
+     * users can proofread/edit the transcript before sending.
+     */
+    val autoSendTranscript: Boolean = false,
+    /**
+     * When true, a completed AI response is automatically spoken aloud (via [ttsProvider])
+     * as soon as it finishes streaming — no need to click the 🔊 play button on each message.
+     * Off by default; the per-message 🔊 button remains available either way.
+     */
+    val autoPlayResponses: Boolean = false,
+    /**
+     * Voice names accepted by OpenAI's `/v1/audio/speech` `voice` parameter — shown as a
+     * dropdown (not free text) in Settings > Voice since any other value is rejected by the
+     * API. Kept here (rather than hardcoded in the UI) so that when OpenAI ships a new voice,
+     * users can add it to `askimo.yml` (`voice.open_ai_tts_voices`) themselves and pick it up
+     * immediately, without waiting for an Askimo release.
+     */
+    val openAiTtsVoices: List<String> = listOf(
+        "alloy", "ash", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse",
+    ),
 ) {
     companion object {
         fun isKeyPlaceholder(value: String): Boolean = value == VOICE_KEY_PLACEHOLDER
@@ -799,6 +822,17 @@ object AppConfig {
           open_ai_api_key:
           local_stt_endpoint: http://localhost:8081
           local_tts_endpoint: http://localhost:5000
+          open_ai_tts_voices:
+            - alloy
+            - ash
+            - coral
+            - echo
+            - fable
+            - onyx
+            - nova
+            - sage
+            - shimmer
+            - verse
 
         context:
           current_instance_id: ""
@@ -1327,6 +1361,21 @@ object AppConfig {
         "localSttEndpoint" -> config.copy(localSttEndpoint = value as String)
 
         "localTtsEndpoint" -> config.copy(localTtsEndpoint = value as String)
+
+        "autoSendTranscript" -> config.copy(autoSendTranscript = value as Boolean)
+
+        "autoPlayResponses" -> config.copy(autoPlayResponses = value as Boolean)
+
+        "openAiTtsVoices" -> {
+            val voices = when (value) {
+                is List<*> -> value.map { it.toString() }.filter { it.isNotBlank() }
+                is String -> value.split(",").map { it.trim() }.filter { it.isNotBlank() }
+                else -> config.openAiTtsVoices
+            }
+            // Never persist an empty list — that would leave the Settings UI dropdown with
+            // nothing to select. Falls back to the current value instead.
+            config.copy(openAiTtsVoices = voices.ifEmpty { config.openAiTtsVoices })
+        }
 
         "openAiApiKey" -> {
             val key = value as String
