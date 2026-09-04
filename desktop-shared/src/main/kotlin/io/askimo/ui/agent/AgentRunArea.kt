@@ -43,11 +43,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -95,15 +95,17 @@ internal fun agenticRunArea(
     onConversationStateChanged: (Boolean) -> Unit = {},
     newConversationRequestKey: Int = 0,
 ) {
-    val scope = rememberCoroutineScope()
     val latestOnRunCompleted = rememberUpdatedState(onRunCompleted)
     val viewModel = remember(workspace.id) {
         AgentRunViewModel(
             workspace = workspace,
             skills = skills,
-            scope = scope,
             onRunCompleted = { latestOnRunCompleted.value() },
         )
+    }
+
+    DisposableEffect(viewModel) {
+        onDispose { viewModel.close() }
     }
 
     // ── Local, pure-UI state (not part of AgentRunViewModel) ────────────────

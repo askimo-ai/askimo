@@ -259,6 +259,38 @@ class AgentRunHistoryRepositoryIT {
     }
 
     @Test
+    fun `should update title on every turn belonging to a conversation`() {
+        val conversationId = "conv-title-${System.nanoTime()}"
+        val turn1 = newRecord(conversationId = conversationId, title = "Original title", userInput = "turn 1")
+        val turn2 = newRecord(conversationId = conversationId, title = "Original title", userInput = "turn 2")
+        val turn3 = newRecord(conversationId = conversationId, title = "Original title", userInput = "turn 3")
+        historyRepository.save(turn1)
+        historyRepository.save(turn2)
+        historyRepository.save(turn3)
+
+        historyRepository.updateTitleForConversation(conversationId, "AI-refined title")
+
+        val thread = historyRepository.findByConversationId(conversationId)
+        assertEquals(3, thread.size)
+        assertTrue(thread.all { it.title == "AI-refined title" })
+    }
+
+    @Test
+    fun `should not update title on turns from other conversations`() {
+        val conversationId = "conv-target-title-${System.nanoTime()}"
+        val otherConversationId = "conv-other-title-${System.nanoTime()}"
+        val target = newRecord(conversationId = conversationId, title = "Original title")
+        val other = newRecord(conversationId = otherConversationId, title = "Original title")
+        historyRepository.save(target)
+        historyRepository.save(other)
+
+        historyRepository.updateTitleForConversation(conversationId, "AI-refined title")
+
+        assertEquals("AI-refined title", historyRepository.findByConversationId(conversationId).single().title)
+        assertEquals("Original title", historyRepository.findByConversationId(otherConversationId).single().title)
+    }
+
+    @Test
     fun `should delete a single record by id`() {
         val record = newRecord()
         historyRepository.save(record)

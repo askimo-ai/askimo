@@ -15,6 +15,7 @@ import io.askimo.core.agent.domain.SkillDefinition
 import io.askimo.core.agent.domain.Workspace
 import io.askimo.core.agent.repository.AgentRunHistoryRepository
 import io.askimo.core.chat.TitleGenerator
+import io.askimo.core.chat.domain.SESSION_TITLE_MAX_LENGTH
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.ToolCallInfo
 import io.askimo.core.chat.dto.ToolCallStatus
@@ -31,6 +32,8 @@ import io.askimo.ui.common.preferences.ApplicationPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
@@ -83,15 +86,16 @@ private fun List<ChatMessageDTO>.finalizeStreamingAiMessage(
  * chat, so this business logic (turn execution, title generation, history preload) lives
  * outside Compose and is independently testable.
  *
- * One instance is created per workspace (see `agenticRunArea`'s `remember(workspace.id)`).
+ * One instance is created per workspace (see `agenticRunArea`'s `remember(workspace.id)`)
+ * and owns its own [CoroutineScope]; callers must invoke [close] when discarding an instance.
  */
 internal class AgentRunViewModel(
     private val workspace: Workspace,
     private val skills: List<SkillDefinition>,
-    private val scope: CoroutineScope,
     private val historyRepo: AgentRunHistoryRepository = DatabaseManager.getInstance().getAgentRunHistoryRepository(),
     private val onRunCompleted: () -> Unit = {},
 ) {
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val workDir: File = File(workspace.path)
     val agenticSystemPrompt: String = buildAgenticSystemPrompt(skills)
 
@@ -314,9 +318,9 @@ internal class AgentRunViewModel(
                         workDir = workDir,
                         resumeSessionId = resumeSessionId,
                         onToken = { token ->
+                            currentTurnResponse += token
                             scope.launch {
                                 isWaitingForFirstEvent = false
-                                currentTurnResponse += token
                                 timeline = timeline + TurnTimelineEntry.Token(token)
                             }
                         },
@@ -436,7 +440,11 @@ internal class AgentRunViewModel(
                 Respond with only the title, nothing else.
             """.trimIndent()
             val utilityChatClient = AppContext.getInstance().createUtilityClient()
-            val aiTitle = utilityChatClient.sendMessage(prompt).trim()
+
+            val aiTitle = utilityChatClient.sendMessage(prompt)
+                .trim()
+                .replace("\n", " ")
+                .take(SESSION_TITLE_MAX_LENGTH)
 
             if (aiTitle.isNotBlank()) {
                 withContext(Dispatchers.IO) { historyRepo.updateTitleForConversation(conversationId, aiTitle) }
@@ -446,5 +454,18 @@ internal class AgentRunViewModel(
         } catch (e: Exception) {
             log.debug("Failed to generate AI title for agent conversation {}: {}", conversationId, e.message)
         }
+    }
+
+    /**
+     * Cancels every coroutine owned by this instance (title-event collection, in-flight runs,
+     * the elapsed-timer ticker). This instance owns its own [CoroutineScope] rather than
+     * borrowing the composable's `rememberCoroutineScope()` — that scope outlives any single
+     * instance, so reusing it would leak this instance's coroutines whenever a workspace switch
+     * causes `agenticRunArea`'s `remember(workspace.id)` to replace it with a new one. Callers
+     * must invoke this (e.g. `DisposableEffect(viewModel) { onDispose { viewModel.close() } }`)
+     * once this instance is discarded.
+     */
+    fun close() {
+        scope.cancel()
     }
 }
