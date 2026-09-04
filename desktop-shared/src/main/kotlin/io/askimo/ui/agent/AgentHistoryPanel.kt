@@ -107,9 +107,9 @@ private fun skillRunHistoryPanelRow(
                     timeLabel,
                     style = AppTextStyles.hint,
                 )
-                if (record.userInput.isNotBlank()) {
+                if (record.title.isNotBlank()) {
                     Text(
-                        record.userInput,
+                        record.title,
                         style = AppTextStyles.hint,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                         maxLines = 1,

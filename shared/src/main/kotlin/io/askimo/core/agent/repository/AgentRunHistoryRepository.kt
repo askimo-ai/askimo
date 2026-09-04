@@ -20,6 +20,7 @@ import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 
 /**
  * Repository for persisting and querying [AgentRunRecord] entries.
@@ -43,6 +44,7 @@ class AgentRunHistoryRepository internal constructor(
                 it[id] = record.id
                 it[workspaceId] = record.workspaceId
                 it[conversationId] = record.conversationId
+                it[title] = record.title
                 it[userInput] = record.userInput
                 it[response] = record.response
                 it[error] = record.error
@@ -98,6 +100,21 @@ class AgentRunHistoryRepository internal constructor(
     }
 
     /**
+     * Updates the [AgentRunRecord.title] on every turn belonging to [conversationId] — call
+     * this once the async AI-generated title is ready, so the whole conversation (and the
+     * single row representing it in the history list) reflects the new title without any
+     * join/lookup needed at read time.
+     */
+    fun updateTitleForConversation(conversationId: String, newTitle: String) {
+        transaction(database) {
+            AgentRunHistoryTable.update({ AgentRunHistoryTable.conversationId eq conversationId }) {
+                it[title] = newTitle
+            }
+        }
+        log.debug("Updated title for conversation '{}'", conversationId)
+    }
+
+    /**
      * Deletes a single run record by [id].
      */
     fun deleteById(id: String) {
@@ -136,6 +153,7 @@ class AgentRunHistoryRepository internal constructor(
         id = row[AgentRunHistoryTable.id],
         workspaceId = row[AgentRunHistoryTable.workspaceId],
         conversationId = row[AgentRunHistoryTable.conversationId],
+        title = row[AgentRunHistoryTable.title],
         userInput = row[AgentRunHistoryTable.userInput],
         response = row[AgentRunHistoryTable.response],
         error = row[AgentRunHistoryTable.error],

@@ -4,6 +4,7 @@
  */
 package io.askimo.core.chat.repository
 
+import io.askimo.core.chat.TitleGenerator
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.domain.ChatSessionsTable
 import io.askimo.core.chat.domain.ProjectsTable
@@ -197,41 +198,7 @@ class ChatSessionRepository internal constructor(
         } > 0
     }.also { if (it) EventBus.post(PushDataToServerEvent(reason = "session touched")) }
 
-    private fun generateTitle(firstMessage: String): String {
-        val cleaned = firstMessage.trim().replace("\n", " ")
-        return when {
-            cleaned.length <= SESSION_TITLE_MAX_LENGTH -> cleaned
-
-            cleaned.contains(". ") -> {
-                val candidate = cleaned.substringBefore(". ") + "."
-                if (candidate.length <= SESSION_TITLE_MAX_LENGTH) {
-                    candidate
-                } else {
-                    cleaned.take(SESSION_TITLE_MAX_LENGTH - 3) + "..."
-                }
-            }
-
-            cleaned.contains("? ") -> {
-                val candidate = cleaned.substringBefore("? ") + "?"
-                if (candidate.length <= SESSION_TITLE_MAX_LENGTH) {
-                    candidate
-                } else {
-                    cleaned.take(SESSION_TITLE_MAX_LENGTH - 3) + "..."
-                }
-            }
-
-            cleaned.contains("! ") -> {
-                val candidate = cleaned.substringBefore("! ") + "!"
-                if (candidate.length <= SESSION_TITLE_MAX_LENGTH) {
-                    candidate
-                } else {
-                    cleaned.take(SESSION_TITLE_MAX_LENGTH - 3) + "..."
-                }
-            }
-
-            else -> cleaned.take(SESSION_TITLE_MAX_LENGTH - 3) + "..."
-        }
-    }
+    private fun generateTitle(firstMessage: String): String = TitleGenerator.fallbackTitle(firstMessage)
 
     fun generateAndUpdateTitle(sessionId: String, firstMessage: String): String {
         val title = generateTitle(firstMessage)

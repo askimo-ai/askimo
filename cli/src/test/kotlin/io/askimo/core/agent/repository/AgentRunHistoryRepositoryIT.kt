@@ -70,6 +70,7 @@ class AgentRunHistoryRepositoryIT {
 
     private fun newRecord(
         conversationId: String = "conv-${System.nanoTime()}",
+        title: String = "Do something",
         userInput: String = "Do something",
         response: String = "Done",
         error: String? = null,
@@ -83,6 +84,7 @@ class AgentRunHistoryRepositoryIT {
     ) = AgentRunRecord(
         workspaceId = testWorkspace.id,
         conversationId = conversationId,
+        title = title,
         userInput = userInput,
         response = response,
         error = error,
@@ -213,6 +215,7 @@ class AgentRunHistoryRepositoryIT {
             val other = AgentRunRecord(
                 workspaceId = otherWorkspace.id,
                 conversationId = "other-conv",
+                title = "other input",
                 userInput = "other input",
                 response = "other response",
                 error = null,

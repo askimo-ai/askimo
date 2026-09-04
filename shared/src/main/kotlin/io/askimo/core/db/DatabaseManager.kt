@@ -724,6 +724,7 @@ class DatabaseManager private constructor(
                     id               TEXT PRIMARY KEY,
                     workspace_id     TEXT NOT NULL REFERENCES workspaces(id),
                     conversation_id  TEXT NOT NULL,
+                    title            TEXT NOT NULL DEFAULT '',
                     user_input       TEXT NOT NULL DEFAULT '',
                     response         TEXT NOT NULL DEFAULT '',
                     error            TEXT,
