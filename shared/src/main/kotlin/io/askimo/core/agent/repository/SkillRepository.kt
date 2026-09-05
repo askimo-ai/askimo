@@ -64,6 +64,12 @@ class SkillRepository {
         /** The skill entry-point filename — matched case-insensitively. */
         private const val SKILL_ENTRY = "skill.md"
 
+        /** Cap on a rename-on-save folder name — keeps names reasonable across filesystems. */
+        private const val MAX_FOLDER_NAME_LENGTH = 160
+
+        /** Cap on rename-on-save disambiguation attempts (`-2`, `-3`, ...) before giving up. */
+        private const val MAX_RENAME_SUFFIX_ATTEMPTS = 50
+
         /**
          * Counts skill folders under [root].
          *
@@ -379,19 +385,105 @@ class SkillRepository {
      * Writes [content] to the given [relativePath] under [skillsDir].
      * Parent directories are created automatically.
      *
+     * If [relativePath] points at the skill entry point (`skill.md`, case-insensitive), the
+     * containing folder is also kept in sync with the frontmatter `name:` field — per this
+     * repository's storage contract ("the folder name is the skill name unless a `name:`
+     * frontmatter field overrides it," see class doc). Without this, a skill created via the
+     * "New Skill" flow (folder literally named `new-skill-<timestamp>`) would keep that
+     * placeholder folder name forever even after the user renames it in the editor — and since
+     * external-agent materialization derives its destination folder name from this same
+     * relativePath (see [SkillDefinition.slug]), agents like Claude Code/Codex would list the
+     * skill under the placeholder name instead of the human-chosen one.
+     *
+     * If another skill in the *same* category already occupies the target folder name (e.g.
+     * two skills sharing the same `name:`), a numeric suffix (`-2`, `-3`, ...) is appended until
+     * an available name is found — the existing folder is never overwritten, but the renaming
+     * skill also isn't left stuck under its old placeholder name just because of a collision.
+     * Skills in *different* categories never collide in the first place: this rename only ever
+     * moves a folder within its own parent directory, and [SkillDefinition.slug] (used for
+     * external-agent materialization) prepends the full category path on top of this leaf name.
+     *
      * @param relativePath Path relative to `AskimoHome.skillsDir()`, e.g. `"coding/review/my-skill.md"`.
      * @param content      Full file content (frontmatter + body).
-     * @return The parsed [SkillDefinition] after saving.
+     * @return The parsed [SkillDefinition] after saving (with the post-rename path, if renamed).
      */
     fun save(relativePath: String, content: String): SkillDefinition {
         require(relativePath.endsWith(".md")) { "Skill file path must end with .md: $relativePath" }
         val root = AskimoHome.skillsDir()
-        val absolute = root.resolve(relativePath.replace("\\", "/"))
+        val normalizedRelativePath = relativePath.replace("\\", "/")
+        var absolute = root.resolve(normalizedRelativePath)
         Files.createDirectories(absolute.parent)
         Files.writeString(absolute, content)
         log.debug("Saved skill to {}", absolute)
-        return SkillMarkdownParser.parse(content, relativePath, absolute)
+
+        var effectiveRelativePath = normalizedRelativePath
+        if (absolute.fileName.toString().equals(SKILL_ENTRY, ignoreCase = true)) {
+            // Only rename based on an *explicit* `name:` frontmatter field — SkillMarkdownParser
+            // falls back to a filename-derived name (e.g. "skill" from "skill.md") when no such
+            // field is present, which would otherwise cause every nameless skill.md to be
+            // spuriously renamed to a folder literally called "skill".
+            val hasExplicitName = content.contains(Regex("^name\\s*:", RegexOption.MULTILINE))
+            val parsedName = if (hasExplicitName) {
+                runCatching { SkillMarkdownParser.parse(content, normalizedRelativePath, absolute).name }.getOrNull()
+            } else {
+                null
+            }
+            val targetFolderName = parsedName?.let(::sanitizeFolderName)?.takeIf { it.isNotBlank() }
+            val currentFolder = absolute.parent
+            val currentFolderName = currentFolder.fileName.toString()
+
+            if (targetFolderName != null && targetFolderName != currentFolderName) {
+                val resolvedName = resolveAvailableFolderName(currentFolder.parent, targetFolderName, currentFolderName)
+                if (resolvedName != null) {
+                    val targetFolder = currentFolder.resolveSibling(resolvedName)
+                    Files.move(currentFolder, targetFolder)
+                    absolute = targetFolder.resolve(absolute.fileName)
+                    effectiveRelativePath = root.relativize(absolute).toString().replace("\\", "/")
+                    log.debug("Renamed skill folder '{}' -> '{}' to match frontmatter name", currentFolderName, resolvedName)
+                }
+            }
+        }
+
+        return SkillMarkdownParser.parse(Files.readString(absolute), effectiveRelativePath, absolute)
     }
+
+    /**
+     * Finds an available folder name for a rename-on-save, starting from [desiredName] under
+     * [parent]. If [desiredName] is free, it's used as-is. Otherwise appends `-2`, `-3`, ... up
+     * to [MAX_RENAME_SUFFIX_ATTEMPTS] until a free name is found — never overwrites another
+     * skill's folder.
+     *
+     * Returns `null` if [desiredName] already equals [currentFolderName] (nothing to rename) or,
+     * in the extremely unlikely event that every suffix up to the cap is also taken, to leave
+     * the folder as-is rather than looping forever.
+     */
+    private fun resolveAvailableFolderName(parent: Path, desiredName: String, currentFolderName: String): String? {
+        if (desiredName == currentFolderName) return null
+        if (!Files.exists(parent.resolve(desiredName))) return desiredName
+        for (suffix in 2..MAX_RENAME_SUFFIX_ATTEMPTS) {
+            val candidate = "$desiredName-$suffix"
+            if (candidate == currentFolderName) return null
+            if (!Files.exists(parent.resolve(candidate))) return candidate
+        }
+        log.debug(
+            "Could not find an available disambiguated folder name for '{}' after {} attempts — leaving '{}' as-is",
+            desiredName,
+            MAX_RENAME_SUFFIX_ATTEMPTS,
+            currentFolderName,
+        )
+        return null
+    }
+
+    /**
+     * Sanitizes a frontmatter `name:` value into a filesystem-safe, lowercase kebab-case folder
+     * name segment — the same normalization style as [SkillDefinition.slug], but applied to a
+     * single leaf folder name rather than a full category-qualified path.
+     */
+    private fun sanitizeFolderName(rawName: String): String = rawName
+        .lowercase()
+        .replace(Regex("[^a-z0-9]+"), "-")
+        .trim('-')
+        .take(MAX_FOLDER_NAME_LENGTH)
 
     /**
      * Deletes the skill file at [relativePath].

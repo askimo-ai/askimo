@@ -360,8 +360,11 @@ class SkillRepositoryTest {
         @Test
         fun `delete removes file`() = withSkillsDir {
             skillsDir()
-            repo().save("to-delete/skill.md", "---\nname: Delete Me\n---\nContent")
-            val deleted = repo().delete("to-delete/skill.md")
+            // Frontmatter name "Delete Me" differs from the folder name "to-delete", so save()
+            // renames the folder to match (see SaveRenamesFolderToMatchName below) — the caller
+            // must use the returned, post-rename relativePath for any follow-up operation.
+            val saved = repo().save("to-delete/skill.md", "---\nname: Delete Me\n---\nContent")
+            val deleted = repo().delete(saved.relativePath)
             assertTrue(deleted)
         }
 
@@ -418,6 +421,121 @@ class SkillRepositoryTest {
             val result = repo().delete("my-skill/nonexistent.md")
             assertFalse(result)
             assertTrue(Files.exists(skillsDir().resolve("my-skill/skill.md")), "skill.md should be untouched")
+        }
+    }
+
+    // ── save() renames the folder to match frontmatter `name:` ───────────────
+    //
+    // Per this repository's storage contract ("the folder name is the skill name unless a
+    // `name:` frontmatter field overrides it"), saving skill.md keeps the containing folder in
+    // sync with the frontmatter name — otherwise a skill created via the "New Skill" flow
+    // (folder literally named `new-skill-<timestamp>`) would keep that placeholder name
+    // forever, and external-agent materialization (which derives its destination folder name
+    // from this same path — see SkillDefinition.slug) would list it under the placeholder
+    // instead of the human-chosen name.
+    @Nested
+    inner class SaveRenamesFolderToMatchName {
+
+        @Test
+        fun `save renames folder to match a differing frontmatter name`() = withSkillsDir {
+            val saved = repo().save("new-skill-123/skill.md", "---\nname: Hello Claude\n---\nContent")
+            assertEquals("hello-claude/skill.md", saved.relativePath)
+            assertTrue(Files.exists(skillsDir().resolve("hello-claude/skill.md")))
+            assertFalse(Files.exists(skillsDir().resolve("new-skill-123")), "Old placeholder folder should no longer exist")
+        }
+
+        @Test
+        fun `save does not rename when folder name already matches`() = withSkillsDir {
+            val saved = repo().save("hello-claude/skill.md", "---\nname: Hello Claude\n---\nContent")
+            assertEquals("hello-claude/skill.md", saved.relativePath)
+            assertTrue(Files.exists(skillsDir().resolve("hello-claude/skill.md")))
+        }
+
+        @Test
+        fun `save does not rename when frontmatter has no name field`() = withSkillsDir {
+            val saved = repo().save("my-folder/skill.md", "No frontmatter here, just content")
+            assertEquals("my-folder/skill.md", saved.relativePath)
+            assertTrue(Files.exists(skillsDir().resolve("my-folder/skill.md")))
+        }
+
+        @Test
+        fun `save never overwrites a pre-existing folder with the target name`() = withSkillsDir {
+            // "taken" already exists as an unrelated skill folder.
+            write("taken/skill.md", "---\nname: Someone Else\n---\nOriginal content")
+            val saved = repo().save("new-skill-456/skill.md", "---\nname: Taken\n---\nMy content")
+
+            // The original folder must survive, untouched — the renaming skill is disambiguated
+            // into "taken-2" instead of overwriting (or being blocked from renaming into) "taken".
+            assertEquals("taken-2/skill.md", saved.relativePath)
+            assertTrue(Files.exists(skillsDir().resolve("taken-2/skill.md")))
+            assertEquals("Someone Else", repo().findByPath("taken.md")?.name)
+        }
+
+        @Test
+        fun `save preserves supplemental files when renaming the folder`() = withSkillsDir {
+            write("new-skill-789/examples.md", "Extra context")
+            repo().save("new-skill-789/skill.md", "---\nname: My Renamed Skill\n---\nContent")
+
+            assertTrue(Files.exists(skillsDir().resolve("my-renamed-skill/skill.md")))
+            assertTrue(Files.exists(skillsDir().resolve("my-renamed-skill/examples.md")))
+        }
+
+        @Test
+        fun `save sanitizes the frontmatter name into a lowercase kebab-case folder name`() = withSkillsDir {
+            val saved = repo().save("new-skill-999/skill.md", "---\nname: My Cool Skill!!\n---\nContent")
+            assertEquals("my-cool-skill/skill.md", saved.relativePath)
+            assertTrue(Files.exists(skillsDir().resolve("my-cool-skill/skill.md")))
+        }
+
+        @Test
+        fun `save on a supplemental file never renames the skill folder`() = withSkillsDir {
+            repo().save("new-skill-321/skill.md", "---\nname: Some Skill\n---\nContent")
+            repo().save("some-skill/examples.md", "Extra context")
+
+            // Folder must still be named after the skill.md's own name — saving a
+            // supplemental file must not trigger (or be affected by) any rename logic.
+            assertTrue(Files.exists(skillsDir().resolve("some-skill/skill.md")))
+            assertTrue(Files.exists(skillsDir().resolve("some-skill/examples.md")))
+        }
+
+        @Test
+        fun `save appends a numeric suffix when the target folder name is already taken`() = withSkillsDir {
+            write("taken/skill.md", "---\nname: Someone Else\n---\nOriginal content")
+            val saved = repo().save("new-skill-111/skill.md", "---\nname: Taken\n---\nMy content")
+
+            // "taken" is occupied, so the renaming skill lands under "taken-2" instead.
+            assertEquals("taken-2/skill.md", saved.relativePath)
+            assertTrue(Files.exists(skillsDir().resolve("taken-2/skill.md")))
+            assertTrue(Files.exists(skillsDir().resolve("taken/skill.md")), "Original 'taken' folder must be untouched")
+        }
+
+        @Test
+        fun `save keeps incrementing the suffix past multiple collisions`() = withSkillsDir {
+            write("taken/skill.md", "content")
+            write("taken-2/skill.md", "content")
+            write("taken-3/skill.md", "content")
+            val saved = repo().save("new-skill-222/skill.md", "---\nname: Taken\n---\nMy content")
+
+            assertEquals("taken-4/skill.md", saved.relativePath)
+            assertTrue(Files.exists(skillsDir().resolve("taken-4/skill.md")))
+        }
+
+        @Test
+        fun `save gives up and leaves folder as-is once MAX_RENAME_SUFFIX_ATTEMPTS is exhausted`() = withSkillsDir {
+            // Occupy "taken" plus every disambiguated suffix "taken-2" .. "taken-50" so that
+            // resolveAvailableFolderName() exhausts MAX_RENAME_SUFFIX_ATTEMPTS without finding
+            // a free name.
+            write("taken/skill.md", "content")
+            for (suffix in 2..50) {
+                write("taken-$suffix/skill.md", "content")
+            }
+
+            val saved = repo().save("new-skill-333/skill.md", "---\nname: Taken\n---\nMy content")
+
+            // No free name was found within the cap — the folder must be left under its
+            // original (placeholder) name rather than looping forever or overwriting anything.
+            assertEquals("new-skill-333/skill.md", saved.relativePath)
+            assertTrue(Files.exists(skillsDir().resolve("new-skill-333/skill.md")))
         }
     }
 

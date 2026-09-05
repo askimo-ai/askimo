@@ -22,18 +22,25 @@ import java.io.File
  *
  * Invocation:
  * ```
- * codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check \
- *            -C <workDir> -
+ * codex -C <workDir> exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check \
+ *                          --json -
  * ```
  * The combined system prompt + user input is written to **stdin** (triggered by the `-` prompt arg).
+ * - `-C <workDir>`                                 Set the agent working directory — a *global*
+ *                                                   flag; must precede `exec`, or Codex's arg
+ *                                                   parser rejects it ("unexpected argument '-C'").
  * - `exec`                                         Non-interactive subcommand.
  * - `--dangerously-bypass-approvals-and-sandbox`   Auto-approve all tool actions, no sandbox.
  * - `--skip-git-repo-check`                        Allow running outside a git repo.
- * - `-C <workDir>`                                 Set the agent working directory.
+ * - `--json`                                       Emit structured JSONL events on stdout (see
+ *                                                   [CodexStreamJsonEventParser]) instead of the
+ *                                                   human-readable transcript Codex otherwise prints.
  * - `-`                                            Read prompt from stdin.
  *
  * Session files are persisted on disk (no `--ephemeral`) so a follow-up turn can be
- * continued via `codex exec resume <SESSION_ID>` instead of Askimo replaying prior turns.
+ * continued via `codex exec resume <THREAD_ID>` instead of Askimo replaying prior turns —
+ * `THREAD_ID` is the id captured from this agent's `thread.started` event (see
+ * `parseStdoutLine`), not a separately-issued "session id".
  */
 class CodexAgent : ExternalAgentTemplate() {
 
@@ -52,13 +59,23 @@ class CodexAgent : ExternalAgentTemplate() {
         ),
     )
 
-    override val supportsNativeSkillDiscovery = true
+    // NOT relied upon: although Codex documents REPO-scoped `.agents/skills` discovery
+    // (`$CWD/.agents/skills`, `$CWD/../.agents/skills`, `$REPO_ROOT/.agents/skills`), that
+    // discovery was confirmed unreliable outside a git-tracked working directory — a
+    // materialized skill in a non-git workdir went completely unseen by the model even
+    // though the file was copied correctly (see `materializeSkill` below). Keeping this
+    // `false` guarantees `buildAgenticSystemPrompt` always inlines the full skill
+    // catalog/content directly into the prompt sent to Codex, so it works regardless of
+    // whether the workspace is a git repo or which Codex version is installed.
+    override val supportsNativeSkillDiscovery = false
 
     /**
-     * Materializes [skill] into `<workDir>/.agents/skills/<folder-name>/` — Codex CLI's
-     * project/repo-scoped skill discovery location (some Codex versions instead read
-     * `.codex/skills/<skill-folder>/`; `.agents/skills` is the convention shared with
-     * Antigravity and is checked first by current Codex releases).
+     * Materializes [skill] into `<workDir>/.agents/skills/<folder-name>/` — the REPO-scoped
+     * `$CWD/.agents/skills` location from Codex's documented skill-discovery spec. Kept as a
+     * best-effort extra (harmless, and helps if `workDir` happens to be a git repo where this
+     * scope is confirmed to work) — but per [supportsNativeSkillDiscovery] above, the full
+     * skill content is *always* also inlined directly into the system prompt, since this
+     * folder's discovery is not reliable for non-git workspaces.
      *
      * Uses a copy (see [ExternalAgentTemplate.materializeSkillFolder]) rather than a symlink
      * since symlink support isn't confirmed for Codex the way it is for Antigravity.
@@ -118,9 +135,15 @@ class CodexAgent : ExternalAgentTemplate() {
         resumeSessionId: String?,
     ): List<String> = buildList {
         add(agentPath)
+        // `-C`/`--cd` is a *global* flag — Codex's clap-based arg parser rejects it if placed
+        // after the `exec` subcommand ("unexpected argument '-C' found"), so it must come
+        // before `exec` here, not alongside the other `exec`-specific flags below.
+        add("-C")
+        add(effectiveWorkDir.absolutePath)
         add("exec")
-        // Codex keeps its own rollout/session store; `resume <id>` continues it instead
-        // of Askimo replaying prior turns itself.
+        // Codex keeps its own rollout/thread store; `resume <thread_id>` (captured from this
+        // agent's `thread.started` event, see `parseStdoutLine`) continues it instead of Askimo
+        // replaying prior turns itself.
         // TODO: verify exact subcommand/flag against the installed Codex CLI version.
         if (!resumeSessionId.isNullOrBlank()) {
             add("resume")
@@ -128,8 +151,12 @@ class CodexAgent : ExternalAgentTemplate() {
         }
         add("--dangerously-bypass-approvals-and-sandbox")
         add("--skip-git-repo-check")
-        add("-C")
-        add(effectiveWorkDir.absolutePath)
+        // Emits structured JSONL events on stdout — `thread.started`/`turn.*` lifecycle events
+        // plus `item.started`/`item.completed` (wrapping an `agent_message`, `command_execution`,
+        // etc. — see `CodexStreamJsonEventParser`) — instead of the human-readable transcript
+        // Codex otherwise prints, so `parseStdoutLine` can distinguish tool calls from plain
+        // response text instead of streaming every line as raw token text.
+        add("--json")
         add("-") // read prompt from stdin
     }
 
@@ -161,7 +188,9 @@ class CodexAgent : ExternalAgentTemplate() {
     }
 
     override fun onStderrLine(line: String, onStatus: (String) -> Unit) {
-        captureSessionId(line)
+        // With `--json`, the full transcript (tool calls, assistant messages, etc.) is on
+        // stdout as structured events — stderr should now only carry the startup banner and
+        // genuine warnings/errors, so it's safe (and much less noisy) to just surface it as-is.
         if (line.isNotBlank()) onStatus(line)
     }
 
@@ -173,29 +202,114 @@ class CodexAgent : ExternalAgentTemplate() {
         onThinking: (String) -> Unit,
         output: StringBuilder,
     ) {
-        // TODO: Codex prints raw stdout lines rather than structured tool-call events —
-        // no reliable way yet to distinguish an actual tool invocation from plain text, so
-        // everything still streams via onToken. Revisit if Codex CLI adds structured events.
-        captureSessionId(line)
-        output.appendLine(line)
-        onToken(line + "\n")
+        val event = CodexStreamJsonEventParser.parse(line)
+        if (event == null) {
+            log.debug("codex unparseable line: {}", line)
+            return
+        }
+        log.debug("codex event: type={} line {}", event.type, line)
+        when (event.type) {
+            "thread.started" -> {
+                val threadId = event.fields["thread_id"] as? String
+                if (!threadId.isNullOrBlank()) updateExecutionMetadata(sessionId = threadId)
+                onStatus("codex thread started")
+            }
+
+            "turn.started" -> Unit
+
+            // pure lifecycle marker — nothing to surface
+
+            "turn.completed" -> {
+                @Suppress("UNCHECKED_CAST")
+                val usage = event.fields["usage"] as? Map<String, Any>
+                if (usage != null) updateExecutionUsage(AgentUsageExtractor.extract(event.fields, usage))
+                onStatus("codex turn complete")
+            }
+
+            "turn.failed" -> {
+                @Suppress("UNCHECKED_CAST")
+                val error = event.fields["error"] as? Map<String, Any>
+                val message = error?.get("message") as? String ?: "Codex turn failed"
+                onStatus("result: error | $message")
+                reportResultError(message)
+            }
+
+            // The item's own `type` field (not the envelope's `type`) discriminates what kind
+            // of item this is — see [handleCompletedItem].
+            "item.completed" -> handleCompletedItem(
+                CodexStreamJsonEventParser.item(event.fields),
+                onToken,
+                onToolCall,
+                onThinking,
+                output,
+            )
+
+            // `item.started` only ever precedes a `command_execution` item with no output yet
+            // (`aggregated_output` empty, `exit_code` null) — nothing worth surfacing mid-flight;
+            // the matching `item.completed` carries the full command + output and is handled above.
+            "item.started" -> Unit
+
+            "error" -> {
+                val message = event.fields["message"] as? String ?: "Codex reported an error"
+                onStatus("result: error | $message")
+                reportResultError(message)
+            }
+
+            else -> log.debug("codex unhandled event type: {}", event.type)
+        }
     }
 
     /**
-     * Best-effort extraction of the rollout/session id Codex prints at the start of a run
-     * (e.g. `session id: <uuid>`), so a follow-up turn can resume this same conversation via
-     * `codex exec resume <id>` instead of Askimo replaying prior turns itself.
-     * TODO: verify the exact line format against the installed Codex CLI version.
+     * Handles a completed `item` payload from an `item.completed` event — see
+     * [CodexStreamJsonEventParser] for the envelope shape. `item["type"]` (not the outer event's
+     * `type`) discriminates what kind of item this is:
+     * - `agent_message` — the model's response text (`text`) — surfaced as response tokens.
+     * - `command_execution` — a shell command Codex ran (`command`, `exit_code`,
+     *   `aggregated_output`) — surfaced as a tool call.
+     * - `reasoning` — visible chain-of-thought text (`text`), unconfirmed against a real run but
+     *   handled defensively per Codex's documented protocol shape.
+     * - `mcp_tool_call` — an MCP tool invocation, unconfirmed against a real run but handled
+     *   defensively the same way.
      */
-    private fun captureSessionId(line: String) {
-        val match = SESSION_ID_PATTERN.find(line) ?: return
-        updateExecutionMetadata(sessionId = match.groupValues[1])
-    }
+    private fun handleCompletedItem(
+        item: Map<String, Any>?,
+        onToken: (String) -> Unit,
+        onToolCall: (toolName: String, detail: String?) -> Unit,
+        onThinking: (String) -> Unit,
+        output: StringBuilder,
+    ) {
+        if (item == null) return
+        when (item["type"] as? String) {
+            "agent_message" -> {
+                val text = item["text"] as? String
+                if (!text.isNullOrBlank()) {
+                    output.append(text)
+                    onToken(text)
+                }
+            }
 
-    companion object {
-        private val SESSION_ID_PATTERN = Regex(
-            """session[\s_-]?id[:=]\s*([0-9a-fA-F-]{8,})""",
-            RegexOption.IGNORE_CASE,
-        )
+            "reasoning" -> {
+                val text = item["text"] as? String
+                if (!text.isNullOrBlank()) onThinking(text)
+            }
+
+            "command_execution" -> {
+                val command = item["command"] as? String
+                val exitCode = item["exit_code"]
+                val detail = buildString {
+                    append(command ?: "")
+                    if (exitCode != null) append(" (exit $exitCode)")
+                }.take(ExternalAgent.TOOL_DETAIL_MAX_LENGTH)
+                onToolCall("exec", detail)
+            }
+
+            "mcp_tool_call" -> {
+                val toolName = item["tool"] as? String ?: item["name"] as? String ?: "mcp_tool"
+                val args = item["arguments"] ?: item["args"]
+                onToolCall(toolName, args?.toString()?.take(ExternalAgent.TOOL_DETAIL_MAX_LENGTH))
+            }
+
+            else -> log.debug("codex unhandled item type: {}", item["type"])
+        }
     }
 }
