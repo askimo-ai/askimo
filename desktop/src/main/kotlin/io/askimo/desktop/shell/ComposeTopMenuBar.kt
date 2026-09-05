@@ -41,6 +41,7 @@ import io.askimo.core.config.AppConfig
 import io.askimo.core.config.FeatureFlags
 import io.askimo.core.util.AskimoHome
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -91,7 +92,7 @@ fun composeTopMenuBar(
 ) {
     var expandedMenu by remember { mutableStateOf<TopMenu?>(null) }
 
-    Column(modifier = Modifier.fillMaxWidth().background(AppComponents.sidebarSurfaceColor())) {
+    Column(modifier = Modifier.fillMaxWidth().background(AppColors.sidebarSurfaceColor())) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -320,7 +321,7 @@ private fun menuAnchor(
                 onDismissRequest = onDismiss,
                 properties = PopupProperties(focusable = true),
             ) {
-                val borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                val borderColor = AppColors.codeBlockBorderColor()
                 Surface(
                     shape = RoundedCornerShape(bottomStart = 4.dp, bottomEnd = 4.dp, topStart = 0.dp, topEnd = 4.dp),
                     color = MaterialTheme.colorScheme.surface,
@@ -343,7 +344,7 @@ private fun menuAction(key: String, onClick: () -> Unit) {
         onClick = onClick,
         modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
-        colors = AppComponents.menuItemColors(),
+        colors = AppColors.menuItemColors(),
     )
 }
 
@@ -359,5 +360,5 @@ private fun menuToggleAction(key: String, isSelected: Boolean, onClick: () -> Un
 
 @Composable
 private fun menuDivider() {
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    HorizontalDivider(color = AppColors.codeBlockBorderColor())
 }

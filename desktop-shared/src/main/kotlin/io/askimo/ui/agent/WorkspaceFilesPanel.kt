@@ -84,6 +84,7 @@ import androidx.compose.ui.unit.dp
 import io.askimo.core.agent.domain.Workspace
 import io.askimo.core.db.DatabaseManager
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.AppTextStyles
@@ -263,7 +264,7 @@ internal fun workspaceFilesPanel(
                     value = renameWorkspaceText,
                     onValueChange = { renameWorkspaceText = it },
                     singleLine = true,
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                     modifier = Modifier.fillMaxWidth().focusRequester(focusRequester).onKeyEvent { event ->
                         if (event.key == Key.Enter && renameWorkspaceText.trim().isNotBlank()) {
                             val newName = renameWorkspaceText.trim()
@@ -345,7 +346,7 @@ internal fun workspaceFilesPanel(
                     onValueChange = { newItemName = it },
                     placeholder = { Text(stringResource("agents.view.workspace.name.placeholder")) },
                     singleLine = true,
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                     modifier = Modifier.fillMaxWidth().focusRequester(focusRequester).onKeyEvent { event ->
                         if (event.key == Key.Enter && newItemName.trim().isNotBlank()) {
                             createNewItem(parentDir, newItemName, isFolder)
@@ -442,7 +443,7 @@ internal fun workspaceFilesPanel(
                                         Text(
                                             stringResource("agents.view.workspace.switcher.empty"),
                                             style = AppTextStyles.caption,
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                            color = AppColors.tertiaryIconColor(),
                                         )
                                     },
                                     onClick = {},
@@ -526,7 +527,7 @@ internal fun workspaceFilesPanel(
                                                         Icons.Default.Delete,
                                                         contentDescription = stringResource("action.remove"),
                                                         modifier = Modifier.size(13.dp),
-                                                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                                                        tint = AppColors.destructiveIconColor(),
                                                     )
                                                 }
                                             }
@@ -631,14 +632,14 @@ internal fun workspaceFilesPanel(
                 }
             }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+            HorizontalDivider(color = AppColors.codeBlockBorderColor())
 
             when {
                 isLoading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         "...",
                         style = AppTextStyles.caption,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        color = AppColors.tertiaryIconColor(),
                     )
                 }
 
@@ -646,7 +647,7 @@ internal fun workspaceFilesPanel(
                     Text(
                         stringResource("agents.view.workspace.empty"),
                         style = AppTextStyles.caption,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        color = AppColors.tertiaryIconColor(),
                         modifier = Modifier.padding(16.dp),
                     )
                 }
@@ -742,7 +743,7 @@ private fun workspaceNodeRow(
                     .fillMaxWidth()
                     .background(
                         if (isSelected) {
-                            AppComponents.surfaceSelected()
+                            AppColors.surfaceColor(AppColors.Elevation.SELECTED)
                         } else {
                             Color.Transparent
                         },
@@ -785,13 +786,13 @@ private fun workspaceNodeRow(
                         Icon(
                             if (isExpanded) Icons.Default.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = null,
-                            tint = AppComponents.secondaryIconColor(),
+                            tint = AppColors.secondaryIconColor(),
                             modifier = Modifier.size(14.dp),
                         )
                         Icon(
                             if (isExpanded) Icons.Default.FolderOpen else Icons.Default.Folder,
                             contentDescription = null,
-                            tint = AppComponents.secondaryIconColor(),
+                            tint = AppColors.secondaryIconColor(),
                             modifier = Modifier.size(16.dp),
                         )
                     }
@@ -820,7 +821,7 @@ private fun workspaceNodeRow(
                         modifier = Modifier
                             .weight(1f)
                             .background(
-                                AppComponents.surfaceEmphasis(),
+                                AppColors.surfaceColor(AppColors.Elevation.EMPHASIS),
                                 RoundedCornerShape(3.dp),
                             )
                             .padding(horizontal = 4.dp, vertical = 2.dp)
@@ -878,7 +879,7 @@ private fun workspaceNodeRow(
                         Text(
                             text = node.file.length().toWorkspaceHumanSize(),
                             style = AppTextStyles.hint,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+                            color = AppColors.tertiaryIconColor(),
                         )
                     }
                 }
@@ -1054,7 +1055,7 @@ private fun workspaceFileViewer(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(AppComponents.surfaceRecessed()),
+            .background(AppColors.surfaceColor(AppColors.Elevation.RECESSED)),
     ) {
         HorizontalDivider()
 
@@ -1074,7 +1075,7 @@ private fun workspaceFileViewer(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.InsertDriveFile,
                     contentDescription = null,
-                    tint = AppComponents.secondaryIconColor(),
+                    tint = AppColors.secondaryIconColor(),
                     modifier = Modifier.size(15.dp),
                 )
                 Text(
@@ -1251,17 +1252,17 @@ private fun loadWorkspaceChildren(dir: File): List<WorkspaceNode> {
 
 @Composable
 private fun workspaceFileIconTint(name: String) = when {
-    name.endsWith(".sh") || name.endsWith(".bash") -> MaterialTheme.colorScheme.error.copy(alpha = 0.75f)
+    name.endsWith(".sh") || name.endsWith(".bash") -> AppColors.warningColor()
 
-    name.endsWith(".md") -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+    name.endsWith(".md") -> AppColors.secondaryIconColor()
 
     name.endsWith(".kt") || name.endsWith(".java") || name.endsWith(".py") ||
-        name.endsWith(".js") || name.endsWith(".ts") -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+        name.endsWith(".js") || name.endsWith(".ts") -> AppColors.secondaryIconColor()
 
     name.endsWith(".json") || name.endsWith(".xml") || name.endsWith(".yaml") || name.endsWith(".yml") ->
-        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+        AppColors.secondaryIconColor()
 
-    else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+    else -> AppColors.tertiaryIconColor()
 }
 
 private fun Long.toWorkspaceHumanSize(): String = when {

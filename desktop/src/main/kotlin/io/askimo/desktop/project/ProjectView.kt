@@ -92,6 +92,7 @@ import io.askimo.ui.chat.chatInputField
 import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.successIcon
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.AppTextStyles
@@ -231,7 +232,7 @@ fun projectView(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = Spacing.large),
-                        colors = AppComponents.bannerCardColors(),
+                        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
                         shape = MaterialTheme.shapes.large,
                     ) {
                         Row(
@@ -490,7 +491,7 @@ private fun sessionCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(
             width = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+            color = AppColors.codeBlockBorderColor(),
         ),
     ) {
         Row(
@@ -612,7 +613,7 @@ private fun knowledgeSourcesPanel(
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = AppComponents.surfaceVariantCardColors(),
+        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
     ) {
         Column(
             modifier = Modifier
@@ -690,7 +691,7 @@ private fun knowledgeSourcesPanel(
                             Icon(
                                 imageVector = Icons.Default.Info,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                tint = AppColors.secondaryIconColor(),
                                 modifier = Modifier
                                     .size(20.dp)
                                     .pointerHoverIcon(PointerIcon.Hand),
@@ -784,7 +785,7 @@ private fun knowledgeSourcesPanel(
                     ) {
                         HorizontalDivider(
                             modifier = Modifier.fillMaxWidth(),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                            color = AppColors.codeBlockBorderColor(),
                         )
 
                         val groupedSources = currentProject.knowledgeSources.groupBy { source ->
@@ -827,12 +828,12 @@ private fun knowledgeSourcesPanel(
                 ) {
                     HorizontalDivider(
                         modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                        color = AppColors.codeBlockBorderColor(),
                     )
                     Text(
                         text = stringResource("projects.sources.empty.description"),
                         style = AppTextStyles.caption,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                        color = AppColors.secondaryIconColor(),
                     )
                 }
             }
@@ -992,13 +993,13 @@ private fun indexProgressIndicator(
                         progress = { indexProgress.progressPercent / 100f },
                         modifier = Modifier.fillMaxWidth(),
                         color = MaterialTheme.colorScheme.onSurface,
-                        trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                        trackColor = AppColors.surfaceColor(AppColors.Elevation.RECESSED),
                     )
                 } else {
                     LinearProgressIndicator(
                         modifier = Modifier.fillMaxWidth(),
                         color = MaterialTheme.colorScheme.onSurface,
-                        trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                        trackColor = AppColors.surfaceColor(AppColors.Elevation.RECESSED),
                     )
                 }
                 indexProgress.currentFile?.let { file ->
@@ -1041,7 +1042,7 @@ private fun indexProgressIndicator(
                     Text(
                         text = "$file$elapsedText",
                         style = AppTextStyles.hint,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        color = AppColors.secondaryIconColor(),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -1143,7 +1144,7 @@ private fun skippedFilesWarning(skippedFileNames: List<String>) {
                     Text(
                         text = "• $name",
                         style = AppTextStyles.hint,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                        color = AppColors.secondaryIconColor(),
                     )
                 }
             }

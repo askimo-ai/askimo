@@ -33,7 +33,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.LocalCodeFontFamily
 
@@ -60,7 +60,7 @@ fun codeViewerBlock(
     modifier: Modifier = Modifier,
 ) {
     val codeFontFamily = LocalCodeFontFamily.current
-    val isDark = AppComponents.isCodeBlockDark()
+    val isDark = AppColors.isCodeBlockDark()
     val theme = if (isDark) CodeHighlighter.darkTheme() else CodeHighlighter.lightTheme()
     val highlightedCode = CodeHighlighter.highlight(
         code = code,
@@ -69,8 +69,8 @@ fun codeViewerBlock(
         codeFontFamily = codeFontFamily,
     )
 
-    val backgroundColor = AppComponents.codeBlockBackground()
-    val contentColor = AppComponents.codeBlockContentColor()
+    val backgroundColor = AppColors.codeBlockBackground()
+    val contentColor = AppColors.codeBlockContentColor()
 
     val lines = code.lines()
     val lineCount = lines.size
@@ -165,8 +165,8 @@ fun codeViewerBlock(
                         thickness = 6.dp,
                         shape = MaterialTheme.shapes.small,
                         hoverDurationMillis = 150,
-                        unhoverColor = contentColor.copy(alpha = 0.20f),
-                        hoverColor = contentColor.copy(alpha = 0.50f),
+                        unhoverColor = AppColors.surfaceColor(AppColors.Elevation.RECESSED),
+                        hoverColor = AppColors.tertiaryIconColor(),
                     ),
                 )
             }

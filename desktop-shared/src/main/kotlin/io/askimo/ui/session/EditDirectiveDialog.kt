@@ -28,7 +28,7 @@ import androidx.compose.ui.window.DialogProperties
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
-import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 
@@ -79,7 +79,7 @@ fun editDirectiveDialog(
                     singleLine = true,
                     isError = nameError != null,
                     supportingText = nameError?.let { { Text(it) } },
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                 )
 
                 OutlinedTextField(
@@ -96,7 +96,7 @@ fun editDirectiveDialog(
                     maxLines = 8,
                     isError = contentError != null,
                     supportingText = contentError?.let { { Text(it) } },
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                 )
 
                 Row(

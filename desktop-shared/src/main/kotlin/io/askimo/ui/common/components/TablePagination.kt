@@ -68,7 +68,7 @@ fun tablePagination(
                     tint = if (hasPrevious) {
                         MaterialTheme.colorScheme.onSurface
                     } else {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        AppTextStyles.disabledContent
                     },
                 )
             }
@@ -88,7 +88,7 @@ fun tablePagination(
                     tint = if (hasNext) {
                         MaterialTheme.colorScheme.onSurface
                     } else {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        AppTextStyles.disabledContent
                     },
                 )
             }

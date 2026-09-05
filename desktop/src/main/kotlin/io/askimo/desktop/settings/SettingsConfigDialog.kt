@@ -32,6 +32,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import io.askimo.core.providers.SettingField
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -72,7 +73,7 @@ fun settingsConfigDialog(
                                 } else {
                                     VisualTransformation.None
                                 },
-                                colors = AppComponents.outlinedTextFieldColors(),
+                                colors = AppColors.outlinedTextFieldColors(),
                             )
                         }
 
@@ -92,7 +93,7 @@ fun settingsConfigDialog(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
-                                    colors = AppComponents.outlinedTextFieldColors(),
+                                    colors = AppColors.outlinedTextFieldColors(),
                                 )
                                 ExposedDropdownMenu(
                                     expanded = expanded,
@@ -131,7 +132,7 @@ fun settingsConfigDialog(
                                 placeholder = { Text(field.description) },
                                 modifier = Modifier.fillMaxWidth(),
                                 singleLine = true,
-                                colors = AppComponents.outlinedTextFieldColors(),
+                                colors = AppColors.outlinedTextFieldColors(),
                             )
                         }
                     }

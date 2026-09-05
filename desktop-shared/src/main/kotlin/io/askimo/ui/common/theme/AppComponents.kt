@@ -47,8 +47,6 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
-import androidx.compose.material3.ButtonColors
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardColors
 import androidx.compose.material3.CardDefaults
@@ -58,22 +56,12 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonColors
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuDefaults
-import androidx.compose.material3.MenuItemColors
-import androidx.compose.material3.NavigationDrawerItemColors
-import androidx.compose.material3.NavigationDrawerItemDefaults
-import androidx.compose.material3.NavigationRailItemColors
-import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -83,7 +71,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.TextStyle
@@ -100,6 +87,11 @@ import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import io.askimo.ui.common.i18n.stringResource
 
+/**
+ * Composable widgets and layout tokens shared across the app — dialogs, dropdown menus,
+ * form fields, cards, spinners, popups. For color tokens (backgrounds, borders, content
+ * colors), see [AppColors]; this object consumes those tokens but doesn't define new ones.
+ */
 object AppComponents {
 
     // Shared spacing/tokens for scaffold-style dialogs.
@@ -108,88 +100,10 @@ object AppComponents {
     val dialogActionBarMinHeight: Dp = 56.dp
     val dialogScrollbarPadding: Dp = 12.dp
 
-    // ── Popup / Overlay Surface tokens ────────────────────────────────────────
-    // Single source of truth for every floating surface: dialogs, dropdowns,
-    // notification panels, popup cards.  Centralised here so the visual language
-    // of all overlays can be changed in one place.
-
-    /** Background color for all floating surfaces (dialogs, popups, dropdowns). */
-    @Composable
-    fun popupContainerColor(): Color = MaterialTheme.colorScheme.surface
-
-    /**
-     * Consistent 1 dp border for all floating surfaces.
-     * Provides subtle depth definition without relying on elevation alone, and
-     * ensures popups read clearly against any window background.
-     */
-    @Composable
-    fun popupBorderStroke(): BorderStroke = BorderStroke(
-        width = 1.dp,
-        color = MaterialTheme.colorScheme.outlineVariant,
-    )
-
-    /**
-     * Drop-shadow elevation for floating Card surfaces (e.g. notification popup).
-     * Controls visible shadow only — kept separate from [popupSurfaceTonalElevation]
-     * so shadow depth and tonal colour are independently adjustable.
-     */
-    val popupElevation: Dp = 8.dp
-
-    /**
-     * Tonal elevation for dialog/popup [Surface]s — intentionally **0.dp**.
-     *
-     * M3 tonal elevation blends a primary-colour overlay into the Surface
-     * background, making [scaffoldDialog] and [alertDialog] appear slightly
-     * different from [dropdownMenu] (which forces all surfaceContainer tonal slots
-     * to plain [surface] via [popupColorScheme]).  Keeping this at zero ensures
-     * every popup background resolves to the same pure [popupContainerColor]
-     * regardless of the active theme seed colour.
-     */
-    val popupSurfaceTonalElevation: Dp = 0.dp
-
-    /**
-     * Shared MaterialTheme colorScheme override for all popup surfaces.
-     *
-     * Forces every M3 surfaceContainer tonal slot to [popupContainerColor] so
-     * that Material3 components rendered inside (DropdownMenu, AlertDialog, etc.)
-     * pick up the canonical popup background rather than their own tonal slot.
-     * Combine with [popupSurfaceTonalElevation] = 0 for a fully consistent look.
-     */
-    @Composable
-    fun popupColorScheme() = MaterialTheme.colorScheme.let { cs ->
-        val bg = popupContainerColor()
-        cs.copy(
-            surfaceContainerLowest = bg,
-            surfaceContainerLow = bg,
-            surfaceContainer = bg,
-            surfaceContainerHigh = bg,
-            surfaceContainerHighest = bg,
-        )
-    }
-
     // ── Navigation ───────────────────────────────────────────────────────────
 
     /** Corner radius for the selected-item background in all navigation components. */
     val navigationItemShape: Shape = RoundedCornerShape(8.dp)
-
-    @Composable
-    fun navigationDrawerItemColors(): NavigationDrawerItemColors = NavigationDrawerItemDefaults.colors(
-        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-        selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        selectedBadgeColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        unselectedContainerColor = Color.Transparent,
-        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        unselectedBadgeColor = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-
-    @Composable
-    fun navigationRailItemColors(): NavigationRailItemColors = NavigationRailItemDefaults.colors(
-        selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-    )
 
     // ── Cards ─────────────────────────────────────────────────────────────────
 
@@ -199,8 +113,10 @@ object AppComponents {
      * Bakes in:
      * - `.clip(shape)` **before** `hoverable`/`clickable` so the ripple and hover
      *   highlight are always clipped to rounded corners (prevents the rectangle-border bug).
-     * - Default: `surfaceVariant.copy(alpha = 0.5f)` + `outlineVariant.copy(alpha = 0.6f)` border.
-     * - Hover:   `primaryContainer.copy(alpha = 0.25f)` + `primary.copy(alpha = 0.4f)` border.
+     * - Default: [AppColors.Elevation.RAISED] + [AppColors.codeBlockBorderColor] (`outlineVariant`) border.
+     * - Hover:   [AppColors.Elevation.SELECTED] + `primary.copy(alpha = 0.4f)` border — the
+     *   same tier used for an actually-selected item elsewhere, so hover and selection never
+     *   read as two different colors.
      *
      * Use this instead of bare [Card] whenever the card is clickable.
      */
@@ -209,30 +125,20 @@ object AppComponents {
         onClick: (() -> Unit)?,
         modifier: Modifier = Modifier,
         shape: Shape = MaterialTheme.shapes.medium,
-        colors: CardColors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-            contentColor = MaterialTheme.colorScheme.onSurface,
-        ),
+        colors: CardColors = AppColors.cardColors(AppColors.Elevation.RAISED),
         content: @Composable ColumnScope.() -> Unit,
     ) {
         val interactionSource = remember { MutableInteractionSource() }
         val isHovered by interactionSource.collectIsHoveredAsState()
 
-        val resolvedColors = if (onClick != null && isHovered) {
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f),
-                contentColor = MaterialTheme.colorScheme.onSurface,
-            )
-        } else {
-            colors
-        }
+        val resolvedColors = if (onClick != null && isHovered) AppColors.cardColors(AppColors.Elevation.SELECTED) else colors
 
         val border = BorderStroke(
             1.dp,
             if (onClick != null && isHovered) {
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
             } else {
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                AppColors.codeBlockBorderColor()
             },
         )
 
@@ -257,64 +163,10 @@ object AppComponents {
         )
     }
 
-    @Composable
-    fun primaryCardColors(): CardColors = CardDefaults.cardColors(
-        containerColor = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-    )
-
-    @Composable
-    fun bannerCardColors(): CardColors = CardDefaults.cardColors(
-        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-    )
-
-    @Composable
-    fun surfaceVariantCardColors(): CardColors = CardDefaults.cardColors(
-        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-
-    // ── Buttons & Icons ───────────────────────────────────────────────────────
-
-    @Composable
-    fun primaryIconButtonColors(): IconButtonColors = IconButtonDefaults.iconButtonColors(
-        contentColor = MaterialTheme.colorScheme.primary,
-        disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-    )
-
-    @Composable
-    fun primaryTextButtonColors(): ButtonColors = ButtonDefaults.textButtonColors(
-        contentColor = MaterialTheme.colorScheme.primary,
-    )
-
     // ── Inputs ────────────────────────────────────────────────────────────────
 
-    @Composable
-    fun outlinedTextFieldColors(
-        focusedBorderColor: Color = MaterialTheme.colorScheme.onSurface,
-        unfocusedBorderColor: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.42f),
-        focusedLabelColor: Color = MaterialTheme.colorScheme.onSurface,
-        unfocusedLabelColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-        focusedTextColor: Color = MaterialTheme.colorScheme.onSurface,
-        unfocusedTextColor: Color = MaterialTheme.colorScheme.onSurface,
-        cursorColor: Color = MaterialTheme.colorScheme.onSurface,
-        containerColor: Color = MaterialTheme.colorScheme.surface,
-    ): TextFieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = focusedBorderColor,
-        unfocusedBorderColor = unfocusedBorderColor,
-        focusedLabelColor = focusedLabelColor,
-        unfocusedLabelColor = unfocusedLabelColor,
-        focusedTextColor = focusedTextColor,
-        unfocusedTextColor = unfocusedTextColor,
-        cursorColor = cursorColor,
-        focusedContainerColor = containerColor,
-        unfocusedContainerColor = containerColor,
-        disabledContainerColor = containerColor,
-    )
-
     /**
-     * Themed [OutlinedTextField] with default colors from [outlinedTextFieldColors].
+     * Themed [OutlinedTextField] with default colors from [AppColors.outlinedTextFieldColors].
      */
     @Composable
     fun appOutlinedTextField(
@@ -350,7 +202,7 @@ object AppComponents {
             maxLines = maxLines,
             keyboardOptions = keyboardOptions,
             keyboardActions = keyboardActions,
-            colors = outlinedTextFieldColors(),
+            colors = AppColors.outlinedTextFieldColors(),
         )
     }
 
@@ -403,7 +255,7 @@ object AppComponents {
                     )
                 }
             },
-            colors = outlinedTextFieldColors(),
+            colors = AppColors.outlinedTextFieldColors(),
         )
     }
 
@@ -453,16 +305,6 @@ object AppComponents {
         }
     }
 
-    @Composable
-    fun menuItemColors(): MenuItemColors = MenuDefaults.itemColors(
-        textColor = MaterialTheme.colorScheme.onSurface,
-        leadingIconColor = MaterialTheme.colorScheme.onSurface,
-        trailingIconColor = MaterialTheme.colorScheme.onSurface,
-        disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-        disabledLeadingIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-        disabledTrailingIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-    )
-
     /**
      * A themed [DropdownMenuItem] with consistent UX across the app:
      * - Always reserves leading-icon space for a [Check] mark, rendered transparently
@@ -496,151 +338,13 @@ object AppComponents {
                 )
             },
             trailingIcon = trailingIcon,
-            colors = menuItemColors(),
+            colors = AppColors.menuItemColors(),
             contentPadding = contentPadding,
         )
         if (showDivider) {
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            HorizontalDivider(color = AppColors.codeBlockBorderColor())
         }
     }
-
-    // ── Surface Tiers ─────────────────────────────────────────────────────────
-
-    /**
-     * Quiet, non-interactive backdrop for content that should visually recede —
-     * file/content viewers, expanded "raw output" panels, a collapsed side rail.
-     */
-    @Composable
-    fun surfaceRecessed(): Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
-
-    /**
-     * The standard "card/pill/row at rest" background — settings option cards,
-     * search-result cards, static info pills, table header rows. Also the right
-     * choice for a plain (non-selection) hover highlight on a list row, since the
-     * same subtle lift reads correctly in both cases.
-     */
-    @Composable
-    fun surfaceRaised(): Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-
-    /**
-     * A stronger lift for elements that must stand out even against an already
-     * [surfaceRaised] container — an inline rename field sitting on a raised tree
-     * row, a dropdown/selector pill sitting on an input field, a callout box.
-     */
-    @Composable
-    fun surfaceEmphasis(): Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-
-    /**
-     * True selection/active state — the one case that should shift hue (toward
-     * [MaterialTheme.colorScheme.primaryContainer]) rather than just opacity, so a
-     * selected item is never confused with a merely-hovered or merely-raised one.
-     */
-    @Composable
-    fun surfaceSelected(): Color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-
-    // ── Surface Colors ────────────────────────────────────────────────────────
-
-    @Composable
-    private fun sidebarTint(headerStrength: Boolean): Color {
-        val surfaceColor = MaterialTheme.colorScheme.surface
-        val primaryColor = MaterialTheme.colorScheme.primary
-        val isLight = surfaceColor.luminance() > 0.5
-        val tintAmount = when {
-            headerStrength && isLight -> 0.12f
-            headerStrength -> 0.16f
-            isLight -> 0.08f
-            else -> 0.12f
-        }
-        val base = Color(
-            red = surfaceColor.red + (primaryColor.red - surfaceColor.red) * tintAmount,
-            green = surfaceColor.green + (primaryColor.green - surfaceColor.green) * tintAmount,
-            blue = surfaceColor.blue + (primaryColor.blue - surfaceColor.blue) * tintAmount,
-            alpha = surfaceColor.alpha,
-        )
-        // When a background image is active, let it show through the sidebar
-        return if (LocalBackgroundActive.current) base.copy(alpha = 0.82f) else base
-    }
-
-    @Composable
-    fun sidebarSurfaceColor(): Color = sidebarTint(headerStrength = false)
-
-    @Composable
-    fun sidebarHeaderColor(): Color = sidebarTint(headerStrength = true)
-
-    /**
-     * Contrast-safe text/icon color for content painted directly on [sidebarHeaderColor] —
-     * e.g. the logo, app title, and collapse/expand icon in the sidebar header row.
-     */
-    @Composable
-    fun sidebarHeaderContentColor(): Color {
-        val backgroundLuminance = sidebarHeaderColor().luminance()
-        val onSurface = MaterialTheme.colorScheme.onSurface
-        val inverseOnSurface = MaterialTheme.colorScheme.inverseOnSurface
-        return if (backgroundLuminance > 0.5) {
-            if (onSurface.luminance() < inverseOnSurface.luminance()) onSurface else inverseOnSurface
-        } else {
-            if (onSurface.luminance() > inverseOnSurface.luminance()) onSurface else inverseOnSurface
-        }
-    }
-
-    /**
-     * Shifts [MaterialTheme.colorScheme.surface] toward black/white by [amount] — the one
-     * primitive behind every "surface, but slightly shaded" background in the app
-     * ([userMessageBackground], [codeBlockBackground]).
-     */
-    @Composable
-    private fun shadedSurface(amount: Float): Color {
-        val surface = MaterialTheme.colorScheme.surface
-        val isLight = surface.luminance() > 0.5
-        return if (isLight) {
-            Color(
-                red = (surface.red * (1f - amount)).coerceIn(0f, 1f),
-                green = (surface.green * (1f - amount)).coerceIn(0f, 1f),
-                blue = (surface.blue * (1f - amount)).coerceIn(0f, 1f),
-                alpha = surface.alpha,
-            )
-        } else {
-            Color(
-                red = (surface.red + amount).coerceIn(0f, 1f),
-                green = (surface.green + amount).coerceIn(0f, 1f),
-                blue = (surface.blue + amount).coerceIn(0f, 1f),
-                alpha = surface.alpha,
-            )
-        }
-    }
-
-    /** Subtle shade — message bubbles. */
-    @Composable
-    fun userMessageBackground(): Color = shadedSurface(if (MaterialTheme.colorScheme.surface.luminance() > 0.5) 0.08f else 0.10f)
-
-    @Composable
-    fun userMessageContentColor(): Color = MaterialTheme.colorScheme.onSurface
-
-    /** Stronger shade than [userMessageBackground] — code blocks need to read as clearly
-     *  distinct from surrounding prose. */
-    @Composable
-    fun codeBlockBackground(): Color = shadedSurface(if (MaterialTheme.colorScheme.surface.luminance() > 0.5) 0.15f else 0.25f)
-
-    @Composable
-    fun codeBlockContentColor(): Color = MaterialTheme.colorScheme.onSurface
-
-    @Composable
-    fun codeBlockBorderColor(): Color = MaterialTheme.colorScheme.outlineVariant
-
-    @Composable
-    fun isCodeBlockDark(): Boolean = MaterialTheme.colorScheme.surface.luminance() < 0.5
-
-    // ── Icon & Text Tints ─────────────────────────────────────────────────────
-    // Prefer AppTextStyles.primaryContent / secondaryContent over these helpers.
-    // These are kept for call sites that haven't been migrated yet.
-
-    /** @see AppTextStyles.secondaryContent */
-    @Composable
-    fun secondaryIconColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant
-
-    /** Subtle decorative icon tint — half-opacity secondary. */
-    @Composable
-    fun tertiaryIconColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
 
     @Composable
     fun dropdownMenu(
@@ -650,8 +354,8 @@ object AppComponents {
         offset: DpOffset = DpOffset.Zero,
         content: @Composable ColumnScope.() -> Unit,
     ) {
-        val border = popupBorderStroke()
-        MaterialTheme(colorScheme = popupColorScheme()) {
+        val border = AppColors.popupBorderStroke()
+        MaterialTheme(colorScheme = AppColors.popupColorScheme()) {
             DropdownMenu(
                 expanded = expanded,
                 onDismissRequest = onDismissRequest,
@@ -680,11 +384,11 @@ object AppComponents {
         iconContentColor: Color = AlertDialogDefaults.iconContentColor,
         titleContentColor: Color = AlertDialogDefaults.titleContentColor,
         textContentColor: Color = AlertDialogDefaults.textContentColor,
-        tonalElevation: Dp = popupSurfaceTonalElevation,
+        tonalElevation: Dp = AppColors.popupSurfaceTonalElevation,
         properties: DialogProperties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        val border = popupBorderStroke()
-        MaterialTheme(colorScheme = popupColorScheme()) {
+        val border = AppColors.popupBorderStroke()
+        MaterialTheme(colorScheme = AppColors.popupColorScheme()) {
             AlertDialog(
                 onDismissRequest = onDismissRequest,
                 confirmButton = confirmButton,
@@ -777,7 +481,7 @@ object AppComponents {
         properties: DialogProperties = DialogProperties(),
         shape: Shape = MaterialTheme.shapes.large,
         containerColor: Color = MaterialTheme.colorScheme.surface,
-        tonalElevation: Dp = popupSurfaceTonalElevation,
+        tonalElevation: Dp = AppColors.popupSurfaceTonalElevation,
         contentPadding: Dp = dialogContentPadding,
         sectionSpacing: Dp = dialogSectionSpacing,
         onCloseRequest: (() -> Unit)? = null,
@@ -792,9 +496,9 @@ object AppComponents {
             dismissOnClickOutside = properties.dismissOnClickOutside,
             usePlatformDefaultWidth = false,
         )
-        val border = popupBorderStroke()
+        val border = AppColors.popupBorderStroke()
         Dialog(onDismissRequest = onDismissRequest, properties = resolvedProperties) {
-            MaterialTheme(colorScheme = popupColorScheme()) {
+            MaterialTheme(colorScheme = AppColors.popupColorScheme()) {
                 BoxWithConstraints {
                     Surface(
                         modifier = modifier
@@ -884,7 +588,7 @@ object AppComponents {
         properties: DialogProperties = DialogProperties(),
         shape: Shape = MaterialTheme.shapes.large,
         containerColor: Color = MaterialTheme.colorScheme.surface,
-        tonalElevation: Dp = popupSurfaceTonalElevation,
+        tonalElevation: Dp = AppColors.popupSurfaceTonalElevation,
         contentPadding: Dp = dialogContentPadding,
         sectionSpacing: Dp = dialogSectionSpacing,
         onCloseRequest: (() -> Unit)? = null,
@@ -899,9 +603,9 @@ object AppComponents {
             dismissOnClickOutside = properties.dismissOnClickOutside,
             usePlatformDefaultWidth = false,
         )
-        val border = popupBorderStroke()
+        val border = AppColors.popupBorderStroke()
         Dialog(onDismissRequest = onDismissRequest, properties = resolvedProperties) {
-            MaterialTheme(colorScheme = popupColorScheme()) {
+            MaterialTheme(colorScheme = AppColors.popupColorScheme()) {
                 BoxWithConstraints {
                     Surface(
                         modifier = modifier
@@ -974,9 +678,9 @@ object AppComponents {
      * Standardised small loading spinner for all UI contexts.
      *
      * Color defaults to [LocalContentColor] so it automatically matches its container:
-     *   - inside a `primaryButton`         → onPrimary
-     *   - inside a `bannerCardColors` card → onSecondaryContainer
-     *   - on a plain surface               → onSurface
+     *   - inside a `primaryButton`                        → onPrimary
+     *   - inside a `AppColors.cardColors(Elevation.ACCENT)` card → onPrimaryContainer
+     *   - on a plain surface                               → onSurface
      *
      * Bakes in `strokeWidth = 2.dp` (lighter than M3 default of 4.dp) for inline use.
      *
@@ -1012,8 +716,8 @@ object AppComponents {
         thickness = 6.dp,
         shape = MaterialTheme.shapes.small,
         hoverDurationMillis = 300,
-        unhoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-        hoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.50f),
+        unhoverColor = AppColors.surfaceColor(AppColors.Elevation.RECESSED),
+        hoverColor = AppColors.tertiaryIconColor(),
     )
 
     /**
@@ -1032,19 +736,19 @@ object AppComponents {
         properties: PopupProperties = PopupProperties(focusable = true),
         content: @Composable ColumnScope.() -> Unit,
     ) {
-        val border = popupBorderStroke()
+        val border = AppColors.popupBorderStroke()
         Popup(
             popupPositionProvider = positionProvider,
             onDismissRequest = onDismissRequest,
             properties = properties,
         ) {
-            MaterialTheme(colorScheme = popupColorScheme()) {
+            MaterialTheme(colorScheme = AppColors.popupColorScheme()) {
                 Surface(
                     modifier = modifier.border(border.width, border.brush, shape),
                     shape = shape,
-                    color = popupContainerColor(),
-                    tonalElevation = popupSurfaceTonalElevation,
-                    shadowElevation = popupElevation,
+                    color = AppColors.popupContainerColor(),
+                    tonalElevation = AppColors.popupSurfaceTonalElevation,
+                    shadowElevation = AppColors.popupElevation,
                 ) {
                     Column(content = content)
                 }

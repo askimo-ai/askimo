@@ -59,6 +59,7 @@ import io.askimo.core.search.SortBy
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -188,7 +189,7 @@ fun globalSearchDialog(
                         }
                     },
                 singleLine = true,
-                colors = AppComponents.outlinedTextFieldColors(),
+                colors = AppColors.outlinedTextFieldColors(),
             )
 
             // Filters Row
@@ -306,7 +307,7 @@ fun globalSearchDialog(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             AppComponents.loadingSpinner(
-                                trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                                trackColor = AppColors.surfaceColor(AppColors.Elevation.RECESSED),
                             )
                             Spacer(modifier = Modifier.height(Spacing.large))
                             Text(
@@ -327,7 +328,7 @@ fun globalSearchDialog(
                                 imageVector = Icons.Default.Search,
                                 contentDescription = null,
                                 modifier = Modifier.size(48.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                tint = AppColors.tertiaryIconColor(),
                             )
                             Spacer(modifier = Modifier.height(Spacing.large))
                             Text(
@@ -373,7 +374,7 @@ fun globalSearchDialog(
                                 imageVector = Icons.Default.Search,
                                 contentDescription = null,
                                 modifier = Modifier.size(48.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                tint = AppColors.tertiaryIconColor(),
                             )
                             Spacer(modifier = Modifier.height(Spacing.large))
                             Text(
@@ -434,7 +435,7 @@ private fun searchResultItem(
             .fillMaxWidth()
             .pointerHoverIcon(PointerIcon.Hand),
         colors = CardDefaults.cardColors(
-            containerColor = AppComponents.surfaceRaised(),
+            containerColor = AppColors.surfaceColor(AppColors.Elevation.RAISED),
         ),
     ) {
         Column(

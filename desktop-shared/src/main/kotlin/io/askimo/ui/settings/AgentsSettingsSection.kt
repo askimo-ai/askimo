@@ -94,10 +94,12 @@ import io.askimo.core.agent.domain.SkillTreeNode
 import io.askimo.core.agent.repository.SkillRepository
 import io.askimo.core.util.AskimoHome
 import io.askimo.ui.common.components.dangerButton
+import io.askimo.ui.common.components.inlineErrorMessage
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.appOutlinedTextField
 import io.askimo.ui.common.theme.AppTextStyles
@@ -193,7 +195,7 @@ fun agentsSettingsSection() {
             modifier = Modifier.width(animatedPanelWidth).fillMaxHeight(),
             shape = RectangleShape,
             colors = CardDefaults.cardColors(
-                containerColor = AppComponents.sidebarSurfaceColor(),
+                containerColor = AppColors.sidebarSurfaceColor(),
                 contentColor = MaterialTheme.colorScheme.onSurface,
             ),
         ) {
@@ -268,7 +270,7 @@ fun agentsSettingsSection() {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(AppComponents.surfaceRecessed())
+                        .background(AppColors.surfaceColor(AppColors.Elevation.RECESSED))
                         .padding(vertical = 12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Top,
@@ -466,7 +468,7 @@ private fun skillsMainContent(
                             runtimes.forEach { runtime ->
                                 Surface(
                                     shape = MaterialTheme.shapes.small,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                    color = AppColors.surfaceColor(AppColors.Elevation.RECESSED),
                                 ) {
                                     Text(
                                         text = runtime,
@@ -576,7 +578,7 @@ private fun skillsMainSelectPrompt() {
                 Icons.Default.Extension,
                 contentDescription = null,
                 modifier = Modifier.size(56.dp),
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                tint = AppColors.tertiaryIconColor(),
             )
             Text(
                 text = stringResource("settings.agents.select.prompt"),
@@ -602,7 +604,7 @@ private fun skillsMainEmptyState() {
                 Icons.Default.Extension,
                 contentDescription = null,
                 modifier = Modifier.size(56.dp),
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                tint = AppColors.tertiaryIconColor(),
             )
             Text(
                 text = stringResource("settings.agents.empty"),
@@ -710,7 +712,7 @@ private fun skillEditorContent(
                             onValueChange = { nameInput = it },
                             singleLine = true,
                             textStyle = AppTextStyles.sectionTitle,
-                            colors = AppComponents.outlinedTextFieldColors(),
+                            colors = AppColors.outlinedTextFieldColors(),
                             modifier = Modifier.weight(1f),
                         )
                         IconButton(
@@ -757,7 +759,7 @@ private fun skillEditorContent(
                             onValueChange = { descInput = it },
                             singleLine = true,
                             textStyle = AppTextStyles.caption,
-                            colors = AppComponents.outlinedTextFieldColors(),
+                            colors = AppColors.outlinedTextFieldColors(),
                             modifier = Modifier.weight(1f),
                         )
                         IconButton(
@@ -940,7 +942,7 @@ private fun fileEditorContent(
                         onValueChange = { renameInput = it },
                         singleLine = true,
                         textStyle = AppTextStyles.sectionTitle,
-                        colors = AppComponents.outlinedTextFieldColors(),
+                        colors = AppColors.outlinedTextFieldColors(),
                         modifier = Modifier.weight(1f),
                     )
                     // OK button — commit rename
@@ -1273,7 +1275,7 @@ private fun skillTreeNodeItem(
                         .fillMaxWidth()
                         .clip(MaterialTheme.shapes.small)
                         .background(
-                            if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else Color.Transparent,
+                            if (isSelected) AppColors.surfaceColor(AppColors.Elevation.SELECTED) else Color.Transparent,
                             shape = MaterialTheme.shapes.small,
                         )
                         .hoverable(interactionSource)
@@ -1412,7 +1414,7 @@ private fun skillTreeNodeItem(
                     .fillMaxWidth()
                     .padding(start = (depth * 12).dp)
                     .background(
-                        if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else Color.Transparent,
+                        if (isSelected) AppColors.surfaceColor(AppColors.Elevation.SELECTED) else Color.Transparent,
                         shape = MaterialTheme.shapes.small,
                     )
                     .hoverable(interactionSource)
@@ -1565,7 +1567,7 @@ private fun previewEditSegmentButton(
                 if (isActive) {
                     MaterialTheme.colorScheme.primaryContainer
                 } else {
-                    AppComponents.surfaceRaised()
+                    AppColors.surfaceColor(AppColors.Elevation.RAISED)
                 },
             )
             .then(
@@ -1603,22 +1605,6 @@ private fun openSkillsFolder(path: Path) {
 }
 
 // ── Dialogs ───────────────────────────────────────────────────────────────────
-
-@Composable
-private fun importErrorBanner(message: String) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
-        shape = MaterialTheme.shapes.small,
-    ) {
-        Text(
-            text = message,
-            style = AppTextStyles.caption,
-            color = MaterialTheme.colorScheme.onErrorContainer,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-        )
-    }
-}
 
 @Composable
 private fun newSkillInFolderDialog(
@@ -1693,9 +1679,7 @@ private fun importFromGitHubDialog(
                     enabled = !isImporting,
                 )
 
-                if (errorMessage != null) {
-                    importErrorBanner(errorMessage!!)
-                }
+                inlineErrorMessage(errorMessage)
             }
         },
         confirmButton = {
@@ -1782,9 +1766,7 @@ private fun importFromZipDialog(
                     )
                 }
 
-                if (errorMessage != null) {
-                    importErrorBanner(errorMessage!!)
-                }
+                inlineErrorMessage(errorMessage)
             }
         },
         confirmButton = {

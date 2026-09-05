@@ -68,6 +68,7 @@ import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.tablePageSizeSelector
 import io.askimo.ui.common.components.tablePagination
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -175,7 +176,7 @@ fun projectsView(
                     singleLine = true,
                     textStyle = AppTextStyles.body,
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                 )
 
                 Spacer(modifier = Modifier.height(Spacing.large))
@@ -307,7 +308,7 @@ internal fun embeddingModelNotConfiguredBanner(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppComponents.bannerCardColors(),
+        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
     ) {
         Row(
             modifier = Modifier
@@ -394,7 +395,7 @@ private fun projectTable(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .background(AppColors.surfaceColor(AppColors.Elevation.RAISED))
                     .padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -441,7 +442,7 @@ private fun projectTable(
                     onStarProject = onStarProject,
                 )
                 if (index < sortedProjects.lastIndex) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    HorizontalDivider(color = AppColors.codeBlockBorderColor())
                 }
             }
         }
@@ -512,7 +513,7 @@ private fun projectRow(
             .hoverable(interactionSource)
             .background(
                 if (isHovered) {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    AppColors.surfaceColor(AppColors.Elevation.RAISED)
                 } else {
                     MaterialTheme.colorScheme.surface
                 },
@@ -536,7 +537,7 @@ private fun projectRow(
                 tint = if (project.isStarred) {
                     MaterialTheme.colorScheme.onSurface
                 } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                    AppColors.tertiaryIconColor()
                 },
                 modifier = Modifier.size(16.dp),
             )

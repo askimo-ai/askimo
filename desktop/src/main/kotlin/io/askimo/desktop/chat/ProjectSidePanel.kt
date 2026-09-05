@@ -73,6 +73,7 @@ import io.askimo.desktop.project.mergeKnowledgeSourceConfigs
 import io.askimo.desktop.project.reIndexConfirmDialog
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -117,7 +118,7 @@ fun communityProjectSidePanel(
         modifier = modifier.width(animatedWidth).fillMaxHeight(),
         shape = RectangleShape,
         colors = CardDefaults.cardColors(
-            containerColor = AppComponents.sidebarSurfaceColor(),
+            containerColor = AppColors.sidebarSurfaceColor(),
             contentColor = MaterialTheme.colorScheme.onSurface,
         ),
     ) {
@@ -181,7 +182,7 @@ fun communityProjectSidePanel(
                                             tint = when (ragIndexingStatus) {
                                                 "completed" -> MaterialTheme.colorScheme.onSurface
                                                 "failed" -> MaterialTheme.colorScheme.error
-                                                else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                                else -> AppColors.tertiaryIconColor()
                                             },
                                             modifier = Modifier.size(14.dp),
                                         )
@@ -276,7 +277,7 @@ fun communityProjectSidePanel(
             Column(
                 modifier = Modifier
                     .width(56.dp).fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                    .background(AppColors.surfaceColor(AppColors.Elevation.RECESSED))
                     .padding(vertical = Spacing.large, horizontal = Spacing.small),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(Spacing.large),
@@ -326,7 +327,7 @@ private fun panelTabIcon(tab: PanelTab, isSelected: Boolean, onClick: () -> Unit
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .size(40.dp)
-                .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else Color.Transparent)
+                .background(if (isSelected) AppColors.surfaceColor(AppColors.Elevation.SELECTED) else Color.Transparent)
                 .clickable(onClick = onClick, indication = null, interactionSource = remember { MutableInteractionSource() })
                 .pointerHoverIcon(PointerIcon.Hand),
         ) {
@@ -416,7 +417,7 @@ private fun ragSourcesTabContent(
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                     repeat(3) {
-                        Box(modifier = Modifier.size(3.dp).background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), androidx.compose.foundation.shape.CircleShape))
+                        Box(modifier = Modifier.size(3.dp).background(AppColors.tertiaryIconColor(), androidx.compose.foundation.shape.CircleShape))
                     }
                 }
             }
@@ -435,11 +436,11 @@ private fun ragSourcesTabContent(
                     modifier = Modifier
                         .height(with(LocalDensity.current) { viewerHeightPx.toDp() })
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)),
+                        .background(AppColors.surfaceColor(AppColors.Elevation.RECESSED)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
-                        Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(28.dp), tint = AppComponents.tertiaryIconColor())
+                        Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(28.dp), tint = AppColors.tertiaryIconColor())
                         Text(text = stringResource("file.viewer.select.prompt"), style = AppTextStyles.caption, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = Spacing.large))
                     }
                 }
@@ -452,7 +453,7 @@ private fun ragSourcesTabContent(
 private fun ragSourcesEmptyState(project: Project?, onAddMaterial: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.large)) {
-            Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(64.dp), tint = AppComponents.tertiaryIconColor())
+            Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(64.dp), tint = AppColors.tertiaryIconColor())
             Text(text = stringResource("rag.empty.title"), style = AppTextStyles.sectionTitle)
             Text(text = stringResource("rag.empty.description"), style = AppTextStyles.caption, textAlign = TextAlign.Center)
             Button(

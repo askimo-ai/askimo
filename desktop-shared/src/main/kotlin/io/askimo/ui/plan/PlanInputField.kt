@@ -40,7 +40,7 @@ import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ReasoningEffort
 import io.askimo.ui.common.components.actionInputField
 import io.askimo.ui.common.i18n.stringResource
-import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -187,7 +187,7 @@ fun planInputField(
                                     text = stringResource("chat.reasoning.effort.label") + ":",
                                     style = AppTextStyles.hint,
 
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                                    color = AppColors.secondaryIconColor(),
                                 )
                                 Text(
                                     text = reasoningEffort.value.replaceFirstChar { it.uppercase() },
@@ -237,7 +237,7 @@ fun planInputField(
                                         showReasoningDropdown = false
                                     },
                                     modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                    colors = AppComponents.menuItemColors(),
+                                    colors = AppColors.menuItemColors(),
                                 )
                             }
                         }

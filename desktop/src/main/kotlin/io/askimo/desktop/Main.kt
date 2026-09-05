@@ -116,6 +116,7 @@ import io.askimo.ui.common.keymap.KeyMapManager
 import io.askimo.ui.common.keymap.KeyMapManager.AppShortcut
 import io.askimo.ui.common.preferences.AccountPreferences
 import io.askimo.ui.common.preferences.ApplicationPreferences
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents.alertDialog
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.BackgroundImage
@@ -1177,7 +1178,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                                         modifier = Modifier
                                                                             .size(2.dp)
                                                                             .background(
-                                                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                                                AppColors.tertiaryIconColor(),
                                                                                 shape = CircleShape,
                                                                             ),
                                                                     )

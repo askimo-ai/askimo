@@ -55,6 +55,7 @@ import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -139,7 +140,7 @@ fun manageDirectivesDialog(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
-                            containerColor = AppComponents.sidebarSurfaceColor(),
+                            containerColor = AppColors.sidebarSurfaceColor(),
                         ),
                     ) {
                         Column(

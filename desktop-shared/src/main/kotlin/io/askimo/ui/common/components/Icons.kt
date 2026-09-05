@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.askimo.ui.common.theme.AppColors
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Status icons
@@ -71,7 +72,7 @@ fun notIndexedIcon(
     Icon(
         imageVector = Icons.Default.RadioButtonUnchecked,
         contentDescription = contentDescription,
-        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+        tint = AppColors.warningColor(),
         modifier = modifier.size(size),
     )
 }
@@ -91,7 +92,7 @@ fun warningIcon(
     Icon(
         imageVector = Icons.Default.Warning,
         contentDescription = contentDescription,
-        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+        tint = AppColors.warningColor(),
         modifier = modifier.size(size),
     )
 }

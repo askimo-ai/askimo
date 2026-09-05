@@ -39,7 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.agent.domain.AgentRunRecord
 import io.askimo.ui.common.i18n.stringResource
-import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.TooltipPlacement
@@ -85,9 +85,9 @@ private fun skillRunHistoryPanelRow(
                 .hoverable(interactionSource)
                 .background(
                     color = if (isHovered) {
-                        AppComponents.surfaceRaised()
+                        AppColors.surfaceColor(AppColors.Elevation.RAISED)
                     } else {
-                        AppComponents.surfaceRecessed()
+                        AppColors.surfaceColor(AppColors.Elevation.RECESSED)
                     },
                     shape = RoundedCornerShape(8.dp),
                 )
@@ -111,7 +111,7 @@ private fun skillRunHistoryPanelRow(
                     Text(
                         record.title,
                         style = AppTextStyles.hint,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        color = AppColors.secondaryIconColor(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -127,7 +127,7 @@ private fun skillRunHistoryPanelRow(
                     Icon(
                         Icons.Default.Delete,
                         contentDescription = "Delete record",
-                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                        tint = AppColors.destructiveIconColor(),
                         modifier = Modifier.size(14.dp),
                     )
                 }
@@ -158,8 +158,8 @@ internal fun agentRunHistoryList(
             verticalArrangement = Arrangement.spacedBy(Spacing.small),
             modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
         ) {
-            Icon(Icons.Default.History, null, modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
-            Text(stringResource("agents.view.history.empty"), style = AppTextStyles.caption, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+            Icon(Icons.Default.History, null, modifier = Modifier.size(36.dp), tint = AppColors.surfaceColor(AppColors.Elevation.RECESSED))
+            Text(stringResource("agents.view.history.empty"), style = AppTextStyles.caption, color = AppColors.tertiaryIconColor())
         }
     } else {
         var showAll by remember { mutableStateOf(false) }

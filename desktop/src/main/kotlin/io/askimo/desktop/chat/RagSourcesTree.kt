@@ -38,7 +38,6 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -80,6 +79,7 @@ import io.askimo.core.rag.state.IndexStateManager
 import io.askimo.ui.common.components.indexedIcon
 import io.askimo.ui.common.components.notIndexedIcon
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -188,7 +188,7 @@ fun ragSourcesTree(
                 Text(
                     text = stringResource("rag.tree.search.placeholder"),
                     style = AppTextStyles.caption,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    color = AppColors.secondaryIconColor(),
                 )
             },
             leadingIcon = {
@@ -218,7 +218,7 @@ fun ragSourcesTree(
             textStyle = AppTextStyles.caption,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                unfocusedBorderColor = AppColors.codeBlockBorderColor(),
                 focusedContainerColor = Color.Transparent,
                 unfocusedContainerColor = Color.Transparent,
             ),
@@ -272,7 +272,7 @@ fun ragSourcesTree(
                                         stringResource("rag.tree.search.results.count", searchResults.size)
                                     },
                                     style = AppTextStyles.hint,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    color = AppColors.secondaryIconColor(),
                                     modifier = Modifier.padding(vertical = Spacing.extraSmall),
                                 )
                             }
@@ -332,7 +332,7 @@ fun ragSourcesTree(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f))
+                    .background(AppColors.surfaceColor(AppColors.Elevation.RAISED))
                     .padding(horizontal = Spacing.medium, vertical = Spacing.small),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
@@ -383,8 +383,8 @@ private fun searchResultItem(
     }
 
     val backgroundColor = when {
-        isInChatSelection -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f)
-        isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+        isInChatSelection -> AppColors.surfaceColor(AppColors.Elevation.RAISED)
+        isSelected -> AppColors.surfaceColor(AppColors.Elevation.SELECTED)
         else -> Color.Transparent
     }
     val isIndexed = IndexStateManager.normalizePathKey(path) in indexedPaths
@@ -407,7 +407,7 @@ private fun searchResultItem(
             Icon(
                 imageVector = if (isFile) Icons.AutoMirrored.Filled.InsertDriveFile else Icons.Default.Folder,
                 contentDescription = null,
-                tint = AppComponents.secondaryIconColor(),
+                tint = AppColors.secondaryIconColor(),
                 modifier = Modifier.size(16.dp),
             )
             Column(modifier = Modifier.weight(1f)) {
@@ -418,7 +418,7 @@ private fun searchResultItem(
                     BasicText(
                         text = buildAnnotatedString {
                             append(fileName.substring(0, matchStart))
-                            withStyle(SpanStyle(background = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f), fontWeight = FontWeight.SemiBold)) {
+                            withStyle(SpanStyle(background = AppColors.surfaceColor(AppColors.Elevation.RECESSED), fontWeight = FontWeight.SemiBold)) {
                                 append(fileName.substring(matchStart, matchStart + query.length))
                             }
                             append(fileName.substring(matchStart + query.length))
@@ -433,7 +433,7 @@ private fun searchResultItem(
                 Text(
                     text = file.parent ?: path,
                     style = AppTextStyles.hint,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    color = AppColors.secondaryIconColor(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -461,7 +461,7 @@ private fun searchResultItem(
                     }
                 } else {
                     IconButton(onClick = onAddToSelection, modifier = Modifier.size(20.dp).pointerHoverIcon(PointerIcon.Hand)) {
-                        Icon(imageVector = Icons.Default.AddCircleOutline, contentDescription = stringResource("rag.tree.chat.select"), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), modifier = Modifier.size(16.dp))
+                        Icon(imageVector = Icons.Default.AddCircleOutline, contentDescription = stringResource("rag.tree.chat.select"), tint = AppColors.secondaryIconColor(), modifier = Modifier.size(16.dp))
                     }
                 }
             }
@@ -570,7 +570,7 @@ private fun folderNodeItem(
     }
 
     val isSelected = selectedNode == node
-    val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else Color.Transparent
+    val backgroundColor = if (isSelected) AppColors.surfaceColor(AppColors.Elevation.SELECTED) else Color.Transparent
 
     Column(modifier = modifier) {
         themedTooltip(text = node.fullPath) {
@@ -592,18 +592,18 @@ private fun folderNodeItem(
                     Icon(
                         imageVector = if (isExpanded) Icons.Default.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
                         contentDescription = if (isExpanded) stringResource("rag.tree.collapse") else stringResource("rag.tree.expand"),
-                        tint = AppComponents.secondaryIconColor(),
+                        tint = AppColors.secondaryIconColor(),
                         modifier = Modifier.size(16.dp),
                     )
                     Icon(
                         imageVector = if (isExpanded) Icons.Default.FolderOpen else Icons.Default.Folder,
                         contentDescription = null,
-                        tint = AppComponents.secondaryIconColor(),
+                        tint = AppColors.secondaryIconColor(),
                         modifier = Modifier.size(18.dp),
                     )
                     Text(text = node.displayName, style = AppTextStyles.caption, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 }
-                DropdownMenu(expanded = showContextMenu, onDismissRequest = { showContextMenu = false }, offset = DpOffset(x = 0.dp, y = 0.dp)) {
+                AppComponents.dropdownMenu(expanded = showContextMenu, onDismissRequest = { showContextMenu = false }, offset = DpOffset(x = 0.dp, y = 0.dp)) {
                     DropdownMenuItem(text = { Text(stringResource("rag.tree.folder.open")) }, onClick = {
                         openInFileBrowser(node.path)
                         showContextMenu = false
@@ -647,8 +647,8 @@ private fun fileNodeItem(
     val isInChatSelection = node.path in chatSelection
     val isIndexed = IndexStateManager.normalizePathKey(node.path) in indexedPaths
     val backgroundColor = when {
-        isInChatSelection -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f)
-        isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+        isInChatSelection -> AppColors.surfaceColor(AppColors.Elevation.RAISED)
+        isSelected -> AppColors.surfaceColor(AppColors.Elevation.SELECTED)
         else -> Color.Transparent
     }
 
@@ -665,7 +665,7 @@ private fun fileNodeItem(
                 horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(imageVector = Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = null, tint = AppComponents.secondaryIconColor(), modifier = Modifier.size(18.dp))
+                Icon(imageVector = Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = null, tint = AppColors.secondaryIconColor(), modifier = Modifier.size(18.dp))
                 Text(text = node.displayName, style = AppTextStyles.caption, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 themedTooltip(
                     text = if (isIndexed) {
@@ -687,12 +687,12 @@ private fun fileNodeItem(
                         }
                     } else {
                         IconButton(onClick = { chatSelection.add(node.path) }, modifier = Modifier.size(20.dp).pointerHoverIcon(PointerIcon.Hand)) {
-                            Icon(imageVector = Icons.Default.AddCircleOutline, contentDescription = stringResource("rag.tree.chat.select"), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), modifier = Modifier.size(16.dp))
+                            Icon(imageVector = Icons.Default.AddCircleOutline, contentDescription = stringResource("rag.tree.chat.select"), tint = AppColors.secondaryIconColor(), modifier = Modifier.size(16.dp))
                         }
                     }
                 }
             }
-            DropdownMenu(expanded = showContextMenu, onDismissRequest = { showContextMenu = false }, offset = DpOffset(x = 0.dp, y = 0.dp)) {
+            AppComponents.dropdownMenu(expanded = showContextMenu, onDismissRequest = { showContextMenu = false }, offset = DpOffset(x = 0.dp, y = 0.dp)) {
                 if (onAddToChat != null) {
                     if (isInChatSelection) {
                         DropdownMenuItem(text = { Text(stringResource("rag.tree.chat.deselect")) }, onClick = {
@@ -744,7 +744,7 @@ private fun urlNodeItem(
 ) {
     var showContextMenu by remember { mutableStateOf(false) }
     val isSelected = selectedNode == node
-    val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else Color.Transparent
+    val backgroundColor = if (isSelected) AppColors.surfaceColor(AppColors.Elevation.SELECTED) else Color.Transparent
 
     themedTooltip(text = node.fullPath) {
         Box {
@@ -759,10 +759,10 @@ private fun urlNodeItem(
                 horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(imageVector = Icons.Default.Language, contentDescription = null, tint = AppComponents.secondaryIconColor(), modifier = Modifier.size(18.dp))
+                Icon(imageVector = Icons.Default.Language, contentDescription = null, tint = AppColors.secondaryIconColor(), modifier = Modifier.size(18.dp))
                 Text(text = node.displayName, style = AppTextStyles.caption, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             }
-            DropdownMenu(expanded = showContextMenu, onDismissRequest = { showContextMenu = false }, offset = DpOffset(x = 0.dp, y = 0.dp)) {
+            AppComponents.dropdownMenu(expanded = showContextMenu, onDismissRequest = { showContextMenu = false }, offset = DpOffset(x = 0.dp, y = 0.dp)) {
                 DropdownMenuItem(text = { Text(stringResource("rag.tree.url.open")) }, onClick = {
                     openInBrowser(node.url)
                     showContextMenu = false

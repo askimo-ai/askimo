@@ -42,6 +42,7 @@ import io.askimo.core.mcp.McpServerTemplateRegistry
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -102,7 +103,7 @@ fun mcpServerCatalogDialog(
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                colors = AppComponents.outlinedTextFieldColors(),
+                colors = AppColors.outlinedTextFieldColors(),
             )
 
             FlowRow(

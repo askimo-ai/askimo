@@ -60,6 +60,7 @@ import io.askimo.core.util.NumberFormatUtil
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -154,7 +155,7 @@ private fun logLevelCard() {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppComponents.bannerCardColors(),
+        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
     ) {
         Column(
             modifier = Modifier
@@ -249,7 +250,7 @@ private fun logViewerCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = AppComponents.bannerCardColors(),
+        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
     ) {
         Column(
             modifier = Modifier
@@ -349,7 +350,7 @@ private fun analyticsSection() {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppComponents.bannerCardColors(),
+        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
     ) {
         Column(
             modifier = Modifier
@@ -401,7 +402,7 @@ private fun developerModeSection() {
     // Developer Mode Card
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppComponents.bannerCardColors(),
+        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
     ) {
         Column(
             modifier = Modifier
@@ -441,7 +442,7 @@ private fun developerModeSection() {
 private fun ragConfigurationSection() {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppComponents.bannerCardColors(),
+        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
     ) {
         Column(
             modifier = Modifier
@@ -620,7 +621,7 @@ private fun ragConfigurationSection() {
 private fun modelsConfigurationSection() {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppComponents.bannerCardColors(),
+        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
     ) {
         Column(
             modifier = Modifier
@@ -657,7 +658,7 @@ private fun memoryConfigurationSection() {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppComponents.bannerCardColors(),
+        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
     ) {
         Column(
             modifier = Modifier
@@ -855,7 +856,7 @@ private fun ragIntField(
                     )
                 }
             },
-            colors = AppComponents.outlinedTextFieldColors(),
+            colors = AppColors.outlinedTextFieldColors(),
         )
         Text(text = hint, style = AppTextStyles.caption)
     }
@@ -918,7 +919,7 @@ private fun ragDoubleField(
                     Icon(Icons.Default.Check, contentDescription = "Saved", tint = AppTextStyles.primaryContent, modifier = Modifier.size(20.dp))
                 }
             },
-            colors = AppComponents.outlinedTextFieldColors(),
+            colors = AppColors.outlinedTextFieldColors(),
         )
         Text(text = hint, style = AppTextStyles.caption)
     }
@@ -995,7 +996,7 @@ private fun ragOptionalIntField(
                     )
                 }
             },
-            colors = AppComponents.outlinedTextFieldColors(),
+            colors = AppColors.outlinedTextFieldColors(),
         )
         Text(
             text = hint,
@@ -1061,7 +1062,7 @@ private fun ragLongField(
                     Icon(Icons.Default.Check, contentDescription = "Saved", tint = AppTextStyles.primaryContent, modifier = Modifier.size(20.dp))
                 }
             },
-            colors = AppComponents.outlinedTextFieldColors(),
+            colors = AppColors.outlinedTextFieldColors(),
         )
         Text(text = hint, style = AppTextStyles.caption)
     }
@@ -1124,7 +1125,7 @@ private fun ragStringSetField(
                     )
                 }
             },
-            colors = AppComponents.outlinedTextFieldColors(),
+            colors = AppColors.outlinedTextFieldColors(),
         )
         Text(
             text = hint,

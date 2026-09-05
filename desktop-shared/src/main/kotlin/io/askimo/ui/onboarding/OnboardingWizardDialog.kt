@@ -61,6 +61,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -288,7 +289,7 @@ private fun onboardingStepLanguage(
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = AppComponents.bannerCardColors(),
+            colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
         ) {
             Column(
                 modifier = Modifier
@@ -442,7 +443,7 @@ private fun onboardingStepProfile(
                 placeholder = {
                     Text(
                         stringResource("onboarding.step.profile.name.placeholder"),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        color = AppColors.tertiaryIconColor(),
                     )
                 },
                 singleLine = true,
@@ -462,7 +463,7 @@ private fun onboardingStepProfile(
                 placeholder = {
                     Text(
                         stringResource("onboarding.step.profile.occupation.placeholder"),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        color = AppColors.tertiaryIconColor(),
                     )
                 },
                 singleLine = true,
@@ -601,9 +602,9 @@ private fun personaCard(
             ),
         colors = CardDefaults.cardColors(
             containerColor = if (highlighted) {
-                AppComponents.surfaceSelected()
+                AppColors.surfaceColor(AppColors.Elevation.SELECTED)
             } else {
-                AppComponents.surfaceRaised()
+                AppColors.surfaceColor(AppColors.Elevation.RAISED)
             },
         ),
     ) {
@@ -695,7 +696,7 @@ private fun onboardingStepAnalytics(
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
-                containerColor = AppComponents.surfaceRaised(),
+                containerColor = AppColors.surfaceColor(AppColors.Elevation.RAISED),
             ),
         ) {
             Column(modifier = Modifier.fillMaxWidth().padding(Spacing.large)) {
@@ -742,9 +743,9 @@ private fun onboardingStepAnalytics(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
                 containerColor = if (analyticsAccepted) {
-                    AppComponents.surfaceSelected()
+                    AppColors.surfaceColor(AppColors.Elevation.SELECTED)
                 } else {
-                    AppComponents.surfaceRaised()
+                    AppColors.surfaceColor(AppColors.Elevation.RAISED)
                 },
             ),
         ) {
@@ -833,7 +834,7 @@ private fun onboardingStepReady() {
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = AppComponents.bannerCardColors(),
+            colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
         ) {
             Column(
                 modifier = Modifier
@@ -868,7 +869,7 @@ private fun onboardingStepReady() {
 private fun onboardingFeatureCard(title: String, description: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppComponents.bannerCardColors(),
+        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
     ) {
         Column(
             modifier = Modifier
@@ -894,7 +895,7 @@ private fun onboardingDocLink(label: String, url: String) {
     TextButton(
         onClick = { uriHandler.openUri(url) },
         modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-        colors = AppComponents.primaryTextButtonColors(),
+        colors = AppColors.primaryTextButtonColors(),
     ) {
         Text(
             text = label,
@@ -910,7 +911,7 @@ private fun onboardingLinkItem(title: String, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .pointerHoverIcon(PointerIcon.Hand),
-        colors = AppComponents.primaryTextButtonColors(),
+        colors = AppColors.primaryTextButtonColors(),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

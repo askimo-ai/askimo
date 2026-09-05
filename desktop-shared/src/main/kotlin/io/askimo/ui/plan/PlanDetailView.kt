@@ -79,6 +79,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -239,7 +240,7 @@ fun planDetailView(
                 }
             }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+            HorizontalDivider(color = AppColors.codeBlockBorderColor())
 
             // ── Scrollable body ───────────────────────────────────────────────
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -264,7 +265,7 @@ fun planDetailView(
                         Spacer(modifier = Modifier.height(Spacing.small))
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
-                            color = AppComponents.surfaceRaised(),
+                            color = AppColors.surfaceColor(AppColors.Elevation.RAISED),
                             shape = MaterialTheme.shapes.medium,
                         ) {
                             Column {
@@ -298,7 +299,7 @@ fun planDetailView(
                                     }
                                 }
                                 if (stepsExpanded) {
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                                    HorizontalDivider(color = AppColors.codeBlockBorderColor())
                                     Column(
                                         modifier = Modifier.padding(Spacing.large),
                                         verticalArrangement = Arrangement.spacedBy(Spacing.medium),
@@ -340,7 +341,7 @@ fun planDetailView(
                                             }
                                             if (index < plan.steps.size - 1) {
                                                 HorizontalDivider(
-                                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
+                                                    color = AppColors.codeBlockBorderColor(),
                                                 )
                                             }
                                         }
@@ -607,7 +608,7 @@ private fun agenticStepProgressPanel(
                 if (index > 0) {
                     HorizontalDivider(
                         modifier = Modifier.padding(vertical = Spacing.small),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
+                        color = AppColors.codeBlockBorderColor(),
                     )
                 }
                 agenticStepRow(
@@ -771,7 +772,7 @@ private fun agenticStepRow(
                             Icon(
                                 imageVector = if (outputExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                                 contentDescription = if (outputExpanded) "Collapse" else "Expand",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                tint = AppColors.secondaryIconColor(),
                                 modifier = Modifier.size(14.dp),
                             )
                         }
@@ -925,7 +926,7 @@ private fun interactiveQuestionPanel(
 ) {
     Surface(
         modifier = modifier,
-        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f),
+        color = MaterialTheme.colorScheme.tertiaryContainer,
         shape = MaterialTheme.shapes.medium,
     ) {
         Column(modifier = Modifier.padding(Spacing.large)) {
@@ -966,7 +967,7 @@ private fun interactiveQuestionPanel(
                 Text(
                     text = stringResource("plans.interactive.skip"),
                     style = AppTextStyles.hint,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
+                    color = AppColors.cardSecondaryContentColor(MaterialTheme.colorScheme.onTertiaryContainer),
                 )
             }
         }
@@ -986,7 +987,7 @@ private fun followUpPanel(
 
     Surface(
         modifier = modifier,
-        color = AppComponents.surfaceEmphasis(),
+        color = AppColors.surfaceColor(AppColors.Elevation.EMPHASIS),
         shape = MaterialTheme.shapes.medium,
     ) {
         Column(modifier = Modifier.padding(Spacing.large)) {
@@ -1069,7 +1070,7 @@ private fun resultPanel(
                     Icon(
                         if (isPinned) Icons.Default.PushPin else Icons.Default.CheckCircle,
                         contentDescription = null,
-                        tint = if (isPinned) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurface,
+                        tint = if (isPinned) AppColors.secondaryIconColor() else MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(18.dp),
                     )
                     Text(
@@ -1284,7 +1285,7 @@ private fun planInputField(
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 3,
                     maxLines = 8,
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                 )
             }
 
@@ -1303,7 +1304,7 @@ private fun planInputField(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                 )
             }
 
@@ -1321,7 +1322,7 @@ private fun planInputField(
                     supportingText = error?.let { { Text(it) } },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                 )
             }
         }

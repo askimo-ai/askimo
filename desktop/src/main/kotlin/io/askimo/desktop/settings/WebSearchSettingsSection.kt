@@ -49,6 +49,7 @@ import io.askimo.tools.web.WebSearchDispatcher
 import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -90,7 +91,7 @@ fun webSearchSettingsSection() {
                 Text(
                     text = stringResource("settings.web_search.description"),
                     style = AppTextStyles.bodySecondary,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                    color = AppTextStyles.secondaryContent,
                 )
 
                 webSearchConfigCard()
@@ -146,7 +147,7 @@ private fun webSearchConfigCard() {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppComponents.bannerCardColors(),
+        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
     ) {
         Column(
             modifier = Modifier
@@ -193,7 +194,7 @@ private fun webSearchConfigCard() {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                    containerColor = AppColors.surfaceColor(AppColors.Elevation.SELECTED),
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 ),
             ) {

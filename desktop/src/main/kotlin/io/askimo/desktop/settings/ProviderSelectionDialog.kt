@@ -64,6 +64,7 @@ import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -133,7 +134,7 @@ fun providerWizardDialog(viewModel: ProviderWizardViewModel) {
                 )
 
                 viewModel.pendingModelForNewProvider?.let { selectedModel ->
-                    Card(modifier = Modifier.fillMaxWidth(), colors = AppComponents.surfaceVariantCardColors()) {
+                    Card(modifier = Modifier.fillMaxWidth(), colors = AppColors.cardColors(AppColors.Elevation.RAISED)) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(Spacing.large),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -154,7 +155,7 @@ fun providerWizardDialog(viewModel: ProviderWizardViewModel) {
                     placeholder = { Text(stringResource("settings.model.search.placeholder")) },
                     label = { Text(stringResource("settings.model.search")) },
                     singleLine = true,
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                 )
 
                 if (searchQuery.isNotBlank() && filteredModels.isNotEmpty()) {
@@ -308,7 +309,7 @@ private fun providerTypePickerScreen(viewModel: ProviderWizardViewModel) {
                 modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
                 placeholder = { Text(stringResource("provider.search.placeholder"), style = AppTextStyles.caption) },
                 singleLine = true,
-                colors = AppComponents.outlinedTextFieldColors(),
+                colors = AppColors.outlinedTextFieldColors(),
                 textStyle = AppTextStyles.caption,
             )
             Box(modifier = Modifier.weight(1f)) {
@@ -536,7 +537,7 @@ private fun providerPickerDetail(
                 }
 
                 // Setup instructions specific to this template
-                Card(colors = AppComponents.surfaceVariantCardColors()) {
+                Card(colors = AppColors.cardColors(AppColors.Elevation.RAISED)) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(Spacing.medium),
                         horizontalArrangement = Arrangement.spacedBy(Spacing.small),
@@ -590,7 +591,7 @@ private fun instanceConfigScreen(viewModel: ProviderWizardViewModel) {
                 supportingText = viewModel.displayNameError?.let { error ->
                     { Text(text = error, style = AppTextStyles.errorText) }
                 },
-                colors = AppComponents.outlinedTextFieldColors(),
+                colors = AppColors.outlinedTextFieldColors(),
             )
         }
         HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.small))
@@ -667,7 +668,7 @@ private fun instanceConfigScreen(viewModel: ProviderWizardViewModel) {
                                         modifier = Modifier.fillMaxWidth(),
                                         singleLine = true,
                                         placeholder = { Text(stringResource("settings.placeholder.baseurl")) },
-                                        colors = AppComponents.outlinedTextFieldColors(),
+                                        colors = AppColors.outlinedTextFieldColors(),
                                     )
                                 }
 
@@ -723,7 +724,7 @@ private fun instanceConfigScreen(viewModel: ProviderWizardViewModel) {
                             Text(text = viewModel.connectionError ?: "", style = AppTextStyles.body, color = MaterialTheme.colorScheme.onErrorContainer)
                             viewModel.connectionErrorHelp?.let {
                                 Spacer(Modifier.height(Spacing.extraSmall))
-                                Text(text = it, style = AppTextStyles.caption, color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f))
+                                Text(text = it, style = AppTextStyles.caption, color = AppColors.cardSecondaryContentColor(MaterialTheme.colorScheme.onErrorContainer))
                             }
                         }
                     }
@@ -757,7 +758,7 @@ private fun modelPickerScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
                     Text(text = viewModel.modelError ?: "", color = MaterialTheme.colorScheme.error, style = AppTextStyles.body)
                     viewModel.modelErrorHelp?.let {
-                        Card(colors = AppComponents.surfaceVariantCardColors()) {
+                        Card(colors = AppColors.cardColors(AppColors.Elevation.RAISED)) {
                             Text(text = it, style = AppTextStyles.caption, modifier = Modifier.padding(Spacing.medium))
                         }
                     }

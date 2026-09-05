@@ -65,6 +65,7 @@ import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.components.tablePageSizeSelector
 import io.askimo.ui.common.components.tablePagination
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.AppTextStyles
@@ -155,7 +156,7 @@ fun sessionsView(
                     singleLine = true,
                     textStyle = AppTextStyles.body,
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                 )
 
                 Spacer(modifier = Modifier.height(Spacing.large))
@@ -327,7 +328,7 @@ private fun sessionTable(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(AppComponents.surfaceRaised())
+                    .background(AppColors.surfaceColor(AppColors.Elevation.RAISED))
                     .padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -373,7 +374,7 @@ private fun sessionTable(
                     onStarSession = onStarSession,
                 )
                 if (index < sortedSessions.lastIndex) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    HorizontalDivider(color = AppColors.codeBlockBorderColor())
                 }
             }
         }
@@ -443,7 +444,7 @@ private fun sessionRow(
             .hoverable(interactionSource)
             .background(
                 if (isHovered) {
-                    AppComponents.surfaceRaised()
+                    AppColors.surfaceColor(AppColors.Elevation.RAISED)
                 } else {
                     MaterialTheme.colorScheme.surface
                 },
@@ -467,7 +468,7 @@ private fun sessionRow(
                 tint = if (session.isStarred) {
                     MaterialTheme.colorScheme.onSurface
                 } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                    AppColors.tertiaryIconColor()
                 },
                 modifier = Modifier.size(16.dp),
             )

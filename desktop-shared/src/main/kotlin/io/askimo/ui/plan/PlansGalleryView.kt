@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.plan.domain.PlanDef
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.clickableCard
 import io.askimo.ui.common.theme.AppTextStyles
@@ -176,7 +177,7 @@ fun plansGalleryView(
                             modifier = Modifier.weight(1f),
                         )
                     }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    HorizontalDivider(color = AppColors.codeBlockBorderColor())
                 }
 
                 Spacer(modifier = Modifier.height(Spacing.large))
@@ -295,7 +296,7 @@ private fun planTab(
     val textColor = if (selected) {
         MaterialTheme.colorScheme.onBackground
     } else {
-        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+        AppColors.secondaryIconColor()
     }
     Column(
         modifier = modifier
@@ -422,7 +423,7 @@ private fun planCard(
                                         showMenu = false
                                         onDuplicate()
                                     },
-                                    colors = AppComponents.menuItemColors(),
+                                    colors = AppColors.menuItemColors(),
                                 )
                             }
                             if (onEdit != null) {
@@ -435,7 +436,7 @@ private fun planCard(
                                         showMenu = false
                                         onEdit()
                                     },
-                                    colors = AppComponents.menuItemColors(),
+                                    colors = AppColors.menuItemColors(),
                                 )
                             }
                             if (onDelete != null) {
@@ -448,7 +449,7 @@ private fun planCard(
                                         showMenu = false
                                         onDelete()
                                     },
-                                    colors = AppComponents.menuItemColors(),
+                                    colors = AppColors.menuItemColors(),
                                 )
                             }
                         }
@@ -489,7 +490,7 @@ private fun planCard(
                     tint = if (isHovered) {
                         MaterialTheme.colorScheme.onSurface
                     } else {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                        AppColors.tertiaryIconColor()
                     },
                     modifier = Modifier.size(20.dp),
                 )

@@ -41,6 +41,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import io.askimo.ui.common.keymap.KeyMapManager
 import io.askimo.ui.common.keymap.onImeAwarePreviewKeyEvent
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -111,7 +112,7 @@ internal fun actionInputField(
             if (isLoading) {
                 AppComponents.loadingSpinner(
                     size = 20.dp,
-                    trackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.3f),
+                    trackColor = AppColors.onPrimaryTrackColor(),
                 )
             } else {
                 Icon(
@@ -135,7 +136,7 @@ internal fun actionInputField(
             if (isLoading) {
                 AppComponents.loadingSpinner(
                     size = 14.dp,
-                    trackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.3f),
+                    trackColor = AppColors.onPrimaryTrackColor(),
                 )
             } else {
                 Icon(
@@ -235,7 +236,7 @@ internal fun actionInputField(
                 enabled = enabled,
                 isError = error != null,
                 supportingText = error?.let { { Text(it) } },
-                colors = AppComponents.outlinedTextFieldColors(),
+                colors = AppColors.outlinedTextFieldColors(),
             )
 
             sendButton()

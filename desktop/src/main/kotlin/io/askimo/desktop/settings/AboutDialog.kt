@@ -21,6 +21,7 @@ import io.askimo.core.VersionInfo
 import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -50,7 +51,7 @@ fun aboutDialog(
                 // Version Info
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppComponents.bannerCardColors(),
+                    colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
                 ) {
                     Column(
                         modifier = Modifier.padding(Spacing.large),
@@ -89,7 +90,7 @@ fun aboutDialog(
                 // Description
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppComponents.bannerCardColors(),
+                    colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
                 ) {
                     Column(
                         modifier = Modifier.padding(Spacing.large),
@@ -109,7 +110,7 @@ fun aboutDialog(
                 // License
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppComponents.bannerCardColors(),
+                    colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
                 ) {
                     Column(
                         modifier = Modifier.padding(Spacing.large),

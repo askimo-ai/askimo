@@ -135,6 +135,7 @@ import io.askimo.core.util.formatFileSize
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.keymap.KeyMapManager
 import io.askimo.ui.common.keymap.onImeAwarePreviewKeyEvent
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.AppTextStyles
@@ -726,7 +727,7 @@ fun chatInputField(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = Spacing.small),
-                colors = AppComponents.bannerCardColors(),
+                colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
             ) {
                 Row(
                     modifier = Modifier
@@ -809,7 +810,7 @@ fun chatInputField(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(8.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                        .background(AppColors.surfaceColor(AppColors.Elevation.RECESSED))
                         .pointerHoverIcon(
                             PointerIcon(Cursor.getPredefinedCursor(Cursor.N_RESIZE_CURSOR)),
                         )
@@ -829,7 +830,7 @@ fun chatInputField(
                             .width(40.dp)
                             .height(4.dp)
                             .background(
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                AppColors.tertiaryIconColor(),
                                 RoundedCornerShape(2.dp),
                             ),
                     )
@@ -967,7 +968,7 @@ fun chatInputField(
                                     },
                                     enabled = !isLoading,
                                     colors = if (creationMode is CreationMode.Image) {
-                                        AppComponents.primaryIconButtonColors()
+                                        AppColors.primaryIconButtonColors()
                                     } else {
                                         IconButtonDefaults.iconButtonColors()
                                     },
@@ -1107,7 +1108,7 @@ fun chatInputField(
                                             Text(
                                                 text = stringResource("chat.reasoning.effort.label") + ":",
                                                 style = AppTextStyles.hint,
-                                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                                                color = AppColors.secondaryIconColor(),
                                             )
                                             Text(
                                                 text = reasoningEffort.value.replaceFirstChar { it.uppercase() },
@@ -1155,7 +1156,7 @@ fun chatInputField(
                                                     showReasoningDropdown = false
                                                 },
                                                 modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                                colors = AppComponents.menuItemColors(),
+                                                colors = AppColors.menuItemColors(),
                                             )
                                         }
                                     }
@@ -1207,7 +1208,7 @@ fun chatInputField(
                                     color = if (recordingElapsedSeconds >= MAX_VOICE_RECORDING_SECONDS - 10) {
                                         MaterialTheme.colorScheme.error
                                     } else {
-                                        MaterialTheme.colorScheme.error.copy(alpha = 0.85f)
+                                        AppColors.warningColor()
                                     },
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
@@ -1254,7 +1255,7 @@ fun chatInputField(
                                             VoiceRecordingState.RECORDING -> MaterialTheme.colorScheme.error
 
                                             VoiceRecordingState.TRANSCRIBING ->
-                                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                                                AppColors.tertiaryIconColor()
 
                                             VoiceRecordingState.IDLE -> MaterialTheme.colorScheme.onSurface
                                         },
@@ -1468,7 +1469,7 @@ private fun toolsIndicatorButton(
             Surface(
                 shape = RoundedCornerShape(8.dp),
                 color = when {
-                    !modelSupportsTools -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    !modelSupportsTools -> AppColors.surfaceColor(AppColors.Elevation.RECESSED)
                     !hasAnyEnabled -> Color.Transparent
                     else -> MaterialTheme.colorScheme.secondaryContainer
                 },
@@ -1493,8 +1494,8 @@ private fun toolsIndicatorButton(
                         Icons.Default.Build,
                         contentDescription = stringResource("chat.tools.button"),
                         tint = when {
-                            !modelSupportsTools -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                            !hasAnyEnabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            !modelSupportsTools -> AppColors.tertiaryIconColor()
+                            !hasAnyEnabled -> AppColors.tertiaryIconColor()
                             hasAnyEnabled -> MaterialTheme.colorScheme.onSecondaryContainer
                             else -> MaterialTheme.colorScheme.onSurface
                         },
@@ -1505,7 +1506,7 @@ private fun toolsIndicatorButton(
                             text = "$enabledServers/$totalServers",
                             style = AppTextStyles.hint,
                             color = if (hasDisabled) {
-                                MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f)
+                                AppColors.tertiaryIconColor()
                             } else {
                                 MaterialTheme.colorScheme.onSecondaryContainer
                             },
@@ -1690,7 +1691,7 @@ private fun mcpServerItem(
     Box {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = AppComponents.surfaceVariantCardColors(),
+            colors = AppColors.cardColors(AppColors.Elevation.RAISED),
         ) {
             Row(
                 modifier = Modifier
@@ -1738,20 +1739,13 @@ private fun mcpServerItem(
                             Text(
                                 text = server.name,
                                 style = AppTextStyles.body,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
+                                color = if (isEnabled) MaterialTheme.colorScheme.onSurface else AppTextStyles.disabledContent,
                             )
                             if (server.tools.isNotEmpty()) {
+                                val badgeTone = if (server.isBuiltIn) AppColors.BadgeTone.BUILT_IN else AppColors.BadgeTone.CUSTOM
                                 Badge(
-                                    containerColor = if (server.isBuiltIn) {
-                                        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f * contentAlpha)
-                                    } else {
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.2f * contentAlpha)
-                                    },
-                                    contentColor = if (server.isBuiltIn) {
-                                        MaterialTheme.colorScheme.tertiary.copy(alpha = contentAlpha)
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha)
-                                    },
+                                    containerColor = AppColors.variantBadgeContainerColor(badgeTone, contentAlpha),
+                                    contentColor = AppColors.variantBadgeContentColor(badgeTone, contentAlpha, isEnabled),
                                 ) {
                                     Text(
                                         text = server.tools.size.toString(),
@@ -1769,7 +1763,7 @@ private fun mcpServerItem(
                                 stringResource("chat.tools.server.scope.project")
                             },
                             style = AppTextStyles.caption,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
+                            color = if (isEnabled) MaterialTheme.colorScheme.onSurfaceVariant else AppColors.tertiaryIconColor(),
                         )
                     }
 
@@ -1778,7 +1772,7 @@ private fun mcpServerItem(
                         Icon(
                             Icons.Default.ChevronRight,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
+                            tint = if (isEnabled) MaterialTheme.colorScheme.onSurfaceVariant else AppColors.tertiaryIconColor(),
                             modifier = Modifier.size(20.dp),
                         )
                     }
@@ -1828,7 +1822,7 @@ private fun mcpServerItem(
                         val rowBackground = if (index % 2 == 0) {
                             MaterialTheme.colorScheme.surface
                         } else {
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            AppColors.surfaceColor(AppColors.Elevation.RAISED)
                         }
 
                         Box(modifier = Modifier.background(rowBackground)) {
@@ -1877,7 +1871,7 @@ private fun mcpServerItem(
                                     }
                                 },
                                 enabled = canToggleTool,
-                                colors = AppComponents.menuItemColors(),
+                                colors = AppColors.menuItemColors(),
                             )
                         }
                     }
@@ -1931,7 +1925,7 @@ private fun fileAttachmentItem(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppComponents.surfaceVariantCardColors(),
+        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             // Header row
@@ -2010,7 +2004,7 @@ private fun fileAttachmentItem(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(max = 240.dp)
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
+                        .background(AppColors.surfaceColor(AppColors.Elevation.RAISED))
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                 ) {
                     when {
@@ -2086,7 +2080,7 @@ private fun directiveChip(
                                 style = AppTextStyles.caption,
                             )
                             HorizontalDivider(
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                color = AppColors.codeBlockBorderColor(),
                             )
                             Text(
                                 text = activeDirective.content,
@@ -2112,7 +2106,7 @@ private fun directiveChip(
                 color = if (selectedDirective != null) {
                     MaterialTheme.colorScheme.secondaryContainer
                 } else {
-                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                    AppColors.surfaceColor(AppColors.Elevation.EMPHASIS)
                 },
                 tonalElevation = 2.dp,
                 modifier = Modifier
@@ -2137,7 +2131,7 @@ private fun directiveChip(
                         tint = if (selectedDirective != null) {
                             MaterialTheme.colorScheme.onSecondaryContainer
                         } else {
-                            MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f)
+                            AppColors.tertiaryIconColor()
                         },
                         modifier = Modifier.size(16.dp),
                     )
@@ -2147,7 +2141,7 @@ private fun directiveChip(
                         color = if (selectedDirective != null) {
                             MaterialTheme.colorScheme.onSecondaryContainer
                         } else {
-                            MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f)
+                            AppColors.tertiaryIconColor()
                         },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -2281,7 +2275,7 @@ private fun directiveChip(
                                         style = AppTextStyles.caption,
                                     )
                                     HorizontalDivider(
-                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                        color = AppColors.codeBlockBorderColor(),
                                     )
                                     Text(
                                         text = directive.content,
@@ -2373,7 +2367,7 @@ private fun webSearchRagChip(
             color = if (active) {
                 MaterialTheme.colorScheme.secondaryContainer
             } else {
-                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
+                AppColors.surfaceColor(AppColors.Elevation.RAISED)
             },
             tonalElevation = if (active) 2.dp else 0.dp,
             modifier = Modifier
@@ -2399,7 +2393,7 @@ private fun webSearchRagChip(
                     tint = if (active) {
                         MaterialTheme.colorScheme.onSecondaryContainer
                     } else {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        AppColors.tertiaryIconColor()
                     },
                 )
                 Text(
@@ -2408,7 +2402,7 @@ private fun webSearchRagChip(
                     color = if (active) {
                         MaterialTheme.colorScheme.onSecondaryContainer
                     } else {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        AppColors.tertiaryIconColor()
                     },
                 )
             }

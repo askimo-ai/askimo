@@ -53,7 +53,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import io.askimo.ui.common.i18n.stringResource
-import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.LocalBackgroundActive
 import io.askimo.ui.common.theme.Spacing
@@ -98,7 +98,7 @@ fun settingsViewWithSidebar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(AppComponents.sidebarHeaderColor())
+                .background(AppColors.sidebarHeaderColor())
                 .padding(Spacing.large),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
@@ -170,7 +170,7 @@ fun settingsViewWithSidebar(
                     modifier = Modifier
                         .width(calculatedWidth)
                         .fillMaxHeight()
-                        .background(AppComponents.sidebarSurfaceColor()),
+                        .background(AppColors.sidebarSurfaceColor()),
                 ) {
                     settingsSidebarItem(
                         title = stringResource("settings.appearance"),
@@ -267,7 +267,7 @@ fun settingsViewWithSidebar(
                                 modifier = Modifier
                                     .size(2.dp)
                                     .background(
-                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                        AppColors.tertiaryIconColor(),
                                         shape = CircleShape,
                                     ),
                             )

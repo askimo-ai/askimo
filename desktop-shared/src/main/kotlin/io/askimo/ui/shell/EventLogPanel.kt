@@ -28,7 +28,6 @@ import androidx.compose.material.icons.filled.HorizontalSplit
 import androidx.compose.material.icons.filled.VerticalSplit
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -55,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import io.askimo.core.event.Event
 import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -139,9 +139,9 @@ private fun resizeHandle(
             )
             .background(
                 if (isHovering) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                    AppColors.resizeHandleHoverColor()
                 } else {
-                    MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                    AppColors.codeBlockBorderColor()
                 },
             )
             .pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(cursor)))
@@ -315,7 +315,7 @@ private fun eventLogPanelContent(
                             },
                         )
                     }
-                    DropdownMenu(
+                    AppComponents.dropdownMenu(
                         expanded = showDockMenu,
                         onDismissRequest = { showDockMenu = false },
                     ) {

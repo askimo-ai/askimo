@@ -73,6 +73,7 @@ import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -428,7 +429,7 @@ fun mermaidChart(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.35f)),
+                            .background(AppColors.scrimColor(alpha = 0.35f)),
                     )
                     // Compact overlay card — always centered, never clipped
                     ElevatedCard(
@@ -615,7 +616,7 @@ private fun mermaidSetupInstructions(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.35f)),
+                .background(AppColors.scrimColor(alpha = 0.35f)),
         )
 
         ElevatedCard(

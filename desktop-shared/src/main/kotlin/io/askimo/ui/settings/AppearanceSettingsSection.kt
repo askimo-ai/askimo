@@ -83,6 +83,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.AccountPreferences
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.BackgroundImage
@@ -434,7 +435,7 @@ private fun accentColorSection() {
                             )
                         }
                     },
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                 )
 
                 secondaryButton(
@@ -565,7 +566,7 @@ private fun accentPresetTile(
             .width(92.dp)
             .heightIn(min = 72.dp)
             .pointerHoverIcon(PointerIcon.Hand),
-        colors = if (selected) AppComponents.primaryCardColors() else AppComponents.surfaceVariantCardColors(),
+        colors = if (selected) AppColors.cardColors(AppColors.Elevation.ACCENT) else AppColors.cardColors(AppColors.Elevation.RAISED),
         shape = RoundedCornerShape(12.dp),
     ) {
         Column(
@@ -595,7 +596,7 @@ private fun accentPresetTile(
                 Text(
                     text = preset.hex,
                     style = AppTextStyles.hint,
-                    color = if (selected) selectedTextColor.copy(alpha = 0.82f) else AppTextStyles.secondaryContent,
+                    color = if (selected) AppColors.secondaryContentColorFor(AppColors.Elevation.ACCENT) else AppTextStyles.secondaryContent,
                 )
             }
         }
@@ -637,9 +638,9 @@ private fun themeOption(
             .fillMaxWidth()
             .clickableCard(onClick = onClick),
         colors = if (selected) {
-            AppComponents.primaryCardColors()
+            AppColors.cardColors(AppColors.Elevation.ACCENT)
         } else {
-            AppComponents.surfaceVariantCardColors()
+            AppColors.cardColors(AppColors.Elevation.RAISED)
         },
     ) {
         Row(
@@ -740,7 +741,7 @@ private fun avatarSetting(
     val scope = rememberCoroutineScope()
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppComponents.surfaceVariantCardColors(),
+        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
     ) {
         Row(
             modifier = Modifier
@@ -874,7 +875,7 @@ private fun backgroundImageOption(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.45f)),
+                        .background(AppColors.imageThumbnailScrimColor()),
                 )
             } else {
                 // "None" — plain surface tile
@@ -983,7 +984,7 @@ private fun backgroundImageCustomOption(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.45f)),
+                        .background(AppColors.imageThumbnailScrimColor()),
                 )
             } else {
                 // No custom image yet — show a dashed/placeholder tile
@@ -1255,7 +1256,7 @@ private fun languageSelectionCard() {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppComponents.bannerCardColors(),
+        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
     ) {
         Column(
             modifier = Modifier
@@ -1460,7 +1461,7 @@ private fun fontSettingsCard() {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppComponents.bannerCardColors(),
+        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(Spacing.large),

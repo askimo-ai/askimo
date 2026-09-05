@@ -58,6 +58,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.rememberDialogState
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -297,7 +298,7 @@ private fun editProjectFormDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focusRequester),
-                colors = AppComponents.outlinedTextFieldColors(),
+                colors = AppColors.outlinedTextFieldColors(),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
             )
 
@@ -309,7 +310,7 @@ private fun editProjectFormDialog(
                 minLines = 3,
                 maxLines = 5,
                 modifier = Modifier.fillMaxWidth(),
-                colors = AppComponents.outlinedTextFieldColors(),
+                colors = AppColors.outlinedTextFieldColors(),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
             )
         },
@@ -369,7 +370,7 @@ private fun editProjectFormDialog(
                                 )
                             }
                             if (index < KnowledgeSourceItem.availableTypes.lastIndex) {
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                HorizontalDivider(color = AppColors.codeBlockBorderColor())
                             }
                         }
                     }
@@ -414,7 +415,7 @@ private fun editProjectFormDialog(
                             Text(stringResource("project.dialog.defaultDirective.none"), style = AppTextStyles.body)
                         }
                         availableDirectives.forEach { directive ->
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            HorizontalDivider(color = AppColors.codeBlockBorderColor())
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()

@@ -40,6 +40,7 @@ import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.VersionInfo
 import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -75,7 +76,7 @@ fun aboutSettingsSection() {
                 // Application Info Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppComponents.bannerCardColors(),
+                    colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
                 ) {
                     Column(
                         modifier = Modifier
@@ -144,7 +145,7 @@ fun aboutSettingsSection() {
                 // Description Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppComponents.bannerCardColors(),
+                    colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
                 ) {
                     Column(
                         modifier = Modifier
@@ -166,7 +167,7 @@ fun aboutSettingsSection() {
                 // License Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppComponents.bannerCardColors(),
+                    colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
                 ) {
                     Column(
                         modifier = Modifier
@@ -194,7 +195,7 @@ fun aboutSettingsSection() {
                 // Runtime Information Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppComponents.bannerCardColors(),
+                    colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
                 ) {
                     Column(
                         modifier = Modifier
@@ -226,7 +227,7 @@ fun aboutSettingsSection() {
                 // Links Section
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppComponents.bannerCardColors(),
+                    colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
                 ) {
                     Column(
                         modifier = Modifier

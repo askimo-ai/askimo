@@ -77,6 +77,7 @@ import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.AccountPreferences
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -279,10 +280,10 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
                 Card(
                     modifier = Modifier.padding(Spacing.small),
                     colors = CardDefaults.cardColors(
-                        containerColor = AppComponents.popupContainerColor(),
+                        containerColor = AppColors.popupContainerColor(),
                     ),
-                    border = AppComponents.popupBorderStroke(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = AppComponents.popupElevation),
+                    border = AppColors.popupBorderStroke(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = AppColors.popupElevation),
                 ) {
                     notificationPopup(
                         events = events,
@@ -514,7 +515,7 @@ fun notificationEventCard(
             contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
         )
 
-        else -> AppComponents.surfaceVariantCardColors()
+        else -> AppColors.cardColors(AppColors.Elevation.RAISED)
     }
 
     val contentColor = when {
@@ -630,7 +631,7 @@ fun notificationEventCard(
                     Box(
                         modifier = Modifier
                             .background(
-                                color = contentColor.copy(alpha = 0.15f),
+                                color = AppColors.cardBadgeContainerColor(contentColor),
                                 shape = RoundedCornerShape(4.dp),
                             )
                             .padding(horizontal = 6.dp, vertical = 2.dp),
@@ -668,7 +669,7 @@ fun notificationEventCard(
             Text(
                 text = formatInstantDisplay(event.timestamp),
                 style = AppTextStyles.caption,
-                color = contentColor.copy(alpha = 0.7f),
+                color = AppColors.cardSecondaryContentColor(contentColor),
             )
 
             // ── Details / file count ────────────────────────────────────────────────
@@ -696,7 +697,7 @@ fun notificationEventCard(
                             text = event.cause.stackTraceToString(),
                             style = AppTextStyles.hint,
                             fontFamily = FontFamily.Monospace,
-                            color = contentColor.copy(alpha = 0.85f),
+                            color = AppColors.cardMonospaceDetailColor(contentColor),
                         )
                     }
                 }
@@ -712,7 +713,7 @@ fun notificationEventCard(
                             text = event.errorMessage,
                             style = AppTextStyles.hint,
                             fontFamily = FontFamily.Monospace,
-                            color = contentColor.copy(alpha = 0.85f),
+                            color = AppColors.cardMonospaceDetailColor(contentColor),
                         )
                     }
                 }

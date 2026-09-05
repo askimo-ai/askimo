@@ -61,9 +61,15 @@ object LocalizationManager {
 
                     try {
                         this::class.java.classLoader.getResourceAsStream(resourcePath)?.use {
-                            // File exists! Use this locale
-                            val displayName = buildDisplayName(locale)
-                            localesMap[locale] = displayName
+                            // File exists! Normalize to a plain language[-country] locale,
+                            // dropping any script/variant (e.g. avoid "vi-Latn-VN", keep "vi-VN").
+                            val normalizedLocale = if (country.isNotEmpty()) {
+                                Locale.Builder().setLanguage(language).setRegion(country).build()
+                            } else {
+                                Locale.Builder().setLanguage(language).build()
+                            }
+                            val displayName = buildDisplayName(normalizedLocale)
+                            localesMap[normalizedLocale] = displayName
                             seenLocales.add(localeKey)
                         }
                     } catch (_: Exception) {

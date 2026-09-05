@@ -61,6 +61,7 @@ import io.askimo.core.plan.domain.PlanExecutionStatus
 import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -95,7 +96,7 @@ fun planHistorySidePanel(
         modifier = modifier.width(animatedWidth).fillMaxHeight(),
         shape = RectangleShape,
         colors = CardDefaults.cardColors(
-            containerColor = AppComponents.sidebarSurfaceColor(),
+            containerColor = AppColors.sidebarSurfaceColor(),
             contentColor = MaterialTheme.colorScheme.onSurface,
         ),
     ) {
@@ -157,7 +158,7 @@ fun planHistorySidePanel(
                                 Box(
                                     modifier = Modifier
                                         .background(
-                                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                                            AppColors.surfaceColor(AppColors.Elevation.RECESSED),
                                             shape = MaterialTheme.shapes.extraSmall,
                                         )
                                         .padding(horizontal = 6.dp, vertical = 1.dp),
@@ -235,7 +236,7 @@ fun planHistorySidePanel(
                 modifier = Modifier
                     .width(56.dp)
                     .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                    .background(AppColors.surfaceColor(AppColors.Elevation.RECESSED))
                     .padding(vertical = Spacing.large, horizontal = Spacing.small),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(Spacing.large),
@@ -323,7 +324,7 @@ private fun planHistoryItem(
                         PlanExecutionStatus.COMPLETED -> Color(0xFF4CAF50)
                         PlanExecutionStatus.FAILED -> MaterialTheme.colorScheme.error
                         PlanExecutionStatus.RUNNING -> MaterialTheme.colorScheme.outline
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                        else -> AppColors.tertiaryIconColor()
                     }
                     Box(
                         modifier = Modifier
@@ -341,14 +342,14 @@ private fun planHistoryItem(
                             text = TimeUtil.formatDisplay(execution.createdAt),
                             style = AppTextStyles.hint,
 
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            color = AppColors.secondaryIconColor(),
                         )
                         if (execution.runCount > 1) {
                             Text(
                                 text = "×${execution.runCount} runs",
                                 style = AppTextStyles.hint,
 
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                color = AppColors.secondaryIconColor(),
                             )
                         }
 
@@ -361,7 +362,7 @@ private fun planHistoryItem(
                                         text = "$key: $preview",
                                         style = AppTextStyles.hint,
 
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                                        color = AppColors.tertiaryIconColor(),
                                         maxLines = 1,
                                     )
                                 }
@@ -380,7 +381,7 @@ private fun planHistoryItem(
                                     Icon(
                                         Icons.Default.PushPin,
                                         contentDescription = stringResource(if (isPinned) "plans.result.unpin" else "plans.result.pin"),
-                                        tint = if (isPinned) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                        tint = if (isPinned) MaterialTheme.colorScheme.onSurface else AppColors.tertiaryIconColor(),
                                         modifier = Modifier.size(14.dp),
                                     )
                                 }
@@ -393,7 +394,7 @@ private fun planHistoryItem(
                             Icon(
                                 Icons.Default.Delete,
                                 contentDescription = stringResource("action.delete"),
-                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                                tint = AppColors.destructiveIconColor(),
                                 modifier = Modifier.size(16.dp),
                             )
                         }

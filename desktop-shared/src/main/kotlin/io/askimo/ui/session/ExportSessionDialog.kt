@@ -51,6 +51,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.export.ExportFormat
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -189,7 +190,7 @@ fun exportSessionDialog(
                 label = { Text(stringResource("session.export.file.path")) },
                 modifier = Modifier.weight(1f),
                 singleLine = true,
-                colors = AppComponents.outlinedTextFieldColors(),
+                colors = AppColors.outlinedTextFieldColors(),
             )
             IconButton(
                 onClick = { showFileBrowser = true },
@@ -225,7 +226,7 @@ private fun formatCard(
     val borderColor = if (isSelected) {
         MaterialTheme.colorScheme.primary
     } else {
-        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+        AppColors.codeBlockBorderColor()
     }
 
     TooltipBox(
@@ -291,7 +292,7 @@ private fun formatCard(
                     Text(
                         text = ".${format.extension}",
                         style = AppTextStyles.hint,
-                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f) else Color.Unspecified,
+                        color = if (isSelected) AppColors.contentColorFor(AppColors.Elevation.SELECTED) else Color.Unspecified,
                     )
                 }
 
@@ -299,7 +300,7 @@ private fun formatCard(
                 Text(
                     text = format.getDescription(),
                     style = AppTextStyles.caption,
-                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else Color.Unspecified,
+                    color = if (isSelected) AppColors.contentColorFor(AppColors.Elevation.SELECTED) else Color.Unspecified,
                 )
             }
 
