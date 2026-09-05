@@ -19,6 +19,7 @@ import io.askimo.ui.voice.VoiceServiceException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Base64
+import java.util.Locale
 
 /**
  * Speech-to-text via OpenAI's Whisper API (`/v1/audio/transcriptions`), using langchain4j's
@@ -55,10 +56,16 @@ class OpenAiSpeechToTextService(private val config: VoiceConfig) : SpeechToTextS
 
     /**
      * Whisper's `/v1/audio/transcriptions` API requires a plain ISO-639-1 language code
-     * (e.g. `"vi"`, `"en"`), not a full BCP-47 tag like `"vi-VN"`. Strip any region/script
-     * subtag from [AppConfig.currentLocale] before passing it along.
+     * (e.g. `"vi"`, `"en"`), not a full BCP-47 tag like `"vi-VN"` or a Java-style locale
+     * string like `"vi_VN"`. Strip any region/script subtag (both `-` and `_` separators)
+     * from [AppConfig.currentLocale] before passing it along, and lowercase using
+     * [Locale.ROOT] to avoid locale-sensitive casing quirks (e.g. Turkish "I").
      */
-    private fun whisperLanguageCode(): String = (AppConfig.currentLocale ?: "en").substringBefore('-').lowercase().ifBlank { "en" }
+    private fun whisperLanguageCode(): String {
+        val raw = AppConfig.currentLocale ?: "en"
+        val primary = raw.substringBefore('-').substringBefore('_')
+        return primary.lowercase(Locale.ROOT).ifBlank { "en" }
+    }
 }
 
 object OpenAiSpeechToTextFactory : SpeechToTextFactory {

@@ -113,7 +113,7 @@ object AppComponents {
      * Bakes in:
      * - `.clip(shape)` **before** `hoverable`/`clickable` so the ripple and hover
      *   highlight are always clipped to rounded corners (prevents the rectangle-border bug).
-     * - Default: [AppColors.Elevation.RAISED] + `outlineVariant.copy(alpha = 0.6f)` border.
+     * - Default: [AppColors.Elevation.RAISED] + [AppColors.codeBlockBorderColor] (`outlineVariant`) border.
      * - Hover:   [AppColors.Elevation.SELECTED] + `primary.copy(alpha = 0.4f)` border — the
      *   same tier used for an actually-selected item elsewhere, so hover and selection never
      *   read as two different colors.
