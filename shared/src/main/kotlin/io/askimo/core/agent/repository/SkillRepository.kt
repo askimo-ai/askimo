@@ -438,7 +438,12 @@ class SkillRepository {
 
             // Never rename when the entry file sits directly under skillsDir() itself — there's
             // no containing skill folder to rename, and currentFolder would be the skills root.
-            if (targetFolderName != null && targetFolderName != currentFolderName && currentFolder != root) {
+            // Compare names case-insensitively: on case-insensitive filesystems (default on
+            // macOS/Windows), a folder literally named "Hello-Claude" and a desired lowercase
+            // "hello-claude" are the *same* folder — a case-sensitive compare would wrongly
+            // treat this as a rename, and resolveAvailableFolderName() would then find the
+            // target name "already taken" (by itself) and spuriously append "-2".
+            if (targetFolderName != null && !targetFolderName.equals(currentFolderName, ignoreCase = true) && currentFolder != root) {
                 val resolvedName = resolveAvailableFolderName(currentFolder.parent, targetFolderName, currentFolderName)
                 if (resolvedName != null) {
                     val targetFolder = currentFolder.resolveSibling(resolvedName)
@@ -459,16 +464,19 @@ class SkillRepository {
      * to [MAX_RENAME_SUFFIX_ATTEMPTS] until a free name is found — never overwrites another
      * skill's folder.
      *
-     * Returns `null` if [desiredName] already equals [currentFolderName] (nothing to rename) or,
-     * in the extremely unlikely event that every suffix up to the cap is also taken, to leave
-     * the folder as-is rather than looping forever.
+     * Returns `null` if [desiredName] already equals [currentFolderName] — compared
+     * case-insensitively, since case-insensitive filesystems (default on macOS/Windows) treat
+     * e.g. `"Hello-Claude"` and `"hello-claude"` as the same directory; a case-sensitive
+     * compare would otherwise wrongly detect a rename and then spuriously collide with itself
+     * — or, in the extremely unlikely event that every suffix up to the cap is also taken, to
+     * leave the folder as-is rather than looping forever.
      */
     private fun resolveAvailableFolderName(parent: Path, desiredName: String, currentFolderName: String): String? {
-        if (desiredName == currentFolderName) return null
+        if (desiredName.equals(currentFolderName, ignoreCase = true)) return null
         if (!Files.exists(parent.resolve(desiredName))) return desiredName
         for (suffix in 2..MAX_RENAME_SUFFIX_ATTEMPTS) {
             val candidate = "$desiredName-$suffix"
-            if (candidate == currentFolderName) return null
+            if (candidate.equals(currentFolderName, ignoreCase = true)) return null
             if (!Files.exists(parent.resolve(candidate))) return candidate
         }
         log.debug(
@@ -492,14 +500,21 @@ class SkillRepository {
         .take(MAX_FOLDER_NAME_LENGTH)
 
     /**
-     * Returns `true` if [content] has an explicit `name:` key inside its **leading YAML
-     * frontmatter block** only — the same block [SkillMarkdownParser] treats as frontmatter
-     * (delimited by a `---` first line and a matching closing `---` line further down).
+     * Returns `true` if [content] has an explicit, non-blank `name:` key inside its **leading
+     * YAML frontmatter block** only — the same block [SkillMarkdownParser] treats as
+     * frontmatter (delimited by a `---` first line and a matching closing `---` line further
+     * down).
      *
      * Unlike a naive whole-file regex scan, this can't be fooled by a `name:` line that
      * merely appears in the skill body (non-frontmatter) text, and mirrors
      * [SkillMarkdownParser]'s own key-matching rule (colon split, trimmed key) so this stays
      * consistent with however `SkillMarkdownParser.parse` actually resolves `name`.
+     *
+     * A `name:` key with no (or blank) value does NOT count as explicit: `SkillMarkdownParser`
+     * falls back to a filename-derived title in that case (e.g. `"Skill"` from `skill.md`) —
+     * treating that fallback as an intentional override would incorrectly rename the skill
+     * folder to something like `"skill"` in [save], or replace the folder-derived display name
+     * in [loadSkillFolder], even though the user left `name:` blank.
      */
     private fun hasExplicitNameField(content: String): Boolean {
         val lines = content.lines()
@@ -508,7 +523,9 @@ class SkillRepository {
         if (closingIndex == -1) return false
         return lines.subList(1, closingIndex + 1).any { line ->
             val colonIndex = line.indexOf(':')
-            colonIndex > 0 && line.substring(0, colonIndex).trim() == "name"
+            colonIndex > 0 &&
+                line.substring(0, colonIndex).trim() == "name" &&
+                line.substring(colonIndex + 1).trim().isNotBlank()
         }
     }
 

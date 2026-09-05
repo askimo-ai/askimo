@@ -241,6 +241,17 @@ class SkillRepositoryTest {
         }
 
         @Test
+        fun `skill folder name falls back to folder name when frontmatter name key is blank`() = withSkillsDir {
+            // A bare "name:" key with no value must not be treated as an explicit override —
+            // display name should fall back to the folder name, not a filename-derived title
+            // like "Skill".
+            write("my-cool-skill/skill.md", "---\nname:\ndescription: whatever\n---\nContent")
+            val skills = repo().getSkillsOnly()
+            assertEquals(1, skills.size)
+            assertEquals("my-cool-skill", skills[0].name)
+        }
+
+        @Test
         fun `skill folder category is the parent folder not the skill folder itself`() = withSkillsDir {
             write("coding/reviewer/skill.md", "---\nname: Reviewer\n---\nContent")
             val skill = repo().getSkillsOnly().single()
@@ -465,8 +476,45 @@ class SkillRepositoryTest {
         }
 
         @Test
+        fun `save does not rename or suffix when the current folder differs from the target only by case`() = withSkillsDir {
+            // Folder literally named with mixed case; sanitizeFolderName() always lowercases,
+            // so the "desired" name is the lowercase version of the same name. On a
+            // case-insensitive filesystem (default on macOS/Windows) these are the *same*
+            // directory — a case-sensitive compare would wrongly detect a rename and then
+            // find "hello-claude" already taken (by itself), spuriously appending "-2".
+            write("Hello-Claude/skill.md", "placeholder")
+            val saved = repo().save("Hello-Claude/skill.md", "---\nname: Hello Claude\n---\nContent")
+
+            assertEquals("Hello-Claude/skill.md", saved.relativePath, "Case-only difference must not trigger a rename")
+            assertTrue(Files.exists(skillsDir().resolve("Hello-Claude/skill.md")))
+            assertFalse(
+                Files.exists(skillsDir().resolve("hello-claude-2")),
+                "Must never spuriously create a disambiguated '-2' folder for a case-only match",
+            )
+        }
+
+        @Test
         fun `save does not rename when frontmatter has no name field`() = withSkillsDir {
             val saved = repo().save("my-folder/skill.md", "No frontmatter here, just content")
+            assertEquals("my-folder/skill.md", saved.relativePath)
+            assertTrue(Files.exists(skillsDir().resolve("my-folder/skill.md")))
+        }
+
+        @Test
+        fun `save does not rename when frontmatter name key is present but blank`() = withSkillsDir {
+            // A bare "name:" key with no value must NOT be treated as an explicit override —
+            // SkillMarkdownParser falls back to a filename-derived title ("Skill" from
+            // "skill.md") in this case, which would otherwise get sanitized into a folder
+            // literally called "skill", clobbering the user's actual folder name.
+            val saved = repo().save("my-folder/skill.md", "---\nname:\ndescription: something\n---\nContent")
+            assertEquals("my-folder/skill.md", saved.relativePath)
+            assertTrue(Files.exists(skillsDir().resolve("my-folder/skill.md")))
+            assertFalse(Files.exists(skillsDir().resolve("skill")), "Must never rename to a fallback-derived 'skill' folder")
+        }
+
+        @Test
+        fun `save does not rename when frontmatter name key has only whitespace value`() = withSkillsDir {
+            val saved = repo().save("my-folder/skill.md", "---\nname:   \n---\nContent")
             assertEquals("my-folder/skill.md", saved.relativePath)
             assertTrue(Files.exists(skillsDir().resolve("my-folder/skill.md")))
         }
