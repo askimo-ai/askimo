@@ -51,18 +51,20 @@ object SkillExporter {
         }
 
         return runCatching {
-            Files.createDirectories(targetZip.parent)
+            targetZip.parent?.let { Files.createDirectories(it) }
             ZipOutputStream(Files.newOutputStream(targetZip)).use { zos ->
-                Files.walk(skillsDir)
-                    .filter { Files.isRegularFile(it) }
-                    .filter { path -> path.none { seg -> seg.toString() == ".git" } }
-                    .sorted()
-                    .forEach { file ->
-                        val entryName = skillsDir.relativize(file).toString().replace("\\", "/")
-                        zos.putNextEntry(ZipEntry(entryName))
-                        Files.copy(file, zos)
-                        zos.closeEntry()
-                    }
+                Files.walk(skillsDir).use { stream ->
+                    stream
+                        .filter { Files.isRegularFile(it) }
+                        .filter { path -> path.none { seg -> seg.toString() == ".git" } }
+                        .sorted()
+                        .forEach { file ->
+                            val entryName = skillsDir.relativize(file).toString().replace("\\", "/")
+                            zos.putNextEntry(ZipEntry(entryName))
+                            Files.copy(file, zos)
+                            zos.closeEntry()
+                        }
+                }
             }
             log.info("Exported {} skill(s) from {} into {}", skillCount, skillsDir, targetZip)
             ExportResult.Success(targetZip, skillCount)

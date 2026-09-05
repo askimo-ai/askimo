@@ -331,7 +331,7 @@ abstract class ExternalAgentTemplate : ExternalAgent {
         )
 
         val cmd = buildCommand(agentPath, systemPrompt, userInput, effectiveWorkDir, resumeSessionId)
-        log.debug("{} command: {}", name, cmd.joinToString(" "))
+        log.debug("{} command: {} ({} args)", name, agentPath, cmd.size)
         val processBuilder = ProcessBuilderExt(*cmd.toTypedArray()).apply {
             effectiveWorkDir.mkdirs()
             directory(effectiveWorkDir)
