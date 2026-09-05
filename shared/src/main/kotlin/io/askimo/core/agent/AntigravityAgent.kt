@@ -177,7 +177,13 @@ class AntigravityAgent : ExternalAgentTemplate() {
             "step_update" -> {
                 val stepType = event.fields["step_type"] as? String
                 val state = event.fields["state"] as? String
+                // Some `agy` versions stream incremental text under `text_delta`; others emit
+                // the full text for the step in one shot under `text` or `response` once
+                // `state == DONE`. Check all known variants so we don't drop content.
                 val textDelta = event.fields["text_delta"] as? String
+                    ?: event.fields["text"] as? String
+                    ?: event.fields["response"] as? String
+
                 when {
                     !textDelta.isNullOrEmpty() -> {
                         output.append(textDelta)
@@ -185,24 +191,49 @@ class AntigravityAgent : ExternalAgentTemplate() {
                     }
 
                     // "user_input DONE" is just an ack of our own prompt — nothing to surface.
-                    // TODO: some `stepType`s here likely correspond to actual tool invocations
-                    // (e.g. file read/write, shell exec) rather than generic lifecycle status —
-                    // revisit and route those through onToolCall once the exact stream-json
-                    // shape for Antigravity's tool-call steps is confirmed against a real CLI run.
-                    stepType != null && stepType != "user_input" -> {
+                    stepType == "user_input" -> Unit
+
+                    // A lifecycle update for the final answer step with no text yet (e.g. the
+                    // initial RUNNING state before any delta arrives) — status line only.
+                    stepType == "agent_response" -> {
                         onStatus(if (state != null) "$stepType ($state)" else stepType)
                     }
+
+                    // Any other `step_type` corresponds to an actual tool invocation (e.g.
+                    // `run_command`, `grep_search`, `view_file` — matching the tool names
+                    // Antigravity reports in its `init` event's `tools` list). Route it through
+                    // `onToolCall` (and thus the dedicated tool-calls UI section) instead of a
+                    // generic status line, which previously collapsed every tool step down to
+                    // just its last "(DONE)" state and hid the tool activity entirely.
+                    stepType != null -> {
+                        val detail = formatToolArgs(
+                            event.fields.filterKeys { it !in setOf("step_type", "state", "step_index") },
+                        ).take(ExternalAgent.TOOL_DETAIL_MAX_LENGTH)
+                        onToolCall(stepType, detail.ifBlank { null })
+                    }
+
+                    state != null -> onStatus(state)
                 }
             }
 
             "result" -> {
                 val status = event.fields["status"] as? String ?: "done"
+                val response = event.fields["response"] as? String
 
                 @Suppress("UNCHECKED_CAST")
                 val usage = event.fields["usage"] as? Map<String, Any>
                 val totalTokens = usage?.get("total_tokens")
                 val durationSeconds = event.fields["duration_seconds"]
                 updateExecutionUsage(AgentUsageExtractor.extract(event.fields, usage))
+
+                // `agy` doesn't always stream the answer via `step_update.text_delta` — when
+                // no step_update carried any text, the full answer is only delivered here in
+                // `result.response`. Surface it as the final token so the reply isn't dropped.
+                if (!response.isNullOrEmpty() && output.isEmpty()) {
+                    output.append(response)
+                    onToken(response)
+                }
+
                 val summary = buildString {
                     append("result: $status")
                     if (totalTokens != null) append(" | tokens: $totalTokens")
@@ -219,6 +250,23 @@ class AntigravityAgent : ExternalAgentTemplate() {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /**
+     * Renders a tool call's `args`/`arguments` payload (per the Antigravity hooks doc,
+     * `toolCall.args` is a JSON object keyed by tool-specific parameter names such as
+     * `CommandLine`, `TargetFile`, `Query`, etc.) into a compact single-line summary for
+     * display next to the tool name.
+     */
+    private fun formatToolArgs(args: Any): String = when (args) {
+        is Map<*, *> -> args.entries.joinToString(", ") { (k, v) ->
+            val display = v?.toString()?.replace('\n', ' ')?.let {
+                if (it.length > 80) it.take(77) + "…" else it
+            } ?: "null"
+            "$k=$display"
+        }
+
+        else -> args.toString()
+    }
 
     private fun buildStdin(systemPrompt: String): String = buildString {
         if (systemPrompt.isNotBlank()) {

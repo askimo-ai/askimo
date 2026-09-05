@@ -172,10 +172,25 @@ abstract class ExternalAgentTemplate : ExternalAgent {
      */
     protected fun materializeSkillFolder(skill: SkillDefinition, skillsRootDir: Path): AutoCloseable = runCatching {
         val sourceDir = skill.absolutePath.parent
-        if (sourceDir == null || !Files.isDirectory(sourceDir)) return@runCatching AutoCloseable {}
+        if (sourceDir == null || !Files.isDirectory(sourceDir)) {
+            log.warn(
+                "Skipping materialization of skill '{}': source folder missing/invalid (absolutePath={}, resolvedParent={})",
+                skill.name,
+                skill.absolutePath,
+                sourceDir,
+            )
+            return@runCatching AutoCloseable {}
+        }
 
         val folderName = skill.slug
         val targetDir = skillsRootDir.resolve(folderName)
+        log.debug(
+            "Materializing skill '{}' (slug={}) from {} into {}",
+            skill.name,
+            folderName,
+            sourceDir,
+            targetDir,
+        )
 
         if (Files.exists(targetDir)) {
             log.debug("Skill '{}' already present at {} — leaving as-is", folderName, targetDir)
@@ -183,6 +198,7 @@ abstract class ExternalAgentTemplate : ExternalAgent {
         }
 
         Files.createDirectories(targetDir)
+        var copiedCount = 0
         Files.walk(sourceDir).use { stream ->
             stream
                 .filter { Files.isRegularFile(it) }
@@ -191,9 +207,26 @@ abstract class ExternalAgentTemplate : ExternalAgent {
                     val dest = targetDir.resolve(sourceDir.relativize(src))
                     Files.createDirectories(dest.parent)
                     Files.copy(src, dest, StandardCopyOption.REPLACE_EXISTING)
+                    copiedCount++
                 }
         }
-        log.debug("Materialized skill '{}' into {}", folderName, targetDir)
+        // The agent's native discovery mechanism (Claude/Codex/Antigravity) requires a file
+        // named `SKILL.md` (case-insensitive) directly inside the materialized folder — log a
+        // warning if it's missing so a silent no-op discovery failure is easy to diagnose from
+        // logs alone, without needing to inspect the filesystem by hand.
+        val hasEntryPoint = Files.list(targetDir).use { s ->
+            s.anyMatch { it.fileName.toString().equals("SKILL.md", ignoreCase = true) }
+        }
+        if (!hasEntryPoint) {
+            log.warn(
+                "Materialized skill '{}' at {} has no SKILL.md entry point ({} files copied) — " +
+                    "the target agent's native skill discovery will not recognize it",
+                folderName,
+                targetDir,
+                copiedCount,
+            )
+        }
+        log.debug("Materialized skill '{}' into {} ({} files copied)", folderName, targetDir, copiedCount)
 
         AutoCloseable {
             runCatching {
@@ -202,7 +235,7 @@ abstract class ExternalAgentTemplate : ExternalAgent {
             }.onFailure { e -> log.warn("Failed to clean up materialized skill at {}: {}", targetDir, e.message) }
         }
     }.onFailure { e ->
-        log.warn("Failed to materialize skill '{}': {}", skill.name, e.message)
+        log.warn("Failed to materialize skill '{}': {}", skill.name, e.message, e)
     }.getOrElse { AutoCloseable {} }
 
     /**
