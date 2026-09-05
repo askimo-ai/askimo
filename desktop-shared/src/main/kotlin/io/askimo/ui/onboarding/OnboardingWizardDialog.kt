@@ -601,9 +601,9 @@ private fun personaCard(
             ),
         colors = CardDefaults.cardColors(
             containerColor = if (highlighted) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                AppComponents.surfaceSelected()
             } else {
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                AppComponents.surfaceRaised()
             },
         ),
     ) {
@@ -695,7 +695,7 @@ private fun onboardingStepAnalytics(
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                containerColor = AppComponents.surfaceRaised(),
             ),
         ) {
             Column(modifier = Modifier.fillMaxWidth().padding(Spacing.large)) {
@@ -742,9 +742,9 @@ private fun onboardingStepAnalytics(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
                 containerColor = if (analyticsAccepted) {
-                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                    AppComponents.surfaceSelected()
                 } else {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    AppComponents.surfaceRaised()
                 },
             ),
         ) {

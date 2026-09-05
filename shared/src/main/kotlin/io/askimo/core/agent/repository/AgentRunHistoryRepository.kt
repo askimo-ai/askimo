@@ -48,6 +48,7 @@ class AgentRunHistoryRepository internal constructor(
                 it[userInput] = record.userInput
                 it[response] = record.response
                 it[error] = record.error
+                it[agentId] = record.agentId
                 it[agentSessionId] = record.agentSessionId
                 it[activityLog] = encodeLog(record.activityLog)
                 it[contentJson] = if (record.contentBlocks.isEmpty()) null else json.encodeToString(record.contentBlocks)
@@ -157,6 +158,7 @@ class AgentRunHistoryRepository internal constructor(
         userInput = row[AgentRunHistoryTable.userInput],
         response = row[AgentRunHistoryTable.response],
         error = row[AgentRunHistoryTable.error],
+        agentId = row[AgentRunHistoryTable.agentId],
         agentSessionId = row[AgentRunHistoryTable.agentSessionId],
         activityLog = decodeLog(row[AgentRunHistoryTable.activityLog]),
         contentBlocks = decodeContentBlocks(row[AgentRunHistoryTable.contentJson]),

@@ -68,4 +68,52 @@ data class SkillDefinition(
      * Empty string for root-level skills.
      */
     val category: String get() = categoryPath.joinToString("/")
+
+    /**
+     * Stable, filesystem/agent-safe identifier derived from the **full category-qualified
+     * path** (not just the leaf folder name), used as the destination folder name whenever
+     * this skill is materialized into an external agent's native skill directory (see
+     * [io.askimo.core.agent.ExternalAgentTemplate.materializeSkillFolder]/
+     * [io.askimo.core.agent.ExternalAgentTemplate.materializeSkillSymlink]).
+     *
+     * ## Why not just the leaf folder name?
+     * Two skills in different categories (or imported from different packs) can share the
+     * same leaf folder name (e.g. `pack1/reviewer/skill.md` and `pack2/reviewer/skill.md`).
+     * Using only the leaf name (`"reviewer"`) as the materialized folder name would collide —
+     * the second skill would silently never become visible to the agent, since materialization
+     * checks "does a folder with this name already exist?" and leaves it alone if so (to avoid
+     * clobbering a user's own project skill). Folding the full category path into the
+     * identifier keeps every skill's materialized location unique to its own location in the
+     * tree, regardless of how many "group" folders it was imported under.
+     *
+     * ## Why sanitize?
+     * Imported skill packs (GitHub/zip) can contain folder names with spaces, unicode,
+     * mixed case, or unusual characters. Agent-native skill-discovery conventions generally
+     * assume simple, stable identifiers, so this is normalized to lowercase kebab-case ASCII.
+     *
+     * Examples:
+     * - `"coding/reviewer.md"` → `"coding-reviewer"`
+     * - `"reviewer.md"` (root-level) → `"reviewer"`
+     * - `"My Skills/Code Review!.md"` → `"my-skills-code-review"`
+     */
+    val slug: String
+        get() {
+            val withoutExtension = relativePath.replace("\\", "/").removeSuffix(".md")
+            val raw = withoutExtension
+                .split("/")
+                .filter { it.isNotBlank() }
+                .joinToString("-")
+            return raw
+                .lowercase()
+                .replace(Regex("[^a-z0-9-]"), "-")
+                .replace(Regex("-+"), "-")
+                .trim('-')
+                .take(MAX_SLUG_LENGTH)
+                .ifBlank { "skill" }
+        }
+
+    companion object {
+        /** Cap on [slug] length — keeps materialized folder names reasonable across filesystems. */
+        private const val MAX_SLUG_LENGTH = 80
+    }
 }

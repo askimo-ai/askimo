@@ -434,7 +434,7 @@ private fun searchResultItem(
             .fillMaxWidth()
             .pointerHoverIcon(PointerIcon.Hand),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+            containerColor = AppComponents.surfaceRaised(),
         ),
     ) {
         Column(

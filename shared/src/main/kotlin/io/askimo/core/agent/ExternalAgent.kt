@@ -10,6 +10,20 @@ import io.askimo.core.analytics.AnalyticsEvent
 import java.io.File
 
 /**
+ * Overall readiness of an [ExternalAgent]
+ */
+enum class AgentReadiness {
+    /** Binary not found on `PATH`. */
+    NOT_INSTALLED,
+
+    /** Binary installed, but missing required credentials/login. */
+    NEEDS_SETUP,
+
+    /** Installed and configured — safe to [ExternalAgent.run]. */
+    READY,
+}
+
+/**
  * Represents an external CLI agent capable of running a skill non-interactively.
  *
  * Implementations compose the OS command, pipe the combined prompt (system + user)
@@ -78,10 +92,14 @@ interface ExternalAgent {
     fun isConfigured(): Boolean = isBinaryAvailable()
 
     /**
-     * Returns `true` if the agent is both installed and configured.
-     * Convenience combining [isBinaryAvailable] and [isConfigured].
+     * Single source of truth for this agent's overall readiness
      */
-    fun isAvailable(): Boolean = isBinaryAvailable() && isConfigured()
+    val readiness: AgentReadiness
+        get() = when {
+            !isBinaryAvailable() -> AgentReadiness.NOT_INSTALLED
+            !isConfigured() -> AgentReadiness.NEEDS_SETUP
+            else -> AgentReadiness.READY
+        }
 
     /**
      * Optionally materializes [skill] into this agent's own native skill/context discovery
@@ -102,6 +120,24 @@ interface ExternalAgent {
      *         is ever deleted.
      */
     fun materializeSkill(skill: SkillDefinition, workDir: File): AutoCloseable = AutoCloseable {}
+
+    /**
+     * Whether [materializeSkill] actually plugs into a native, on-demand skill discovery
+     * mechanism for this agent (e.g. Claude Code's `Skill` tool, which scans `.claude/skills/`
+     * frontmatter — including skills the user already had installed there — to build its own
+     * catalog automatically), as opposed to being a no-op.
+     *
+     * Callers building the system prompt should use this to decide whether they need to
+     * duplicate a skill catalog/content in the prompt at all: when `true`, the materialized
+     * skill sits alongside the agent's own pre-installed skills and its native discovery
+     * already surfaces it — no catalog or content injection needed, since that would only
+     * inflate every single prompt for content the agent can already see and load on demand
+     * itself, only for the skill(s) it actually decides to use. When `false`, the agent has
+     * no other way to see skill content, so the caller must inline it in the prompt.
+     *
+     * Default `false` — override alongside [materializeSkill] when it does real work.
+     */
+    val supportsNativeSkillDiscovery: Boolean get() = false
 
     /**
      * Saves an API key for this agent via [io.askimo.core.security.SecureKeyManager]

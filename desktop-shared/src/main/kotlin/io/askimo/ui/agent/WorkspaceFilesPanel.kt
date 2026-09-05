@@ -398,39 +398,41 @@ internal fun workspaceFilesPanel(
                 if (onWorkDirChanged != null) {
                     // ── Workspace switcher ───────────────────────────────────
                     Box(modifier = Modifier.weight(1f)) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = { workspaceMenuExpanded = true },
+                        themedTooltip(text = stringResource("agents.view.workspace.switcher.title")) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = { workspaceMenuExpanded = true },
+                                    )
+                                    .pointerHoverIcon(PointerIcon.Hand)
+                                    .padding(start = 4.dp, end = 2.dp, top = 2.dp, bottom = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Icon(
+                                    Icons.Default.FolderOpen,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-                                .pointerHoverIcon(PointerIcon.Hand)
-                                .padding(start = 4.dp, end = 2.dp, top = 2.dp, bottom = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.FolderOpen,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                currentWorkspace?.name ?: workDir.name.ifEmpty { workDir.path },
-                                style = AppTextStyles.fieldLabel,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.weight(1f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Icon(
-                                Icons.Default.ExpandMore,
-                                contentDescription = stringResource("agents.view.workspace.switcher.title"),
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                                Text(
+                                    currentWorkspace?.name ?: workDir.name.ifEmpty { workDir.path },
+                                    style = AppTextStyles.fieldLabel,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Icon(
+                                    Icons.Default.ExpandMore,
+                                    contentDescription = stringResource("agents.view.workspace.switcher.title"),
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
 
                         dropdownMenu(expanded = workspaceMenuExpanded, onDismissRequest = { workspaceMenuExpanded = false }) {
@@ -477,50 +479,56 @@ internal fun workspaceFilesPanel(
                                     },
                                     trailingIcon = {
                                         Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                            IconButton(
-                                                onClick = {
-                                                    scope.launch {
-                                                        withContext(Dispatchers.IO) { workspaceRepo.setPinned(ws.id, !ws.pinned) }
-                                                        workspaceListVersion++
-                                                    }
-                                                },
-                                                modifier = Modifier.size(24.dp).pointerHoverIcon(PointerIcon.Hand),
-                                            ) {
-                                                Icon(
-                                                    if (ws.pinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
-                                                    contentDescription = stringResource("agents.view.workspace.switcher.pin"),
-                                                    modifier = Modifier.size(13.dp),
-                                                    tint = if (ws.pinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                )
+                                            themedTooltip(text = stringResource("agents.view.workspace.switcher.pin")) {
+                                                IconButton(
+                                                    onClick = {
+                                                        scope.launch {
+                                                            withContext(Dispatchers.IO) { workspaceRepo.setPinned(ws.id, !ws.pinned) }
+                                                            workspaceListVersion++
+                                                        }
+                                                    },
+                                                    modifier = Modifier.size(24.dp).pointerHoverIcon(PointerIcon.Hand),
+                                                ) {
+                                                    Icon(
+                                                        if (ws.pinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
+                                                        contentDescription = stringResource("agents.view.workspace.switcher.pin"),
+                                                        modifier = Modifier.size(13.dp),
+                                                        tint = if (ws.pinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    )
+                                                }
                                             }
-                                            IconButton(
-                                                onClick = {
-                                                    renameWorkspaceTarget = ws
-                                                    renameWorkspaceText = ws.name
-                                                    workspaceMenuExpanded = false
-                                                },
-                                                modifier = Modifier.size(24.dp).pointerHoverIcon(PointerIcon.Hand),
-                                            ) {
-                                                Icon(
-                                                    Icons.Default.DriveFileRenameOutline,
-                                                    contentDescription = stringResource("action.rename"),
-                                                    modifier = Modifier.size(13.dp),
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                )
+                                            themedTooltip(text = stringResource("action.rename")) {
+                                                IconButton(
+                                                    onClick = {
+                                                        renameWorkspaceTarget = ws
+                                                        renameWorkspaceText = ws.name
+                                                        workspaceMenuExpanded = false
+                                                    },
+                                                    modifier = Modifier.size(24.dp).pointerHoverIcon(PointerIcon.Hand),
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.DriveFileRenameOutline,
+                                                        contentDescription = stringResource("action.rename"),
+                                                        modifier = Modifier.size(13.dp),
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    )
+                                                }
                                             }
-                                            IconButton(
-                                                onClick = {
-                                                    deleteWorkspaceTarget = ws
-                                                    workspaceMenuExpanded = false
-                                                },
-                                                modifier = Modifier.size(24.dp).pointerHoverIcon(PointerIcon.Hand),
-                                            ) {
-                                                Icon(
-                                                    Icons.Default.Delete,
-                                                    contentDescription = stringResource("action.remove"),
-                                                    modifier = Modifier.size(13.dp),
-                                                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
-                                                )
+                                            themedTooltip(text = stringResource("action.remove")) {
+                                                IconButton(
+                                                    onClick = {
+                                                        deleteWorkspaceTarget = ws
+                                                        workspaceMenuExpanded = false
+                                                    },
+                                                    modifier = Modifier.size(24.dp).pointerHoverIcon(PointerIcon.Hand),
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Delete,
+                                                        contentDescription = stringResource("action.remove"),
+                                                        modifier = Modifier.size(13.dp),
+                                                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                                                    )
+                                                }
                                             }
                                         }
                                     },
@@ -734,7 +742,7 @@ private fun workspaceNodeRow(
                     .fillMaxWidth()
                     .background(
                         if (isSelected) {
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                            AppComponents.surfaceSelected()
                         } else {
                             Color.Transparent
                         },
@@ -812,7 +820,7 @@ private fun workspaceNodeRow(
                         modifier = Modifier
                             .weight(1f)
                             .background(
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                AppComponents.surfaceEmphasis(),
                                 RoundedCornerShape(3.dp),
                             )
                             .padding(horizontal = 4.dp, vertical = 2.dp)
@@ -1046,7 +1054,7 @@ private fun workspaceFileViewer(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)),
+            .background(AppComponents.surfaceRecessed()),
     ) {
         HorizontalDivider()
 

@@ -327,7 +327,7 @@ private fun sessionTable(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .background(AppComponents.surfaceRaised())
                     .padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -443,7 +443,7 @@ private fun sessionRow(
             .hoverable(interactionSource)
             .background(
                 if (isHovered) {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    AppComponents.surfaceRaised()
                 } else {
                     MaterialTheme.colorScheme.surface
                 },

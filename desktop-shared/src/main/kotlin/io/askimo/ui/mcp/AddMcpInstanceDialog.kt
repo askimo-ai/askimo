@@ -606,7 +606,7 @@ fun addMcpInstanceDialog(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    containerColor = AppComponents.surfaceRaised(),
                 ),
             ) {
                 Column(

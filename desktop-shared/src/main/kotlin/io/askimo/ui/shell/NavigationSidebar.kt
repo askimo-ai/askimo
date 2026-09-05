@@ -57,6 +57,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.toComposeImageBitmap
@@ -285,7 +286,7 @@ private fun expandedNavigationSidebar(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            sidebarLogoRow(fontScale = fontScale)
+            sidebarLogoRow(fontScale = fontScale, contentColor = AppComponents.sidebarHeaderContentColor())
             themedTooltip(text = stringResource("sidebar.collapse")) {
                 IconButton(
                     onClick = onToggleExpand,
@@ -294,7 +295,7 @@ private fun expandedNavigationSidebar(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.MenuOpen,
                         contentDescription = stringResource("sidebar.collapse"),
-                        tint = AppTextStyles.primaryContent,
+                        tint = AppComponents.sidebarHeaderContentColor(),
                     )
                 }
             }
@@ -479,7 +480,7 @@ private fun collapsedNavigationSidebar(
                     Icon(
                         imageVector = Icons.Filled.Menu,
                         contentDescription = stringResource("sidebar.expand"),
-                        tint = AppTextStyles.primaryContent,
+                        tint = AppComponents.sidebarHeaderContentColor(),
                         modifier = Modifier.size((32 * fontScale).dp),
                     )
                 } else {
@@ -487,7 +488,7 @@ private fun collapsedNavigationSidebar(
                         painter = appLogo,
                         contentDescription = "Askimo",
                         modifier = Modifier.size((32 * fontScale).dp),
-                        tint = AppTextStyles.primaryContent,
+                        tint = AppComponents.sidebarHeaderContentColor(),
                     )
                 }
             }
@@ -597,6 +598,7 @@ private fun rememberAppLogo(): BitmapPainter = remember {
 @Composable
 fun sidebarLogoRow(
     fontScale: Float = LocalFontScale.current,
+    contentColor: Color = AppTextStyles.primaryContent,
     logoOverlay: @Composable (Modifier) -> Unit = {},
 ) {
     Row(
@@ -608,13 +610,13 @@ fun sidebarLogoRow(
                 painter = rememberAppLogo(),
                 contentDescription = "Askimo",
                 modifier = Modifier.size((48 * fontScale).dp),
-                tint = AppTextStyles.primaryContent,
+                tint = contentColor,
             )
             logoOverlay(Modifier.align(Alignment.TopEnd))
         }
         Text(
             text = "Askimo",
-            style = AppTextStyles.pageTitle,
+            style = AppTextStyles.pageTitle.copy(color = contentColor),
         )
     }
 }

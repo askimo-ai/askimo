@@ -32,7 +32,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -52,9 +51,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
@@ -102,10 +99,7 @@ fun agentsView(
             agenticWorkspacePanel(
                 workDir = workDir,
                 workDirRefreshKey = viewModel.historyRefreshKey,
-                runHistory = viewModel.runHistory,
                 onWorkDirChanged = { viewModel.selectWorkspace(it) },
-                onSelectRecord = { viewModel.selectHistoryRecord(it) },
-                onDeleteRecord = { viewModel.deleteHistoryRecord(it) },
             )
         }
 
@@ -119,6 +113,9 @@ fun agentsView(
                         onNavigateToSkillsSettings = onNavigateToSkillsSettings,
                         preloadRecord = viewModel.pendingHistoryRecord,
                         onPreloadConsumed = { viewModel.consumePendingHistoryRecord() },
+                        runHistory = viewModel.runHistory,
+                        onSelectHistoryRecord = { viewModel.selectHistoryRecord(it) },
+                        onDeleteHistoryRecord = { viewModel.deleteHistoryRecord(it) },
                     )
                 }
                 panelContent()
@@ -135,6 +132,9 @@ fun agentsView(
                     onTogglePanel = { showOverlayPanel = !showOverlayPanel },
                     preloadRecord = viewModel.pendingHistoryRecord,
                     onPreloadConsumed = { viewModel.consumePendingHistoryRecord() },
+                    runHistory = viewModel.runHistory,
+                    onSelectHistoryRecord = { viewModel.selectHistoryRecord(it) },
+                    onDeleteHistoryRecord = { viewModel.deleteHistoryRecord(it) },
                 )
                 if (showOverlayPanel) {
                     Box(
@@ -291,6 +291,9 @@ private fun agenticContent(
     onTogglePanel: () -> Unit = {},
     preloadRecord: AgentRunRecord? = null,
     onPreloadConsumed: () -> Unit = {},
+    runHistory: List<AgentRunRecord> = emptyList(),
+    onSelectHistoryRecord: (AgentRunRecord) -> Unit = {},
+    onDeleteHistoryRecord: (AgentRunRecord) -> Unit = {},
 ) {
     var hasActiveConversation by remember { mutableStateOf(false) }
     var newConversationRequestKey by remember { mutableStateOf(0) }
@@ -326,6 +329,9 @@ private fun agenticContent(
                 onPreloadConsumed = onPreloadConsumed,
                 onConversationStateChanged = { hasActiveConversation = it },
                 newConversationRequestKey = newConversationRequestKey,
+                runHistory = runHistory,
+                onSelectHistoryRecord = onSelectHistoryRecord,
+                onDeleteHistoryRecord = onDeleteHistoryRecord,
             )
         }
     }
@@ -333,31 +339,18 @@ private fun agenticContent(
 
 // ── Agentic workspace panel ────────────────────────────────────────────────
 
-private enum class AgenticRightTab(
-    val icon: ImageVector,
-    val labelKey: String,
-) {
-    WORKSPACE(Icons.Default.FolderOpen, "agents.view.tab.workspace"),
-    HISTORY(Icons.Default.History, "agents.view.tab.history"),
-}
-
 @Composable
 private fun agenticWorkspacePanel(
     workDir: File,
     workDirRefreshKey: Int,
-    runHistory: List<AgentRunRecord>,
     onWorkDirChanged: (File) -> Unit,
-    onSelectRecord: (AgentRunRecord) -> Unit,
-    onDeleteRecord: (AgentRunRecord) -> Unit,
 ) {
     var isExpanded by remember { mutableStateOf(ApplicationPreferences.getSkillsSidePanelExpanded()) }
     var panelWidth by remember { mutableStateOf(ApplicationPreferences.getSkillsSidePanelWidth().dp) }
-    var activeTab by remember { mutableStateOf(AgenticRightTab.WORKSPACE) }
 
-    // Auto-switch to Workspace tab when a run completes, mirroring the manual view.
+    // Auto-expand when a run completes, mirroring the manual view (files likely changed).
     LaunchedEffect(workDirRefreshKey) {
         if (workDirRefreshKey > 0) {
-            activeTab = AgenticRightTab.WORKSPACE
             isExpanded = true
             ApplicationPreferences.setSkillsSidePanelExpanded(true)
         }
@@ -410,7 +403,7 @@ private fun agenticWorkspacePanel(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         Text(
-                            text = stringResource(activeTab.labelKey),
+                            text = stringResource("agents.view.tab.workspace"),
                             style = AppTextStyles.fieldLabel,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.weight(1f),
@@ -439,116 +432,40 @@ private fun agenticWorkspacePanel(
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
                     Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                        when (activeTab) {
-                            AgenticRightTab.WORKSPACE -> workspaceFilesPanel(
-                                workDir = workDir,
-                                refreshKey = workDirRefreshKey,
-                                onWorkDirChanged = onWorkDirChanged,
-                            )
-
-                            AgenticRightTab.HISTORY -> skillsHistoryContent(
-                                runHistory = runHistory,
-                                onSelectRecord = onSelectRecord,
-                                onDeleteRecord = onDeleteRecord,
-                            )
-                        }
+                        workspaceFilesPanel(
+                            workDir = workDir,
+                            refreshKey = workDirRefreshKey,
+                            onWorkDirChanged = onWorkDirChanged,
+                        )
                     }
                 }
-            }
-
-            // ── Always-visible icon bar (right, 56 dp) ─────────────────────
-            Column(
-                modifier = Modifier
-                    .width(56.dp)
-                    .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                    .padding(vertical = 16.dp, horizontal = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                AgenticRightTab.entries.forEach { tab ->
-                    sidePanelTabIcon(
-                        icon = tab.icon,
-                        label = stringResource(tab.labelKey),
-                        isSelected = isExpanded && activeTab == tab,
-                        badge = if (tab == AgenticRightTab.HISTORY && runHistory.isNotEmpty()) "${runHistory.size}" else null,
-                        onClick = {
-                            if (isExpanded && activeTab == tab) {
-                                // Tap active tab to collapse
-                                isExpanded = false
-                                ApplicationPreferences.setSkillsSidePanelExpanded(false)
-                            } else {
-                                activeTab = tab
-                                isExpanded = true
-                                ApplicationPreferences.setSkillsSidePanelExpanded(true)
-                            }
-                        },
-                    )
-                }
-            }
-        }
-    }
-}
-
-// ── Side-panel tab icon — used by the workspace/history icon bar above ─────
-
-/**
- * A single tab icon in a collapsible right panel's always-visible icon bar
- * (Workspace/History for agentic runs). Shows an optional count [badge] in
- * the top-right corner.
- */
-@Composable
-internal fun sidePanelTabIcon(
-    icon: ImageVector,
-    label: String,
-    isSelected: Boolean,
-    badge: String? = null,
-    onClick: () -> Unit,
-) {
-    themedTooltip(text = label) {
-        Box(contentAlignment = Alignment.TopEnd) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(
-                        if (isSelected) {
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                        } else {
-                            Color.Transparent
-                        },
-                        shape = MaterialTheme.shapes.small,
-                    )
-                    .clickable(
-                        indication = null,
-                        interactionSource = remember { MutableInteractionSource() },
-                        onClick = onClick,
-                    )
-                    .pointerHoverIcon(PointerIcon.Hand),
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = label,
-                    tint = if (isSelected) {
-                        MaterialTheme.colorScheme.onSurface
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-            // Badge (e.g. skill/history count)
-            if (badge != null) {
-                Surface(
-                    shape = MaterialTheme.shapes.extraSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                    modifier = Modifier.padding(top = 1.dp, end = 1.dp),
-                ) {
-                    Text(
-                        text = badge,
-                        style = AppTextStyles.hint,
-                        modifier = Modifier.padding(horizontal = 3.dp, vertical = 0.dp),
-                    )
+            } else {
+                // ── Collapsed — single icon column to re-expand ────────────
+                themedTooltip(text = stringResource("agents.view.panel.expand"), placement = TooltipPlacement.LEFT) {
+                    Box(
+                        modifier = Modifier
+                            .width(56.dp)
+                            .fillMaxHeight()
+                            .background(AppComponents.surfaceRecessed())
+                            .clickable(
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() },
+                                onClick = {
+                                    isExpanded = true
+                                    ApplicationPreferences.setSkillsSidePanelExpanded(true)
+                                },
+                            )
+                            .pointerHoverIcon(PointerIcon.Hand)
+                            .padding(vertical = 16.dp),
+                        contentAlignment = Alignment.TopCenter,
+                    ) {
+                        Icon(
+                            Icons.Default.FolderOpen,
+                            contentDescription = stringResource("agents.view.tab.workspace"),
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }

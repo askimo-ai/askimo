@@ -758,6 +758,12 @@ class DatabaseManager private constructor(
             } catch (_: Exception) {
                 // Column already exists — safe to ignore.
             }
+
+            try {
+                stmt.executeUpdate("ALTER TABLE agent_run_history ADD COLUMN agent_id TEXT")
+            } catch (_: Exception) {
+                // Column already exists — safe to ignore.
+            }
         }
     }
 

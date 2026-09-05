@@ -463,7 +463,7 @@ private fun voiceProviderSelector(
                         .fillMaxWidth()
                         .clickableCard { onExpandedChange(true) },
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
+                        containerColor = AppComponents.surfaceRaised(),
                     ),
                 ) {
                     Row(
@@ -548,7 +548,7 @@ private fun voiceOptionSelector(
                     .fillMaxWidth()
                     .clickableCard { onExpandedChange(true) },
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    containerColor = AppComponents.surfaceRaised(),
                 ),
             ) {
                 Row(

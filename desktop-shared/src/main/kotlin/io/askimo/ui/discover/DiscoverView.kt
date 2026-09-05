@@ -63,6 +63,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -959,9 +960,9 @@ private fun recentSessionRow(
             .hoverable(interactionSource)
             .background(
                 if (isHovered) {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    AppComponents.surfaceRaised()
                 } else {
-                    MaterialTheme.colorScheme.surface.copy(alpha = 0f)
+                    Color.Transparent
                 },
             )
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onResumeSession(session.id) }

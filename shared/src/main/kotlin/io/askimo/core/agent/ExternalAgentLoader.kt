@@ -9,8 +9,8 @@ import io.askimo.core.logging.logger
 /**
  * Discovers which external agents are installed on the current machine.
  *
- * Agents are registered in a fixed list. Only agents whose [ExternalAgent.isAvailable]
- * returns `true` are returned from [available].
+ * Agents are registered in a fixed list. Only agents whose [ExternalAgent.readiness]
+ * equals [AgentReadiness.READY] are returned from [available].
  *
  * To add a new agent in the future, register it in [ALL] and implement [ExternalAgent].
  */
@@ -44,7 +44,7 @@ object ExternalAgentLoader {
      * reflects the current `PATH` state without requiring a restart.
      */
     fun available(): List<ExternalAgent> = ALL.filter { agent ->
-        agent.isAvailable().also { available ->
+        (agent.readiness == AgentReadiness.READY).also { available ->
             if (available) {
                 log.debug("External agent '{}' is available", agent.id)
             } else {

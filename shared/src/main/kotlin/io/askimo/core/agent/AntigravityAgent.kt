@@ -4,6 +4,7 @@
  */
 package io.askimo.core.agent
 
+import io.askimo.core.agent.domain.SkillDefinition
 import io.askimo.core.context.AppContext
 import io.askimo.core.logging.logger
 import io.askimo.core.providers.ModelProvider
@@ -24,6 +25,22 @@ class AntigravityAgent : ExternalAgentTemplate() {
     override val id = "antigravity"
     override val name = "Antigravity CLI"
     override val installUrl = "https://antigravity.google"
+
+    override val supportsNativeSkillDiscovery = true
+
+    /**
+     * Materializes [skill] into `<workDir>/.agents/skills/<folder-name>/` via a symbolic
+     * link — Antigravity's workspace-scoped skill location per its docs ("Where skills
+     * live"): `<workspace-root>/.agents/skills/<skill-folder>/` (Antigravity also supports
+     * a global `~/.gemini/config/skills/` location and the legacy `.agent/skills` path, but
+     * workspace scope mirrors Claude Code's per-workspace materialization and avoids
+     * polluting the user's global skill folder with Askimo-managed, run-scoped skills).
+     *
+     * Uses a symlink rather than copying files (see [ExternalAgentTemplate.materializeSkillFolder])
+     * since Antigravity is confirmed to follow symlinked skill folders — cheaper than copying
+     * and trivial to clean up (a single link deletion).
+     */
+    override fun materializeSkill(skill: SkillDefinition, workDir: File): AutoCloseable = materializeSkillSymlink(skill, workDir.toPath().resolve(".agents").resolve("skills"))
 
     /**
      * Resolves the Google/Gemini API key from:
@@ -101,7 +118,7 @@ class AntigravityAgent : ExternalAgentTemplate() {
             // it instead of Askimo replaying prior turns itself.
             // TODO: verify exact flag name against the installed Antigravity CLI version.
             if (!resumeSessionId.isNullOrBlank()) {
-                add("--conversation-id")
+                add("--conversation")
                 add(resumeSessionId)
             }
         }
