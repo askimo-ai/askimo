@@ -30,6 +30,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.unit.dp
+import io.askimo.ui.common.theme.AppColors
+import io.askimo.ui.common.theme.AppTextStyles
 
 /**
  * Primary action button with filled background.
@@ -96,9 +98,9 @@ fun secondaryButton(
         border = BorderStroke(
             width = 1.dp,
             color = if (enabled) {
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                AppColors.tertiaryIconColor()
             } else {
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                AppColors.surfaceColor(AppColors.Elevation.RECESSED)
             },
         ),
         modifier = modifier.pointerHoverIcon(PointerIcon.Hand, overrideDescendants = true),
@@ -167,7 +169,7 @@ fun linkButton(
     val contentColor = if (enabled) {
         MaterialTheme.colorScheme.onSurface
     } else {
-        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+        AppTextStyles.disabledContent
     }
 
     CompositionLocalProvider(LocalContentColor provides contentColor) {

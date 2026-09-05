@@ -121,12 +121,35 @@ object ThemePreferences {
         // AppConfig is the canonical store for the UI locale (shared, YAML-persisted)
         val savedTag = runCatching { AppConfig.currentLocale }.getOrNull()
         if (!savedTag.isNullOrBlank()) {
-            val locale = runCatching { Locale.forLanguageTag(savedTag) }.getOrDefault(Locale.ENGLISH)
+            val locale = normalizeLocale(
+                runCatching { Locale.forLanguageTag(savedTag) }.getOrDefault(Locale.ENGLISH),
+            )
+            val normalizedTag = locale.toLanguageTag()
+            if (normalizedTag != savedTag) {
+                // Self-heal legacy persisted tags like "vi-Latn-VN" -> "vi-VN"
+                AppConfig.updateField("currentLocale", normalizedTag)
+            }
             LocalizationManager.setLocale(locale)
             return locale
         }
         // No preference saved — default to English
         return Locale.ENGLISH
+    }
+
+    /**
+     * Strips any script/variant subtag (e.g. "Latn") from a [Locale] so persisted
+     * and in-memory tags stay consistent (e.g. "en", "vi-VN") instead of forms
+     * like "vi-Latn-VN" that the JVM's CLDR locale data can produce.
+     */
+    private fun normalizeLocale(locale: Locale): Locale {
+        val language = locale.language
+        val country = locale.country
+        if (language.isBlank()) return locale
+        return if (country.isNotEmpty()) {
+            Locale.Builder().setLanguage(language).setRegion(country).build()
+        } else {
+            Locale.Builder().setLanguage(language).build()
+        }
     }
 
     private fun loadLogLevel(): LogLevel {
@@ -173,10 +196,11 @@ object ThemePreferences {
     }
 
     fun setLocale(locale: Locale) {
-        _locale.value = locale
-        prefs.put(LOCALE_KEY, locale.toLanguageTag())
-        AppConfig.updateField("currentLocale", locale.toLanguageTag())
-        LocalizationManager.setLocale(locale)
+        val normalized = normalizeLocale(locale)
+        _locale.value = normalized
+        prefs.put(LOCALE_KEY, normalized.toLanguageTag())
+        AppConfig.updateField("currentLocale", normalized.toLanguageTag())
+        LocalizationManager.setLocale(normalized)
     }
 
     fun setLogLevel(level: LogLevel) {

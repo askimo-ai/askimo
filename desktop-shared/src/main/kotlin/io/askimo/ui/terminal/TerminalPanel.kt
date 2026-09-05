@@ -22,7 +22,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -65,6 +64,7 @@ import com.pty4j.WinSize
 import io.askimo.core.util.AskimoHome
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
+import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import kotlinx.coroutines.delay
@@ -270,7 +270,7 @@ fun terminalPanel(
                                         )
 
                                         // Context menu
-                                        DropdownMenu(
+                                        AppComponents.dropdownMenu(
                                             expanded = showContextMenu,
                                             onDismissRequest = { showContextMenu = false },
                                         ) {

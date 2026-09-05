@@ -5,6 +5,7 @@
 package io.askimo.ui.bookmarks
 
 import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
@@ -38,6 +40,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import io.askimo.core.chat.service.BookmarkGroup
 import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -152,7 +157,7 @@ fun bookmarksView(
                                     imageVector = Icons.Default.BookmarkBorder,
                                     contentDescription = null,
                                     modifier = Modifier.size(48.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                    tint = AppColors.tertiaryIconColor(),
                                 )
                                 Text(
                                     text = stringResource("bookmarks.empty.title"),
@@ -216,7 +221,7 @@ private fun bookmarkGroupCard(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = AppComponents.sidebarSurfaceColor(),
+        color = AppColors.sidebarSurfaceColor(),
         shape = MaterialTheme.shapes.medium,
     ) {
         Column {
@@ -244,7 +249,7 @@ private fun bookmarkGroupCard(
                 )
             }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            HorizontalDivider(color = AppColors.codeBlockBorderColor())
 
             // ── Bookmarked messages ───────────────────────────────────────
             group.messages.forEach { message ->
@@ -257,7 +262,7 @@ private fun bookmarkGroupCard(
                 )
                 HorizontalDivider(
                     modifier = Modifier.padding(horizontal = Spacing.large),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                    color = AppColors.codeBlockBorderColor(),
                 )
             }
         }
@@ -281,13 +286,16 @@ private fun bookmarkMessageRow(
         horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
         verticalAlignment = Alignment.Top,
     ) {
-        // Bookmark icon — always visible; hover switches to BookmarkBorder; click removes
         val bookmarkHoverSource = remember { MutableInteractionSource() }
         val isBookmarkHovered by bookmarkHoverSource.collectIsHoveredAsState()
         Box(
             modifier = Modifier
                 .padding(top = 2.dp)
                 .size(20.dp)
+                .clip(CircleShape)
+                .background(
+                    if (isBookmarkHovered) AppColors.surfaceColor(AppColors.Elevation.RAISED) else Color.Transparent,
+                )
                 .hoverable(bookmarkHoverSource)
                 .pointerHoverIcon(PointerIcon.Hand)
                 .clickable(
@@ -301,7 +309,7 @@ private fun bookmarkMessageRow(
                 imageVector = if (isBookmarkHovered) Icons.Default.BookmarkBorder else Icons.Default.Bookmark,
                 contentDescription = stringResource("message.bookmark.remove"),
                 modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = if (isBookmarkHovered) 1f else 0.7f),
+                tint = MaterialTheme.colorScheme.primary,
             )
         }
 
@@ -310,7 +318,7 @@ private fun bookmarkMessageRow(
             Text(
                 text = if (isUser) stringResource("bookmarks.role.user") else stringResource("bookmarks.role.ai"),
                 style = AppTextStyles.hint,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                color = AppColors.secondaryIconColor(),
             )
             Spacer(modifier = Modifier.height(2.dp))
             // Message preview — rendered as markdown
@@ -323,7 +331,7 @@ private fun bookmarkMessageRow(
                 Text(
                     text = TimeUtil.formatFullDateTime(ts, Locale.getDefault()),
                     style = AppTextStyles.hint,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    color = AppColors.tertiaryIconColor(),
                 )
             }
         }

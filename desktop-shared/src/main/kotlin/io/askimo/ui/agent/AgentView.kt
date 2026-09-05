@@ -66,7 +66,7 @@ import io.askimo.core.agent.domain.Workspace
 import io.askimo.core.agent.repository.SkillRepository
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
-import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.TooltipPlacement
@@ -140,7 +140,7 @@ fun agentsView(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.3f))
+                            .background(AppColors.scrimColor(alpha = 0.3f))
                             .clickable(
                                 indication = null,
                                 interactionSource = remember { MutableInteractionSource() },
@@ -199,7 +199,7 @@ internal fun agentsPageHeader(
                         tint = if (hasActiveConversation) {
                             MaterialTheme.colorScheme.primary
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                            AppColors.tertiaryIconColor()
                         },
                     )
                 }
@@ -266,7 +266,7 @@ internal fun agentsPageHeader(
         runtimes.forEach { runtime ->
             Surface(
                 shape = MaterialTheme.shapes.small,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                color = AppColors.surfaceColor(AppColors.Elevation.RECESSED),
             ) {
                 Text(
                     text = runtime,
@@ -365,7 +365,7 @@ private fun agenticWorkspacePanel(
         modifier = Modifier.width(animatedWidth).fillMaxHeight(),
         shape = RectangleShape,
         colors = CardDefaults.cardColors(
-            containerColor = AppComponents.sidebarSurfaceColor(),
+            containerColor = AppColors.sidebarSurfaceColor(),
             contentColor = MaterialTheme.colorScheme.onSurface,
         ),
     ) {
@@ -430,7 +430,7 @@ private fun agenticWorkspacePanel(
                             }
                         }
                     }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                    HorizontalDivider(color = AppColors.codeBlockBorderColor())
                     Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                         workspaceFilesPanel(
                             workDir = workDir,
@@ -446,7 +446,7 @@ private fun agenticWorkspacePanel(
                         modifier = Modifier
                             .width(56.dp)
                             .fillMaxHeight()
-                            .background(AppComponents.surfaceRecessed())
+                            .background(AppColors.surfaceColor(AppColors.Elevation.RECESSED))
                             .clickable(
                                 indication = null,
                                 interactionSource = remember { MutableInteractionSource() },

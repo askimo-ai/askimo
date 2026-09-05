@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 
@@ -89,7 +90,7 @@ fun renameSessionDialog(
                 singleLine = true,
                 isError = error != null,
                 supportingText = error?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
-                colors = AppComponents.outlinedTextFieldColors(),
+                colors = AppColors.outlinedTextFieldColors(),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { performRename() }),
             )

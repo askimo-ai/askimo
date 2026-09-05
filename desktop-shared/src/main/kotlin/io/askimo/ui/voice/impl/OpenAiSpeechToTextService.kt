@@ -5,7 +5,9 @@
 package io.askimo.ui.voice.impl
 
 import dev.langchain4j.data.audio.Audio
+import dev.langchain4j.model.audio.AudioTranscriptionRequest
 import dev.langchain4j.model.openai.OpenAiAudioTranscriptionModel
+import io.askimo.core.config.AppConfig
 import io.askimo.core.config.VoiceConfig
 import io.askimo.core.config.VoiceProvider
 import io.askimo.core.logging.logger
@@ -40,13 +42,23 @@ class OpenAiSpeechToTextService(private val config: VoiceConfig) : SpeechToTextS
                 .apiKey(apiKey)
                 .modelName(config.sttModel.ifBlank { "whisper-1" })
                 .build()
-
-            model.transcribeToText(Audio.builder().base64Data(Base64.getEncoder().encodeToString(audio)).mimeType("audio/wav").build())
+            model.transcribe(
+                AudioTranscriptionRequest.builder().audio(
+                    Audio.builder().base64Data(Base64.getEncoder().encodeToString(audio)).mimeType("audio/wav").build(),
+                ).language(whisperLanguageCode()).build(),
+            ).text()
         } catch (e: Exception) {
             log.warn("OpenAI transcription request failed", e)
             throw VoiceServiceException("OpenAI transcription request failed: ${e.message}", e)
         }
     }
+
+    /**
+     * Whisper's `/v1/audio/transcriptions` API requires a plain ISO-639-1 language code
+     * (e.g. `"vi"`, `"en"`), not a full BCP-47 tag like `"vi-VN"`. Strip any region/script
+     * subtag from [AppConfig.currentLocale] before passing it along.
+     */
+    private fun whisperLanguageCode(): String = (AppConfig.currentLocale ?: "en").substringBefore('-').lowercase().ifBlank { "en" }
 }
 
 object OpenAiSpeechToTextFactory : SpeechToTextFactory {

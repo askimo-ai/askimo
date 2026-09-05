@@ -53,6 +53,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -74,12 +75,20 @@ import io.askimo.ui.chat.turnTimelineView
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.keymap.KeyMapManager
 import io.askimo.ui.common.keymap.onImeAwarePreviewKeyEvent
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.themedTooltip
+
+@Composable
+private fun agentReadinessDotColor(state: AgentReadiness?): Color = when (state) {
+    AgentReadiness.READY -> MaterialTheme.colorScheme.tertiary
+    AgentReadiness.NEEDS_SETUP -> MaterialTheme.colorScheme.secondary
+    AgentReadiness.NOT_INSTALLED, null -> AppColors.surfaceColor(AppColors.Elevation.RECESSED)
+}
 
 /**
  * Autonomous run area — user selects an agent and describes a goal;
@@ -220,7 +229,7 @@ internal fun agenticRunArea(
                         var pillHeightPx by remember { mutableStateOf(0) }
                         Box {
                             Surface(
-                                color = AppComponents.surfaceRaised(),
+                                color = AppColors.surfaceColor(AppColors.Elevation.RAISED),
                                 shape = MaterialTheme.shapes.small,
                                 modifier = Modifier
                                     .clickable(onClick = { skillsListExpanded = true })
@@ -248,7 +257,7 @@ internal fun agenticRunArea(
                                     val maxVisible = 4
                                     skills.take(maxVisible).forEach { skill ->
                                         Surface(
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f),
+                                            color = AppColors.surfaceColor(AppColors.Elevation.RECESSED),
                                             shape = MaterialTheme.shapes.extraSmall,
                                         ) {
                                             Text(
@@ -282,14 +291,14 @@ internal fun agenticRunArea(
                                     onDismissRequest = { skillsListExpanded = false },
                                     properties = PopupProperties(focusable = true),
                                 ) {
-                                    MaterialTheme(colorScheme = AppComponents.popupColorScheme()) {
+                                    MaterialTheme(colorScheme = AppColors.popupColorScheme()) {
                                         Surface(
                                             modifier = Modifier.width(380.dp),
-                                            color = AppComponents.popupContainerColor(),
-                                            border = AppComponents.popupBorderStroke(),
+                                            color = AppColors.popupContainerColor(),
+                                            border = AppColors.popupBorderStroke(),
                                             shape = RoundedCornerShape(8.dp),
-                                            tonalElevation = AppComponents.popupSurfaceTonalElevation,
-                                            shadowElevation = AppComponents.popupElevation,
+                                            tonalElevation = AppColors.popupSurfaceTonalElevation,
+                                            shadowElevation = AppColors.popupElevation,
                                         ) {
                                             Column {
                                                 Box(modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp)) {
@@ -346,7 +355,7 @@ internal fun agenticRunArea(
                                                 }
 
                                                 // ── Sticky footer — always visible, outside the scroll area ──
-                                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                                                HorizontalDivider(color = AppColors.codeBlockBorderColor())
                                                 Row(
                                                     modifier = Modifier
                                                         .fillMaxWidth()
@@ -374,7 +383,7 @@ internal fun agenticRunArea(
                         }
                     } else {
                         Surface(
-                            color = AppComponents.surfaceRaised(),
+                            color = AppColors.surfaceColor(AppColors.Elevation.RAISED),
                             shape = MaterialTheme.shapes.small,
                         ) {
                             Row(
@@ -388,7 +397,7 @@ internal fun agenticRunArea(
                                     Icons.Default.Extension,
                                     contentDescription = null,
                                     modifier = Modifier.size(14.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                    tint = AppColors.tertiaryIconColor(),
                                 )
                                 Text(
                                     text = stringResource("agents.agentic.no.skills.hint"),
@@ -409,7 +418,7 @@ internal fun agenticRunArea(
                     if (viewModel.agentStateMap[viewModel.selectedAgentRaw?.id] == AgentReadiness.NEEDS_SETUP) {
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
-                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
+                            color = AppColors.surfaceColor(AppColors.Elevation.RAISED),
                             shape = MaterialTheme.shapes.small,
                         ) {
                             Column(modifier = Modifier.padding(Spacing.medium), verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
@@ -502,7 +511,7 @@ internal fun agenticRunArea(
                             },
                         minLines = 4,
                         maxLines = 10,
-                        colors = AppComponents.outlinedTextFieldColors(),
+                        colors = AppColors.outlinedTextFieldColors(),
                     )
 
                     // ── Model selector — overlaid inside the field, bottom-left ────────
@@ -513,8 +522,8 @@ internal fun agenticRunArea(
                     ) {
                         Surface(
                             shape = MaterialTheme.shapes.small,
-                            color = AppComponents.surfaceEmphasis(),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)),
+                            color = AppColors.surfaceColor(AppColors.Elevation.EMPHASIS),
+                            border = BorderStroke(1.dp, AppColors.codeBlockBorderColor()),
                             modifier = Modifier
                                 .clickable(enabled = !viewModel.isRunning, onClick = { modelDropdownExpanded = true })
                                 .pointerHoverIcon(PointerIcon.Hand),
@@ -532,7 +541,7 @@ internal fun agenticRunArea(
                                     Icons.Default.ExpandMore,
                                     contentDescription = null,
                                     modifier = Modifier.size(12.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    tint = AppColors.secondaryIconColor(),
                                 )
                             }
                         }
@@ -572,8 +581,8 @@ internal fun agenticRunArea(
                             ) {
                                 Surface(
                                     shape = MaterialTheme.shapes.small,
-                                    color = AppComponents.surfaceEmphasis(),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)),
+                                    color = AppColors.surfaceColor(AppColors.Elevation.EMPHASIS),
+                                    border = BorderStroke(1.dp, AppColors.codeBlockBorderColor()),
                                     modifier = Modifier
                                         .clickable(enabled = agentPickerEnabled, onClick = { agentDropdownExpanded = true })
                                         .pointerHoverIcon(if (agentPickerEnabled) PointerIcon.Hand else PointerIcon.Default),
@@ -587,11 +596,7 @@ internal fun agenticRunArea(
                                             modifier = Modifier
                                                 .size(6.dp)
                                                 .background(
-                                                    color = when (viewModel.agentStateMap[viewModel.selectedAgent?.id]) {
-                                                        AgentReadiness.READY -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.8f)
-                                                        AgentReadiness.NEEDS_SETUP -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f)
-                                                        else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
-                                                    },
+                                                    color = agentReadinessDotColor(viewModel.agentStateMap[viewModel.selectedAgent?.id]),
                                                     shape = MaterialTheme.shapes.extraSmall,
                                                 ),
                                         )
@@ -603,7 +608,7 @@ internal fun agenticRunArea(
                                             Icons.Default.ExpandMore,
                                             contentDescription = null,
                                             modifier = Modifier.size(12.dp),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            tint = AppColors.secondaryIconColor(),
                                         )
                                     }
                                 }
@@ -622,11 +627,7 @@ internal fun agenticRunArea(
                                                     modifier = Modifier
                                                         .size(7.dp)
                                                         .background(
-                                                            color = when (agentState) {
-                                                                AgentReadiness.READY -> MaterialTheme.colorScheme.tertiary
-                                                                AgentReadiness.NEEDS_SETUP -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f)
-                                                                AgentReadiness.NOT_INSTALLED -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
-                                                            },
+                                                            color = agentReadinessDotColor(agentState),
                                                             shape = MaterialTheme.shapes.extraSmall,
                                                         ),
                                                 )
@@ -658,7 +659,7 @@ internal fun agenticRunArea(
                         IconButton(
                             onClick = { sendMessage() },
                             enabled = viewModel.selectedAgentReady && inputText.text.isNotBlank() && !viewModel.isRunning,
-                            colors = AppComponents.primaryIconButtonColors(),
+                            colors = AppColors.primaryIconButtonColors(),
                             modifier = Modifier
                                 .size(36.dp)
                                 .pointerHoverIcon(PointerIcon.Hand),

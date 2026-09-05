@@ -80,6 +80,7 @@ import io.askimo.core.user.domain.UserProfile
 import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.components.clickableCard
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -704,7 +705,7 @@ private fun tokenUsageChartCard(
                     }
                 }
                 tokenUsageSummaryStrip(totalTokens = totalTokens, totalCalls = totalCalls, topModel = topModelName)
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                HorizontalDivider(color = AppColors.codeBlockBorderColor())
 
                 topModels.forEachIndexed { index, stat ->
                     val provider = stat.instanceKey
@@ -725,7 +726,7 @@ private fun tokenUsageChartCard(
 
                     if (index < topModels.lastIndex) {
                         HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                            color = AppColors.codeBlockBorderColor(),
                         )
                     }
                 }
@@ -892,7 +893,7 @@ private fun exploreCard(
     clickableCard(
         onClick = { runCatching { Desktop.getDesktop().browse(URI(url)) } },
         modifier = modifier,
-        colors = AppComponents.surfaceVariantCardColors(),
+        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().fillMaxHeight().padding(Spacing.large),
@@ -904,7 +905,7 @@ private fun exploreCard(
                 verticalAlignment = Alignment.Top,
             ) {
                 icon()
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(14.dp), tint = AppColors.tertiaryIconColor())
             }
             Text(text = title, style = AppTextStyles.itemTitle)
             Text(text = description, style = AppTextStyles.caption)
@@ -937,7 +938,7 @@ private fun recentSessionsSection(
                     sessions.forEachIndexed { index, session ->
                         recentSessionRow(session = session, onResumeSession = onResumeSession)
                         if (index < sessions.lastIndex) {
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                            HorizontalDivider(color = AppColors.codeBlockBorderColor())
                         }
                     }
                 }
@@ -960,7 +961,7 @@ private fun recentSessionRow(
             .hoverable(interactionSource)
             .background(
                 if (isHovered) {
-                    AppComponents.surfaceRaised()
+                    AppColors.surfaceColor(AppColors.Elevation.RAISED)
                 } else {
                     Color.Transparent
                 },

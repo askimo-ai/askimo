@@ -50,6 +50,7 @@ import io.askimo.core.context.AppContext
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.telemetry.LlmInstanceStats
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -386,7 +387,7 @@ private fun telemetryMetricCard(
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+            containerColor = AppColors.surfaceColor(AppColors.Elevation.SELECTED),
         ),
     ) {
         Column(
@@ -416,7 +417,7 @@ private fun telemetryMetricCard(
                 text = subtitle,
                 style = AppTextStyles.caption,
                 fontSize = 10.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                color = AppColors.secondaryIconColor(),
             )
         }
     }

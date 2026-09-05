@@ -43,6 +43,7 @@ import io.askimo.core.util.JsonUtils
 import io.askimo.core.util.JsonUtils.prettyJson
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -92,7 +93,7 @@ fun sessionMemoryDialog(
             if (isLoading) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppComponents.surfaceVariantCardColors(),
+                    colors = AppColors.cardColors(AppColors.Elevation.RAISED),
                 ) {
                     Text(
                         text = stringResource("developer.session.memory.loading"),
@@ -103,7 +104,7 @@ fun sessionMemoryDialog(
             } else if (sessionMemory == null) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppComponents.surfaceVariantCardColors(),
+                    colors = AppColors.cardColors(AppColors.Elevation.RAISED),
                 ) {
                     Text(
                         text = stringResource("developer.session.memory.not.found"),
@@ -141,7 +142,7 @@ fun sessionMemoryDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(max = 200.dp),
-                        colors = AppComponents.surfaceVariantCardColors(),
+                        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
                     ) {
                         Box(
                             modifier = Modifier.fillMaxWidth(),
@@ -265,7 +266,7 @@ fun sessionMemoryDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(300.dp),
-                        colors = AppComponents.surfaceVariantCardColors(),
+                        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
                     ) {
                         Box(
                             modifier = Modifier.fillMaxWidth(),

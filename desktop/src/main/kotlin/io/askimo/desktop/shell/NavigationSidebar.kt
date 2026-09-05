@@ -45,6 +45,7 @@ import io.askimo.core.user.domain.UserProfile
 import io.askimo.desktop.View
 import io.askimo.desktop.project.ProjectsViewModel
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.LocalFontScale
@@ -234,7 +235,7 @@ private fun communityUserProfileSection(
                     imageVector = Icons.Default.Settings,
                     contentDescription = stringResource("user.menu.settings"),
                     modifier = Modifier.size((16 * fontScale).dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    tint = AppColors.tertiaryIconColor(),
                 )
             }
             communityProfileMenu(
@@ -270,7 +271,7 @@ private fun communityUserProfileSection(
                     modifier = Modifier
                         .padding(vertical = (8 * fontScale).dp)
                         .pointerHoverIcon(PointerIcon.Hand),
-                    colors = AppComponents.navigationRailItemColors(),
+                    colors = AppColors.navigationRailItemColors(),
                 )
             }
             communityProfileMenu(

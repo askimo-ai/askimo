@@ -58,6 +58,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.rememberDialogState
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -393,7 +394,7 @@ fun addMcpInstanceDialog(
                 placeholder = { Text(stringResource("mcp.instance.name.placeholder")) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                colors = AppComponents.outlinedTextFieldColors(),
+                colors = AppColors.outlinedTextFieldColors(),
             )
 
             OutlinedTextField(
@@ -404,7 +405,7 @@ fun addMcpInstanceDialog(
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 2,
                 maxLines = 3,
-                colors = AppComponents.outlinedTextFieldColors(),
+                colors = AppColors.outlinedTextFieldColors(),
             )
         },
         actions = {
@@ -606,7 +607,7 @@ fun addMcpInstanceDialog(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = AppComponents.surfaceRaised(),
+                    containerColor = AppColors.surfaceColor(AppColors.Elevation.RAISED),
                 ),
             ) {
                 Column(
@@ -719,7 +720,7 @@ private fun templateParameterFields(
                 } else {
                     null
                 },
-                colors = AppComponents.outlinedTextFieldColors(),
+                colors = AppColors.outlinedTextFieldColors(),
             )
         }
     }
@@ -801,7 +802,7 @@ private fun advancedTransportFields(
                     supportingText = { Text(stringResource("mcp.instance.field.command.hint")) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                 )
                 OutlinedTextField(
                     value = args,
@@ -811,7 +812,7 @@ private fun advancedTransportFields(
                     supportingText = { Text(stringResource("mcp.instance.field.args.hint")) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                 )
                 OutlinedTextField(
                     value = workingDir,
@@ -821,7 +822,7 @@ private fun advancedTransportFields(
                     supportingText = { Text(stringResource("mcp.instance.field.workingdir.hint")) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                 )
                 OutlinedTextField(
                     value = envVars, onValueChange = onEnvVarsChange,
@@ -829,7 +830,7 @@ private fun advancedTransportFields(
                     placeholder = { Text(stringResource("mcp.instance.env.placeholder")) },
                     supportingText = { Text(stringResource("mcp.instance.env.hint")) },
                     modifier = Modifier.fillMaxWidth(), minLines = 3, maxLines = 5,
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                 )
             }
         }
@@ -844,7 +845,7 @@ private fun advancedTransportFields(
                     supportingText = { Text(stringResource("mcp.instance.http.url.hint")) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                 )
                 OutlinedTextField(
                     value = headers, onValueChange = onHeadersChange,
@@ -852,7 +853,7 @@ private fun advancedTransportFields(
                     placeholder = { Text(stringResource("mcp.instance.http.headers.placeholder")) },
                     supportingText = { Text(stringResource("mcp.instance.http.headers.hint")) },
                     modifier = Modifier.fillMaxWidth(), minLines = 3, maxLines = 5,
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                 )
                 OutlinedTextField(
                     value = timeoutMs,
@@ -862,7 +863,7 @@ private fun advancedTransportFields(
                     supportingText = { Text(stringResource("mcp.instance.http.timeout.hint")) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                 )
             }
         }
@@ -884,7 +885,7 @@ private fun advancedTransportFields(
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
-                colors = AppComponents.outlinedTextFieldColors(),
+                colors = AppColors.outlinedTextFieldColors(),
             )
             // Transparent click interceptor — captures the click before the read-only TextField does
             Box(

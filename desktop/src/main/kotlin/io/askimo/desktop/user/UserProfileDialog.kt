@@ -42,6 +42,7 @@ import io.askimo.core.user.domain.UserProfile
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -225,7 +226,7 @@ fun userProfileDialog(
                 value = name,
                 onValueChange = { name = it },
                 label = { Text(stringResource("user.profile.name")) },
-                colors = AppComponents.outlinedTextFieldColors(),
+                colors = AppColors.outlinedTextFieldColors(),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
@@ -234,7 +235,7 @@ fun userProfileDialog(
                 onValueChange = { email = it },
                 label = { Text(stringResource("user.profile.email")) },
                 placeholder = { Text(stringResource("user.profile.email.placeholder")) },
-                colors = AppComponents.outlinedTextFieldColors(),
+                colors = AppColors.outlinedTextFieldColors(),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
@@ -243,7 +244,7 @@ fun userProfileDialog(
                 onValueChange = { occupation = it },
                 label = { Text(stringResource("user.profile.occupation")) },
                 placeholder = { Text(stringResource("user.profile.occupation.placeholder")) },
-                colors = AppComponents.outlinedTextFieldColors(),
+                colors = AppColors.outlinedTextFieldColors(),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
@@ -252,7 +253,7 @@ fun userProfileDialog(
                 onValueChange = { location = it },
                 label = { Text(stringResource("user.profile.location")) },
                 placeholder = { Text(stringResource("user.profile.location.placeholder")) },
-                colors = AppComponents.outlinedTextFieldColors(),
+                colors = AppColors.outlinedTextFieldColors(),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
@@ -261,7 +262,7 @@ fun userProfileDialog(
                 onValueChange = { bio = it },
                 label = { Text(stringResource("user.profile.bio")) },
                 placeholder = { Text(stringResource("user.profile.bio.placeholder")) },
-                colors = AppComponents.outlinedTextFieldColors(),
+                colors = AppColors.outlinedTextFieldColors(),
                 modifier = Modifier.fillMaxWidth().height(100.dp),
                 maxLines = 4,
             )
@@ -302,7 +303,7 @@ fun userProfileDialog(
                 onValueChange = { customInterests = it },
                 label = { Text(stringResource("user.profile.interests.custom")) },
                 placeholder = { Text(stringResource("user.profile.interests.custom.placeholder")) },
-                colors = AppComponents.outlinedTextFieldColors(),
+                colors = AppColors.outlinedTextFieldColors(),
                 modifier = Modifier.fillMaxWidth(),
                 supportingText = {
                     Text(

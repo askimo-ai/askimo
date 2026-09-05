@@ -68,6 +68,7 @@ import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.rememberDialogState
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -153,7 +154,7 @@ fun mcpToolsDialog(
                     placeholder = { Text(stringResource("mcp.tools.dialog.search.placeholder")) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                 )
             }
         },
@@ -189,7 +190,7 @@ fun mcpToolsDialog(
         // ── Instance info card ─────────────────────────────────────────────
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = AppComponents.bannerCardColors(),
+            colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
         ) {
             Column(
                 modifier = Modifier
@@ -203,7 +204,7 @@ fun mcpToolsDialog(
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
                 HorizontalDivider(
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.2f),
+                    color = AppColors.tertiaryIconColor(),
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -212,7 +213,7 @@ fun mcpToolsDialog(
                     Text(
                         text = stringResource("mcp.instance.field.serverId"),
                         style = AppTextStyles.caption,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                        color = AppColors.secondaryIconColor(),
                     )
                     SelectionContainer {
                         Text(
@@ -226,7 +227,7 @@ fun mcpToolsDialog(
                     Text(
                         text = stringResource("mcp.tools.dialog.parameters"),
                         style = AppTextStyles.caption,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                        color = AppColors.secondaryIconColor(),
                         modifier = Modifier.padding(top = Spacing.extraSmall),
                     )
                     instance.parameterValues.forEach { (key, value) ->
@@ -243,7 +244,7 @@ fun mcpToolsDialog(
                                 Text(
                                     text = key,
                                     style = AppTextStyles.caption,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
+                                    color = AppColors.tertiaryIconColor(),
                                 )
                             }
                             Row(
@@ -287,7 +288,7 @@ fun mcpToolsDialog(
                                                 if (showSecret) "mcp.instance.password.hide" else "mcp.instance.password.show",
                                             ),
                                             modifier = Modifier.size(14.dp),
-                                            tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
+                                            tint = AppColors.tertiaryIconColor(),
                                         )
                                     }
                                 }

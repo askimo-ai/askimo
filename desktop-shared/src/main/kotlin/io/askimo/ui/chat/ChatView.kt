@@ -40,7 +40,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -105,6 +104,7 @@ import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.keymap.KeyMapManager
 import io.askimo.ui.common.keymap.KeyMapManager.AppShortcut
 import io.askimo.ui.common.preferences.ApplicationPreferences
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.LocalBackgroundActive
@@ -513,7 +513,7 @@ fun chatView(
                             .fillMaxWidth()
                             .padding(horizontal = Spacing.large, vertical = Spacing.small),
                         colors = CardDefaults.cardColors(
-                            containerColor = AppComponents.sidebarSurfaceColor(),
+                            containerColor = AppColors.sidebarSurfaceColor(),
                             contentColor = MaterialTheme.colorScheme.onSurface,
                         ),
                     ) {
@@ -676,7 +676,7 @@ fun chatView(
                                         }
                                     }
 
-                                    DropdownMenu(
+                                    AppComponents.dropdownMenu(
                                         expanded = showBookmarksPopover,
                                         onDismissRequest = { showBookmarksPopover = false },
                                         modifier = Modifier.widthIn(min = 480.dp),
@@ -805,7 +805,7 @@ fun chatView(
                                                                         Text(
                                                                             text = formatDisplay(ts),
                                                                             style = AppTextStyles.hint,
-                                                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                                                            color = AppColors.secondaryIconColor(),
                                                                         )
                                                                     }
                                                                 }
@@ -858,7 +858,7 @@ fun chatView(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 8.dp),
-                        colors = AppComponents.bannerCardColors(),
+                        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
                     ) {
                         Row(
                             modifier = Modifier
@@ -883,7 +883,7 @@ fun chatView(
                                     .focusRequester(searchFocusRequester),
                                 placeholder = { Text(stringResource("chat.search.placeholder")) },
                                 singleLine = true,
-                                colors = AppComponents.outlinedTextFieldColors(),
+                                colors = AppColors.outlinedTextFieldColors(),
                             )
 
                             // Result count
@@ -1172,7 +1172,7 @@ fun chatView(
                                 .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp, vertical = 4.dp),
-                            colors = AppComponents.bannerCardColors(),
+                            colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
                         ) {
                             Row(
                                 modifier = Modifier
@@ -1315,7 +1315,7 @@ fun chatView(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f)),
+                    .background(AppColors.scrimColor(alpha = 0.32f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Surface(

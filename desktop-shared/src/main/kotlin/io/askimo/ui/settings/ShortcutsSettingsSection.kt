@@ -53,6 +53,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.keymap.KeyMapManager
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -148,7 +149,7 @@ fun shortcutsSettingsSection() {
                 filteredByCategory.forEach { (category, shortcuts) ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = AppComponents.bannerCardColors(),
+                        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
                     ) {
                         Column(
                             modifier = Modifier
@@ -168,7 +169,7 @@ fun shortcutsSettingsSection() {
                                     modifier = Modifier.weight(1f),
                                 )
                                 Card(
-                                    colors = AppComponents.surfaceVariantCardColors(),
+                                    colors = AppColors.cardColors(AppColors.Elevation.RAISED),
                                     shape = RoundedCornerShape(12.dp),
                                 ) {
                                     Text(
@@ -212,7 +213,7 @@ private fun shortcutRow(description: String, keyBinding: String) {
     val rowInteractionSource = remember { MutableInteractionSource() }
     val isHovered by rowInteractionSource.collectIsHoveredAsState()
     val rowBgColor by animateColorAsState(
-        targetValue = if (isHovered) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f) else Color.Transparent,
+        targetValue = if (isHovered) AppColors.surfaceColor(AppColors.Elevation.RECESSED) else Color.Transparent,
         label = "shortcutRowHover",
     )
 
@@ -272,7 +273,7 @@ private fun shortcutRow(description: String, keyBinding: String) {
 @Composable
 private fun keyChip(key: String) {
     Card(
-        colors = AppComponents.surfaceVariantCardColors(),
+        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
         shape = RoundedCornerShape(4.dp),
     ) {
         Text(

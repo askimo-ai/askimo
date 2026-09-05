@@ -74,6 +74,7 @@ import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.AppTextStyles
@@ -307,7 +308,7 @@ internal fun providerModelPanel(
                                         Text(
                                             text = stringResource("provider.model.panel.model.count", pendingModels.size),
                                             style = AppTextStyles.hint,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            color = AppColors.secondaryIconColor(),
                                         )
                                     }
                                 }
@@ -374,7 +375,7 @@ private fun modelListColumn(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = null,
                             modifier = Modifier.size(20.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            tint = AppColors.tertiaryIconColor(),
                         )
                         Text(
                             text = stringResource("provider.model.panel.select.hint"),
@@ -427,7 +428,7 @@ private fun modelListColumn(
                         Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
                     },
                     textStyle = AppTextStyles.caption,
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                 )
 
                 val modelListState = rememberLazyListState()
@@ -576,7 +577,7 @@ private fun modelListColumn(
                         Text(
                             text = stringResource("settings.model.chat.filter.label", filteredModels.size),
                             style = AppTextStyles.hint,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            color = AppColors.secondaryIconColor(),
                         )
                         linkButton(onClick = onShowAll) {
                             Text(
@@ -705,7 +706,7 @@ private fun instanceEditForm(
                                 singleLine = true,
                                 placeholder = { Text(stringResource("settings.placeholder.baseurl"), style = AppTextStyles.caption) },
                                 textStyle = AppTextStyles.caption,
-                                colors = AppComponents.outlinedTextFieldColors(),
+                                colors = AppColors.outlinedTextFieldColors(),
                             )
                         }
                     }
@@ -879,7 +880,7 @@ internal fun instanceRow(
                             Icon(
                                 Icons.Default.Delete,
                                 contentDescription = "Delete",
-                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                                tint = AppColors.warningColor(),
                                 modifier = Modifier.size(13.dp),
                             )
                         }

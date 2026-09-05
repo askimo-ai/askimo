@@ -43,6 +43,7 @@ import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -241,11 +242,11 @@ fun planEditorView(
                             Text(
                                 text = if (isNewPlan) YAML_HINT else stringResource("plans.editor.placeholder"),
                                 style = AppTextStyles.codeBlockPlaceholder,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                color = AppColors.tertiaryIconColor(),
                             )
                         },
                         isError = viewModel.editorValidationError != null,
-                        colors = AppComponents.outlinedTextFieldColors(),
+                        colors = AppColors.outlinedTextFieldColors(),
                         shape = MaterialTheme.shapes.small,
                     )
                 }
@@ -322,7 +323,7 @@ private fun aiGenerationPanel(
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        color = AppColors.surfaceColor(AppColors.Elevation.RAISED),
         shape = MaterialTheme.shapes.medium,
     ) {
         Column(modifier = Modifier.padding(Spacing.large)) {
@@ -360,7 +361,7 @@ private fun aiGenerationPanel(
                 Text(
                     text = stringResource("plans.editor.ai.hint"),
                     style = AppTextStyles.hint,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    color = AppColors.secondaryIconColor(),
                     modifier = Modifier.padding(top = Spacing.extraSmall),
                 )
             }

@@ -42,6 +42,7 @@ import io.askimo.core.config.AppConfig
 import io.askimo.core.config.ProxyType
 import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -117,7 +118,7 @@ private fun proxyConfigurationCard() {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppComponents.bannerCardColors(),
+        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
     ) {
         Column(
             modifier = Modifier

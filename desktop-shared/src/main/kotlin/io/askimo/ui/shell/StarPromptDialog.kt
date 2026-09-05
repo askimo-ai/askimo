@@ -48,6 +48,7 @@ import io.askimo.core.analytics.Analytics
 import io.askimo.core.analytics.AnalyticsEvent
 import io.askimo.core.service.StatsService
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -648,9 +649,9 @@ private fun shareActionCard(
                     text = stringResource("star.prompt.share.description"),
                     style = AppTextStyles.caption,
                     color = if (isHovered) {
-                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        AppColors.contentColorFor(AppColors.Elevation.SELECTED)
                     } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        AppColors.secondaryIconColor()
                     },
                 )
             }
@@ -668,7 +669,7 @@ private fun shareActionCard(
                         ShareUtils.share(target)
                         onShared()
                     },
-                    colors = AppComponents.menuItemColors(),
+                    colors = AppColors.menuItemColors(),
                     modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                 )
             }
@@ -718,9 +719,9 @@ private fun supportActionCard(
                 text = description,
                 style = AppTextStyles.caption,
                 color = if (isHovered) {
-                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    AppColors.contentColorFor(AppColors.Elevation.SELECTED)
                 } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                    AppColors.secondaryIconColor()
                 },
             )
         }

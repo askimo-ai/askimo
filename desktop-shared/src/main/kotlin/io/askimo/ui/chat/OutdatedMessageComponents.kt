@@ -39,7 +39,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.ui.common.i18n.stringResource
-import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppTextStyles
 
 /**
@@ -104,7 +104,7 @@ fun outdatedBranchComponent(
                 .clickable { isExpanded = !isExpanded }
                 .pointerHoverIcon(PointerIcon.Hand),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                containerColor = AppColors.surfaceColor(AppColors.Elevation.RAISED),
                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             ),
         ) {
@@ -122,14 +122,14 @@ fun outdatedBranchComponent(
                     } else {
                         stringResource("outdated.expand")
                     },
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    tint = AppColors.secondaryIconColor(),
                     modifier = Modifier.size(20.dp),
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = stringResource("outdated.branch.header", messages.size),
                     style = AppTextStyles.caption,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    color = AppColors.secondaryIconColor(),
                     fontStyle = FontStyle.Italic,
                 )
             }
@@ -142,7 +142,7 @@ fun outdatedBranchComponent(
                     .fillMaxWidth()
                     .padding(start = 16.dp, top = 8.dp)
                     .background(
-                        AppComponents.surfaceRecessed(),
+                        AppColors.surfaceColor(AppColors.Elevation.RECESSED),
                         RoundedCornerShape(8.dp),
                     )
                     .padding(8.dp),
@@ -189,7 +189,7 @@ fun outdatedMessageItem(
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.4f)),
+                .background(AppColors.outdatedMessageOverlayColor()),
         )
     }
 }

@@ -50,7 +50,7 @@ import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ProviderInstanceService
 import io.askimo.core.providers.ProviderRegistry
 import io.askimo.ui.common.i18n.stringResource
-import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.clickableCard
@@ -219,7 +219,7 @@ fun footerBar(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(AppComponents.sidebarSurfaceColor()),
+            .background(AppColors.sidebarSurfaceColor()),
     ) {
         HorizontalDivider()
 
@@ -232,7 +232,7 @@ fun footerBar(
                 Text(
                     text = "v${VersionInfo.version}",
                     style = AppTextStyles.caption,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    color = AppColors.tertiaryIconColor(),
                     modifier = Modifier
                         .align(Alignment.CenterStart)
                         .pointerHoverIcon(PointerIcon.Hand)

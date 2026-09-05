@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.logging.currentFileLogger
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -113,7 +114,7 @@ fun fileViewerPane(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)),
+            .background(AppColors.surfaceColor(AppColors.Elevation.RECESSED)),
     ) {
         HorizontalDivider()
 
@@ -134,7 +135,7 @@ fun fileViewerPane(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.InsertDriveFile,
                     contentDescription = null,
-                    tint = AppComponents.secondaryIconColor(),
+                    tint = AppColors.secondaryIconColor(),
                     modifier = Modifier.size(15.dp),
                 )
                 Text(

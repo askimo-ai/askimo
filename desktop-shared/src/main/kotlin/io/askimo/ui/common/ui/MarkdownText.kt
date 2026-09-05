@@ -84,6 +84,7 @@ import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.util.JsonUtils.json
 import io.askimo.tools.chart.MermaidChartData
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.LocalCodeFontFamily
@@ -394,11 +395,12 @@ private fun renderParagraph(
         return
     }
 
-    val inlineCodeBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+    val inlineCodeBg = AppColors.surfaceColor(AppColors.Elevation.EMPHASIS)
     val linkColor = MaterialTheme.colorScheme.tertiary
+    val mathBg = AppColors.surfaceColor(AppColors.Elevation.RECESSED)
 
     val annotatedText =
-        buildInlineContent(paragraph, inlineCodeBg, linkColor, codeFontFamily, onLinkClick)
+        buildInlineContent(paragraph, inlineCodeBg, linkColor, codeFontFamily, mathBg, onLinkClick)
     Text(
         text = annotatedText,
         style = AppTextStyles.body,
@@ -414,8 +416,9 @@ private fun renderHeading(
     codeFontFamily: FontFamily,
     onLinkClick: ((url: String) -> Unit)? = null,
 ) {
-    val inlineCodeBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+    val inlineCodeBg = AppColors.surfaceColor(AppColors.Elevation.EMPHASIS)
     val linkColor = MaterialTheme.colorScheme.tertiary
+    val mathBg = AppColors.surfaceColor(AppColors.Elevation.RECESSED)
 
     val style = when (heading.level) {
         1 -> MaterialTheme.typography.headlineMedium
@@ -427,7 +430,7 @@ private fun renderHeading(
     }
 
     Text(
-        text = buildInlineContent(heading, inlineCodeBg, linkColor, codeFontFamily, onLinkClick),
+        text = buildInlineContent(heading, inlineCodeBg, linkColor, codeFontFamily, mathBg, onLinkClick),
         style = style,
         modifier = Modifier
             .fillMaxWidth()
@@ -445,7 +448,7 @@ private fun renderBulletList(
     onRunRequest: ((String, String) -> Unit)? = null,
     messageId: String? = null,
 ) {
-    val inlineCodeBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+    val inlineCodeBg = AppColors.surfaceColor(AppColors.Elevation.EMPHASIS)
 
     Column(modifier = Modifier.padding(start = Spacing.large, top = Spacing.extraSmall, bottom = Spacing.extraSmall)) {
         var item = list.firstChild
@@ -468,7 +471,7 @@ private fun renderOrderedList(
     onRunRequest: ((String, String) -> Unit)? = null,
     messageId: String? = null,
 ) {
-    val inlineCodeBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+    val inlineCodeBg = AppColors.surfaceColor(AppColors.Elevation.EMPHASIS)
 
     Column(modifier = Modifier.padding(start = Spacing.large, top = Spacing.extraSmall, bottom = Spacing.extraSmall)) {
         var item = list.firstChild
@@ -497,6 +500,7 @@ private fun renderListItem(
     messageId: String? = null,
 ) {
     val linkColor = MaterialTheme.colorScheme.tertiary
+    val mathBg = AppColors.surfaceColor(AppColors.Elevation.RECESSED)
 
     Column(modifier = Modifier.padding(vertical = 2.dp)) {
         // Single pass over the item's children in document order. Consecutive inline nodes are
@@ -527,6 +531,7 @@ private fun renderListItem(
                                 inlineCodeBg,
                                 linkColor,
                                 codeFontFamily,
+                                mathBg,
                                 onLinkClick,
                             ),
                         )
@@ -585,11 +590,11 @@ private fun renderCodeBlock(codeBlock: FencedCodeBlock, viewportTopY: Float? = n
                 .padding(vertical = Spacing.extraSmall)
                 .border(
                     width = 1.dp,
-                    color = AppComponents.codeBlockBorderColor(),
+                    color = AppColors.codeBlockBorderColor(),
                     shape = MaterialTheme.shapes.small,
                 )
                 .clip(MaterialTheme.shapes.small)
-                .background(AppComponents.codeBlockBackground()),
+                .background(AppColors.codeBlockBackground()),
         ) {
             codeViewerBlock(
                 code = code,
@@ -606,7 +611,7 @@ private fun renderCodeBlock(codeBlock: FencedCodeBlock, viewportTopY: Float? = n
                 CircularProgressIndicator(
                     modifier = Modifier.size(10.dp),
                     strokeWidth = 1.5.dp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+                    color = AppColors.tertiaryIconColor(),
                 )
                 Spacer(modifier = Modifier.width(5.dp))
                 Text(
@@ -640,8 +645,8 @@ private fun renderCodeBlock(codeBlock: FencedCodeBlock, viewportTopY: Float? = n
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     AppComponents.loadingSpinner(
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                        trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                        color = AppColors.tertiaryIconColor(),
+                        trackColor = AppColors.surfaceColor(AppColors.Elevation.RECESSED),
                     )
                     Spacer(modifier = Modifier.height(Spacing.small))
                     Text(
@@ -678,7 +683,7 @@ private fun renderCodeBlock(codeBlock: FencedCodeBlock, viewportTopY: Float? = n
     }
 
     // Render as regular code block
-    val backgroundColor = AppComponents.codeBlockBackground()
+    val backgroundColor = AppColors.codeBlockBackground()
     val clipboardManager = LocalClipboardManager.current
     val density = LocalDensity.current
     var isHovered by remember { mutableStateOf(false) }
@@ -711,7 +716,7 @@ private fun renderCodeBlock(codeBlock: FencedCodeBlock, viewportTopY: Float? = n
             .padding(vertical = Spacing.extraSmall)
             .border(
                 width = 1.dp,
-                color = AppComponents.codeBlockBorderColor(),
+                color = AppColors.codeBlockBorderColor(),
                 shape = codeBlockShape,
             )
             .clip(codeBlockShape)
@@ -832,7 +837,7 @@ private fun renderBlockQuote(
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = Spacing.medium, top = Spacing.extraSmall, bottom = Spacing.extraSmall)
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+            .background(AppColors.surfaceColor(AppColors.Elevation.RECESSED))
             .padding(Spacing.small),
     ) {
         renderNode(blockQuote, viewportTopY, isStreaming, onRunRequest, messageId, onLinkClick)
@@ -855,7 +860,7 @@ private fun imageDownloadButton(
             modifier = modifier
                 .clip(MaterialTheme.shapes.small)
                 .background(
-                    color = Color.Black.copy(alpha = 0.45f),
+                    color = AppColors.scrimColor(alpha = 0.45f),
                     shape = MaterialTheme.shapes.small,
                 )
                 .pointerHoverIcon(PointerIcon.Hand)
@@ -1010,7 +1015,7 @@ private fun renderVideo(videoUrl: String) {
                     modifier = Modifier
                         .size(64.dp)
                         .background(
-                            Color.Black.copy(alpha = 0.5f),
+                            AppColors.scrimColor(alpha = 0.5f),
                             shape = CircleShape,
                         )
                         .padding(Spacing.large),
@@ -1036,7 +1041,7 @@ private fun renderVideo(videoUrl: String) {
 
 @Composable
 private fun renderTable(table: TableBlock) {
-    val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+    val borderColor = AppColors.codeBlockBorderColor()
 
     Column(
         modifier = Modifier
@@ -1057,7 +1062,7 @@ private fun renderTable(table: TableBlock) {
                                     .fillMaxWidth()
                                     .height(IntrinsicSize.Min)
                                     .background(
-                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                        AppColors.surfaceColor(AppColors.Elevation.RAISED),
                                     ),
                             ) {
                                 var cell = headerRow.firstChild
@@ -1150,6 +1155,7 @@ private fun buildInlineContent(
     inlineCodeBg: Color,
     linkColor: Color,
     codeFontFamily: FontFamily,
+    mathBg: Color,
     onLinkClick: ((url: String) -> Unit)? = null,
 ): AnnotatedString = buildAnnotatedString {
     var child = node.firstChild
@@ -1280,7 +1286,7 @@ private fun buildInlineContent(
                             SpanStyle(
                                 fontFamily = FontFamily.Serif,
                                 fontStyle = FontStyle.Italic,
-                                background = inlineCodeBg.copy(alpha = 0.2f),
+                                background = mathBg,
                             ),
                         ) {
                             append(" ")
@@ -1300,13 +1306,13 @@ private fun buildInlineContent(
 
             is StrongEmphasis -> {
                 withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                    append(buildInlineContent(child, inlineCodeBg, linkColor, codeFontFamily, onLinkClick))
+                    append(buildInlineContent(child, inlineCodeBg, linkColor, codeFontFamily, mathBg, onLinkClick))
                 }
             }
 
             is Emphasis -> {
                 withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
-                    append(buildInlineContent(child, inlineCodeBg, linkColor, codeFontFamily, onLinkClick))
+                    append(buildInlineContent(child, inlineCodeBg, linkColor, codeFontFamily, mathBg, onLinkClick))
                 }
             }
 
@@ -1336,7 +1342,7 @@ private fun buildInlineContent(
             is Link -> {
                 // Add link annotation for clickable links using the new LinkAnnotation API
                 // Build styled content for link children (e.g., inline code with backticks)
-                val linkContent = buildInlineContent(child, inlineCodeBg, linkColor, codeFontFamily, onLinkClick)
+                val linkContent = buildInlineContent(child, inlineCodeBg, linkColor, codeFontFamily, mathBg, onLinkClick)
                 val displayContent = linkContent.ifEmpty {
                     AnnotatedString(child.destination)
                 }
@@ -1394,9 +1400,9 @@ private fun buildInlineContent(
 
             is HardLineBreak, is SoftLineBreak -> append("\n")
 
-            is Paragraph -> append(buildInlineContent(child, inlineCodeBg, linkColor, codeFontFamily, onLinkClick))
+            is Paragraph -> append(buildInlineContent(child, inlineCodeBg, linkColor, codeFontFamily, mathBg, onLinkClick))
 
-            else -> append(buildInlineContent(child, inlineCodeBg, linkColor, codeFontFamily, onLinkClick))
+            else -> append(buildInlineContent(child, inlineCodeBg, linkColor, codeFontFamily, mathBg, onLinkClick))
         }
         child = child.next
     }
@@ -1410,9 +1416,10 @@ private fun buildInlineContentForNode(
     inlineCodeBg: Color,
     linkColor: Color,
     codeFontFamily: FontFamily,
+    mathBg: Color,
     onLinkClick: ((url: String) -> Unit)? = null,
 ): AnnotatedString = buildAnnotatedString {
-    append(buildInlineContent(node, inlineCodeBg, linkColor, codeFontFamily, onLinkClick))
+    append(buildInlineContent(node, inlineCodeBg, linkColor, codeFontFamily, mathBg, onLinkClick))
 }
 
 /**

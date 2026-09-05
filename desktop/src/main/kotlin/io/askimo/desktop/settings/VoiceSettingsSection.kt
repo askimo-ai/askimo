@@ -49,6 +49,7 @@ import io.askimo.core.providers.ModelProvider
 import io.askimo.core.security.SecureKeyManager
 import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -93,7 +94,7 @@ fun voiceSettingsSection() {
                 Text(
                     text = stringResource("settings.voice.description"),
                     style = AppTextStyles.bodySecondary,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                    color = AppTextStyles.secondaryContent,
                 )
 
                 voiceConfigCard()
@@ -175,7 +176,7 @@ private fun voiceConfigCard() {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppComponents.bannerCardColors(),
+        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
     ) {
         Column(
             modifier = Modifier
@@ -463,7 +464,7 @@ private fun voiceProviderSelector(
                         .fillMaxWidth()
                         .clickableCard { onExpandedChange(true) },
                     colors = CardDefaults.cardColors(
-                        containerColor = AppComponents.surfaceRaised(),
+                        containerColor = AppColors.surfaceColor(AppColors.Elevation.RAISED),
                     ),
                 ) {
                     Row(
@@ -548,7 +549,7 @@ private fun voiceOptionSelector(
                     .fillMaxWidth()
                     .clickableCard { onExpandedChange(true) },
                 colors = CardDefaults.cardColors(
-                    containerColor = AppComponents.surfaceRaised(),
+                    containerColor = AppColors.surfaceColor(AppColors.Elevation.RAISED),
                 ),
             ) {
                 Row(

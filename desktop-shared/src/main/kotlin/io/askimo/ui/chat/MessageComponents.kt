@@ -106,6 +106,7 @@ import io.askimo.core.util.formatFileSize
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -322,7 +323,7 @@ fun messageList(
                 Text(
                     text = stringResource("message.loading.previous"),
                     style = AppTextStyles.bodySecondary,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    color = AppColors.secondaryIconColor(),
                 )
             }
         }
@@ -444,7 +445,7 @@ fun messageList(
                 Text(
                     text = "$spinnerFrame ${stringResource("message.thinking", thinkingElapsedSeconds)}",
                     style = AppTextStyles.bodySecondary,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    color = AppColors.secondaryIconColor(),
                 )
             }
         }
@@ -621,14 +622,14 @@ private fun userMessageBubble(
                         ),
                     colors = CardDefaults.cardColors(
                         containerColor = if (isOutdatedMessage) {
-                            AppComponents.userMessageBackground().copy(alpha = 0.5f)
+                            AppColors.outdatedUserMessageBackground()
                         } else {
-                            AppComponents.userMessageBackground()
+                            AppColors.userMessageBackground()
                         },
                         contentColor = if (isOutdatedMessage) {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            AppColors.secondaryIconColor()
                         } else {
-                            AppComponents.userMessageContentColor()
+                            AppColors.userMessageContentColor()
                         },
                     ),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -671,7 +672,7 @@ private fun userMessageBubble(
                             Text(
                                 text = stringResource("outdated.label"),
                                 style = AppTextStyles.hint,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                color = AppColors.tertiaryIconColor(),
                                 fontStyle = FontStyle.Italic,
                                 modifier = Modifier.padding(start = Spacing.medium, end = Spacing.medium, bottom = Spacing.small, top = Spacing.extraSmall),
                             )
@@ -685,7 +686,7 @@ private fun userMessageBubble(
                     modifier = Modifier
                         .size(32.dp)
                         .background(color = MaterialTheme.colorScheme.primary, shape = CircleShape)
-                        .border(width = 2.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), shape = CircleShape),
+                        .border(width = 2.dp, color = AppColors.codeBlockBorderColor(), shape = CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     if (userAvatarPainter != null) {
@@ -794,7 +795,7 @@ private fun userMessageBubble(
                                         Text(
                                             text = LocalizationManager.formatMessageTime(ts),
                                             style = AppTextStyles.hint,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                            color = AppColors.tertiaryIconColor(),
                                         )
                                     }
                                 }
@@ -843,7 +844,7 @@ private fun aiMessageBubble(
     val isClickable = onMessageClick != null && message.id != null && message.timestamp != null
     val voiceErrorTitle = stringResource("chat.voice.error.title")
     val aiContentColor = if (isOutdatedMessage) {
-        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+        AppColors.secondaryIconColor()
     } else {
         MaterialTheme.colorScheme.onSurface
     }
@@ -885,7 +886,7 @@ private fun aiMessageBubble(
                     .padding(top = Spacing.medium)
                     .size(32.dp)
                     .background(color = MaterialTheme.colorScheme.primaryContainer, shape = CircleShape)
-                    .border(width = 2.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), shape = CircleShape),
+                    .border(width = 2.dp, color = AppColors.codeBlockBorderColor(), shape = CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 if (aiAvatarPainter != null) {
@@ -1006,7 +1007,7 @@ private fun aiMessageBubble(
                                     Text(
                                         text = stringResource("outdated.label"),
                                         style = AppTextStyles.hint,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                        color = AppColors.tertiaryIconColor(),
                                         fontStyle = FontStyle.Italic,
                                         modifier = Modifier.padding(start = Spacing.medium, end = Spacing.medium, bottom = Spacing.small, top = Spacing.extraSmall),
                                     )
@@ -1204,7 +1205,7 @@ private fun aiMessageBubble(
                                 contentDescription = stringResource("message.ai.export.pdf"),
                                 modifier = Modifier.size(16.dp),
                                 tint = if (isExporting) {
-                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                    AppColors.tertiaryIconColor()
                                 } else {
                                     MaterialTheme.colorScheme.onSurfaceVariant
                                 },
@@ -1300,7 +1301,7 @@ private fun aiMessageBubble(
                             }
                         },
                         style = AppTextStyles.hint,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        color = AppColors.tertiaryIconColor(),
                     )
                 }
             }
@@ -1313,7 +1314,7 @@ private fun aiMessageBubble(
                         Text(
                             text = "$timestampPrefix${LocalizationManager.formatMessageTime(ts)}",
                             style = AppTextStyles.hint,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            color = AppColors.tertiaryIconColor(),
                         )
                     }
                 }
@@ -1389,7 +1390,7 @@ internal fun thinkingSection(
     isExpanded: Boolean,
     onToggle: () -> Unit,
 ) {
-    val headerColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+    val headerColor = AppColors.secondaryIconColor()
     val headerText = if (isStreaming) {
         stringResource("message.thinking.section.streaming")
     } else {
@@ -1465,7 +1466,7 @@ internal fun thinkingSection(
                         Text(
                             text = thinkingContent,
                             style = AppTextStyles.caption,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                            color = AppColors.secondaryIconColor(),
                             fontStyle = FontStyle.Italic,
                         )
                     }
@@ -1526,7 +1527,7 @@ internal fun turnTimelineView(
                         Text(
                             text = group.entries.last().text,
                             style = AppTextStyles.caption,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            color = AppColors.secondaryIconColor(),
                             maxLines = 1,
                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                             modifier = Modifier.fillMaxWidth(),
@@ -1609,7 +1610,7 @@ private fun aiProcessingIndicator() {
         Text(
             text = stringResource("message.processing", elapsedSeconds),
             style = AppTextStyles.hint,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            color = AppColors.secondaryIconColor(),
             fontStyle = FontStyle.Italic,
         )
     }
@@ -1716,7 +1717,7 @@ internal fun toolCallsSection(
     } else {
         stringResource("tool.call.header.done", toolCalls.size)
     }
-    val headerColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+    val headerColor = AppColors.secondaryIconColor()
 
     Column(
         modifier = Modifier
@@ -1779,16 +1780,20 @@ private fun toolCallRow(toolCall: ToolCallInfo) {
 
     var detailsExpanded by remember { mutableStateOf(false) }
 
-    val barColor = when {
-        hasFailed -> MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
-        isDone -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-        else -> MaterialTheme.colorScheme.outlineVariant
-    }
-    val statusIconColor = when {
-        hasFailed -> MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
-        isDone -> MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-    }
+    val barColor = AppColors.statusAccentColor(
+        when {
+            hasFailed -> AppColors.StatusTone.FAILURE
+            isDone -> AppColors.StatusTone.SUCCESS
+            else -> AppColors.StatusTone.NEUTRAL
+        },
+    )
+    val statusIconColor = AppColors.statusIconColor(
+        when {
+            hasFailed -> AppColors.StatusTone.FAILURE
+            isDone -> AppColors.StatusTone.SUCCESS
+            else -> AppColors.StatusTone.NEUTRAL
+        },
+    )
 
     Row(
         modifier = Modifier
@@ -1865,7 +1870,7 @@ private fun toolCallRow(toolCall: ToolCallInfo) {
                         imageVector = if (detailsExpanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
                         contentDescription = null,
                         modifier = Modifier.size(12.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        tint = AppColors.tertiaryIconColor(),
                     )
                 }
             }
@@ -1888,7 +1893,7 @@ private fun toolCallRow(toolCall: ToolCallInfo) {
                         toolCallDetailSection(
                             label = stringResource("tool.call.detail.result"),
                             content = toolCall.result!!,
-                            labelColor = if (hasFailed) MaterialTheme.colorScheme.error.copy(alpha = 0.8f) else null,
+                            labelColor = if (hasFailed) AppColors.warningColor() else null,
                         )
                     }
                 }
@@ -1910,17 +1915,17 @@ private fun toolCallDetailSection(
         Text(
             text = label,
             style = AppTextStyles.hint,
-            color = labelColor ?: MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            color = labelColor ?: AppColors.secondaryIconColor(),
         )
         SelectionContainer {
             Text(
                 text = content,
                 style = AppTextStyles.codeSecondary,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                color = AppColors.secondaryIconColor(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                        color = AppColors.codeBlockBackground(),
                         shape = RoundedCornerShape(4.dp),
                     )
                     .padding(horizontal = Spacing.extraSmall, vertical = 2.dp),
@@ -2033,7 +2038,7 @@ fun aiMessageEditDialog(
                             .fillMaxHeight()
                             .padding(end = 12.dp), // room for the scrollbar
                         textStyle = AppTextStyles.body,
-                        colors = AppComponents.outlinedTextFieldColors(),
+                        colors = AppColors.outlinedTextFieldColors(),
                         label = { Text(stringResource("message.ai.edit.content.label")) },
                         scrollState = textScrollState,
                     )
@@ -2087,16 +2092,16 @@ private fun messageDaySeparator(label: String) {
     ) {
         HorizontalDivider(
             modifier = Modifier.weight(1f),
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+            color = AppColors.codeBlockBorderColor(),
         )
         Text(
             text = label,
             style = AppTextStyles.hint,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            color = AppColors.secondaryIconColor(),
         )
         HorizontalDivider(
             modifier = Modifier.weight(1f),
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+            color = AppColors.codeBlockBorderColor(),
         )
     }
 }

@@ -47,6 +47,7 @@ import io.askimo.core.logging.currentFileLogger
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import kotlinx.coroutines.Dispatchers
@@ -108,7 +109,7 @@ fun logViewerDialog(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f))
+                    .background(AppColors.scrimColor(alpha = 0.32f))
                     .pointerInput(Unit) {
                         detectTapGestures { onDismiss() }
                     },

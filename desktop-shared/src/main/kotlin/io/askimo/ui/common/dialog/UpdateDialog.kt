@@ -33,6 +33,7 @@ import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -129,7 +130,7 @@ private fun newVersionDialog(
                         contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                     )
 
-                    UpdateUrgency.LOW -> AppComponents.bannerCardColors()
+                    UpdateUrgency.LOW -> AppColors.cardColors(AppColors.Elevation.ACCENT)
                 }
                 val bannerIcon = if (urgency == UpdateUrgency.HIGH) Icons.Default.Warning else Icons.Default.Info
                 val bannerText = when (urgency) {
@@ -160,7 +161,7 @@ private fun newVersionDialog(
                 // Version info card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppComponents.bannerCardColors(),
+                    colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(Spacing.large),
@@ -210,7 +211,7 @@ private fun newVersionDialog(
                     )
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = AppComponents.bannerCardColors(),
+                        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
                     ) {
                         Column(
                             modifier = Modifier
@@ -276,7 +277,7 @@ private fun upToDateDialog(
                 )
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppComponents.bannerCardColors(),
+                    colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
                 ) {
                     Column(
                         modifier = Modifier.padding(Spacing.large),
@@ -321,7 +322,7 @@ private fun errorDialog(
         text = {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = AppComponents.bannerCardColors(),
+                colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
             ) {
                 Text(
                     text = message,

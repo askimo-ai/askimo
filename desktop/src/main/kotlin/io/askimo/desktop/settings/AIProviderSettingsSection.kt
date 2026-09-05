@@ -63,6 +63,7 @@ import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
@@ -103,7 +104,7 @@ fun aiProviderSettingsSection(viewModel: AIProviderViewModel) {
                 // Active provider card — Edit current instance or Add a new one
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppComponents.bannerCardColors(),
+                    colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
                 ) {
                     Row(
                         modifier = Modifier
@@ -185,7 +186,7 @@ private fun providerModelConfigCard(instance: ProviderInstance, viewModel: AIPro
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppComponents.bannerCardColors(),
+        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
     ) {
         Column(
             modifier = Modifier
@@ -494,7 +495,7 @@ private fun providerModelTypePickerDialog(
         stickyHeader = if (modelsReady) {
             {
                 if (currentValue.isNotBlank()) {
-                    Card(modifier = Modifier.fillMaxWidth(), colors = AppComponents.bannerCardColors()) {
+                    Card(modifier = Modifier.fillMaxWidth(), colors = AppColors.cardColors(AppColors.Elevation.ACCENT)) {
                         Column(
                             modifier = Modifier.fillMaxWidth().padding(Spacing.large),
                             verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
@@ -506,7 +507,7 @@ private fun providerModelTypePickerDialog(
                 }
 
                 if (selectedModel != null && selectedModel != currentValue) {
-                    Card(modifier = Modifier.fillMaxWidth(), colors = AppComponents.primaryCardColors()) {
+                    Card(modifier = Modifier.fillMaxWidth(), colors = AppColors.cardColors(AppColors.Elevation.ACCENT)) {
                         Row(modifier = Modifier.fillMaxWidth().padding(Spacing.large), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(text = stringResource("settings.model.new"), style = AppTextStyles.fieldLabel, color = MaterialTheme.colorScheme.onPrimaryContainer)
@@ -524,7 +525,7 @@ private fun providerModelTypePickerDialog(
                     placeholder = { Text(stringResource("settings.model.search.placeholder")) },
                     label = { Text(stringResource("settings.model.search")) },
                     singleLine = true,
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                 )
 
                 if (searchQuery.isNotBlank() && filteredModels.isNotEmpty()) {
@@ -567,7 +568,7 @@ private fun providerModelTypePickerDialog(
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
                     Text(text = errorMessage ?: "", color = MaterialTheme.colorScheme.error, style = AppTextStyles.body)
                     errorHelp?.let { helpText ->
-                        Card(colors = AppComponents.surfaceVariantCardColors()) {
+                        Card(colors = AppColors.cardColors(AppColors.Elevation.RAISED)) {
                             Text(text = helpText, style = AppTextStyles.caption, modifier = Modifier.padding(Spacing.medium))
                         }
                     }
@@ -660,7 +661,7 @@ private fun providerConfigurableField(
                             )
                         }
                     },
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                 )
             }
 
@@ -685,7 +686,7 @@ private fun providerConfigurableField(
                             )
                         }
                     },
-                    colors = AppComponents.outlinedTextFieldColors(),
+                    colors = AppColors.outlinedTextFieldColors(),
                 )
             }
 
