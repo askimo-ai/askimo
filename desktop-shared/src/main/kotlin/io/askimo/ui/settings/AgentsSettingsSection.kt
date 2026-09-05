@@ -36,6 +36,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
@@ -86,6 +87,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.agent.ExternalAgentLoader
+import io.askimo.core.agent.SkillExporter
 import io.askimo.core.agent.SkillImporter
 import io.askimo.core.agent.domain.SkillDefinition
 import io.askimo.core.agent.domain.SkillTreeNode
@@ -145,6 +147,7 @@ fun agentsSettingsSection() {
     var showAddFileDialog by remember { mutableStateOf(false) }
     var showAddFolderDialog by remember { mutableStateOf(false) }
     var addItemParentPath by remember { mutableStateOf("") }
+    var showExportDialog by remember { mutableStateOf(false) }
 
     Row(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
@@ -245,6 +248,7 @@ fun agentsSettingsSection() {
                     },
                     onImportFromGitHub = { showImportGitHubDialog = true },
                     onImportFromZip = { showImportZipDialog = true },
+                    onExportAll = { showExportDialog = true },
                     onAddFileInFolder = { parentPath ->
                         addItemParentPath = parentPath
                         showAddFileDialog = true
@@ -264,7 +268,7 @@ fun agentsSettingsSection() {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                        .background(AppComponents.surfaceRecessed())
                         .padding(vertical = 12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Top,
@@ -394,6 +398,13 @@ fun agentsSettingsSection() {
                 },
             )
         }
+    }
+
+    // Export all skills as ZIP
+    if (showExportDialog) {
+        exportAllSkillsDialog(
+            onDismiss = { showExportDialog = false },
+        )
     }
 }
 
@@ -1051,6 +1062,7 @@ private fun skillsTreePanel(
     onNewSkillInFolder: (parentPath: String) -> Unit = {},
     onImportFromGitHub: () -> Unit = {},
     onImportFromZip: () -> Unit = {},
+    onExportAll: () -> Unit = {},
     onAddFileInFolder: (folderRelativePath: String) -> Unit = {},
     onAddFolderInFolder: (folderRelativePath: String) -> Unit = {},
     onDeleteAll: () -> Unit = {},
@@ -1125,6 +1137,15 @@ private fun skillsTreePanel(
                     modifier = Modifier.size(28.dp).pointerHoverIcon(PointerIcon.Hand),
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = "Delete all skills", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
+                }
+                // Export all button
+                themedTooltip(text = stringResource("settings.agents.export.all")) {
+                    IconButton(
+                        onClick = onExportAll,
+                        modifier = Modifier.size(28.dp).pointerHoverIcon(PointerIcon.Hand),
+                    ) {
+                        Icon(Icons.Default.Archive, contentDescription = stringResource("settings.agents.export.all"), modifier = Modifier.size(18.dp))
+                    }
                 }
                 // Collapse button
                 IconButton(
@@ -1544,7 +1565,7 @@ private fun previewEditSegmentButton(
                 if (isActive) {
                     MaterialTheme.colorScheme.primaryContainer
                 } else {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    AppComponents.surfaceRaised()
                 },
             )
             .then(
@@ -1809,6 +1830,72 @@ private fun importFromZipDialog(
             }
         },
     )
+}
+
+/**
+ * Triggers a native "save as" picker for a `.zip` destination, then exports every skill
+ * under [AskimoHome.skillsDir] into it via [SkillExporter.exportAll].
+ * If the user cancels the picker, the dialog closes with no further action.
+ */
+@Composable
+private fun exportAllSkillsDialog(
+    onDismiss: () -> Unit,
+) {
+    val savePickerTitle = stringResource("settings.agents.export.picker.title")
+    val exportSuccessTemplate = stringResource("settings.agents.export.success.message")
+    var exportSuccessMessage by remember { mutableStateOf<String?>(null) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    when {
+        exportSuccessMessage != null -> {
+            importSuccessDialog(
+                message = exportSuccessMessage!!,
+                onDismiss = onDismiss,
+            )
+        }
+
+        errorMessage != null -> {
+            AppComponents.alertDialog(
+                onDismissRequest = onDismiss,
+                title = { Text(stringResource("settings.agents.export.failed.title")) },
+                text = { Text(text = errorMessage!!, style = AppTextStyles.body) },
+                confirmButton = {
+                    primaryButton(onClick = onDismiss) { Text(stringResource("action.ok")) }
+                },
+            )
+        }
+
+        else -> {
+            // The picker opens immediately when this dialog is shown (no confirm-button
+            // gesture needed, unlike the GitHub/ZIP import dialogs) — both the file pick and
+            // the export itself run inside this single effect.
+            LaunchedEffect(Unit) {
+                val target = FileDialogUtils.pickSavePath(
+                    suggestedName = "askimo-skills",
+                    extension = "zip",
+                    title = savePickerTitle,
+                )
+                if (target == null) {
+                    onDismiss()
+                    return@LaunchedEffect
+                }
+                val result = withContext(Dispatchers.IO) {
+                    SkillExporter.exportAll(target.toPath())
+                }
+                when (result) {
+                    is SkillExporter.ExportResult.Success -> {
+                        exportSuccessMessage = exportSuccessTemplate
+                            .replace("{0}", result.skillCount.toString())
+                            .replace("{1}", result.zipFile.toString())
+                    }
+
+                    is SkillExporter.ExportResult.Failure -> {
+                        errorMessage = result.message
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable

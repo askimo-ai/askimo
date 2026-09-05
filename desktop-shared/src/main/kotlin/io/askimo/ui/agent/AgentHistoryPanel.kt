@@ -4,37 +4,33 @@
  */
 package io.askimo.ui.agent
 
-import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.rememberScrollbarAdapter
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -50,6 +46,9 @@ import io.askimo.ui.common.ui.TooltipPlacement
 import io.askimo.ui.common.ui.themedTooltip
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+
+/** Number of most-recent history records shown before the "Show all" button appears. */
+private const val COLLAPSED_HISTORY_LIMIT = 5
 
 internal val RUN_TIME_FMT: DateTimeFormatter =
     DateTimeFormatter.ofPattern("MMM d, HH:mm:ss").withZone(ZoneId.systemDefault())
@@ -84,14 +83,15 @@ private fun skillRunHistoryPanelRow(
                 .fillMaxWidth()
                 .pointerHoverIcon(PointerIcon.Hand)
                 .hoverable(interactionSource)
-                .clickable(onClick = onClick)
                 .background(
-                    if (isHovered) {
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
+                    color = if (isHovered) {
+                        AppComponents.surfaceRaised()
                     } else {
-                        androidx.compose.ui.graphics.Color.Transparent
+                        AppComponents.surfaceRecessed()
                     },
+                    shape = RoundedCornerShape(8.dp),
                 )
+                .clickable(onClick = onClick)
                 .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.small),
@@ -137,48 +137,56 @@ private fun skillRunHistoryPanelRow(
 }
 
 /**
- * The scrollable history list content without any outer panel chrome.
- * Embedded directly inside the right-rail History tab.
+ * Rows for a workspace's run history — used to enter (or delete) a past conversation.
+ * Rendered directly inside an already-scrollable parent, such as the agentic-run "home"
+ * screen (`agenticRunArea`'s empty-conversation state), so past runs are visible
+ * immediately instead of hidden behind a side-panel History tab.
+ *
+ * Only the [COLLAPSED_HISTORY_LIMIT] most recent records are shown initially — a
+ * "Show all" button reveals the rest, so a long-lived workspace's home screen doesn't
+ * turn into an endless list by default.
  */
 @Composable
-internal fun skillsHistoryContent(
+internal fun agentRunHistoryList(
     runHistory: List<AgentRunRecord>,
     onSelectRecord: (AgentRunRecord) -> Unit = {},
     onDeleteRecord: (AgentRunRecord) -> Unit = {},
 ) {
     if (runHistory.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(Spacing.small),
-            ) {
-                Icon(Icons.Default.History, null, modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
-                Text(stringResource("agents.view.history.empty"), style = AppTextStyles.caption, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
-            }
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(Spacing.small),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+        ) {
+            Icon(Icons.Default.History, null, modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+            Text(stringResource("agents.view.history.empty"), style = AppTextStyles.caption, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
         }
     } else {
-        val panelScrollState = rememberScrollState()
-        Box(modifier = Modifier.fillMaxSize()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(panelScrollState)
-                    .padding(vertical = Spacing.extraSmall),
-            ) {
-                runHistory.forEach { record ->
-                    skillRunHistoryPanelRow(
-                        record = record,
-                        onClick = { onSelectRecord(record) },
-                        onDelete = { onDeleteRecord(record) },
+        var showAll by remember { mutableStateOf(false) }
+        val visibleHistory = if (showAll) runHistory else runHistory.take(COLLAPSED_HISTORY_LIMIT)
+
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+            visibleHistory.forEach { record ->
+                skillRunHistoryPanelRow(
+                    record = record,
+                    onClick = { onSelectRecord(record) },
+                    onDelete = { onDeleteRecord(record) },
+                )
+            }
+            if (!showAll && runHistory.size > COLLAPSED_HISTORY_LIMIT) {
+                TextButton(
+                    onClick = { showAll = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .pointerHoverIcon(PointerIcon.Hand),
+                ) {
+                    Text(
+                        stringResource("agents.view.history.show.more", runHistory.size),
+                        style = AppTextStyles.hint,
+                        color = MaterialTheme.colorScheme.primary,
                     )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.08f))
                 }
             }
-            VerticalScrollbar(
-                adapter = rememberScrollbarAdapter(panelScrollState),
-                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 2.dp),
-                style = AppComponents.scrollbarStyle(),
-            )
         }
     }
 }

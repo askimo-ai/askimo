@@ -29,6 +29,7 @@ import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.PlayArrow
@@ -63,6 +64,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import io.askimo.core.agent.AgentReadiness
 import io.askimo.core.agent.domain.AgentRunRecord
 import io.askimo.core.agent.domain.SkillDefinition
 import io.askimo.core.agent.domain.Workspace
@@ -94,6 +96,9 @@ internal fun agenticRunArea(
     onPreloadConsumed: () -> Unit = {},
     onConversationStateChanged: (Boolean) -> Unit = {},
     newConversationRequestKey: Int = 0,
+    runHistory: List<AgentRunRecord> = emptyList(),
+    onSelectHistoryRecord: (AgentRunRecord) -> Unit = {},
+    onDeleteHistoryRecord: (AgentRunRecord) -> Unit = {},
 ) {
     val latestOnRunCompleted = rememberUpdatedState(onRunCompleted)
     val viewModel = remember(workspace.id) {
@@ -155,6 +160,46 @@ internal fun agenticRunArea(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
+        viewModel.conversationTitle?.let { titleText ->
+            Column(
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
+                    .fillMaxWidth()
+                    .padding(start = 24.dp, end = 20.dp, top = 8.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                ) {
+                    themedTooltip(text = stringResource("agents.view.back.to.history")) {
+                        IconButton(
+                            onClick = { viewModel.startNewConversation() },
+                            enabled = !viewModel.isRunning,
+                            modifier = Modifier.size(28.dp).pointerHoverIcon(PointerIcon.Hand),
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource("agents.view.back.to.history"),
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    themedTooltip(text = titleText, modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = titleText,
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
+        }
+
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             Column(
                 modifier = Modifier
@@ -170,28 +215,12 @@ internal fun agenticRunArea(
                         .padding(start = 24.dp, end = 12.dp, top = 8.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(Spacing.medium),
                 ) {
-                    // ── Conversation title — mirrors ChatView's session title header.
-                    // Shown the instant a conversation starts (deterministic fallback title),
-                    // then live-updated in place once the async AI-generated title arrives.
-                    viewModel.conversationTitle?.let { titleText ->
-                        themedTooltip(text = titleText) {
-                            Text(
-                                text = titleText,
-                                style = MaterialTheme.typography.titleLarge,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                    }
-
                     // ── Skills-as-context pill row ───────────────────────────────────────
                     if (skills.isNotEmpty()) {
                         var pillHeightPx by remember { mutableStateOf(0) }
                         Box {
                             Surface(
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                color = AppComponents.surfaceRaised(),
                                 shape = MaterialTheme.shapes.small,
                                 modifier = Modifier
                                     .clickable(onClick = { skillsListExpanded = true })
@@ -345,7 +374,7 @@ internal fun agenticRunArea(
                         }
                     } else {
                         Surface(
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                            color = AppComponents.surfaceRaised(),
                             shape = MaterialTheme.shapes.small,
                         ) {
                             Row(
@@ -377,7 +406,7 @@ internal fun agenticRunArea(
                     }
 
                     // ── Agent setup hint (needs auth) ────────────────────────────────────
-                    if (viewModel.agentStateMap[viewModel.selectedAgentRaw?.id] == AgentCardState.NEEDS_SETUP) {
+                    if (viewModel.agentStateMap[viewModel.selectedAgentRaw?.id] == AgentReadiness.NEEDS_SETUP) {
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
@@ -410,7 +439,20 @@ internal fun agenticRunArea(
                             turnTimelineView(viewModel.timeline.grouped())
                         }
                     } else {
-                        // ── Empty-state hint — shown before the first message is sent ────
+                        // ── Home screen: this workspace's run history — shown before the
+                        // first message is sent, or after returning here via the back
+                        // button. Replaces the old side-panel "History" tab so past runs
+                        // are the first thing visible, not hidden behind a tab click.
+                        Text(
+                            text = stringResource("agents.view.tab.history"),
+                            style = AppTextStyles.fieldLabel,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        agentRunHistoryList(
+                            runHistory = runHistory,
+                            onSelectRecord = onSelectHistoryRecord,
+                            onDeleteRecord = onDeleteHistoryRecord,
+                        )
                     }
                 }
             }
@@ -471,7 +513,7 @@ internal fun agenticRunArea(
                     ) {
                         Surface(
                             shape = MaterialTheme.shapes.small,
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                            color = AppComponents.surfaceEmphasis(),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)),
                             modifier = Modifier
                                 .clickable(enabled = !viewModel.isRunning, onClick = { modelDropdownExpanded = true })
@@ -519,49 +561,57 @@ internal fun agenticRunArea(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        // Agent picker pill
+                        // Agent picker pill — locked once the conversation has a turn in it
+                        // (fresh run or re-opened history), so it can't be switched mid-session.
+                        val agentPickerEnabled = viewModel.allAgents.isNotEmpty() &&
+                            !viewModel.isRunning &&
+                            !viewModel.isAgentSelectionLocked
                         Box {
-                            Surface(
-                                shape = MaterialTheme.shapes.small,
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)),
-                                modifier = Modifier
-                                    .clickable(enabled = viewModel.allAgents.isNotEmpty() && !viewModel.isRunning, onClick = { agentDropdownExpanded = true })
-                                    .pointerHoverIcon(PointerIcon.Hand),
+                            themedTooltip(
+                                text = if (viewModel.isAgentSelectionLocked) stringResource("agents.view.agent.locked") else "",
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                Surface(
+                                    shape = MaterialTheme.shapes.small,
+                                    color = AppComponents.surfaceEmphasis(),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)),
+                                    modifier = Modifier
+                                        .clickable(enabled = agentPickerEnabled, onClick = { agentDropdownExpanded = true })
+                                        .pointerHoverIcon(if (agentPickerEnabled) PointerIcon.Hand else PointerIcon.Default),
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(6.dp)
-                                            .background(
-                                                color = when (viewModel.agentStateMap[viewModel.selectedAgent?.id]) {
-                                                    AgentCardState.READY -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.8f)
-                                                    AgentCardState.NEEDS_SETUP -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f)
-                                                    else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
-                                                },
-                                                shape = MaterialTheme.shapes.extraSmall,
-                                            ),
-                                    )
-                                    Text(
-                                        text = viewModel.selectedAgent?.name ?: stringResource("agents.view.no.agent"),
-                                        style = AppTextStyles.hint,
-                                    )
-                                    Icon(
-                                        Icons.Default.ExpandMore,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(12.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                    )
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(6.dp)
+                                                .background(
+                                                    color = when (viewModel.agentStateMap[viewModel.selectedAgent?.id]) {
+                                                        AgentReadiness.READY -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.8f)
+                                                        AgentReadiness.NEEDS_SETUP -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f)
+                                                        else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                                                    },
+                                                    shape = MaterialTheme.shapes.extraSmall,
+                                                ),
+                                        )
+                                        Text(
+                                            text = viewModel.selectedAgent?.name ?: stringResource("agents.view.no.agent"),
+                                            style = AppTextStyles.hint,
+                                        )
+                                        Icon(
+                                            Icons.Default.ExpandMore,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(12.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                        )
+                                    }
                                 }
                             }
                             dropdownMenu(expanded = agentDropdownExpanded, onDismissRequest = { agentDropdownExpanded = false }) {
                                 viewModel.allAgents.forEach { agent ->
-                                    val agentState = viewModel.agentStateMap[agent.id] ?: AgentCardState.NOT_INSTALLED
-                                    val agentReady = agentState == AgentCardState.READY
+                                    val agentState = viewModel.agentStateMap[agent.id] ?: AgentReadiness.NOT_INSTALLED
+                                    val agentReady = agentState == AgentReadiness.READY
                                     DropdownMenuItem(
                                         text = {
                                             Row(
@@ -573,9 +623,9 @@ internal fun agenticRunArea(
                                                         .size(7.dp)
                                                         .background(
                                                             color = when (agentState) {
-                                                                AgentCardState.READY -> MaterialTheme.colorScheme.tertiary
-                                                                AgentCardState.NEEDS_SETUP -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f)
-                                                                AgentCardState.NOT_INSTALLED -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                                                                AgentReadiness.READY -> MaterialTheme.colorScheme.tertiary
+                                                                AgentReadiness.NEEDS_SETUP -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f)
+                                                                AgentReadiness.NOT_INSTALLED -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
                                                             },
                                                             shape = MaterialTheme.shapes.extraSmall,
                                                         ),
@@ -593,7 +643,9 @@ internal fun agenticRunArea(
                                             }
                                         },
                                         onClick = {
-                                            viewModel.selectAgent(agent.id)
+                                            if (agentPickerEnabled) {
+                                                viewModel.selectAgent(agent.id)
+                                            }
                                             agentDropdownExpanded = false
                                         },
                                         modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
@@ -631,10 +683,19 @@ internal fun agenticRunArea(
 // ── System prompt builder ──────────────────────────────────────────────────
 
 /**
- * Builds a combined system prompt that injects all available skills as a
- * named catalog. The agent reads the goal and applies the most relevant skill(s).
+ * Builds the system prompt for one agentic run.
+ *
+ * When [agentHasNativeSkillDiscovery] is `true`, skills are materialized directly into
+ * this agent's own skill folder (see [io.askimo.core.agent.ExternalAgent.materializeSkill])
+ * and its native discovery mechanism already surfaces them alongside its own pre-installed
+ * skills — duplicating a catalog or full content here would only inflate every single
+ * prompt for information the agent can already see and load on demand itself.
  */
-internal fun buildAgenticSystemPrompt(skills: List<SkillDefinition>): String = buildString {
+internal fun buildAgenticSystemPrompt(skills: List<SkillDefinition>, agentHasNativeSkillDiscovery: Boolean): String = buildString {
+    if (agentHasNativeSkillDiscovery) {
+        appendLine("You are an autonomous assistant. Use any of your available skills that match the user's goal.")
+        return@buildString
+    }
     if (skills.isEmpty()) {
         appendLine("You are an autonomous assistant. Accomplish the user's goal using your best judgment.")
         return@buildString

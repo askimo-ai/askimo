@@ -4,11 +4,16 @@
  */
 package io.askimo.core.agent
 
+import io.askimo.core.agent.domain.SkillDefinition
 import io.askimo.core.util.ProcessBuilderExt
 import org.slf4j.Logger
 import java.io.BufferedWriter
 import java.io.File
 import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.LinkOption
+import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 
 /**
  * Template base class for external CLI agents implementing the standard execution flow:
@@ -150,6 +155,98 @@ abstract class ExternalAgentTemplate : ExternalAgent {
     protected open fun filterErrorStderr(stderr: String): String = stderr.trim()
 
     /**
+     * Materializes [skill] into an agent's own native, workspace-scoped skill folder under
+     * [skillsRootDir] (e.g. `<workDir>/.claude/skills/` for Claude Code) by **copying** the
+     * skill's entire source folder (SKILL.md + supplemental files, excluding `.git`) as-is.
+     * The destination folder name is [SkillDefinition.slug] — a sanitized, category-qualified
+     * identifier, not just the skill's leaf folder name — so two skills that happen to share
+     * a leaf folder name (e.g. imported from different packs) never collide once materialized.
+     *
+     * Use this for agents whose skill-discovery mechanism doesn't reliably support (or hasn't
+     * been verified to support) symbolic links — see [materializeSkillSymlink] for a cheaper
+     * alternative when the target agent is confirmed to follow symlinks.
+     *
+     * If a folder with the same name already exists under [skillsRootDir] (e.g. the user's own
+     * project skill), it is left untouched and nothing is deleted on cleanup — we never want to
+     * clobber user-owned files.
+     */
+    protected fun materializeSkillFolder(skill: SkillDefinition, skillsRootDir: Path): AutoCloseable = runCatching {
+        val sourceDir = skill.absolutePath.parent
+        if (sourceDir == null || !Files.isDirectory(sourceDir)) return@runCatching AutoCloseable {}
+
+        val folderName = skill.slug
+        val targetDir = skillsRootDir.resolve(folderName)
+
+        if (Files.exists(targetDir)) {
+            log.debug("Skill '{}' already present at {} — leaving as-is", folderName, targetDir)
+            return@runCatching AutoCloseable {}
+        }
+
+        Files.createDirectories(targetDir)
+        Files.walk(sourceDir).use { stream ->
+            stream
+                .filter { Files.isRegularFile(it) }
+                .filter { path -> path.none { seg -> seg.toString() == ".git" } }
+                .forEach { src ->
+                    val dest = targetDir.resolve(sourceDir.relativize(src))
+                    Files.createDirectories(dest.parent)
+                    Files.copy(src, dest, StandardCopyOption.REPLACE_EXISTING)
+                }
+        }
+        log.debug("Materialized skill '{}' into {}", folderName, targetDir)
+
+        AutoCloseable {
+            runCatching {
+                Files.walk(targetDir).use { s -> s.sorted(Comparator.reverseOrder()).forEach { Files.deleteIfExists(it) } }
+                log.debug("Cleaned up materialized skill at {}", targetDir)
+            }.onFailure { e -> log.warn("Failed to clean up materialized skill at {}: {}", targetDir, e.message) }
+        }
+    }.onFailure { e ->
+        log.warn("Failed to materialize skill '{}': {}", skill.name, e.message)
+    }.getOrElse { AutoCloseable {} }
+
+    /**
+     * Materializes [skill] into an agent's own native, workspace-scoped skill folder under
+     * [skillsRootDir] (e.g. `<workDir>/.agents/skills/` for Antigravity) by creating a single
+     * **symbolic link** pointing at the skill's own source folder, instead of copying files.
+     * The destination link name is [SkillDefinition.slug] — a sanitized, category-qualified
+     * identifier, not just the skill's leaf folder name — so two skills that happen to share
+     * a leaf folder name (e.g. imported from different packs) never collide once materialized.
+     * Cheaper than [materializeSkillFolder] (no file copying, cleanup is a single link
+     * deletion) — only use this once the target agent is confirmed to follow symlinks when
+     * discovering skills.
+     *
+     * If a folder or link with the same name already exists under [skillsRootDir] (e.g. the
+     * user's own project skill), it is left untouched and nothing is deleted on cleanup — we
+     * never want to clobber user-owned files.
+     */
+    protected fun materializeSkillSymlink(skill: SkillDefinition, skillsRootDir: Path): AutoCloseable = runCatching {
+        val sourceDir = skill.absolutePath.parent
+        if (sourceDir == null || !Files.isDirectory(sourceDir)) return@runCatching AutoCloseable {}
+
+        val folderName = skill.slug
+        val linkPath = skillsRootDir.resolve(folderName)
+
+        if (Files.exists(linkPath, LinkOption.NOFOLLOW_LINKS)) {
+            log.debug("Skill '{}' already present at {} — leaving as-is", folderName, linkPath)
+            return@runCatching AutoCloseable {}
+        }
+
+        Files.createDirectories(skillsRootDir)
+        Files.createSymbolicLink(linkPath, sourceDir)
+        log.debug("Symlinked skill '{}' -> {} at {}", folderName, sourceDir, linkPath)
+
+        AutoCloseable {
+            runCatching {
+                Files.deleteIfExists(linkPath)
+                log.debug("Removed symlinked skill at {}", linkPath)
+            }.onFailure { e -> log.warn("Failed to remove symlinked skill at {}: {}", linkPath, e.message) }
+        }
+    }.onFailure { e ->
+        log.warn("Failed to symlink skill '{}': {}", skill.name, e.message)
+    }.getOrElse { AutoCloseable {} }
+
+    /**
      * Called when process exits with a non-zero exit code.
      * Subclasses can override to provide richer error context or custom logging.
      *
@@ -196,8 +293,13 @@ abstract class ExternalAgentTemplate : ExternalAgent {
     }
 
     override fun isBinaryAvailable(): Boolean {
-        val found = resolveAgentPath() != null
-        if (!found) log.debug("{} binary not found on PATH", name)
+        val path = resolveAgentPath()
+        val found = path != null
+        if (found) {
+            log.debug("{} binary found on PATH: {}", name, path)
+        } else {
+            log.debug("{} binary not found on PATH", name)
+        }
         return found
     }
 
@@ -229,6 +331,7 @@ abstract class ExternalAgentTemplate : ExternalAgent {
         )
 
         val cmd = buildCommand(agentPath, systemPrompt, userInput, effectiveWorkDir, resumeSessionId)
+        log.debug("{} command: {} ({} args)", name, agentPath, cmd.size)
         val processBuilder = ProcessBuilderExt(*cmd.toTypedArray()).apply {
             effectiveWorkDir.mkdirs()
             directory(effectiveWorkDir)

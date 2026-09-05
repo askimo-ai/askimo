@@ -270,12 +270,6 @@ object AppComponents {
     )
 
     @Composable
-    fun secondaryCardColors(): CardColors = CardDefaults.cardColors(
-        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-    )
-
-    @Composable
     fun surfaceVariantCardColors(): CardColors = CardDefaults.cardColors(
         containerColor = MaterialTheme.colorScheme.surfaceVariant,
         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -510,14 +504,53 @@ object AppComponents {
         }
     }
 
+    // ── Surface Tiers ─────────────────────────────────────────────────────────
+
+    /**
+     * Quiet, non-interactive backdrop for content that should visually recede —
+     * file/content viewers, expanded "raw output" panels, a collapsed side rail.
+     */
+    @Composable
+    fun surfaceRecessed(): Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+
+    /**
+     * The standard "card/pill/row at rest" background — settings option cards,
+     * search-result cards, static info pills, table header rows. Also the right
+     * choice for a plain (non-selection) hover highlight on a list row, since the
+     * same subtle lift reads correctly in both cases.
+     */
+    @Composable
+    fun surfaceRaised(): Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+
+    /**
+     * A stronger lift for elements that must stand out even against an already
+     * [surfaceRaised] container — an inline rename field sitting on a raised tree
+     * row, a dropdown/selector pill sitting on an input field, a callout box.
+     */
+    @Composable
+    fun surfaceEmphasis(): Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+
+    /**
+     * True selection/active state — the one case that should shift hue (toward
+     * [MaterialTheme.colorScheme.primaryContainer]) rather than just opacity, so a
+     * selected item is never confused with a merely-hovered or merely-raised one.
+     */
+    @Composable
+    fun surfaceSelected(): Color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+
     // ── Surface Colors ────────────────────────────────────────────────────────
 
     @Composable
-    fun sidebarSurfaceColor(): Color {
+    private fun sidebarTint(headerStrength: Boolean): Color {
         val surfaceColor = MaterialTheme.colorScheme.surface
         val primaryColor = MaterialTheme.colorScheme.primary
         val isLight = surfaceColor.luminance() > 0.5
-        val tintAmount = if (isLight) 0.08f else 0.12f
+        val tintAmount = when {
+            headerStrength && isLight -> 0.12f
+            headerStrength -> 0.16f
+            isLight -> 0.08f
+            else -> 0.12f
+        }
         val base = Color(
             red = surfaceColor.red + (primaryColor.red - surfaceColor.red) * tintAmount,
             green = surfaceColor.green + (primaryColor.green - surfaceColor.green) * tintAmount,
@@ -529,55 +562,64 @@ object AppComponents {
     }
 
     @Composable
-    fun sidebarHeaderColor(): Color {
-        val base = MaterialTheme.colorScheme.secondaryContainer
-        return if (LocalBackgroundActive.current) base.copy(alpha = 0.82f) else base
-    }
+    fun sidebarSurfaceColor(): Color = sidebarTint(headerStrength = false)
 
     @Composable
-    fun userMessageBackground(): Color {
+    fun sidebarHeaderColor(): Color = sidebarTint(headerStrength = true)
+
+    /**
+     * Contrast-safe text/icon color for content painted directly on [sidebarHeaderColor] —
+     * e.g. the logo, app title, and collapse/expand icon in the sidebar header row.
+     */
+    @Composable
+    fun sidebarHeaderContentColor(): Color {
+        val backgroundLuminance = sidebarHeaderColor().luminance()
+        val onSurface = MaterialTheme.colorScheme.onSurface
+        val inverseOnSurface = MaterialTheme.colorScheme.inverseOnSurface
+        return if (backgroundLuminance > 0.5) {
+            if (onSurface.luminance() < inverseOnSurface.luminance()) onSurface else inverseOnSurface
+        } else {
+            if (onSurface.luminance() > inverseOnSurface.luminance()) onSurface else inverseOnSurface
+        }
+    }
+
+    /**
+     * Shifts [MaterialTheme.colorScheme.surface] toward black/white by [amount] — the one
+     * primitive behind every "surface, but slightly shaded" background in the app
+     * ([userMessageBackground], [codeBlockBackground]).
+     */
+    @Composable
+    private fun shadedSurface(amount: Float): Color {
         val surface = MaterialTheme.colorScheme.surface
         val isLight = surface.luminance() > 0.5
         return if (isLight) {
             Color(
-                red = (surface.red * 0.92f).coerceIn(0f, 1f),
-                green = (surface.green * 0.92f).coerceIn(0f, 1f),
-                blue = (surface.blue * 0.92f).coerceIn(0f, 1f),
+                red = (surface.red * (1f - amount)).coerceIn(0f, 1f),
+                green = (surface.green * (1f - amount)).coerceIn(0f, 1f),
+                blue = (surface.blue * (1f - amount)).coerceIn(0f, 1f),
                 alpha = surface.alpha,
             )
         } else {
             Color(
-                red = (surface.red + 0.10f).coerceIn(0f, 1f),
-                green = (surface.green + 0.10f).coerceIn(0f, 1f),
-                blue = (surface.blue + 0.10f).coerceIn(0f, 1f),
+                red = (surface.red + amount).coerceIn(0f, 1f),
+                green = (surface.green + amount).coerceIn(0f, 1f),
+                blue = (surface.blue + amount).coerceIn(0f, 1f),
                 alpha = surface.alpha,
             )
         }
     }
+
+    /** Subtle shade — message bubbles. */
+    @Composable
+    fun userMessageBackground(): Color = shadedSurface(if (MaterialTheme.colorScheme.surface.luminance() > 0.5) 0.08f else 0.10f)
 
     @Composable
     fun userMessageContentColor(): Color = MaterialTheme.colorScheme.onSurface
 
+    /** Stronger shade than [userMessageBackground] — code blocks need to read as clearly
+     *  distinct from surrounding prose. */
     @Composable
-    fun codeBlockBackground(): Color {
-        val surface = MaterialTheme.colorScheme.surface
-        val isLight = surface.luminance() > 0.5
-        return if (isLight) {
-            Color(
-                red = (surface.red * 0.85f).coerceIn(0f, 1f),
-                green = (surface.green * 0.85f).coerceIn(0f, 1f),
-                blue = (surface.blue * 0.85f).coerceIn(0f, 1f),
-                alpha = surface.alpha,
-            )
-        } else {
-            Color(
-                red = (surface.red * 0.75f).coerceIn(0f, 1f),
-                green = (surface.green * 0.75f).coerceIn(0f, 1f),
-                blue = (surface.blue * 0.75f).coerceIn(0f, 1f),
-                alpha = surface.alpha,
-            )
-        }
-    }
+    fun codeBlockBackground(): Color = shadedSurface(if (MaterialTheme.colorScheme.surface.luminance() > 0.5) 0.15f else 0.25f)
 
     @Composable
     fun codeBlockContentColor(): Color = MaterialTheme.colorScheme.onSurface
@@ -599,10 +641,6 @@ object AppComponents {
     /** Subtle decorative icon tint — half-opacity secondary. */
     @Composable
     fun tertiaryIconColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-
-    /** @see AppTextStyles.secondaryContent */
-    @Composable
-    fun secondaryTextColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant
 
     @Composable
     fun dropdownMenu(

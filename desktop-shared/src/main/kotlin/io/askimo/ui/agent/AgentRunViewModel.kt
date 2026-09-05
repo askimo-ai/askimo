@@ -7,6 +7,7 @@ package io.askimo.ui.agent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import io.askimo.core.agent.AgentReadiness
 import io.askimo.core.agent.AgentUsage
 import io.askimo.core.agent.ExternalAgent
 import io.askimo.core.agent.ExternalAgentLoader
@@ -42,12 +43,6 @@ import java.io.File
 import java.time.Instant
 import java.util.UUID
 import kotlin.time.Duration.Companion.milliseconds
-
-internal enum class AgentCardState {
-    NOT_INSTALLED,
-    NEEDS_SETUP,
-    READY,
-}
 
 private val log = currentFileLogger()
 
@@ -97,50 +92,64 @@ internal class AgentRunViewModel(
 ) {
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val workDir: File = File(workspace.path)
-    val agenticSystemPrompt: String = buildAgenticSystemPrompt(skills)
 
     // ── Agent selection ──────────────────────────────────────────────────────
     val allAgents: List<ExternalAgent> = ExternalAgentLoader.all()
 
-    var agentStateMap by mutableStateOf(mapOf<String, AgentCardState>())
+    var agentStateMap by mutableStateOf(allAgents.associate { agent -> agent.id to agent.readiness })
         private set
 
     var selectedAgentId by mutableStateOf(ApplicationPreferences.getSelectedAgentId())
         private set
 
+    /**
+     * True once the active conversation has produced at least one turn — either a fresh
+     * run or a re-opened history entry (see [preload]). While locked, [selectAgent] refuses
+     * to switch agents so a conversation always continues with the same agent it started
+     * with; only [startNewConversation] clears the lock.
+     */
+    var isAgentSelectionLocked by mutableStateOf(false)
+        private set
+
     /** Resolved selected agent; falls back to the first ready one if the saved pref is unavailable. */
     val selectedAgent: ExternalAgent?
-        get() = allAgents.firstOrNull { it.id == selectedAgentId && agentStateMap[it.id] == AgentCardState.READY }
-            ?: allAgents.firstOrNull { agentStateMap[it.id] == AgentCardState.READY }
+        get() = allAgents.firstOrNull { it.id == selectedAgentId && agentStateMap[it.id] == AgentReadiness.READY }
+            ?: allAgents.firstOrNull { agentStateMap[it.id] == AgentReadiness.READY }
 
     /** The raw selected agent (or the first available one), regardless of readiness — used for setup hints. */
     val selectedAgentRaw: ExternalAgent?
         get() = allAgents.firstOrNull { it.id == selectedAgentId } ?: allAgents.firstOrNull()
 
     val selectedAgentReady: Boolean
-        get() = agentStateMap[selectedAgent?.id] == AgentCardState.READY
+        get() = agentStateMap[selectedAgent?.id] == AgentReadiness.READY
 
     /** Re-checks binary availability / auth for every known agent (off the UI thread). */
     fun refreshAgentStates() {
         scope.launch {
             agentStateMap = withContext(Dispatchers.IO) {
-                allAgents.associate { agent ->
-                    agent.id to when {
-                        !agent.isBinaryAvailable() -> AgentCardState.NOT_INSTALLED
-                        !agent.isConfigured() -> AgentCardState.NEEDS_SETUP
-                        else -> AgentCardState.READY
-                    }
-                }
+                allAgents.associate { agent -> agent.id to agent.readiness }
             }
         }
     }
 
     fun selectAgent(agentId: String) {
+        if (isAgentSelectionLocked) return
         selectedAgentId = agentId
         ApplicationPreferences.setSelectedAgentId(agentId)
         // A resume/session id is only meaningful to the CLI that produced it.
         activeAgentSessionId = null
         refreshAgentStates()
+    }
+
+    /**
+     * Restores the agent a re-opened conversation was actually run with, without persisting
+     * it as the user's global preference (unlike [selectAgent]) — this is a read-only
+     * reconstruction of history, not a deliberate choice by the user.
+     */
+    private fun restoreAgentForPreload(agentId: String?) {
+        if (agentId != null && allAgents.any { it.id == agentId }) {
+            selectedAgentId = agentId
+        }
     }
 
     // ── Conversation state ───────────────────────────────────────────────────
@@ -228,6 +237,7 @@ internal class AgentRunViewModel(
         activeAgentSessionId = null
         activeConversationId = UUID.randomUUID().toString()
         conversationTitle = null
+        isAgentSelectionLocked = false
     }
 
     /** Reconstructs the full multi-turn conversation for a re-opened history entry. */
@@ -265,6 +275,10 @@ internal class AgentRunViewModel(
         // Restore the agent's own session id so a follow-up on a re-opened history
         // entry continues that same conversation rather than starting a new one.
         activeAgentSessionId = turns.lastOrNull()?.agentSessionId
+        // Restore (without persisting to prefs) the exact agent this conversation was run
+        // with, then lock the picker — a history conversation must keep using that agent.
+        restoreAgentForPreload(turns.lastOrNull()?.agentId ?: turns.firstOrNull()?.agentId)
+        isAgentSelectionLocked = true
         isRunning = false
         isWaitingForFirstEvent = false
     }
@@ -280,6 +294,11 @@ internal class AgentRunViewModel(
      */
     private fun executeAgentic(agent: ExternalAgent, input: String, isNewConversation: Boolean) {
         val resumeSessionId = if (isNewConversation) null else activeAgentSessionId
+        // Built per-agent (not once for all agents): for agents with native skill discovery
+        // (e.g. Claude Code) this collapses to a one-line instruction, since materializeSkill
+        // below already makes every skill discoverable via the agent's own Skill tool, right
+        // alongside its own pre-installed skills — no catalog/content duplication needed.
+        val systemPrompt = buildAgenticSystemPrompt(skills, agentHasNativeSkillDiscovery = agent.supportsNativeSkillDiscovery)
         isRunning = true
         isWaitingForFirstEvent = true
         timeline = emptyList()
@@ -300,6 +319,9 @@ internal class AgentRunViewModel(
             timestamp = Instant.now(),
         )
         messages = messages + userMessage
+        // Lock the agent picker the moment this conversation has a turn in it — switching
+        // agents mid-conversation would break session resume for the CLI actually running it.
+        isAgentSelectionLocked = true
 
         startElapsedTimer()
 
@@ -308,12 +330,12 @@ internal class AgentRunViewModel(
                 // Materialize every skill in the catalog into the agent's own native
                 // skill-discovery location (e.g. Claude Code's `.claude/skills/<name>/`) so its
                 // built-in Skill tool can find and invoke them — not just rely on the full skill
-                // text injected into agenticSystemPrompt below, which the agent can only read as
+                // text injected into systemPrompt below, which the agent can only read as
                 // background instructions, not "run" as a discrete skill.
                 val materialized = skills.map { skill -> agent.materializeSkill(skill, workDir) }
                 try {
                     agent.runTracked(
-                        systemPrompt = agenticSystemPrompt,
+                        systemPrompt = systemPrompt,
                         userInput = input,
                         workDir = workDir,
                         resumeSessionId = resumeSessionId,
@@ -391,6 +413,7 @@ internal class AgentRunViewModel(
                 userInput = input,
                 response = currentTurnResponse,
                 error = errorText,
+                agentId = agent.id,
                 agentSessionId = activeAgentSessionId,
                 activityLog = timeline.collapsedEffectiveTools().filterIsInstance<TurnTimelineEntry.Tool>().map { it.toolCall.toolName },
                 contentBlocks = timeline.collapsedEffectiveTools().filter { it is TurnTimelineEntry.Tool || it is TurnTimelineEntry.Token },

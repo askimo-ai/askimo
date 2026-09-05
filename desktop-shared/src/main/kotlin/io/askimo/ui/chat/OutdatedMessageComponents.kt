@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 
 /**
@@ -141,7 +142,7 @@ fun outdatedBranchComponent(
                     .fillMaxWidth()
                     .padding(start = 16.dp, top = 8.dp)
                     .background(
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                        AppComponents.surfaceRecessed(),
                         RoundedCornerShape(8.dp),
                     )
                     .padding(8.dp),

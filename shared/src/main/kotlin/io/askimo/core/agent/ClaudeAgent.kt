@@ -9,8 +9,6 @@ import io.askimo.core.logging.logger
 import io.askimo.core.util.ProcessBuilderExt
 import java.io.BufferedWriter
 import java.io.File
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 
 /**
  * External agent implementation for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
@@ -64,50 +62,14 @@ class ClaudeAgent : ExternalAgentTemplate() {
 
     override val configurationHint = "Run 'claude login' in a terminal to authenticate with your Anthropic account, then return here."
 
+    override val supportsNativeSkillDiscovery = true
+
     /**
      * Materializes [skill] into `<workDir>/.claude/skills/<folder-name>/` so Claude Code's
      * own native "Skills" mechanism (its `Skill` tool) can also discover and invoke it —
      * on top of the ambient `--append-system-prompt` injection already done in [run].
-     *
-     * The skill's entire source folder (SKILL.md + supplemental files, excluding `.git`)
-     * is copied as-is. If a skill folder with the same name already exists under
-     * `<workDir>/.claude/skills/` (e.g. the user's own project skill), it is left untouched
-     * and nothing is deleted on cleanup — we never want to clobber user-owned files.
      */
-    override fun materializeSkill(skill: SkillDefinition, workDir: File): AutoCloseable = runCatching {
-        val sourceDir = skill.absolutePath.parent
-        if (sourceDir == null || !Files.isDirectory(sourceDir)) return@runCatching AutoCloseable {}
-
-        val folderName = sourceDir.fileName.toString()
-        val targetDir = workDir.toPath().resolve(".claude").resolve("skills").resolve(folderName)
-
-        if (Files.exists(targetDir)) {
-            log.debug("Claude skill '{}' already present at {} — leaving as-is", folderName, targetDir)
-            return@runCatching AutoCloseable {}
-        }
-
-        Files.createDirectories(targetDir)
-        Files.walk(sourceDir).use { stream ->
-            stream
-                .filter { Files.isRegularFile(it) }
-                .filter { path -> path.none { seg -> seg.toString() == ".git" } }
-                .forEach { src ->
-                    val dest = targetDir.resolve(sourceDir.relativize(src))
-                    Files.createDirectories(dest.parent)
-                    Files.copy(src, dest, StandardCopyOption.REPLACE_EXISTING)
-                }
-        }
-        log.debug("Materialized Claude skill '{}' into {}", folderName, targetDir)
-
-        AutoCloseable {
-            runCatching {
-                Files.walk(targetDir).use { s -> s.sorted(Comparator.reverseOrder()).forEach { Files.deleteIfExists(it) } }
-                log.debug("Cleaned up materialized Claude skill at {}", targetDir)
-            }.onFailure { e -> log.warn("Failed to clean up materialized skill at {}: {}", targetDir, e.message) }
-        }
-    }.onFailure { e ->
-        log.warn("Failed to materialize Claude skill '{}': {}", skill.name, e.message)
-    }.getOrElse { AutoCloseable {} }
+    override fun materializeSkill(skill: SkillDefinition, workDir: File): AutoCloseable = materializeSkillFolder(skill, workDir.toPath().resolve(".claude").resolve("skills"))
 
     override fun resolveAgentPath(): String? = ProcessBuilderExt.which("claude")
     override fun buildCommand(

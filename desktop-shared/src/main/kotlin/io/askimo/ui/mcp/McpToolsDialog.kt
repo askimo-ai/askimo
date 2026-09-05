@@ -189,7 +189,7 @@ fun mcpToolsDialog(
         // ── Instance info card ─────────────────────────────────────────────
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = AppComponents.secondaryCardColors(),
+            colors = AppComponents.bannerCardColors(),
         ) {
             Column(
                 modifier = Modifier

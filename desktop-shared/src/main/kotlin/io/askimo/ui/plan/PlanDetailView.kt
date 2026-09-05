@@ -264,7 +264,7 @@ fun planDetailView(
                         Spacer(modifier = Modifier.height(Spacing.small))
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            color = AppComponents.surfaceRaised(),
                             shape = MaterialTheme.shapes.medium,
                         ) {
                             Column {
@@ -986,7 +986,7 @@ private fun followUpPanel(
 
     Surface(
         modifier = modifier,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+        color = AppComponents.surfaceEmphasis(),
         shape = MaterialTheme.shapes.medium,
     ) {
         Column(modifier = Modifier.padding(Spacing.large)) {

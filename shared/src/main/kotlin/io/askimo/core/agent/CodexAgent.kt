@@ -4,6 +4,7 @@
  */
 package io.askimo.core.agent
 
+import io.askimo.core.agent.domain.SkillDefinition
 import io.askimo.core.context.AppContext
 import io.askimo.core.logging.logger
 import io.askimo.core.providers.ModelProvider
@@ -50,6 +51,19 @@ class CodexAgent : ExternalAgentTemplate() {
             usage = "/help",
         ),
     )
+
+    override val supportsNativeSkillDiscovery = true
+
+    /**
+     * Materializes [skill] into `<workDir>/.agents/skills/<folder-name>/` — Codex CLI's
+     * project/repo-scoped skill discovery location (some Codex versions instead read
+     * `.codex/skills/<skill-folder>/`; `.agents/skills` is the convention shared with
+     * Antigravity and is checked first by current Codex releases).
+     *
+     * Uses a copy (see [ExternalAgentTemplate.materializeSkillFolder]) rather than a symlink
+     * since symlink support isn't confirmed for Codex the way it is for Antigravity.
+     */
+    override fun materializeSkill(skill: SkillDefinition, workDir: File): AutoCloseable = materializeSkillFolder(skill, workDir.toPath().resolve(".agents").resolve("skills"))
 
     /**
      * Resolves the OpenAI API key from:

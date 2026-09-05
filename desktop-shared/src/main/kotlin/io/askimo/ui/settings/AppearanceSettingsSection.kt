@@ -558,14 +558,14 @@ private fun accentPresetTile(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    val selectedTextColor = MaterialTheme.colorScheme.onSecondaryContainer
+    val selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer
     Card(
         onClick = onClick,
         modifier = Modifier
             .width(92.dp)
             .heightIn(min = 72.dp)
             .pointerHoverIcon(PointerIcon.Hand),
-        colors = if (selected) AppComponents.secondaryCardColors() else AppComponents.surfaceVariantCardColors(),
+        colors = if (selected) AppComponents.primaryCardColors() else AppComponents.surfaceVariantCardColors(),
         shape = RoundedCornerShape(12.dp),
     ) {
         Column(
