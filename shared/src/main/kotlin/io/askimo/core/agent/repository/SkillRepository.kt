@@ -190,7 +190,7 @@ class SkillRepository {
         // Virtual relative path so categoryPath is computed correctly
         val virtualRelativePath = if (parentRel.isNotEmpty()) "$parentRel/$folderName.md" else "$folderName.md"
         val base = SkillMarkdownParser.parse(mainContent, virtualRelativePath, entryFile)
-        val displayName = if (mainContent.contains(Regex("^name\\s*:", RegexOption.MULTILINE))) {
+        val displayName = if (hasExplicitNameField(mainContent)) {
             base.name.takeIf { it.isNotBlank() } ?: folderName
         } else {
             folderName
@@ -403,6 +403,10 @@ class SkillRepository {
      * moves a folder within its own parent directory, and [SkillDefinition.slug] (used for
      * external-agent materialization) prepends the full category path on top of this leaf name.
      *
+     * Rename-on-save only applies when the entry file has a containing skill folder (e.g.
+     * `"my-skill/skill.md"`); a bare root-level `"skill.md"` is left as-is since there is no
+     * skill folder to rename (renaming would otherwise attempt to move `skillsDir()` itself).
+     *
      * @param relativePath Path relative to `AskimoHome.skillsDir()`, e.g. `"coding/review/my-skill.md"`.
      * @param content      Full file content (frontmatter + body).
      * @return The parsed [SkillDefinition] after saving (with the post-rename path, if renamed).
@@ -422,7 +426,7 @@ class SkillRepository {
             // falls back to a filename-derived name (e.g. "skill" from "skill.md") when no such
             // field is present, which would otherwise cause every nameless skill.md to be
             // spuriously renamed to a folder literally called "skill".
-            val hasExplicitName = content.contains(Regex("^name\\s*:", RegexOption.MULTILINE))
+            val hasExplicitName = hasExplicitNameField(content)
             val parsedName = if (hasExplicitName) {
                 runCatching { SkillMarkdownParser.parse(content, normalizedRelativePath, absolute).name }.getOrNull()
             } else {
@@ -432,7 +436,9 @@ class SkillRepository {
             val currentFolder = absolute.parent
             val currentFolderName = currentFolder.fileName.toString()
 
-            if (targetFolderName != null && targetFolderName != currentFolderName) {
+            // Never rename when the entry file sits directly under skillsDir() itself — there's
+            // no containing skill folder to rename, and currentFolder would be the skills root.
+            if (targetFolderName != null && targetFolderName != currentFolderName && currentFolder != root) {
                 val resolvedName = resolveAvailableFolderName(currentFolder.parent, targetFolderName, currentFolderName)
                 if (resolvedName != null) {
                     val targetFolder = currentFolder.resolveSibling(resolvedName)
@@ -484,6 +490,27 @@ class SkillRepository {
         .replace(Regex("[^a-z0-9]+"), "-")
         .trim('-')
         .take(MAX_FOLDER_NAME_LENGTH)
+
+    /**
+     * Returns `true` if [content] has an explicit `name:` key inside its **leading YAML
+     * frontmatter block** only — the same block [SkillMarkdownParser] treats as frontmatter
+     * (delimited by a `---` first line and a matching closing `---` line further down).
+     *
+     * Unlike a naive whole-file regex scan, this can't be fooled by a `name:` line that
+     * merely appears in the skill body (non-frontmatter) text, and mirrors
+     * [SkillMarkdownParser]'s own key-matching rule (colon split, trimmed key) so this stays
+     * consistent with however `SkillMarkdownParser.parse` actually resolves `name`.
+     */
+    private fun hasExplicitNameField(content: String): Boolean {
+        val lines = content.lines()
+        if (lines.isEmpty() || lines[0].trim() != "---") return false
+        val closingIndex = lines.drop(1).indexOfFirst { it.trim() == "---" }
+        if (closingIndex == -1) return false
+        return lines.subList(1, closingIndex + 1).any { line ->
+            val colonIndex = line.indexOf(':')
+            colonIndex > 0 && line.substring(0, colonIndex).trim() == "name"
+        }
+    }
 
     /**
      * Deletes the skill file at [relativePath].

@@ -208,7 +208,7 @@ class AntigravityAgent : ExternalAgentTemplate() {
                     stepType != null -> {
                         val detail = formatToolArgs(
                             event.fields.filterKeys { it !in setOf("step_type", "state", "step_index") },
-                        )
+                        ).take(ExternalAgent.TOOL_DETAIL_MAX_LENGTH)
                         onToolCall(stepType, detail.ifBlank { null })
                     }
 

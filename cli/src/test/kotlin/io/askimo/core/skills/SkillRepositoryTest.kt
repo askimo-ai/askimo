@@ -228,6 +228,19 @@ class SkillRepositoryTest {
         }
 
         @Test
+        fun `skill folder name is NOT overridden by a name colon line appearing only in the body`() = withSkillsDir {
+            // No frontmatter block — "name:" here is body text (e.g. sample config docs), not
+            // an explicit frontmatter field. Display name must fall back to the folder name.
+            write(
+                "my-cool-skill/skill.md",
+                "Example usage:\nname: Something Else\ndescription: whatever\n",
+            )
+            val skills = repo().getSkillsOnly()
+            assertEquals(1, skills.size)
+            assertEquals("my-cool-skill", skills[0].name)
+        }
+
+        @Test
         fun `skill folder category is the parent folder not the skill folder itself`() = withSkillsDir {
             write("coding/reviewer/skill.md", "---\nname: Reviewer\n---\nContent")
             val skill = repo().getSkillsOnly().single()
@@ -459,6 +472,31 @@ class SkillRepositoryTest {
         }
 
         @Test
+        fun `save does not rename when a name colon line appears only in the body, not frontmatter`() = withSkillsDir {
+            // No leading "---" frontmatter block at all — "name:" here is just body text
+            // (e.g. documentation describing the frontmatter format). Must NOT be treated
+            // as an explicit name and must NOT trigger a rename.
+            val saved = repo().save(
+                "my-folder/skill.md",
+                "Explain the format:\nname: <value>\ndescription: <value>\n",
+            )
+            assertEquals("my-folder/skill.md", saved.relativePath)
+            assertTrue(Files.exists(skillsDir().resolve("my-folder/skill.md")))
+        }
+
+        @Test
+        fun `save does not rename when name colon line appears after the frontmatter block`() = withSkillsDir {
+            // Valid frontmatter block with no `name:` key, followed by a body that happens to
+            // contain a "name:" line. The body line must not leak into frontmatter detection.
+            val saved = repo().save(
+                "my-folder/skill.md",
+                "---\ndescription: A skill\n---\n\nExample config:\nname: not-a-real-frontmatter-field\n",
+            )
+            assertEquals("my-folder/skill.md", saved.relativePath)
+            assertTrue(Files.exists(skillsDir().resolve("my-folder/skill.md")))
+        }
+
+        @Test
         fun `save never overwrites a pre-existing folder with the target name`() = withSkillsDir {
             // "taken" already exists as an unrelated skill folder.
             write("taken/skill.md", "---\nname: Someone Else\n---\nOriginal content")
@@ -536,6 +574,17 @@ class SkillRepositoryTest {
             // original (placeholder) name rather than looping forever or overwriting anything.
             assertEquals("new-skill-333/skill.md", saved.relativePath)
             assertTrue(Files.exists(skillsDir().resolve("new-skill-333/skill.md")))
+        }
+
+        @Test
+        fun `save on a root-level skill dot md never attempts to rename skillsDir itself`() = withSkillsDir {
+            // "skill.md" placed directly under skillsDir() has no containing skill folder to
+            // rename — currentFolder would otherwise resolve to skillsDir() itself.
+            val saved = repo().save("skill.md", "---\nname: Some Name\n---\nContent")
+
+            assertEquals("skill.md", saved.relativePath)
+            assertTrue(Files.exists(skillsDir().resolve("skill.md")), "Root-level skill.md must remain in place")
+            assertTrue(Files.isDirectory(skillsDir()), "skillsDir() itself must not have been moved/renamed")
         }
     }
 
