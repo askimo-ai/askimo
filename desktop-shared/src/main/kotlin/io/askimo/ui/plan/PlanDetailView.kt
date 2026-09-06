@@ -82,6 +82,7 @@ import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
+import io.askimo.ui.common.theme.LocalBackgroundActive
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.markdownText
@@ -152,7 +153,13 @@ fun planDetailView(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface)
+                    .background(
+                        if (LocalBackgroundActive.current) {
+                            Color.Transparent
+                        } else {
+                            MaterialTheme.colorScheme.surface
+                        },
+                    )
                     .padding(start = 24.dp, end = 36.dp, top = 8.dp, bottom = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {

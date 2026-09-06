@@ -4,7 +4,6 @@
  */
 package io.askimo.desktop.plan
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
@@ -46,6 +46,7 @@ import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
+import io.askimo.ui.common.theme.LocalBackgroundActive
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.plan.PlansViewModel
 import io.askimo.ui.plan.planInputField
@@ -70,12 +71,11 @@ fun planEditorView(
 
     Column(
         modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            .fillMaxSize(),
     ) {
         // ── Header bar ────────────────────────────────────────────────────────
         Surface(
-            color = MaterialTheme.colorScheme.surface,
+            color = if (LocalBackgroundActive.current) Color.Transparent else MaterialTheme.colorScheme.surface,
             shadowElevation = 2.dp,
         ) {
             Row(
