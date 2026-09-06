@@ -144,4 +144,21 @@ class MemoryMessageTest {
         assertTrue(restored.any { it is AiMessage && it.hasToolExecutionRequests() })
         assertTrue(restored.any { it is ToolExecutionResultMessage && it.id() == "toolu_modern_call" })
     }
+
+    @Test
+    @DisplayName("should drop TOOL_EXECUTION_RESULT_MESSAGE rows with a valid toolCallId but blank/missing toolName")
+    fun shouldDropToolResultMessagesWithBlankToolName() {
+        // A tool_result missing its tool name is just as invalid for providers as one missing
+        // its id — must be dropped rather than reconstructed with a blank name fallback.
+        val missingToolName = MemoryMessage(
+            content = "output",
+            type = io.askimo.core.context.MessageRole.TOOL_EXECUTION_RESULT_MESSAGE.value,
+            toolCallId = "toolu_has_id_no_name",
+            toolName = null,
+        )
+        val blankToolName = missingToolName.copy(toolName = "   ")
+
+        assertEquals(null, missingToolName.toChatMessage(), "toolName == null must be dropped")
+        assertEquals(null, blankToolName.toChatMessage(), "toolName blank must be dropped")
+    }
 }

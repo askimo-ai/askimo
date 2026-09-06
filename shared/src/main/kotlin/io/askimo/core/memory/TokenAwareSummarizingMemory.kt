@@ -370,8 +370,18 @@ class TokenAwareSummarizingMemory(
         structuredSummary = null
         basicSummary = null
 
+        // Keep only rows that toChatMessage() can actually reconstruct: plain text messages,
+        // assistant tool-call messages, and TOOL_EXECUTION_RESULT_MESSAGE rows that have both a
+        // non-blank toolCallId AND toolName (see MemoryMessage.toChatMessage() for why both are
+        // required). Mirroring that predicate here — rather than the looser `toolCallId != null`
+        // check — keeps the "filtered out N blank messages" log below accurate, instead of
+        // undercounting rows that are dropped later by toChatMessage() for other reasons.
         val validMessages = filteredMessages
-            .filter { it.content.isNotBlank() || it.toolExecutionRequests.isNotEmpty() || it.toolCallId != null }
+            .filter {
+                it.content.isNotBlank() ||
+                    it.toolExecutionRequests.isNotEmpty() ||
+                    (!it.toolCallId.isNullOrBlank() && !it.toolName.isNullOrBlank())
+            }
             .mapNotNull { it.toChatMessage() }
 
         messages.addAll(validMessages)

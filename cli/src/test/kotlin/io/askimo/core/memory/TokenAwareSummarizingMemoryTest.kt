@@ -396,6 +396,72 @@ class TokenAwareSummarizingMemoryTest {
         assertEquals(3, memory.messages().size)
     }
 
+    // ── loadFromFilteredMemory ───────────────────────────────────────────────
+
+    @Test
+    fun `loadFromFilteredMemory should keep valid text and tool-call messages`() {
+        memory = createMemory(asyncSummarization = false)
+
+        val request = dev.langchain4j.agent.tool.ToolExecutionRequest.builder()
+            .id("toolu_valid")
+            .name("some_tool")
+            .arguments("{}")
+            .build()
+
+        val filtered = listOf(
+            MemoryMessage(content = "Hello", type = io.askimo.core.context.MessageRole.USER.value),
+            MemoryMessage.from(AiMessage.from(request)),
+            MemoryMessage.from(dev.langchain4j.data.message.ToolExecutionResultMessage.from(request, "tool output")),
+        )
+
+        memory.loadFromFilteredMemory(filtered)
+
+        val messages = memory.messages()
+        assertEquals(3, messages.size, "All three reconstructable rows should be kept")
+    }
+
+    @Test
+    fun `loadFromFilteredMemory should drop a tool_result row with a non-null but blank toolCallId`() {
+        memory = createMemory(asyncSummarization = false)
+
+        val filtered = listOf(
+            MemoryMessage(content = "Hello", type = io.askimo.core.context.MessageRole.USER.value),
+            MemoryMessage(
+                content = "orphaned output",
+                type = io.askimo.core.context.MessageRole.TOOL_EXECUTION_RESULT_MESSAGE.value,
+                toolCallId = "   ", // non-null but blank — must be treated as invalid
+                toolName = "some_tool",
+            ),
+        )
+
+        memory.loadFromFilteredMemory(filtered)
+
+        val messages = memory.messages()
+        assertEquals(1, messages.size, "Blank toolCallId row must be filtered out, not just non-null")
+        assertTrue(messages[0] is UserMessage)
+    }
+
+    @Test
+    fun `loadFromFilteredMemory should drop a tool_result row with a valid toolCallId but blank toolName`() {
+        memory = createMemory(asyncSummarization = false)
+
+        val filtered = listOf(
+            MemoryMessage(content = "Hello", type = io.askimo.core.context.MessageRole.USER.value),
+            MemoryMessage(
+                content = "output",
+                type = io.askimo.core.context.MessageRole.TOOL_EXECUTION_RESULT_MESSAGE.value,
+                toolCallId = "toolu_has_id",
+                toolName = null, // missing tool name — must be treated as invalid too
+            ),
+        )
+
+        memory.loadFromFilteredMemory(filtered)
+
+        val messages = memory.messages()
+        assertEquals(1, messages.size, "Blank/missing toolName row must be filtered out")
+        assertTrue(messages[0] is UserMessage)
+    }
+
     // ── Persistence ──────────────────────────────────────────────────────────
 
     @Test

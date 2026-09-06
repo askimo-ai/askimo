@@ -92,14 +92,14 @@ data class MemoryMessage(
     /**
      * Convert this MemoryMessage to a LangChain4j ChatMessage.
      *
-     * Returns `null` for a TOOL_EXECUTION_RESULT_MESSAGE whose [toolCallId] is missing/blank.
-     * This happens when loading sessions persisted *before* tool-call metadata was added to
-     * [MemoryMessage] — such legacy rows have no id to pair with a `tool_use` block (and the
-     * legacy assistant message that triggered them has no [toolExecutionRequests] either, since
-     * that metadata didn't exist yet). Reconstructing a `ToolExecutionResultMessage` with a
-     * blank/synthetic id would either throw or silently produce another orphaned `tool_result`
-     * — the exact class of bug this metadata was added to fix — so callers must drop it instead
-     * via `mapNotNull`.
+     * Returns `null` for a TOOL_EXECUTION_RESULT_MESSAGE whose [toolCallId] or [toolName] is
+     * missing/blank. This happens when loading sessions persisted *before* tool-call metadata
+     * was added to [MemoryMessage] — such legacy rows have no id/name to pair with a `tool_use`
+     * block (and the legacy assistant message that triggered them has no [toolExecutionRequests]
+     * either, since that metadata didn't exist yet). Reconstructing a `ToolExecutionResultMessage`
+     * with a blank/synthetic id or name would either throw or silently produce another invalid
+     * `tool_result` — the exact class of bug this metadata was added to fix — so callers must
+     * drop it instead via `mapNotNull`.
      */
     fun toChatMessage(): ChatMessage? = when (this.type) {
         MessageRole.USER.value -> UserMessage.from(this.content)
@@ -125,12 +125,12 @@ data class MemoryMessage(
         MessageRole.SYSTEM.value -> SystemMessage.from(this.content)
 
         MessageRole.TOOL_EXECUTION_RESULT_MESSAGE.value ->
-            if (this.toolCallId.isNullOrBlank()) {
+            if (this.toolCallId.isNullOrBlank() || this.toolName.isNullOrBlank()) {
                 null
             } else {
                 ToolExecutionResultMessage.from(
                     this.toolCallId,
-                    this.toolName ?: "",
+                    this.toolName,
                     this.content,
                 )
             }
