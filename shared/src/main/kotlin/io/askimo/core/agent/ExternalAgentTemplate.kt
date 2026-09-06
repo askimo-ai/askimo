@@ -15,6 +15,7 @@ import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Template base class for external CLI agents implementing the standard execution flow:
@@ -52,9 +53,12 @@ abstract class ExternalAgentTemplate : ExternalAgent {
     @Volatile
     private var currentProcess: Process? = null
 
-    /** Set by [cancel] before killing [currentProcess], so [run] can distinguish this from a genuine process failure. */
-    @Volatile
-    private var cancelRequested: Boolean = false
+    /**
+     * Set by [cancel] before killing [currentProcess], so [run] can distinguish this from a
+     * genuine process failure. Uses [AtomicBoolean] so [run]'s capture-then-clear on start is
+     * an atomic read-and-clear, not two racy steps that could drop a concurrent cancel().
+     */
+    private val cancelRequested = AtomicBoolean(false)
 
     override val lastExecutionSessionId: String?
         get() = executionSessionId
@@ -375,7 +379,7 @@ abstract class ExternalAgentTemplate : ExternalAgent {
      * see it. No-op (beyond recording intent) if nothing is currently tracked.
      */
     override fun cancel() {
-        cancelRequested = true
+        cancelRequested.set(true)
         val process = currentProcess ?: return
         if (!process.isAlive) return
         log.debug("Cancel requested for {} (pid={})", id, runCatching { process.pid() }.getOrNull())
@@ -401,11 +405,9 @@ abstract class ExternalAgentTemplate : ExternalAgent {
         resultErrorMessage = null
         executionUsage = null
         // Capture-then-clear instead of a plain reset: a Stop click can land before this run()
-        // call is reached (e.g. while skills are still being materialized), setting
-        // cancelRequested with no process yet to kill. A plain reset would silently drop that
-        // request; capturing it first lets us abort below, while still clearing it for next time.
-        val cancelledBeforeStart = cancelRequested
-        cancelRequested = false
+        // call is reached (e.g. while skills are still being materialized). getAndSet(false)
+        // does this atomically so a concurrent cancel() can't be clobbered by our own clear.
+        val cancelledBeforeStart = cancelRequested.getAndSet(false)
         if (cancelledBeforeStart) {
             log.debug("{} cancel() was requested before this run started; aborting immediately", id)
             throw AgentCancelledException()
@@ -432,7 +434,7 @@ abstract class ExternalAgentTemplate : ExternalAgent {
         // Honor a Stop click that landed in the tiny window between start() above and this
         // assignment — cancel() would have set cancelRequested but found currentProcess still
         // null/stale, so it couldn't terminate this process itself.
-        if (cancelRequested) {
+        if (cancelRequested.get()) {
             log.debug("{} cancel() was requested before process tracking began; terminating immediately", id)
             terminateProcess(process)
         }
@@ -500,7 +502,7 @@ abstract class ExternalAgentTemplate : ExternalAgent {
             // cancel() killed this process on purpose — report a distinct cancellation outcome
             // instead of a generic "exited with code N" error, regardless of the actual exit
             // code or any resultErrorMessage the partial output may have triggered.
-            if (cancelRequested) {
+            if (cancelRequested.get()) {
                 log.debug("{} run cancelled by user (exit code {})", id, exitCode)
                 throw AgentCancelledException()
             }
@@ -537,7 +539,7 @@ abstract class ExternalAgentTemplate : ExternalAgent {
             output.toString().trimEnd()
         } finally {
             currentProcess = null
-            cancelRequested = false
+            cancelRequested.set(false)
         }
     }.onFailure { e ->
         if (e is AgentCancelledException) {
