@@ -141,10 +141,6 @@ class CodexAgent : ExternalAgentTemplate() {
         add("-C")
         add(effectiveWorkDir.absolutePath)
         add("exec")
-        // Codex keeps its own rollout/thread store; `resume <thread_id>` (captured from this
-        // agent's `thread.started` event, see `parseStdoutLine`) continues it instead of Askimo
-        // replaying prior turns itself.
-        // TODO: verify exact subcommand/flag against the installed Codex CLI version.
         if (!resumeSessionId.isNullOrBlank()) {
             add("resume")
             add(resumeSessionId)

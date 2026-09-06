@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
@@ -249,11 +250,13 @@ internal fun agentsPageHeader(
 
     // ── Description + runtimes: full width below the title row ─────────────
     Spacer(modifier = Modifier.height(4.dp))
-    Text(
-        text = stringResource("agents.view.description", runtimesLabel),
-        style = AppTextStyles.bodySecondary,
-        modifier = Modifier.fillMaxWidth(),
-    )
+    SelectionContainer {
+        Text(
+            text = stringResource("agents.view.description", runtimesLabel),
+            style = AppTextStyles.bodySecondary,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
     Spacer(modifier = Modifier.height(8.dp))
     Row(
         verticalAlignment = Alignment.CenterVertically,

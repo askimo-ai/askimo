@@ -47,7 +47,6 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -83,6 +82,8 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import io.askimo.core.agent.domain.Workspace
 import io.askimo.core.db.DatabaseManager
+import io.askimo.ui.common.components.dangerButton
+import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
@@ -233,20 +234,20 @@ internal fun workspaceFilesPanel(
 
     // ── Delete confirmation dialog ────────────────────────────────────────────
     deleteConfirmNode?.let { node ->
-        AlertDialog(
+        AppComponents.alertDialog(
             onDismissRequest = { deleteConfirmNode = null },
             title = { Text(stringResource("agents.view.workspace.delete.confirm.title", node.displayName)) },
             text = { Text(stringResource("agents.view.workspace.delete.confirm.message")) },
             confirmButton = {
-                TextButton(onClick = {
+                dangerButton(onClick = {
                     deleteNode(node)
                     deleteConfirmNode = null
                 }) {
-                    Text(stringResource("action.delete"), color = MaterialTheme.colorScheme.error)
+                    Text(stringResource("action.delete"))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { deleteConfirmNode = null }) {
+                secondaryButton(onClick = { deleteConfirmNode = null }) {
                     Text(stringResource("action.cancel"))
                 }
             },
@@ -256,7 +257,7 @@ internal fun workspaceFilesPanel(
     // ── Rename workspace dialog ────────────────────────────────────────────────
     renameWorkspaceTarget?.let { target ->
         val focusRequester = remember { FocusRequester() }
-        AlertDialog(
+        AppComponents.alertDialog(
             onDismissRequest = { renameWorkspaceTarget = null },
             title = { Text(stringResource("agents.view.workspace.switcher.rename")) },
             text = {
@@ -302,23 +303,23 @@ internal fun workspaceFilesPanel(
 
     // ── Remove workspace confirmation ─────────────────────────────────────────
     deleteWorkspaceTarget?.let { target ->
-        AlertDialog(
+        AppComponents.alertDialog(
             onDismissRequest = { deleteWorkspaceTarget = null },
             title = { Text(stringResource("agents.view.workspace.switcher.remove.title", target.name)) },
             text = { Text(stringResource("agents.view.workspace.switcher.remove.message")) },
             confirmButton = {
-                TextButton(onClick = {
+                dangerButton(onClick = {
                     scope.launch {
                         withContext(Dispatchers.IO) { workspaceRepo.delete(target.id) }
                         deleteWorkspaceTarget = null
                         workspaceListVersion++
                     }
                 }) {
-                    Text(stringResource("action.remove"), color = MaterialTheme.colorScheme.error)
+                    Text(stringResource("action.remove"))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { deleteWorkspaceTarget = null }) { Text(stringResource("action.cancel")) }
+                secondaryButton(onClick = { deleteWorkspaceTarget = null }) { Text(stringResource("action.cancel")) }
             },
         )
     }
@@ -326,7 +327,7 @@ internal fun workspaceFilesPanel(
     // ── New item dialog ───────────────────────────────────────────────────────
     newItemTarget?.let { (parentDir, isFolder) ->
         val focusRequester = remember { FocusRequester() }
-        AlertDialog(
+        AppComponents.alertDialog(
             onDismissRequest = {
                 newItemTarget = null
                 newItemName = ""
