@@ -346,23 +346,34 @@ abstract class ExternalAgentTemplate : ExternalAgent {
     }
 
     /**
-     * Terminates [currentProcess], if any, gracefully first (`Process.destroy()` — `SIGTERM`
-     * on Unix), giving it up to 3 seconds to exit on its own so any child processes it spawned
-     * (shell commands, etc.) can clean up, then forcibly (`Process.destroyForcibly()` —
-     * `SIGKILL`) if it's still alive. Sets [cancelRequested] first so [run] reports
-     * [AgentCancelledException] instead of a generic "exited with code N" error once the
-     * process actually exits. No-op if nothing is currently running.
+     * Shared termination sequence used by both [cancel] and the early-cancellation check in
+     * [run]: gracefully first (`Process.destroy()` — `SIGTERM` on Unix), giving the process up
+     * to 3 seconds to exit on its own so any child processes it spawned (shell commands, etc.)
+     * can clean up, then forcibly (`Process.destroyForcibly()` — `SIGKILL`) if it's still alive.
      */
-    override fun cancel() {
-        val process = currentProcess ?: return
-        if (!process.isAlive) return
-        log.debug("Cancel requested for {} (pid={})", id, runCatching { process.pid() }.getOrNull())
-        cancelRequested = true
+    private fun terminateProcess(process: Process) {
         process.destroy()
         if (!process.waitFor(3, TimeUnit.SECONDS)) {
             log.debug("{} did not exit after destroy(); escalating to destroyForcibly()", id)
             process.destroyForcibly()
         }
+    }
+
+    /**
+     * Requests termination of the run currently in flight, if any. Sets [cancelRequested]
+     * unconditionally *before* looking at [currentProcess] — not only so [run] reports
+     * [AgentCancelledException] instead of a generic "exited with code N" error, but so a Stop
+     * click landing in the brief window between [run] starting the OS process and assigning it
+     * to [currentProcess] is still honored: [run] checks [cancelRequested] again immediately
+     * after that assignment and terminates the process itself if this method ran too early to
+     * see it. No-op (beyond recording intent) if nothing is currently tracked.
+     */
+    override fun cancel() {
+        cancelRequested = true
+        val process = currentProcess ?: return
+        if (!process.isAlive) return
+        log.debug("Cancel requested for {} (pid={})", id, runCatching { process.pid() }.getOrNull())
+        terminateProcess(process)
     }
 
     override fun run(
@@ -403,6 +414,13 @@ abstract class ExternalAgentTemplate : ExternalAgent {
         configureProcess(processBuilder, workDir, effectiveWorkDir, systemPrompt, userInput)
         val process = processBuilder.start()
         currentProcess = process
+        // Honor a Stop click that landed in the tiny window between start() above and this
+        // assignment — cancel() would have set cancelRequested but found currentProcess still
+        // null/stale, so it couldn't terminate this process itself.
+        if (cancelRequested) {
+            log.debug("{} cancel() was requested before process tracking began; terminating immediately", id)
+            terminateProcess(process)
+        }
 
         try {
             // Drain stderr in background to prevent blocking

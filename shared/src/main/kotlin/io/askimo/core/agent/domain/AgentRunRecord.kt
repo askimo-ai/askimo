@@ -96,7 +96,10 @@ object AgentRunHistoryTable : Table("agent_run_history") {
     val response = text("response").default("")
     val error = text("error").nullable()
 
-    /** See [AgentRunRecord.isCancelled]. Nullable/defaulted so older rows read as `false`. */
+    /**
+     * See [AgentRunRecord.isCancelled]. Non-null with a `DEFAULT 0` — the migration backfills
+     * older rows to `false` rather than leaving them nullable, so reads never need a null check.
+     */
     val isCancelled = bool("is_cancelled").default(false)
     val agentId = varchar("agent_id", 64).nullable()
     val agentSessionId = text("agent_session_id").nullable()

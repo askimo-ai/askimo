@@ -239,7 +239,7 @@ internal class AgentRunViewModel(
         }
         cancelTimeoutJob?.cancel()
         cancelTimeoutJob = scope.launch {
-            delay(8_000)
+            delay(8_000.milliseconds)
             if (isRunning) {
                 log.warn("Agent run did not finalize within 8s of cancel(); forcing job cancellation")
                 currentRunJob?.cancel()
@@ -248,6 +248,10 @@ internal class AgentRunViewModel(
                 runningAgent = null
                 currentRunJob = null
             }
+            // Clear this job reference regardless of whether the branch above fired, so state
+            // stays consistent with the normal completion path (which also nulls it out) instead
+            // of leaving a reference to an already-completed job hanging around.
+            cancelTimeoutJob = null
         }
     }
 
@@ -550,19 +554,20 @@ internal class AgentRunViewModel(
     }
 
     /**
-     * Cancels every coroutine owned by this instance (title-event collection, in-flight runs,
-     * the elapsed-timer ticker). This instance owns its own [CoroutineScope] rather than
-     * borrowing the composable's `rememberCoroutineScope()` — that scope outlives any single
-     * instance, so reusing it would leak this instance's coroutines whenever a workspace switch
-     * causes `agenticRunArea`'s `remember(workspace.id)` to replace it with a new one. Callers
-     * must invoke this (e.g. `DisposableEffect(viewModel) { onDispose { viewModel.close() } }`)
-     * once this instance is discarded.
+     * Cancels every coroutine this instance owns (title events, in-flight runs, the elapsed
+     * timer). Owns its own [CoroutineScope] instead of the composable's `rememberCoroutineScope()`
+     * — that scope outlives a single instance, so reusing it would leak coroutines whenever a
+     * workspace switch replaces this instance (see `agenticRunArea`'s `remember(workspace.id)`).
+     * Callers must invoke this on disposal, e.g. `DisposableEffect(viewModel) { onDispose { viewModel.close() } }`.
      */
     fun close() {
-        // Cancelling the scope alone would abandon the coroutine but leave the underlying OS
-        // process (if any) running as an orphan — e.g. a workspace switch away from an active
-        // run. Kill it explicitly first, same as a user-initiated cancelRun().
-        runningAgent?.cancel()
+        // Kill any orphaned OS process, same as cancelRun(). Runs on a plain thread (not
+        // scope.launch, since scope.cancel() below would race with/abandon it) because this is
+        // invoked synchronously from onDispose on the UI thread, and cancel() can block a few
+        // seconds — fire-and-forget, we don't wait for it.
+        runningAgent?.let { agent ->
+            Thread({ agent.cancel() }, "agent-run-close-cancel").apply { isDaemon = true }.start()
+        }
         scope.cancel()
     }
 }
