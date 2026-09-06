@@ -540,6 +540,92 @@ class ChatRequestTransformersTest {
         }
 
         @Test
+        @DisplayName("should collapse a consecutive tool_result duplicate with the same id and text (retry)")
+        fun shouldCollapseSameIdSameTextToolResultDuplicate() {
+            // Given - a retry appended the exact same tool_result (same id, same text) twice
+            // in a row, e.g. because the streaming request was retried after a transient error
+            // and the memory ended up with the tool result persisted twice.
+            val request = ToolExecutionRequest.builder()
+                .id("toolu_retry_dup")
+                .name("some_tool")
+                .arguments("{}")
+                .build()
+
+            val aiMessage = AiMessage.from(request)
+            val result1 = ToolExecutionResultMessage.from(request, "same output")
+            val result2 = ToolExecutionResultMessage.from(request, "same output")
+
+            val messages = listOf(
+                UserMessage.from("Run the tool"),
+                aiMessage,
+                result1,
+                result2,
+            )
+            val chatRequest = ChatRequest.builder().messages(messages).build()
+
+            // When
+            val result = ChatRequestTransformers.addCustomSystemMessagesAndRemoveDuplicates(
+                sessionId = null,
+                chatRequest = chatRequest,
+                memoryId = null,
+                provider = ModelProvider.ANTHROPIC,
+                settings = OpenAiSettings(defaultModel = "claude-3-opus"),
+            )
+
+            // Then - only one tool_result should remain for this id, avoiding a provider error
+            // ("multiple tool_result blocks for the same tool_use id") and wasted tokens.
+            val toolResults = result.messages().filterIsInstance<ToolExecutionResultMessage>()
+            assertEquals(1, toolResults.size, "Exact duplicate tool_result (same id + text) must be collapsed")
+            assertEquals("toolu_retry_dup", toolResults.first().id())
+        }
+
+        @Test
+        @DisplayName("should NOT collapse consecutive tool_result messages with the same text but different ids")
+        fun shouldNotCollapseDifferentIdSameTextToolResults() {
+            // Given - two different tool_use ids (not a retry) that both happen to return the
+            // exact same output text. These must both be preserved even though they are
+            // "consecutive" and "identical" by text alone.
+            val request1 = ToolExecutionRequest.builder()
+                .id("toolu_call_one")
+                .name("some_tool")
+                .arguments("{\"x\":1}")
+                .build()
+            val request2 = ToolExecutionRequest.builder()
+                .id("toolu_call_two")
+                .name("some_tool")
+                .arguments("{\"x\":2}")
+                .build()
+
+            val aiMessage = AiMessage.from(listOf(request1, request2))
+            val result1 = ToolExecutionResultMessage.from(request1, "identical output")
+            val result2 = ToolExecutionResultMessage.from(request2, "identical output")
+
+            val messages = listOf(
+                UserMessage.from("Run both tools"),
+                aiMessage,
+                result1,
+                result2,
+            )
+            val chatRequest = ChatRequest.builder().messages(messages).build()
+
+            // When
+            val result = ChatRequestTransformers.addCustomSystemMessagesAndRemoveDuplicates(
+                sessionId = null,
+                chatRequest = chatRequest,
+                memoryId = null,
+                provider = ModelProvider.ANTHROPIC,
+                settings = OpenAiSettings(defaultModel = "claude-3-opus"),
+            )
+
+            // Then
+            val toolResults = result.messages().filterIsInstance<ToolExecutionResultMessage>()
+            assertEquals(2, toolResults.size, "Different tool_use ids must never be collapsed, even with identical text")
+            val resultIds = toolResults.map { it.id() }.toSet()
+            assertTrue(resultIds.contains("toolu_call_one"))
+            assertTrue(resultIds.contains("toolu_call_two"))
+        }
+
+        @Test
         @DisplayName("should keep tool_use/tool_result pairs atomic when truncating for token budget")
         fun shouldKeepToolCallPairsAtomicWhenTruncating() {
             val modelKey = ModelCapabilitiesCache.modelKey(ModelProvider.OPENAI, "gpt-3.5-turbo")

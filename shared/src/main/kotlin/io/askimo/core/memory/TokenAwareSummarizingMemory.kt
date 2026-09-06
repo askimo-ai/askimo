@@ -372,7 +372,7 @@ class TokenAwareSummarizingMemory(
 
         val validMessages = filteredMessages
             .filter { it.content.isNotBlank() || it.toolExecutionRequests.isNotEmpty() || it.toolCallId != null }
-            .map { it.toChatMessage() }
+            .mapNotNull { it.toChatMessage() }
 
         messages.addAll(validMessages)
 
@@ -749,7 +749,7 @@ class TokenAwareSummarizingMemory(
      */
     fun importState(state: MemoryState) {
         messages.clear()
-        messages.addAll(state.messages.map { it.toChatMessage() })
+        messages.addAll(state.messages.mapNotNull { it.toChatMessage() })
         structuredSummary = state.summary
         basicSummary = null // Clear basic summary when importing
         updatePressure()

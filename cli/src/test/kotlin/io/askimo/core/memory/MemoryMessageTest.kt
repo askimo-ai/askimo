@@ -104,4 +104,44 @@ class MemoryMessageTest {
         val toolUseId = restoredAi.toolExecutionRequests().first().id()
         assertEquals(toolUseId, restoredResult.id(), "tool_use id must match tool_result id after JSON round-trip")
     }
+
+    @Test
+    @DisplayName("should drop (not throw) legacy TOOL_EXECUTION_RESULT_MESSAGE rows persisted before tool-call metadata existed")
+    fun shouldDropLegacyToolResultMessagesWithoutId() {
+        // Simulates a MemoryMessage row persisted by an older app version, before toolCallId/
+        // toolName/toolExecutionRequests existed — deserialization falls back to the field
+        // defaults (null / empty), exactly like this hand-built instance.
+        val legacyToolResult = MemoryMessage(
+            content = "some legacy tool output",
+            type = io.askimo.core.context.MessageRole.TOOL_EXECUTION_RESULT_MESSAGE.value,
+        )
+
+        val restored = legacyToolResult.toChatMessage()
+
+        assertEquals(null, restored, "Legacy tool_result rows without an id must be dropped, not reconstructed with a blank id")
+    }
+
+    @Test
+    @DisplayName("mapNotNull over a mixed legacy + modern history should keep only reconstructable messages")
+    fun shouldFilterOutOnlyLegacyToolResultsFromMixedHistory() {
+        val request = ToolExecutionRequest.builder()
+            .id("toolu_modern_call")
+            .name("some_tool")
+            .arguments("{}")
+            .build()
+
+        val history = listOf(
+            MemoryMessage(content = "Hello", type = io.askimo.core.context.MessageRole.USER.value),
+            MemoryMessage(content = "legacy tool output", type = io.askimo.core.context.MessageRole.TOOL_EXECUTION_RESULT_MESSAGE.value),
+            MemoryMessage.from(AiMessage.from(request)),
+            MemoryMessage.from(ToolExecutionResultMessage.from(request, "modern output")),
+        )
+
+        val restored = history.mapNotNull { it.toChatMessage() }
+
+        assertEquals(3, restored.size, "Only the unreconstructable legacy tool_result should be dropped")
+        assertTrue(restored.any { it is UserMessage })
+        assertTrue(restored.any { it is AiMessage && it.hasToolExecutionRequests() })
+        assertTrue(restored.any { it is ToolExecutionResultMessage && it.id() == "toolu_modern_call" })
+    }
 }

@@ -108,23 +108,17 @@ object ChatRequestTransformers {
         // producing back-to-back identical USER (or AI) messages. Drop any message whose
         // type + text is identical to the immediately preceding message of the same type.
         //
-        // IMPORTANT: ToolExecutionResultMessage is NEVER deduplicated this way. Each one is
-        // tied to a distinct `tool_use` id (see getMessageText below), but as a safety net we
-        // also hard-exclude this type here — collapsing two "duplicate-looking" tool results
-        // (e.g. from parallel tool calls that both returned identical output) would silently
-        // drop the `tool_result` block for one of the ids. Providers like Anthropic then reject
-        // the whole request with: "tool_use ids were found without tool_result blocks".
+        // ToolExecutionResultMessage is included too: getMessageText() prefixes it with the
+        // tool-call `id`, so only a same-id + same-text retry duplicate collapses. Parallel
+        // calls with different ids never do, even with identical output text — preventing an
+        // orphaned `tool_use` (which providers like Anthropic reject).
         val deduplicatedNonSystem = nonSystemMessages.fold(mutableListOf<ChatMessage>()) { acc, msg ->
-            if (msg is ToolExecutionResultMessage) {
-                acc.also { it.add(msg) }
+            val lastSameType = acc.lastOrNull { it.type() == msg.type() }
+            if (lastSameType != null && getMessageText(lastSameType) == getMessageText(msg)) {
+                log.debug("Dropping consecutive duplicate {} message: {}", msg.type(), getMessageText(msg).take(100))
+                acc
             } else {
-                val lastSameType = acc.lastOrNull { it.type() == msg.type() }
-                if (lastSameType != null && getMessageText(lastSameType) == getMessageText(msg)) {
-                    log.debug("Dropping consecutive duplicate {} message: {}", msg.type(), getMessageText(msg).take(100))
-                    acc
-                } else {
-                    acc.also { it.add(msg) }
-                }
+                acc.also { it.add(msg) }
             }
         }
 

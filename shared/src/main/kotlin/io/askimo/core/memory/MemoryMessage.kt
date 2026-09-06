@@ -90,9 +90,18 @@ data class MemoryMessage(
     val toolName: String? = null,
 ) {
     /**
-     * Convert this MemoryMessage to a LangChain4j ChatMessage
+     * Convert this MemoryMessage to a LangChain4j ChatMessage.
+     *
+     * Returns `null` for a TOOL_EXECUTION_RESULT_MESSAGE whose [toolCallId] is missing/blank.
+     * This happens when loading sessions persisted *before* tool-call metadata was added to
+     * [MemoryMessage] — such legacy rows have no id to pair with a `tool_use` block (and the
+     * legacy assistant message that triggered them has no [toolExecutionRequests] either, since
+     * that metadata didn't exist yet). Reconstructing a `ToolExecutionResultMessage` with a
+     * blank/synthetic id would either throw or silently produce another orphaned `tool_result`
+     * — the exact class of bug this metadata was added to fix — so callers must drop it instead
+     * via `mapNotNull`.
      */
-    fun toChatMessage(): ChatMessage = when (this.type) {
+    fun toChatMessage(): ChatMessage? = when (this.type) {
         MessageRole.USER.value -> UserMessage.from(this.content)
 
         MessageRole.ASSISTANT.value ->
@@ -116,11 +125,15 @@ data class MemoryMessage(
         MessageRole.SYSTEM.value -> SystemMessage.from(this.content)
 
         MessageRole.TOOL_EXECUTION_RESULT_MESSAGE.value ->
-            ToolExecutionResultMessage.from(
-                this.toolCallId,
-                this.toolName ?: "",
-                this.content,
-            )
+            if (this.toolCallId.isNullOrBlank()) {
+                null
+            } else {
+                ToolExecutionResultMessage.from(
+                    this.toolCallId,
+                    this.toolName ?: "",
+                    this.content,
+                )
+            }
 
         else -> UserMessage.from(this.content) // fallback
     }
