@@ -4,9 +4,11 @@
  */
 package io.askimo.core.providers
 
+import dev.langchain4j.agent.tool.ToolExecutionRequest
 import dev.langchain4j.data.message.AiMessage
 import dev.langchain4j.data.message.ChatMessage
 import dev.langchain4j.data.message.SystemMessage
+import dev.langchain4j.data.message.ToolExecutionResultMessage
 import dev.langchain4j.data.message.UserMessage
 import dev.langchain4j.model.chat.request.ChatRequest
 import io.askimo.core.context.AppContext
@@ -485,6 +487,102 @@ class ChatRequestTransformersTest {
                     foundNonSystemMessage = true
                 }
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("Tool Call Handling")
+    inner class ToolCallTests {
+
+        @Test
+        @DisplayName("should not drop tool_result messages with identical text from parallel tool calls")
+        fun shouldNotDropParallelToolResultsWithIdenticalText() {
+            // Given - an AiMessage with two parallel tool_use calls, both returning identical
+            // text results (e.g. two "list files" calls on empty directories both returning "[]")
+            val request1 = ToolExecutionRequest.builder()
+                .id("toolu_01Aoaxsi9ygKmuSFYAwcRFTf")
+                .name("list_files")
+                .arguments("{\"path\":\"a\"}")
+                .build()
+            val request2 = ToolExecutionRequest.builder()
+                .id("toolu_01VAxJvxu9WCD2Hb3yabKtPY")
+                .name("list_files")
+                .arguments("{\"path\":\"b\"}")
+                .build()
+
+            val aiMessage = AiMessage.from(listOf(request1, request2))
+            val result1 = ToolExecutionResultMessage.from(request1, "[]")
+            val result2 = ToolExecutionResultMessage.from(request2, "[]")
+
+            val messages = listOf(
+                UserMessage.from("List files in a and b"),
+                aiMessage,
+                result1,
+                result2,
+            )
+            val chatRequest = ChatRequest.builder().messages(messages).build()
+
+            // When
+            val result = ChatRequestTransformers.addCustomSystemMessagesAndRemoveDuplicates(
+                sessionId = null,
+                chatRequest = chatRequest,
+                memoryId = null,
+                provider = ModelProvider.ANTHROPIC,
+                settings = OpenAiSettings(defaultModel = "claude-3-opus"),
+            )
+
+            // Then - both tool_result messages must survive, matching their tool_use ids
+            val toolResults = result.messages().filterIsInstance<ToolExecutionResultMessage>()
+            assertEquals(2, toolResults.size, "Both tool_result messages must be kept, not deduplicated")
+            val resultIds = toolResults.map { it.id() }.toSet()
+            assertTrue(resultIds.contains("toolu_01Aoaxsi9ygKmuSFYAwcRFTf"))
+            assertTrue(resultIds.contains("toolu_01VAxJvxu9WCD2Hb3yabKtPY"))
+        }
+
+        @Test
+        @DisplayName("should keep tool_use/tool_result pairs atomic when truncating for token budget")
+        fun shouldKeepToolCallPairsAtomicWhenTruncating() {
+            val modelKey = ModelCapabilitiesCache.modelKey(ModelProvider.OPENAI, "gpt-3.5-turbo")
+            ModelCapabilitiesCache.update(modelKey) { it.copy(contextSize = 16_384) }
+
+            val messages = mutableListOf<ChatMessage>(SystemMessage.from("System directive"))
+
+            // Add many large user/ai pairs to force truncation of older history
+            repeat(50) { i ->
+                messages.add(UserMessage.from("User message $i: " + "x".repeat(500)))
+                messages.add(AiMessage.from("AI response $i: " + "y".repeat(500)))
+            }
+
+            // Add a tool_use/tool_result pair near the middle of history (a truncation candidate)
+            val request = ToolExecutionRequest.builder()
+                .id("toolu_middle_call")
+                .name("some_tool")
+                .arguments("{}")
+                .build()
+            messages.add(AiMessage.from(request))
+            messages.add(ToolExecutionResultMessage.from(request, "tool output " + "z".repeat(500)))
+
+            repeat(20) { i ->
+                messages.add(UserMessage.from("Later user message $i: " + "x".repeat(500)))
+                messages.add(AiMessage.from("Later AI response $i: " + "y".repeat(500)))
+            }
+
+            val chatRequest = ChatRequest.builder().messages(messages).build()
+
+            // When
+            val result = ChatRequestTransformers.addCustomSystemMessagesAndRemoveDuplicates(
+                sessionId = null,
+                chatRequest = chatRequest,
+                memoryId = null,
+                provider = ModelProvider.OPENAI,
+                settings = OpenAiSettings(defaultModel = "gpt-3.5-turbo"),
+            )
+
+            // Then - if the tool_use AiMessage survived truncation, its tool_result must too (and vice versa)
+            val resultMessages = result.messages()
+            val hasToolUse = resultMessages.any { it is AiMessage && it.hasToolExecutionRequests() }
+            val hasToolResult = resultMessages.any { it is ToolExecutionResultMessage }
+            assertEquals(hasToolUse, hasToolResult, "tool_use and tool_result must be kept or dropped together")
         }
     }
 }

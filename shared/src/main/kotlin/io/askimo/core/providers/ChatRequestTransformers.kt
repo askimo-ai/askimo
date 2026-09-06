@@ -7,6 +7,7 @@ package io.askimo.core.providers
 import dev.langchain4j.data.message.AiMessage
 import dev.langchain4j.data.message.ChatMessage
 import dev.langchain4j.data.message.SystemMessage
+import dev.langchain4j.data.message.ToolExecutionResultMessage
 import dev.langchain4j.data.message.UserMessage
 import dev.langchain4j.model.chat.request.ChatRequest
 import io.askimo.core.context.AppContext
@@ -106,13 +107,24 @@ object ChatRequestTransformers {
         // Retries cause the same user message to be appended to memory on each attempt,
         // producing back-to-back identical USER (or AI) messages. Drop any message whose
         // type + text is identical to the immediately preceding message of the same type.
+        //
+        // IMPORTANT: ToolExecutionResultMessage is NEVER deduplicated this way. Each one is
+        // tied to a distinct `tool_use` id (see getMessageText below), but as a safety net we
+        // also hard-exclude this type here — collapsing two "duplicate-looking" tool results
+        // (e.g. from parallel tool calls that both returned identical output) would silently
+        // drop the `tool_result` block for one of the ids. Providers like Anthropic then reject
+        // the whole request with: "tool_use ids were found without tool_result blocks".
         val deduplicatedNonSystem = nonSystemMessages.fold(mutableListOf<ChatMessage>()) { acc, msg ->
-            val lastSameType = acc.lastOrNull { it.type() == msg.type() }
-            if (lastSameType != null && getMessageText(lastSameType) == getMessageText(msg)) {
-                log.debug("Dropping consecutive duplicate {} message: {}", msg.type(), getMessageText(msg).take(100))
-                acc
-            } else {
+            if (msg is ToolExecutionResultMessage) {
                 acc.also { it.add(msg) }
+            } else {
+                val lastSameType = acc.lastOrNull { it.type() == msg.type() }
+                if (lastSameType != null && getMessageText(lastSameType) == getMessageText(msg)) {
+                    log.debug("Dropping consecutive duplicate {} message: {}", msg.type(), getMessageText(msg).take(100))
+                    acc
+                } else {
+                    acc.also { it.add(msg) }
+                }
             }
         }
 
@@ -165,9 +177,15 @@ object ChatRequestTransformers {
 
         // Add non-system messages from most recent, staying within budget
         // IMPORTANT: Always keep the most recent message (usually user message) to ensure AI has something to respond to
-        val recentMessages = nonSystemMessages.asReversed()
+        //
+        // Messages are grouped into atomic units first: a `ToolExecutionResultMessage` is always
+        // attached to the group of the message immediately preceding it (typically the AiMessage
+        // that made the `tool_use` call). This guarantees truncation can never keep a `tool_use`
+        // while dropping its matching `tool_result` (or vice versa), which providers like
+        // Anthropic reject outright.
+        val recentGroups = groupIntoToolCallUnits(nonSystemMessages).asReversed()
 
-        if (recentMessages.isEmpty()) {
+        if (recentGroups.isEmpty()) {
             log.warn("No conversation messages found for {}:{}. Sending only system messages.", provider, model)
             return chatRequest.toBuilder().messages(keptMessages).build()
         }
@@ -175,18 +193,18 @@ object ChatRequestTransformers {
         // Track the index where system messages end, so we can insert conversation messages after them
         val systemMessagesEndIndex = keptMessages.size
 
-        // Always add the first (most recent) message, even if it exceeds budget
+        // Always add the first (most recent) group, even if it exceeds budget
         // Better to get a context length error than send no user input
-        val firstMessage = recentMessages.first()
-        val firstMessageTokens = estimateTokens(getMessageText(firstMessage))
-        keptMessages.add(systemMessagesEndIndex, firstMessage) // Insert after system messages
-        totalTokens += firstMessageTokens
+        val firstGroup = recentGroups.first()
+        val firstGroupTokens = firstGroup.sumOf { estimateTokens(getMessageText(it)) }
+        keptMessages.addAll(systemMessagesEndIndex, firstGroup) // Insert after system messages
+        totalTokens += firstGroupTokens
 
-        // Now add remaining messages if they fit within budget
-        for (msg in recentMessages.drop(1)) {
-            val msgTokens = estimateTokens(getMessageText(msg))
+        // Now add remaining groups if they fit within budget
+        for (group in recentGroups.drop(1)) {
+            val groupTokens = group.sumOf { estimateTokens(getMessageText(it)) }
 
-            if (totalTokens + msgTokens > availableForMessages) {
+            if (totalTokens + groupTokens > availableForMessages) {
                 log.debug(
                     "Truncating message history for {}:{} at {} conversation messages ({} tokens used)",
                     provider,
@@ -197,8 +215,8 @@ object ChatRequestTransformers {
                 break
             }
 
-            keptMessages.add(systemMessagesEndIndex, msg) // Insert after system messages, maintaining chronological order
-            totalTokens += msgTokens
+            keptMessages.addAll(systemMessagesEndIndex, group) // Insert after system messages, maintaining chronological order
+            totalTokens += groupTokens
         }
 
         // Check if there's enough space left for a quality AI response
@@ -230,12 +248,54 @@ object ChatRequestTransformers {
 
     /**
      * Extracts text content from a ChatMessage based on its type.
+     *
+     * For [AiMessage] with tool calls, the tool-call ids are appended so that two distinct
+     * tool-call-only messages (both with blank [AiMessage.text]) are never considered
+     * "identical" by the dedup logic in [buildRequestWithCustomMessages].
+     *
+     * For [ToolExecutionResultMessage], the id is prefixed so each result is treated as a
+     * unique message even if two parallel tool calls happen to return identical text — see the
+     * dedup guard for why this matters.
      */
     private fun getMessageText(message: ChatMessage): String = when (message) {
         is UserMessage -> message.singleText() ?: ""
-        is AiMessage -> message.text() ?: ""
+
+        is AiMessage -> {
+            val text = message.text() ?: ""
+            if (message.hasToolExecutionRequests()) {
+                text + "::" + message.toolExecutionRequests().joinToString(",") { it.id() }
+            } else {
+                text
+            }
+        }
+
         is SystemMessage -> message.text()
+
+        is ToolExecutionResultMessage -> "${message.id()}::${message.text() ?: ""}"
+
         else -> ""
+    }
+
+    /**
+     * Groups messages into atomic truncation units: a [ToolExecutionResultMessage] is always
+     * merged into the group of the message immediately preceding it (normally the [AiMessage]
+     * that issued the corresponding `tool_use` call, or a sibling tool result from the same
+     * parallel tool-call batch). All other messages start a new singleton group.
+     *
+     * This ensures [enforceTokenBudget] can only ever keep or drop a `tool_use`/`tool_result`
+     * pair (or group of pairs) together, never split them across the truncation boundary —
+     * which would otherwise produce orphaned `tool_use` ids that providers like Anthropic reject.
+     */
+    private fun groupIntoToolCallUnits(messages: List<ChatMessage>): List<List<ChatMessage>> {
+        val groups = mutableListOf<MutableList<ChatMessage>>()
+        for (msg in messages) {
+            if (msg is ToolExecutionResultMessage && groups.isNotEmpty()) {
+                groups.last().add(msg)
+            } else {
+                groups.add(mutableListOf(msg))
+            }
+        }
+        return groups
     }
 
     /**

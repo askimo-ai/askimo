@@ -4,6 +4,7 @@
  */
 package io.askimo.core.memory
 
+import dev.langchain4j.agent.tool.ToolExecutionRequest
 import dev.langchain4j.data.message.AiMessage
 import dev.langchain4j.data.message.ChatMessage
 import dev.langchain4j.data.message.SystemMessage
@@ -44,12 +45,39 @@ object InstantSerializer : KSerializer<Instant> {
 }
 
 /**
+ * Serializable snapshot of a single [ToolExecutionRequest] (the `tool_use` block LLM providers
+ * such as Anthropic attach to an assistant message).
+ *
+ * @property id The provider-assigned tool-call id. Must be echoed back verbatim in the matching
+ *               [ToolExecutionResultMessage]'s `id` — this is exactly what providers use to pair
+ *               `tool_use` and `tool_result` blocks. Losing this id on persistence/reload is what
+ *               causes errors like "tool_use ids were found without tool_result blocks".
+ * @property name The tool name that was called.
+ * @property arguments The raw (usually JSON) arguments string passed to the tool.
+ */
+@Serializable
+data class ToolCallData(
+    val id: String,
+    val name: String,
+    val arguments: String,
+)
+
+/**
  * Represents a chat message in memory with serialization support.
  * This is the persistent representation of a chat message that can be stored in the database.
  *
  * @property content The text content of the message
  * @property type The message type (USER, ASSISTANT, SYSTEM, TOOL_EXECUTION_RESULT_MESSAGE)
  * @property createdAt Timestamp when the message was created
+ * @property toolExecutionRequests For ASSISTANT messages that included one or more `tool_use`
+ *                                  calls, the full list of requests (id/name/arguments) so they
+ *                                  can be faithfully reconstructed after a DB round-trip. Empty
+ *                                  for plain text assistant messages.
+ * @property toolCallId For TOOL_EXECUTION_RESULT_MESSAGE messages, the id of the `tool_use` this
+ *                       result answers. Must match one of the ids in the preceding assistant
+ *                       message's [toolExecutionRequests].
+ * @property toolName For TOOL_EXECUTION_RESULT_MESSAGE messages, the name of the tool that was
+ *                     executed.
  */
 @Serializable
 data class MemoryMessage(
@@ -57,6 +85,9 @@ data class MemoryMessage(
     val type: String,
     @Serializable(with = InstantSerializer::class)
     val createdAt: Instant = Instant.now(),
+    val toolExecutionRequests: List<ToolCallData> = emptyList(),
+    val toolCallId: String? = null,
+    val toolName: String? = null,
 ) {
     /**
      * Convert this MemoryMessage to a LangChain4j ChatMessage
@@ -64,12 +95,32 @@ data class MemoryMessage(
     fun toChatMessage(): ChatMessage = when (this.type) {
         MessageRole.USER.value -> UserMessage.from(this.content)
 
-        MessageRole.ASSISTANT.value -> AiMessage.from(this.content)
+        MessageRole.ASSISTANT.value ->
+            if (toolExecutionRequests.isNotEmpty()) {
+                val requests = toolExecutionRequests.map {
+                    ToolExecutionRequest.builder()
+                        .id(it.id)
+                        .name(it.name)
+                        .arguments(it.arguments)
+                        .build()
+                }
+                if (this.content.isBlank()) {
+                    AiMessage.from(requests)
+                } else {
+                    AiMessage.from(this.content, requests)
+                }
+            } else {
+                AiMessage.from(this.content)
+            }
 
         MessageRole.SYSTEM.value -> SystemMessage.from(this.content)
 
         MessageRole.TOOL_EXECUTION_RESULT_MESSAGE.value ->
-            ToolExecutionResultMessage.builder().text(this.content).build()
+            ToolExecutionResultMessage.from(
+                this.toolCallId,
+                this.toolName ?: "",
+                this.content,
+            )
 
         else -> UserMessage.from(this.content) // fallback
     }
@@ -102,6 +153,12 @@ data class MemoryMessage(
          * Create a MemoryMessage from a LangChain4j ChatMessage.
          * Base64 image data is stripped and replaced with a short placeholder so
          * images are never persisted to the database or re-sent on every API call.
+         *
+         * Tool-call metadata ([ToolCallData] for AiMessage's `tool_use` requests, and the
+         * id/toolName for ToolExecutionResultMessage's `tool_result`) is preserved so the
+         * `tool_use`/`tool_result` pairing survives a DB round-trip (session reload, app
+         * restart). Without this, providers like Anthropic reject the next request with
+         * "tool_use ids were found without tool_result blocks".
          */
         fun from(chatMessage: ChatMessage): MemoryMessage {
             val rawContent = chatMessage.getTextContent()
@@ -113,10 +170,22 @@ data class MemoryMessage(
                 is ToolExecutionResultMessage -> MessageRole.TOOL_EXECUTION_RESULT_MESSAGE.value
                 else -> MessageRole.USER.value // fallback
             }
+            val toolExecutionRequests = if (chatMessage is AiMessage && chatMessage.hasToolExecutionRequests()) {
+                chatMessage.toolExecutionRequests().map {
+                    ToolCallData(id = it.id(), name = it.name(), arguments = it.arguments())
+                }
+            } else {
+                emptyList()
+            }
+            val toolCallId = (chatMessage as? ToolExecutionResultMessage)?.id()
+            val toolName = (chatMessage as? ToolExecutionResultMessage)?.toolName()
             return MemoryMessage(
                 content = content,
                 type = type,
                 createdAt = Instant.now(),
+                toolExecutionRequests = toolExecutionRequests,
+                toolCallId = toolCallId,
+                toolName = toolName,
             )
         }
     }

@@ -4,11 +4,9 @@
  */
 package io.askimo.core.memory
 
-import dev.langchain4j.data.message.AiMessage
 import dev.langchain4j.data.message.ChatMessage
 import dev.langchain4j.data.message.ChatMessageType
 import dev.langchain4j.data.message.SystemMessage
-import dev.langchain4j.data.message.UserMessage
 import dev.langchain4j.memory.ChatMemory
 import io.askimo.core.chat.domain.SessionMemory
 import io.askimo.core.chat.repository.SessionMemoryRepository
@@ -372,7 +370,9 @@ class TokenAwareSummarizingMemory(
         structuredSummary = null
         basicSummary = null
 
-        val validMessages = filteredMessages.filter { it.content.isNotBlank() }.map { it.toChatMessage() }
+        val validMessages = filteredMessages
+            .filter { it.content.isNotBlank() || it.toolExecutionRequests.isNotEmpty() || it.toolCallId != null }
+            .map { it.toChatMessage() }
 
         messages.addAll(validMessages)
 
@@ -905,12 +905,10 @@ class TokenAwareSummarizingMemory(
          * silently exceeded.
          */
         fun defaultTokenEstimator(): (ChatMessage) -> Int = { message ->
-            val text = when (message) {
-                is UserMessage -> message.singleText() ?: ""
-                is AiMessage -> message.text() ?: ""
-                is SystemMessage -> message.text() ?: ""
-                else -> ""
-            }
+            // getTextContent() (defined in MemoryMessage.kt, same package) also handles
+            // ToolExecutionResultMessage — without it, tool results were estimated as 0
+            // tokens, silently undercounting budget usage for tool-heavy conversations.
+            val text = message.getTextContent()
             (text.split("\\s+".toRegex()).size * 1.75).toInt()
         }
     }
