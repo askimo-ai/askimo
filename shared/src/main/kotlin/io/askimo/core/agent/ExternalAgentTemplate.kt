@@ -353,7 +353,13 @@ abstract class ExternalAgentTemplate : ExternalAgent {
      */
     private fun terminateProcess(process: Process) {
         process.destroy()
-        if (!process.waitFor(3, TimeUnit.SECONDS)) {
+        val exitedInTime = try {
+            process.waitFor(3, TimeUnit.SECONDS)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+            false
+        }
+        if (!exitedInTime) {
             log.debug("{} did not exit after destroy(); escalating to destroyForcibly()", id)
             process.destroyForcibly()
         }

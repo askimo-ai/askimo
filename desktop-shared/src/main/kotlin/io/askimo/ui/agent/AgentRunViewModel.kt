@@ -243,6 +243,38 @@ internal class AgentRunViewModel(
             if (isRunning) {
                 log.warn("Agent run did not finalize within 8s of cancel(); forcing job cancellation")
                 currentRunJob?.cancel()
+                val finalizedMessageId = "ai-${System.nanoTime()}"
+                messages = messages
+                    .ensureStreamingAiMessage()
+                    .finalizeStreamingAiMessage(
+                        finalContent = currentTurnResponse,
+                        isFailed = false,
+                        messageId = finalizedMessageId,
+                        isCancelled = true,
+                    )
+                if (timeline.isNotEmpty()) {
+                    completedGroups = completedGroups + (finalizedMessageId to timeline.grouped())
+                }
+                val forcedConversationId = activeConversationId
+                val forcedResponse = currentTurnResponse
+                scope.launch(Dispatchers.IO) {
+                    historyRepo.save(
+                        AgentRunRecord(
+                            workspaceId = workspace.id,
+                            conversationId = forcedConversationId,
+                            title = conversationTitle ?: TitleGenerator.fallbackTitle(forcedResponse),
+                            userInput = messages.lastOrNull { it.isUser }?.content.orEmpty(),
+                            response = forcedResponse,
+                            error = null,
+                            isCancelled = true,
+                            agentId = agent.id,
+                            agentSessionId = activeAgentSessionId,
+                            activityLog = timeline.collapsedEffectiveTools().filterIsInstance<TurnTimelineEntry.Tool>().map { it.toolCall.toolName },
+                            contentBlocks = timeline.collapsedEffectiveTools().filter { it is TurnTimelineEntry.Tool || it is TurnTimelineEntry.Token },
+                        ),
+                    )
+                    onRunCompleted()
+                }
                 isRunning = false
                 isWaitingForFirstEvent = false
                 runningAgent = null
