@@ -539,7 +539,16 @@ internal class AgentRunViewModel(
                         workDir = workDir,
                         resumeSessionId = resumeSessionId,
                         onToken = { token ->
-                            currentTurnResponse += token
+                            // Guarded by the same turnId check as the timeline append below —
+                            // without it, a stale callback from a turn already invalidated by
+                            // bumpTurnId() (e.g. a forced cancel-timeout) could keep silently
+                            // accumulating post-cancellation text into currentTurnResponse even
+                            // though its timeline writes are correctly rejected, so the
+                            // finalized/persisted response text would diverge from the frozen
+                            // finalTimeline snapshot.
+                            if (turnId == currentTurnId.get()) {
+                                currentTurnResponse += token
+                            }
                             scope.launch {
                                 isWaitingForFirstEvent = false
                                 appendTimelineEntry(turnId, TurnTimelineEntry.Token(token))
