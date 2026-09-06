@@ -394,7 +394,16 @@ abstract class ExternalAgentTemplate : ExternalAgent {
         updateExecutionMetadata(sessionId = resumeSessionId)
         resultErrorMessage = null
         executionUsage = null
+        // Capture-then-clear instead of a plain reset: a Stop click can land before this run()
+        // call is reached (e.g. while skills are still being materialized), setting
+        // cancelRequested with no process yet to kill. A plain reset would silently drop that
+        // request; capturing it first lets us abort below, while still clearing it for next time.
+        val cancelledBeforeStart = cancelRequested
         cancelRequested = false
+        if (cancelledBeforeStart) {
+            log.debug("{} cancel() was requested before this run started; aborting immediately", id)
+            throw AgentCancelledException()
+        }
 
         log.debug(
             "Starting {} for skill execution ({} chars systemPrompt, workDir={}, resume={})",
@@ -522,6 +531,7 @@ abstract class ExternalAgentTemplate : ExternalAgent {
             output.toString().trimEnd()
         } finally {
             currentProcess = null
+            cancelRequested = false
         }
     }.onFailure { e ->
         if (e is AgentCancelledException) {
