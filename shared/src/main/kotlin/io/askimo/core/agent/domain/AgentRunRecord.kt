@@ -32,6 +32,11 @@ import java.util.UUID
  * @param userInput   The context/prompt entered by the user before executing.
  * @param response    The full AI-generated response text; empty if the run failed.
  * @param error       Error message if the run failed; null on success.
+ * @param isCancelled True if this turn was stopped mid-flight via [io.askimo.core.agent.ExternalAgent.cancel]
+ *                    rather than failing or completing normally. [error] is typically null in
+ *                    this case — cancellation is a deliberate user action, not a failure.
+ *                    Defaults to `false` for backward compatibility with rows recorded before
+ *                    this column existed.
  * @param agentId     Id of the [io.askimo.core.agent.ExternalAgent] that ran this turn (e.g.
  *                    "claude-code") — persisted so a re-opened conversation can restore (and
  *                    lock) the exact agent it was conducted with, instead of falling back to
@@ -61,6 +66,7 @@ data class AgentRunRecord(
     val userInput: String,
     val response: String,
     val error: String?,
+    val isCancelled: Boolean = false,
     val agentId: String? = null,
     val agentSessionId: String? = null,
     val activityLog: List<String>,
@@ -89,6 +95,9 @@ object AgentRunHistoryTable : Table("agent_run_history") {
     val userInput = text("user_input").default("")
     val response = text("response").default("")
     val error = text("error").nullable()
+
+    /** See [AgentRunRecord.isCancelled]. Nullable/defaulted so older rows read as `false`. */
+    val isCancelled = bool("is_cancelled").default(false)
     val agentId = varchar("agent_id", 64).nullable()
     val agentSessionId = text("agent_session_id").nullable()
 

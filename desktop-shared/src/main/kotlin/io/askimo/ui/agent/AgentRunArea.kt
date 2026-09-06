@@ -33,7 +33,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -54,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -70,6 +71,7 @@ import io.askimo.core.agent.domain.AgentRunRecord
 import io.askimo.core.agent.domain.SkillDefinition
 import io.askimo.core.agent.domain.Workspace
 import io.askimo.core.chat.dto.grouped
+import io.askimo.core.user.repository.UserProfileRepository
 import io.askimo.ui.chat.messageList
 import io.askimo.ui.chat.turnTimelineView
 import io.askimo.ui.common.i18n.stringResource
@@ -82,6 +84,10 @@ import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.themedTooltip
+import io.askimo.ui.service.AvatarService
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.koin.core.context.GlobalContext
 
 @Composable
 private fun agentReadinessDotColor(state: AgentReadiness?): Color = when (state) {
@@ -126,6 +132,19 @@ internal fun agenticRunArea(
     var inputText by remember { mutableStateOf(TextFieldValue("")) }
     var agentDropdownExpanded by remember { mutableStateOf(false) }
     var skillsListExpanded by remember { mutableStateOf(false) }
+
+    val avatarService = remember { GlobalContext.get().get<AvatarService>() }
+    val userProfileRepository = remember { GlobalContext.get().get<UserProfileRepository>() }
+    var aiAvatarPainter by remember { mutableStateOf<BitmapPainter?>(null) }
+    var userAvatarPainter by remember { mutableStateOf<BitmapPainter?>(null) }
+
+    LaunchedEffect(Unit) {
+        aiAvatarPainter = withContext(Dispatchers.IO) { avatarService.getAiAvatarPainter() }
+        userAvatarPainter = withContext(Dispatchers.IO) {
+            val avatarPath = runCatching { userProfileRepository.getProfile().preferences["avatarPath"] }.getOrNull()
+            avatarService.getUserAvatarPainter(avatarPath)
+        }
+    }
 
     fun sendMessage() {
         val agent = viewModel.selectedAgent ?: return
@@ -438,6 +457,8 @@ internal fun agenticRunArea(
                             isThinking = viewModel.isWaitingForFirstEvent,
                             thinkingElapsedSeconds = viewModel.elapsedSeconds,
                             completedGroupsByMessageId = viewModel.completedGroups,
+                            userAvatarPainter = userAvatarPainter,
+                            aiAvatarPainter = aiAvatarPainter,
                         )
                         // Live, chronologically-ordered view of the *current* turn — tool
                         // calls, thinking, response text, and status, interleaved exactly as
@@ -481,8 +502,6 @@ internal fun agenticRunArea(
                     .fillMaxWidth()
                     .padding(start = 24.dp, end = 36.dp, top = 8.dp, bottom = 16.dp),
             ) {
-                var modelDropdownExpanded by remember { mutableStateOf(false) }
-
                 Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
                         value = inputText,
@@ -513,54 +532,6 @@ internal fun agenticRunArea(
                         maxLines = 10,
                         colors = AppColors.outlinedTextFieldColors(),
                     )
-
-                    // ── Model selector — overlaid inside the field, bottom-left ────────
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(bottom = 6.dp, start = 8.dp),
-                    ) {
-                        Surface(
-                            shape = MaterialTheme.shapes.small,
-                            color = AppColors.surfaceColor(AppColors.Elevation.EMPHASIS),
-                            border = BorderStroke(1.dp, AppColors.codeBlockBorderColor()),
-                            modifier = Modifier
-                                .clickable(enabled = !viewModel.isRunning, onClick = { modelDropdownExpanded = true })
-                                .pointerHoverIcon(PointerIcon.Hand),
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                Text(
-                                    text = stringResource("agents.agentic.model.default"),
-                                    style = AppTextStyles.hint,
-                                )
-                                Icon(
-                                    Icons.Default.ExpandMore,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(12.dp),
-                                    tint = AppColors.secondaryIconColor(),
-                                )
-                            }
-                        }
-                        dropdownMenu(
-                            expanded = modelDropdownExpanded,
-                            onDismissRequest = { modelDropdownExpanded = false },
-                        ) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        text = stringResource("agents.agentic.model.default"),
-                                        style = AppTextStyles.body,
-                                    )
-                                },
-                                onClick = { modelDropdownExpanded = false },
-                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                            )
-                        }
-                    }
 
                     // ── Agent picker + Send — overlaid bottom-right ──
                     Row(
@@ -655,19 +626,28 @@ internal fun agenticRunArea(
                             }
                         }
 
-                        // Send button
+                        // Send / Stop button — while a turn is running this becomes an active
+                        // "Stop" control (previously just a disabled decorative Refresh icon)
+                        // so the user can interrupt a long-running/stuck agent process.
                         IconButton(
-                            onClick = { sendMessage() },
-                            enabled = viewModel.selectedAgentReady && inputText.text.isNotBlank() && !viewModel.isRunning,
+                            onClick = {
+                                if (viewModel.isRunning) {
+                                    viewModel.cancelRun()
+                                } else {
+                                    sendMessage()
+                                }
+                            },
+                            enabled = viewModel.isRunning ||
+                                (viewModel.selectedAgentReady && inputText.text.isNotBlank()),
                             colors = AppColors.primaryIconButtonColors(),
                             modifier = Modifier
                                 .size(36.dp)
                                 .pointerHoverIcon(PointerIcon.Hand),
                         ) {
                             Icon(
-                                imageVector = if (viewModel.isRunning) Icons.Default.Refresh else Icons.Default.PlayArrow,
+                                imageVector = if (viewModel.isRunning) Icons.Default.Stop else Icons.Default.PlayArrow,
                                 contentDescription = if (viewModel.isRunning) {
-                                    stringResource("agents.view.running")
+                                    stringResource("agents.view.stop")
                                 } else {
                                     stringResource("agents.agentic.run")
                                 },

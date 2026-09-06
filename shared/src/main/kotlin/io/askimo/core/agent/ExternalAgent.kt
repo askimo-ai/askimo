@@ -148,6 +148,26 @@ interface ExternalAgent {
     fun saveApiKey(key: String) {}
 
     /**
+     * Best-effort request to terminate the turn currently in flight inside [run]/[runTracked],
+     * if any. Safe to call even when nothing is running (no-op in that case) — callers don't
+     * need to track whether a run is active before invoking this.
+     *
+     * Implementations should gracefully terminate the underlying OS process (e.g. `SIGTERM`
+     * then `SIGKILL` after a short grace period) so child processes it spawned (shell commands,
+     * etc.) get a chance to exit cleanly. Once cancelled, [run] returns a [Result.failure]
+     * wrapping [AgentCancelledException] rather than a generic exit-code error, so callers can
+     * distinguish "the user stopped this" from a genuine failure.
+     *
+     * Cancellation does not discard [lastExecutionSessionId] — whatever session id this agent's
+     * CLI reported before being killed remains valid, so a follow-up turn can still resume the
+     * same underlying conversation.
+     *
+     * Default implementation is a no-op — override in agents backed by [ExternalAgentTemplate],
+     * which already implements this for every subclass.
+     */
+    fun cancel() {}
+
+    /**
      * Runs the skill non-interactively.
      *
      * The agent receives the combined prompt via **stdin**:

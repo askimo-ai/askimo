@@ -48,6 +48,7 @@ class AgentRunHistoryRepository internal constructor(
                 it[userInput] = record.userInput
                 it[response] = record.response
                 it[error] = record.error
+                it[isCancelled] = record.isCancelled
                 it[agentId] = record.agentId
                 it[agentSessionId] = record.agentSessionId
                 it[activityLog] = encodeLog(record.activityLog)
@@ -158,6 +159,7 @@ class AgentRunHistoryRepository internal constructor(
         userInput = row[AgentRunHistoryTable.userInput],
         response = row[AgentRunHistoryTable.response],
         error = row[AgentRunHistoryTable.error],
+        isCancelled = row[AgentRunHistoryTable.isCancelled],
         agentId = row[AgentRunHistoryTable.agentId],
         agentSessionId = row[AgentRunHistoryTable.agentSessionId],
         activityLog = decodeLog(row[AgentRunHistoryTable.activityLog]),

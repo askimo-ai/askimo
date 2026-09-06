@@ -7,6 +7,7 @@ package io.askimo.ui.agent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import io.askimo.core.agent.AgentCancelledException
 import io.askimo.core.agent.AgentReadiness
 import io.askimo.core.agent.AgentUsage
 import io.askimo.core.agent.ExternalAgent
@@ -58,6 +59,7 @@ private fun List<ChatMessageDTO>.finalizeStreamingAiMessage(
     isFailed: Boolean,
     usage: AgentUsage? = null,
     messageId: String = "ai-${System.nanoTime()}",
+    isCancelled: Boolean = false,
 ): List<ChatMessageDTO> {
     val idx = indexOfLast { !it.isUser && it.id == null }
     if (idx < 0) return this
@@ -65,7 +67,10 @@ private fun List<ChatMessageDTO>.finalizeStreamingAiMessage(
         id = messageId,
         content = finalContent,
         timestamp = Instant.now(),
-        isFailed = isFailed,
+        // A cancelled turn is never also "failed" — it's a deliberate user action, not an
+        // error, and should render with a neutral "Cancelled" label instead of the retry icon.
+        isFailed = isFailed && !isCancelled,
+        isCancelled = isCancelled,
         inputTokens = usage?.inputTokens,
         outputTokens = usage?.outputTokens,
         totalTokens = usage?.totalTokens,
@@ -200,6 +205,52 @@ internal class AgentRunViewModel(
     private var currentTurnResponse = ""
     private var elapsedTimerJob: Job? = null
 
+    // The agent instance actually running the current turn, and the coroutine `Job` executing
+    // it — both needed by `cancelRun()`. `runningAgent` may differ transiently from
+    // `selectedAgent` only in theory (selection is locked once a turn starts, see
+    // `isAgentSelectionLocked`), but kept separate so cancellation never depends on selection
+    // state still matching what's actually in flight.
+    private var runningAgent: ExternalAgent? = null
+    private var currentRunJob: Job? = null
+
+    // Safety-net timer started by cancelRun() — forces UI state back to "not running" if
+    // executeAgentic's coroutine somehow never observes the cancellation and finalizes on its
+    // own (e.g. the OS process refuses to die). Cancelled once the run finishes normally.
+    private var cancelTimeoutJob: Job? = null
+
+    /**
+     * Best-effort request to stop the turn currently in flight. Delegates to
+     * [ExternalAgent.cancel] (kills the OS process) off the calling thread, since that can
+     * block for a few seconds. No-op if nothing is running.
+     *
+     * Does **not** cancel [currentRunJob] directly — that would abort [executeAgentic]'s
+     * coroutine before it can set [isRunning] to `false` and finalize/persist the turn,
+     * leaving the UI stuck as "running" forever. Instead, killing the process makes `run()`
+     * return a failure wrapping [AgentCancelledException], which [executeAgentic] handles via
+     * its normal completion path (tagged `isCancelled = true`). The timeout below is only a
+     * last-resort fallback in case that path is somehow never reached.
+     */
+    fun cancelRun() {
+        if (!isRunning) return
+        val agent = runningAgent ?: return
+        log.debug("Cancel requested for active agent run (agent={})", agent.id)
+        scope.launch(Dispatchers.IO) {
+            agent.cancel()
+        }
+        cancelTimeoutJob?.cancel()
+        cancelTimeoutJob = scope.launch {
+            delay(8_000)
+            if (isRunning) {
+                log.warn("Agent run did not finalize within 8s of cancel(); forcing job cancellation")
+                currentRunJob?.cancel()
+                isRunning = false
+                isWaitingForFirstEvent = false
+                runningAgent = null
+                currentRunJob = null
+            }
+        }
+    }
+
     init {
         refreshAgentStates()
         observeTitleEvents()
@@ -257,6 +308,7 @@ internal class AgentRunViewModel(
                     isUser = false,
                     timestamp = r.createdAt,
                     isFailed = r.error != null,
+                    isCancelled = r.isCancelled,
                     inputTokens = r.inputTokens,
                     outputTokens = r.outputTokens,
                     totalTokens = r.totalTokens,
@@ -325,7 +377,8 @@ internal class AgentRunViewModel(
 
         startElapsedTimer()
 
-        scope.launch {
+        runningAgent = agent
+        currentRunJob = scope.launch {
             val result = withContext(Dispatchers.IO) {
                 // Materialize every skill in the catalog into the agent's own native
                 // skill-discovery location (e.g. Claude Code's `.claude/skills/<name>/`) so its
@@ -368,19 +421,33 @@ internal class AgentRunViewModel(
                         },
                     )
                 } finally {
+                    // Cleanup runs regardless of whether the turn completed, failed, or was
+                    // cancelled — it's independent of the agent process's outcome.
                     materialized.forEach { it.close() }
                 }
             }
             // Update state on the same coroutine, right after the run completes, so the
             // error (if any) is guaranteed to be captured before we build the history record
             // below — no race with a separately-launched coroutine.
-            val errorText = result.exceptionOrNull()?.message
+            val exception = result.exceptionOrNull()
+            val isCancelled = exception is AgentCancelledException
+            // A cancellation is a deliberate user action, not a failure — never surface it via
+            // the same error path a genuine failure would take.
+            val errorText = exception?.message?.takeIf { !isCancelled }
             isRunning = false
             isWaitingForFirstEvent = false
+            runningAgent = null
+            currentRunJob = null
+            // Normal completion path reached — the cancelRun() safety net (if one was started)
+            // is no longer needed.
+            cancelTimeoutJob?.cancel()
+            cancelTimeoutJob = null
 
             // Capture (or keep) the session id so the next follow-up turn can resume this
-            // exact conversation. Falls back to the id we resumed with in case this agent's
-            // CLI doesn't re-emit one on every turn.
+            // exact conversation — including after a cancellation, since the underlying CLI
+            // session may already have been established before the process was killed. Falls
+            // back to the id we resumed with in case this agent's CLI doesn't re-emit one on
+            // every turn.
             activeAgentSessionId = agent.lastExecutionSessionId ?: resumeSessionId
 
             // Best-effort token usage / duration reported by the agent's own stream for this
@@ -389,7 +456,8 @@ internal class AgentRunViewModel(
             val usage = agent.lastExecutionUsage
 
             // Guarantee a bubble exists even if the run failed before any token/tool/thinking
-            // event arrived, then finalize it (stable id, failure flag) so it stops "streaming".
+            // event arrived, then finalize it (stable id, failure/cancelled flag) so it stops
+            // "streaming".
             val finalizedMessageId = "ai-${System.nanoTime()}"
             messages = messages
                 .ensureStreamingAiMessage()
@@ -398,6 +466,7 @@ internal class AgentRunViewModel(
                     isFailed = errorText != null,
                     usage = usage,
                     messageId = finalizedMessageId,
+                    isCancelled = isCancelled,
                 )
             // Keep this turn's ordered tool/thinking/text trail visible for the rest of the
             // session (all kinds, including thinking) — in memory only, never written to
@@ -413,6 +482,7 @@ internal class AgentRunViewModel(
                 userInput = input,
                 response = currentTurnResponse,
                 error = errorText,
+                isCancelled = isCancelled,
                 agentId = agent.id,
                 agentSessionId = activeAgentSessionId,
                 activityLog = timeline.collapsedEffectiveTools().filterIsInstance<TurnTimelineEntry.Tool>().map { it.toolCall.toolName },
@@ -489,6 +559,10 @@ internal class AgentRunViewModel(
      * once this instance is discarded.
      */
     fun close() {
+        // Cancelling the scope alone would abandon the coroutine but leave the underlying OS
+        // process (if any) running as an orphan — e.g. a workspace switch away from an active
+        // run. Kill it explicitly first, same as a user-initiated cancelRun().
+        runningAgent?.cancel()
         scope.cancel()
     }
 }

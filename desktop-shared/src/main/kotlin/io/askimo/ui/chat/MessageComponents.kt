@@ -1012,6 +1012,19 @@ private fun aiMessageBubble(
                                         modifier = Modifier.padding(start = Spacing.medium, end = Spacing.medium, bottom = Spacing.small, top = Spacing.extraSmall),
                                     )
                                 }
+
+                                // Neutral marker for an agentic turn the user stopped mid-flight
+                                // (ExternalAgent.cancel) — deliberately distinct from the failed
+                                // retry-icon state below: no retry action, no error color.
+                                if (message.isCancelled) {
+                                    Text(
+                                        text = stringResource("agents.agentic.cancelled"),
+                                        style = AppTextStyles.hint,
+                                        color = AppColors.secondaryIconColor(),
+                                        fontStyle = FontStyle.Italic,
+                                        modifier = Modifier.padding(start = Spacing.medium, end = Spacing.medium, bottom = Spacing.small, top = Spacing.extraSmall),
+                                    )
+                                }
                             }
                         }
                     }
