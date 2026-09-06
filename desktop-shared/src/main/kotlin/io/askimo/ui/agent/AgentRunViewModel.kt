@@ -15,10 +15,10 @@ import io.askimo.core.agent.ExternalAgentLoader
 import io.askimo.core.agent.domain.AgentRunRecord
 import io.askimo.core.agent.domain.SkillDefinition
 import io.askimo.core.agent.domain.Workspace
+import io.askimo.core.agent.dto.AgentTurnMessageDTO
 import io.askimo.core.agent.repository.AgentRunHistoryRepository
 import io.askimo.core.chat.TitleGenerator
 import io.askimo.core.chat.domain.SESSION_TITLE_MAX_LENGTH
-import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.ToolCallInfo
 import io.askimo.core.chat.dto.ToolCallStatus
 import io.askimo.core.chat.dto.TurnTimelineEntry
@@ -48,19 +48,19 @@ import kotlin.time.Duration.Companion.milliseconds
 private val log = currentFileLogger()
 
 /** Ensures a (possibly empty) streaming AI placeholder message exists, so tool/thinking chips can render before the first token arrives. */
-private fun List<ChatMessageDTO>.ensureStreamingAiMessage(): List<ChatMessageDTO> {
+private fun List<AgentTurnMessageDTO>.ensureStreamingAiMessage(): List<AgentTurnMessageDTO> {
     if (any { !it.isUser && it.id == null }) return this
-    return this + ChatMessageDTO(id = null, content = "", isUser = false, timestamp = null)
+    return this + AgentTurnMessageDTO(id = null, content = "", isUser = false, timestamp = null)
 }
 
 /** Finalizes the trailing streaming AI message: assigns a stable id and marks failure/content/usage. */
-private fun List<ChatMessageDTO>.finalizeStreamingAiMessage(
+private fun List<AgentTurnMessageDTO>.finalizeStreamingAiMessage(
     finalContent: String,
     isFailed: Boolean,
     usage: AgentUsage? = null,
     messageId: String = "ai-${System.nanoTime()}",
     isCancelled: Boolean = false,
-): List<ChatMessageDTO> {
+): List<AgentTurnMessageDTO> {
     val idx = indexOfLast { !it.isUser && it.id == null }
     if (idx < 0) return this
     val updated = this[idx].copy(
@@ -158,7 +158,7 @@ internal class AgentRunViewModel(
     }
 
     // ── Conversation state ───────────────────────────────────────────────────
-    var messages by mutableStateOf(listOf<ChatMessageDTO>())
+    var messages by mutableStateOf(listOf<AgentTurnMessageDTO>())
         private set
 
     var isRunning by mutableStateOf(false)
@@ -332,13 +332,13 @@ internal class AgentRunViewModel(
         val turns = withContext(Dispatchers.IO) { historyRepo.findByConversationId(record.conversationId) }
         messages = turns.flatMap { r ->
             listOf(
-                ChatMessageDTO(
+                AgentTurnMessageDTO(
                     id = "${r.id}-user",
                     content = r.userInput,
                     isUser = true,
                     timestamp = r.createdAt,
                 ),
-                ChatMessageDTO(
+                AgentTurnMessageDTO(
                     id = "${r.id}-ai",
                     content = r.response.ifBlank { r.error.orEmpty() },
                     isUser = false,
@@ -400,7 +400,7 @@ internal class AgentRunViewModel(
             conversationTitle = TitleGenerator.fallbackTitle(input)
         }
 
-        val userMessage = ChatMessageDTO(
+        val userMessage = AgentTurnMessageDTO(
             id = "user-${System.nanoTime()}",
             content = input,
             isUser = true,

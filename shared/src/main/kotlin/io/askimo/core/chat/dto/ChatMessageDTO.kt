@@ -20,10 +20,10 @@ data class ChatMessageDTO(
     val isEdited: Boolean = false,
     val attachments: List<FileAttachmentDTO> = emptyList(),
     val isFailed: Boolean = false,
-    // True when this AI turn was stopped mid-flight via ExternalAgent.cancel() rather than
-    // failing or completing normally — rendered distinctly from isFailed (no retry action,
-    // a neutral "Cancelled" label instead of an error state). Only ever set for agentic runs
-    // (see AgentRunViewModel); regular chat messages never set this.
+    // True when this turn was stopped mid-flight rather than failing or completing normally —
+    // rendered distinctly from isFailed (no retry action, a neutral "Cancelled" label instead
+    // of an error state). Regular chat never sets this; only agent-run turns do, via the
+    // `AgentTurnMessageDTO` -> `ChatMessageDTO` adapter used to reuse the shared bubble renderer.
     val isCancelled: Boolean = false,
     val inputTokens: Int? = null,
     val outputTokens: Int? = null,

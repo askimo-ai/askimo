@@ -72,7 +72,6 @@ import io.askimo.core.agent.domain.SkillDefinition
 import io.askimo.core.agent.domain.Workspace
 import io.askimo.core.chat.dto.grouped
 import io.askimo.core.user.repository.UserProfileRepository
-import io.askimo.ui.chat.messageList
 import io.askimo.ui.chat.turnTimelineView
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.keymap.KeyMapManager
@@ -450,9 +449,10 @@ internal fun agenticRunArea(
                         }
                     }
 
-                    // ── Conversation transcript — same components as ChatView ────────────
+                    // ── Conversation transcript — shared bubble/timeline building blocks with
+                    // ChatView, but a slimmer orchestration composable (see AgentMessageList.kt) ──
                     if (viewModel.messages.isNotEmpty() || viewModel.isRunning) {
-                        messageList(
+                        agentMessageList(
                             messages = viewModel.messages,
                             isThinking = viewModel.isWaitingForFirstEvent,
                             thinkingElapsedSeconds = viewModel.elapsedSeconds,

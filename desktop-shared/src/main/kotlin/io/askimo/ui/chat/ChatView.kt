@@ -1083,7 +1083,7 @@ fun chatView(
                                 }
 
                                 isSearchMode -> {
-                                    messageList(
+                                    chatMessageList(
                                         messages = searchResults,
                                         isThinking = false,
                                         thinkingElapsedSeconds = 0,
@@ -1121,7 +1121,7 @@ fun chatView(
                                 }
 
                                 else -> {
-                                    messageList(
+                                    chatMessageList(
                                         messages = messages,
                                         isThinking = isThinking,
                                         thinkingElapsedSeconds = thinkingElapsedSeconds,
