@@ -123,21 +123,12 @@ class ClaudeAgent : ExternalAgentTemplate() {
             "system" -> {
                 val subtype = event.fields["subtype"] as? String
                 if (subtype == "init") {
-                    val model = event.fields["model"] as? String
-                    val permissionMode = event.fields["permissionMode"] as? String
-                    val version = event.fields["claude_code_version"] as? String
                     // Claude Code's own session id — capture it so a follow-up turn can
                     // pass it back via `--resume` and continue this same conversation
                     // (Claude manages the transcript/context internally, not Askimo).
                     val sessionId = event.fields["session_id"] as? String
                     if (!sessionId.isNullOrBlank()) updateExecutionMetadata(sessionId = sessionId)
-                    val summary = buildString {
-                        append("claude init")
-                        if (model != null) append(" | model: $model")
-                        if (version != null) append(" | v$version")
-                        if (permissionMode != null) append(" | permissions: $permissionMode")
-                    }
-                    onStatus(summary)
+                    // Pure lifecycle marker — nothing worth surfacing to the user as a status row.
                 }
             }
 
@@ -216,10 +207,6 @@ class ClaudeAgent : ExternalAgentTemplate() {
                         output.append(result)
                         onToken(result)
                     }
-                    val costUsd = event.fields["total_cost_usd"]
-                    val durationMs = event.fields["duration_ms"]
-                    val numTurns = event.fields["num_turns"]
-                    val stopReason = event.fields["stop_reason"] as? String
 
                     // Claude's "result" event carries a nested "usage" object (best-effort —
                     // exact key names verified against real CLI output per agent; the
@@ -227,17 +214,7 @@ class ClaudeAgent : ExternalAgentTemplate() {
                     @Suppress("UNCHECKED_CAST")
                     val usageMap = event.fields["usage"] as? Map<String, Any>
                     updateExecutionUsage(AgentUsageExtractor.extract(event.fields, usageMap))
-                    val summary = buildString {
-                        append("result: success")
-                        if (stopReason != null) append(" | stop: $stopReason")
-                        if (numTurns != null) append(" | turns: $numTurns")
-                        if (durationMs != null) {
-                            val secs = (durationMs.toString().toDoubleOrNull() ?: 0.0) / 1000.0
-                            append(" | duration: ${"%.1f".format(secs)}s")
-                        }
-                        if (costUsd != null) append(" | cost: \$$costUsd")
-                    }
-                    onStatus(summary)
+                    // Pure lifecycle marker — nothing worth surfacing to the user as a status row.
                 }
             }
         }

@@ -9,7 +9,7 @@ import kotlin.test.assertEquals
 
 class TurnTimelineEntryCollapsedEffectiveToolsTest {
 
-    private fun tool(name: String, args: String? = null, status: ToolCallStatus = ToolCallStatus.DONE) = TurnTimelineEntry.Tool(ToolCallInfo(toolName = name, status = status, arguments = args))
+    private fun tool(name: String, args: String? = null, status: ToolCallStatus = ToolCallStatus.DONE, hasFailed: Boolean = false) = TurnTimelineEntry.Tool(ToolCallInfo(toolName = name, status = status, arguments = args, hasFailed = hasFailed))
 
     private fun thinking(text: String) = TurnTimelineEntry.Thinking(text)
     private fun token(text: String) = TurnTimelineEntry.Token(text)
@@ -34,10 +34,11 @@ class TurnTimelineEntryCollapsedEffectiveToolsTest {
     }
 
     @Test
-    fun `A A B with different arguments - collapses to A(last) B`() {
+    fun `A(failed) A(success) B with different arguments - failed attempt collapses away`() {
         // The classic retry: same tool, different arguments each attempt, since the AI is
-        // trying to guess the right parameters. Arguments must be ignored in the dedup key.
-        val a1 = tool("A", "args1")
+        // trying to guess the right parameters. The failed attempt is dropped; arguments
+        // themselves are irrelevant to the decision — only `hasFailed` matters.
+        val a1 = tool("A", "args1", hasFailed = true)
         val a2 = tool("A", "args2")
         val b = tool("B", "argsB")
         val result = listOf(a1, a2, b).collapsedEffectiveTools()
@@ -45,8 +46,8 @@ class TurnTimelineEntryCollapsedEffectiveToolsTest {
     }
 
     @Test
-    fun `A A B with identical arguments - still collapses to A(last) B`() {
-        val a1 = tool("A", "same")
+    fun `A(failed) A(success) B with identical arguments - still collapses to A(last) B`() {
+        val a1 = tool("A", "same", hasFailed = true)
         val a2 = tool("A", "same")
         val b = tool("B", "argsB")
         val result = listOf(a1, a2, b).collapsedEffectiveTools()
@@ -54,26 +55,64 @@ class TurnTimelineEntryCollapsedEffectiveToolsTest {
     }
 
     @Test
+    fun `same tool called twice successfully with different arguments - both kept (not a retry)`() {
+        // e.g. view_file(fileA) succeeds, then view_file(fileB) succeeds — two genuinely
+        // different, both-successful calls, NOT a parameter-guessing retry loop. Neither
+        // call failed, so both must survive even though they share a tool name.
+        val a1 = tool("view_file", "fileA")
+        val a2 = tool("view_file", "fileB")
+        val result = listOf(a1, a2).collapsedEffectiveTools()
+        assertEquals(listOf(a1, a2), result)
+    }
+
+    @Test
+    fun `same tool called twice successfully with identical arguments - both kept`() {
+        val a1 = tool("A", "same")
+        val a2 = tool("A", "same")
+        val result = listOf(a1, a2).collapsedEffectiveTools()
+        assertEquals(listOf(a1, a2), result)
+    }
+
+    @Test
+    fun `last attempt is kept even if it also failed`() {
+        // Every attempt at this tool failed — the final (still-failed) attempt must still
+        // surface so the user can see the tool ultimately errored out, rather than the
+        // whole tool call disappearing from the timeline entirely.
+        val a1 = tool("A", "args1", hasFailed = true)
+        val a2 = tool("A", "args2", hasFailed = true)
+        val result = listOf(a1, a2).collapsedEffectiveTools()
+        assertEquals(listOf(a2), result)
+    }
+
+    @Test
+    fun `a successful call followed by a later failed call to the same tool keeps both`() {
+        val a1 = tool("A", "args1") // succeeds — always kept, regardless of what comes later
+        val a2 = tool("A", "args2", hasFailed = true) // fails, but is the last attempt — kept too
+        val result = listOf(a1, a2).collapsedEffectiveTools()
+        assertEquals(listOf(a1, a2), result)
+    }
+
+    @Test
     fun `thinking-tool retry loop collapses to last thinking plus last tool`() {
-        // Thinking, ToolA(args1), Thinking, ToolA(args2), Thinking, ToolA(args3)
+        // Thinking, ToolA(args1, FAILED), Thinking, ToolA(args2, FAILED), Thinking, ToolA(args3)
         val t1 = thinking("guessing param set 1")
-        val a1 = tool("A", "args1")
+        val a1 = tool("A", "args1", hasFailed = true)
         val t2 = thinking("guessing param set 2")
-        val a2 = tool("A", "args2")
+        val a2 = tool("A", "args2", hasFailed = true)
         val t3 = thinking("finally the right params")
         val a3 = tool("A", "args3")
 
         val result = listOf(t1, a1, t2, a2, t3, a3).collapsedEffectiveTools()
 
-        // Only the reasoning immediately preceding the effective (last) call survives —
-        // earlier dead-end reasoning/attempts are dropped entirely.
+        // Only the reasoning immediately preceding the effective (last, successful) call
+        // survives — earlier dead-end reasoning/attempts are dropped entirely.
         assertEquals(listOf(t3, a3), result)
     }
 
     @Test
     fun `retry loop for A followed by a distinct tool B keeps both steps`() {
         val t1 = thinking("guess 1")
-        val a1 = tool("A", "args1")
+        val a1 = tool("A", "args1", hasFailed = true)
         val t2 = thinking("guess 2 - correct")
         val a2 = tool("A", "args2")
         val t3 = thinking("now call B")
@@ -86,8 +125,8 @@ class TurnTimelineEntryCollapsedEffectiveToolsTest {
 
     @Test
     fun `back-to-back retries with no thinking between them still collapse`() {
-        val a1 = tool("A", "args1")
-        val a2 = tool("A", "args2")
+        val a1 = tool("A", "args1", hasFailed = true)
+        val a2 = tool("A", "args2", hasFailed = true)
         val a3 = tool("A", "args3")
         val result = listOf(a1, a2, a3).collapsedEffectiveTools()
         assertEquals(listOf(a3), result)
@@ -106,7 +145,7 @@ class TurnTimelineEntryCollapsedEffectiveToolsTest {
     @Test
     fun `status and token entries pass through untouched around a retry loop`() {
         val s = status("Connecting...")
-        val a1 = tool("A", "args1")
+        val a1 = tool("A", "args1", hasFailed = true)
         val a2 = tool("A", "args2")
         val tok = token("Done.")
         val result = listOf(s, a1, a2, tok).collapsedEffectiveTools()
@@ -115,10 +154,10 @@ class TurnTimelineEntryCollapsedEffectiveToolsTest {
 
     @Test
     fun `interleaved retries of two different tools each collapse independently`() {
-        // A1, B1, A2, B2 — both A and B are retried once; only the last of each survives,
-        // in their original relative positions.
-        val a1 = tool("A", "a-args1")
-        val b1 = tool("B", "b-args1")
+        // A1, B1, A2, B2 — both A and B had a failed first attempt; only the last (successful)
+        // of each survives, in their original relative positions.
+        val a1 = tool("A", "a-args1", hasFailed = true)
+        val b1 = tool("B", "b-args1", hasFailed = true)
         val a2 = tool("A", "a-args2")
         val b2 = tool("B", "b-args2")
         val result = listOf(a1, b1, a2, b2).collapsedEffectiveTools()
@@ -128,7 +167,7 @@ class TurnTimelineEntryCollapsedEffectiveToolsTest {
     @Test
     fun `grouped() applies the same collapse before building groups`() {
         val t1 = thinking("guess 1")
-        val a1 = tool("A", "args1")
+        val a1 = tool("A", "args1", hasFailed = true)
         val t2 = thinking("guess 2 - correct")
         val a2 = tool("A", "args2")
         val finalText = token("All done.")

@@ -193,23 +193,23 @@ class AntigravityAgent : ExternalAgentTemplate() {
                     // "user_input DONE" is just an ack of our own prompt — nothing to surface.
                     stepType == "user_input" -> Unit
 
-                    // A lifecycle update for the final answer step with no text yet (e.g. the
-                    // initial RUNNING state before any delta arrives) — status line only.
-                    stepType == "agent_response" -> {
-                        onStatus(if (state != null) "$stepType ($state)" else stepType)
-                    }
+                    // Lifecycle updates for the final answer step with no text yet — the "DONE"
+                    // variant is just an ack (the reply was already streamed via text_delta, or
+                    // will be surfaced by the final "result" event) so it's pure noise in the UI.
+                    stepType == "agent_response" -> Unit
 
-                    // Any other `step_type` corresponds to an actual tool invocation (e.g.
-                    // `run_command`, `grep_search`, `view_file` — matching the tool names
-                    // Antigravity reports in its `init` event's `tools` list). Route it through
-                    // `onToolCall` (and thus the dedicated tool-calls UI section) instead of a
-                    // generic status line, which previously collapsed every tool step down to
-                    // just its last "(DONE)" state and hid the tool activity entirely.
-                    stepType != null -> {
-                        val detail = formatToolArgs(
-                            event.fields.filterKeys { it !in setOf("step_type", "state", "step_index") },
-                        ).take(ExternalAgent.TOOL_DETAIL_MAX_LENGTH)
-                        onToolCall(stepType, detail.ifBlank { null })
+                    // Actual tool invocations. `agy` reports the generic `step_type == "tool"` for
+                    // every tool call, with the real tool identity in the `tool_name` field and its
+                    // arguments nested under `tool_info.parameters`, e.g.:
+                    // {"step_type":"tool","tool_name":"view_file","tool_info":{"name":"view_file","parameters":{"AbsolutePath":"..."}}}
+                    stepType == "tool" -> {
+                        val toolInfo = event.fields["tool_info"] as? Map<*, *>
+
+                        @Suppress("UNCHECKED_CAST")
+                        val toolParams = toolInfo?.get("parameters") as? Map<String, Any>
+                        val toolName = event.fields["tool_name"] as? String ?: "tool"
+                        val detail = toolParams?.let { formatToolArgs(it).take(ExternalAgent.TOOL_DETAIL_MAX_LENGTH) }
+                        onToolCall(toolName, detail?.ifBlank { null })
                     }
 
                     state != null -> onStatus(state)
@@ -219,12 +219,23 @@ class AntigravityAgent : ExternalAgentTemplate() {
             "result" -> {
                 val status = event.fields["status"] as? String ?: "done"
                 val response = event.fields["response"] as? String
+                val errorMessage = event.fields["error"] as? String
 
                 @Suppress("UNCHECKED_CAST")
                 val usage = event.fields["usage"] as? Map<String, Any>
                 val totalTokens = usage?.get("total_tokens")
                 val durationSeconds = event.fields["duration_seconds"]
                 updateExecutionUsage(AgentUsageExtractor.extract(event.fields, usage))
+
+                // An ERROR result (e.g. quota exceeded, auth failure) carries the actual
+                // failure reason in `error` — report it via reportResultError so run() prefers
+                // it over the generic "exited with code N" message once the process exits
+                // (agy also exits non-zero on these application-level failures, and without
+                // this the specific reason — e.g. "Individual quota reached..." — was silently
+                // discarded and only the generic exit-code message reached the UI).
+                if (status.equals("ERROR", ignoreCase = true) && !errorMessage.isNullOrBlank()) {
+                    reportResultError(errorMessage)
+                }
 
                 // `agy` doesn't always stream the answer via `step_update.text_delta` — when
                 // no step_update carried any text, the full answer is only delivered here in
@@ -236,6 +247,7 @@ class AntigravityAgent : ExternalAgentTemplate() {
 
                 val summary = buildString {
                     append("result: $status")
+                    if (!errorMessage.isNullOrBlank()) append(" | error: $errorMessage")
                     if (totalTokens != null) append(" | tokens: $totalTokens")
                     if (durationSeconds != null) {
                         val secs = durationSeconds.toString().toDoubleOrNull() ?: 0.0

@@ -58,7 +58,7 @@ abstract class AbstractSQLiteRepository(
     ): List<E> {
         if (values.isEmpty()) return emptyList()
 
-        return transaction(Database.connect(dataSource)) {
+        return transaction(database) {
             val query = table.selectAll().where { column inList values }
             if (orderBy != null) {
                 query.orderBy(orderBy.first to orderBy.second)

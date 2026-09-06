@@ -39,6 +39,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.Instant
@@ -205,6 +207,86 @@ internal class AgentRunViewModel(
     private var currentTurnResponse = ""
     private var elapsedTimerJob: Job? = null
 
+    /**
+     * Guards every read-modify-write of [timeline] (in [completeRunningTools] and each
+     * append below). [ExternalAgent.run]'s onToken/onToolCall/onStatus/onThinking callbacks
+     * fire from whatever IO thread is reading the agent process's stdout, and each one spawns
+     * its own `scope.launch { }` coroutine on [Dispatchers.Default] — a multi-threaded pool
+     * (this project has no `Dispatchers.Main` artifact on the classpath, see
+     * [io.askimo.ui.session.SessionManager]). Under fast streaming, two such coroutines can
+     * genuinely run concurrently on different pool threads; without this lock they'd race on
+     * `timeline`'s unsynchronized read-modify-write and one could silently clobber the other's
+     * write, dropping an entry. Mirrors [io.askimo.ui.session.SessionManager]'s own
+     * `mutex.withLock` guard around its equivalent timeline mutations.
+     */
+    private val timelineMutex = Mutex()
+
+    /**
+     * Monotonically-increasing id of the turn currently allowed to mutate [timeline].
+     * [executeAgentic] captures the value returned by [bumpTurnId] at the start of a turn and
+     * closes over it in every stream callback (onToken/onToolCall/onStatus/onThinking); any
+     * reset point ([startNewConversation], [preload], the next [executeAgentic]) bumps this
+     * counter first. This lets [appendTimelineEntry] reject writes from a *stale* turn's
+     * callback — a callback that was already in flight (queued on `scope.launch`) when the
+     * reset happened — which plain mutual exclusion alone cannot prevent: a mutex only makes
+     * concurrent writes atomic, it says nothing about a late write from a superseded turn
+     * landing after a reset. Backed by an [java.util.concurrent.atomic.AtomicLong] (rather than
+     * a plain `var`) since [bumpTurnId] is called synchronously from the UI thread while
+     * [appendTimelineEntry] reads it from arbitrary [Dispatchers.Default] pool threads, and a
+     * plain field gives no cross-thread visibility guarantee.
+     */
+    private val currentTurnId = java.util.concurrent.atomic.AtomicLong(0L)
+
+    /** Advances [currentTurnId] and returns the new value, invalidating every earlier turn's in-flight [appendTimelineEntry] calls. */
+    private fun bumpTurnId(): Long = currentTurnId.incrementAndGet()
+
+    /**
+     * Flips every still-[ToolCallStatus.RUNNING] tool entry in [timeline] to
+     * [ToolCallStatus.DONE], preserving position/[ToolCallInfo.startedAtMillis]. Called right
+     * before appending any other kind of event (token/thinking/status/next tool call), since
+     * that arrival is the only signal [ExternalAgent.run] gives us that a tool call has
+     * finished — it only reports a call at the moment it's invoked. Mirrors
+     * [io.askimo.ui.session.SessionManager]'s markToolRunning/markToolDone pair for regular
+     * chat, adapted to this single completion signal.
+     *
+     * Callers must hold [timelineMutex] — see [appendTimelineEntry].
+     */
+    private fun completeRunningTools() {
+        if (timeline.none { it is TurnTimelineEntry.Tool && it.toolCall.status == ToolCallStatus.RUNNING }) return
+        timeline = timeline.map { entry ->
+            if (entry is TurnTimelineEntry.Tool && entry.toolCall.status == ToolCallStatus.RUNNING) {
+                TurnTimelineEntry.Tool(entry.toolCall.copy(status = ToolCallStatus.DONE))
+            } else {
+                entry
+            }
+        }
+    }
+
+    /**
+     * Atomically completes any still-running tool entry and appends [entry] to [timeline],
+     * under [timelineMutex] — the single choke point every stream callback (onToken/
+     * onToolCall/onStatus/onThinking) goes through, so concurrent callback coroutines can
+     * never interleave their read-modify-write of [timeline].
+     *
+     * [turnId] must be the id captured by the caller's turn (see [bumpTurnId]); if the turn has
+     * since been superseded (a reset or a new turn bumped [currentTurnId]) the write is
+     * silently dropped instead of corrupting the now-unrelated timeline.
+     */
+    private suspend fun appendTimelineEntry(turnId: Long, entry: TurnTimelineEntry) {
+        timelineMutex.withLock {
+            if (turnId != currentTurnId.get()) return@withLock
+            completeRunningTools()
+            timeline = timeline + entry
+        }
+    }
+
+    /** Resets [timeline] for a new turn/conversation, under [timelineMutex] — pairs with a preceding (or immediately following) [bumpTurnId] call so stale callbacks from the previous turn are rejected regardless of exactly when this clear runs. */
+    private suspend fun resetTimeline() {
+        timelineMutex.withLock {
+            timeline = emptyList()
+        }
+    }
+
     // The agent instance actually running the current turn, and the coroutine `Job` executing
     // it — both needed by `cancelRun()`. `runningAgent` may differ transiently from
     // `selectedAgent` only in theory (selection is locked once a turn starts, see
@@ -243,6 +325,19 @@ internal class AgentRunViewModel(
             if (isRunning) {
                 log.warn("Agent run did not finalize within 8s of cancel(); forcing job cancellation")
                 currentRunJob?.cancel()
+                // Invalidate this turn so any callback coroutine still in flight (not a child
+                // of currentRunJob — each is its own top-level `scope.launch`, so cancelling
+                // currentRunJob above does not stop them) can no longer append to `timeline`
+                // once we read it below.
+                bumpTurnId()
+                // Freeze any still-running tool entry as DONE, then capture the snapshot while
+                // still holding the lock — reading `timeline` in a separate statement after
+                // release would leave a window for one of those still-in-flight (but now
+                // rejected-by-turnId) callbacks to have appended an entry after this point.
+                val finalTimeline = timelineMutex.withLock {
+                    completeRunningTools()
+                    timeline
+                }
                 val finalizedMessageId = "ai-${System.nanoTime()}"
                 messages = messages
                     .ensureStreamingAiMessage()
@@ -252,8 +347,8 @@ internal class AgentRunViewModel(
                         messageId = finalizedMessageId,
                         isCancelled = true,
                     )
-                if (timeline.isNotEmpty()) {
-                    completedGroups = completedGroups + (finalizedMessageId to timeline.grouped())
+                if (finalTimeline.isNotEmpty()) {
+                    completedGroups = completedGroups + (finalizedMessageId to finalTimeline.grouped())
                 }
                 val forcedConversationId = activeConversationId
                 val forcedResponse = currentTurnResponse
@@ -269,8 +364,8 @@ internal class AgentRunViewModel(
                             isCancelled = true,
                             agentId = agent.id,
                             agentSessionId = activeAgentSessionId,
-                            activityLog = timeline.collapsedEffectiveTools().filterIsInstance<TurnTimelineEntry.Tool>().map { it.toolCall.toolName },
-                            contentBlocks = timeline.collapsedEffectiveTools().filter { it is TurnTimelineEntry.Tool || it is TurnTimelineEntry.Token },
+                            activityLog = finalTimeline.collapsedEffectiveTools().filterIsInstance<TurnTimelineEntry.Tool>().map { it.toolCall.toolName },
+                            contentBlocks = finalTimeline.collapsedEffectiveTools().filter { it is TurnTimelineEntry.Tool || it is TurnTimelineEntry.Token },
                         ),
                     )
                     onRunCompleted()
@@ -318,13 +413,19 @@ internal class AgentRunViewModel(
     /** Resets the transcript so the next [sendMessage] starts a brand-new agent conversation. */
     fun startNewConversation() {
         messages = emptyList()
-        timeline = emptyList()
         completedGroups = emptyMap()
         currentTurnResponse = ""
         activeAgentSessionId = null
         activeConversationId = UUID.randomUUID().toString()
         conversationTitle = null
         isAgentSelectionLocked = false
+        // Bumped synchronously (not suspend) so any callback still in flight from a
+        // superseded turn is rejected by appendTimelineEntry's turnId check even before this
+        // instance's own coroutine below actually clears the list.
+        bumpTurnId()
+        // Not a suspend function (called directly from Compose click handlers), so the
+        // mutex-guarded clear is dispatched onto this instance's own scope rather than awaited.
+        scope.launch { resetTimeline() }
     }
 
     /** Reconstructs the full multi-turn conversation for a re-opened history entry. */
@@ -352,7 +453,8 @@ internal class AgentRunViewModel(
                 ),
             )
         }
-        timeline = emptyList()
+        bumpTurnId()
+        resetTimeline()
         // Reconstruct each turn's ordered tool/text groups from its persisted
         // `contentBlocks` — thinking/status were never persisted, so those groups simply
         // won't reappear here (only for turns still live in this session).
@@ -389,8 +491,12 @@ internal class AgentRunViewModel(
         val systemPrompt = buildAgenticSystemPrompt(skills, agentHasNativeSkillDiscovery = agent.supportsNativeSkillDiscovery)
         isRunning = true
         isWaitingForFirstEvent = true
-        timeline = emptyList()
         currentTurnResponse = ""
+        // Bumped synchronously (this function isn't suspend) before any callback closure below
+        // is created, so a callback still in flight from the previous turn is rejected by
+        // appendTimelineEntry's turnId check the moment it runs — even though the actual
+        // `timeline` clear happens slightly later, inside the launched coroutine below.
+        val turnId = bumpTurnId()
         if (isNewConversation) {
             messages = emptyList()
             activeAgentSessionId = null
@@ -415,6 +521,10 @@ internal class AgentRunViewModel(
 
         runningAgent = agent
         currentRunJob = scope.launch {
+            // Clear the timeline for this turn now that turnId is bumped — any pending
+            // callback from a superseded turn will fail the turnId check above regardless of
+            // whether this clear has run yet.
+            resetTimeline()
             val result = withContext(Dispatchers.IO) {
                 // Materialize every skill in the catalog into the agent's own native
                 // skill-discovery location (e.g. Claude Code's `.claude/skills/<name>/`) so its
@@ -432,27 +542,30 @@ internal class AgentRunViewModel(
                             currentTurnResponse += token
                             scope.launch {
                                 isWaitingForFirstEvent = false
-                                timeline = timeline + TurnTimelineEntry.Token(token)
+                                appendTimelineEntry(turnId, TurnTimelineEntry.Token(token))
                             }
                         },
                         onToolCall = { toolName, detail ->
                             scope.launch {
                                 isWaitingForFirstEvent = false
-                                timeline = timeline + TurnTimelineEntry.Tool(
-                                    ToolCallInfo.truncated(toolName = toolName, status = ToolCallStatus.DONE, arguments = detail),
+                                appendTimelineEntry(
+                                    turnId,
+                                    TurnTimelineEntry.Tool(
+                                        ToolCallInfo.truncated(toolName = toolName, status = ToolCallStatus.RUNNING, arguments = detail),
+                                    ),
                                 )
                             }
                         },
                         onStatus = { status ->
                             scope.launch {
                                 isWaitingForFirstEvent = false
-                                timeline = timeline + TurnTimelineEntry.Status(status)
+                                appendTimelineEntry(turnId, TurnTimelineEntry.Status(status))
                             }
                         },
                         onThinking = { chunk ->
                             scope.launch {
                                 isWaitingForFirstEvent = false
-                                timeline = timeline + TurnTimelineEntry.Thinking(chunk)
+                                appendTimelineEntry(turnId, TurnTimelineEntry.Thinking(chunk))
                             }
                         },
                     )
@@ -472,6 +585,15 @@ internal class AgentRunViewModel(
             val errorText = exception?.message?.takeIf { !isCancelled }
             isRunning = false
             isWaitingForFirstEvent = false
+            // Ensure the last tool call of the turn ends up DONE even if no trailing event
+            // arrived to flip it, and capture the final snapshot while still holding the lock —
+            // reading `timeline` in a separate statement after release would leave a window for
+            // a still-in-flight callback coroutine (from this same turn) to append an entry
+            // that arrived after completion, corrupting the "finalized" record below.
+            val finalTimeline = timelineMutex.withLock {
+                completeRunningTools()
+                timeline
+            }
             runningAgent = null
             currentRunJob = null
             // Normal completion path reached — the cancelRun() safety net (if one was started)
@@ -507,8 +629,8 @@ internal class AgentRunViewModel(
             // Keep this turn's ordered tool/thinking/text trail visible for the rest of the
             // session (all kinds, including thinking) — in memory only, never written to
             // AgentRunRecord/the database.
-            if (timeline.isNotEmpty()) {
-                completedGroups = completedGroups + (finalizedMessageId to timeline.grouped())
+            if (finalTimeline.isNotEmpty()) {
+                completedGroups = completedGroups + (finalizedMessageId to finalTimeline.grouped())
             }
 
             val record = AgentRunRecord(
@@ -521,8 +643,8 @@ internal class AgentRunViewModel(
                 isCancelled = isCancelled,
                 agentId = agent.id,
                 agentSessionId = activeAgentSessionId,
-                activityLog = timeline.collapsedEffectiveTools().filterIsInstance<TurnTimelineEntry.Tool>().map { it.toolCall.toolName },
-                contentBlocks = timeline.collapsedEffectiveTools().filter { it is TurnTimelineEntry.Tool || it is TurnTimelineEntry.Token },
+                activityLog = finalTimeline.collapsedEffectiveTools().filterIsInstance<TurnTimelineEntry.Tool>().map { it.toolCall.toolName },
+                contentBlocks = finalTimeline.collapsedEffectiveTools().filter { it is TurnTimelineEntry.Tool || it is TurnTimelineEntry.Token },
                 inputTokens = usage?.inputTokens,
                 outputTokens = usage?.outputTokens,
                 totalTokens = usage?.totalTokens,

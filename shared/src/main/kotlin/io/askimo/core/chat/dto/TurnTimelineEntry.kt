@@ -51,23 +51,24 @@ sealed interface TurnTimelineGroup {
 }
 
 /**
- * Collapses a "retry loop" — the AI calling the same tool repeatedly, often with different
- * arguments each time while it tries to guess the right parameters — down to only the LAST,
- * *effective* attempt, keyed by [ToolCallInfo.toolName] alone (arguments are ignored, since
- * they're exactly what changes between retries).
+ * Collapses a "retry loop" — the AI calling the same tool repeatedly (often with different
+ * args) until it succeeds — down to the effective attempts, keyed by [ToolCallInfo.toolName]
+ * + [ToolCallInfo.hasFailed]. An earlier call is dropped only if it **failed** and a later
+ * call to the same tool exists; successful calls and the last attempt per tool are always
+ * kept (so an always-failing tool still surfaces its final error).
  *
- * Any [TurnTimelineEntry.Thinking] entries that led up to a superseded (non-last) attempt are
- * discarded along with it — they were reasoning about a dead-end attempt, not useful once a
- * later attempt replaces it. The [TurnTimelineEntry.Thinking] immediately preceding the *kept*
- * (last) attempt for a tool is preserved as-is.
+ * Not keyed on [ToolCallInfo.arguments]: distinct successful calls to the same tool (e.g.
+ * `view_file(fileA)` then `view_file(fileB)`) must both stay visible, while real retries often
+ * vary their args on every failed attempt anyway.
  *
- * E.g. `Thinking, ToolA(args1), Thinking, ToolA(args2), Thinking, ToolA(args3), ToolB` collapses
- * to `Thinking, ToolA(args3), ToolB` — the two earlier thinking/attempt pairs for tool A are
- * dropped entirely; only the reasoning that led to the final, effective call survives.
+ * [TurnTimelineEntry.Thinking] preceding a dropped attempt is discarded with it; thinking
+ * before a *kept* attempt is preserved.
  *
- * Applied before persisting (so `content_json` only ever stores effective tool calls, not every
- * retry) and again inside [grouped] when rendering, so historical rows saved before this existed
- * are also cleaned up on display.
+ * E.g. `Thinking, ToolA(args1, FAILED), Thinking, ToolA(args2, FAILED), Thinking, ToolA(args3),
+ * ToolB` → `Thinking, ToolA(args3), ToolB`.
+ *
+ * Applied before persisting (so `content_json` only stores effective tool calls) and again in
+ * [grouped] when rendering, to also clean up historical rows saved before this existed.
  */
 fun List<TurnTimelineEntry>.collapsedEffectiveTools(): List<TurnTimelineEntry> {
     val lastToolIndexByName = HashMap<String, Int>()
@@ -83,20 +84,23 @@ fun List<TurnTimelineEntry>.collapsedEffectiveTools(): List<TurnTimelineEntry> {
     forEachIndexed { index, entry ->
         when (entry) {
             is TurnTimelineEntry.Thinking -> {
-                // Buffered — only kept if it turns out to precede the *effective* tool call.
+                // Buffered — only kept if it turns out to precede a *kept* tool call.
                 pendingThinking.add(entry)
             }
 
             is TurnTimelineEntry.Tool -> {
-                if (lastToolIndexByName[entry.toolCall.toolName] == index) {
-                    // The effective (last) attempt for this tool — keep the reasoning that led
-                    // to it, then the call itself.
+                val isLastForTool = lastToolIndexByName[entry.toolCall.toolName] == index
+                // Keep every call that succeeded, plus the last attempt for a tool regardless
+                // of outcome. Only drop a call when it failed AND a later attempt at the same
+                // tool exists — see the function doc for why this (not arguments) is the
+                // correct dedup signal.
+                if (isLastForTool || !entry.toolCall.hasFailed) {
                     result.addAll(pendingThinking)
                     pendingThinking.clear()
                     result.add(entry)
                 } else {
-                    // A superseded retry — discard the reasoning that led to this dead-end
-                    // attempt along with the attempt itself.
+                    // A failed, superseded attempt — discard the reasoning that led to this
+                    // dead-end attempt along with the attempt itself.
                     pendingThinking.clear()
                 }
             }

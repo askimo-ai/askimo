@@ -51,7 +51,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
@@ -197,7 +196,6 @@ internal object VoicePlaybackController {
     }
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun messageBubble(
     message: ChatMessageDTO,
@@ -1222,7 +1220,7 @@ internal fun thinkingSection(
 @Composable
 internal fun turnTimelineView(
     groups: List<TurnTimelineGroup>,
-    isStreaming: Boolean = false,
+    isStreaming: Boolean,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -1255,6 +1253,16 @@ internal fun turnTimelineView(
 
                     is TurnTimelineGroup.ToolGroup -> {
                         var expanded by remember { mutableStateOf(true) }
+                        // Auto-collapse once this group is no longer the actively-streaming
+                        // step. Without this, every ToolGroup stayed expanded forever, so a
+                        // long agentic run — whose tool calls are usually interleaved with
+                        // Thinking chunks and therefore split into many small, separate
+                        // ToolGroups rather than one big one — rendered as dozens of
+                        // fully-expanded sections stacked down the transcript. Still
+                        // user-toggleable afterwards.
+                        LaunchedEffect(isStreamingTail) {
+                            if (!isStreamingTail) expanded = false
+                        }
                         toolCallsSection(
                             toolCalls = group.entries.map { it.toolCall },
                             isExpanded = expanded,
@@ -1354,7 +1362,7 @@ private fun aiProcessingIndicator() {
  * suffix also acts as the collision-handling strategy for the (extremely unlikely) case where
  * two distinct texts share the same digest.
  */
-private fun TurnTimelineGroup.stableKey(): String = when (this) {
+internal fun TurnTimelineGroup.stableKey(): String = when (this) {
     is TurnTimelineGroup.StatusGroup -> "status:" + entries.joinToString("|") { it.text }
     is TurnTimelineGroup.ToolGroup -> "tool:" + entries.joinToString("|") { it.toolCall.toolName }
     is TurnTimelineGroup.ThinkingGroup -> "thinking:" + text.textDigest()
@@ -1372,10 +1380,14 @@ private fun String.textDigest(): String = "$length:${hashCode()}"
  * Computes the [key] to use for a group in [turnTimelineView].
  *
  * - If [isStreamingTail] is true, the group is keyed by a fixed, content-independent marker
- *   (`"live:thinking"`/`"live:token"`/`"live:status"`) instead of [stableKey] — with the
- *   exception of [TurnTimelineGroup.ToolGroup], which always uses [stableKey] regardless of
- *   [isStreamingTail], since that key already ignores status/arguments/result. At most one
- *   group is ever the streaming tail, so this marker never collides with another group's key.
+ *   (`"live:thinking"`/`"live:token"`/`"live:status"`/`"live:tool"`) instead of [stableKey].
+ *   This is essential for [TurnTimelineGroup.ToolGroup] in particular: its [stableKey] embeds
+ *   the full, growing list of tool names in the group, so while it's still actively receiving
+ *   new tool calls (no other event type has interrupted it yet), using [stableKey] directly
+ *   would change the key on every single new call — forcing Compose to fully discard and
+ *   remount the composable (and its `expanded`/scroll/detail state) each time, instead of
+ *   updating it in place. At most one group is ever the streaming tail, so this fixed marker
+ *   never collides with another group's key.
  * - Otherwise, the base key is [stableKey].
  * - [occurrence] — the number of prior groups in the same pass that already resolved to the
  *   same base key — is appended as a `"#<occurrence>"` suffix whenever non-zero, guaranteeing
@@ -1383,13 +1395,13 @@ private fun String.textDigest(): String = "$length:${hashCode()}"
  *   content. Omitted when [occurrence] is `0`, so the common non-duplicate case keeps the
  *   plain base key unchanged.
  */
-private fun TurnTimelineGroup.renderKey(isStreamingTail: Boolean, occurrence: Int): String {
+internal fun TurnTimelineGroup.renderKey(isStreamingTail: Boolean, occurrence: Int): String {
     val base = if (isStreamingTail) {
         when (this) {
             is TurnTimelineGroup.ThinkingGroup -> "live:thinking"
             is TurnTimelineGroup.TokenGroup -> "live:token"
             is TurnTimelineGroup.StatusGroup -> "live:status"
-            is TurnTimelineGroup.ToolGroup -> stableKey()
+            is TurnTimelineGroup.ToolGroup -> "live:tool"
         }
     } else {
         stableKey()
@@ -1466,16 +1478,41 @@ internal fun toolCallsSection(
             )
         }
 
-        // Expanded: one row per tool call
+        // Expanded: one row per tool call. Capped to a scrollable viewport (rather than an
+        // unbounded Column) so a turn with dozens/hundreds of calls doesn't blow out the
+        // whole message bubble — same capped-scroll pattern as thinkingSection's body.
         if (isExpanded) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = Spacing.extraSmall, bottom = Spacing.extraSmall),
-                verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-            ) {
-                toolCalls.forEach { toolCall ->
-                    toolCallRow(toolCall)
+            val listScroll = rememberScrollState()
+            var viewportHeightPx by remember { mutableStateOf(0) }
+
+            // Keep the most recently added call in view as new ones stream in.
+            LaunchedEffect(toolCalls.size) {
+                if (hasRunning) listScroll.animateScrollTo(listScroll.maxValue)
+            }
+
+            Box(modifier = Modifier.fillMaxWidth().onSizeChanged { viewportHeightPx = it.height }) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 320.dp)
+                        .verticalScroll(listScroll)
+                        .padding(top = Spacing.extraSmall, bottom = Spacing.extraSmall, end = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                ) {
+                    toolCalls.forEach { toolCall ->
+                        toolCallRow(toolCall)
+                    }
+                }
+                // Only render once we know the viewport height (after the first layout pass),
+                // and only when there's actually overflow to scroll through.
+                if (viewportHeightPx > 0 && listScroll.maxValue > 0) {
+                    VerticalScrollbar(
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .height(with(LocalDensity.current) { viewportHeightPx.toDp() }),
+                        adapter = rememberScrollbarAdapter(listScroll),
+                        style = AppComponents.scrollbarStyle(),
+                    )
                 }
             }
         }
@@ -1799,28 +1836,18 @@ fun aiMessageEditDialog(
     }
 }
 
-/** Day separator shown between messages from different calendar days. */
 @Composable
 internal fun messageDaySeparator(label: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = Spacing.small),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
+        horizontalArrangement = Arrangement.Center,
     ) {
-        HorizontalDivider(
-            modifier = Modifier.weight(1f),
-            color = AppColors.codeBlockBorderColor(),
-        )
         Text(
             text = label,
             style = AppTextStyles.hint,
             color = AppColors.secondaryIconColor(),
-        )
-        HorizontalDivider(
-            modifier = Modifier.weight(1f),
-            color = AppColors.codeBlockBorderColor(),
         )
     }
 }

@@ -464,9 +464,13 @@ internal fun agenticRunArea(
                         // calls, thinking, response text, and status, interleaved exactly as
                         // the agent's stream reported them, with consecutive same-kind items
                         // collapsed into one group. Replaced by the finalized bubble in
-                        // `messages` once the run completes.
+                        // `messages` once the run completes. isStreaming=true is required here
+                        // (this branch only renders while the turn is actually in flight) — a
+                        // missing/false value here previously made every ToolGroup think it was
+                        // never the live tail, so it auto-collapsed the instant a new tool call
+                        // streamed in.
                         if (viewModel.isRunning && viewModel.timeline.isNotEmpty()) {
-                            turnTimelineView(viewModel.timeline.grouped())
+                            turnTimelineView(viewModel.timeline.grouped(), isStreaming = true)
                         }
                     } else {
                         // ── Home screen: this workspace's run history — shown before the
@@ -480,6 +484,7 @@ internal fun agenticRunArea(
                         )
                         agentRunHistoryList(
                             runHistory = runHistory,
+                            agentNameById = { agentId -> viewModel.allAgents.firstOrNull { it.id == agentId }?.name },
                             onSelectRecord = onSelectHistoryRecord,
                             onDeleteRecord = onDeleteHistoryRecord,
                         )

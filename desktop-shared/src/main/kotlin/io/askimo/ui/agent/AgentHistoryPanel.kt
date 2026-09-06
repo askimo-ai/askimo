@@ -56,14 +56,19 @@ internal val RUN_TIME_FMT: DateTimeFormatter =
 @Composable
 private fun skillRunHistoryPanelRow(
     record: AgentRunRecord,
+    agentName: String?,
     onClick: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val isError = record.error != null
     val timeLabel = RUN_TIME_FMT.format(record.createdAt)
-    val tooltipText = remember(record) {
+    val tooltipText = remember(record, agentName) {
         buildString {
             append(timeLabel)
+            if (agentName != null) {
+                append(" · ")
+                append(agentName)
+            }
             if (record.userInput.isNotBlank()) {
                 append("\n")
                 append(record.userInput)
@@ -103,10 +108,32 @@ private fun skillRunHistoryPanelRow(
                 tint = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
             )
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    timeLabel,
-                    style = AppTextStyles.hint,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                ) {
+                    Text(
+                        timeLabel,
+                        style = AppTextStyles.hint,
+                    )
+                    // Which agent ran this turn (e.g. Claude Code, Antigravity) — surfaced so a
+                    // workspace's history stays legible once multiple agents have been used
+                    // across its runs, not just the timestamp/title.
+                    if (agentName != null) {
+                        Text(
+                            "·",
+                            style = AppTextStyles.hint,
+                            color = AppColors.tertiaryIconColor(),
+                        )
+                        Text(
+                            agentName,
+                            style = AppTextStyles.hint,
+                            color = AppColors.tertiaryIconColor(),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
                 if (record.title.isNotBlank()) {
                     Text(
                         record.title,
@@ -149,6 +176,7 @@ private fun skillRunHistoryPanelRow(
 @Composable
 internal fun agentRunHistoryList(
     runHistory: List<AgentRunRecord>,
+    agentNameById: (String?) -> String? = { null },
     onSelectRecord: (AgentRunRecord) -> Unit = {},
     onDeleteRecord: (AgentRunRecord) -> Unit = {},
 ) {
@@ -169,6 +197,7 @@ internal fun agentRunHistoryList(
             visibleHistory.forEach { record ->
                 skillRunHistoryPanelRow(
                     record = record,
+                    agentName = agentNameById(record.agentId),
                     onClick = { onSelectRecord(record) },
                     onDelete = { onDeleteRecord(record) },
                 )

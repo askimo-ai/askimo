@@ -32,3 +32,4 @@ certificate*.txt
 
 .idea/
 .java-version
+.agents

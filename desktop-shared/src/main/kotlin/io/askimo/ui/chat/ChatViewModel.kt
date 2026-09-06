@@ -193,7 +193,7 @@ class ChatViewModel(
      */
     fun refreshSessionTitle() {
         val sessionId = currentSessionId.value ?: return
-        scope.launch {
+        viewModelScope.launch {
             try {
                 val session = withContext(Dispatchers.IO) {
                     chatSessionService.getSessionById(sessionId)
@@ -215,6 +215,15 @@ class ChatViewModel(
     // Track active subscription jobs per threadId (not chatId) to ensure proper cleanup
     // Key = threadId, Value = subscription Job
     private val activeSubscriptions = mutableMapOf<String, Job>()
+
+    // Scope owned by this ViewModel instance, parented off the shared application-lifetime
+    // `scope` (owned by SessionManager). ALL work started by this ViewModel is launched here
+    // instead of directly on `scope`, so that cleanup() can cancel everything in one shot when
+    // SessionManager evicts this ViewModel from its cache — otherwise those coroutines (and this
+    // ViewModel instance, kept alive by their closures) would keep running indefinitely, since
+    // `scope` itself is never cancelled.
+    private val viewModelJob = SupervisorJob(scope.coroutineContext[Job])
+    private val viewModelScope = CoroutineScope(scope.coroutineContext + viewModelJob)
 
     private var currentCursor: Instant? = null
     private val currentSessionId = MutableStateFlow<String?>(null)
@@ -238,7 +247,7 @@ class ChatViewModel(
      * waiting for the AI chat response to finish.
      */
     private fun observeSessionTitleEvents() {
-        scope.launch {
+        viewModelScope.launch {
             EventBus.internalEvents
                 .filterIsInstance<SessionTitleUpdatedEvent>()
                 .collect { event ->
@@ -255,7 +264,7 @@ class ChatViewModel(
      * so the fixed diagram is persisted and shown on next load.
      */
     private fun observeDiagramFixedEvents() {
-        scope.launch {
+        viewModelScope.launch {
             EventBus.internalEvents
                 .filterIsInstance<DiagramFixedEvent>()
                 .collect { event ->
@@ -275,7 +284,7 @@ class ChatViewModel(
      */
     private fun observeProjectEvents() {
         // Observe ProjectRefreshEvent to reload project when reference materials are added/removed
-        scope.launch {
+        viewModelScope.launch {
             EventBus.internalEvents
                 .collect { event ->
                     if (event is ProjectRefreshEvent) {
@@ -294,7 +303,7 @@ class ChatViewModel(
      * Reload project data from database when reference materials change
      */
     private fun reloadProject(projectId: String) {
-        scope.launch {
+        viewModelScope.launch {
             try {
                 val updatedProject = withContext(Dispatchers.IO) {
                     val projectRepository = DatabaseManager.getInstance().getProjectRepository()
@@ -372,11 +381,10 @@ class ChatViewModel(
         val activeThread = sessionManager.getActiveThread(sessionId)
 
         if (activeThread != null) {
-            // Parent job + child scope for ALL collectors spawned below so a single
-            // cancel() (on resubscribe or completion) tears down every one of them
-            // together
-            val subscriptionJob = SupervisorJob(scope.coroutineContext[Job])
-            val subscriptionScope = CoroutineScope(scope.coroutineContext + subscriptionJob)
+            // Child scope so one cancel() tears down all collectors below. Parented off
+            // viewModelJob so cleanup() also cancels it as a safety net.
+            val subscriptionJob = SupervisorJob(viewModelJob)
+            val subscriptionScope = CoroutineScope(viewModelScope.coroutineContext + subscriptionJob)
             activeSubscriptions[sessionId] = subscriptionJob
 
             val hasEvents = activeThread.timeline.value.isNotEmpty()
@@ -544,7 +552,7 @@ class ChatViewModel(
         if (editingMessage?.id != null) {
             val originalMessageId = editingMessage.id ?: return currentSessionId
 
-            scope.launch {
+            viewModelScope.launch {
                 editMessage(originalMessageId, message, attachments)
                 sendMessage(projectId = project?.id, creationMode, message, attachments, enabledServerIds)
             }
@@ -562,7 +570,7 @@ class ChatViewModel(
      * @param messageId The AI message ID to retry
      */
     override fun retryMessage(messageId: String, enabledServerIds: Set<String>) {
-        scope.launch {
+        viewModelScope.launch {
             try {
                 // 1. Find the AI message to retry
                 val aiMessageIndex = messages.indexOfFirst { it.id == messageId }
@@ -629,7 +637,7 @@ class ChatViewModel(
                 startThinkingTimer()
 
                 // 6. Resend the user message
-                currentJob = scope.launch {
+                currentJob = viewModelScope.launch {
                     try {
                         if (selectedDirective != null) {
                             Analytics.track(AnalyticsEvent.DIRECTIVE_USED)
@@ -749,7 +757,7 @@ class ChatViewModel(
 
         startThinkingTimer()
 
-        currentJob = scope.launch {
+        currentJob = viewModelScope.launch {
             try {
                 if (selectedDirective != null) {
                     Analytics.track(AnalyticsEvent.DIRECTIVE_USED)
@@ -845,7 +853,7 @@ class ChatViewModel(
         thinkingFrameIndex = 0
 
         // Timer for elapsed seconds
-        thinkingJob = scope.launch {
+        thinkingJob = viewModelScope.launch {
             while (isThinking) {
                 delay(1000)
                 thinkingElapsedSeconds = ((System.currentTimeMillis() - startTimeMillis) / 1000).toInt()
@@ -853,7 +861,7 @@ class ChatViewModel(
         }
 
         // Animation for spinner frames (200ms interval like CLI)
-        animationJob = scope.launch {
+        animationJob = viewModelScope.launch {
             while (isThinking) {
                 delay(200)
                 thinkingFrameIndex++
@@ -912,7 +920,7 @@ class ChatViewModel(
     fun resumeSession(sessionId: String): Boolean {
         currentSessionId.value = sessionId
 
-        scope.launch {
+        viewModelScope.launch {
             try {
                 activeSubscriptions.values.forEach { it.cancel() }
                 activeSubscriptions.clear()
@@ -1004,7 +1012,7 @@ class ChatViewModel(
             return
         }
 
-        scope.launch {
+        viewModelScope.launch {
             try {
                 isLoadingPrevious = true
 
@@ -1053,7 +1061,7 @@ class ChatViewModel(
             return
         }
 
-        scope.launch {
+        viewModelScope.launch {
             try {
                 isSearching = true
                 isSearchMode = true
@@ -1147,7 +1155,7 @@ class ChatViewModel(
     fun jumpToMessage(messageId: String, messageTimestamp: Instant) {
         if (currentSessionId.value == null) return
 
-        scope.launch {
+        viewModelScope.launch {
             try {
                 isLoading = true
 
@@ -1331,7 +1339,7 @@ class ChatViewModel(
 
         val sessionId = currentSessionId.value
         if (sessionId != null) {
-            scope.launch {
+            viewModelScope.launch {
                 try {
                     withContext(Dispatchers.IO) {
                         chatSessionService.updateSessionDirective(sessionId, directiveId)
@@ -1351,7 +1359,7 @@ class ChatViewModel(
      */
     override fun setWebSearchInRag(enabled: Boolean) {
         val sessionId = currentSessionId.value ?: return
-        scope.launch {
+        viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 chatSessionService.setWebSearchForSession(sessionId, enabled)
             }
@@ -1367,7 +1375,7 @@ class ChatViewModel(
      * @param newContent The new content for the message
      */
     override fun updateAIMessage(messageId: String, newContent: String) {
-        scope.launch {
+        viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
                     chatSessionService.updateMessageContent(messageId, newContent)
@@ -1404,6 +1412,14 @@ class ChatViewModel(
         activeSubscriptions.values.forEach { it.cancel() }
         activeSubscriptions.clear()
 
+        // Cancel this ViewModel's own scope — stops every coroutine launched by this
+        // instance (event bus observers started in init{}, in-flight DB calls, etc.) so an
+        // evicted ViewModel doesn't keep running or mutating its own state indefinitely.
+        // Safe to fully cancel (rather than cancelChildren()) since a cleaned-up ViewModel
+        // is always discarded; SessionManager creates a fresh instance if the session is
+        // revisited later.
+        viewModelJob.cancel()
+
         // Stop timers
         stopThinkingTimer()
 
@@ -1434,7 +1450,7 @@ class ChatViewModel(
             bookmarkedMessageIds - messageId
         }
 
-        scope.launch {
+        viewModelScope.launch {
             try {
                 val nowBookmarked = withContext(Dispatchers.IO) {
                     chatSessionService.toggleBookmark(messageId)
@@ -1480,7 +1496,7 @@ class ChatViewModel(
     override fun forkFromMessage(messageId: String) {
         val sourceSessionId = currentSessionId.value ?: return
 
-        scope.launch {
+        viewModelScope.launch {
             try {
                 val forkedSession = withContext(Dispatchers.IO) {
                     chatSessionService.forkSession(sourceSessionId, messageId)
@@ -1503,7 +1519,7 @@ class ChatViewModel(
      */
     private fun subscribeToMemoryPressure(sessionId: String) {
         pressureSubscriptionJob?.cancel()
-        pressureSubscriptionJob = scope.launch {
+        pressureSubscriptionJob = viewModelScope.launch {
             // resumeSessionPaginated now eagerly creates the memory synchronously before
             // returning, so this is always a Caffeine cache hit — no polling needed.
             val memory = withContext(Dispatchers.IO) {
@@ -1545,7 +1561,7 @@ class ChatViewModel(
         if (isCompressing) return
         val sessionId = currentSessionId.value ?: return
 
-        scope.launch {
+        viewModelScope.launch {
             isCompressing = true
             try {
                 val memory = withContext(Dispatchers.IO) {

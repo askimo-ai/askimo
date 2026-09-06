@@ -31,6 +31,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -260,17 +261,19 @@ fun projectView(
                             }
 
                             // Title + description — full content, no truncation
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = currentProject.name,
-                                    style = AppTextStyles.pageTitle,
-                                )
-                                currentProject.description?.takeIf { it.isNotBlank() }?.let { desc ->
+                            SelectionContainer(modifier = Modifier.weight(1f)) {
+                                Column {
                                     Text(
-                                        text = desc,
-                                        style = AppTextStyles.bodySecondary,
-                                        modifier = Modifier.padding(top = Spacing.extraSmall),
+                                        text = currentProject.name,
+                                        style = AppTextStyles.pageTitle,
                                     )
+                                    currentProject.description?.takeIf { it.isNotBlank() }?.let { desc ->
+                                        Text(
+                                            text = desc,
+                                            style = AppTextStyles.bodySecondary,
+                                            modifier = Modifier.padding(top = Spacing.extraSmall),
+                                        )
+                                    }
                                 }
                             }
 
@@ -858,22 +861,23 @@ private fun knowledgeSourceItem(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Resource identifier (path/URL) with bullet point
-        Row(
-            modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "•",
-                style = AppTextStyles.caption,
-            )
-            Text(
-                text = source.resourceIdentifier,
-                style = AppTextStyles.caption,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+        SelectionContainer(modifier = Modifier.weight(1f)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "•",
+                    style = AppTextStyles.caption,
+                )
+                Text(
+                    text = source.resourceIdentifier,
+                    style = AppTextStyles.caption,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
 
         Row(

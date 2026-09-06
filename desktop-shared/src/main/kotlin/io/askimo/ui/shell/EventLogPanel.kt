@@ -20,18 +20,18 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.HorizontalSplit
 import androidx.compose.material.icons.filled.VerticalSplit
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -42,6 +42,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -403,7 +404,6 @@ private fun eventLogPanelContent(
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 LazyColumn(
                     state = listState,
-                    verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                 ) {
                     itemsIndexed(events) { index, event ->
                         eventLogCompactItem(event, isEven = index % 2 == 0)
@@ -442,57 +442,46 @@ private fun eventLogPanelContent(
  */
 @Composable
 private fun eventLogCompactItem(event: Event, isEven: Boolean) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isEven) {
-                MaterialTheme.colorScheme.surface
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant
-            },
-        ),
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                if (isEven) AppColors.surfaceColor(AppColors.Elevation.RAISED) else Color.Transparent,
+            )
+            .padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(Spacing.small),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+        SelectionContainer(modifier = Modifier.weight(1f)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = event::class.simpleName ?: stringResource("eventlog.unknown"),
-                        style = AppTextStyles.fieldLabel,
-                    )
-                    Text(
-                        text = TimeUtil.formatInstantDisplay(event.timestamp),
-                        style = AppTextStyles.hint,
-                    )
-                }
+                Text(
+                    text = event::class.simpleName ?: stringResource("eventlog.unknown"),
+                    style = AppTextStyles.fieldLabel,
+                )
+                Text(
+                    text = TimeUtil.formatInstantDisplay(event.timestamp),
+                    style = AppTextStyles.hint,
+                )
                 Text(
                     text = event.getDetails(),
                     style = AppTextStyles.caption,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
             }
+        }
 
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                ),
-            ) {
-                Text(
-                    text = event.source.name,
-                    style = AppTextStyles.hint.copy(color = MaterialTheme.colorScheme.onPrimaryContainer),
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = Spacing.extraSmall),
-                )
-            }
+        Surface(
+            shape = MaterialTheme.shapes.extraSmall,
+            color = MaterialTheme.colorScheme.primaryContainer,
+        ) {
+            Text(
+                text = event.source.name,
+                style = AppTextStyles.hint.copy(color = MaterialTheme.colorScheme.onPrimaryContainer),
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = Spacing.extraSmall),
+            )
         }
     }
 }

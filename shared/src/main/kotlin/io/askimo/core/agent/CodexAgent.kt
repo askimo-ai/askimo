@@ -208,7 +208,7 @@ class CodexAgent : ExternalAgentTemplate() {
             "thread.started" -> {
                 val threadId = event.fields["thread_id"] as? String
                 if (!threadId.isNullOrBlank()) updateExecutionMetadata(sessionId = threadId)
-                onStatus("codex thread started")
+                // Pure lifecycle marker — nothing worth surfacing to the user as a status row.
             }
 
             "turn.started" -> Unit
@@ -219,7 +219,7 @@ class CodexAgent : ExternalAgentTemplate() {
                 @Suppress("UNCHECKED_CAST")
                 val usage = event.fields["usage"] as? Map<String, Any>
                 if (usage != null) updateExecutionUsage(AgentUsageExtractor.extract(event.fields, usage))
-                onStatus("codex turn complete")
+                // Pure lifecycle marker — nothing worth surfacing to the user as a status row.
             }
 
             "turn.failed" -> {

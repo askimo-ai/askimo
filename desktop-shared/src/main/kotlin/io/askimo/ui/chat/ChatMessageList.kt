@@ -192,7 +192,8 @@ fun chatMessageList(
                     if (ts != null) {
                         val dayLabel = LocalizationManager.formatDayLabel(ts, currentDate)
                         if (dayLabel != lastDayLabel) {
-                            messageDaySeparator(label = dayLabel)
+                            val timeLabel = LocalizationManager.formatMessageTime(ts)
+                            messageDaySeparator(label = "$dayLabel · $timeLabel")
                             lastDayLabel = dayLabel
                         }
                     }

@@ -75,6 +75,13 @@ class DatabaseManager private constructor(
             addDataSourceProperty("cachePrepStmts", "true")
             addDataSourceProperty("prepStmtCacheSize", "250")
             addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
+            // Reduce SQLITE_BUSY errors under concurrent access from background indexing,
+            // file watchers, and telemetry writes competing with normal chat read/write traffic.
+            // These are applied as native SQLiteConfig properties (not connectionInitSql) since
+            // the JDBC driver only compiles the first statement of a connectionInitSql string.
+            addDataSourceProperty("journal_mode", "WAL")
+            addDataSourceProperty("busy_timeout", "5000")
+            addDataSourceProperty("synchronous", "NORMAL")
         }
 
         return HikariDataSource(config).also { ds ->

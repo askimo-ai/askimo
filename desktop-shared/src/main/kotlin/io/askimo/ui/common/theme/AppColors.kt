@@ -365,7 +365,6 @@ object AppColors {
     }
 
     // ── Inputs ────────────────────────────────────────────────────────────────
-
     @Composable
     fun outlinedTextFieldColors(
         focusedBorderColor: Color = MaterialTheme.colorScheme.onSurface,
@@ -375,7 +374,7 @@ object AppColors {
         focusedTextColor: Color = MaterialTheme.colorScheme.onSurface,
         unfocusedTextColor: Color = MaterialTheme.colorScheme.onSurface,
         cursorColor: Color = MaterialTheme.colorScheme.onSurface,
-        containerColor: Color = MaterialTheme.colorScheme.surface,
+        containerColor: Color = Color.Transparent,
     ): TextFieldColors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = focusedBorderColor,
         unfocusedBorderColor = unfocusedBorderColor,
