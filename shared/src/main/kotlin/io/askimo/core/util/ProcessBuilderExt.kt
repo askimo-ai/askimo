@@ -5,6 +5,7 @@
 package io.askimo.core.util
 
 import java.io.File
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 
 /**
@@ -82,15 +83,9 @@ class ProcessBuilderExt(vararg command: String) {
     companion object {
 
         /**
-         * Resolves [executableName] to an absolute path on the current `PATH`, using the same
-         * search strategy as command execution (absolute-path check, common install dirs,
-         * Windows extensions, then a login-shell fallback via `where`/`which`, and on Windows
-         * a further fallback to PowerShell's `Get-Command`, which also resolves binaries
-         * registered via the registry "App Paths" key even when they aren't on `PATH`).
+         * Resolves [executableName] to an absolute path on the current `PATH`.
          *
-         * Unlike [findExecutable] (used internally when launching a process), this returns
-         * `null` when the binary can't be located instead of falling back to the bare name —
-         * making it suitable for "is this agent installed?" checks (e.g. [ExternalAgent.isBinaryAvailable]).
+         * @return The absolute path, or `null` if [executableName] can't be located.
          */
         fun which(executableName: String): String? {
             val resolved = findExecutable(executableName)
@@ -228,14 +223,28 @@ class ProcessBuilderExt(vararg command: String) {
         }
 
         /**
-         * Runs [command], returning the first non-blank line of stdout on success (exit code 0),
-         * or `null` on failure/timeout/exception.
+         * Runs [command] with a [TIMEOUT_SECONDS] deadline and returns the first non-blank
+         * line of stdout.
+         *
+         * @return The first non-blank stdout line, or `null` if the process times out, exits
+         *         non-zero, or produces no output.
          */
         private fun runShellCommand(command: List<String>): String? = try {
             val process = ProcessBuilder(command).redirectErrorStream(true).start()
-            val output = process.inputStream.bufferedReader().readText().trim()
-            val finished = process.waitFor(5, TimeUnit.SECONDS)
-            if (finished && process.exitValue() == 0 && output.isNotBlank()) {
+            val outputFuture = CompletableFuture.supplyAsync {
+                process.inputStream.bufferedReader().readText().trim()
+            }
+            val finished = process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            if (!finished) {
+                process.destroyForcibly()
+                return null
+            }
+            val output = try {
+                outputFuture.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            } catch (_: Exception) {
+                null
+            }
+            if (process.exitValue() == 0 && !output.isNullOrBlank()) {
                 output.lines().map { it.trim() }.firstOrNull { it.isNotBlank() }
             } else {
                 null
@@ -287,45 +296,68 @@ class ProcessBuilderExt(vararg command: String) {
         }
 
         /**
-         * Asks the user's login shell for its PATH so nvm, Homebrew, pyenv etc. are included.
-         * Returns null on failure or timeout.
+         * Asks the user's login shell for its PATH, with a [TIMEOUT_SECONDS] deadline.
+         *
+         * @return The shell's PATH, or `null` on failure, timeout, or an empty result.
          */
         private fun resolveShellPath(): String? = runCatching {
             val shell = System.getenv("SHELL") ?: "/bin/zsh"
             val proc = ProcessBuilder(shell, "-l", "-c", "echo \$PATH")
                 .redirectErrorStream(true)
                 .start()
-            val path = proc.inputStream.bufferedReader().readText().trim()
-            val ok = proc.waitFor(5, TimeUnit.SECONDS)
-            path.takeIf { ok && it.isNotBlank() }
+            val outputFuture = CompletableFuture.supplyAsync {
+                proc.inputStream.bufferedReader().readText().trim()
+            }
+            val ok = proc.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            if (!ok) {
+                proc.destroyForcibly()
+                return@runCatching null
+            }
+            val path = try {
+                outputFuture.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            } catch (_: Exception) {
+                null
+            }
+            path.takeIf { !it.isNullOrBlank() }
         }.getOrNull()
 
         /**
-         * Reads the User + Machine PATH values directly from the Windows registry via a
-         * fresh PowerShell process. Unlike `System.getenv("PATH")` (which reflects the PATH
-         * at the time this JVM was launched) and unlike spawning `where`/`Get-Command`
-         * (which inherit that same stale PATH), `[Environment]::GetEnvironmentVariable`
-         * reads the live, persisted value — so it picks up entries added by installers
-         * *after* this process started.
+         * Reads the live, registry-persisted User + Machine PATH values via a fresh
+         * PowerShell process, so entries added by installers after this JVM started
+         * are picked up. Cached after the first successful call.
          *
-         * Cached after first successful call since the registry rarely changes mid-run.
+         * @return The combined User + Machine PATH, or `null` if unavailable.
          */
         private val windowsRegistryPathCache: String? by lazy {
             if (!isWindows()) {
                 null
             } else {
-                runShellCommand(
-                    listOf(
-                        "powershell.exe",
-                        "-NoProfile",
-                        "-NonInteractive",
-                        "-Command",
-                        "[Environment]::GetEnvironmentVariable('PATH','User') + ';' + " +
-                            "[Environment]::GetEnvironmentVariable('PATH','Machine')",
+                parseRegistryPath(
+                    runShellCommand(
+                        listOf(
+                            "powershell.exe",
+                            "-NoProfile",
+                            "-NonInteractive",
+                            "-Command",
+                            "[Environment]::GetEnvironmentVariable('PATH','User') + ';' + " +
+                                "[Environment]::GetEnvironmentVariable('PATH','Machine')",
+                        ),
                     ),
                 )
             }
         }
+
+        /**
+         * Parses a `;`-joined PATH string into a clean, re-joined path, dropping blank entries.
+         *
+         * @return The cleaned PATH, or `null` if [raw] contains no non-blank directory entries.
+         */
+        fun parseRegistryPath(raw: String?): String? = raw
+            ?.split(File.pathSeparator)
+            ?.map { it.trim() }
+            ?.filter { it.isNotBlank() }
+            ?.takeIf { it.isNotEmpty() }
+            ?.joinToString(File.pathSeparator)
 
         private fun resolveWindowsRegistryPath(): String? = windowsRegistryPathCache
 
@@ -336,5 +368,8 @@ class ProcessBuilderExt(vararg command: String) {
             ?: emptyList()
 
         fun isWindows(): Boolean = System.getProperty("os.name", "").lowercase().contains("windows")
+
+        /** Max time to wait for a shell fallback command (`where`, `which`, PowerShell, etc.). */
+        private const val TIMEOUT_SECONDS = 5L
     }
 }

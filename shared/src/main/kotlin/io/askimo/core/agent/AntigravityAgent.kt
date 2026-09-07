@@ -10,12 +10,10 @@ import io.askimo.core.logging.logger
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.gemini.GeminiSettings
 import io.askimo.core.security.SecureKeyManager
+import io.askimo.core.util.JsonUtils
 import io.askimo.core.util.ProcessBuilderExt
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
 import java.io.File
 
 /**
@@ -130,34 +128,18 @@ class AntigravityAgent : ExternalAgentTemplate() {
         runCatching {
             val file = settingsFile()
             val existing = if (file.exists() && file.isFile) {
-                JsonLineParser.parseObject(file.readText().trim()) ?: emptyMap()
+                val parsed = runCatching { JsonUtils.json.parseToJsonElement(file.readText().trim()) }.getOrNull()
+                (parsed as? JsonObject) ?: JsonObject(emptyMap())
             } else {
-                emptyMap()
+                JsonObject(emptyMap())
             }
-            val merged = existing + ("modelProvider" to "gemini")
+            val merged = JsonObject(existing.toMutableMap().apply { put("modelProvider", JsonPrimitive("gemini")) })
             file.parentFile?.mkdirs()
-            file.writeText(toPrettyJson(merged))
+            file.writeText(JsonUtils.prettyJson.encodeToString(JsonObject.serializer(), merged))
             log.debug("Updated {} with \"modelProvider\": \"gemini\"", file.absolutePath)
         }.onFailure { e ->
             log.warn("Failed to auto-fix {}: {}", settingsFile().absolutePath, e.message)
         }
-    }
-
-    /** Renders a flat/nested `Map<String, Any>` (as produced by [JsonLineParser]) back to pretty JSON. */
-    private fun toPrettyJson(fields: Map<String, Any>): String {
-        val json = Json { prettyPrint = true }
-        val obj = buildJsonObject { fields.forEach { (k, v) -> put(k, toJsonElement(v)) } }
-        return json.encodeToString(JsonObject.serializer(), obj)
-    }
-
-    private fun toJsonElement(value: Any): JsonElement = when (value) {
-        is Boolean -> JsonPrimitive(value)
-
-        is Map<*, *> -> buildJsonObject {
-            value.forEach { (k, v) -> if (k is String && v != null) put(k, toJsonElement(v)) }
-        }
-
-        else -> JsonPrimitive(value.toString())
     }
 
     /**

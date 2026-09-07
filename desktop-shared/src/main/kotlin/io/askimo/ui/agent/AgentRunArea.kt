@@ -50,6 +50,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -85,6 +86,7 @@ import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.service.AvatarService
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.context.GlobalContext
 
@@ -134,6 +136,7 @@ internal fun agenticRunArea(
 
     val avatarService = remember { GlobalContext.get().get<AvatarService>() }
     val userProfileRepository = remember { GlobalContext.get().get<UserProfileRepository>() }
+    val coroutineScope = rememberCoroutineScope()
     // Seed with whatever's already cached (or the built-in fallback) so the avatar never
     // renders as an empty placeholder that pops in a frame later — see peekCachedAiAvatarPainter.
     var aiAvatarPainter by remember { mutableStateOf(avatarService.peekCachedAiAvatarPainter()) }
@@ -224,8 +227,10 @@ internal fun agenticRunArea(
                     if (fixLabelKey != null && onFix != null) {
                         TextButton(
                             onClick = {
-                                onFix()
-                                viewModel.refreshAgentStates()
+                                coroutineScope.launch {
+                                    withContext(Dispatchers.IO) { onFix() }
+                                    viewModel.refreshAgentStates()
+                                }
                             },
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         ) {

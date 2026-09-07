@@ -13,9 +13,9 @@ import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.DirectiveDeletedEvent
 import io.askimo.core.user.repository.UserProfileRepository
+import io.askimo.core.util.JsonUtils
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
 /**
  * Result of a directive import operation.
@@ -41,11 +41,6 @@ private data class DirectiveExportItem(
     val name: String,
     val content: String,
 )
-
-private val json = Json {
-    prettyPrint = true
-    ignoreUnknownKeys = true
-}
 
 /**
  * Service for managing chat directives and building system prompts for chat sessions.
@@ -173,7 +168,7 @@ class ChatDirectiveService(
         val file = DirectiveExportFile(
             directives = directives.map { DirectiveExportItem(it.name, it.content) },
         )
-        return json.encodeToString(file)
+        return JsonUtils.prettyJson.encodeToString(file)
     }
 
     /**
@@ -186,7 +181,7 @@ class ChatDirectiveService(
      */
     fun importFromJson(jsonString: String): DirectiveImportResult {
         val exportFile = try {
-            json.decodeFromString<DirectiveExportFile>(jsonString)
+            JsonUtils.prettyJson.decodeFromString<DirectiveExportFile>(jsonString)
         } catch (e: Exception) {
             throw IllegalArgumentException("Invalid directive file format", e)
         }
