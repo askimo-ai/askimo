@@ -232,7 +232,7 @@ class ProcessBuilderExt(vararg command: String) {
         private fun runShellCommand(command: List<String>): String? = try {
             val process = ProcessBuilder(command).redirectErrorStream(true).start()
             val outputFuture = CompletableFuture.supplyAsync {
-                process.inputStream.bufferedReader().readText().trim()
+                process.inputStream.bufferedReader().use { it.readText().trim() }
             }
             val finished = process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS)
             if (!finished) {
@@ -306,7 +306,7 @@ class ProcessBuilderExt(vararg command: String) {
                 .redirectErrorStream(true)
                 .start()
             val outputFuture = CompletableFuture.supplyAsync {
-                proc.inputStream.bufferedReader().readText().trim()
+                proc.inputStream.bufferedReader().use { it.readText().trim() }
             }
             val ok = proc.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS)
             if (!ok) {
@@ -348,21 +348,25 @@ class ProcessBuilderExt(vararg command: String) {
         }
 
         /**
-         * Parses a `;`-joined PATH string into a clean, re-joined path, dropping blank entries.
+         * Parses a `;`-joined PATH string (Windows registry `PATH` values are always
+         * `;`-delimited, regardless of the host OS this happens to run on — unlike
+         * [File.pathSeparator], which is `:` on Unix) into a clean, re-joined path,
+         * dropping blank entries.
          *
-         * @return The cleaned PATH, or `null` if [raw] contains no non-blank directory entries.
+         * @return The cleaned, `;`-joined PATH, or `null` if [raw] contains no non-blank
+         *         directory entries.
          */
         fun parseRegistryPath(raw: String?): String? = raw
-            ?.split(File.pathSeparator)
+            ?.split(';')
             ?.map { it.trim() }
             ?.filter { it.isNotBlank() }
             ?.takeIf { it.isNotEmpty() }
-            ?.joinToString(File.pathSeparator)
+            ?.joinToString(";")
 
         private fun resolveWindowsRegistryPath(): String? = windowsRegistryPathCache
 
         private fun windowsRegistryPathDirs(): List<String> = windowsRegistryPathCache
-            ?.split(File.pathSeparator)
+            ?.split(';')
             ?.map { it.trim() }
             ?.filter { it.isNotBlank() }
             ?: emptyList()

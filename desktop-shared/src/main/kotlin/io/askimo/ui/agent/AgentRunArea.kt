@@ -228,8 +228,11 @@ internal fun agenticRunArea(
                         TextButton(
                             onClick = {
                                 coroutineScope.launch {
-                                    withContext(Dispatchers.IO) { onFix() }
-                                    viewModel.refreshAgentStates()
+                                    try {
+                                        withContext(Dispatchers.IO) { onFix() }
+                                    } finally {
+                                        viewModel.refreshAgentStates()
+                                    }
                                 }
                             },
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),

@@ -174,14 +174,13 @@ class ProcessBuilderExtTest {
 
     // Sanity check that the parsing helper itself is OS-agnostic pure logic, even
     // though it's only exercised as part of Windows-only PATH resolution above.
-    // Uses the current platform's actual File.pathSeparator (`;` on Windows, `:`
-    // on macOS/Linux) rather than a hard-coded `;`, since parseRegistryPath splits
-    // on that separator and behaves differently depending on which one is active.
+    // parseRegistryPath always splits on a literal ';' (Windows registry PATH
+    // values are always ';'-delimited, regardless of host OS) rather than
+    // File.pathSeparator, so this assertion holds identically on every platform.
     @Test
     @DisabledOnOs(OS.WINDOWS)
     fun `parseRegistryPath is safe to call on non-Windows platforms too`() {
-        val sep = java.io.File.pathSeparator
-        assertNull(ProcessBuilderExt.parseRegistryPath(sep))
+        assertNull(ProcessBuilderExt.parseRegistryPath(";"))
         assertEquals("/usr/bin", ProcessBuilderExt.parseRegistryPath("/usr/bin"))
     }
 
