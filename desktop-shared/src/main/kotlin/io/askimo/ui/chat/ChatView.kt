@@ -424,11 +424,14 @@ fun chatView(
     // so there is no async race on first run and it re-triggers naturally when the
     // user saves a new avatar (path string changes).
     val avatarService = remember { GlobalContext.get().get<AvatarService>() }
-    var aiAvatarPainter by remember { mutableStateOf<BitmapPainter?>(null) }
+    // Seed with whatever's already cached (or the built-in fallback) so the avatar never
+    // renders as an empty placeholder that pops in a frame later — see peekCachedAiAvatarPainter.
+    var aiAvatarPainter by remember { mutableStateOf(avatarService.peekCachedAiAvatarPainter()) }
     var userAvatarPainter by remember { mutableStateOf<BitmapPainter?>(null) }
 
     LaunchedEffect(Unit) {
-        aiAvatarPainter = withContext(Dispatchers.IO) { avatarService.getAiAvatarPainter() }
+        val resolved = withContext(Dispatchers.IO) { avatarService.getAiAvatarPainter() }
+        if (resolved != null) aiAvatarPainter = resolved
     }
 
     LaunchedEffect(userAvatarPath) {

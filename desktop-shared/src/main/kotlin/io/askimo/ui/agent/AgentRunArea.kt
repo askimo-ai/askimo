@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -72,7 +73,6 @@ import io.askimo.core.agent.domain.SkillDefinition
 import io.askimo.core.agent.domain.Workspace
 import io.askimo.core.chat.dto.grouped
 import io.askimo.core.user.repository.UserProfileRepository
-import io.askimo.ui.chat.turnTimelineView
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.keymap.KeyMapManager
 import io.askimo.ui.common.keymap.onImeAwarePreviewKeyEvent
@@ -134,11 +134,14 @@ internal fun agenticRunArea(
 
     val avatarService = remember { GlobalContext.get().get<AvatarService>() }
     val userProfileRepository = remember { GlobalContext.get().get<UserProfileRepository>() }
-    var aiAvatarPainter by remember { mutableStateOf<BitmapPainter?>(null) }
+    // Seed with whatever's already cached (or the built-in fallback) so the avatar never
+    // renders as an empty placeholder that pops in a frame later — see peekCachedAiAvatarPainter.
+    var aiAvatarPainter by remember { mutableStateOf(avatarService.peekCachedAiAvatarPainter()) }
     var userAvatarPainter by remember { mutableStateOf<BitmapPainter?>(null) }
 
     LaunchedEffect(Unit) {
-        aiAvatarPainter = withContext(Dispatchers.IO) { avatarService.getAiAvatarPainter() }
+        val resolved = withContext(Dispatchers.IO) { avatarService.getAiAvatarPainter() }
+        if (resolved != null) aiAvatarPainter = resolved
         userAvatarPainter = withContext(Dispatchers.IO) {
             val avatarPath = runCatching { userProfileRepository.getProfile().preferences["avatarPath"] }.getOrNull()
             avatarService.getUserAvatarPainter(avatarPath)
@@ -187,6 +190,52 @@ internal fun agenticRunArea(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
+        val nonBlockingWarning = viewModel.selectedAgentRaw?.nonBlockingWarning
+        if (nonBlockingWarning != null) {
+            val warningText = stringResource(nonBlockingWarning.messageKey, *nonBlockingWarning.args.toTypedArray())
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
+                    .fillMaxWidth()
+                    .padding(start = 24.dp, end = 20.dp, top = 8.dp),
+                color = AppColors.surfaceColor(AppColors.Elevation.RAISED),
+                shape = MaterialTheme.shapes.small,
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.medium, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                ) {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.secondary,
+                    )
+                    Text(
+                        text = warningText,
+                        style = AppTextStyles.caption,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                    val fixLabelKey = nonBlockingWarning.fixActionLabelKey
+                    val onFix = nonBlockingWarning.onFix
+                    if (fixLabelKey != null && onFix != null) {
+                        TextButton(
+                            onClick = {
+                                onFix()
+                                viewModel.refreshAgentStates()
+                            },
+                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                        ) {
+                            Text(text = stringResource(fixLabelKey), style = AppTextStyles.caption)
+                        }
+                    }
+                }
+            }
+        }
+
         viewModel.conversationTitle?.let { titleText ->
             Column(
                 modifier = Modifier
@@ -452,26 +501,25 @@ internal fun agenticRunArea(
                     // ── Conversation transcript — shared bubble/timeline building blocks with
                     // ChatView, but a slimmer orchestration composable (see AgentMessageList.kt) ──
                     if (viewModel.messages.isNotEmpty() || viewModel.isRunning) {
+                        // Live, chronologically-ordered view of the *current* turn — tool
+                        // calls, thinking, response text, and status, interleaved exactly as
+                        // the agent's stream reported them, with consecutive same-kind items
+                        // collapsed into one group — is rendered by agentMessageList itself
+                        // (liveTimelineGroups/isRunning below), inside the same avatar-wrapped
+                        // row used for finalized messages, so the AI avatar stays mounted
+                        // continuously from "thinking" through streaming through finalized
+                        // (no separate bare turnTimelineView call here — that previously caused
+                        // a one-frame avatar flicker; see AgentMessageList.kt's doc comment).
                         agentMessageList(
                             messages = viewModel.messages,
-                            isThinking = viewModel.isWaitingForFirstEvent,
+                            isRunning = viewModel.isRunning,
+                            isWaitingForFirstEvent = viewModel.isWaitingForFirstEvent,
                             thinkingElapsedSeconds = viewModel.elapsedSeconds,
+                            liveTimelineGroups = viewModel.timeline.grouped(),
                             completedGroupsByMessageId = viewModel.completedGroups,
                             userAvatarPainter = userAvatarPainter,
                             aiAvatarPainter = aiAvatarPainter,
                         )
-                        // Live, chronologically-ordered view of the *current* turn — tool
-                        // calls, thinking, response text, and status, interleaved exactly as
-                        // the agent's stream reported them, with consecutive same-kind items
-                        // collapsed into one group. Replaced by the finalized bubble in
-                        // `messages` once the run completes. isStreaming=true is required here
-                        // (this branch only renders while the turn is actually in flight) — a
-                        // missing/false value here previously made every ToolGroup think it was
-                        // never the live tail, so it auto-collapsed the instant a new tool call
-                        // streamed in.
-                        if (viewModel.isRunning && viewModel.timeline.isNotEmpty()) {
-                            turnTimelineView(viewModel.timeline.grouped(), isStreaming = true)
-                        }
                     } else {
                         // ── Home screen: this workspace's run history — shown before the
                         // first message is sent, or after returning here via the back

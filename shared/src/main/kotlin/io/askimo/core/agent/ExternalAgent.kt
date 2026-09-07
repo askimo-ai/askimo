@@ -10,6 +10,28 @@ import io.askimo.core.analytics.AnalyticsEvent
 import java.io.File
 
 /**
+ * A non-blocking, localizable heads-up about an agent's *current* configuration — see
+ * [ExternalAgent.nonBlockingWarning]. Kept as a resource key + positional args (rather than a
+ * literal message string) so the `shared` module never bakes in hard-coded English text; the UI
+ * layer resolves [messageKey] via its own localized string-resource lookup (`stringResource`),
+ * passing [args] as `MessageFormat`-style `{0}`, `{1}`, … placeholders.
+ *
+ * @param fixActionLabelKey Localization key for a UI-rendered "Fix" button, or `null` if this
+ *   warning has no automated remedy (the user must act manually, per the instructions already
+ *   embedded in the warning's own message).
+ * @param onFix Applies the fix when the "Fix" button is clicked. Only meaningful when
+ *   [fixActionLabelKey] is non-null. Implementations may do file I/O directly. Callers should
+ *   re-check [ExternalAgent.nonBlockingWarning] afterward (e.g. via a readiness refresh) rather
+ *   than assume success.
+ */
+data class AgentWarning(
+    val messageKey: String,
+    val args: List<Any> = emptyList(),
+    val fixActionLabelKey: String? = null,
+    val onFix: (() -> Unit)? = null,
+)
+
+/**
  * Overall readiness of an [ExternalAgent]
  */
 enum class AgentReadiness {
@@ -63,6 +85,17 @@ interface ExternalAgent {
      * an inline key input instead.
      */
     val configurationHint: String get() = ""
+
+    /**
+     * Optional non-blocking heads-up shown above the conversation title whenever non-null —
+     * unlike [configurationHint], this does **not** gate [readiness]/[isConfigured]: the agent
+     * is still fully usable, this just surfaces a caveat about the *current* configuration
+     * that's easy to miss (e.g. Antigravity CLI silently falling back to its own low-limit
+     * starter quota instead of the user's own Gemini quota because a required config file
+     * entry is missing). Re-evaluated on demand — implementations doing file/IO checks here
+     * should keep them cheap since the UI may call this on every recomposition of the header.
+     */
+    val nonBlockingWarning: AgentWarning? get() = null
 
     /**
      * Optional external runtime session identifier captured during the most recent execution.

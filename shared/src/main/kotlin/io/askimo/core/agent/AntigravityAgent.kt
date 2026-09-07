@@ -11,7 +11,11 @@ import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.gemini.GeminiSettings
 import io.askimo.core.security.SecureKeyManager
 import io.askimo.core.util.ProcessBuilderExt
-import java.io.BufferedWriter
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import java.io.File
 
 /**
@@ -80,6 +84,83 @@ class AntigravityAgent : ExternalAgentTemplate() {
     }
 
     /**
+     * Non-blocking heads-up surfaced above the conversation title whenever a GEMINI_API_KEY is
+     * configured but would be silently ignored by `agy` because `~/.gemini/antigravity-cli/
+     * settings.json` is missing `"modelProvider": "gemini"` — per Antigravity's own docs. Not
+     * shown when no key is configured at all: using agy's own starter quota with no key is a
+     * legitimate, working configuration on its own, so there's nothing actionable to warn about.
+     */
+    override val nonBlockingWarning: AgentWarning?
+        get() {
+            val hasKey = resolveApiKey()?.isNotBlank() == true
+            if (!hasKey || hasGeminiModelProvider()) return null
+            return AgentWarning(
+                messageKey = "agents.agentic.warning.antigravity.starter_quota",
+                args = listOf(settingsFile().absolutePath),
+                fixActionLabelKey = "agents.agentic.warning.fix_action",
+                onFix = { fixModelProviderSetting() },
+            )
+        }
+
+    /**
+     * Resolves the path to Antigravity's own settings file, per its docs:
+     * `~/.gemini/antigravity-cli/settings.json`.
+     */
+    private fun settingsFile(): File = File(System.getProperty("user.home"), ".gemini/antigravity-cli/settings.json")
+
+    /**
+     * Checks whether Antigravity's own settings file already selects the Gemini API key as its
+     * model provider (`{"modelProvider": "gemini"}`). Used only by [nonBlockingWarning] — never
+     * to block readiness, since running without this (on agy's own starter quota) is a
+     * legitimate configuration too.
+     */
+    private fun hasGeminiModelProvider(): Boolean {
+        val file = settingsFile()
+        if (!file.exists() || !file.isFile) return false
+        val fields = runCatching { JsonLineParser.parseObject(file.readText().trim()) }.getOrNull() ?: return false
+        return (fields["modelProvider"] as? String)?.equals("gemini", ignoreCase = true) == true
+    }
+
+    /**
+     * One-click remedy for [nonBlockingWarning]: merges `"modelProvider": "gemini"` into the
+     * existing settings file without touching any other keys the user may already have there
+     * (e.g. `model`, `agent`). Creates the file (and parent dirs) if it doesn't exist yet.
+     */
+    private fun fixModelProviderSetting() {
+        runCatching {
+            val file = settingsFile()
+            val existing = if (file.exists() && file.isFile) {
+                JsonLineParser.parseObject(file.readText().trim()) ?: emptyMap()
+            } else {
+                emptyMap()
+            }
+            val merged = existing + ("modelProvider" to "gemini")
+            file.parentFile?.mkdirs()
+            file.writeText(toPrettyJson(merged))
+            log.debug("Updated {} with \"modelProvider\": \"gemini\"", file.absolutePath)
+        }.onFailure { e ->
+            log.warn("Failed to auto-fix {}: {}", settingsFile().absolutePath, e.message)
+        }
+    }
+
+    /** Renders a flat/nested `Map<String, Any>` (as produced by [JsonLineParser]) back to pretty JSON. */
+    private fun toPrettyJson(fields: Map<String, Any>): String {
+        val json = Json { prettyPrint = true }
+        val obj = buildJsonObject { fields.forEach { (k, v) -> put(k, toJsonElement(v)) } }
+        return json.encodeToString(JsonObject.serializer(), obj)
+    }
+
+    private fun toJsonElement(value: Any): JsonElement = when (value) {
+        is Boolean -> JsonPrimitive(value)
+
+        is Map<*, *> -> buildJsonObject {
+            value.forEach { (k, v) -> if (k is String && v != null) put(k, toJsonElement(v)) }
+        }
+
+        else -> JsonPrimitive(value.toString())
+    }
+
+    /**
      * Stores [key] securely and syncs it to AppContext GeminiSettings so both the
      * Skills executor and the chat provider share the same key without re-entry.
      */
@@ -104,25 +185,42 @@ class AntigravityAgent : ExternalAgentTemplate() {
         effectiveWorkDir: File,
         resumeSessionId: String?,
     ): List<String> {
-        val promptArg = userInput.ifBlank { " " }
+        val prompt = buildString {
+            if (systemPrompt.isNotBlank()) {
+                append(systemPrompt.trim())
+                append("\n\n---\n\n")
+            }
+            append(userInput.trim())
+        }.let(::sanitizePromptArg)
+
         return buildList {
             add(agentPath)
-            add("--print")
-            add(promptArg)
             add("--output-format")
             add("stream-json")
             add("--dangerously-skip-permissions")
             add("--add-dir")
             add(effectiveWorkDir.absolutePath)
-            // `agy` keeps its own conversation store keyed by conversation id; continuing
-            // it instead of Askimo replaying prior turns itself.
-            // TODO: verify exact flag name against the installed Antigravity CLI version.
             if (!resumeSessionId.isNullOrBlank()) {
                 add("--conversation")
                 add(resumeSessionId)
             }
+            add("--print")
+            add(prompt)
         }
     }
+
+    /**
+     * Works around a Windows-only argument-corruption bug where a single CLI argument
+     * containing an embedded, unescaped double quote (e.g. `with content "Hello world"`) gets
+     * split into multiple unrelated positional arguments at the OS command-line boundary
+     * (Java's argument quoting for `ProcessBuilder`/`CreateProcessW`, and/or `agy`'s own
+     * Rust argv parsing, mishandles the internal quote) — observed as `agy` reporting
+     * `unexpected argument "world"` for a prompt ending in `"Hello world"`. Neither the JDK
+     * nor the CLI expose a way to escape this correctly from our side, so straight double
+     * quotes are replaced with single quotes before the prompt ever reaches argv. Only applied
+     * on Windows; Unix `ProcessBuilder` passes argv directly with no such corruption.
+     */
+    private fun sanitizePromptArg(text: String): String = if (ProcessBuilderExt.isWindows()) text.replace('"', '\'') else text
 
     override fun configureProcess(
         builder: ProcessBuilderExt,
@@ -136,14 +234,6 @@ class AntigravityAgent : ExternalAgentTemplate() {
             log.debug("Injecting GEMINI_API_KEY from Askimo provider settings")
             builder.environment()["GEMINI_API_KEY"] = key
         }
-    }
-
-    override fun writeStdin(
-        writer: BufferedWriter,
-        systemPrompt: String,
-        userInput: String,
-    ) {
-        writer.write(buildStdin(systemPrompt))
     }
 
     override fun filterErrorStderr(stderr: String): String = stderr
@@ -212,6 +302,13 @@ class AntigravityAgent : ExternalAgentTemplate() {
                         onToolCall(toolName, detail?.ifBlank { null })
                     }
 
+                    // Any other step type's "DONE" state is just a lifecycle ack — like
+                    // "user_input"/"agent_response" above, it carries no new information (the
+                    // actual content already streamed via text_delta or will arrive in the
+                    // final "result" event), so showing it as a status line is pure noise that
+                    // flashes in the UI and then vanishes once the real message renders.
+                    state.equals("DONE", ignoreCase = true) -> Unit
+
                     state != null -> onStatus(state)
                 }
             }
@@ -223,8 +320,6 @@ class AntigravityAgent : ExternalAgentTemplate() {
 
                 @Suppress("UNCHECKED_CAST")
                 val usage = event.fields["usage"] as? Map<String, Any>
-                val totalTokens = usage?.get("total_tokens")
-                val durationSeconds = event.fields["duration_seconds"]
                 updateExecutionUsage(AgentUsageExtractor.extract(event.fields, usage))
 
                 // An ERROR result (e.g. quota exceeded, auth failure) carries the actual
@@ -244,17 +339,6 @@ class AntigravityAgent : ExternalAgentTemplate() {
                     output.append(response)
                     onToken(response)
                 }
-
-                val summary = buildString {
-                    append("result: $status")
-                    if (!errorMessage.isNullOrBlank()) append(" | error: $errorMessage")
-                    if (totalTokens != null) append(" | tokens: $totalTokens")
-                    if (durationSeconds != null) {
-                        val secs = durationSeconds.toString().toDoubleOrNull() ?: 0.0
-                        append(" | duration: ${"%.1f".format(secs)}s")
-                    }
-                }
-                onStatus(summary)
             }
 
             else -> onStatus(AntigravityStreamJsonEventParser.render(event))
@@ -278,13 +362,6 @@ class AntigravityAgent : ExternalAgentTemplate() {
         }
 
         else -> args.toString()
-    }
-
-    private fun buildStdin(systemPrompt: String): String = buildString {
-        if (systemPrompt.isNotBlank()) {
-            append(systemPrompt.trim())
-            append("\n\n---\n\n")
-        }
     }
 
     /**

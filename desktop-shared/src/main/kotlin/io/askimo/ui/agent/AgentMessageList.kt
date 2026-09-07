@@ -4,16 +4,26 @@
  */
 package io.askimo.ui.agent
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.unit.dp
 import io.askimo.core.agent.dto.AgentTurnMessageDTO
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.TurnTimelineGroup
@@ -28,8 +38,7 @@ import io.askimo.ui.common.theme.Spacing
  * Slim transcript renderer for agentic runs, built on the same shared [messageBubble]/
  * [turnTimelineView] blocks as `ui.chat`'s `chatMessageList` but without any of the chat-only
  * features (search/edit/retry/bookmark/fork/attachments/day-separators/voice-autoplay) agent
- * conversations don't support. The *currently streaming* turn's timeline is rendered separately
- * by the caller; this only needs [completedGroupsByMessageId] to redraw *finalized* turns.
+ * conversations don't support.
  *
  * Takes [AgentTurnMessageDTO] and adapts each one to a `ChatMessageDTO` via [toRenderableMessage]
  * so it can reuse the shared bubble/timeline composables.
@@ -37,8 +46,10 @@ import io.askimo.ui.common.theme.Spacing
 @Composable
 fun agentMessageList(
     messages: List<AgentTurnMessageDTO>,
-    isThinking: Boolean = false,
+    isRunning: Boolean = false,
+    isWaitingForFirstEvent: Boolean = false,
     thinkingElapsedSeconds: Int = 0,
+    liveTimelineGroups: List<TurnTimelineGroup> = emptyList(),
     completedGroupsByMessageId: Map<String, List<TurnTimelineGroup>> = emptyMap(),
     userAvatarPainter: BitmapPainter? = null,
     aiAvatarPainter: BitmapPainter? = null,
@@ -78,21 +89,43 @@ fun agentMessageList(
             )
         }
 
-        // Show "Thinking..." indicator when the agent is processing but hasn't returned a first
-        // token/tool-call/thinking event yet.
-        if (isThinking) {
+        if (isRunning) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = Spacing.small),
-                verticalAlignment = Alignment.CenterVertically,
+                    .padding(top = if (messages.isEmpty()) Spacing.extraLarge else 0.dp, bottom = Spacing.small),
+                verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.Start,
             ) {
-                Text(
-                    text = stringResource("message.thinking", thinkingElapsedSeconds),
-                    style = AppTextStyles.bodySecondary,
-                    color = AppColors.secondaryIconColor(),
-                )
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(color = MaterialTheme.colorScheme.primaryContainer, shape = CircleShape)
+                        .border(width = 2.dp, color = AppColors.codeBlockBorderColor(), shape = CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (aiAvatarPainter != null) {
+                        Icon(
+                            painter = aiAvatarPainter,
+                            contentDescription = "AI",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    if (isWaitingForFirstEvent || liveTimelineGroups.isEmpty()) {
+                        Text(
+                            text = stringResource("message.thinking", thinkingElapsedSeconds),
+                            style = AppTextStyles.bodySecondary,
+                            color = AppColors.secondaryIconColor(),
+                            modifier = Modifier.padding(top = Spacing.medium),
+                        )
+                    } else {
+                        turnTimelineView(liveTimelineGroups, isStreaming = true)
+                    }
+                }
             }
         }
     }

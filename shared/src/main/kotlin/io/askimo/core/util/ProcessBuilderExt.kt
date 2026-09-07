@@ -84,7 +84,9 @@ class ProcessBuilderExt(vararg command: String) {
         /**
          * Resolves [executableName] to an absolute path on the current `PATH`, using the same
          * search strategy as command execution (absolute-path check, common install dirs,
-         * Windows extensions, then a login-shell fallback via `where`/`which`).
+         * Windows extensions, then a login-shell fallback via `where`/`which`, and on Windows
+         * a further fallback to PowerShell's `Get-Command`, which also resolves binaries
+         * registered via the registry "App Paths" key even when they aren't on `PATH`).
          *
          * Unlike [findExecutable] (used internally when launching a process), this returns
          * `null` when the binary can't be located instead of falling back to the bare name —
@@ -114,7 +116,7 @@ class ProcessBuilderExt(vararg command: String) {
         fun enrichedPath(currentPath: String = System.getenv("PATH") ?: ""): String {
             val separator = File.pathSeparator
             val extra = if (isWindows()) windowsExtraPaths() else unixExtraPaths()
-            val shellPath = if (!isWindows()) resolveShellPath() else null
+            val shellPath = if (isWindows()) resolveWindowsRegistryPath() else resolveShellPath()
             val existing = (shellPath ?: currentPath).split(separator)
             return (existing + extra)
                 .filter { it.isNotBlank() }
@@ -168,6 +170,21 @@ class ProcessBuilderExt(vararg command: String) {
             allPaths.firstOrNull { File(it).let { f -> f.exists() && !f.isDirectory } }
                 ?.let { return it }
 
+            // On Windows, the JVM (and any child process it spawns, e.g. `where`/`Get-Command`)
+            // inherits the PATH that was current when this process was launched. If the user
+            // installed something afterwards (e.g. via an installer that updates the persisted
+            // User/Machine PATH in the registry), that inherited PATH is stale and neither
+            // `where` nor `Get-Command` — which both search the *inherited* PATH of the child
+            // process — will find it. So look up the live registry-persisted PATH directly and
+            // search it ourselves before falling back to shell tools.
+            if (isWindows()) {
+                val registryDirs = windowsRegistryPathDirs()
+                val fromRegistry = registryDirs.flatMap { base ->
+                    windowsExtensions.map { ext -> "$base\\$executableName$ext" }
+                }.firstOrNull { File(it).let { f -> f.exists() && !f.isDirectory } }
+                if (fromRegistry != null) return fromRegistry
+            }
+
             // Shell fallback
             val resolvedPath = resolveViaShell(executableName)
 
@@ -194,17 +211,32 @@ class ProcessBuilderExt(vararg command: String) {
             return resolvedPath ?: executableName
         }
 
-        private fun resolveViaShell(executableName: String): String? = try {
-            val command = if (isWindows()) {
-                listOf("cmd.exe", "/c", "where", executableName)
-            } else {
-                listOf("/bin/sh", "-c", "which $executableName")
-            }
+        private fun resolveViaShell(executableName: String): String? = if (isWindows()) {
+            runShellCommand(listOf("cmd.exe", "/c", "where", executableName))
+                ?: runShellCommand(
+                    listOf(
+                        "powershell.exe",
+                        "-NoProfile",
+                        "-NonInteractive",
+                        "-Command",
+                        "(Get-Command -Name '$executableName' -ErrorAction SilentlyContinue | " +
+                            "Select-Object -First 1 -ExpandProperty Source)",
+                    ),
+                )
+        } else {
+            runShellCommand(listOf("/bin/sh", "-c", "which $executableName"))
+        }
+
+        /**
+         * Runs [command], returning the first non-blank line of stdout on success (exit code 0),
+         * or `null` on failure/timeout/exception.
+         */
+        private fun runShellCommand(command: List<String>): String? = try {
             val process = ProcessBuilder(command).redirectErrorStream(true).start()
             val output = process.inputStream.bufferedReader().readText().trim()
-            process.waitFor()
-            if (process.exitValue() == 0 && output.isNotBlank()) {
-                output.lines().firstOrNull()?.trim()
+            val finished = process.waitFor(5, TimeUnit.SECONDS)
+            if (finished && process.exitValue() == 0 && output.isNotBlank()) {
+                output.lines().map { it.trim() }.firstOrNull { it.isNotBlank() }
             } else {
                 null
             }
@@ -267,6 +299,41 @@ class ProcessBuilderExt(vararg command: String) {
             val ok = proc.waitFor(5, TimeUnit.SECONDS)
             path.takeIf { ok && it.isNotBlank() }
         }.getOrNull()
+
+        /**
+         * Reads the User + Machine PATH values directly from the Windows registry via a
+         * fresh PowerShell process. Unlike `System.getenv("PATH")` (which reflects the PATH
+         * at the time this JVM was launched) and unlike spawning `where`/`Get-Command`
+         * (which inherit that same stale PATH), `[Environment]::GetEnvironmentVariable`
+         * reads the live, persisted value — so it picks up entries added by installers
+         * *after* this process started.
+         *
+         * Cached after first successful call since the registry rarely changes mid-run.
+         */
+        private val windowsRegistryPathCache: String? by lazy {
+            if (!isWindows()) {
+                null
+            } else {
+                runShellCommand(
+                    listOf(
+                        "powershell.exe",
+                        "-NoProfile",
+                        "-NonInteractive",
+                        "-Command",
+                        "[Environment]::GetEnvironmentVariable('PATH','User') + ';' + " +
+                            "[Environment]::GetEnvironmentVariable('PATH','Machine')",
+                    ),
+                )
+            }
+        }
+
+        private fun resolveWindowsRegistryPath(): String? = windowsRegistryPathCache
+
+        private fun windowsRegistryPathDirs(): List<String> = windowsRegistryPathCache
+            ?.split(File.pathSeparator)
+            ?.map { it.trim() }
+            ?.filter { it.isNotBlank() }
+            ?: emptyList()
 
         fun isWindows(): Boolean = System.getProperty("os.name", "").lowercase().contains("windows")
     }

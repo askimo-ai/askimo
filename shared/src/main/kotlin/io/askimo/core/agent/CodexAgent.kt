@@ -47,7 +47,7 @@ class CodexAgent : ExternalAgentTemplate() {
     override val log = logger<CodexAgent>()
 
     override val id = "codex"
-    override val name = "Codex (OpenAI)"
+    override val name = "Codex"
     override val installUrl = "https://github.com/openai/codex"
     override val requiresApiKey = true
 

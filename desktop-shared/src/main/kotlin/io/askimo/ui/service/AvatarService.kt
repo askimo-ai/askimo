@@ -86,6 +86,18 @@ class AvatarService {
     // ── Painter cache ────────────────────────────────────────────────────────
 
     /**
+     * Returns whatever AI avatar painter is already available in memory *without* touching
+     * disk: the decoded custom avatar if it has been loaded before, otherwise the built-in
+     * [fallbackAiAvatarPainter] (itself decoded once from a bundled resource, not user data).
+     *
+     * Intended as the initial Compose state value so avatar UI never renders an empty
+     * placeholder while [getAiAvatarPainter] performs its (possibly first-time, disk-reading)
+     * resolution on a background dispatcher — avoiding the "pop-in" flicker where the avatar
+     * appears only after a message has already started rendering.
+     */
+    fun peekCachedAiAvatarPainter(): BitmapPainter? = cachedAiAvatarPainter ?: fallbackAiAvatarPainter
+
+    /**
      * Returns a [BitmapPainter] for the AI avatar, falling back to the built-in
      * [fallbackAiAvatarPainter] if no user-set avatar exists.
      * The result is cached — decoded only on first call (or after [invalidateAiAvatarCache]).

@@ -4,11 +4,20 @@
  */
 package io.askimo.ui.chat
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -20,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.unit.dp
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
 import io.askimo.core.chat.dto.TurnTimelineEntry
@@ -46,15 +56,6 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import kotlin.time.Duration.Companion.milliseconds
 
-/**
- * Full-featured chat transcript renderer — search/jump, inline edit, retry, bookmarks,
- * forking, attachments, voice autoplay, day separators, outdated-branch collapsing. Split out
- * of the old shared `messageList` (formerly in MessageComponents.kt): only `ChatView` needs
- * this feature surface. Agentic runs use the much slimmer `agentMessageList`
- * (`io.askimo.ui.agent.AgentMessageList.kt`) instead — see its doc for why they're kept as two
- * separate composables rather than one shared one with a pile of params each caller only
- * partially uses.
- */
 @Composable
 fun chatMessageList(
     messages: List<ChatMessageDTO>,
@@ -281,19 +282,36 @@ fun chatMessageList(
             }
         }
 
-        // Show "Thinking..." indicator when AI is processing but hasn't returned first token
         if (isThinking) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = Spacing.small),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.Start,
             ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(color = MaterialTheme.colorScheme.primaryContainer, shape = CircleShape)
+                        .border(width = 2.dp, color = AppColors.codeBlockBorderColor(), shape = CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (aiAvatarPainter != null) {
+                        Icon(
+                            painter = aiAvatarPainter,
+                            contentDescription = "AI",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "$spinnerFrame ${stringResource("message.thinking", thinkingElapsedSeconds)}",
                     style = AppTextStyles.bodySecondary,
                     color = AppColors.secondaryIconColor(),
+                    modifier = Modifier.padding(top = Spacing.medium),
                 )
             }
         }
