@@ -18,9 +18,10 @@ const val MAX_TTS_CHARS = 4000
  * [TextToSpeechService.synthesize] one piece at a time, e.g. by
  * `io.askimo.ui.chat.VoicePlaybackController`.
  *
- * Splits preferentially on sentence boundaries (after `.`, `!`, `?` followed by whitespace) so a
- * chunk boundary doesn't land mid-sentence; a single sentence longer than [maxChars] is hard-split
- * as a last resort. Returns `listOf(text)` unchanged when it already fits in one chunk.
+ * Splits preferentially on sentence boundaries (after `.`, `!`, `?` followed by whitespace); a
+ * single sentence longer than [maxChars] is hard-split via [chunkPreservingSurrogatePairs] (safe
+ * for emoji/supplementary Unicode) as a last resort. Returns `listOf(text)` unchanged when it
+ * already fits in one chunk.
  *
  * @throws IllegalArgumentException if [maxChars] is not positive.
  */
@@ -46,7 +47,7 @@ fun chunkTextForTts(text: String, maxChars: Int = MAX_TTS_CHARS): List<String> {
         }
         if (sentence.length > maxChars) {
             flush()
-            sentence.chunked(maxChars).forEach { chunks += it }
+            chunks += chunkPreservingSurrogatePairs(sentence, maxChars)
             continue
         }
         if (current.isNotEmpty()) current.append(' ')
@@ -55,4 +56,27 @@ fun chunkTextForTts(text: String, maxChars: Int = MAX_TTS_CHARS): List<String> {
     flush()
 
     return chunks.ifEmpty { listOf(text) }
+}
+
+/**
+ * Like [String.chunked], but never splits a UTF-16 surrogate pair (e.g. an emoji) across two
+ * chunks — [String.chunked] is codepoint-agnostic and would otherwise leave each half with an
+ * unpaired/invalid surrogate, corrupting downstream encoding or TTS synthesis.
+ *
+ * Pulls a boundary back by one char whenever it would land inside a pair, except when
+ * [maxChars] == 1, where no boundary can keep a 2-char pair whole.
+ */
+private fun chunkPreservingSurrogatePairs(text: String, maxChars: Int): List<String> {
+    val chunks = mutableListOf<String>()
+    var start = 0
+    while (start < text.length) {
+        var end = (start + maxChars).coerceAtMost(text.length)
+        if (end < text.length && Character.isHighSurrogate(text[end - 1]) && Character.isLowSurrogate(text[end])) {
+            end--
+        }
+        end = end.coerceAtLeast(start + 1)
+        chunks += text.substring(start, end)
+        start = end
+    }
+    return chunks
 }

@@ -130,4 +130,46 @@ class TtsTextChunkerTest {
         assertEquals(text, chunks.joinToString(""))
         chunks.forEach { assertTrue(it.length <= 4000) }
     }
+
+    /** Asserts no chunk contains a lone (unpaired) high or low UTF-16 surrogate. */
+    private fun assertNoSplitSurrogatePairs(chunks: List<String>) {
+        chunks.forEach { chunk ->
+            chunk.forEachIndexed { i, c ->
+                if (Character.isHighSurrogate(c)) {
+                    assertTrue(
+                        i + 1 < chunk.length && Character.isLowSurrogate(chunk[i + 1]),
+                        "Lone high surrogate in \"$chunk\"",
+                    )
+                }
+                if (Character.isLowSurrogate(c)) {
+                    assertTrue(
+                        i > 0 && Character.isHighSurrogate(chunk[i - 1]),
+                        "Lone low surrogate in \"$chunk\"",
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `hard-split never separates a surrogate pair, even at the exact chunk boundary`() {
+        // Each 🎉 is one codepoint but 2 UTF-16 chars — with maxChars = 2, a naive chunked(2)
+        // would place the boundary right between the two halves of the second emoji's pair.
+        val text = "🎉🎉🎉🎉🎉" // 5 codepoints, 10 UTF-16 chars, no sentence punctuation
+        val chunks = chunkTextForTts(text, maxChars = 2)
+
+        assertNoSplitSurrogatePairs(chunks)
+        // No codepoints lost or reordered.
+        assertEquals(text, chunks.joinToString(""))
+    }
+
+    @Test
+    fun `hard-split with emoji mixed into a long sentence preserves all codepoints`() {
+        val text = "Look at this 🎉🎊🥳 celebration " + "a".repeat(60) + "!"
+        val chunks = chunkTextForTts(text, maxChars = 20)
+
+        chunks.forEach { assertTrue(it.length <= 20) }
+        assertNoSplitSurrogatePairs(chunks)
+        assertEquals(text, chunks.joinToString(""))
+    }
 }
