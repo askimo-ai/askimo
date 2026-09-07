@@ -4,8 +4,6 @@
  */
 package io.askimo.ui.voice
 
-import io.askimo.core.config.VoiceConfig
-
 /**
  * Converts recorded audio into plain text.
  *

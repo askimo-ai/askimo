@@ -21,8 +21,11 @@ const val MAX_TTS_CHARS = 4000
  * Splits preferentially on sentence boundaries (after `.`, `!`, `?` followed by whitespace) so a
  * chunk boundary doesn't land mid-sentence; a single sentence longer than [maxChars] is hard-split
  * as a last resort. Returns `listOf(text)` unchanged when it already fits in one chunk.
+ *
+ * @throws IllegalArgumentException if [maxChars] is not positive.
  */
 fun chunkTextForTts(text: String, maxChars: Int = MAX_TTS_CHARS): List<String> {
+    require(maxChars > 0) { "maxChars must be positive, was $maxChars" }
     if (text.length <= maxChars) return listOf(text)
 
     val sentences = text.split(Regex("(?<=[.!?])\\s+"))
@@ -51,5 +54,5 @@ fun chunkTextForTts(text: String, maxChars: Int = MAX_TTS_CHARS): List<String> {
     }
     flush()
 
-    return chunks.ifEmpty { listOf(text.take(maxChars)) }
+    return chunks.ifEmpty { listOf(text) }
 }

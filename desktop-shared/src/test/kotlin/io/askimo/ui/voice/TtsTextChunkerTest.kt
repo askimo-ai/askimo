@@ -6,6 +6,7 @@ package io.askimo.ui.voice
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
@@ -110,5 +111,23 @@ class TtsTextChunkerTest {
     @Test
     fun `default maxChars matches the documented TTS provider limit`() {
         assertEquals(4000, MAX_TTS_CHARS)
+    }
+
+    @Test
+    fun `rejects a non-positive maxChars instead of silently truncating or misbehaving`() {
+        assertFailsWith<IllegalArgumentException> { chunkTextForTts("hello world", maxChars = 0) }
+        assertFailsWith<IllegalArgumentException> { chunkTextForTts("hello world", maxChars = -5) }
+    }
+
+    @Test
+    fun `never truncates text even in the defensive empty-chunks fallback path`() {
+        // Every non-empty text yields at least one non-empty sentence token, so the internal
+        // "no chunks produced" fallback is unreachable for any text this function actually
+        // accepts — but it must stay lossless (return the full text, not a truncated prefix)
+        // rather than silently dropping content, which would produce incomplete TTS audio.
+        val text = "x".repeat(10_000)
+        val chunks = chunkTextForTts(text, maxChars = 4000)
+        assertEquals(text, chunks.joinToString(""))
+        chunks.forEach { assertTrue(it.length <= 4000) }
     }
 }

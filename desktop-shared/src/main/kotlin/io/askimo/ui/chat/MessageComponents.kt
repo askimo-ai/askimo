@@ -179,6 +179,7 @@ internal object VoicePlaybackController {
         stopAll()
         loadingMessageId = messageId
         playbackJob = scope.launch {
+            val thisJob = coroutineContext[Job]
             try {
                 val ttsService = withContext(Dispatchers.IO) { VoiceServiceRegistry.textToSpeech(AppConfig.voice) }
                 val chunks = chunkTextForTts(text)
@@ -213,6 +214,11 @@ internal object VoicePlaybackController {
                 loadingMessageId = null
                 playingMessageId = null
                 onError(e.message ?: "Voice playback failed")
+            } finally {
+                // Clear once this run ends (success, caught error, or cancellation) so
+                // `playbackJob` doesn't linger on a finished job. Guarded by identity since a
+                // cancelled job's `finally` can run after a newer toggle() already replaced it.
+                if (playbackJob === thisJob) playbackJob = null
             }
         }
     }
