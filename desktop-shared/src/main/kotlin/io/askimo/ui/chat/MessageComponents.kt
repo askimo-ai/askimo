@@ -118,8 +118,11 @@ import io.askimo.ui.voice.AudioPlaybackException
 import io.askimo.ui.voice.AudioPlayer
 import io.askimo.ui.voice.VoiceServiceException
 import io.askimo.ui.voice.VoiceServiceRegistry
+import io.askimo.ui.voice.chunkTextForTts
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -139,6 +142,9 @@ import kotlin.time.Duration.Companion.seconds
 internal object VoicePlaybackController {
     private val player = AudioPlayer()
 
+    /** The coroutine currently synthesizing/playing chunks, if any — cancelled by [stopAll]. */
+    private var playbackJob: Job? = null
+
     /** ID of the message currently awaiting TTS synthesis, or null. */
     var loadingMessageId by mutableStateOf<String?>(null)
         private set
@@ -150,6 +156,8 @@ internal object VoicePlaybackController {
     /** Stops whatever is currently playing/loading, regardless of which message it belongs to. */
     fun stopAll() {
         player.stop()
+        playbackJob?.cancel()
+        playbackJob = null
         loadingMessageId = null
         playingMessageId = null
     }
@@ -158,6 +166,10 @@ internal object VoicePlaybackController {
      * Toggles playback for [messageId]: stops it if it's already playing/loading, otherwise stops
      * any other message's playback first (single-playback rule) and starts synthesizing+playing
      * [text] via the configured [io.askimo.core.config.VoiceConfig.ttsProvider].
+     *
+     * [text] is split via [chunkTextForTts] into pieces that fit under the TTS provider's
+     * per-request character limit (OpenAI's `/v1/audio/speech` caps input at 4096 chars); each
+     * chunk is synthesized and played back-to-back so long messages aren't truncated.
      */
     fun toggle(messageId: String, text: String, scope: CoroutineScope, onError: (String) -> Unit) {
         if (playingMessageId == messageId || loadingMessageId == messageId) {
@@ -166,23 +178,33 @@ internal object VoicePlaybackController {
         }
         stopAll()
         loadingMessageId = messageId
-        scope.launch {
+        playbackJob = scope.launch {
             try {
                 val ttsService = withContext(Dispatchers.IO) { VoiceServiceRegistry.textToSpeech(AppConfig.voice) }
-                val audioBytes = withContext(Dispatchers.IO) {
-                    ttsService.synthesize(text)
-                }
-                // A newer toggle may have superseded this request while we were synthesizing.
-                if (loadingMessageId != messageId) return@launch
-                loadingMessageId = null
-                playingMessageId = messageId
-                player.play(audioBytes, ttsService.outputFormat) {
-                    Snapshot.withMutableSnapshot {
-                        if (playingMessageId == messageId) playingMessageId = null
+                val chunks = chunkTextForTts(text)
+
+                chunks.forEachIndexed { index, chunk ->
+                    val audioBytes = withContext(Dispatchers.IO) { ttsService.synthesize(chunk) }
+
+                    if (index == 0) {
+                        // A newer toggle may have superseded this request while we were synthesizing.
+                        if (loadingMessageId != messageId) return@launch
+                        loadingMessageId = null
+                        playingMessageId = messageId
+                    } else if (playingMessageId != messageId) {
+                        return@launch
                     }
+
+                    val chunkDone = CompletableDeferred<Unit>()
+                    player.play(audioBytes, ttsService.outputFormat) { chunkDone.complete(Unit) }
+                    chunkDone.await()
+                }
+
+                Snapshot.withMutableSnapshot {
+                    if (playingMessageId == messageId) playingMessageId = null
                 }
             } catch (e: VoiceServiceException) {
-                if (loadingMessageId != messageId) return@launch
+                if (loadingMessageId != messageId && playingMessageId != messageId) return@launch
                 loadingMessageId = null
                 playingMessageId = null
                 onError(e.message ?: "Voice playback failed")
