@@ -4,6 +4,7 @@
  */
 package io.askimo.ui.plan
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -590,39 +591,63 @@ private fun agenticStepProgressPanel(
     suppressOutputForStepName: String? = null,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
-        modifier = modifier,
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = MaterialTheme.shapes.medium,
-        tonalElevation = 1.dp,
-    ) {
-        Column(modifier = Modifier.padding(Spacing.large)) {
-            Text(
-                text = stringResource("plans.steps.title"),
-                style = AppTextStyles.itemTitle,
-                modifier = Modifier.padding(bottom = Spacing.medium),
-            )
+    Column(modifier = modifier) {
+        Text(
+            text = stringResource("plans.steps.title"),
+            style = AppTextStyles.sectionTitle,
+            modifier = Modifier.padding(bottom = Spacing.medium),
+        )
 
-            val orderedSteps = linkedMapOf<String, PlanStepEvent>()
-            steps.forEach { event ->
-                val existing = orderedSteps[event.stepName]
-                if (existing == null || event !is PlanStepEvent.Started) {
-                    orderedSteps[event.stepName] = event
-                }
+        val orderedSteps = linkedMapOf<String, PlanStepEvent>()
+        steps.forEach { event ->
+            val existing = orderedSteps[event.stepName]
+            if (existing == null || event !is PlanStepEvent.Started) {
+                orderedSteps[event.stepName] = event
             }
+        }
 
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
             orderedSteps.values.forEachIndexed { index, event ->
-                if (index > 0) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = Spacing.small),
-                        color = AppColors.codeBlockBorderColor(),
-                    )
-                }
-                agenticStepRow(
+                agenticStepCard(
+                    stepNumber = index + 1,
                     event = event,
                     suppressOutput = event.stepName == suppressOutputForStepName,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun agenticStepCard(
+    stepNumber: Int,
+    event: PlanStepEvent,
+    suppressOutput: Boolean = false,
+) {
+    val borderColor = when (event) {
+        is PlanStepEvent.Started -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f)
+        is PlanStepEvent.Failed -> MaterialTheme.colorScheme.error.copy(alpha = 0.4f)
+        is PlanStepEvent.Completed -> Color(0xFF4CAF50).copy(alpha = 0.3f)
+        else -> AppColors.codeBlockBorderColor()
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.medium,
+        tonalElevation = 1.dp,
+        border = BorderStroke(1.dp, borderColor),
+    ) {
+        Column(modifier = Modifier.padding(Spacing.large)) {
+            Text(
+                text = "$stepNumber. ${event.stepName}",
+                style = AppTextStyles.itemTitle,
+                modifier = Modifier.padding(bottom = Spacing.small),
+            )
+            agenticStepRow(
+                event = event,
+                suppressOutput = suppressOutput,
+            )
         }
     }
 }
@@ -707,10 +732,6 @@ private fun agenticStepRow(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.weight(1f),
                     ) {
-                        Text(
-                            text = event.stepName,
-                            style = AppTextStyles.caption,
-                        )
                         when (event) {
                             is PlanStepEvent.Completed -> {
                                 Row(
@@ -878,6 +899,7 @@ private fun agenticStepRow(
     }
 }
 
+@Composable
 private fun stepTokenUsageLabel(event: PlanStepEvent.Completed): String? {
     val total = event.totalTokens
     val input = event.inputTokens
@@ -885,7 +907,12 @@ private fun stepTokenUsageLabel(event: PlanStepEvent.Completed): String? {
     if (total == null || total <= 0) return null
 
     return if (input != null && output != null) {
-        "${LocalizationManager.formatNumber(total)} tokens (${LocalizationManager.formatNumber(input)} in / ${LocalizationManager.formatNumber(output)} out)"
+        stringResource(
+            "message.token.usage",
+            LocalizationManager.formatNumber(total),
+            LocalizationManager.formatNumber(input),
+            LocalizationManager.formatNumber(output),
+        )
     } else {
         "${LocalizationManager.formatNumber(total)} tokens"
     }
@@ -901,7 +928,14 @@ private fun planTotalSummaryLabel(viewModel: PlansViewModel): String? {
 
     return buildString {
         if (input != null && output != null) {
-            append("${LocalizationManager.formatNumber(total)} tokens (${LocalizationManager.formatNumber(input)} in / ${LocalizationManager.formatNumber(output)} out)")
+            append(
+                stringResource(
+                    "message.token.usage",
+                    LocalizationManager.formatNumber(total),
+                    LocalizationManager.formatNumber(input),
+                    LocalizationManager.formatNumber(output),
+                ),
+            )
         } else {
             append("${LocalizationManager.formatNumber(total)} tokens")
         }

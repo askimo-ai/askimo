@@ -13,6 +13,7 @@ import io.askimo.ui.voice.TextToSpeechFactory
 import io.askimo.ui.voice.TextToSpeechService
 import io.askimo.ui.voice.VoiceAudioFormat
 import io.askimo.ui.voice.VoiceServiceException
+import io.askimo.ui.voice.toFriendlyVoiceErrorMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -45,7 +46,7 @@ class OpenAiTextToSpeechService(private val config: VoiceConfig) : TextToSpeechS
             tts.synthesize(text).audio().binaryData()
         } catch (e: Exception) {
             log.warn("OpenAI TTS request failed", e)
-            throw VoiceServiceException("OpenAI TTS request failed: ${e.message}", e)
+            throw VoiceServiceException(e.toFriendlyVoiceErrorMessage("OpenAI TTS request failed"), e)
         }
     }
 }

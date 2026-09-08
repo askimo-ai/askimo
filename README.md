@@ -77,8 +77,11 @@ You shouldn't have to choose between the best AI model, your privacy, and gettin
 - **One app, every model.** Stop juggling browser tabs. Chat with OpenAI, Claude, Gemini, Grok, or a local Ollama model, switch in seconds, no copy-pasting.
 - **Built as a native desktop app.** Not a web wrapper. Starts fast, runs lean, and stays responsive even after hours of use and thousands of messages in a single conversation.
 - **Long conversations that actually work.** No crashes, no tab reloads, no lost context. Askimo handles deep, extended sessions the way a real desktop app should.
-- **Your files stay on your machine.** Search and chat with your own documents using local RAG. Nothing is uploaded. Nothing leaves your device.
-- **More than just chat.** Run Python/Bash scripts, chain multi-step AI workflows, and connect MCP tools, all from the same app.
+- **More than just chat.** Delegate real work to autonomous agent CLIs (Claude Code, Codex, Antigravity), chain multi-step AI Plans from a form UI, and connect MCP tools, all from the same app.
+- **Skills, managed once, used everywhere.** Define a skill independently of any single agent, then run it with whichever agent CLI fits the job. No per-agent duplication or lock-in.
+- **Talk to it, not just type.** Dictate messages and have responses read back to you. Fully local/offline speech-to-text and text-to-speech options included.
+
+> 🔒 **Privacy by design.** Your files, RAG index, conversation history, and telemetry all stay on your machine, nothing is uploaded, ever. Local RAG, local SQLite storage, local usage/cost tracking. The only network calls are the ones you configure (your chosen AI provider).
 
 ---
 
@@ -126,27 +129,34 @@ You shouldn't have to choose between the best AI model, your privacy, and gettin
 
 ## Features
 
+**AI & Providers**
 - **Multi-provider** - Switch between OpenAI, Claude, Gemini, Grok, Ollama, LM Studio, Docker AI, OpenRouter, NVIDIA NIM, Together AI, vLLM Server, or any OpenAI-compatible endpoint per session
+- **Vision** - Attach images to conversations; works with any multimodal model
+
+**Search & Data**
 - **Web search (multiple backends)** - Search the web with DuckDuckGo (no API key), Brave Search API, Tavily, or your own SearxNG instance
 - **Local RAG** - Index local folders, files, and web URLs. Hybrid BM25 + vector retrieval with an AI classifier that skips retrieval when the query doesn't need it. Your data never leaves your machine.
+
+**Workflows & Extensibility**
 - **Plans (agentic workflows)** - Chain multi-step AI pipelines from a form UI. Each step builds on the previous; progress shown live. Export as PDF or Word. Define your own plans in YAML or generate them by describing your workflow in plain English.
 - **Script runner** - Execute Python, Bash, and JavaScript from chat. Python runs in an auto-managed virtualenv with automatic dependency installation.
 - **MCP tool integration** - Connect MCP-compatible servers via stdio or HTTP
+
+**AI Agents (CLI)**
+- **Run autonomous coding agents** - Delegate a goal to Claude Code, OpenAI Codex, or Google Antigravity directly from Askimo, with live streamed tool calls, thinking, and status
+- **Reusable skills** - Define a skill once and materialize it into any supported agent's native skill-discovery folder, so it's just as invocable there as in Askimo's own chat
+
+**Voice**
+- **Speech-to-text** - Dictate messages via OpenAI's transcription API or a fully local/offline Whisper-compatible endpoint
+- **Text-to-speech** - Have AI responses read aloud via OpenAI's TTS API or a fully local/offline Piper endpoint, with optional auto-play for hands-free "conversation mode"
+
+**Reliability & Privacy**
 - **Persistent sessions** - Conversations stored in a local SQLite database, restored on restart
-- **Vision** - Attach images to conversations; works with any multimodal model
 - **Local telemetry** - Token usage, cost estimates, RAG performance per provider. Nothing uploaded.
 - **i18n** - English, Chinese (Simplified & Traditional), Japanese, Korean, French, Spanish, German, Portuguese, Vietnamese
 
 ---
 
-
-## Supported Providers
-
-**Cloud:** OpenAI · Anthropic Claude · Google Gemini · xAI Grok · OpenRouter · NVIDIA NIM · Together AI  
-**Local:** Ollama · LM Studio · Docker AI · vLLM Server  
-**Custom:** Any OpenAI-compatible endpoint via custom base URL
-
----
 
 ## Building from Source
 
@@ -158,13 +168,13 @@ You shouldn't have to choose between the best AI model, your privacy, and gettin
 ```bash
 git clone https://github.com/askimo-ai/askimo.git
 cd askimo
-```
 
 # Run the desktop app
 ./gradlew :desktop:run
 
 # Build native installers
 ./gradlew :desktop:package
+```
 
 ### Project Structure
 

@@ -82,7 +82,13 @@ fun agentMessageList(
                 isStreaming = isStreamingMessage,
                 thinkingContent = fallbackThinkingContent,
                 customBody = if (!message.isUser && hasToolCalls) {
-                    { turnTimelineView(resolvedGroups, isStreaming = isStreamingMessage) }
+                    {
+                        turnTimelineView(
+                            resolvedGroups,
+                            isStreaming = isStreamingMessage,
+                            messageId = message.id,
+                        )
+                    }
                 } else {
                     null
                 },

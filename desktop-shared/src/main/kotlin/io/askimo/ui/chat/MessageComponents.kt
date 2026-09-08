@@ -84,6 +84,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -1249,6 +1250,7 @@ internal fun thinkingSection(
 internal fun turnTimelineView(
     groups: List<TurnTimelineGroup>,
     isStreaming: Boolean,
+    messageId: String? = null,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -1274,7 +1276,7 @@ internal fun turnTimelineView(
                             style = AppTextStyles.caption,
                             color = AppColors.secondaryIconColor(),
                             maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
@@ -1312,6 +1314,7 @@ internal fun turnTimelineView(
                         markdownText(
                             markdown = group.text,
                             modifier = Modifier.fillMaxWidth().padding(start = Spacing.medium, end = 48.dp),
+                            messageId = messageId,
                         )
                     }
                 }

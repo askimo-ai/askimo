@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
@@ -1298,7 +1299,7 @@ fun chatInputField(
                                         .pointerHoverIcon(PointerIcon.Hand),
                                 ) {
                                     Icon(
-                                        if (editingMessage != null) Icons.Default.Edit else Icons.Default.ArrowUpward,
+                                        if (editingMessage != null) Icons.Default.Check else Icons.Default.ArrowUpward,
                                         contentDescription = if (editingMessage != null) {
                                             stringResource("message.update.regenerate")
                                         } else {

@@ -16,6 +16,7 @@ import io.askimo.ui.voice.SpeechToTextFactory
 import io.askimo.ui.voice.SpeechToTextService
 import io.askimo.ui.voice.VoiceAudioFormat
 import io.askimo.ui.voice.VoiceServiceException
+import io.askimo.ui.voice.toFriendlyVoiceErrorMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Base64
@@ -50,7 +51,7 @@ class OpenAiSpeechToTextService(private val config: VoiceConfig) : SpeechToTextS
             ).text()
         } catch (e: Exception) {
             log.warn("OpenAI transcription request failed", e)
-            throw VoiceServiceException("OpenAI transcription request failed: ${e.message}", e)
+            throw VoiceServiceException(e.toFriendlyVoiceErrorMessage("OpenAI transcription request failed"), e)
         }
     }
 

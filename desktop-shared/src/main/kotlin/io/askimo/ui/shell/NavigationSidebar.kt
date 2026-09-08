@@ -6,6 +6,7 @@ package io.askimo.ui.shell
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,7 +25,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuOpen
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Delete
@@ -33,7 +33,6 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
@@ -57,13 +56,24 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -293,10 +303,11 @@ private fun expandedNavigationSidebar(
                     onClick = onToggleExpand,
                     modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.MenuOpen,
-                        contentDescription = stringResource("sidebar.collapse"),
+                    sidebarPanelToggleIcon(
+                        isExpanded = true,
                         tint = AppColors.sidebarHeaderContentColor(),
+                        modifier = Modifier.size(24.dp),
+                        contentDescription = stringResource("sidebar.collapse"),
                     )
                 }
             }
@@ -478,11 +489,11 @@ private fun collapsedNavigationSidebar(
                 contentAlignment = Alignment.Center,
             ) {
                 if (isHeaderHovered) {
-                    Icon(
-                        imageVector = Icons.Filled.Menu,
-                        contentDescription = stringResource("sidebar.expand"),
+                    sidebarPanelToggleIcon(
+                        isExpanded = false,
                         tint = AppColors.sidebarHeaderContentColor(),
                         modifier = Modifier.size((32 * fontScale).dp),
+                        contentDescription = stringResource("sidebar.expand"),
                     )
                 } else {
                     Icon(
@@ -573,6 +584,90 @@ private fun sidebarNavItemRow(item: SidebarNavItem) {
             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
             shape = AppComponents.navigationItemShape,
             colors = AppColors.navigationDrawerItemColors(),
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sidebar toggle icon
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Custom "sidebar panel" toggle icon — a rounded rectangle frame split by a vertical divider,
+ * with the left portion shaded solid to represent the sidebar. Deliberately hand-drawn instead
+ * of using a static Material icon: this project's classic Material Icons set has no open/close
+ * pair for this ("dock_to_left"/"dock_to_right" only exist in the newer Material Symbols set),
+ * and the whole point of this icon is that it visually *flips* between states — [isExpanded]
+ * swaps which side is the "big door" vs. the "small door", giving a clear before/after cue
+ * that a single static icon (e.g. a plain hamburger) can't convey.
+ *
+ * @param isExpanded When `true`, the shaded sidebar portion is the *large* left section (mirrors
+ *   the sidebar currently taking up most of the visible space) — used on the expand**ed**
+ *   header's collapse button. When `false`, it shrinks to a thin strip on the left (mirrors the
+ *   collapsed rail) — used on the collapsed header's hover-to-expand icon — so the two toggle
+ *   buttons read as mirror images of each other rather than two unrelated icons.
+ */
+@Composable
+private fun sidebarPanelToggleIcon(
+    isExpanded: Boolean,
+    tint: Color,
+    modifier: Modifier = Modifier,
+    contentDescription: String? = null,
+) {
+    Canvas(
+        modifier = modifier.semantics {
+            this.contentDescription = contentDescription ?: ""
+            role = Role.Image
+        },
+    ) {
+        val strokeWidth = size.minDimension * 0.09f
+        val cornerRadius = CornerRadius(size.minDimension * 0.16f)
+        val inset = strokeWidth / 2f
+        val frameSize = Size(size.width - strokeWidth, size.height - strokeWidth)
+        val frameTopLeft = Offset(inset, inset)
+
+        // "Big door" side takes ~62% of the width; "small door" side takes ~38%. Toggling
+        // isExpanded swaps which side (left) gets the big vs. small share.
+        val bigShare = 0.62f
+        val smallShare = 0.38f
+        val dividerX = frameTopLeft.x + frameSize.width * (if (isExpanded) bigShare else smallShare)
+
+        val framePath = Path().apply {
+            addRoundRect(
+                RoundRect(
+                    left = frameTopLeft.x,
+                    top = frameTopLeft.y,
+                    right = frameTopLeft.x + frameSize.width,
+                    bottom = frameTopLeft.y + frameSize.height,
+                    cornerRadius = cornerRadius,
+                ),
+            )
+        }
+
+        // Shaded left portion — clipped to the frame's rounded shape so its corners match.
+        clipPath(framePath) {
+            drawRect(
+                color = tint,
+                topLeft = frameTopLeft,
+                size = Size(dividerX - frameTopLeft.x, frameSize.height),
+            )
+        }
+
+        // Frame outline
+        drawRoundRect(
+            color = tint,
+            topLeft = frameTopLeft,
+            size = frameSize,
+            cornerRadius = cornerRadius,
+            style = Stroke(width = strokeWidth),
+        )
+
+        // Divider between the two "doors"
+        drawLine(
+            color = tint,
+            start = Offset(dividerX, frameTopLeft.y),
+            end = Offset(dividerX, frameTopLeft.y + frameSize.height),
+            strokeWidth = strokeWidth,
         )
     }
 }

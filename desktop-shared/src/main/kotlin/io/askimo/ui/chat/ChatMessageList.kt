@@ -257,7 +257,13 @@ fun chatMessageList(
                         // thinking-then-tools-then-text layout — for every past turn, not just
                         // the last one.
                         customBody = if (!group.message.isUser && hasToolCalls) {
-                            { turnTimelineView(resolvedGroups, isStreaming = isStreamingMessage) }
+                            {
+                                turnTimelineView(
+                                    resolvedGroups,
+                                    isStreaming = isStreamingMessage,
+                                    messageId = group.message.id,
+                                )
+                            }
                         } else {
                             null
                         },

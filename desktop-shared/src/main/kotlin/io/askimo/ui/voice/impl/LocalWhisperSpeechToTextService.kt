@@ -14,6 +14,7 @@ import io.askimo.ui.voice.SpeechToTextFactory
 import io.askimo.ui.voice.SpeechToTextService
 import io.askimo.ui.voice.VoiceAudioFormat
 import io.askimo.ui.voice.VoiceServiceException
+import io.askimo.ui.voice.toFriendlyVoiceErrorMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -47,7 +48,7 @@ class LocalWhisperSpeechToTextService(private val config: VoiceConfig) : SpeechT
         } catch (e: Exception) {
             log.warn("Local whisper transcription request failed", e)
             throw VoiceServiceException(
-                "Could not reach local whisper.cpp server at $baseUrl. Is it running? (${e.message})",
+                e.toFriendlyVoiceErrorMessage("Could not reach local whisper.cpp server at $baseUrl"),
                 e,
             )
         }

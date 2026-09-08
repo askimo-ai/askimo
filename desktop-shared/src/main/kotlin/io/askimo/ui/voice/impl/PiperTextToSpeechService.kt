@@ -13,6 +13,7 @@ import io.askimo.ui.voice.TextToSpeechFactory
 import io.askimo.ui.voice.TextToSpeechService
 import io.askimo.ui.voice.VoiceAudioFormat
 import io.askimo.ui.voice.VoiceServiceException
+import io.askimo.ui.voice.toFriendlyVoiceErrorMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -50,7 +51,7 @@ class PiperTextToSpeechService(private val config: VoiceConfig) : TextToSpeechSe
         } catch (e: Exception) {
             log.warn("Local Piper TTS request failed", e)
             throw VoiceServiceException(
-                "Could not reach local Piper server at $baseUrl. Is it running? (${e.message})",
+                e.toFriendlyVoiceErrorMessage("Could not reach local Piper server at $baseUrl"),
                 e,
             )
         }
