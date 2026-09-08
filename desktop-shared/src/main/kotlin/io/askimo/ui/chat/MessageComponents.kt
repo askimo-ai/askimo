@@ -181,9 +181,15 @@ internal object VoicePlaybackController {
         ttsCache[messageId] = chunks
         val maxMessages = AppConfig.voice.ttsCacheMaxMessages
         val maxBytes = AppConfig.voice.ttsCacheMaxBytes
+
+        // Track the running total incrementally instead of calling cacheTotalBytes() on every
+        // loop iteration (which would re-sum every chunk of every cached message each time —
+        // O(n) per call, O(n^2) overall for an eviction pass of n entries).
+        var totalBytes = cacheTotalBytes()
         val iterator = ttsCache.entries.iterator()
-        while (iterator.hasNext() && (ttsCache.size > maxMessages || cacheTotalBytes() > maxBytes)) {
-            iterator.next()
+        while (iterator.hasNext() && (ttsCache.size > maxMessages || totalBytes > maxBytes)) {
+            val evicted = iterator.next()
+            totalBytes -= evicted.value.sumOf { chunk -> chunk.size.toLong() }
             iterator.remove()
         }
     }
@@ -223,6 +229,11 @@ internal object VoicePlaybackController {
                 try {
                     val ttsService = withContext(Dispatchers.IO) { VoiceServiceRegistry.textToSpeech(AppConfig.voice) }
                     playCachedChunks(messageId, cached, ttsService.outputFormat)
+                } catch (e: VoiceServiceException) {
+                    if (loadingMessageId != messageId && playingMessageId != messageId) return@launch
+                    loadingMessageId = null
+                    playingMessageId = null
+                    onError(e.message ?: "Voice playback failed")
                 } catch (e: AudioPlaybackException) {
                     if (playingMessageId != messageId) return@launch
                     loadingMessageId = null

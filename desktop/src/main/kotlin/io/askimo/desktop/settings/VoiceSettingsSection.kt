@@ -715,6 +715,7 @@ private fun voiceIntField(
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
         Text(text = label, style = AppTextStyles.body)
+        val parsedValue = textValue.toIntOrNull()
         OutlinedTextField(
             value = textValue,
             onValueChange = { textValue = it },
@@ -740,7 +741,7 @@ private fun voiceIntField(
                 },
             textStyle = AppTextStyles.body,
             singleLine = true,
-            isError = isEditing && textValue.toIntOrNull()?.let { it < minValue } ?: (textValue.toIntOrNull() == null),
+            isError = isEditing && (parsedValue == null || parsedValue < minValue),
             trailingIcon = {
                 AnimatedVisibility(visible = showSavedIndicator, enter = fadeIn(), exit = fadeOut()) {
                     Icon(
