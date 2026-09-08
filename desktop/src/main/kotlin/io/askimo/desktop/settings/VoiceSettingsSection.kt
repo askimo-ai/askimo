@@ -31,6 +31,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -125,6 +126,7 @@ private fun voiceConfigCard() {
     var sttModel by remember { mutableStateOf(AppConfig.rawVoice.sttModel) }
     var ttsModel by remember { mutableStateOf(AppConfig.rawVoice.ttsModel) }
     var ttsVoice by remember { mutableStateOf(AppConfig.rawVoice.ttsVoice) }
+    var ttsSpeed by remember { mutableStateOf(AppConfig.rawVoice.ttsSpeed) }
     var localSttEndpoint by remember { mutableStateOf(AppConfig.rawVoice.localSttEndpoint) }
     var localTtsEndpoint by remember { mutableStateOf(AppConfig.rawVoice.localTtsEndpoint) }
     var autoSendTranscript by remember { mutableStateOf(AppConfig.rawVoice.autoSendTranscript) }
@@ -173,6 +175,10 @@ private fun voiceConfigCard() {
     LaunchedEffect(ttsVoice) {
         delay(500.milliseconds)
         withContext(Dispatchers.IO) { AppConfig.updateField("voice.ttsVoice", ttsVoice) }
+    }
+    LaunchedEffect(ttsSpeed) {
+        delay(500.milliseconds)
+        withContext(Dispatchers.IO) { AppConfig.updateField("voice.ttsSpeed", ttsSpeed) }
     }
     LaunchedEffect(localSttEndpoint) {
         delay(500.milliseconds)
@@ -359,6 +365,30 @@ private fun voiceConfigCard() {
                         style = AppTextStyles.caption,
                     )
                 }
+            }
+
+            // Playback speed (0.25x–4.0x, OpenAI's supported range) — applies to both OpenAI
+            // and Piper TTS providers since both accept the same `speed` field.
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(text = stringResource("settings.voice.tts_speed"), style = AppTextStyles.fieldLabel)
+                    Text(
+                        text = String.format(java.util.Locale.ROOT, "%.2fx", ttsSpeed),
+                        style = AppTextStyles.caption,
+                        color = AppTextStyles.secondaryContent,
+                    )
+                }
+                Slider(
+                    value = ttsSpeed.toFloat(),
+                    onValueChange = { ttsSpeed = it.toDouble() },
+                    valueRange = 0.25f..4.0f,
+                    modifier = Modifier.fillMaxWidth().pointerHoverIcon(PointerIcon.Hand),
+                )
+                Text(text = stringResource("settings.voice.tts_speed.hint"), style = AppTextStyles.caption)
             }
 
             // Auto-play belongs to voice output (TTS) — it decides what happens once an

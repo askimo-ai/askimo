@@ -516,6 +516,12 @@ data class VoiceConfig(
     val ttsModel: String = "tts-1",
     val ttsVoice: String = "alloy",
     /**
+     * Playback speed multiplier passed to the TTS provider's `speed` parameter.
+     * OpenAI's `/v1/audio/speech` accepts 0.25–4.0 (1.0 = normal speed). Applied the same way
+     * for [VoiceProvider.LOCAL_PIPER] since its OpenAI-compatible endpoint accepts the same field.
+     */
+    val ttsSpeed: Double = 1.0,
+    /**
      * When true and [openAiApiKey] is blank, Settings UI may offer to reuse the key from an
      * existing `OPENAI` provider instance instead of requiring a separate paste. Purely a UX
      * convenience flag — resolution of the actual key happens at the call site, not here.
@@ -828,6 +834,7 @@ object AppConfig {
           stt_model: whisper-1
           tts_model: tts-1
           tts_voice: alloy
+          tts_speed: 1.0
           use_provider_key_for_voice: true
           open_ai_api_key:
           local_stt_endpoint: http://localhost:8081
@@ -1365,6 +1372,11 @@ object AppConfig {
         "ttsModel" -> config.copy(ttsModel = value as String)
 
         "ttsVoice" -> config.copy(ttsVoice = value as String)
+
+        "ttsSpeed" -> {
+            val parsed = (value as? Double) ?: (value as? Number)?.toDouble() ?: value.toString().toDoubleOrNull()
+            config.copy(ttsSpeed = parsed?.takeIf { it.isFinite() }?.coerceIn(0.25, 4.0) ?: config.ttsSpeed)
+        }
 
         "useProviderKeyForVoice" -> config.copy(useProviderKeyForVoice = value as Boolean)
 

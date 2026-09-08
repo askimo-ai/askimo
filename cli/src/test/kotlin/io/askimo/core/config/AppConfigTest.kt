@@ -265,6 +265,76 @@ class AppConfigTest {
         return method.invoke(AppConfig, config, field, value) as ProxyConfig
     }
 
+    private fun updateVoiceFieldHelper(config: VoiceConfig, field: String, value: Any): VoiceConfig {
+        val method = AppConfig::class.java.getDeclaredMethod(
+            "updateVoiceField",
+            VoiceConfig::class.java,
+            String::class.java,
+            Any::class.java,
+        )
+        method.isAccessible = true
+        return method.invoke(AppConfig, config, field, value) as VoiceConfig
+    }
+
+    // Voice Configuration Tests
+
+    @Test
+    fun `updateVoiceField ttsSpeed should accept numeric values within range`() {
+        val config = VoiceConfig()
+
+        var updated = updateVoiceFieldHelper(config, "ttsSpeed", 2.5)
+        assertEquals(2.5, updated.ttsSpeed, 0.001)
+
+        updated = updateVoiceFieldHelper(config, "ttsSpeed", 2 as Any)
+        assertEquals(2.0, updated.ttsSpeed, 0.001)
+
+        updated = updateVoiceFieldHelper(config, "ttsSpeed", "1.75")
+        assertEquals(1.75, updated.ttsSpeed, 0.001)
+    }
+
+    @Test
+    fun `updateVoiceField ttsSpeed should clamp out-of-range values`() {
+        val config = VoiceConfig()
+
+        var updated = updateVoiceFieldHelper(config, "ttsSpeed", 10.0)
+        assertEquals(4.0, updated.ttsSpeed, 0.001)
+
+        updated = updateVoiceFieldHelper(config, "ttsSpeed", -1.0)
+        assertEquals(0.25, updated.ttsSpeed, 0.001)
+
+        updated = updateVoiceFieldHelper(config, "ttsSpeed", "100")
+        assertEquals(4.0, updated.ttsSpeed, 0.001)
+    }
+
+    @Test
+    fun `updateVoiceField ttsSpeed should reject non-finite values and fall back to current value`() {
+        val config = VoiceConfig(ttsSpeed = 1.5)
+
+        var updated = updateVoiceFieldHelper(config, "ttsSpeed", Double.NaN)
+        assertEquals(1.5, updated.ttsSpeed, 0.001)
+
+        updated = updateVoiceFieldHelper(config, "ttsSpeed", "NaN")
+        assertEquals(1.5, updated.ttsSpeed, 0.001)
+
+        updated = updateVoiceFieldHelper(config, "ttsSpeed", Double.POSITIVE_INFINITY)
+        assertEquals(1.5, updated.ttsSpeed, 0.001)
+
+        updated = updateVoiceFieldHelper(config, "ttsSpeed", "Infinity")
+        assertEquals(1.5, updated.ttsSpeed, 0.001)
+
+        updated = updateVoiceFieldHelper(config, "ttsSpeed", Double.NEGATIVE_INFINITY)
+        assertEquals(1.5, updated.ttsSpeed, 0.001)
+    }
+
+    @Test
+    fun `updateVoiceField ttsSpeed should fall back to current value on unparseable string`() {
+        val config = VoiceConfig(ttsSpeed = 1.5)
+
+        val updated = updateVoiceFieldHelper(config, "ttsSpeed", "not-a-number")
+
+        assertEquals(1.5, updated.ttsSpeed, 0.001)
+    }
+
     // Proxy Configuration Tests
 
     @Test

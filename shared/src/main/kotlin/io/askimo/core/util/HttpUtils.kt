@@ -66,6 +66,33 @@ fun httpPost(
 }
 
 /**
+ * Perform a POST request with a JSON body, returning the **raw** response bytes instead of a
+ * decoded String — required for binary responses (e.g. synthesized TTS audio) where [httpPost]'s
+ * UTF-8 string decoding would corrupt the payload.
+ */
+fun httpPostForBytes(
+    url: String,
+    body: String,
+    headers: Map<String, String> = emptyMap(),
+    connectTimeoutMs: Long = 15_000,
+    readTimeoutMs: Long = 600_000,
+    httpVersion: HttpClient.Version = HttpClient.Version.HTTP_2,
+): Pair<Int, ByteArray> {
+    val client = ProxyUtil.configureProxy(HttpClient.newBuilder().version(httpVersion), url)
+        .connectTimeout(Duration.ofMillis(connectTimeoutMs))
+        .build()
+    val requestBuilder = HttpRequest.newBuilder()
+        .uri(URI(url))
+        .timeout(Duration.ofMillis(readTimeoutMs))
+        .header("Content-Type", "application/json")
+        .POST(HttpRequest.BodyPublishers.ofString(body))
+    headers.forEach { (k, v) -> requestBuilder.header(k, v) }
+    val response = client.sendWithErrorHandling(requestBuilder.build(), url)
+    val decompressedBody = decompressGzipBytesIfNeeded(response.body(), response)
+    return response.statusCode() to decompressedBody
+}
+
+/**
  * Sends an HTTP request and wraps any connection/IO errors with a descriptive message.
  */
 private fun HttpClient.sendWithErrorHandling(
@@ -88,13 +115,20 @@ private fun HttpClient.sendWithErrorHandling(
  * Decompresses gzip-encoded response body if the Content-Encoding header indicates gzip.
  * Otherwise returns the body as-is.
  */
-private fun decompressGzipIfNeeded(body: ByteArray, response: HttpResponse<ByteArray>): String {
+private fun decompressGzipIfNeeded(body: ByteArray, response: HttpResponse<ByteArray>): String = String(decompressGzipBytesIfNeeded(body, response), Charsets.UTF_8)
+
+/**
+ * Decompresses gzip-encoded response bytes if the Content-Encoding header indicates gzip.
+ * Otherwise returns the bytes as-is. Used for raw/binary responses (e.g. TTS audio) where
+ * decoding to a String would corrupt the payload.
+ */
+private fun decompressGzipBytesIfNeeded(body: ByteArray, response: HttpResponse<ByteArray>): ByteArray {
     val encoding = response.headers()
         .allValues("Content-Encoding")
         .firstOrNull { it.contains("gzip", ignoreCase = true) } ?: ""
     return if (encoding.isNotEmpty()) {
-        GZIPInputStream(ByteArrayInputStream(body)).bufferedReader().use { it.readText() }
+        GZIPInputStream(ByteArrayInputStream(body)).use { it.readBytes() }
     } else {
-        String(body, Charsets.UTF_8)
+        body
     }
 }
