@@ -88,7 +88,8 @@ fun httpPostForBytes(
         .POST(HttpRequest.BodyPublishers.ofString(body))
     headers.forEach { (k, v) -> requestBuilder.header(k, v) }
     val response = client.sendWithErrorHandling(requestBuilder.build(), url)
-    return response.statusCode() to response.body()
+    val decompressedBody = decompressGzipBytesIfNeeded(response.body(), response)
+    return response.statusCode() to decompressedBody
 }
 
 /**
@@ -114,13 +115,20 @@ private fun HttpClient.sendWithErrorHandling(
  * Decompresses gzip-encoded response body if the Content-Encoding header indicates gzip.
  * Otherwise returns the body as-is.
  */
-private fun decompressGzipIfNeeded(body: ByteArray, response: HttpResponse<ByteArray>): String {
+private fun decompressGzipIfNeeded(body: ByteArray, response: HttpResponse<ByteArray>): String = String(decompressGzipBytesIfNeeded(body, response), Charsets.UTF_8)
+
+/**
+ * Decompresses gzip-encoded response bytes if the Content-Encoding header indicates gzip.
+ * Otherwise returns the bytes as-is. Used for raw/binary responses (e.g. TTS audio) where
+ * decoding to a String would corrupt the payload.
+ */
+private fun decompressGzipBytesIfNeeded(body: ByteArray, response: HttpResponse<ByteArray>): ByteArray {
     val encoding = response.headers()
         .allValues("Content-Encoding")
         .firstOrNull { it.contains("gzip", ignoreCase = true) } ?: ""
     return if (encoding.isNotEmpty()) {
-        GZIPInputStream(ByteArrayInputStream(body)).bufferedReader().use { it.readText() }
+        GZIPInputStream(ByteArrayInputStream(body)).use { it.readBytes() }
     } else {
-        String(body, Charsets.UTF_8)
+        body
     }
 }

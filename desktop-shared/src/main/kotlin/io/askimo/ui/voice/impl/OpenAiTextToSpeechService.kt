@@ -51,7 +51,7 @@ class OpenAiTextToSpeechService(private val config: VoiceConfig) : TextToSpeechS
                 body = body,
                 headers = mapOf("Authorization" to "Bearer $apiKey"),
             )
-            if (status != 200) {
+            if (status !in 200..299) {
                 val errorText = String(responseBytes, Charsets.UTF_8)
                 throw VoiceServiceException("OpenAI TTS request failed (HTTP $status): $errorText")
             }

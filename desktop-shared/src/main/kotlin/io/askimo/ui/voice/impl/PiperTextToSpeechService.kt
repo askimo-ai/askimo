@@ -20,7 +20,7 @@ import kotlinx.serialization.json.put
 
 /**
  * Text-to-speech via a user-hosted Piper HTTP server exposing an OpenAI-compatible
- * `/audio/speech` endpoint (e.g. `piper-http` OpenAI-compatible wrappers). Free, no API key
+ * `/v1/audio/speech` endpoint (e.g. `piper-http` OpenAI-compatible wrappers). Free, no API key
  * required, runs fully offline.
  *
  * Called directly over HTTP (same reasoning as [OpenAiTextToSpeechService]) so
@@ -48,11 +48,11 @@ class PiperTextToSpeechService(private val config: VoiceConfig) : TextToSpeechSe
 
         try {
             val (status, responseBytes) = httpPostForBytes(
-                url = "$baseUrl/audio/speech",
+                url = "$baseUrl/v1/audio/speech",
                 body = body,
                 headers = mapOf("Authorization" to "Bearer ${config.openAiApiKey.ifBlank { "not-needed" }}"),
             )
-            if (status != 200) {
+            if (status !in 200..299) {
                 val errorText = String(responseBytes, Charsets.UTF_8)
                 throw VoiceServiceException("Local Piper TTS request failed (HTTP $status): $errorText")
             }
