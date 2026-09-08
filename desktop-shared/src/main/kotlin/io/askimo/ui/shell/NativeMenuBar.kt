@@ -85,12 +85,13 @@ object NativeMenuBar {
         onNavigateToBookmarks: () -> Unit,
         onSupportAskimo: () -> Unit = {},
         onShareFeedback: () -> Unit = {},
+        onShowKeyboardShortcuts: () -> Unit = {},
     ) {
         val window = frameWindowScope.window
 
         // Use native AWT menu bar only on macOS to avoid CJK glyph issues on some platforms.
         if (Platform.isMac) {
-            setupAWTMenuBar(window, onShowAbout, onNewChat, onNewProject, onSearchInSessions, onShowSettings, onShowEventLog, onCheckForUpdates, onToggleFullScreen, onNavigateToSessions, onNavigateToProjects, onNavigateToDiscover, onToggleSidebar, onInvalidateCaches, onExportBackup, onImportBackup, onShowGettingStarted, onOpenTerminal, onClearPreferences, onClearAccountPreferences, onTogglePlans, onToggleSkills, onToggleProjects, isPlansVisible, isSkillsVisible, isProjectsVisible, isFullScreen, onShowSystemDiagnostics, onNavigateToBookmarks, onSupportAskimo, onShareFeedback)
+            setupAWTMenuBar(window, onShowAbout, onNewChat, onNewProject, onSearchInSessions, onShowSettings, onShowEventLog, onCheckForUpdates, onToggleFullScreen, onNavigateToSessions, onNavigateToProjects, onNavigateToDiscover, onToggleSidebar, onInvalidateCaches, onExportBackup, onImportBackup, onShowGettingStarted, onOpenTerminal, onClearPreferences, onClearAccountPreferences, onTogglePlans, onToggleSkills, onToggleProjects, isPlansVisible, isSkillsVisible, isProjectsVisible, isFullScreen, onShowSystemDiagnostics, onNavigateToBookmarks, onSupportAskimo, onShareFeedback, onShowKeyboardShortcuts)
 
             // Register About handler in the macOS application menu.
             setupMacAboutHandler(onShowAbout)
@@ -143,6 +144,7 @@ object NativeMenuBar {
         onNavigateToBookmarks: () -> Unit,
         onSupportAskimo: () -> Unit,
         onShareFeedback: () -> Unit,
+        onShowKeyboardShortcuts: () -> Unit,
     ) {
         if (window is Frame) {
             val menuBar = MenuBar()
@@ -476,6 +478,16 @@ object NativeMenuBar {
             }
 
             helpMenu.addSeparator()
+
+            // Keyboard Shortcuts — quick-access cheat sheet popup
+            val keyboardShortcutsItem = MenuItem(
+                menuLabel("menu.help.shortcuts"),
+                MenuShortcut(KeyEvent.VK_SLASH),
+            )
+            keyboardShortcutsItem.addActionListener {
+                onShowKeyboardShortcuts()
+            }
+            helpMenu.add(keyboardShortcutsItem)
 
             val aboutItem = MenuItem(menuLabel("menu.about"))
             aboutItem.addActionListener {

@@ -161,6 +161,7 @@ import io.askimo.ui.shell.feedbackPromptDialog
 import io.askimo.ui.shell.globalErrorHandler
 import io.askimo.ui.shell.globalSearchDialog
 import io.askimo.ui.shell.happinessGateDialog
+import io.askimo.ui.shell.keyboardShortcutsDialog
 import io.askimo.ui.shell.rememberPersistedWindowState
 import io.askimo.ui.shell.rememberThemeState
 import io.askimo.ui.shell.splashScreen
@@ -351,6 +352,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     var showNewProjectDialog by remember { mutableStateOf(false) }
     var showEditProjectDialog by remember { mutableStateOf(false) }
     var showGlobalSearchDialog by remember { mutableStateOf(false) }
+    var showKeyboardShortcutsDialog by remember { mutableStateOf(false) }
     var editingProjectId by remember { mutableStateOf<String?>(null) }
     var errorDialogState by remember { mutableStateOf(ErrorDialogState()) }
     var showFileViewerDialog by remember { mutableStateOf(false) }
@@ -761,6 +763,9 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
         feedbackOpenedFromMenu = true
         showFeedbackPromptDialog = true
     }
+    val onShowKeyboardShortcutsMenuAction = {
+        showKeyboardShortcutsDialog = true
+    }
 
     // React to locale changes - update menu bar and language settings
     LaunchedEffect(locale, frameWindowScope) {
@@ -798,6 +803,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                 onNavigateToBookmarks = onNavigateToBookmarksMenuAction,
                 onSupportAskimo = onSupportAskimoMenuAction,
                 onShareFeedback = onShareFeedbackMenuAction,
+                onShowKeyboardShortcuts = onShowKeyboardShortcutsMenuAction,
             )
         }
     }
@@ -900,6 +906,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                     onNavigateToBookmarks = onNavigateToBookmarksMenuAction,
                                     onSupportAskimo = onSupportAskimoMenuAction,
                                     onShareFeedback = onShareFeedbackMenuAction,
+                                    onShowKeyboardShortcuts = onShowKeyboardShortcutsMenuAction,
                                     isSidebarExpanded = isSidebarExpanded,
                                 )
                             }
@@ -1032,6 +1039,11 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                         AppShortcut.NAVIGATE_TO_PROJECTS -> {
                                                             currentView = View.PROJECTS
                                                             Analytics.track(AnalyticsEvent.RAG_PANEL_OPENED)
+                                                            true
+                                                        }
+
+                                                        AppShortcut.SHOW_KEYBOARD_SHORTCUTS -> {
+                                                            showKeyboardShortcutsDialog = true
                                                             true
                                                         }
 
@@ -1612,6 +1624,13 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                 }
                             },
                             telemetryContent = { telemetryPanel(maxHeight = 480.dp) },
+                        )
+                    }
+
+                    // Keyboard Shortcuts Dialog
+                    if (showKeyboardShortcutsDialog) {
+                        keyboardShortcutsDialog(
+                            onDismiss = { showKeyboardShortcutsDialog = false },
                         )
                     }
 

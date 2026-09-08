@@ -45,6 +45,7 @@ object KeyMapManager {
         OPEN_SETTINGS("shortcut.open.settings", Key.Comma, requiresPrimaryModifier = true),
         STOP_AI_RESPONSE("shortcut.stop.ai.response", Key.S, requiresPrimaryModifier = true),
         QUIT_APPLICATION("shortcut.quit.application", Key.Q, requiresPrimaryModifier = true),
+        SHOW_KEYBOARD_SHORTCUTS("shortcut.show.keyboard.shortcuts", Key.Slash, requiresPrimaryModifier = true),
 
         // View shortcuts
         ENTER_FULLSCREEN("shortcut.enter.fullscreen", Key.F, requiresPrimaryModifier = true, requiresCtrl = true),
@@ -72,6 +73,15 @@ object KeyMapManager {
         TOGGLE_VOICE_RECORDING("shortcut.toggle.voice.recording", Key.M, requiresPrimaryModifier = true, requiresShift = true),
         SEND_MESSAGE("shortcut.send.message", Key.Enter),
         NEW_LINE("shortcut.new.line", Key.Enter, requiresShift = true),
+
+        // Voice playback / accessibility shortcuts
+        TOGGLE_LAST_RESPONSE_PLAYBACK(
+            "shortcut.toggle.last.response.playback",
+            Key.L,
+            requiresPrimaryModifier = true,
+            requiresShift = true,
+        ),
+        FOCUS_MESSAGE_LIST("shortcut.focus.message.list", Key.J, requiresPrimaryModifier = true, requiresShift = true),
         ;
 
         /**
@@ -119,6 +129,7 @@ object KeyMapManager {
                 Key.Enter -> if (Platform.isMac) "↵" else "Enter"
                 Key.Escape -> if (Platform.isMac) "⎋" else "Esc"
                 Key.Comma -> ","
+                Key.Slash -> "/"
                 else -> key.keyCode.toInt().toChar().uppercaseChar().toString()
             }
             parts.add(keyName)
@@ -148,6 +159,7 @@ object KeyMapManager {
             AppShortcut.OPEN_SETTINGS,
             AppShortcut.STOP_AI_RESPONSE,
             AppShortcut.QUIT_APPLICATION,
+            AppShortcut.SHOW_KEYBOARD_SHORTCUTS,
         ),
         LocalizationManager.getString("shortcut.category.file") to listOf(
             AppShortcut.EXPORT_BACKUP,
@@ -175,6 +187,8 @@ object KeyMapManager {
             AppShortcut.TOGGLE_VOICE_RECORDING,
             AppShortcut.SEND_MESSAGE,
             AppShortcut.NEW_LINE,
+            AppShortcut.TOGGLE_LAST_RESPONSE_PLAYBACK,
+            AppShortcut.FOCUS_MESSAGE_LIST,
         ),
     )
 }

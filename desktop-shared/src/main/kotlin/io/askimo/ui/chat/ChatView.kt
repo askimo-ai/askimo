@@ -399,6 +399,15 @@ fun chatView(
     // Focus requester for the main ChatView container
     val chatViewFocusRequester = remember { FocusRequester() }
 
+    // Focus requester for the scrollable message list — lets keyboard-only users jump focus
+    // into the conversation (Cmd/Ctrl+Shift+J) instead of relying on mouse hover/scroll to
+    // reach per-message action buttons (copy/play/edit/retry).
+    val messageListFocusRequester = remember { FocusRequester() }
+
+    // Resolved outside the onPreviewKeyEvent lambda below since stringResource() is
+    // @Composable and that lambda runs outside of composition.
+    val voiceErrorTitle = stringResource("chat.voice.error.title")
+
     // Focus search field when search mode is activated
     LaunchedEffect(isSearchMode) {
         if (isSearchMode) {
@@ -498,6 +507,29 @@ fun chatView(
                             } else {
                                 false
                             }
+                        }
+
+                        AppShortcut.TOGGLE_LAST_RESPONSE_PLAYBACK -> {
+                            val lastAiMessage = messages.lastOrNull { !it.isUser }
+                            val id = lastAiMessage?.id
+                            if (id != null && lastAiMessage.content.isNotBlank()) {
+                                VoicePlaybackController.toggle(id, lastAiMessage.content, scope) { errorMessage ->
+                                    EventBus.post(
+                                        AppErrorEvent(
+                                            title = voiceErrorTitle,
+                                            message = errorMessage,
+                                        ),
+                                    )
+                                }
+                                true
+                            } else {
+                                false
+                            }
+                        }
+
+                        AppShortcut.FOCUS_MESSAGE_LIST -> {
+                            messageListFocusRequester.requestFocus()
+                            true
                         }
 
                         else -> false
@@ -1071,6 +1103,8 @@ fun chatView(
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                             .padding(end = 8.dp) // room for scrollbar
                             .verticalScroll(messagesScrollState)
+                            .focusRequester(messageListFocusRequester)
+                            .focusable()
                             .onGloballyPositioned { coords ->
                                 if (coords.isAttached) viewportBounds = coords.boundsInWindow()
                             },

@@ -65,31 +65,8 @@ import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun shortcutsSettingsSection() {
-    val currentLocale by ThemePreferences.locale.collectAsState()
     val scrollState = rememberScrollState()
     var searchQuery by remember { mutableStateOf("") }
-
-    val shortcutsByCategory = remember(currentLocale) {
-        KeyMapManager.getAllShortcuts().mapValues { (_, shortcuts) ->
-            shortcuts.map { shortcut ->
-                shortcut.getDescription() to shortcut.getDisplayString()
-            }
-        }
-    }
-
-    val filteredByCategory = remember(shortcutsByCategory, searchQuery) {
-        if (searchQuery.isBlank()) {
-            shortcutsByCategory
-        } else {
-            shortcutsByCategory
-                .mapValues { (_, shortcuts) ->
-                    shortcuts.filter { (desc, _) ->
-                        desc.contains(searchQuery, ignoreCase = true)
-                    }
-                }
-                .filter { (_, shortcuts) -> shortcuts.isNotEmpty() }
-        }
-    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -116,82 +93,10 @@ fun shortcutsSettingsSection() {
                     style = AppTextStyles.bodySecondary,
                 )
 
-                // Search bar
-                AppComponents.appOutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text(stringResource("settings.shortcuts.search")) },
-                    leadingIcon = {
-                        Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
-                    },
-                    trailingIcon = if (searchQuery.isNotEmpty()) {
-                        {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Clear search", modifier = Modifier.size(18.dp))
-                            }
-                        }
-                    } else {
-                        null
-                    },
-                    singleLine = true,
+                keyboardShortcutsList(
+                    searchQuery = searchQuery,
+                    onSearchQueryChange = { searchQuery = it },
                 )
-
-                if (filteredByCategory.isEmpty()) {
-                    Text(
-                        text = stringResource("settings.shortcuts.no_results"),
-                        style = AppTextStyles.bodySecondary,
-                        modifier = Modifier.padding(vertical = Spacing.large),
-                    )
-                }
-
-                // Display shortcuts grouped by category
-                filteredByCategory.forEach { (category, shortcuts) ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(Spacing.large),
-                            verticalArrangement = Arrangement.spacedBy(Spacing.medium),
-                        ) {
-                            // Category header with count badge
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                            ) {
-                                Text(
-                                    text = category,
-                                    style = AppTextStyles.sectionTitle,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                Card(
-                                    colors = AppColors.cardColors(AppColors.Elevation.RAISED),
-                                    shape = RoundedCornerShape(12.dp),
-                                ) {
-                                    Text(
-                                        text = "${shortcuts.size}",
-                                        style = AppTextStyles.hint,
-                                        fontFamily = FontFamily.Monospace,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                    )
-                                }
-                            }
-
-                            shortcuts.forEachIndexed { index, (description, keyBinding) ->
-                                if (index > 0) {
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(vertical = Spacing.extraSmall),
-                                    )
-                                }
-                                shortcutRow(description = description, keyBinding = keyBinding)
-                            }
-                        }
-                    }
-                }
             }
         }
 
@@ -202,6 +107,124 @@ fun shortcutsSettingsSection() {
                 .fillMaxHeight(),
             style = AppComponents.scrollbarStyle(),
         )
+    }
+}
+
+/**
+ * Search field + category-grouped shortcut list — extracted from [shortcutsSettingsSection] so
+ * the same content can be reused inside a lightweight popup (see `keyboardShortcutsDialog` in
+ * `io.askimo.ui.shell`), opened via a global shortcut/menu entry, without duplicating the
+ * category/search/row rendering logic.
+ *
+ * Does not manage its own scroll container — callers embed it in whatever scrollable region
+ * they already have (a page's `verticalScroll` Column, or a dialog scaffold's built-in scroll).
+ */
+@Composable
+fun keyboardShortcutsList(
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+) {
+    val currentLocale by ThemePreferences.locale.collectAsState()
+
+    val shortcutsByCategory = remember(currentLocale) {
+        KeyMapManager.getAllShortcuts().mapValues { (_, shortcuts) ->
+            shortcuts.map { shortcut ->
+                shortcut.getDescription() to shortcut.getDisplayString()
+            }
+        }
+    }
+
+    val filteredByCategory = remember(shortcutsByCategory, searchQuery) {
+        if (searchQuery.isBlank()) {
+            shortcutsByCategory
+        } else {
+            shortcutsByCategory
+                .mapValues { (_, shortcuts) ->
+                    shortcuts.filter { (desc, _) ->
+                        desc.contains(searchQuery, ignoreCase = true)
+                    }
+                }
+                .filter { (_, shortcuts) -> shortcuts.isNotEmpty() }
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.large)) {
+        // Search bar
+        AppComponents.appOutlinedTextField(
+            value = searchQuery,
+            onValueChange = onSearchQueryChange,
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text(stringResource("settings.shortcuts.search")) },
+            leadingIcon = {
+                Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+            },
+            trailingIcon = if (searchQuery.isNotEmpty()) {
+                {
+                    IconButton(onClick = { onSearchQueryChange("") }) {
+                        Icon(Icons.Default.Clear, contentDescription = "Clear search", modifier = Modifier.size(18.dp))
+                    }
+                }
+            } else {
+                null
+            },
+            singleLine = true,
+        )
+
+        if (filteredByCategory.isEmpty()) {
+            Text(
+                text = stringResource("settings.shortcuts.no_results"),
+                style = AppTextStyles.bodySecondary,
+                modifier = Modifier.padding(vertical = Spacing.large),
+            )
+        }
+
+        // Display shortcuts grouped by category
+        filteredByCategory.forEach { (category, shortcuts) ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(Spacing.large),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.medium),
+                ) {
+                    // Category header with count badge
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                    ) {
+                        Text(
+                            text = category,
+                            style = AppTextStyles.sectionTitle,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Card(
+                            colors = AppColors.cardColors(AppColors.Elevation.RAISED),
+                            shape = RoundedCornerShape(12.dp),
+                        ) {
+                            Text(
+                                text = "${shortcuts.size}",
+                                style = AppTextStyles.hint,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            )
+                        }
+                    }
+
+                    shortcuts.forEachIndexed { index, (description, keyBinding) ->
+                        if (index > 0) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = Spacing.extraSmall),
+                            )
+                        }
+                        shortcutRow(description = description, keyBinding = keyBinding)
+                    }
+                }
+            }
+        }
     }
 }
 

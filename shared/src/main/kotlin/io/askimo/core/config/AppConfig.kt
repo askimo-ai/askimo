@@ -550,6 +550,16 @@ data class VoiceConfig(
     val openAiTtsVoices: List<String> = listOf(
         "alloy", "ash", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse",
     ),
+    /**
+     * Max number of distinct AI messages whose synthesized TTS audio is kept in the in-memory
+     * playback cache (see `VoicePlaybackController`), so replaying/stopping a recently-played
+     * response (e.g. via the "toggle last response playback" shortcut) doesn't re-hit the TTS
+     * API. Purely a runtime, app-lifetime cache — never persisted to disk. Oldest entry is
+     * evicted first once this cap (or [ttsCacheMaxBytes]) is exceeded.
+     */
+    val ttsCacheMaxMessages: Int = 5,
+    /** Max total bytes of synthesized audio kept across all cached messages. See [ttsCacheMaxMessages]. */
+    val ttsCacheMaxBytes: Long = 4L * 1024 * 1024,
 ) {
     companion object {
         fun isKeyPlaceholder(value: String): Boolean = value == VOICE_KEY_PLACEHOLDER
@@ -1375,6 +1385,16 @@ object AppConfig {
             // Never persist an empty list — that would leave the Settings UI dropdown with
             // nothing to select. Falls back to the current value instead.
             config.copy(openAiTtsVoices = voices.ifEmpty { config.openAiTtsVoices })
+        }
+
+        "ttsCacheMaxMessages" -> {
+            val parsed = (value as? Int) ?: value.toString().toIntOrNull()
+            config.copy(ttsCacheMaxMessages = parsed?.takeIf { it > 0 } ?: config.ttsCacheMaxMessages)
+        }
+
+        "ttsCacheMaxBytes" -> {
+            val parsed = (value as? Long) ?: (value as? Int)?.toLong() ?: value.toString().toLongOrNull()
+            config.copy(ttsCacheMaxBytes = parsed?.takeIf { it > 0 } ?: config.ttsCacheMaxBytes)
         }
 
         "openAiApiKey" -> {

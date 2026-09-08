@@ -108,6 +108,7 @@ import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
+import io.askimo.ui.common.ui.accessibleFocusable
 import io.askimo.ui.common.ui.markdownText
 import io.askimo.ui.common.ui.revealingMarkdownText
 import io.askimo.ui.common.ui.themedTooltip
@@ -117,6 +118,7 @@ import io.askimo.ui.common.ui.util.markdownToPlainText
 import io.askimo.ui.service.MessageExportService
 import io.askimo.ui.voice.AudioPlaybackException
 import io.askimo.ui.voice.AudioPlayer
+import io.askimo.ui.voice.VoiceAudioFormat
 import io.askimo.ui.voice.VoiceServiceException
 import io.askimo.ui.voice.VoiceServiceRegistry
 import io.askimo.ui.voice.chunkTextForTts
@@ -154,6 +156,38 @@ internal object VoicePlaybackController {
     var playingMessageId by mutableStateOf<String?>(null)
         private set
 
+    /**
+     * Bounded in-memory cache of already-synthesized audio chunks, keyed by message id — lets
+     * replaying/stopping a recently-played response (e.g. via the "toggle last response
+     * playback" shortcut) skip a fresh TTS API round-trip. App-lifetime only: never persisted
+     * to disk, cleared on restart. Capped by both entry count ([VoiceConfig.ttsCacheMaxMessages])
+     * and total bytes ([VoiceConfig.ttsCacheMaxBytes]) — insertion order is preserved so the
+     * oldest entry is evicted first once either cap is exceeded (`accessOrder = false`: this is
+     * a "cache recent responses" policy, not "cache most-recently-used").
+     */
+    private val ttsCache = LinkedHashMap<String, List<ByteArray>>()
+
+    private fun cacheTotalBytes(): Long = ttsCache.values.sumOf { chunks -> chunks.sumOf { chunk -> chunk.size.toLong() } }
+
+    /** Removes [messageId]'s cached audio, if any — call when a message's content changes (edit). */
+    @Synchronized
+    fun invalidate(messageId: String) {
+        ttsCache.remove(messageId)
+    }
+
+    @Synchronized
+    private fun cacheChunks(messageId: String, chunks: List<ByteArray>) {
+        ttsCache.remove(messageId) // re-insert at the end (most-recent) if already present
+        ttsCache[messageId] = chunks
+        val maxMessages = AppConfig.voice.ttsCacheMaxMessages
+        val maxBytes = AppConfig.voice.ttsCacheMaxBytes
+        val iterator = ttsCache.entries.iterator()
+        while (iterator.hasNext() && (ttsCache.size > maxMessages || cacheTotalBytes() > maxBytes)) {
+            iterator.next()
+            iterator.remove()
+        }
+    }
+
     /** Stops whatever is currently playing/loading, regardless of which message it belongs to. */
     fun stopAll() {
         player.stop()
@@ -171,6 +205,9 @@ internal object VoicePlaybackController {
      * [text] is split via [chunkTextForTts] into pieces that fit under the TTS provider's
      * per-request character limit (OpenAI's `/v1/audio/speech` caps input at 4096 chars); each
      * chunk is synthesized and played back-to-back so long messages aren't truncated.
+     *
+     * If [messageId]'s audio was already synthesized and is still cached (see [ttsCache]),
+     * playback starts immediately from the cached bytes — no TTS API call is made.
      */
     fun toggle(messageId: String, text: String, scope: CoroutineScope, onError: (String) -> Unit) {
         if (playingMessageId == messageId || loadingMessageId == messageId) {
@@ -178,15 +215,36 @@ internal object VoicePlaybackController {
             return
         }
         stopAll()
+        val cached = synchronized(this) { ttsCache[messageId] }
+        if (cached != null) {
+            loadingMessageId = messageId
+            playbackJob = scope.launch {
+                val thisJob = coroutineContext[Job]
+                try {
+                    val ttsService = withContext(Dispatchers.IO) { VoiceServiceRegistry.textToSpeech(AppConfig.voice) }
+                    playCachedChunks(messageId, cached, ttsService.outputFormat)
+                } catch (e: AudioPlaybackException) {
+                    if (playingMessageId != messageId) return@launch
+                    loadingMessageId = null
+                    playingMessageId = null
+                    onError(e.message ?: "Voice playback failed")
+                } finally {
+                    if (playbackJob === thisJob) playbackJob = null
+                }
+            }
+            return
+        }
         loadingMessageId = messageId
         playbackJob = scope.launch {
             val thisJob = coroutineContext[Job]
             try {
                 val ttsService = withContext(Dispatchers.IO) { VoiceServiceRegistry.textToSpeech(AppConfig.voice) }
                 val chunks = chunkTextForTts(text)
+                val synthesizedChunks = mutableListOf<ByteArray>()
 
                 chunks.forEachIndexed { index, chunk ->
                     val audioBytes = withContext(Dispatchers.IO) { ttsService.synthesize(chunk) }
+                    synthesizedChunks += audioBytes
 
                     if (index == 0) {
                         // A newer toggle may have superseded this request while we were synthesizing.
@@ -201,6 +259,8 @@ internal object VoicePlaybackController {
                     player.play(audioBytes, ttsService.outputFormat) { chunkDone.complete(Unit) }
                     chunkDone.await()
                 }
+
+                cacheChunks(messageId, synthesizedChunks)
 
                 Snapshot.withMutableSnapshot {
                     if (playingMessageId == messageId) playingMessageId = null
@@ -221,6 +281,25 @@ internal object VoicePlaybackController {
                 // cancelled job's `finally` can run after a newer toggle() already replaced it.
                 if (playbackJob === thisJob) playbackJob = null
             }
+        }
+    }
+
+    /** Plays previously-cached [chunks] back-to-back for [messageId], bypassing TTS synthesis. */
+    private suspend fun playCachedChunks(messageId: String, chunks: List<ByteArray>, format: VoiceAudioFormat) {
+        chunks.forEachIndexed { index, audioBytes ->
+            if (index == 0) {
+                if (loadingMessageId != messageId) return
+                loadingMessageId = null
+                playingMessageId = messageId
+            } else if (playingMessageId != messageId) {
+                return
+            }
+            val chunkDone = CompletableDeferred<Unit>()
+            player.play(audioBytes, format) { chunkDone.complete(Unit) }
+            chunkDone.await()
+        }
+        Snapshot.withMutableSnapshot {
+            if (playingMessageId == messageId) playingMessageId = null
         }
     }
 }
@@ -613,10 +692,11 @@ private fun aiMessageBubble(
             horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.Top,
         ) {
-            // AI avatar — top padding aligns the circle with the first text line
+            // AI avatar — top padding aligns the circle's vertical center with the first
+            // text line's center.
             Box(
                 modifier = Modifier
-                    .padding(top = Spacing.medium)
+                    .padding(top = Spacing.large)
                     .size(32.dp)
                     .background(color = MaterialTheme.colorScheme.primaryContainer, shape = CircleShape)
                     .border(width = 2.dp, color = AppColors.codeBlockBorderColor(), shape = CircleShape),
@@ -848,6 +928,7 @@ private fun aiMessageBubble(
                         val msgId = message.id!!
                         val isThisLoading = VoicePlaybackController.loadingMessageId == msgId
                         val isThisPlaying = VoicePlaybackController.playingMessageId == msgId
+                        val playbackInteractionSource = remember { MutableInteractionSource() }
                         themedTooltip(
                             text = if (isThisPlaying) stringResource("message.voice.stop") else stringResource("message.voice.play"),
                         ) {
@@ -858,7 +939,11 @@ private fun aiMessageBubble(
                                     }
                                 },
                                 enabled = !isThisLoading,
-                                modifier = Modifier.size(32.dp).pointerHoverIcon(PointerIcon.Hand),
+                                interactionSource = playbackInteractionSource,
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .accessibleFocusable(playbackInteractionSource)
+                                    .pointerHoverIcon(PointerIcon.Hand),
                             ) {
                                 if (isThisLoading) {
                                     AppComponents.loadingSpinner(size = 14.dp)

@@ -143,6 +143,7 @@ import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.LocalFontScale
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.TooltipPlacement
+import io.askimo.ui.common.ui.accessibleFocusable
 import io.askimo.ui.common.ui.themedRichTooltip
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.common.ui.util.FileDialogUtils
@@ -1239,11 +1240,14 @@ fun chatInputField(
                             }
 
                             themedTooltip(text = voiceTooltip) {
+                                val micInteractionSource = remember { MutableInteractionSource() }
                                 IconButton(
                                     onClick = toggleVoiceRecording,
                                     enabled = !isLoading && voiceRecordingState != VoiceRecordingState.TRANSCRIBING,
+                                    interactionSource = micInteractionSource,
                                     modifier = Modifier
                                         .size(28.dp)
+                                        .accessibleFocusable(micInteractionSource)
                                         .pointerHoverIcon(PointerIcon.Hand),
                                 ) {
                                     // The spinner + "Transcribing…" label to the left already
@@ -1283,6 +1287,7 @@ fun chatInputField(
                                 )
                             }
                         } else {
+                            val sendInteractionSource = remember { MutableInteractionSource() }
                             themedTooltip(
                                 text = if (editingMessage != null) {
                                     stringResource("message.update.regenerate")
@@ -1294,8 +1299,10 @@ fun chatInputField(
                                     onClick = { onSendMessage(creationMode) },
                                     enabled = inputText.text.isNotBlank(),
                                     colors = IconButtonDefaults.filledIconButtonColors(),
+                                    interactionSource = sendInteractionSource,
                                     modifier = Modifier
                                         .size(28.dp)
+                                        .accessibleFocusable(sendInteractionSource)
                                         .pointerHoverIcon(PointerIcon.Hand),
                                 ) {
                                     Icon(

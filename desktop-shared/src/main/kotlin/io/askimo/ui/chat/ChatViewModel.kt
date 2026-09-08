@@ -1381,6 +1381,9 @@ class ChatViewModel(
                     chatSessionService.updateMessageContent(messageId, newContent)
                 }
 
+                // Content changed — any cached TTS audio for the old content is now stale.
+                VoicePlaybackController.invalidate(messageId)
+
                 // Update the message in the local state
                 messages = messages.map { message ->
                     if (message.id == messageId) {

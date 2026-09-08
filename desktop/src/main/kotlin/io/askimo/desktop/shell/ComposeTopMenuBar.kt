@@ -88,6 +88,7 @@ fun composeTopMenuBar(
     onNavigateToBookmarks: () -> Unit,
     onSupportAskimo: () -> Unit,
     onShareFeedback: () -> Unit,
+    onShowKeyboardShortcuts: () -> Unit,
     isSidebarExpanded: Boolean,
 ) {
     var expandedMenu by remember { mutableStateOf<TopMenu?>(null) }
@@ -271,6 +272,11 @@ fun composeTopMenuBar(
                         expandedMenu = null
                         onClearAccountPreferences()
                     }
+                }
+                menuDivider()
+                menuAction("menu.help.shortcuts") {
+                    expandedMenu = null
+                    onShowKeyboardShortcuts()
                 }
                 menuDivider()
                 menuAction("menu.about") {

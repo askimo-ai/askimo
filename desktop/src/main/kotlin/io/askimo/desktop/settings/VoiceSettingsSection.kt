@@ -4,6 +4,9 @@
  */
 package io.askimo.desktop.settings
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,6 +22,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Card
@@ -37,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import io.askimo.core.config.AppConfig
 import io.askimo.core.config.VoiceConfig
 import io.askimo.core.config.VoiceProvider
+import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.providers.HasApiKey
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.security.SecureKeyManager
@@ -123,6 +129,9 @@ private fun voiceConfigCard() {
     var localTtsEndpoint by remember { mutableStateOf(AppConfig.rawVoice.localTtsEndpoint) }
     var autoSendTranscript by remember { mutableStateOf(AppConfig.rawVoice.autoSendTranscript) }
     var autoPlayResponses by remember { mutableStateOf(AppConfig.rawVoice.autoPlayResponses) }
+    var ttsCacheMaxMessages by remember { mutableStateOf(AppConfig.rawVoice.ttsCacheMaxMessages) }
+    // Stored in bytes in config; displayed/edited in whole MB for a friendlier UI.
+    var ttsCacheMaxMb by remember { mutableStateOf((AppConfig.rawVoice.ttsCacheMaxBytes / (1024 * 1024)).toInt().coerceAtLeast(1)) }
     // Sourced from askimo.yml (voice.open_ai_tts_voices) instead of hardcoded — when OpenAI
     // ships a new voice, users can add it to their config file themselves and pick it up
     // immediately, without waiting for an Askimo release. Falls back to the built-in defaults
@@ -363,6 +372,41 @@ private fun voiceConfigCard() {
                     AppConfig.updateField("voice.autoPlayResponses", newValue)
                 },
             )
+
+            // ── Playback cache — bounds the in-memory TTS audio cache used by the "replay last
+            // response" shortcut / repeated 🔊 clicks, so replays skip a fresh synthesis call. ──
+            HorizontalDivider()
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+                Text(
+                    text = stringResource("settings.voice.cache.title"),
+                    style = AppTextStyles.body,
+                )
+                Text(
+                    text = stringResource("settings.voice.cache.description"),
+                    style = AppTextStyles.caption,
+                    color = AppTextStyles.secondaryContent,
+                )
+                voiceIntField(
+                    label = stringResource("settings.voice.cache.max_messages"),
+                    hint = stringResource("settings.voice.cache.max_messages.hint"),
+                    value = ttsCacheMaxMessages,
+                    minValue = 1,
+                    onValueChange = { newValue ->
+                        ttsCacheMaxMessages = newValue
+                        AppConfig.updateField("voice.ttsCacheMaxMessages", newValue)
+                    },
+                )
+                voiceIntField(
+                    label = stringResource("settings.voice.cache.max_mb"),
+                    hint = stringResource("settings.voice.cache.max_mb.hint"),
+                    value = ttsCacheMaxMb,
+                    minValue = 1,
+                    onValueChange = { newValue ->
+                        ttsCacheMaxMb = newValue
+                        AppConfig.updateField("voice.ttsCacheMaxBytes", newValue.toLong() * 1024 * 1024)
+                    },
+                )
+            }
 
             // ── OpenAI API key (separate from any OPENAI chat provider instance key) ──
             if (showApiKeyField) {
@@ -632,5 +676,83 @@ private fun voiceToggleRow(
             onCheckedChange = onCheckedChange,
             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
         )
+    }
+}
+
+/**
+ * Numeric input field for voice cache size settings — mirrors the validation pattern used by
+ * `AdvancedSettingsSection.ragIntField`: shows a raw editable number while focused, reformats
+ * with locale grouping on blur, flags invalid/out-of-range input with [OutlinedTextField.isError]
+ * instead of silently clamping while the user is still typing, and only calls [onValueChange]
+ * with an already-validated value (never blank/non-numeric/below [minValue]).
+ */
+@Composable
+private fun voiceIntField(
+    label: String,
+    hint: String,
+    value: Int,
+    minValue: Int,
+    onValueChange: (Int) -> Unit,
+) {
+    var lastValidValue by remember { mutableStateOf(value) }
+    var textValue by remember { mutableStateOf(LocalizationManager.formatNumber(value)) }
+    var isEditing by remember { mutableStateOf(false) }
+    var showSavedIndicator by remember { mutableStateOf(false) }
+
+    LaunchedEffect(value) {
+        if (value != lastValidValue) {
+            lastValidValue = value
+            if (!isEditing) textValue = LocalizationManager.formatNumber(value)
+        }
+    }
+
+    LaunchedEffect(showSavedIndicator) {
+        if (showSavedIndicator) {
+            delay(2000.milliseconds)
+            showSavedIndicator = false
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+        Text(text = label, style = AppTextStyles.body)
+        OutlinedTextField(
+            value = textValue,
+            onValueChange = { textValue = it },
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { focusState ->
+                    if (focusState.isFocused) {
+                        isEditing = true
+                        textValue = lastValidValue.toString()
+                    } else {
+                        isEditing = false
+                        textValue.toIntOrNull()?.takeIf { it >= minValue }?.let { validInt ->
+                            if (validInt != lastValidValue) {
+                                lastValidValue = validInt
+                                onValueChange(validInt)
+                                showSavedIndicator = true
+                            }
+                        }
+                        // Reject non-numeric / below-minimum input by reverting to the last
+                        // valid value instead of persisting garbage.
+                        textValue = LocalizationManager.formatNumber(lastValidValue)
+                    }
+                },
+            textStyle = AppTextStyles.body,
+            singleLine = true,
+            isError = isEditing && textValue.toIntOrNull()?.let { it < minValue } ?: (textValue.toIntOrNull() == null),
+            trailingIcon = {
+                AnimatedVisibility(visible = showSavedIndicator, enter = fadeIn(), exit = fadeOut()) {
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = "Saved",
+                        tint = AppTextStyles.primaryContent,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            },
+            colors = AppColors.outlinedTextFieldColors(),
+        )
+        Text(text = hint, style = AppTextStyles.caption)
     }
 }
