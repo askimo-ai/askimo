@@ -4,11 +4,10 @@
  */
 package io.askimo.ui.voice.impl
 
-import dev.langchain4j.model.openai.OpenAiTextToSpeechModel
 import io.askimo.core.config.VoiceConfig
 import io.askimo.core.config.VoiceProvider
 import io.askimo.core.logging.logger
-import io.askimo.core.util.createJdkHttpClientBuilder
+import io.askimo.core.util.httpPostForBytes
 import io.askimo.ui.voice.TextToSpeechFactory
 import io.askimo.ui.voice.TextToSpeechService
 import io.askimo.ui.voice.VoiceAudioFormat
@@ -16,16 +15,17 @@ import io.askimo.ui.voice.VoiceServiceException
 import io.askimo.ui.voice.toFriendlyVoiceErrorMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
  * Text-to-speech via a user-hosted Piper HTTP server exposing an OpenAI-compatible
- * `/v1/audio/speech` endpoint (e.g. `piper-http` OpenAI-compatible wrappers). Free, no API key
+ * `/audio/speech` endpoint (e.g. `piper-http` OpenAI-compatible wrappers). Free, no API key
  * required, runs fully offline.
  *
- * Uses langchain4j's [OpenAiTextToSpeechModel] pointed at a custom [VoiceConfig.localTtsEndpoint]
- * base URL (default `http://localhost:5000`) — the same "OpenAI-compatible" pattern used by
- * [io.askimo.core.providers.openaicompatible.OpenAiCompatibleModelFactory] for chat/embedding
- * models and by [LocalWhisperSpeechToTextService] for local speech-to-text.
+ * Called directly over HTTP (same reasoning as [OpenAiTextToSpeechService]) so
+ * [VoiceConfig.ttsSpeed] can be sent as OpenAI's `speed` field — most OpenAI-compatible Piper
+ * wrappers accept and honor it, but servers that don't recognize the field will simply ignore it.
  */
 class PiperTextToSpeechService(private val config: VoiceConfig) : TextToSpeechService {
     private val log = logger<PiperTextToSpeechService>()
@@ -38,16 +38,27 @@ class PiperTextToSpeechService(private val config: VoiceConfig) : TextToSpeechSe
             throw VoiceServiceException("Local Piper endpoint is not configured. Set it in Settings > Voice.")
         }
 
-        try {
-            val tts = OpenAiTextToSpeechModel.builder()
-                .httpClientBuilder(createJdkHttpClientBuilder(baseUrl))
-                .baseUrl(baseUrl)
-                .apiKey(config.openAiApiKey.ifBlank { "not-needed" })
-                .modelName(config.ttsModel.ifBlank { "tts-1" })
-                .voice(config.ttsVoice.ifBlank { "alloy" })
-                .build()
+        val body = buildJsonObject {
+            put("model", config.ttsModel.ifBlank { "tts-1" })
+            put("input", text)
+            put("voice", config.ttsVoice.ifBlank { "alloy" })
+            put("response_format", "wav")
+            put("speed", config.ttsSpeed.takeIf { it in 0.25..4.0 } ?: 1.0)
+        }.toString()
 
-            tts.synthesize(text).audio().binaryData()
+        try {
+            val (status, responseBytes) = httpPostForBytes(
+                url = "$baseUrl/audio/speech",
+                body = body,
+                headers = mapOf("Authorization" to "Bearer ${config.openAiApiKey.ifBlank { "not-needed" }}"),
+            )
+            if (status != 200) {
+                val errorText = String(responseBytes, Charsets.UTF_8)
+                throw VoiceServiceException("Local Piper TTS request failed (HTTP $status): $errorText")
+            }
+            responseBytes
+        } catch (e: VoiceServiceException) {
+            throw e
         } catch (e: Exception) {
             log.warn("Local Piper TTS request failed", e)
             throw VoiceServiceException(

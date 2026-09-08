@@ -66,6 +66,32 @@ fun httpPost(
 }
 
 /**
+ * Perform a POST request with a JSON body, returning the **raw** response bytes instead of a
+ * decoded String — required for binary responses (e.g. synthesized TTS audio) where [httpPost]'s
+ * UTF-8 string decoding would corrupt the payload.
+ */
+fun httpPostForBytes(
+    url: String,
+    body: String,
+    headers: Map<String, String> = emptyMap(),
+    connectTimeoutMs: Long = 15_000,
+    readTimeoutMs: Long = 600_000,
+    httpVersion: HttpClient.Version = HttpClient.Version.HTTP_2,
+): Pair<Int, ByteArray> {
+    val client = ProxyUtil.configureProxy(HttpClient.newBuilder().version(httpVersion), url)
+        .connectTimeout(Duration.ofMillis(connectTimeoutMs))
+        .build()
+    val requestBuilder = HttpRequest.newBuilder()
+        .uri(URI(url))
+        .timeout(Duration.ofMillis(readTimeoutMs))
+        .header("Content-Type", "application/json")
+        .POST(HttpRequest.BodyPublishers.ofString(body))
+    headers.forEach { (k, v) -> requestBuilder.header(k, v) }
+    val response = client.sendWithErrorHandling(requestBuilder.build(), url)
+    return response.statusCode() to response.body()
+}
+
+/**
  * Sends an HTTP request and wraps any connection/IO errors with a descriptive message.
  */
 private fun HttpClient.sendWithErrorHandling(
