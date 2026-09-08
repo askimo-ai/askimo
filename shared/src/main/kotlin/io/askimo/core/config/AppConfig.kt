@@ -1375,7 +1375,7 @@ object AppConfig {
 
         "ttsSpeed" -> {
             val parsed = (value as? Double) ?: (value as? Number)?.toDouble() ?: value.toString().toDoubleOrNull()
-            config.copy(ttsSpeed = parsed?.coerceIn(0.25, 4.0) ?: config.ttsSpeed)
+            config.copy(ttsSpeed = parsed?.takeIf { it.isFinite() }?.coerceIn(0.25, 4.0) ?: config.ttsSpeed)
         }
 
         "useProviderKeyForVoice" -> config.copy(useProviderKeyForVoice = value as Boolean)
