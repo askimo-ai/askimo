@@ -94,10 +94,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -167,7 +170,6 @@ import java.time.Instant
 import java.util.UUID
 import kotlin.collections.minus
 import kotlin.collections.plus
-import kotlin.math.ceil
 import kotlin.math.sqrt
 import kotlin.ranges.coerceIn
 import kotlin.time.Duration.Companion.milliseconds
@@ -464,51 +466,33 @@ fun chatInputField(
     var textFieldHeight by remember(sessionId, fontScale) { mutableStateOf(defaultTextFieldHeight) }
     var manuallyResized by remember(sessionId, fontScale) { mutableStateOf(false) }
 
-    // Track the actual width of the text field for accurate wrapping calculation
+    // Real measured text-block height (TextMeasurer) instead of lineHeight * lineCount — avoids
+    // per-line rounding drift when the font's actual line height differs from our lineHeight
+    // constant (e.g. +1 wrapped line growing the box by 9dp instead of 10).
     var textFieldWidthPx by remember { mutableStateOf(0f) }
-
-    // Density for dp to px conversion
     val density = LocalDensity.current
+    val textMeasurer = rememberTextMeasurer()
+    val measurementTextStyle = MaterialTheme.typography.bodyLarge
+    val measuredTextHeight = remember(inputText.text, textFieldWidthPx, measurementTextStyle) {
+        if (inputText.text.isEmpty()) return@remember lineHeight
 
-    // Calculate desired height based on text content and actual width
-    // This accounts for both explicit newlines AND text wrapping
-    val estimatedLineCount = remember(inputText.text, textFieldWidthPx) {
-        if (inputText.text.isEmpty()) return@remember 1
+        // OutlinedTextField's default internal horizontal content padding (M3 spec) — subtracted
+        // so the measured width matches the actual space available for text.
+        val horizontalPaddingPx = with(density) { 32.dp.toPx() }
+        val availableWidthPx = (textFieldWidthPx - horizontalPaddingPx).coerceAtLeast(0f).toInt()
+        if (availableWidthPx <= 0) return@remember lineHeight
 
-        // Calculate average character width dynamically
-        // Approximate: bodyMedium font is ~14sp, average char width is ~0.6 of font size
-        val fontSizePx = with(density) { 14.sp.toPx() }
-        val avgCharWidthPx = fontSizePx * 0.6f
-
-        // Calculate characters that fit per line based on actual text field width
-        // Subtract standard text field horizontal padding.
-        val textFieldPaddingPx = with(density) { 48.dp.toPx() }
-        val availableWidthPx = textFieldWidthPx - textFieldPaddingPx
-
-        val charsPerLine = if (availableWidthPx > 0 && avgCharWidthPx > 0) {
-            (availableWidthPx / avgCharWidthPx).toInt().coerceAtLeast(20) // Minimum 20 chars
-        } else {
-            80 // Fallback if width not measured yet
-        }
-
-        // Count total lines accounting for wrapping
-        // Split by explicit newlines first
-        var totalLines = 0
-        inputText.text.split('\n').forEach { line ->
-            if (line.isEmpty()) {
-                totalLines += 1 // Empty line still takes space
-            } else {
-                // Calculate how many visual lines this text line will take
-                val wrappedLines = ceil(line.length.toFloat() / charsPerLine).toInt()
-                totalLines += wrappedLines
-            }
-        }
-
-        totalLines.coerceAtLeast(1)
+        val layoutResult = textMeasurer.measure(
+            text = AnnotatedString(inputText.text),
+            style = measurementTextStyle,
+            constraints = Constraints(maxWidth = availableWidthPx),
+            softWrap = true,
+        )
+        with(density) { layoutResult.size.height.toDp() }
     }
 
     // Approximate height per line (can be adjusted based on your text style)
-    val calculatedHeight = (lineHeight * estimatedLineCount) + padding + inlineControlsBottomPadding
+    val calculatedHeight = measuredTextHeight + padding + inlineControlsBottomPadding
     val maxVisibleInputLines = ((textFieldHeight - inlineControlsBottomPadding - 1.dp - 32.dp) / lineHeight)
         .toInt()
         .coerceAtLeast(1)

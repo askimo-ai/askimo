@@ -20,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.BitmapPainter
@@ -27,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import io.askimo.core.agent.dto.AgentTurnMessageDTO
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.TurnTimelineGroup
+import io.askimo.ui.chat.fileLinkClickHandler
 import io.askimo.ui.chat.messageBubble
 import io.askimo.ui.chat.turnTimelineView
 import io.askimo.ui.common.i18n.stringResource
@@ -58,6 +60,7 @@ fun agentMessageList(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Spacing.extraLarge),
     ) {
+        val onLinkClick = remember { fileLinkClickHandler(projectId = null) }
         messages.forEachIndexed { index, turn ->
             val message = turn.toRenderableMessage()
             val isStreamingMessage = !message.isUser && message.id == null
@@ -87,6 +90,7 @@ fun agentMessageList(
                             resolvedGroups,
                             isStreaming = isStreamingMessage,
                             messageId = message.id,
+                            onLinkClick = onLinkClick,
                         )
                     }
                 } else {
@@ -129,7 +133,7 @@ fun agentMessageList(
                             modifier = Modifier.padding(top = Spacing.medium),
                         )
                     } else {
-                        turnTimelineView(liveTimelineGroups, isStreaming = true)
+                        turnTimelineView(liveTimelineGroups, isStreaming = true, onLinkClick = onLinkClick)
                     }
                 }
             }

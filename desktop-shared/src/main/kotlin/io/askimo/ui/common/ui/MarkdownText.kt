@@ -228,6 +228,51 @@ fun revealingMarkdownText(
 }
 
 /**
+ * Renders short, free-form markdown text (e.g. model "thinking"/reasoning output) as a single
+ * flowing [Text] — supporting inline formatting (bold/italic/inline code/links) but *not* block
+ * structure (headings, lists, tables, code blocks all collapse into plain inline text). Multiple
+ * top-level blocks are joined with a blank line so paragraph breaks are still visible.
+ *
+ * Use this instead of a plain `Text(thinkingContent)` wherever reasoning/thinking content is
+ * shown — a bare `Text` never goes through the parser/[buildInlineContent] pipeline at all, so it
+ * can never render a `file://` (or any other) markdown link the model emits while narrating its
+ * reasoning — it just shows the raw `[label](url)` syntax as literal text.
+ */
+@Composable
+fun inlineMarkdownText(
+    markdown: String,
+    modifier: Modifier = Modifier,
+    style: androidx.compose.ui.text.TextStyle = AppTextStyles.body,
+    color: Color = Color.Unspecified,
+    onLinkClick: ((url: String) -> Unit)? = null,
+) {
+    val codeFontFamily = LocalCodeFontFamily.current
+    val inlineCodeBg = AppColors.surfaceColor(AppColors.Elevation.EMPHASIS)
+    val linkColor = MaterialTheme.colorScheme.tertiary
+    val mathBg = AppColors.surfaceColor(AppColors.Elevation.RECESSED)
+
+    val document = remember(markdown) {
+        val parser = Parser.builder()
+            .extensions(listOf(AutolinkExtension.create()))
+            .build()
+        parser.parse(preprocessMarkdown(markdown))
+    }
+
+    val annotated = buildAnnotatedString {
+        var child = document.firstChild
+        var first = true
+        while (child != null) {
+            if (!first) append("\n\n")
+            first = false
+            append(buildInlineContent(child, inlineCodeBg, linkColor, codeFontFamily, mathBg, onLinkClick))
+            child = child.next
+        }
+    }
+
+    Text(text = annotated, modifier = modifier, style = style, color = color)
+}
+
+/**
  * Pre-processes markdown to handle syntax the commonmark parser doesn't support natively.
  *
  * Footnotes:
@@ -361,7 +406,7 @@ private fun renderSingleNode(node: Node, viewportTopY: Float? = null, isStreamin
             onLinkClick,
         )
 
-        is TableBlock -> renderTable(node)
+        is TableBlock -> renderTable(node, onLinkClick)
 
         is Image -> {
             val destination = node.destination
@@ -1040,8 +1085,12 @@ private fun renderVideo(videoUrl: String) {
 }
 
 @Composable
-private fun renderTable(table: TableBlock) {
+private fun renderTable(table: TableBlock, onLinkClick: ((url: String) -> Unit)? = null) {
     val borderColor = AppColors.codeBlockBorderColor()
+    val codeFontFamily = LocalCodeFontFamily.current
+    val inlineCodeBg = AppColors.surfaceColor(AppColors.Elevation.EMPHASIS)
+    val linkColor = MaterialTheme.colorScheme.tertiary
+    val mathBg = AppColors.surfaceColor(AppColors.Elevation.RECESSED)
 
     Column(
         modifier = Modifier
@@ -1077,7 +1126,7 @@ private fun renderTable(table: TableBlock) {
                                             contentAlignment = Alignment.TopStart,
                                         ) {
                                             Text(
-                                                text = extractCellText(cell),
+                                                text = buildInlineContentForNode(cell, inlineCodeBg, linkColor, codeFontFamily, mathBg, onLinkClick),
                                                 style = AppTextStyles.body,
                                             )
                                         }
@@ -1112,7 +1161,7 @@ private fun renderTable(table: TableBlock) {
                                             contentAlignment = Alignment.TopStart,
                                         ) {
                                             Text(
-                                                text = extractCellText(cell),
+                                                text = buildInlineContentForNode(cell, inlineCodeBg, linkColor, codeFontFamily, mathBg, onLinkClick),
                                                 style = AppTextStyles.body,
                                             )
                                         }
@@ -1128,26 +1177,6 @@ private fun renderTable(table: TableBlock) {
             child = child.next
         }
     }
-}
-
-/**
- * Extract plain text content from a table cell node.
- */
-private fun extractCellText(node: Node): String {
-    val builder = StringBuilder()
-    var child = node.firstChild
-    while (child != null) {
-        when (child) {
-            is MarkdownText -> builder.append(child.literal)
-            is Paragraph -> builder.append(extractCellText(child))
-            is StrongEmphasis -> builder.append(extractCellText(child))
-            is Emphasis -> builder.append(extractCellText(child))
-            is Code -> builder.append(child.literal)
-            else -> builder.append(extractCellText(child))
-        }
-        child = child.next
-    }
-    return builder.toString()
 }
 
 private fun buildInlineContent(
@@ -1348,13 +1377,19 @@ private fun buildInlineContent(
                 }
 
                 val destination = child.destination
-                val linkStyles = TextLinkStyles(
-                    style = SpanStyle(
-                        color = linkColor,
-                        textDecoration = TextDecoration.Underline,
-                    ),
+                val linkSpanStyle = SpanStyle(
+                    color = linkColor,
+                    textDecoration = TextDecoration.Underline,
                 )
+                val linkStyles = TextLinkStyles(style = linkSpanStyle)
 
+                // Explicitly re-apply the link's color/underline as an outer SpanStyle around
+                // the appended content instead of relying solely on LinkAnnotation's `styles`
+                // argument. When the label already carries its own span (e.g. the inline-code
+                // background/font applied above for `` [`code`](url) `` labels), how overlapping
+                // spans get merged at draw time can cause the link's own color/underline to
+                // silently not show through, leaving the label looking like plain (or plain
+                // inline-code) text instead of a clickable link.
                 if (destination.startsWith("file://") && onLinkClick != null) {
                     // Intercept file:// links — fire callback instead of opening OS browser
                     withLink(
@@ -1364,7 +1399,9 @@ private fun buildInlineContent(
                             linkInteractionListener = { onLinkClick(destination) },
                         ),
                     ) {
-                        append(displayContent)
+                        withStyle(linkSpanStyle) {
+                            append(displayContent)
+                        }
                     }
                 } else {
                     withLink(
@@ -1373,7 +1410,9 @@ private fun buildInlineContent(
                             styles = linkStyles,
                         ),
                     ) {
-                        append(displayContent)
+                        withStyle(linkSpanStyle) {
+                            append(displayContent)
+                        }
                     }
                 }
             }

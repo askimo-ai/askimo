@@ -262,6 +262,7 @@ fun chatMessageList(
                                     resolvedGroups,
                                     isStreaming = isStreamingMessage,
                                     messageId = group.message.id,
+                                    onLinkClick = remember(projectId) { fileLinkClickHandler(projectId) },
                                 )
                             }
                         } else {
@@ -298,6 +299,7 @@ fun chatMessageList(
             ) {
                 Box(
                     modifier = Modifier
+                        .padding(top = Spacing.large)
                         .size(32.dp)
                         .background(color = MaterialTheme.colorScheme.primaryContainer, shape = CircleShape)
                         .border(width = 2.dp, color = AppColors.codeBlockBorderColor(), shape = CircleShape),

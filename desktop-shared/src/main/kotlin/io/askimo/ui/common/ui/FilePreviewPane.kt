@@ -2,7 +2,7 @@
  *
  * Copyright (c) 2026 Askimo
  */
-package io.askimo.desktop.chat
+package io.askimo.ui.common.ui
 
 import androidx.compose.foundation.HorizontalScrollbar
 import androidx.compose.foundation.VerticalScrollbar
@@ -52,8 +52,6 @@ import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
-import io.askimo.ui.common.ui.codeViewerBlock
-import io.askimo.ui.common.ui.themedTooltip
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.awt.Desktop
@@ -64,10 +62,10 @@ import java.io.File
 private val log = currentFileLogger()
 
 /** Maximum file size (512 KB) the viewer will load into memory. */
-private const val MAX_PREVIEW_BYTES = 512 * 1024L
+private const val FILE_PREVIEW_MAX_BYTES = 512 * 1024L
 
 /** Extensions treated as binary / non-previewable. */
-private val BINARY_EXTENSIONS = setOf(
+private val FILE_PREVIEW_BINARY_EXTENSIONS = setOf(
     "png", "jpg", "jpeg", "gif", "bmp", "ico", "webp", "svg",
     "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
     "zip", "tar", "gz", "bz2", "7z", "rar",
@@ -77,38 +75,42 @@ private val BINARY_EXTENSIONS = setOf(
     "bin", "dat", "db", "sqlite",
 )
 
-/** Loading state for the file viewer. */
-private sealed interface ViewerState {
-    data object Loading : ViewerState
-    data class Content(val text: String, val lineCount: Int) : ViewerState
-    data class TooLarge(val sizeKb: Long) : ViewerState
-    data object Binary : ViewerState
-    data class Error(val message: String) : ViewerState
+/** Loading state for the file preview pane. */
+private sealed interface FilePreviewState {
+    data object Loading : FilePreviewState
+    data class Content(val text: String, val lineCount: Int) : FilePreviewState
+    data class TooLarge(val sizeKb: Long) : FilePreviewState
+    data object Binary : FilePreviewState
+    data class Error(val message: String) : FilePreviewState
 }
 
 /**
- * In-panel file viewer pane.
+ * Shared, reusable in-panel file preview pane.
  *
- * Shows the raw text content of a [io.askimo.desktop.chat.FileTreeNode] in a scrollable, selectable
- * monospace view. Gracefully handles binary files, oversized files, and read
- * errors with an "Open externally" fallback action.
+ * Shows the raw text content of a file at [path] in a scrollable, selectable monospace
+ * view. Gracefully handles binary files, oversized files, and read errors with an
+ * "Open externally" fallback action. Used by both the chat RAG source viewer and the
+ * agent workspace file browser so preview behavior stays consistent — new call sites
+ * should reuse this rather than re-implementing file preview logic.
  *
- * @param node     The [io.askimo.desktop.chat.FileTreeNode] whose content to preview.
- * @param onClose  Called when the user dismisses the viewer.
- * @param modifier Optional modifier applied to the outer column.
+ * @param path        Absolute path of the file to preview.
+ * @param displayName Name shown in the header (usually the file's simple name).
+ * @param onClose     Called when the user dismisses the viewer.
+ * @param modifier    Optional modifier applied to the outer column.
  */
 @Composable
-fun fileViewerPane(
-    node: FileTreeNode,
+fun filePreviewPane(
+    path: String,
+    displayName: String,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var viewerState by remember(node.path) { mutableStateOf<ViewerState>(ViewerState.Loading) }
+    var viewerState by remember(path) { mutableStateOf<FilePreviewState>(FilePreviewState.Loading) }
 
-    // Load file content off the main thread whenever the selected node changes
-    LaunchedEffect(node.path) {
-        viewerState = ViewerState.Loading
-        viewerState = withContext(Dispatchers.IO) { loadFileContent(node.path) }
+    // Load file content off the main thread whenever the selected path changes
+    LaunchedEffect(path) {
+        viewerState = FilePreviewState.Loading
+        viewerState = withContext(Dispatchers.IO) { loadFilePreviewContent(path) }
     }
 
     Column(
@@ -139,18 +141,18 @@ fun fileViewerPane(
                     modifier = Modifier.size(15.dp),
                 )
                 Text(
-                    text = node.displayName,
+                    text = displayName,
                     style = AppTextStyles.fieldLabel,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
                 )
-                if (viewerState is ViewerState.Content) {
+                if (viewerState is FilePreviewState.Content) {
                     Text(
                         text = stringResource(
                             "file.viewer.lines",
-                            (viewerState as ViewerState.Content).lineCount,
+                            (viewerState as FilePreviewState.Content).lineCount,
                         ),
                         style = AppTextStyles.hint,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -165,7 +167,7 @@ fun fileViewerPane(
                 // Open in OS default editor — always available
                 themedTooltip(text = stringResource("file.viewer.open.external")) {
                     IconButton(
-                        onClick = { openFileExternally(node.path) },
+                        onClick = { openFilePreviewExternally(path) },
                         modifier = Modifier.size(28.dp).pointerHoverIcon(PointerIcon.Hand),
                     ) {
                         Icon(
@@ -176,10 +178,10 @@ fun fileViewerPane(
                         )
                     }
                 }
-                if (viewerState is ViewerState.Content) {
+                if (viewerState is FilePreviewState.Content) {
                     themedTooltip(text = stringResource("file.viewer.copy")) {
                         IconButton(
-                            onClick = { copyTextToClipboard((viewerState as ViewerState.Content).text) },
+                            onClick = { copyFilePreviewToClipboard((viewerState as FilePreviewState.Content).text) },
                             modifier = Modifier.size(28.dp).pointerHoverIcon(PointerIcon.Hand),
                         ) {
                             Icon(
@@ -210,7 +212,7 @@ fun fileViewerPane(
         HorizontalDivider()
 
         when (val state = viewerState) {
-            ViewerState.Loading -> {
+            FilePreviewState.Loading -> {
                 Box(
                     modifier = Modifier.fillMaxWidth().padding(Spacing.extraLarge),
                     contentAlignment = Alignment.Center,
@@ -223,8 +225,8 @@ fun fileViewerPane(
                 }
             }
 
-            is ViewerState.Content -> {
-                val language = File(node.path).extension.lowercase().takeIf { it.isNotEmpty() }
+            is FilePreviewState.Content -> {
+                val language = File(path).extension.lowercase().takeIf { it.isNotEmpty() }
                 val vScrollState = rememberScrollState()
                 val hScrollState = rememberScrollState()
                 // Outer Box: stacks scrollable content + fixed scrollbar overlays
@@ -263,7 +265,7 @@ fun fileViewerPane(
                 }
             }
 
-            is ViewerState.TooLarge -> viewerPlaceholder(
+            is FilePreviewState.TooLarge -> filePreviewPlaceholder(
                 icon = {
                     Icon(
                         imageVector = Icons.Default.Warning,
@@ -274,10 +276,10 @@ fun fileViewerPane(
                 },
                 message = stringResource("file.viewer.too.large", state.sizeKb),
                 actionLabel = stringResource("file.viewer.open.external"),
-                onAction = { openFileExternally(node.path) },
+                onAction = { openFilePreviewExternally(path) },
             )
 
-            ViewerState.Binary -> viewerPlaceholder(
+            FilePreviewState.Binary -> filePreviewPlaceholder(
                 icon = {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.InsertDriveFile,
@@ -288,10 +290,10 @@ fun fileViewerPane(
                 },
                 message = stringResource("file.viewer.binary"),
                 actionLabel = stringResource("file.viewer.open.external"),
-                onAction = { openFileExternally(node.path) },
+                onAction = { openFilePreviewExternally(path) },
             )
 
-            is ViewerState.Error -> viewerPlaceholder(
+            is FilePreviewState.Error -> filePreviewPlaceholder(
                 icon = {
                     Icon(
                         imageVector = Icons.Default.Warning,
@@ -302,7 +304,7 @@ fun fileViewerPane(
                 },
                 message = stringResource("file.viewer.error", state.message),
                 actionLabel = stringResource("file.viewer.open.external"),
-                onAction = { openFileExternally(node.path) },
+                onAction = { openFilePreviewExternally(path) },
             )
         }
     }
@@ -310,7 +312,7 @@ fun fileViewerPane(
 
 /** Generic placeholder used for binary / too-large / error states. */
 @Composable
-private fun viewerPlaceholder(
+private fun filePreviewPlaceholder(
     icon: @Composable () -> Unit,
     message: String,
     actionLabel: String,
@@ -353,7 +355,7 @@ private fun viewerPlaceholder(
 }
 
 /** Opens a file in the OS file browser (local to this file). */
-private fun openFileExternally(path: String) {
+private fun openFilePreviewExternally(path: String) {
     try {
         val file = File(path)
         if (file.exists() && Desktop.isDesktopSupported()) {
@@ -365,7 +367,7 @@ private fun openFileExternally(path: String) {
 }
 
 /** Copies text to the system clipboard (local to this file). */
-private fun copyTextToClipboard(text: String) {
+private fun copyFilePreviewToClipboard(text: String) {
     try {
         val clipboard = Toolkit.getDefaultToolkit().systemClipboard
         clipboard.setContents(StringSelection(text), null)
@@ -374,21 +376,21 @@ private fun copyTextToClipboard(text: String) {
     }
 }
 
-/** Reads file content and returns the appropriate [ViewerState]. Must run on IO dispatcher. */
-private fun loadFileContent(path: String): ViewerState {
+/** Reads file content and returns the appropriate [FilePreviewState]. Must run on IO dispatcher. */
+private fun loadFilePreviewContent(path: String): FilePreviewState {
     return try {
         val file = File(path)
-        if (!file.exists() || !file.isFile) return ViewerState.Error("File not found")
+        if (!file.exists() || !file.isFile) return FilePreviewState.Error("File not found")
 
         val ext = file.extension.lowercase()
-        if (ext in BINARY_EXTENSIONS) return ViewerState.Binary
+        if (ext in FILE_PREVIEW_BINARY_EXTENSIONS) return FilePreviewState.Binary
 
         val sizeBytes = file.length()
-        if (sizeBytes > MAX_PREVIEW_BYTES) return ViewerState.TooLarge(sizeBytes / 1024)
+        if (sizeBytes > FILE_PREVIEW_MAX_BYTES) return FilePreviewState.TooLarge(sizeBytes / 1024)
 
         val text = file.readText(Charsets.UTF_8)
-        ViewerState.Content(text = text, lineCount = text.lines().size)
+        FilePreviewState.Content(text = text, lineCount = text.lines().size)
     } catch (e: Exception) {
-        ViewerState.Error(e.message ?: "Unknown error")
+        FilePreviewState.Error(e.message ?: "Unknown error")
     }
 }

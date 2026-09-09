@@ -37,11 +37,11 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -78,6 +78,7 @@ import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.rag.state.IndexStateManager
 import io.askimo.ui.common.components.indexedIcon
 import io.askimo.ui.common.components.notIndexedIcon
+import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
@@ -329,6 +330,7 @@ fun ragSourcesTree(
         // Sticky bottom action bar — only shown when files are selected for chat
         if (onAddToChat != null && chatSelection.isNotEmpty()) {
             HorizontalDivider()
+            val barContentColor = AppColors.contentColorFor(AppColors.Elevation.RAISED)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -338,19 +340,25 @@ fun ragSourcesTree(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(imageVector = Icons.Default.AttachFile, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(16.dp))
-                    Text(text = stringResource("rag.tree.chat.selected", chatSelection.size), style = AppTextStyles.fieldLabel, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    Icon(imageVector = Icons.Default.AttachFile, contentDescription = null, tint = barContentColor, modifier = Modifier.size(16.dp))
+                    Text(text = stringResource("rag.tree.chat.selected", chatSelection.size), style = AppTextStyles.fieldLabel, color = barContentColor)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall), verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = { chatSelection.clear() }, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
-                        Text(text = stringResource("rag.tree.chat.clear"), style = AppTextStyles.hint, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        Text(text = stringResource("rag.tree.chat.clear"), style = AppTextStyles.hint, color = barContentColor)
                     }
-                    Button(onClick = {
+                    primaryButton(onClick = {
                         onAddToChat(chatSelection.toList())
                         chatSelection.clear()
-                    }, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
-                        Icon(imageVector = Icons.Default.AttachFile, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Text(text = stringResource("rag.tree.chat.add"), style = AppTextStyles.hint, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 4.dp))
+                    }) {
+                        Icon(imageVector = Icons.Default.AttachFile, contentDescription = null, tint = LocalContentColor.current, modifier = Modifier.size(14.dp))
+                        Text(
+                            text = stringResource("rag.tree.chat.add"),
+                            style = AppTextStyles.hint,
+                            color = LocalContentColor.current,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(start = 4.dp),
+                        )
                     }
                 }
             }

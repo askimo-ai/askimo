@@ -27,7 +27,18 @@ import io.askimo.ui.common.theme.ThemeMode
 import io.askimo.ui.common.theme.ThemePaletteStyle
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.theme.detectMacOSDarkMode
+import kotlinx.coroutines.delay
 import java.util.Locale
+import kotlin.time.Duration.Companion.seconds
+
+/**
+ * Poll interval used to detect OS-level appearance changes while in SYSTEM
+ * mode. Polling (rather than relying on window-focus events) is used because
+ * macOS appearance can be toggled from the menu bar / Control Center without
+ * the app window ever losing focus — a focus-gated check can miss that
+ * entirely and never fire at all.
+ */
+private val SYSTEM_THEME_POLL_INTERVAL = 30.seconds
 
 // ── ChatViewState ─────────────────────────────────────────────────────────────
 
@@ -63,8 +74,17 @@ fun rememberThemeState(): ThemeState {
     val accentColorHex by ThemePreferences.accentColorHex.collectAsState()
     val themePaletteStyle by ThemePreferences.themePaletteStyle.collectAsState()
     var isSystemInDarkMode by remember { mutableStateOf(detectMacOSDarkMode()) }
+
+    // Re-check immediately on entering SYSTEM mode, then keep polling at a
+    // fixed interval for as long as SYSTEM mode stays active.
     LaunchedEffect(themeMode) {
-        if (themeMode == ThemeMode.SYSTEM) isSystemInDarkMode = detectMacOSDarkMode()
+        if (themeMode != ThemeMode.SYSTEM) return@LaunchedEffect
+        isSystemInDarkMode = detectMacOSDarkMode()
+        while (true) {
+            delay(SYSTEM_THEME_POLL_INTERVAL)
+            val detected = detectMacOSDarkMode()
+            if (detected != isSystemInDarkMode) isSystemInDarkMode = detected
+        }
     }
     val useDarkMode = when (themeMode) {
         ThemeMode.LIGHT -> false

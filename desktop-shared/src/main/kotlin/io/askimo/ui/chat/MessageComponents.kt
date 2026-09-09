@@ -109,6 +109,7 @@ import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.accessibleFocusable
+import io.askimo.ui.common.ui.inlineMarkdownText
 import io.askimo.ui.common.ui.markdownText
 import io.askimo.ui.common.ui.revealingMarkdownText
 import io.askimo.ui.common.ui.themedTooltip
@@ -311,6 +312,37 @@ internal object VoicePlaybackController {
         }
         Snapshot.withMutableSnapshot {
             if (playingMessageId == messageId) playingMessageId = null
+        }
+    }
+}
+
+/**
+ * Builds a click handler for `file://` links rendered inside markdown messages.
+ *
+ * When [projectId] is non-null (project chat), the click is delegated to the in-app file
+ * viewer via [EventBus] (see `ProjectSidePanel`'s `FilePreviewRequestEvent` listener).
+ * Otherwise it falls back to opening the file with the OS default application.
+ *
+ * Shared by every markdown render site that needs `file://` link interception — the default
+ * message body ([aiMessageBubble]) as well as [turnTimelineView]'s `customBody` callers
+ * (`ChatMessageList`, `AgentMessageList`) — so behavior stays consistent regardless of which
+ * layout renders a given message.
+ */
+fun fileLinkClickHandler(projectId: String? = null): (url: String) -> Unit = { url ->
+    if (url.startsWith("file://")) {
+        if (projectId != null) {
+            // Project chat — let the side panel handle it in the file viewer
+            EventBus.post(parseFilePreviewRequestEvent(url))
+        } else {
+            // Non-project chat — fall back to OS file browser
+            try {
+                val filePath = parseFilePreviewRequestEvent(url).filePath
+                val file = File(filePath)
+                if (file.exists() && Desktop.isDesktopSupported()) {
+                    Desktop.getDesktop().open(file)
+                }
+            } catch (_: Exception) {
+            }
         }
     }
 }
@@ -744,6 +776,8 @@ private fun aiMessageBubble(
                             if (customBody != null) {
                                 customBody()
                             } else {
+                                val onLinkClickHandler = remember(projectId) { fileLinkClickHandler(projectId) }
+
                                 // Thinking/reasoning collapsible section — shown when the model exposes reasoning
                                 if (thinkingContent.isNotEmpty()) {
                                     thinkingSection(
@@ -751,6 +785,7 @@ private fun aiMessageBubble(
                                         isStreaming = isStreaming,
                                         isExpanded = thinkingExpanded,
                                         onToggle = { thinkingExpanded = !thinkingExpanded },
+                                        onLinkClick = onLinkClickHandler,
                                     )
                                 }
 
@@ -789,23 +824,6 @@ private fun aiMessageBubble(
                                         )
                                     }
                                 } else {
-                                    val onLinkClickHandler: (String) -> Unit = { url ->
-                                        if (url.startsWith("file://")) {
-                                            if (projectId != null) {
-                                                // Project chat — let the side panel handle it in the file viewer
-                                                EventBus.post(parseFilePreviewRequestEvent(url))
-                                            } else {
-                                                // Non-project chat — fall back to OS file browser
-                                                try {
-                                                    val filePath = parseFilePreviewRequestEvent(url).filePath
-                                                    val file = File(filePath)
-                                                    if (file.exists() && Desktop.isDesktopSupported()) {
-                                                        Desktop.getDesktop().open(file)
-                                                    }
-                                                } catch (_: Exception) {}
-                                            }
-                                        }
-                                    }
                                     if (isStreaming) {
                                         markdownText(
                                             markdown = message.content,
@@ -1231,6 +1249,7 @@ internal fun thinkingSection(
     isStreaming: Boolean,
     isExpanded: Boolean,
     onToggle: () -> Unit,
+    onLinkClick: ((url: String) -> Unit)? = null,
 ) {
     val headerColor = AppColors.secondaryIconColor()
     val headerText = if (isStreaming) {
@@ -1305,11 +1324,11 @@ internal fun thinkingSection(
                             .verticalScroll(scrollState)
                             .padding(start = Spacing.small, end = Spacing.medium, top = 2.dp, bottom = 2.dp),
                     ) {
-                        Text(
-                            text = thinkingContent,
-                            style = AppTextStyles.caption,
+                        inlineMarkdownText(
+                            markdown = thinkingContent,
+                            style = AppTextStyles.caption.copy(fontStyle = FontStyle.Italic),
                             color = AppColors.secondaryIconColor(),
-                            fontStyle = FontStyle.Italic,
+                            onLinkClick = onLinkClick,
                         )
                     }
                     // Only render once we know the viewport height (after the first layout pass).
@@ -1347,6 +1366,7 @@ internal fun turnTimelineView(
     groups: List<TurnTimelineGroup>,
     isStreaming: Boolean,
     messageId: String? = null,
+    onLinkClick: ((url: String) -> Unit)? = null,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -1403,6 +1423,7 @@ internal fun turnTimelineView(
                             isStreaming = false,
                             isExpanded = expanded,
                             onToggle = { expanded = !expanded },
+                            onLinkClick = onLinkClick,
                         )
                     }
 
@@ -1411,6 +1432,7 @@ internal fun turnTimelineView(
                             markdown = group.text,
                             modifier = Modifier.fillMaxWidth().padding(start = Spacing.medium, end = 48.dp),
                             messageId = messageId,
+                            onLinkClick = onLinkClick,
                         )
                     }
                 }

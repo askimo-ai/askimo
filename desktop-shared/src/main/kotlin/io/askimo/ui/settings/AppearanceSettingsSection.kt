@@ -561,17 +561,16 @@ private fun accentPresetTile(
 ) {
     val selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer
     Card(
-        onClick = onClick,
         modifier = Modifier
             .width(92.dp)
             .heightIn(min = 72.dp)
-            .pointerHoverIcon(PointerIcon.Hand),
+            .clickableCard(cornerRadius = 12.dp, onClick = onClick),
         colors = if (selected) AppColors.cardColors(AppColors.Elevation.ACCENT) else AppColors.cardColors(AppColors.Elevation.RAISED),
         shape = RoundedCornerShape(12.dp),
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .padding(8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
             horizontalAlignment = Alignment.Start,

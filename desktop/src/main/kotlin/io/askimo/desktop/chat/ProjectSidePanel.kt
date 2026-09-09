@@ -77,6 +77,7 @@ import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
+import io.askimo.ui.common.ui.filePreviewPane
 import io.askimo.ui.common.ui.themedTooltip
 import kotlinx.coroutines.flow.filterIsInstance
 import java.awt.Cursor
@@ -424,8 +425,9 @@ private fun ragSourcesTabContent(
 
             val viewedFile = selectedNode as? FileTreeNode
             if (viewedFile != null) {
-                fileViewerPane(
-                    node = viewedFile,
+                filePreviewPane(
+                    path = viewedFile.path,
+                    displayName = viewedFile.displayName,
                     onClose = { selectedNode = null },
                     modifier = Modifier
                         .height(with(LocalDensity.current) { viewerHeightPx.toDp() })
