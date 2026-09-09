@@ -6,6 +6,7 @@ package io.askimo.desktop.shell
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -198,7 +199,10 @@ private fun communityUserProfileSection(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { showMenu = true }
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { showMenu = true }
                     .pointerHoverIcon(PointerIcon.Hand)
                     .padding((8 * fontScale).dp),
                 horizontalArrangement = Arrangement.spacedBy((12 * fontScale).dp),
@@ -238,13 +242,15 @@ private fun communityUserProfileSection(
                     tint = AppColors.tertiaryIconColor(),
                 )
             }
-            communityProfileMenu(
-                showMenu = showMenu,
-                onDismiss = { showMenu = false },
-                onEditUserProfile = onEditUserProfile,
-                onNavigateToSettings = onNavigateToSettings,
-                onNavigateToAbout = onNavigateToAbout,
-            )
+            Box(modifier = Modifier.align(Alignment.CenterEnd)) {
+                communityProfileMenu(
+                    showMenu = showMenu,
+                    onDismiss = { showMenu = false },
+                    onEditUserProfile = onEditUserProfile,
+                    onNavigateToSettings = onNavigateToSettings,
+                    onNavigateToAbout = onNavigateToAbout,
+                )
+            }
         }
     } else {
         Box {

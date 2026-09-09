@@ -51,7 +51,7 @@ fun aboutDialog(
                 // Version Info
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+                    colors = AppColors.cardColors(AppColors.Elevation.RAISED),
                 ) {
                     Column(
                         modifier = Modifier.padding(Spacing.large),
@@ -90,7 +90,7 @@ fun aboutDialog(
                 // Description
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+                    colors = AppColors.cardColors(AppColors.Elevation.RAISED),
                 ) {
                     Column(
                         modifier = Modifier.padding(Spacing.large),
@@ -110,7 +110,7 @@ fun aboutDialog(
                 // License
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+                    colors = AppColors.cardColors(AppColors.Elevation.RAISED),
                 ) {
                     Column(
                         modifier = Modifier.padding(Spacing.large),

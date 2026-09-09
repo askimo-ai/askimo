@@ -233,7 +233,7 @@ fun projectView(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = Spacing.large),
-                        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+                        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
                         shape = MaterialTheme.shapes.large,
                     ) {
                         Row(

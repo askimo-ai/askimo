@@ -33,6 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.style.TextOverflow
@@ -185,7 +187,7 @@ private fun voiceConfigCard() {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
     ) {
         Column(
             modifier = Modifier
@@ -268,6 +270,7 @@ private fun voiceConfigCard() {
                 placeholder = { Text(stringResource("settings.voice.stt_model.placeholder")) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+                colors = AppColors.outlinedTextFieldColors(),
             )
 
             // Auto-send belongs to dictation (STT) — it decides what happens with the
@@ -326,6 +329,7 @@ private fun voiceConfigCard() {
                 placeholder = { Text(stringResource("settings.voice.tts_model.placeholder")) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+                colors = AppColors.outlinedTextFieldColors(),
             )
 
             // OpenAI's voice names are a fixed enum — offer a dropdown so users can't type an
@@ -353,6 +357,7 @@ private fun voiceConfigCard() {
                         placeholder = { Text(stringResource("settings.voice.tts_voice.placeholder_piper")) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
+                        colors = AppColors.outlinedTextFieldColors(),
                     )
                     Text(
                         text = stringResource("settings.voice.tts_voice.piper_hint"),
@@ -487,6 +492,7 @@ private fun voiceProviderSelector(
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     onSelect: (VoiceProvider) -> Unit,
+    labelColor: Color = AppTextStyles.primaryContent,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -495,7 +501,7 @@ private fun voiceProviderSelector(
     ) {
         Text(
             text = label,
-            style = AppTextStyles.fieldLabel,
+            style = AppTextStyles.fieldLabel.copy(color = labelColor),
             modifier = Modifier.weight(1f).padding(end = Spacing.large),
         )
 
@@ -575,6 +581,7 @@ private fun voiceOptionSelector(
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     onSelect: (String) -> Unit,
+    labelColor: Color = AppTextStyles.primaryContent,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -583,7 +590,7 @@ private fun voiceOptionSelector(
     ) {
         Text(
             text = label,
-            style = AppTextStyles.fieldLabel,
+            style = AppTextStyles.fieldLabel.copy(color = labelColor),
             modifier = Modifier.weight(1f).padding(end = Spacing.large),
         )
 
@@ -645,6 +652,7 @@ private fun endpointField(
     label: String,
     value: String,
     onValueChange: (String) -> Unit,
+    colors: TextFieldColors = AppColors.outlinedTextFieldColors(),
 ) {
     OutlinedTextField(
         value = value,
@@ -652,6 +660,7 @@ private fun endpointField(
         label = { Text(label) },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
+        colors = colors,
     )
 }
 
@@ -661,6 +670,8 @@ private fun voiceToggleRow(
     description: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    labelColor: Color = AppTextStyles.primaryContent,
+    descriptionColor: Color = AppTextStyles.secondaryContent,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -668,8 +679,8 @@ private fun voiceToggleRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f).padding(end = Spacing.large)) {
-            Text(text = label, style = AppTextStyles.fieldLabel)
-            Text(text = description, style = AppTextStyles.caption)
+            Text(text = label, style = AppTextStyles.fieldLabel.copy(color = labelColor))
+            Text(text = description, style = AppTextStyles.caption.copy(color = descriptionColor))
         }
         Switch(
             checked = checked,
@@ -693,6 +704,9 @@ private fun voiceIntField(
     value: Int,
     minValue: Int,
     onValueChange: (Int) -> Unit,
+    labelColor: Color = AppTextStyles.primaryContent,
+    hintColor: Color = AppTextStyles.secondaryContent,
+    colors: TextFieldColors = AppColors.outlinedTextFieldColors(),
 ) {
     var lastValidValue by remember { mutableStateOf(value) }
     var textValue by remember { mutableStateOf(LocalizationManager.formatNumber(value)) }
@@ -714,7 +728,7 @@ private fun voiceIntField(
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
-        Text(text = label, style = AppTextStyles.body)
+        Text(text = label, style = AppTextStyles.body.copy(color = labelColor))
         val parsedValue = textValue.toIntOrNull()
         OutlinedTextField(
             value = textValue,
@@ -739,7 +753,7 @@ private fun voiceIntField(
                         textValue = LocalizationManager.formatNumber(lastValidValue)
                     }
                 },
-            textStyle = AppTextStyles.body,
+            textStyle = AppTextStyles.body.copy(color = Color.Unspecified),
             singleLine = true,
             isError = isEditing && (parsedValue == null || parsedValue < minValue),
             trailingIcon = {
@@ -752,8 +766,8 @@ private fun voiceIntField(
                     )
                 }
             },
-            colors = AppColors.outlinedTextFieldColors(),
+            colors = colors,
         )
-        Text(text = hint, style = AppTextStyles.caption)
+        Text(text = hint, style = AppTextStyles.caption.copy(color = hintColor))
     }
 }

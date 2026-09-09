@@ -1336,9 +1336,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                 onAddProvider = {
                                     settingsViewModel.openAddProviderWizard()
                                 },
-                                onShowAbout = {
-                                    showAboutDialog = true
-                                },
                             )
 
                             // Event Log Panel - BOTTOM position

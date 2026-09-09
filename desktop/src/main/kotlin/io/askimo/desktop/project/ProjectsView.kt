@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -308,7 +309,7 @@ internal fun embeddingModelNotConfiguredBanner(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
     ) {
         Row(
             modifier = Modifier
@@ -326,17 +327,20 @@ internal fun embeddingModelNotConfiguredBanner(
                     Icons.Default.Info,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
+                    tint = AppTextStyles.primaryContent,
                 )
-                Text(
-                    text = stringResource(
-                        if (providerSupportsEmbedding) {
-                            "projects.rag.embedding.not.configured"
-                        } else {
-                            "projects.rag.embedding.unsupported.provider"
-                        },
-                    ),
-                    style = AppTextStyles.caption,
-                )
+                SelectionContainer {
+                    Text(
+                        text = stringResource(
+                            if (providerSupportsEmbedding) {
+                                "projects.rag.embedding.not.configured"
+                            } else {
+                                "projects.rag.embedding.unsupported.provider"
+                            },
+                        ),
+                        style = AppTextStyles.caption.copy(color = AppTextStyles.secondaryContent),
+                    )
+                }
             }
             linkButton(onClick = onConfigureClick) {
                 Text(

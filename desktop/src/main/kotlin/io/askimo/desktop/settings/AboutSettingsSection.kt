@@ -76,7 +76,7 @@ fun aboutSettingsSection() {
                 // Application Info Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+                    colors = AppColors.cardColors(AppColors.Elevation.RAISED),
                 ) {
                     Column(
                         modifier = Modifier
@@ -145,7 +145,7 @@ fun aboutSettingsSection() {
                 // Description Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+                    colors = AppColors.cardColors(AppColors.Elevation.RAISED),
                 ) {
                     Column(
                         modifier = Modifier
@@ -167,7 +167,7 @@ fun aboutSettingsSection() {
                 // License Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+                    colors = AppColors.cardColors(AppColors.Elevation.RAISED),
                 ) {
                     Column(
                         modifier = Modifier
@@ -195,7 +195,7 @@ fun aboutSettingsSection() {
                 // Runtime Information Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+                    colors = AppColors.cardColors(AppColors.Elevation.RAISED),
                 ) {
                     Column(
                         modifier = Modifier
@@ -227,7 +227,7 @@ fun aboutSettingsSection() {
                 // Links Section
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+                    colors = AppColors.cardColors(AppColors.Elevation.RAISED),
                 ) {
                     Column(
                         modifier = Modifier

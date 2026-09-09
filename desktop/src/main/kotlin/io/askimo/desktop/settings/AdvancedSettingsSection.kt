@@ -155,7 +155,7 @@ private fun logLevelCard() {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
     ) {
         Column(
             modifier = Modifier
@@ -250,7 +250,7 @@ private fun logViewerCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
     ) {
         Column(
             modifier = Modifier
@@ -350,7 +350,7 @@ private fun analyticsSection() {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
     ) {
         Column(
             modifier = Modifier
@@ -402,7 +402,7 @@ private fun developerModeSection() {
     // Developer Mode Card
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
     ) {
         Column(
             modifier = Modifier
@@ -442,7 +442,7 @@ private fun developerModeSection() {
 private fun ragConfigurationSection() {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
     ) {
         Column(
             modifier = Modifier
@@ -621,7 +621,7 @@ private fun ragConfigurationSection() {
 private fun modelsConfigurationSection() {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
     ) {
         Column(
             modifier = Modifier
@@ -658,7 +658,7 @@ private fun memoryConfigurationSection() {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
     ) {
         Column(
             modifier = Modifier

@@ -499,7 +499,7 @@ private fun modelListColumn(
                                                 Box(
                                                     modifier = Modifier
                                                         .background(
-                                                            MaterialTheme.colorScheme.tertiaryContainer,
+                                                            AppColors.variantBadgeContainerColor(AppColors.BadgeTone.BUILT_IN),
                                                             RoundedCornerShape(4.dp),
                                                         )
                                                         .padding(horizontal = 4.dp, vertical = 1.dp),
@@ -507,7 +507,7 @@ private fun modelListColumn(
                                                     Text(
                                                         text = stringResource("provider.model.default.badge"),
                                                         style = AppTextStyles.hint,
-                                                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                        color = AppColors.variantBadgeContentColor(AppColors.BadgeTone.BUILT_IN),
                                                     )
                                                 }
                                             }
@@ -815,6 +815,20 @@ internal fun instanceRow(
         else -> Color.Transparent
     }
 
+    // Content tints follow the row's own background so text/icons stay legible and
+    // consistent whether the row is active (primaryContainer), previewed/pending
+    // (secondaryContainer), or at rest (transparent, plain surface).
+    val contentColor = when {
+        isActive -> MaterialTheme.colorScheme.onPrimaryContainer
+        isPending -> MaterialTheme.colorScheme.onSecondaryContainer
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    val secondaryContentColor = when {
+        isActive -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
+        isPending -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f)
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
 
@@ -855,11 +869,7 @@ internal fun instanceRow(
             Text(
                 text = instance.displayName,
                 style = AppTextStyles.caption,
-                color = when {
-                    isActive -> MaterialTheme.colorScheme.onPrimaryContainer
-                    isPending -> MaterialTheme.colorScheme.onSecondaryContainer
-                    else -> MaterialTheme.colorScheme.onSurface
-                },
+                color = contentColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
@@ -872,7 +882,7 @@ internal fun instanceRow(
                             Icon(
                                 Icons.Default.Edit,
                                 contentDescription = "Edit",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                tint = secondaryContentColor,
                                 modifier = Modifier.size(13.dp),
                             )
                         }
@@ -891,7 +901,7 @@ internal fun instanceRow(
                     Icon(
                         Icons.Default.RadioButtonChecked,
                         contentDescription = "Active",
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = contentColor,
                         modifier = Modifier.size(14.dp),
                     )
                 }
