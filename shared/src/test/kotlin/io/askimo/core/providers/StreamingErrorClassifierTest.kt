@@ -166,6 +166,18 @@ class StreamingErrorClassifierTest {
     }
 
     @Test
+    fun `empty HTTP response wrapped 3 levels deep is still terminal and classified correctly`() {
+        // Regression test: HTTP clients commonly wrap the originating IOException several
+        // levels deep (e.g. CompletionException -> RuntimeException -> IOException). A shallow
+        // 1-level cause check would miss this and misclassify it as a generic system error.
+        val ioException = IOException("HTTP/1.1 header parser received no bytes")
+        val wrapped = RuntimeException("request failed", ioException)
+        val e = CompletionException(wrapped)
+        val result = classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "gemma4") as StreamingErrorResult.Terminal
+        assertContains(result.message, "error.empty_http_response")
+    }
+
+    @Test
     fun `empty HTTP response for local provider is terminal`() {
         val e = IOException("HTTP/1.1 header parser received no bytes")
         val result = classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "gemma4") as StreamingErrorResult.Terminal

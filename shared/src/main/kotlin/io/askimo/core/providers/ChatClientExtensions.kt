@@ -48,6 +48,22 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 /**
+ * Checks whether any message in this exception's cause chain contains [needle]
+ * (case-insensitive). Unlike a single `e.message` / `e.cause?.message` check, this
+ * walks arbitrarily deep — needed because HTTP clients commonly wrap the originating
+ * exception several levels deep (e.g. CompletionException -> RuntimeException -> IOException).
+ */
+private fun Throwable.causeChainContains(needle: String): Boolean {
+    var current: Throwable? = this
+    val seen = mutableSetOf<Throwable>()
+    while (current != null && seen.add(current)) {
+        if (current.message?.contains(needle, ignoreCase = true) == true) return true
+        current = current.cause
+    }
+    return false
+}
+
+/**
  * Result of classifying a streaming error.
  * @see classifyStreamingError
  */
@@ -88,11 +104,9 @@ internal fun classifyStreamingError(
     }
 
     // Needs provider/model to render its hint — not derivable from the exception alone.
-    val causeMsg = e.cause?.message ?: ""
-    val errorMessage = e.message ?: ""
-    if (errorMessage.contains("header parser received no bytes", ignoreCase = true) ||
-        causeMsg.contains("header parser received no bytes", ignoreCase = true)
-    ) {
+    // Walks the full cause chain since HTTP clients often wrap the originating IOException
+    // several levels deep (e.g. CompletionException -> RuntimeException -> IOException).
+    if (e.causeChainContains("header parser received no bytes")) {
         val providerHint = LocalizationManager.getString("error.empty_http_response.hint.generic")
         return StreamingErrorResult.Terminal(
             LocalizationManager.getString(
@@ -112,7 +126,7 @@ internal fun classifyStreamingError(
     // just like NONE, rather than silently swallowed with no actual retry happening.
     return when (askimoException.retryPolicy) {
         RetryPolicy.IMMEDIATE -> StreamingErrorResult.Retryable(askimoException)
-        RetryPolicy.BACKOFF, RetryPolicy.NONE -> StreamingErrorResult.Terminal(ExceptionHandler.handle(e))
+        RetryPolicy.BACKOFF, RetryPolicy.NONE -> StreamingErrorResult.Terminal(ExceptionHandler.handle(askimoException))
     }
 }
 
