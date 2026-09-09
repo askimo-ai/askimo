@@ -253,7 +253,6 @@ fun ChatClient.sendStreamingMessageWithCallback(
                         }.beforeToolExecution { before ->
                             val toolName = before.request().name()
                             val arguments = before.request().arguments()
-                            log.debug("Tool starting: {}", toolName)
                             onToolStarted?.invoke(toolName, arguments)
 
                             // ── Approval guardrail ─────────────────────────────────────────────
@@ -291,45 +290,59 @@ fun ChatClient.sendStreamingMessageWithCallback(
                             val arguments = tool.request().arguments()
                             val result = tool.result()
                             val hasFailed = tool.hasFailed()
-                            log.debug("Tool executed: {}", toolName)
                             onToolFinished?.invoke(toolName, arguments, result, hasFailed)
                         }
                         .onError { e ->
                             errorOccurred = true
                             capturedError = e
 
-                            when (val result = classifyStreamingError(e, provider, model)) {
-                                is StreamingErrorResult.Retryable -> {
-                                    // Apply the side effect specific to this retryable
-                                    // classification, then countDown so the outer catch can loop.
-                                    when (result.exception) {
-                                        is ContextLengthException -> {
-                                            val modelKey = ModelCapabilitiesCache.modelKey(provider, model)
-                                            val currentSize = ModelCapabilitiesCache.get(modelKey).contextSize
-                                            val newSize = ModelCapabilitiesCache.reduceContextSize(modelKey, currentSize)
-                                            log.warn("Context length exceeded for $modelKey (attempt $contextRetryCount/${maxContextRetries + 1}). Reducing context size: $currentSize → $newSize tokens. Retrying immediately...")
-                                        }
+                            val result = classifyStreamingError(e, provider, model)
+                            // Only apply the retry side effect (and actually retry) if there's
+                            // budget left — otherwise mutating the cache / disabling sampling
+                            // buys nothing since the outer catch won't loop again anyway, and
+                            // the user would be left without any terminal message on this attempt.
+                            val retriesRemain = contextRetryCount < maxContextRetries
 
-                                        is UnsupportedSamplingException -> {
-                                            log.warn("Unsupported sampling parameters detected. Falling back to non-sampling settings.")
-                                            ModelCapabilitiesCache.setSamplingSupport(provider, model, false)
-                                        }
-
-                                        is MalformedToolCallException ->
-                                            log.warn("Model streamed a malformed tool call (${e.message}) — retrying immediately without penalty.")
-
-                                        else ->
-                                            log.warn("Retrying after ${result.exception::class.simpleName}: ${e.message}")
+                            if (result is StreamingErrorResult.Retryable && retriesRemain) {
+                                // Apply the side effect specific to this retryable
+                                // classification, then countDown so the outer catch can loop.
+                                when (result.exception) {
+                                    is ContextLengthException -> {
+                                        val modelKey = ModelCapabilitiesCache.modelKey(provider, model)
+                                        val currentSize = ModelCapabilitiesCache.get(modelKey).contextSize
+                                        val newSize = ModelCapabilitiesCache.reduceContextSize(modelKey, currentSize)
+                                        log.warn("Context length exceeded for $modelKey (attempt $contextRetryCount/${maxContextRetries + 1}). Reducing context size: $currentSize → $newSize tokens. Retrying immediately...")
                                     }
-                                    done.countDown()
-                                }
 
-                                is StreamingErrorResult.Terminal -> {
-                                    terminalErrorMessage = result.message
-                                    sb.append(result.message)
-                                    onToken(result.message)
-                                    done.countDown()
+                                    is UnsupportedSamplingException -> {
+                                        log.warn("Unsupported sampling parameters detected. Falling back to non-sampling settings.")
+                                        ModelCapabilitiesCache.setSamplingSupport(provider, model, false)
+                                    }
+
+                                    is MalformedToolCallException ->
+                                        log.warn("Model streamed a malformed tool call (${e.message}) — retrying immediately without penalty.")
+
+                                    else ->
+                                        log.warn("Retrying after ${result.exception::class.simpleName}: ${e.message}")
                                 }
+                                done.countDown()
+                            } else {
+                                // Either genuinely Terminal, or Retryable but out of retry budget —
+                                // render a proper terminal message either way so the caller/user
+                                // sees feedback instead of a silent countDown followed by a bare
+                                // IllegalStateException further down.
+                                val message = when (result) {
+                                    is StreamingErrorResult.Terminal -> result.message
+
+                                    is StreamingErrorResult.Retryable -> {
+                                        log.warn("Retry budget exhausted for ${result.exception::class.simpleName} (attempt $contextRetryCount/${maxContextRetries + 1}) — treating as terminal.")
+                                        ExceptionHandler.handle(result.exception)
+                                    }
+                                }
+                                terminalErrorMessage = message
+                                sb.append(message)
+                                onToken(message)
+                                done.countDown()
                             }
                         }.start()
 
