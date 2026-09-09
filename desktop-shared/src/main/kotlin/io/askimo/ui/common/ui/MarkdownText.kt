@@ -237,6 +237,10 @@ fun revealingMarkdownText(
  * shown — a bare `Text` never goes through the parser/[buildInlineContent] pipeline at all, so it
  * can never render a `file://` (or any other) markdown link the model emits while narrating its
  * reasoning — it just shows the raw `[label](url)` syntax as literal text.
+ *
+ * Also runs [closeUnclosedFences] before parsing, since reasoning streams in live too — an
+ * unclosed fence mid-thought would otherwise swallow the rest of the text. Always applied
+ * (no `isStreaming` flag): a no-op once the fence closes, so it's safe unconditionally.
  */
 @Composable
 fun inlineMarkdownText(
@@ -255,7 +259,7 @@ fun inlineMarkdownText(
         val parser = Parser.builder()
             .extensions(listOf(AutolinkExtension.create()))
             .build()
-        parser.parse(preprocessMarkdown(markdown))
+        parser.parse(closeUnclosedFences(preprocessMarkdown(markdown)))
     }
 
     val annotated = buildAnnotatedString {

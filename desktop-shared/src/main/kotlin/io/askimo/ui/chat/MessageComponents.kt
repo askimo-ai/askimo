@@ -330,19 +330,19 @@ internal object VoicePlaybackController {
  */
 fun fileLinkClickHandler(projectId: String? = null): (url: String) -> Unit = { url ->
     if (url.startsWith("file://")) {
-        if (projectId != null) {
-            // Project chat — let the side panel handle it in the file viewer
-            EventBus.post(parseFilePreviewRequestEvent(url))
-        } else {
-            // Non-project chat — fall back to OS file browser
-            try {
+        try {
+            if (projectId != null) {
+                // Project chat — let the side panel handle it in the file viewer
+                EventBus.post(parseFilePreviewRequestEvent(url))
+            } else {
+                // Non-project chat — fall back to OS file browser
                 val filePath = parseFilePreviewRequestEvent(url).filePath
                 val file = File(filePath)
                 if (file.exists() && Desktop.isDesktopSupported()) {
                     Desktop.getDesktop().open(file)
                 }
-            } catch (_: Exception) {
             }
+        } catch (_: Exception) {
         }
     }
 }
