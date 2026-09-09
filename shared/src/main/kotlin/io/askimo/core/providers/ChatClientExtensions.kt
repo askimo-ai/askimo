@@ -6,8 +6,6 @@ package io.askimo.core.providers
 
 import dev.langchain4j.data.message.Content
 import dev.langchain4j.data.message.UserMessage
-import dev.langchain4j.exception.InternalServerException
-import dev.langchain4j.exception.ModelNotFoundException
 import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.request.ChatRequest
 import dev.langchain4j.model.chat.request.ResponseFormat
@@ -19,11 +17,14 @@ import dev.langchain4j.model.chat.request.json.JsonStringSchema
 import dev.langchain4j.model.googleai.GeneratedImageHelper
 import io.askimo.core.context.AppContext
 import io.askimo.core.context.ChatContext
-import io.askimo.core.exception.AuthenticationException
+import io.askimo.core.exception.AskimoException
+import io.askimo.core.exception.ContextLengthException
 import io.askimo.core.exception.ExceptionHandler
-import io.askimo.core.exception.LocalServerException
-import io.askimo.core.exception.ModelNotFoundChatException
+import io.askimo.core.exception.ExceptionMapper
+import io.askimo.core.exception.MalformedToolCallException
+import io.askimo.core.exception.RetryPolicy
 import io.askimo.core.exception.ToolExecutionException
+import io.askimo.core.exception.UnsupportedSamplingException
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.intent.DetectAiResponseIntentCommand
 import io.askimo.core.intent.FollowUpSuggestion
@@ -43,54 +44,22 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
-import java.nio.channels.UnresolvedAddressException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-
-/**
- * Extension function to detect if an exception is due to unsupported sampling parameters.
- * Checks for common error messages related to temperature, topP, or other sampling parameters.
- */
-private fun Throwable.isUnsupportedSamplingError(): Boolean {
-    val message = this.message ?: ""
-    return (message.contains("temperature") || message.contains("top_p") || message.contains("topP")) &&
-        (
-            message.contains("does not support") ||
-                message.contains("not supported") ||
-                message.contains("unsupported") ||
-                message.contains("Unsupported value") ||
-                message.contains("cannot both be specified")
-            )
-}
-
-/**
- * Extension function to detect if an exception is due to the model streaming a malformed
- * tool call — e.g. a hallucinated `tool_calls` entry whose `name`/`arguments` never got
- * fully populated across the delta stream, which langchain4j's internal request builder
- * rejects with messages like `ToolExecutionRequest.arguments must be provided`.
- *
- * This is a transient AI/backend glitch (weaker or local models occasionally emit an
- * incomplete tool-call delta stream, especially with several tools enabled or parallel
- * tool calls) rather than a real configuration problem — so instead of failing the whole
- * turn with a raw internal error message, it's treated like a context-length error:
- * retried immediately with a fresh request (see [sendStreamingMessageWithCallback]).
- */
-private fun Throwable.isMalformedToolCallError(): Boolean {
-    val message = this.message ?: ""
-    return message.contains("ToolExecutionRequest", ignoreCase = true) &&
-        (
-            message.contains("must be provided", ignoreCase = true) ||
-                message.contains("must not be blank", ignoreCase = true)
-            )
-}
 
 /**
  * Result of classifying a streaming error.
  * @see classifyStreamingError
  */
 internal sealed class StreamingErrorResult {
-    /** Retry silently — no message shown to the user. */
-    object Retryable : StreamingErrorResult()
+    /**
+     * Retry silently — no message shown to the user.
+     *
+     * @property exception The classified error, so the call site can apply the correct
+     * side effect (shrink context cache, disable sampling, etc.) without re-deriving
+     * the classification itself via a second round of string-matching.
+     */
+    data class Retryable(val exception: AskimoException) : StreamingErrorResult()
 
     /** Stop retrying — show [message] in the chat and mark the response as failed. */
     data class Terminal(val message: String) : StreamingErrorResult()
@@ -99,100 +68,52 @@ internal sealed class StreamingErrorResult {
 /**
  * Pure classification function: maps a streaming [Throwable] to a [StreamingErrorResult].
  *
- * Has no side-effects (no logging, no cache mutations). Side-effects such as cache
- * updates and logging remain in the call site so that this function is fully
- * unit-testable without any infrastructure.
+ * No side-effects (no logging, no cache mutations) — those stay at the call site so this
+ * stays fully unit-testable. Delegates to [ExceptionMapper] for classification and retry
+ * policy, except two cases needing context the mapper doesn't have:
+ * - [InsufficientContextException]'s message is already fully rendered.
+ * - The empty-HTTP-response case needs `provider`/`model` to build its hint.
  */
 internal fun classifyStreamingError(
     e: Throwable,
     provider: ModelProvider,
     model: String,
 ): StreamingErrorResult {
-    val errorMessage = e.message ?: ""
-
-    // ── RETRYABLE ─────────────────────────────────────────────────────────────
-
-    // InsufficientContextException must be checked BEFORE isContextLengthError because
-    // its rendered message contains "context" + "too long" which would falsely match.
+    // InsufficientContextException's message contains "context" + "too long", which would
+    // otherwise be misclassified as a retryable ContextLengthException by ExceptionMapper —
+    // so it must be checked first, and always terminal (retries are already exhausted by
+    // the time this is thrown).
     if (e is InsufficientContextException) {
-        return StreamingErrorResult.Terminal(
-            e.message ?: "Insufficient context window",
-        )
+        return StreamingErrorResult.Terminal(e.message ?: "Insufficient context window")
     }
 
-    if (e.isContextLengthError()) return StreamingErrorResult.Retryable
-    if (e.isUnsupportedSamplingError()) return StreamingErrorResult.Retryable
-    if (e.isMalformedToolCallError()) return StreamingErrorResult.Retryable
-
-    // ── TERMINAL ──────────────────────────────────────────────────────────────
-
-    val msg: String = when {
-        e is InsufficientContextException ->
-            e.message ?: "Insufficient context window"
-
-        // unreachable, handled above
-
-        e is ToolExecutionException ->
-            e.errorDetails ?: "Tool execution failed"
-
-        e is InternalServerException ->
-            ExceptionHandler.handle(e)
-
-        errorMessage.contains("process has terminated", ignoreCase = true) ||
-            errorMessage.contains("llama-server", ignoreCase = true) ||
-            errorMessage.contains("llama_model_loader", ignoreCase = true) ||
-            errorMessage.contains("error loading model", ignoreCase = true) ||
-            (
-                errorMessage.contains("api_error", ignoreCase = true) &&
-                    errorMessage.contains("exit status", ignoreCase = true)
-                ) ->
-            ExceptionHandler.handle(LocalServerException(details = errorMessage, cause = e))
-
-        e.cause is UnresolvedAddressException ->
-            """
-            ⚠️  Unable to connect to the server!
-
-            Cannot resolve the server address. Please check:
-            1. Your internet connection is working
-            2. The server URL/endpoint is correct
-            3. There are no firewall or proxy issues blocking the connection
-            """.trimIndent()
-
-        run {
-            val causeMsg = e.cause?.message ?: ""
-            errorMessage.contains("header parser received no bytes", ignoreCase = true) ||
-                causeMsg.contains("header parser received no bytes", ignoreCase = true)
-        } -> {
-            val providerHint = LocalizationManager.getString("error.empty_http_response.hint.generic")
+    // Needs provider/model to render its hint — not derivable from the exception alone.
+    val causeMsg = e.cause?.message ?: ""
+    val errorMessage = e.message ?: ""
+    if (errorMessage.contains("header parser received no bytes", ignoreCase = true) ||
+        causeMsg.contains("header parser received no bytes", ignoreCase = true)
+    ) {
+        val providerHint = LocalizationManager.getString("error.empty_http_response.hint.generic")
+        return StreamingErrorResult.Terminal(
             LocalizationManager.getString(
                 "error.empty_http_response",
                 "${provider.providerKey()}:$model",
                 providerHint,
-            )
-        }
-
-        e is ModelNotFoundException ->
-            ExceptionHandler.handle(ModelNotFoundChatException(model = model, cause = e))
-
-        errorMessage.contains("model is required", ignoreCase = true) ||
-            errorMessage.contains("No model provided", ignoreCase = true) ||
-            errorMessage.contains("model not found", ignoreCase = true) ||
-            errorMessage.contains("invalid model", ignoreCase = true) ->
-            ExceptionHandler.handle(ModelNotFoundChatException(model = model, cause = e))
-
-        errorMessage.contains("api key") ||
-            errorMessage.contains("authentication") ||
-            errorMessage.contains("unauthorized") ||
-            errorMessage.contains("invalid API key") ||
-            errorMessage.contains("Incorrect API key provided") ||
-            errorMessage.contains("invalid_api_key") ||
-            e is dev.langchain4j.exception.AuthenticationException ->
-            ExceptionHandler.handle(AuthenticationException(cause = e))
-
-        else -> "\n[error] ${e.message ?: "unknown error"}\n"
+            ),
+        )
     }
 
-    return StreamingErrorResult.Terminal(msg)
+    val askimoException = ExceptionMapper.map(e)
+
+    // Only IMMEDIATE has an actual retry mechanism wired up at this call site (the
+    // context-retry loop in `sendStreamingMessageWithCallback`, bounded at 20 attempts).
+    // BACKOFF-classified errors (rate limits, transient 5xx, network blips) have no
+    // backoff loop implemented here yet, so — for now — they're rendered as Terminal
+    // just like NONE, rather than silently swallowed with no actual retry happening.
+    return when (askimoException.retryPolicy) {
+        RetryPolicy.IMMEDIATE -> StreamingErrorResult.Retryable(askimoException)
+        RetryPolicy.BACKOFF, RetryPolicy.NONE -> StreamingErrorResult.Terminal(ExceptionHandler.handle(e))
+    }
 }
 
 /**
@@ -365,18 +286,26 @@ fun ChatClient.sendStreamingMessageWithCallback(
 
                             when (val result = classifyStreamingError(e, provider, model)) {
                                 is StreamingErrorResult.Retryable -> {
-                                    // Apply side-effects for the specific retryable type,
-                                    // then countDown so the outer catch can loop.
-                                    if (e.isContextLengthError()) {
-                                        val modelKey = ModelCapabilitiesCache.modelKey(provider, model)
-                                        val currentSize = ModelCapabilitiesCache.get(modelKey).contextSize
-                                        val newSize = ModelCapabilitiesCache.reduceContextSize(modelKey, currentSize)
-                                        log.warn("Context length exceeded for $modelKey (attempt $contextRetryCount/${maxContextRetries + 1}). Reducing context size: $currentSize → $newSize tokens. Retrying immediately...")
-                                    } else if (e.isUnsupportedSamplingError()) {
-                                        log.warn("Unsupported sampling parameters detected. Falling back to non-sampling settings.")
-                                        ModelCapabilitiesCache.setSamplingSupport(provider, model, false)
-                                    } else if (e.isMalformedToolCallError()) {
-                                        log.warn("Model streamed a malformed tool call (${e.message}) — retrying immediately without penalty.")
+                                    // Apply the side effect specific to this retryable
+                                    // classification, then countDown so the outer catch can loop.
+                                    when (result.exception) {
+                                        is ContextLengthException -> {
+                                            val modelKey = ModelCapabilitiesCache.modelKey(provider, model)
+                                            val currentSize = ModelCapabilitiesCache.get(modelKey).contextSize
+                                            val newSize = ModelCapabilitiesCache.reduceContextSize(modelKey, currentSize)
+                                            log.warn("Context length exceeded for $modelKey (attempt $contextRetryCount/${maxContextRetries + 1}). Reducing context size: $currentSize → $newSize tokens. Retrying immediately...")
+                                        }
+
+                                        is UnsupportedSamplingException -> {
+                                            log.warn("Unsupported sampling parameters detected. Falling back to non-sampling settings.")
+                                            ModelCapabilitiesCache.setSamplingSupport(provider, model, false)
+                                        }
+
+                                        is MalformedToolCallException ->
+                                            log.warn("Model streamed a malformed tool call (${e.message}) — retrying immediately without penalty.")
+
+                                        else ->
+                                            log.warn("Retrying after ${result.exception::class.simpleName}: ${e.message}")
                                     }
                                     done.countDown()
                                 }
@@ -422,8 +351,10 @@ fun ChatClient.sendStreamingMessageWithCallback(
                 // ConfigurationErrorException is always terminal — never retry regardless of message content
                 if (e is ConfigurationErrorException) throw e
 
-                // Check if this is a context length error - immediate retry without backoff
-                if ((e.isContextLengthError() || e.isUnsupportedSamplingError() || e.isMalformedToolCallError()) && contextRetryCount < maxContextRetries) {
+                // Same classification the streaming path uses (ExceptionMapper is the single
+                // source of truth for retry policy) — covers the case where an error is thrown
+                // synchronously (not via onError) or wrapped as IllegalStateException above.
+                if (ExceptionMapper.map(e).retryPolicy == RetryPolicy.IMMEDIATE && contextRetryCount < maxContextRetries) {
                     contextRetryCount++
 
                     // Retry immediately with reduced context size (no backoff)
@@ -432,7 +363,7 @@ fun ChatClient.sendStreamingMessageWithCallback(
                     continue
                 }
 
-                // Not a context error or out of retries - rethrow
+                // Not an immediately-retryable error, or out of retries - rethrow
                 throw e
             }
         }

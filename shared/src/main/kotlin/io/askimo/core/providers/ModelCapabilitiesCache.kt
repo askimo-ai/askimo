@@ -506,20 +506,29 @@ data class ModelCapabilities(
 )
 
 /**
+ * Detects whether [message] indicates a context-length/token-limit error, based on common
+ * phrasing used by various AI providers.
+ *
+ * Takes a plain `String` (not a `Throwable`) so [io.askimo.core.exception.ExceptionMapper]
+ * can reuse the same pattern over its joined cause-chain message, avoiding a duplicate copy.
+ */
+fun isContextLengthMessage(message: String): Boolean {
+    val lower = message.lowercase()
+    return (
+        lower.contains("context") && (
+            lower.contains("length") ||
+                lower.contains("limit") ||
+                lower.contains("exceeded") ||
+                lower.contains("too long") ||
+                lower.contains("maximum context") ||
+                lower.contains("token limit") ||
+                lower.contains("exceed")
+            )
+        ) || lower.contains("413") // HTTP 413 Payload Too Large
+}
+
+/**
  * Extension function to detect if an exception is due to context length issues.
  * Checks for common error messages from various AI providers.
  */
-fun Throwable.isContextLengthError(): Boolean {
-    val message = this.message?.lowercase() ?: ""
-    return (
-        message.contains("context") && (
-            message.contains("length") ||
-                message.contains("limit") ||
-                message.contains("exceeded") ||
-                message.contains("too long") ||
-                message.contains("maximum context") ||
-                message.contains("token limit") ||
-                message.contains("exceed")
-            )
-        ) || message.contains("413") // HTTP 413 Payload Too Large
-}
+fun Throwable.isContextLengthError(): Boolean = isContextLengthMessage(this.message ?: "")

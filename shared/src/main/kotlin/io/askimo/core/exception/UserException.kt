@@ -28,6 +28,9 @@ class NetworkException(
     override fun getMessageArgs() = mapOf(
         "endpoint" to (endpoint?.let { " at $it" } ?: ""),
     )
+
+    // Transient connectivity blip (DNS hiccup, brief drop) — worth a backoff retry.
+    override val retryPolicy = RetryPolicy.BACKOFF
 }
 
 /**
@@ -58,6 +61,9 @@ class RateLimitException(
     override fun getMessageArgs() = mapOf(
         "retryAfter" to (retryAfterSeconds?.toString() ?: ""),
     )
+
+    // Provider explicitly asked us to slow down — worth a backoff retry.
+    override val retryPolicy = RetryPolicy.BACKOFF
 }
 
 /**
@@ -71,6 +77,9 @@ class TimeoutException(
     override fun getMessageKey() = "error.timeout"
 
     override fun getMessageArgs() = mapOf("timeout" to timeoutSeconds.toString())
+
+    // A slow response doesn't mean the next attempt will also time out — worth a backoff retry.
+    override val retryPolicy = RetryPolicy.BACKOFF
 }
 
 /**
@@ -124,6 +133,10 @@ class ContextLengthException(
 ) : UserException("Context window exceeded", cause) {
     override fun getMessageKey() = "error.context_length"
     override fun getMessageArgs() = emptyMap<String, String>()
+
+    // The streaming loop shrinks its context-size cache entry and retries immediately —
+    // see `ChatClientExtensions.sendStreamingMessageWithCallback`'s context-retry loop.
+    override val retryPolicy = RetryPolicy.IMMEDIATE
 }
 
 /**
@@ -155,6 +168,9 @@ class RemoteServerException(
 ) : UserException("Remote AI server error", cause) {
     override fun getMessageKey() = "error.remote_server"
     override fun getMessageArgs() = mapOf("details" to details)
+
+    // Transient infrastructure overload on the provider's side — worth a backoff retry.
+    override val retryPolicy = RetryPolicy.BACKOFF
 }
 
 /**
@@ -184,6 +200,28 @@ class MalformedToolCallException(
 ) : UserException("The AI model produced an invalid tool call", cause) {
     override fun getMessageKey() = "error.malformed_tool_call"
     override fun getMessageArgs() = emptyMap<String, String>()
+
+    // Transient AI/backend glitch — the streaming loop retries immediately without penalty.
+    override val retryPolicy = RetryPolicy.IMMEDIATE
+}
+
+/**
+ * The model rejected a sampling parameter (temperature, top_p) as unsupported for this
+ * model/provider combination — e.g. some reasoning models only accept default sampling.
+ *
+ * This is retried immediately after the caller disables sampling params for this
+ * model/provider in [io.askimo.core.providers.ModelCapabilitiesCache] (see
+ * `ChatClientExtensions.sendStreamingMessageWithCallback`), so it never actually
+ * reaches the user in practice — surfaced as a [UserException] only for the rare
+ * case where every automatic retry also failed.
+ */
+class UnsupportedSamplingException(
+    cause: Throwable? = null,
+) : UserException("Unsupported sampling parameters for this model", cause) {
+    override fun getMessageKey() = "error.unsupported_sampling"
+    override fun getMessageArgs() = emptyMap<String, String>()
+
+    override val retryPolicy = RetryPolicy.IMMEDIATE
 }
 
 /**

@@ -6,11 +6,19 @@ package io.askimo.core.providers
 
 import dev.langchain4j.exception.InternalServerException
 import dev.langchain4j.exception.ModelNotFoundException
+import io.askimo.core.exception.ContextLengthException
+import io.askimo.core.exception.MalformedToolCallException
+import io.askimo.core.exception.RateLimitException
+import io.askimo.core.exception.RetryPolicy
 import io.askimo.core.exception.ToolExecutionException
+import io.askimo.core.exception.UnsupportedSamplingException
 import org.junit.jupiter.api.Test
 import java.io.IOException
+import java.net.ConnectException
 import java.nio.channels.UnresolvedAddressException
+import java.util.concurrent.CompletionException
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
 class StreamingErrorClassifierTest {
@@ -66,6 +74,47 @@ class StreamingErrorClassifierTest {
     fun `malformed tool call - missing name is retryable`() {
         val e = RuntimeException("ToolExecutionRequest.name must not be blank")
         assertIs<StreamingErrorResult.Retryable>(classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "qwq"))
+    }
+
+    // ── Retryable: the classified exception is exposed to the caller ───────────
+
+    @Test
+    fun `Retryable result exposes the classified exception for side-effect dispatch`() {
+        val e = RuntimeException("context length exceeded")
+        val result = classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "llama3") as StreamingErrorResult.Retryable
+        assertIs<ContextLengthException>(result.exception)
+        assertEquals(RetryPolicy.IMMEDIATE, result.exception.retryPolicy)
+    }
+
+    @Test
+    fun `malformed tool call classifies as MalformedToolCallException with IMMEDIATE policy`() {
+        val e = RuntimeException("ToolExecutionRequest.arguments must be provided")
+        val result = classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "llama3") as StreamingErrorResult.Retryable
+        assertIs<MalformedToolCallException>(result.exception)
+        assertEquals(RetryPolicy.IMMEDIATE, result.exception.retryPolicy)
+    }
+
+    @Test
+    fun `unsupported sampling classifies as UnsupportedSamplingException with IMMEDIATE policy`() {
+        val e = RuntimeException("temperature does not support values above 1")
+        val result = classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "llama3") as StreamingErrorResult.Retryable
+        assertIs<UnsupportedSamplingException>(result.exception)
+        assertEquals(RetryPolicy.IMMEDIATE, result.exception.retryPolicy)
+    }
+
+    // ── BACKOFF-classified errors are still Terminal here (no backoff loop wired up
+    // at this call site yet) — see `classifyStreamingError`'s doc comment. ──────────
+
+    @Test
+    fun `rate limit message is BACKOFF policy but Terminal at this call site`() {
+        val e = RuntimeException("rate limit exceeded, please slow down")
+        val result = classifyStreamingError(e, ModelProvider.OPENAI, "gpt-4o")
+        assertIs<StreamingErrorResult.Terminal>(result)
+    }
+
+    @Test
+    fun `RateLimitException retryPolicy is BACKOFF`() {
+        assertEquals(RetryPolicy.BACKOFF, RateLimitException().retryPolicy)
     }
 
     // ── Terminal: local server crash ───────────────────────────────────────────
@@ -141,11 +190,24 @@ class StreamingErrorClassifierTest {
     // ── Terminal: network ──────────────────────────────────────────────────────
 
     @Test
-    fun `unresolved address is terminal with connection message`() {
+    fun `unresolved address is terminal and classified as network error`() {
         val cause = UnresolvedAddressException()
         val e = IOException("Connection failed", cause)
         val result = classifyStreamingError(e, ModelProvider.OPENAI_COMPATIBLE, "llama3") as StreamingErrorResult.Terminal
-        assertContains(result.message, "Unable to connect")
+        // When i18n resources aren't loaded, LocalizationManager returns the key itself.
+        assertContains(result.message, "error.network")
+    }
+
+    @Test
+    fun `bare ConnectException is terminal and classified as network error`() {
+        // Regression test: this previously leaked the raw "[error] java.net.ConnectException"
+        // text to the UI because the fallback `else` branch skipped ExceptionHandler/ExceptionMapper
+        // entirely. ConnectException is often wrapped in a CompletionException by the underlying
+        // HTTP client, so the mapper must find it by walking the full cause chain.
+        val cause = ConnectException("Connection refused")
+        val e = CompletionException(cause)
+        val result = classifyStreamingError(e, ModelProvider.OPENAI, "gpt-4o") as StreamingErrorResult.Terminal
+        assertContains(result.message, "error.network")
     }
 
     // ── Terminal: InternalServerException (HTTP 5xx) ───────────────────────────
@@ -211,10 +273,13 @@ class StreamingErrorClassifierTest {
     // ── Terminal: tool execution ───────────────────────────────────────────────
 
     @Test
-    fun `ToolExecutionException message is surfaced`() {
+    fun `ToolExecutionException is terminal and classified as tool execution error`() {
         val e = ToolExecutionException(toolName = "search", errorDetails = "search service timed out")
         val result = classifyStreamingError(e, ModelProvider.OPENAI, "gpt-4o") as StreamingErrorResult.Terminal
-        assertContains(result.message, "search service timed out")
+        // When i18n resources aren't loaded, LocalizationManager returns the key itself —
+        // the {details} substitution ("search service timed out") only happens with real
+        // resource bundles loaded (see desktop-shared/src/main/resources/i18n).
+        assertContains(result.message, "error.tool_execution")
     }
 
     // ── Terminal: InsufficientContextException ─────────────────────────────────
@@ -234,9 +299,12 @@ class StreamingErrorClassifierTest {
     // ── Terminal: unknown ──────────────────────────────────────────────────────
 
     @Test
-    fun `unknown error surfaces raw message`() {
+    fun `unknown error is terminal and classified as system error`() {
         val e = RuntimeException("some completely unknown error XYZ-9999")
         val result = classifyStreamingError(e, ModelProvider.OPENAI, "gpt-4o") as StreamingErrorResult.Terminal
-        assertContains(result.message, "some completely unknown error XYZ-9999")
+        // When i18n resources aren't loaded, LocalizationManager returns the key itself —
+        // the {errorCode} substitution (which would include the raw message) only happens
+        // with real resource bundles loaded (see desktop-shared/src/main/resources/i18n).
+        assertContains(result.message, "error.system")
     }
 }
