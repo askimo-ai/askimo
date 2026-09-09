@@ -5,7 +5,6 @@
 package io.askimo.ui.agent
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.HorizontalScrollbar
 import androidx.compose.foundation.PointerMatcher
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
@@ -26,11 +25,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.onClick
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -76,7 +73,6 @@ import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -89,7 +85,7 @@ import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.AppTextStyles
-import io.askimo.ui.common.ui.codeViewerBlock
+import io.askimo.ui.common.ui.filePreviewPane
 import io.askimo.ui.common.ui.themedTooltip
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -699,9 +695,11 @@ internal fun workspaceFilesPanel(
         // ── Bottom panel: File viewer ──────────────────────────────────────
         if (selectedFile != null) {
             Box(modifier = Modifier.weight(0.6f).fillMaxWidth()) {
-                workspaceFileViewer(
-                    file = selectedFile!!,
+                filePreviewPane(
+                    path = selectedFile!!.absolutePath,
+                    displayName = selectedFile!!.name,
                     onClose = { selectedFile = null },
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
         }
@@ -1014,214 +1012,6 @@ private fun workspaceNodeRow(
             }
         }
     }
-}
-
-// ── File viewer ───────────────────────────────────────────────────────────────
-
-/** Loading state for the workspace file viewer. */
-private sealed interface WorkspaceViewerState {
-    data object Loading : WorkspaceViewerState
-    data class Content(val text: String, val lineCount: Int) : WorkspaceViewerState
-    data class TooLarge(val sizeKb: Long) : WorkspaceViewerState
-    data object Binary : WorkspaceViewerState
-    data class Error(val message: String) : WorkspaceViewerState
-}
-
-/** Maximum file size (512 KB) the viewer will load into memory. */
-private const val WORKSPACE_MAX_PREVIEW_BYTES = 512 * 1024L
-
-/** Extensions treated as binary / non-previewable. */
-private val WORKSPACE_BINARY_EXTENSIONS = setOf(
-    "png", "jpg", "jpeg", "gif", "bmp", "ico", "webp", "svg",
-    "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
-    "zip", "tar", "gz", "bz2", "7z", "rar",
-    "exe", "dll", "so", "dylib", "class", "jar",
-    "mp3", "mp4", "wav", "ogg", "flac", "avi", "mov",
-    "woff", "woff2", "ttf", "otf", "eot",
-    "bin", "dat", "db", "sqlite",
-)
-
-@Composable
-private fun workspaceFileViewer(
-    file: File,
-    onClose: () -> Unit,
-) {
-    var viewerState by remember(file.absolutePath) { mutableStateOf<WorkspaceViewerState>(WorkspaceViewerState.Loading) }
-
-    LaunchedEffect(file.absolutePath) {
-        viewerState = WorkspaceViewerState.Loading
-        viewerState = withContext(Dispatchers.IO) { loadWorkspaceFileContent(file) }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(AppColors.surfaceColor(AppColors.Elevation.RECESSED)),
-    ) {
-        HorizontalDivider()
-
-        // ── Header bar ──────────────────────────────────────────────────────
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f),
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.InsertDriveFile,
-                    contentDescription = null,
-                    tint = AppColors.secondaryIconColor(),
-                    modifier = Modifier.size(15.dp),
-                )
-                Text(
-                    text = file.name,
-                    style = AppTextStyles.fieldLabel,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (viewerState is WorkspaceViewerState.Content) {
-                    Text(
-                        text = stringResource(
-                            "file.viewer.lines",
-                            (viewerState as WorkspaceViewerState.Content).lineCount,
-                        ),
-                        style = AppTextStyles.hint,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
-                if (viewerState is WorkspaceViewerState.Content) {
-                    themedTooltip(text = stringResource("file.viewer.copy")) {
-                        IconButton(
-                            onClick = { copyTextToClipboard((viewerState as WorkspaceViewerState.Content).text) },
-                            modifier = Modifier.size(28.dp).pointerHoverIcon(PointerIcon.Hand),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ContentCopy,
-                                contentDescription = stringResource("file.viewer.copy"),
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(15.dp),
-                            )
-                        }
-                    }
-                }
-                themedTooltip(text = stringResource("file.viewer.close")) {
-                    IconButton(
-                        onClick = onClose,
-                        modifier = Modifier.size(28.dp).pointerHoverIcon(PointerIcon.Hand),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = stringResource("file.viewer.close"),
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(15.dp),
-                        )
-                    }
-                }
-            }
-        }
-
-        HorizontalDivider()
-
-        when (val state = viewerState) {
-            WorkspaceViewerState.Loading -> {
-                Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = stringResource("file.viewer.loading"),
-                        style = AppTextStyles.caption,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
-            is WorkspaceViewerState.Content -> {
-                val language = file.extension.lowercase().takeIf { it.isNotEmpty() }
-                val vScrollState = rememberScrollState()
-                val hScrollState = rememberScrollState()
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(vScrollState)
-                            .padding(end = 8.dp, bottom = 10.dp),
-                    ) {
-                        codeViewerBlock(
-                            code = state.text,
-                            language = language,
-                            hScrollState = hScrollState,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                    VerticalScrollbar(
-                        modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 2.dp, bottom = 10.dp),
-                        adapter = rememberScrollbarAdapter(vScrollState),
-                        style = AppComponents.scrollbarStyle(),
-                    )
-                    HorizontalScrollbar(
-                        modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(end = 6.dp),
-                        adapter = rememberScrollbarAdapter(hScrollState),
-                        style = AppComponents.scrollbarStyle(),
-                    )
-                }
-            }
-
-            is WorkspaceViewerState.TooLarge -> {
-                Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = stringResource("file.viewer.too.large", state.sizeKb),
-                        style = AppTextStyles.caption,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
-
-            WorkspaceViewerState.Binary -> {
-                Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = stringResource("file.viewer.binary"),
-                        style = AppTextStyles.caption,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
-            is WorkspaceViewerState.Error -> {
-                Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = state.message,
-                        style = AppTextStyles.errorText,
-                    )
-                }
-            }
-        }
-    }
-}
-
-private fun loadWorkspaceFileContent(file: File): WorkspaceViewerState {
-    return try {
-        if (!file.exists() || !file.isFile) return WorkspaceViewerState.Error("File not found")
-        val ext = file.extension.lowercase()
-        if (ext in WORKSPACE_BINARY_EXTENSIONS) return WorkspaceViewerState.Binary
-        val sizeBytes = file.length()
-        if (sizeBytes > WORKSPACE_MAX_PREVIEW_BYTES) return WorkspaceViewerState.TooLarge(sizeBytes / 1024)
-        val text = file.readText(Charsets.UTF_8)
-        WorkspaceViewerState.Content(text = text, lineCount = text.lines().size)
-    } catch (e: Exception) {
-        WorkspaceViewerState.Error("Unable to read file: ${e.message}")
-    }
-}
-
-private fun copyTextToClipboard(text: String) {
-    runCatching { Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(text), null) }
 }
 
 // ── Render list builder ───────────────────────────────────────────────────────
