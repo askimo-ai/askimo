@@ -62,6 +62,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -226,6 +227,7 @@ object AppComponents {
         isError: Boolean = false,
         enabled: Boolean = true,
         singleLine: Boolean = true,
+        colors: TextFieldColors = AppColors.outlinedTextFieldColors(),
     ) {
         var showSecret by remember { mutableStateOf(false) }
 
@@ -255,7 +257,7 @@ object AppComponents {
                     )
                 }
             },
-            colors = AppColors.outlinedTextFieldColors(),
+            colors = colors,
         )
     }
 

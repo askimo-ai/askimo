@@ -1235,7 +1235,7 @@ private fun navigationItemLabelWithMenu(
                 }
             }
         } else if (bookmarkCount > 0) {
-            // Bookmark badge — visible when not hovered, hidden when menu button appears
+            val bookmarkColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppColors.countBadgeAccentColor()
             Row(
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1245,12 +1245,12 @@ private fun navigationItemLabelWithMenu(
                     imageVector = Icons.Default.Bookmark,
                     contentDescription = null,
                     modifier = Modifier.size((10 * fontScale).dp),
-                    tint = AppColors.countBadgeAccentColor(),
+                    tint = bookmarkColor,
                 )
                 Text(
                     text = "$bookmarkCount",
                     style = AppTextStyles.hint,
-                    color = AppColors.countBadgeAccentColor(),
+                    color = bookmarkColor,
                 )
             }
         }

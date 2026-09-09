@@ -41,7 +41,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import io.askimo.core.VersionInfo
 import io.askimo.core.context.AppContext
 import io.askimo.core.context.getConfigInfo
 import io.askimo.core.event.EventBus
@@ -214,7 +213,6 @@ private fun aiConfigInfo(
 fun footerBar(
     onShowUpdateDetails: () -> Unit = {},
     onAddProvider: () -> Unit = {},
-    onShowAbout: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -228,19 +226,6 @@ fun footerBar(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
-            themedTooltip(text = stringResource("menu.about")) {
-                Text(
-                    text = "v${VersionInfo.version}",
-                    style = AppTextStyles.caption,
-                    color = AppColors.tertiaryIconColor(),
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .pointerHoverIcon(PointerIcon.Hand)
-                        .clickableCard { onShowAbout() }
-                        .padding(horizontal = 4.dp, vertical = 2.dp),
-                )
-            }
-
             // Centre — unified provider + model selector
             Box(modifier = Modifier.align(Alignment.Center)) {
                 aiConfigInfo(onAddProvider = onAddProvider)

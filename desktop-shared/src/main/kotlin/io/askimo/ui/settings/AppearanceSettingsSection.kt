@@ -1256,7 +1256,7 @@ private fun languageSelectionCard() {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
     ) {
         Column(
             modifier = Modifier
@@ -1461,7 +1461,7 @@ private fun fontSettingsCard() {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(Spacing.large),
@@ -1585,6 +1585,7 @@ private fun fontFamilySelector(
     availableFonts: List<String>,
     previewResolver: (String) -> FontFamily,
     onSelected: (String) -> Unit,
+    labelColor: Color = AppTextStyles.primaryContent,
 ) {
     var dropdownExpanded by remember { mutableStateOf(false) }
     Row(
@@ -1594,7 +1595,7 @@ private fun fontFamilySelector(
     ) {
         Text(
             text = label,
-            style = AppTextStyles.body,
+            style = AppTextStyles.body.copy(color = labelColor),
             modifier = Modifier.weight(1f).padding(end = Spacing.large),
         )
         Box(modifier = Modifier.widthIn(min = dropdownRegularMinWidth, max = dropdownRegularMaxWidth)) {

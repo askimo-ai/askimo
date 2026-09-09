@@ -182,7 +182,7 @@ fun keyboardShortcutsList(
         filteredByCategory.forEach { (category, shortcuts) ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+                colors = AppColors.cardColors(AppColors.Elevation.RAISED),
             ) {
                 Column(
                     modifier = Modifier

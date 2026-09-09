@@ -145,7 +145,7 @@ fun mcpServerTemplatesSection() {
 
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+                        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
                     ) {
                         if (mcpInstances.isEmpty()) {
                             Box(

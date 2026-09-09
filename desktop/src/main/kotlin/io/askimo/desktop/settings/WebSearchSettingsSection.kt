@@ -38,6 +38,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.style.TextOverflow
@@ -147,7 +148,7 @@ private fun webSearchConfigCard() {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
     ) {
         Column(
             modifier = Modifier
@@ -398,6 +399,7 @@ private fun webSearchConfigCard() {
 private fun braveApiKeyField(
     value: String,
     onValueChange: (String) -> Unit,
+    linkColor: Color = AppTextStyles.primaryContent,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
         AppComponents.appSecretTextField(
@@ -416,10 +418,10 @@ private fun braveApiKeyField(
                 }
             },
         ) {
-            Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(14.dp))
+            Icon(Icons.Default.Info, contentDescription = null, tint = linkColor, modifier = Modifier.size(14.dp))
             Text(
                 text = stringResource("settings.web_search.get_api_key"),
-                style = AppTextStyles.caption,
+                style = AppTextStyles.caption.copy(color = linkColor),
                 modifier = Modifier.padding(start = 4.dp),
             )
         }
@@ -430,6 +432,7 @@ private fun braveApiKeyField(
 private fun tavilyApiKeyField(
     value: String,
     onValueChange: (String) -> Unit,
+    linkColor: Color = AppTextStyles.primaryContent,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
         AppComponents.appSecretTextField(
@@ -448,10 +451,10 @@ private fun tavilyApiKeyField(
                 }
             },
         ) {
-            Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(14.dp))
+            Icon(Icons.Default.Info, contentDescription = null, tint = linkColor, modifier = Modifier.size(14.dp))
             Text(
                 text = stringResource("settings.web_search.get_api_key"),
-                style = AppTextStyles.caption,
+                style = AppTextStyles.caption.copy(color = linkColor),
                 modifier = Modifier.padding(start = 4.dp),
             )
         }

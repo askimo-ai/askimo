@@ -45,6 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -104,7 +105,7 @@ fun aiProviderSettingsSection(viewModel: AIProviderViewModel) {
                 // Active provider card — Edit current instance or Add a new one
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+                    colors = AppColors.cardColors(AppColors.Elevation.RAISED),
                 ) {
                     Row(
                         modifier = Modifier
@@ -186,7 +187,7 @@ private fun providerModelConfigCard(instance: ProviderInstance, viewModel: AIPro
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
     ) {
         Column(
             modifier = Modifier
@@ -364,6 +365,8 @@ private fun providerModelSelectorField(
     value: String,
     placeholder: String,
     onClick: () -> Unit,
+    labelColor: Color = AppTextStyles.primaryContent,
+    hintColor: Color = AppTextStyles.secondaryContent,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -376,11 +379,11 @@ private fun providerModelSelectorField(
         ) {
             Text(
                 text = label,
-                style = AppTextStyles.body,
+                style = AppTextStyles.body.copy(color = labelColor),
             )
             Text(
                 text = hint,
-                style = AppTextStyles.caption,
+                style = AppTextStyles.caption.copy(color = hintColor),
             )
         }
 
@@ -500,8 +503,8 @@ private fun providerModelTypePickerDialog(
                             modifier = Modifier.fillMaxWidth().padding(Spacing.large),
                             verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                         ) {
-                            Text(text = stringResource("settings.model.current"), style = AppTextStyles.fieldLabel, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                            Text(text = currentValue, style = AppTextStyles.sectionTitle, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Text(text = stringResource("settings.model.current"), style = AppTextStyles.fieldLabel, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text(text = currentValue, style = AppTextStyles.sectionTitle, color = MaterialTheme.colorScheme.onPrimaryContainer)
                         }
                     }
                 }
@@ -607,6 +610,8 @@ private fun providerModelTypePickerDialog(
 private fun providerConfigurableField(
     field: SettingField,
     onValueChange: (String) -> Unit,
+    labelColor: Color = AppTextStyles.primaryContent,
+    descriptionColor: Color = AppTextStyles.secondaryContent,
 ) {
     var showSavedIndicator by remember { mutableStateOf(false) }
 
@@ -628,11 +633,11 @@ private fun providerConfigurableField(
         ) {
             Text(
                 text = field.label,
-                style = AppTextStyles.body,
+                style = AppTextStyles.body.copy(color = labelColor),
             )
             Text(
                 text = field.description,
-                style = AppTextStyles.caption,
+                style = AppTextStyles.caption.copy(color = descriptionColor),
             )
         }
 
