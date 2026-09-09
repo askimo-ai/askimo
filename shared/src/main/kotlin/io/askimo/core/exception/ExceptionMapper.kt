@@ -7,10 +7,12 @@ package io.askimo.core.exception
 import dev.langchain4j.exception.InternalServerException
 import dev.langchain4j.exception.ModelNotFoundException
 import io.askimo.core.logging.logger
+import io.askimo.core.providers.isContextLengthMessage
 import java.net.ConnectException
 import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.nio.channels.UnresolvedAddressException
 
 /**
  * Maps generic exceptions to Askimo-specific exceptions with user-friendly messages.
@@ -93,10 +95,13 @@ object ExceptionMapper {
      * @return An AskimoException if matched, null otherwise
      */
     private fun matchByType(exception: Throwable): AskimoException? = when (exception) {
-        // Network exceptions
+        // Network exceptions — includes UnresolvedAddressException (thrown when a hostname
+        // can't be resolved to a socket address, e.g. offline / bad DNS), which previously
+        // had its own hand-rolled, non-localized message duplicated at the streaming call site.
         is ConnectException,
         is UnknownHostException,
         is NoRouteToHostException,
+        is UnresolvedAddressException,
         -> NetworkException(cause = exception)
 
         // Timeout exceptions
@@ -204,18 +209,25 @@ object ExceptionMapper {
                 combinedMessage.contains("upgrade or purchase credits", ignoreCase = true) ->
                 InsufficientCreditsException(cause = rootCause)
 
-            // Context window exceeded (checked before generic 400 to avoid misclassification)
+            // Unsupported sampling parameters — some models (esp. reasoning models) reject
+            // temperature/top_p entirely. Checked before the generic 400 bucket below.
             (
-                combinedMessage.contains("context", ignoreCase = true) && (
-                    combinedMessage.contains("length", ignoreCase = true) ||
-                        combinedMessage.contains("limit", ignoreCase = true) ||
-                        combinedMessage.contains("exceeded", ignoreCase = true) ||
-                        combinedMessage.contains("too long", ignoreCase = true) ||
-                        combinedMessage.contains("maximum context", ignoreCase = true) ||
-                        combinedMessage.contains("token limit", ignoreCase = true) ||
-                        combinedMessage.contains("exceed", ignoreCase = true)
-                    )
-                ) || combinedMessage.contains("413", ignoreCase = true) ->
+                combinedMessage.contains("temperature", ignoreCase = true) ||
+                    combinedMessage.contains("top_p", ignoreCase = true) ||
+                    combinedMessage.contains("topP", ignoreCase = true)
+                ) && (
+                combinedMessage.contains("does not support", ignoreCase = true) ||
+                    combinedMessage.contains("not supported", ignoreCase = true) ||
+                    combinedMessage.contains("unsupported", ignoreCase = true) ||
+                    combinedMessage.contains("unsupported value", ignoreCase = true) ||
+                    combinedMessage.contains("cannot both be specified", ignoreCase = true)
+                ) ->
+                UnsupportedSamplingException(cause = rootCause)
+
+            // Context window exceeded (checked before generic 400 to avoid misclassification).
+            // Reuses the exact same pattern as `Throwable.isContextLengthError()` (the outer
+            // context-retry loop in ChatClientExtensions) so the two never drift apart.
+            isContextLengthMessage(combinedMessage) ->
                 ContextLengthException(cause = rootCause)
 
             // Malformed/hallucinated tool call — the model streamed a tool_calls entry whose
