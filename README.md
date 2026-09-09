@@ -87,22 +87,22 @@ You shouldn't have to choose between the best AI model, your privacy, and gettin
 
 ## See It in Action
 
-**Multi-step AI Plans** - fill in a form, get a finished deliverable:
+**Agents** - select the installed agent CLI and delegate a goal:
 
-[![Askimo Plans Demo](public/askimo_plan_1280.gif)](public/askimo_plan_1920.gif)
+[![Askimo Agents Demo](public/agents_1280.gif)](public/agents_1920.gif)
 
 **RAG** - search and chat with your local files:
 
-[![Askimo RAG Demo](public/askimo_rag_1280.gif)](public/askimo_rag_1920.gif)
+[![Askimo RAG Demo](public/rag_1280.gif)](public/rag_1920.gif)
 
 **MCP tools** - connect any MCP-compatible server:
 
-[![Askimo MCP Demo](public/askimo_mcp_1280.gif)](public/askimo_mcp_1920.gif)
+[![Askimo MCP Demo](public/mcp_1280.gif)](public/mcp_1920.gif)
 
 <p align="center">
-  <img src="public/desktop_ai_provider_switcher.png" alt="Provider Switching" width="45%">
-  <img src="public/mcp_tools_configure.png" alt="MCP Tools Configuration" width="45%">
-  <img src="public/desktop_rag.png" alt="RAG" width="45%">
+  <img src="public/provider-configure.png" alt="Provider Configure" width="45%">
+  <img src="public/directive.png" alt="Directive Management" width="45%">
+  <img src="public/recording.png" alt="Recording" width="45%">
 </p>
 
 ---
