@@ -7,6 +7,7 @@ package io.askimo.core.skills
 import io.askimo.core.agent.ExternalAgentTemplate
 import io.askimo.core.agent.domain.SkillDefinition
 import io.askimo.core.logging.logger
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -102,7 +103,9 @@ class ExternalAgentTemplateMaterializeSkillTest {
             val skill = writeSkill("pack1/reviewer")
             agent.materializeFolder(skill, skillsRootDir)
 
-            assertTrue(Files.exists(skillsRootDir.resolve("pack1-reviewer/skill.md")))
+            // Destination entry point is normalized to uppercase SKILL.md — see the dedicated
+            // casing-normalization tests below — regardless of the source's own `skill.md` casing.
+            assertTrue(Files.exists(skillsRootDir.resolve("pack1-reviewer/SKILL.md")))
             assertFalse(Files.exists(skillsRootDir.resolve("reviewer")), "Should not use the bare leaf folder name")
         }
 
@@ -115,9 +118,9 @@ class ExternalAgentTemplateMaterializeSkillTest {
             agent.materializeFolder(skillB, skillsRootDir)
 
             assertNotEquals(skillA.slug, skillB.slug)
-            assertTrue(Files.exists(skillsRootDir.resolve("${skillA.slug}/skill.md")), "First skill must be materialized")
+            assertTrue(Files.exists(skillsRootDir.resolve("${skillA.slug}/SKILL.md")), "First skill must be materialized")
             assertTrue(
-                Files.exists(skillsRootDir.resolve("${skillB.slug}/skill.md")),
+                Files.exists(skillsRootDir.resolve("${skillB.slug}/SKILL.md")),
                 "Second skill must ALSO be materialized — this is the collision bug being fixed",
             )
         }
@@ -128,9 +131,62 @@ class ExternalAgentTemplateMaterializeSkillTest {
             agent.materializeFolder(skill, skillsRootDir)
 
             val target = skillsRootDir.resolve(skill.slug)
-            assertTrue(Files.exists(target.resolve("skill.md")))
+            assertTrue(Files.exists(target.resolve("SKILL.md")))
             assertTrue(Files.exists(target.resolve("examples.md")))
             assertTrue(Files.exists(target.resolve("helpers/Util.java")))
+        }
+
+        @Test
+        fun `entry point is normalized to uppercase SKILL dot md regardless of source casing`() {
+            // The test's own source fixture (writeSkill) still writes a lowercase `skill.md` —
+            // SkillRepository.SKILL_ENTRY (now the canonical "SKILL.md") is matched
+            // case-insensitively when *reading* — but the target agent's native discovery
+            // (Claude Code, Codex, Antigravity) requires the file to literally be named
+            // `SKILL.md`. On a case-sensitive filesystem a preserved-casing copy would be
+            // invisible to it.
+            val skill = writeSkill("coding/reviewer")
+            agent.materializeFolder(skill, skillsRootDir)
+
+            val target = skillsRootDir.resolve(skill.slug)
+            assertTrue(Files.exists(target.resolve("SKILL.md")), "Entry point must be normalized to uppercase SKILL.md")
+            // Files.exists() is case-insensitive on the default macOS/Windows filesystem, so it
+            // can't distinguish "SKILL.md" from "skill.md" there — list the directory instead to
+            // check the *literal* on-disk filename regardless of the test filesystem's own
+            // case-sensitivity.
+            val actualNames = Files.list(target).use { s -> s.map { it.fileName.toString() }.toList() }
+            assertEquals(1, actualNames.count { it.equals("SKILL.md", ignoreCase = true) }, "Exactly one entry-point file expected")
+            assertTrue("SKILL.md" in actualNames, "On-disk entry point must literally be named SKILL.md, was: $actualNames")
+            assertFalse("skill.md" in actualNames, "Lowercase source name must not be preserved for the entry point, was: $actualNames")
+        }
+
+        @Test
+        fun `only the canonical entry file wins when both skill dot md and SKILL dot md exist on a case-sensitive filesystem`() {
+            // On a case-insensitive filesystem (default macOS/Windows), writing both names below
+            // just overwrites the same physical file — there is nothing to disambiguate, so the
+            // test is meaningless there and is skipped.
+            val skill = writeSkill("coding/reviewer")
+            val skillDir = skill.absolutePath.parent
+            skillDir.resolve("SKILL.md").writeText("---\nname: Rogue\n---\nRogue content")
+            val distinctFilesOnDisk = Files.list(skillDir).use { s ->
+                s.map { it.fileName.toString() }.toList()
+            }
+            assumeTrue(
+                distinctFilesOnDisk.count { it.equals("SKILL.md", ignoreCase = true) } == 2,
+                "Filesystem is case-insensitive — skill.md/SKILL.md collapse to one file, nothing to test here",
+            )
+
+            agent.materializeFolder(skill, skillsRootDir)
+
+            val target = skillsRootDir.resolve(skill.slug)
+            val materializedNames = Files.list(target).use { s -> s.map { it.fileName.toString() }.toList() }
+            assertEquals(
+                1,
+                materializedNames.count { it.equals("SKILL.md", ignoreCase = true) },
+                "Exactly one entry-point file must be materialized, was: $materializedNames",
+            )
+            // Content must come from skill.absolutePath (the canonical entry SkillRepository
+            // selected), never from the rogue duplicate — regardless of Files.walk() order.
+            assertEquals("---\nname: Test\n---\nContent", Files.readString(target.resolve("SKILL.md")))
         }
 
         @Test
@@ -155,7 +211,7 @@ class ExternalAgentTemplateMaterializeSkillTest {
             agent.materializeFolder(skill, skillsRootDir)
 
             assertTrue(Files.exists(target.resolve("user-owned.txt")), "Pre-existing user content must survive")
-            assertFalse(Files.exists(target.resolve("skill.md")), "Should not have copied into a folder that already existed")
+            assertFalse(Files.exists(target.resolve("SKILL.md")), "Should not have copied into a folder that already existed")
         }
 
         @Test

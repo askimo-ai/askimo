@@ -6,6 +6,7 @@ package io.askimo.core.agent.repository
 
 import io.askimo.core.agent.SkillMarkdownParser
 import io.askimo.core.agent.domain.SkillDefinition
+import io.askimo.core.agent.domain.SkillDefinition.Companion.SKILL_ENTRY
 import io.askimo.core.agent.domain.SkillTreeNode
 import io.askimo.core.logging.logger
 import io.askimo.core.util.AskimoHome
@@ -55,14 +56,10 @@ class SkillRepository {
     private val log = logger<SkillRepository>()
 
     companion object {
-        /**
-         * File names that are reserved — never treated as supplemental skill content.
+        /** File names that are reserved — never treated as supplemental skill content.
          * Matched case-sensitively (these are intentionally uppercase agent conventions).
          */
         private val RESERVED_FILENAMES = setOf("CLAUDE.md", "GEMINI.md", "AGENTS.md", "README.md")
-
-        /** The skill entry-point filename — matched case-insensitively. */
-        private const val SKILL_ENTRY = "skill.md"
 
         /** Cap on a rename-on-save folder name — keeps names reasonable across filesystems. */
         private const val MAX_FOLDER_NAME_LENGTH = 160

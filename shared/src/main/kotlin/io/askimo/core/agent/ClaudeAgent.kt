@@ -5,6 +5,7 @@
 package io.askimo.core.agent
 
 import io.askimo.core.agent.domain.SkillDefinition
+import io.askimo.core.config.AppConfig
 import io.askimo.core.logging.logger
 import io.askimo.core.util.ProcessBuilderExt
 import java.io.BufferedWriter
@@ -128,7 +129,33 @@ class ClaudeAgent : ExternalAgentTemplate() {
                     // (Claude manages the transcript/context internally, not Askimo).
                     val sessionId = event.fields["session_id"] as? String
                     if (!sessionId.isNullOrBlank()) updateExecutionMetadata(sessionId = sessionId)
-                    // Pure lifecycle marker — nothing worth surfacing to the user as a status row.
+
+                    val model = event.fields["model"] as? String
+
+                    if (AppConfig.developer.enabled && AppConfig.developer.active) {
+                        // Dev mode: surface everything useful for debugging how the CLI is
+                        // actually running — model, permission mode, tool/MCP counts, cwd.
+                        val toolCount = (event.fields["tools"] as? String)
+                            ?.let { ClaudeStreamJsonEventParser.parseArray(it).size }
+                        val mcpCount = (event.fields["mcp_servers"] as? String)
+                            ?.let { ClaudeStreamJsonEventParser.parseArray(it).size }
+                        val permissionMode = event.fields["permissionMode"] as? String
+                        val cwd = event.fields["cwd"] as? String
+
+                        onStatus(
+                            buildString {
+                                append("init")
+                                model?.let { append(" | model=$it") }
+                                permissionMode?.let { append(" | permission=$it") }
+                                toolCount?.let { append(" | tools=$it") }
+                                mcpCount?.let { append(" | mcp=$it") }
+                                cwd?.let { append(" | cwd=$it") }
+                            },
+                        )
+                    } else if (!model.isNullOrBlank()) {
+                        // Non-dev: just a brief, low-noise hint of which model answered.
+                        onStatus("model: $model")
+                    }
                 }
             }
 

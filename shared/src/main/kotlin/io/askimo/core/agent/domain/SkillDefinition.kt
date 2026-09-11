@@ -115,5 +115,17 @@ data class SkillDefinition(
     companion object {
         /** Cap on [slug] length — keeps materialized folder names reasonable across filesystems. */
         private const val MAX_SLUG_LENGTH = 80
+
+        /**
+         * The skill entry-point filename — matched case-insensitively wherever an *existing*
+         * file is being looked up (`SKILL.md`/`skill.md`/`Skill.md` all match), but this is the
+         * canonical casing used whenever Askimo itself *writes* a brand-new entry file, so every
+         * call site (repository, agent materialization, skill editor UI, ...) agrees on one
+         * literal instead of each hardcoding its own "SKILL.md"/"skill.md". Lives here rather
+         * than on [io.askimo.core.agent.repository.SkillRepository] since non-repository code
+         * (e.g. [io.askimo.core.agent.ExternalAgentTemplate]) needs it too, and depending on a
+         * repository class purely for a filename constant is an awkward layering inversion.
+         */
+        const val SKILL_ENTRY = "SKILL.md"
     }
 }

@@ -130,7 +130,6 @@ fun agentMessageList(
                             text = stringResource("message.thinking", thinkingElapsedSeconds),
                             style = AppTextStyles.bodySecondary,
                             color = AppColors.secondaryIconColor(),
-                            modifier = Modifier.padding(top = Spacing.medium),
                         )
                     } else {
                         turnTimelineView(liveTimelineGroups, isStreaming = true, onLinkClick = onLinkClick)

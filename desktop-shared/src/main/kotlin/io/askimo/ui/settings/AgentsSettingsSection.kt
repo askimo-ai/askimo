@@ -116,6 +116,7 @@ import java.awt.Desktop
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.io.path.relativeTo
 
 @Composable
 fun agentsSettingsSection() {
@@ -239,7 +240,7 @@ fun agentsSettingsSection() {
                     onNewSkill = {
                         val folderName = "new-skill-${System.currentTimeMillis()}"
                         val blankContent = "---\nname: New Skill\ndescription: \ntags: []\n---\n\nYou are a helpful assistant.\n"
-                        val saved = skillRepository.save("$folderName/skill.md", blankContent)
+                        val saved = skillRepository.save("$folderName/${SkillDefinition.SKILL_ENTRY}", blankContent)
                         refresh()
                         selectedSkill = saved
                         selectedLeaf = null
@@ -299,7 +300,7 @@ fun agentsSettingsSection() {
             onDismiss = { showNewSkillInFolderDialog = false },
             onConfirm = { skillFolderName ->
                 if (skillFolderName.isNotBlank()) {
-                    val relativePath = "$newItemParentPath/$skillFolderName/skill.md"
+                    val relativePath = "$newItemParentPath/$skillFolderName/${SkillDefinition.SKILL_ENTRY}"
                     val blankContent = "---\nname: ${skillFolderName.replace('-', ' ').replaceFirstChar { it.uppercase() }}\ndescription: \ntags: []\n---\n\nYou are a helpful assistant.\n"
                     val saved = skillRepository.save(relativePath, blankContent)
                     refresh()
@@ -620,19 +621,45 @@ private fun skillsMainEmptyState() {
 
 // ── Skill editor ──────────────────────────────────────────────────────────────
 
+/**
+ * Derives the actual on-disk relative path (from `skillsDir()`) that [skill]'s entry-file
+ * content should be saved to. Extracted as a pure, non-Composable function so it's directly
+ * unit-testable without a Compose runtime — see the two branches below for why this can't
+ * just be recomputed from [SkillDefinition.relativePath] alone.
+ *
+ * @param skillsDir Root skills directory, passed in (rather than read via [AskimoHome] here)
+ *                  purely so tests can point this at an arbitrary temp directory.
+ */
+internal fun deriveSkillMdRelativePath(skill: SkillDefinition, skillsDir: Path): String {
+    val isAlreadyFolderEntry = skill.absolutePath.fileName.toString().equals(SkillDefinition.SKILL_ENTRY, ignoreCase = true)
+    return if (isAlreadyFolderEntry) {
+        // Already a real, existing skill.md/SKILL.md entry file inside its own folder — write
+        // back to the *exact* file on disk, preserving whatever case it already has, instead of
+        // reconstructing a guessed path from the virtual relativePath. SkillRepository stores
+        // relativePath as a *virtual* "<category>/<folder>.md" form for folder-based skills (see
+        // SkillRepository's folder-loader), distinct from the real entry file's own path/case —
+        // guessing SKILL_ENTRY's canonical case here would silently create a brand-new sibling
+        // file next to an existing differently-cased entry on a case-sensitive filesystem, and
+        // SkillRepository would then pick between the two nondeterministically (Files.list
+        // order), so edits could appear lost.
+        skill.absolutePath.relativeTo(skillsDir).toString().replace("\\", "/")
+    } else {
+        // A flat, single-file skill (not yet folder-based) — migrate it into a fresh
+        // `<name>/SKILL.md` folder. Safe to use the canonical casing here since this
+        // destination is guaranteed not to already exist.
+        val withoutExt = skill.relativePath.removeSuffix(".md")
+        "$withoutExt/${SkillDefinition.SKILL_ENTRY}"
+    }
+}
+
 @Composable
 private fun skillEditorContent(
     skill: SkillDefinition,
     onSave: (relativePath: String, content: String) -> Unit,
 ) {
-    // Derive the actual skill.md path.
-    val skillMdRelativePath = remember(skill.relativePath) {
-        if (skill.relativePath.endsWith("/skill.md", ignoreCase = true)) {
-            skill.relativePath
-        } else {
-            val withoutExt = skill.relativePath.removeSuffix(".md")
-            "$withoutExt/skill.md"
-        }
+    // Derive the actual SKILL.md path.
+    val skillMdRelativePath = remember(skill.relativePath, skill.absolutePath) {
+        deriveSkillMdRelativePath(skill, AskimoHome.skillsDir())
     }
 
     // Read the raw skill.md body (not the merged content used for AI execution)
