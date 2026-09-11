@@ -1669,6 +1669,16 @@ internal fun toolCallsSection(
 }
 
 /**
+ * Heuristic for detecting a Claude Code native Skill invocation. Claude registers a distinct
+ * tool per discovered skill, named after the skill's materialized folder (see
+ * [io.askimo.core.agent.domain.SkillDefinition.slug]), itself namespaced with a `skill(s)-`
+ * prefix by Claude Code's own Skill-tool machinery — e.g. `skills-skills-pptx` for a skill
+ * materialized at `.claude/skills/skills-pptx/`. There is no generic `"Skill"` wrapper tool
+ * with the skill name as an argument; the tool name itself already **is** the skill identifier.
+ */
+private fun String.isSkillToolCall(): Boolean = startsWith("skill", ignoreCase = true)
+
+/**
  * Single row showing a tool name, its running/done/failed status icon, and an optional
  * expandable section with the raw arguments and result.
  *
@@ -1681,7 +1691,12 @@ internal fun toolCallsSection(
 private fun toolCallRow(toolCall: ToolCallInfo) {
     val isDone = toolCall.status == ToolCallStatus.DONE
     val hasFailed = toolCall.hasFailed
-    val hasDetails = !toolCall.arguments.isNullOrBlank() || !toolCall.result.isNullOrBlank()
+    val isSkillCall = toolCall.toolName.isSkillToolCall()
+    // For a Skill invocation, the skill id (e.g. "skills-skills-pptx") already flows through as
+    // `arguments` (see ClaudeAgent's tool_use handling) and is shown inline in the header below —
+    // repeating it again in an expandable "Arguments:" section would be redundant, so it's
+    // excluded from `hasDetails` here (a `result`, if any, is still shown/expandable).
+    val hasDetails = (!toolCall.arguments.isNullOrBlank() && !isSkillCall) || !toolCall.result.isNullOrBlank()
 
     var detailsExpanded by remember { mutableStateOf(false) }
 
@@ -1743,7 +1758,11 @@ private fun toolCallRow(toolCall: ToolCallInfo) {
                     tint = statusIconColor,
                 )
                 Text(
-                    text = toolCall.toolName,
+                    text = if (isSkillCall) {
+                        stringResource("tool.call.skill.label", toolCall.arguments ?: toolCall.toolName)
+                    } else {
+                        toolCall.toolName
+                    },
                     style = AppTextStyles.hint,
                     modifier = Modifier.weight(1f),
                 )
@@ -1788,7 +1807,7 @@ private fun toolCallRow(toolCall: ToolCallInfo) {
                         .padding(top = Spacing.extraSmall),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    if (!toolCall.arguments.isNullOrBlank()) {
+                    if (!toolCall.arguments.isNullOrBlank() && !isSkillCall) {
                         toolCallDetailSection(
                             label = stringResource("tool.call.detail.arguments"),
                             content = toolCall.arguments!!,

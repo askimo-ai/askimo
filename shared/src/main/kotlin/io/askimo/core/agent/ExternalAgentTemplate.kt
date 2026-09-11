@@ -217,7 +217,14 @@ abstract class ExternalAgentTemplate : ExternalAgent {
                 .filter { Files.isRegularFile(it) }
                 .filter { path -> path.none { seg -> seg.toString() == ".git" } }
                 .forEach { src ->
-                    val dest = targetDir.resolve(sourceDir.relativize(src))
+                    val relPath = sourceDir.relativize(src)
+                    val isTopLevelEntryPoint = relPath.parent == null &&
+                        relPath.fileName.toString().equals("SKILL.md", ignoreCase = true)
+                    val dest = if (isTopLevelEntryPoint) {
+                        targetDir.resolve("SKILL.md")
+                    } else {
+                        targetDir.resolve(relPath)
+                    }
                     Files.createDirectories(dest.parent)
                     Files.copy(src, dest, StandardCopyOption.REPLACE_EXISTING)
                     copiedCount++

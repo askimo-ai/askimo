@@ -239,7 +239,7 @@ fun agentsSettingsSection() {
                     onNewSkill = {
                         val folderName = "new-skill-${System.currentTimeMillis()}"
                         val blankContent = "---\nname: New Skill\ndescription: \ntags: []\n---\n\nYou are a helpful assistant.\n"
-                        val saved = skillRepository.save("$folderName/skill.md", blankContent)
+                        val saved = skillRepository.save("$folderName/SKILL.md", blankContent)
                         refresh()
                         selectedSkill = saved
                         selectedLeaf = null
@@ -299,7 +299,7 @@ fun agentsSettingsSection() {
             onDismiss = { showNewSkillInFolderDialog = false },
             onConfirm = { skillFolderName ->
                 if (skillFolderName.isNotBlank()) {
-                    val relativePath = "$newItemParentPath/$skillFolderName/skill.md"
+                    val relativePath = "$newItemParentPath/$skillFolderName/SKILL.md"
                     val blankContent = "---\nname: ${skillFolderName.replace('-', ' ').replaceFirstChar { it.uppercase() }}\ndescription: \ntags: []\n---\n\nYou are a helpful assistant.\n"
                     val saved = skillRepository.save(relativePath, blankContent)
                     refresh()
@@ -625,13 +625,13 @@ private fun skillEditorContent(
     skill: SkillDefinition,
     onSave: (relativePath: String, content: String) -> Unit,
 ) {
-    // Derive the actual skill.md path.
+    // Derive the actual SKILL.md path.
     val skillMdRelativePath = remember(skill.relativePath) {
         if (skill.relativePath.endsWith("/skill.md", ignoreCase = true)) {
             skill.relativePath
         } else {
             val withoutExt = skill.relativePath.removeSuffix(".md")
-            "$withoutExt/skill.md"
+            "$withoutExt/SKILL.md"
         }
     }
 
