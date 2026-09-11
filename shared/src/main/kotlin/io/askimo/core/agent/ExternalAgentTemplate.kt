@@ -218,10 +218,32 @@ abstract class ExternalAgentTemplate : ExternalAgent {
                 .filter { path -> path.none { seg -> seg.toString() == ".git" } }
                 .forEach { src ->
                     val relPath = sourceDir.relativize(src)
-                    val isTopLevelEntryPoint = relPath.parent == null &&
-                        relPath.fileName.toString().equals("SKILL.md", ignoreCase = true)
-                    val dest = if (isTopLevelEntryPoint) {
-                        targetDir.resolve("SKILL.md")
+                    // Anchor the entry-point decision to the *specific* file SkillRepository
+                    // already resolved as canonical (skill.absolutePath), not just a case-
+                    // insensitive filename match — on a case-sensitive filesystem a folder can
+                    // contain both `skill.md` and `SKILL.md`, and matching by name alone would
+                    // let both race into the same `targetDir/SKILL.md` destination, with
+                    // whichever Files.walk() visits last silently winning (nondeterministic,
+                    // and possibly different from what the repository/UI consider the skill's
+                    // actual content).
+                    val isCanonicalEntryPoint = relPath.parent == null && src == skill.absolutePath
+                    val isDuplicateEntryVariant = !isCanonicalEntryPoint &&
+                        relPath.parent == null &&
+                        relPath.fileName.toString().equals(SkillDefinition.SKILL_ENTRY, ignoreCase = true)
+                    if (isDuplicateEntryVariant) {
+                        // A second, non-canonical case-variant of the entry file (e.g. a stray
+                        // `skill.md` alongside the real `SKILL.md`) — skip it entirely rather
+                        // than let it clobber or race with the canonical copy below.
+                        log.warn(
+                            "Skipping duplicate entry-point variant '{}' for skill '{}' — canonical entry is {}",
+                            src,
+                            skill.name,
+                            skill.absolutePath,
+                        )
+                        return@forEach
+                    }
+                    val dest = if (isCanonicalEntryPoint) {
+                        targetDir.resolve(SkillDefinition.SKILL_ENTRY)
                     } else {
                         targetDir.resolve(relPath)
                     }
@@ -235,7 +257,7 @@ abstract class ExternalAgentTemplate : ExternalAgent {
         // warning if it's missing so a silent no-op discovery failure is easy to diagnose from
         // logs alone, without needing to inspect the filesystem by hand.
         val hasEntryPoint = Files.list(targetDir).use { s ->
-            s.anyMatch { it.fileName.toString().equals("SKILL.md", ignoreCase = true) }
+            s.anyMatch { it.fileName.toString().equals(SkillDefinition.SKILL_ENTRY, ignoreCase = true) }
         }
         if (!hasEntryPoint) {
             log.warn(

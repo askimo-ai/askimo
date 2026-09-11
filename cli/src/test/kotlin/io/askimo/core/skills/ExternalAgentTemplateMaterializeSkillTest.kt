@@ -7,6 +7,7 @@ package io.askimo.core.skills
 import io.askimo.core.agent.ExternalAgentTemplate
 import io.askimo.core.agent.domain.SkillDefinition
 import io.askimo.core.logging.logger
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -137,10 +138,12 @@ class ExternalAgentTemplateMaterializeSkillTest {
 
         @Test
         fun `entry point is normalized to uppercase SKILL dot md regardless of source casing`() {
-            // Askimo's own convention is lowercase `skill.md` (SkillRepository.SKILL_ENTRY,
-            // matched case-insensitively) — but the target agent's native discovery (Claude
-            // Code, Codex, Antigravity) requires the file to literally be named `SKILL.md`.
-            // On a case-sensitive filesystem a preserved-casing copy would be invisible to it.
+            // The test's own source fixture (writeSkill) still writes a lowercase `skill.md` —
+            // SkillRepository.SKILL_ENTRY (now the canonical "SKILL.md") is matched
+            // case-insensitively when *reading* — but the target agent's native discovery
+            // (Claude Code, Codex, Antigravity) requires the file to literally be named
+            // `SKILL.md`. On a case-sensitive filesystem a preserved-casing copy would be
+            // invisible to it.
             val skill = writeSkill("coding/reviewer")
             agent.materializeFolder(skill, skillsRootDir)
 
@@ -154,6 +157,36 @@ class ExternalAgentTemplateMaterializeSkillTest {
             assertEquals(1, actualNames.count { it.equals("SKILL.md", ignoreCase = true) }, "Exactly one entry-point file expected")
             assertTrue("SKILL.md" in actualNames, "On-disk entry point must literally be named SKILL.md, was: $actualNames")
             assertFalse("skill.md" in actualNames, "Lowercase source name must not be preserved for the entry point, was: $actualNames")
+        }
+
+        @Test
+        fun `only the canonical entry file wins when both skill dot md and SKILL dot md exist on a case-sensitive filesystem`() {
+            // On a case-insensitive filesystem (default macOS/Windows), writing both names below
+            // just overwrites the same physical file — there is nothing to disambiguate, so the
+            // test is meaningless there and is skipped.
+            val skill = writeSkill("coding/reviewer")
+            val skillDir = skill.absolutePath.parent
+            skillDir.resolve("SKILL.md").writeText("---\nname: Rogue\n---\nRogue content")
+            val distinctFilesOnDisk = Files.list(skillDir).use { s ->
+                s.map { it.fileName.toString() }.toList()
+            }
+            assumeTrue(
+                distinctFilesOnDisk.count { it.equals("SKILL.md", ignoreCase = true) } == 2,
+                "Filesystem is case-insensitive — skill.md/SKILL.md collapse to one file, nothing to test here",
+            )
+
+            agent.materializeFolder(skill, skillsRootDir)
+
+            val target = skillsRootDir.resolve(skill.slug)
+            val materializedNames = Files.list(target).use { s -> s.map { it.fileName.toString() }.toList() }
+            assertEquals(
+                1,
+                materializedNames.count { it.equals("SKILL.md", ignoreCase = true) },
+                "Exactly one entry-point file must be materialized, was: $materializedNames",
+            )
+            // Content must come from skill.absolutePath (the canonical entry SkillRepository
+            // selected), never from the rogue duplicate — regardless of Files.walk() order.
+            assertEquals("---\nname: Test\n---\nContent", Files.readString(target.resolve("SKILL.md")))
         }
 
         @Test
