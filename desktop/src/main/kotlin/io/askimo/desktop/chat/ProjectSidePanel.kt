@@ -416,7 +416,7 @@ private fun ragSourcesTabContent(
                     },
                 contentAlignment = Alignment.Center,
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.micro)) {
                     repeat(3) {
                         Box(modifier = Modifier.size(3.dp).background(AppColors.tertiaryIconColor(), androidx.compose.foundation.shape.CircleShape))
                     }

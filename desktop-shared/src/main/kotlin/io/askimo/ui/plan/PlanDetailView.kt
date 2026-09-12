@@ -161,7 +161,7 @@ fun planDetailView(
                             MaterialTheme.colorScheme.surface
                         },
                     )
-                    .padding(start = 24.dp, end = 36.dp, top = 8.dp, bottom = 8.dp),
+                    .padding(start = Spacing.extraLarge, end = Spacing.scrollbarGutter, top = Spacing.small, bottom = Spacing.small),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Column(
@@ -262,7 +262,7 @@ fun planDetailView(
                         modifier = Modifier
                             .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                             .fillMaxWidth()
-                            .padding(start = 24.dp, end = 36.dp, top = 16.dp, bottom = 24.dp),
+                            .padding(start = Spacing.extraLarge, end = Spacing.scrollbarGutter, top = Spacing.large, bottom = Spacing.extraLarge),
                     ) {
                         var stepsExpanded by remember { mutableStateOf(false) }
                         val stepsTooltip = remember(plan.steps) {
@@ -325,7 +325,7 @@ fun planDetailView(
                                                         text = "${index + 1}",
                                                         style = AppTextStyles.hint,
                                                         color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                        modifier = Modifier.padding(horizontal = Spacing.extraSmall, vertical = Spacing.micro),
                                                     )
                                                 }
                                                 Column(modifier = Modifier.weight(1f)) {
@@ -337,13 +337,13 @@ fun planDetailView(
                                                         Text(
                                                             text = step.system!!,
                                                             style = AppTextStyles.codeSecondary.copy(fontSize = 11.sp),
-                                                            modifier = Modifier.padding(top = 2.dp),
+                                                            modifier = Modifier.padding(top = Spacing.micro),
                                                         )
                                                     }
                                                     Text(
                                                         text = step.message,
                                                         style = AppTextStyles.caption,
-                                                        modifier = Modifier.padding(top = 2.dp),
+                                                        modifier = Modifier.padding(top = Spacing.micro),
                                                     )
                                                 }
                                             }
@@ -685,7 +685,7 @@ private fun agenticStepRow(
     }
 
     Column(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+        modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.micro)
             .onPointerEvent(PointerEventType.Enter) { isHovered = true }
             .onPointerEvent(PointerEventType.Exit) { isHovered = false },
     ) {
@@ -694,7 +694,7 @@ private fun agenticStepRow(
             horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
             verticalAlignment = Alignment.Top,
         ) {
-            Box(modifier = Modifier.padding(top = 2.dp)) {
+            Box(modifier = Modifier.padding(top = Spacing.micro)) {
                 when (event) {
                     is PlanStepEvent.Started -> AppComponents.loadingSpinner(size = 14.dp, color = MaterialTheme.colorScheme.secondary)
 
@@ -752,7 +752,7 @@ private fun agenticStepRow(
                                             ),
                                             style = AppTextStyles.hint,
                                             color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                            modifier = Modifier.padding(horizontal = Spacing.extraSmall, vertical = Spacing.micro),
                                         )
                                     }
                                     stepTokenUsageLabel(event)?.let { usage ->
@@ -783,7 +783,7 @@ private fun agenticStepRow(
                                         ),
                                         style = AppTextStyles.hint,
                                         color = MaterialTheme.colorScheme.onErrorContainer,
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                        modifier = Modifier.padding(horizontal = Spacing.extraSmall, vertical = Spacing.micro),
                                     )
                                 }
                             }
@@ -812,7 +812,7 @@ private fun agenticStepRow(
                         if (!suppressOutput && !copyableOutput.isNullOrBlank() && outputExpanded) {
                             markdownText(
                                 markdown = copyableOutput,
-                                modifier = Modifier.padding(top = 2.dp).fillMaxWidth(),
+                                modifier = Modifier.padding(top = Spacing.micro).fillMaxWidth(),
                             )
                         }
                     }
@@ -822,7 +822,7 @@ private fun agenticStepRow(
                             text = event.question,
                             style = AppTextStyles.caption,
                             color = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.padding(top = 2.dp),
+                            modifier = Modifier.padding(top = Spacing.micro),
                         )
                     }
 
@@ -831,7 +831,7 @@ private fun agenticStepRow(
                             Text(
                                 text = event.error.message ?: event.error.javaClass.simpleName,
                                 style = AppTextStyles.errorText,
-                                modifier = Modifier.padding(top = 2.dp),
+                                modifier = Modifier.padding(top = Spacing.micro),
                             )
                         }
                     }
@@ -847,7 +847,7 @@ private fun agenticStepRow(
                         Text(
                             text = stringResource("plans.steps.running") + elapsed + ".".repeat(dotCount),
                             style = AppTextStyles.caption,
-                            modifier = Modifier.padding(top = 2.dp),
+                            modifier = Modifier.padding(top = Spacing.micro),
                         )
                     }
                 }
@@ -856,7 +856,7 @@ private fun agenticStepRow(
 
         if (!suppressOutput && copyableOutput != null && outputExpanded) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 22.dp, top = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(start = Spacing.extraLarge, top = Spacing.extraSmall),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Start,
             ) {
@@ -881,7 +881,7 @@ private fun agenticStepRow(
                     }
                 }
                 if (showCopyFeedback) {
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(Spacing.extraSmall))
                     Text(
                         text = stringResource("mermaid.feedback.copied"),
                         modifier = Modifier
@@ -889,7 +889,7 @@ private fun agenticStepRow(
                                 MaterialTheme.colorScheme.primaryContainer,
                                 shape = MaterialTheme.shapes.small,
                             )
-                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                            .padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                         style = AppTextStyles.hint,
                     )

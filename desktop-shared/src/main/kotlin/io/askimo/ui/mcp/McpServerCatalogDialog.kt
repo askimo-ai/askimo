@@ -230,7 +230,7 @@ private fun mcpTemplateCatalogCard(
                 style = AppTextStyles.hint,
             )
 
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(Spacing.micro))
 
             primaryButton(
                 onClick = onSelect,

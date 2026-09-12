@@ -59,6 +59,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuDefaults
+import androidx.compose.material3.MenuItemColors
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -346,6 +348,56 @@ object AppComponents {
         if (showDivider) {
             HorizontalDivider(color = AppColors.codeBlockBorderColor())
         }
+    }
+
+    /**
+     * Density-scaled minimum height for dropdown/menu items.
+     *
+     * Material3's [DropdownMenuItem] enforces its own fixed 48.dp minimum height internally,
+     * which silently swallows any [Spacing]-based vertical `contentPadding` — the padding
+     * change never becomes visible because the row gets clamped back up to 48.dp regardless
+     * of density. Combining this scaled `heightIn(min = ...)` with density-aware content
+     * padding forces the row to actually grow/shrink with [LocalLayoutDensity] instead of
+     * always sitting at the Material3 default.
+     */
+    val menuItemMinHeight: Dp
+        @Composable get() = 48.dp * LocalLayoutDensity.current.scale
+
+    /** Density-aware content padding for dropdown/menu items, scaling with [LocalLayoutDensity]. */
+    val menuItemContentPadding: PaddingValues
+        @Composable get() = PaddingValues(horizontal = Spacing.medium, vertical = Spacing.small)
+
+    /**
+     * The standard [DropdownMenuItem] for this app — always density-aware via
+     * [menuItemMinHeight]/[menuItemContentPadding] so item spacing correctly follows the
+     * user's Layout Density setting, and always shows a hand [PointerIcon] on hover.
+     *
+     * Use this instead of a raw [DropdownMenuItem] anywhere in the app that renders items
+     * inside a dropdown menu — e.g. session/project action menus.
+     */
+    @Composable
+    fun menuItem(
+        text: @Composable () -> Unit,
+        onClick: () -> Unit,
+        modifier: Modifier = Modifier,
+        leadingIcon: (@Composable () -> Unit)? = null,
+        trailingIcon: (@Composable () -> Unit)? = null,
+        enabled: Boolean = true,
+        colors: MenuItemColors = MenuDefaults.itemColors(),
+        contentPadding: PaddingValues = menuItemContentPadding,
+    ) {
+        DropdownMenuItem(
+            text = text,
+            onClick = onClick,
+            modifier = modifier
+                .heightIn(min = menuItemMinHeight)
+                .pointerHoverIcon(PointerIcon.Hand),
+            leadingIcon = leadingIcon,
+            trailingIcon = trailingIcon,
+            enabled = enabled,
+            colors = colors,
+            contentPadding = contentPadding,
+        )
     }
 
     @Composable

@@ -252,7 +252,7 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
                         color = MaterialTheme.colorScheme.error,
                         shape = RoundedCornerShape(50),
                     )
-                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                    .padding(horizontal = Spacing.extraSmall, vertical = Spacing.micro),
             ) {
                 Text(
                     text = if (unreadCount > 9) "9+" else unreadCount.toString(),
@@ -634,7 +634,7 @@ fun notificationEventCard(
                                 color = AppColors.cardBadgeContainerColor(contentColor),
                                 shape = RoundedCornerShape(4.dp),
                             )
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                            .padding(horizontal = Spacing.extraSmall, vertical = Spacing.micro),
                     ) {
                         Text(
                             text = "v${event.currentVersion} → v${event.latestVersion}",
@@ -643,7 +643,7 @@ fun notificationEventCard(
                         )
                     }
                 }
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.height(Spacing.micro))
             }
 
             // ── Project name (indexing events) ──────────────────────────────────────

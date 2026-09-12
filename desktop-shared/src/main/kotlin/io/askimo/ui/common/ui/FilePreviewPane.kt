@@ -235,7 +235,7 @@ fun filePreviewPane(
                         modifier = Modifier
                             .fillMaxSize()
                             .verticalScroll(vScrollState)
-                            .padding(end = 8.dp, bottom = 10.dp), // room for scrollbars
+                            .padding(end = Spacing.small, bottom = Spacing.small), // room for scrollbars
                     ) {
                         codeViewerBlock(
                             code = state.text,
@@ -249,7 +249,7 @@ fun filePreviewPane(
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
                             .fillMaxHeight()
-                            .padding(bottom = 10.dp),
+                            .padding(bottom = Spacing.small),
                         adapter = rememberScrollbarAdapter(vScrollState),
                         style = AppComponents.scrollbarStyle(),
                     )
@@ -258,7 +258,7 @@ fun filePreviewPane(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
                             .fillMaxWidth()
-                            .padding(end = 10.dp), // room for vertical scrollbar
+                            .padding(end = Spacing.small), // room for vertical scrollbar
                         adapter = rememberScrollbarAdapter(hScrollState),
                         style = AppComponents.scrollbarStyle(),
                     )

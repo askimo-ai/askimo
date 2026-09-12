@@ -79,7 +79,7 @@ fun shortcutsSettingsSection() {
                 modifier = Modifier
                     .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                     .fillMaxWidth()
-                    .padding(start = 24.dp, top = 24.dp, bottom = 24.dp, end = 36.dp),
+                    .padding(start = Spacing.extraLarge, top = Spacing.extraLarge, bottom = Spacing.extraLarge, end = Spacing.scrollbarGutter),
                 verticalArrangement = Arrangement.spacedBy(Spacing.large),
             ) {
                 Text(
@@ -209,7 +209,7 @@ fun keyboardShortcutsList(
                                 text = "${shortcuts.size}",
                                 style = AppTextStyles.hint,
                                 fontFamily = FontFamily.Monospace,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                modifier = Modifier.padding(horizontal = Spacing.small, vertical = Spacing.micro),
                             )
                         }
                     }
@@ -245,7 +245,7 @@ private fun shortcutRow(description: String, keyBinding: String) {
             .fillMaxWidth()
             .hoverable(rowInteractionSource)
             .background(rowBgColor, RoundedCornerShape(6.dp))
-            .padding(horizontal = 4.dp, vertical = 6.dp),
+            .padding(horizontal = Spacing.extraSmall, vertical = Spacing.extraSmall),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -256,7 +256,7 @@ private fun shortcutRow(description: String, keyBinding: String) {
         )
 
         Row(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .pointerHoverIcon(PointerIcon.Hand)
@@ -303,7 +303,7 @@ private fun keyChip(key: String) {
             text = key,
             style = AppTextStyles.bodySecondary,
             fontFamily = FontFamily.Monospace,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
         )
     }
 }

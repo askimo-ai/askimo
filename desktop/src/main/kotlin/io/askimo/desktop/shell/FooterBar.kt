@@ -92,7 +92,7 @@ private fun aiConfigInfo(
                 ),
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(horizontal = Spacing.medium, vertical = Spacing.extraSmall),
                     horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -141,7 +141,7 @@ private fun aiConfigInfo(
                 ),
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(horizontal = Spacing.medium, vertical = Spacing.extraSmall),
                     horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -224,7 +224,7 @@ fun footerBar(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = Spacing.large, vertical = Spacing.small),
         ) {
             // Centre — unified provider + model selector
             Box(modifier = Modifier.align(Alignment.Center)) {

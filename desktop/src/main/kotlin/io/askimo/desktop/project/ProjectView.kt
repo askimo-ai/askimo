@@ -191,7 +191,7 @@ fun projectView(
                     modifier = Modifier
                         .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                         .fillMaxWidth()
-                        .padding(start = 24.dp, end = 36.dp, top = 24.dp, bottom = 8.dp),
+                        .padding(start = Spacing.extraLarge, end = Spacing.scrollbarGutter, top = Spacing.extraLarge, bottom = Spacing.small),
                 ) {
                     // ── Back navigation breadcrumb ─────────────────────────
                     Row(
@@ -662,7 +662,7 @@ private fun knowledgeSourcesPanel(
                         if (indexProgress.isComplete) {
                             themedTooltip(text = stringResource("project.indexing.ready.tooltip")) {
                                 Row(
-                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(Spacing.micro),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     successIcon(size = 14.dp)
@@ -745,7 +745,7 @@ private fun knowledgeSourcesPanel(
                         Text(
                             text = stringResource("projects.sources.guide"),
                             style = AppTextStyles.caption,
-                            modifier = Modifier.padding(start = 4.dp),
+                            modifier = Modifier.padding(start = Spacing.extraSmall),
                         )
                     }
 
@@ -804,7 +804,7 @@ private fun knowledgeSourcesPanel(
                                 text = groupName,
                                 style = AppTextStyles.fieldLabel,
                                 fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+                                modifier = Modifier.padding(top = Spacing.small, bottom = Spacing.extraSmall),
                             )
                             sources.forEach { source ->
                                 knowledgeSourceItem(
@@ -856,7 +856,7 @@ private fun knowledgeSourceItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp, horizontal = 8.dp),
+            .padding(vertical = Spacing.micro, horizontal = Spacing.small),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -954,7 +954,7 @@ private fun indexProgressIndicator(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 10.dp),
+                    .padding(top = Spacing.small),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -970,7 +970,7 @@ private fun indexProgressIndicator(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 10.dp),
+                    .padding(top = Spacing.small),
                 verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
             ) {
                 Row(
@@ -1057,8 +1057,8 @@ private fun indexProgressIndicator(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    .padding(top = Spacing.small),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
@@ -1141,8 +1141,8 @@ private fun skippedFilesWarning(skippedFileNames: List<String>) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = Spacing.extraSmall, start = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+                    .padding(top = Spacing.extraSmall, start = Spacing.large),
+                verticalArrangement = Arrangement.spacedBy(Spacing.micro),
             ) {
                 skippedFileNames.forEach { name ->
                     Text(
@@ -1188,7 +1188,7 @@ private fun projectChatInputFooter(
             modifier = Modifier
                 .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                 .fillMaxWidth()
-                .padding(start = 24.dp, end = 36.dp, bottom = 24.dp),
+                .padding(start = Spacing.extraLarge, end = Spacing.scrollbarGutter, bottom = Spacing.extraLarge),
         ) {
             chatInputField(
                 inputText = inputText,

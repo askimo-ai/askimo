@@ -97,7 +97,7 @@ private fun skillRunHistoryPanelRow(
                     shape = RoundedCornerShape(8.dp),
                 )
                 .clickable(onClick = onClick)
-                .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+                .padding(start = Spacing.medium, end = Spacing.extraSmall, top = Spacing.small, bottom = Spacing.small),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.small),
         ) {
@@ -184,7 +184,7 @@ internal fun agentRunHistoryList(
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(Spacing.small),
-            modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.extraLarge),
         ) {
             Icon(Icons.Default.History, null, modifier = Modifier.size(36.dp), tint = AppColors.surfaceColor(AppColors.Elevation.RECESSED))
             Text(stringResource("agents.view.history.empty"), style = AppTextStyles.caption, color = AppColors.tertiaryIconColor())

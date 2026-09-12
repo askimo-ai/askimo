@@ -424,7 +424,7 @@ private fun eventLogPanelContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 2.dp),
+                    .padding(vertical = Spacing.micro),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -480,7 +480,7 @@ private fun eventLogCompactItem(event: Event, isEven: Boolean) {
             Text(
                 text = event.source.name,
                 style = AppTextStyles.hint.copy(color = MaterialTheme.colorScheme.onPrimaryContainer),
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = Spacing.extraSmall),
+                modifier = Modifier.padding(horizontal = Spacing.extraSmall, vertical = Spacing.extraSmall),
             )
         }
     }

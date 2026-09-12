@@ -230,7 +230,7 @@ fun terminalPanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -324,7 +324,7 @@ fun terminalPanel(
                                         }
                                     }
                                 },
-                                modifier = Modifier.padding(horizontal = 4.dp),
+                                modifier = Modifier.padding(horizontal = Spacing.extraSmall),
                             )
                         }
                     }
@@ -409,7 +409,7 @@ fun terminalPanel(
                 color = MaterialTheme.colorScheme.surface,
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(Spacing.large),
                     verticalArrangement = Arrangement.spacedBy(Spacing.medium),
                 ) {
                     Text(
@@ -452,7 +452,7 @@ fun terminalPanel(
                             Text("Cancel")
                         }
 
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(Spacing.small))
 
                         primaryButton(
                             onClick = {

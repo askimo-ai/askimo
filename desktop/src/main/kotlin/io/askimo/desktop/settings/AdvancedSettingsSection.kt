@@ -93,7 +93,7 @@ fun advancedSettingsSection() {
                 modifier = Modifier
                     .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                     .fillMaxWidth()
-                    .padding(start = 24.dp, top = 24.dp, bottom = 24.dp, end = 36.dp),
+                    .padding(start = Spacing.extraLarge, top = Spacing.extraLarge, bottom = Spacing.extraLarge, end = Spacing.scrollbarGutter),
                 verticalArrangement = Arrangement.spacedBy(Spacing.large),
             ) {
                 Text(
@@ -189,7 +189,7 @@ private fun logLevelCard() {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(12.dp),
+                                    .padding(Spacing.medium),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
@@ -281,7 +281,7 @@ private fun logViewerCard(
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(Spacing.small))
                     Text(stringResource("settings.log.viewer.view"))
                 }
 
@@ -297,7 +297,7 @@ private fun logViewerCard(
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(Spacing.small))
                     Text(stringResource("settings.log.viewer.open_folder"))
                 }
             }
@@ -514,7 +514,7 @@ private fun ragConfigurationSection() {
 
             // Divider before embedding configuration
             HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp),
+                modifier = Modifier.padding(vertical = Spacing.small),
             )
 
             // Embedding Configuration Section
@@ -550,7 +550,7 @@ private fun ragConfigurationSection() {
 
             // Divider before indexing configuration
             HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp),
+                modifier = Modifier.padding(vertical = Spacing.small),
             )
 
             // Indexing Configuration Section
@@ -700,7 +700,7 @@ private fun memoryConfigurationSection() {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(12.dp),
+                                .padding(Spacing.medium),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {

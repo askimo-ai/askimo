@@ -197,12 +197,12 @@ internal fun actionInputField(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(InlineControlsHeight)
-                        .padding(horizontal = 10.dp),
+                        .padding(horizontal = Spacing.small),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Spacer(modifier = Modifier.weight(1f))
                     inlineControls()
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(Spacing.extraSmall))
                     inlineSendButton()
                 }
             }
@@ -211,7 +211,7 @@ internal fun actionInputField(
                 Text(
                     text = error,
                     style = AppTextStyles.errorText,
-                    modifier = Modifier.padding(start = 16.dp, top = 4.dp),
+                    modifier = Modifier.padding(start = Spacing.large, top = Spacing.extraSmall),
                 )
             }
         }

@@ -903,7 +903,7 @@ fun chatInputField(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(inlineControlsBottomPadding)
-                            .padding(horizontal = 10.dp),
+                            .padding(horizontal = Spacing.small),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         // ── Left: action controls ──────────────────────────────────
@@ -926,7 +926,7 @@ fun chatInputField(
                             }
                         }
 
-                        Spacer(modifier = Modifier.width(2.dp))
+                        Spacer(modifier = Modifier.width(Spacing.micro))
 
                         // Image button — only show if model requires explicit toggle mode
                         // For multi-modal models (native image generation), hide this button
@@ -975,7 +975,7 @@ fun chatInputField(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(Spacing.extraSmall))
                         }
 
                         toolsIndicatorButton(
@@ -991,7 +991,7 @@ fun chatInputField(
                         )
 
                         // ── Directive chip — inline in controls row ─────────────────
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(Spacing.extraSmall))
                         directiveChip(
                             availableDirectives = availableDirectives,
                             selectedDirective = selectedDirective,
@@ -1005,7 +1005,7 @@ fun chatInputField(
 
                         // ── Web search in RAG chip — only in project sessions when web search is configured ──
                         if (isProjectSession && webSearchEnabled) {
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(Spacing.extraSmall))
                             webSearchRagChip(
                                 active = webSearchInRag,
                                 isLoading = isLoading,
@@ -1019,15 +1019,15 @@ fun chatInputField(
                         // Image mode chip — only show when user explicitly toggles to Image mode
                         // and the model requires explicit toggle (not native image generation)
                         if (creationMode is CreationMode.Image && !supportsNativeImageGeneration) {
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(Spacing.extraSmall))
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
                                 color = MaterialTheme.colorScheme.primaryContainer,
                                 tonalElevation = 2.dp,
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(start = 8.dp, end = 4.dp, top = 3.dp, bottom = 3.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    modifier = Modifier.padding(start = Spacing.small, end = Spacing.extraSmall, top = Spacing.micro, bottom = Spacing.micro),
+                                    horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Text(
@@ -1065,7 +1065,7 @@ fun chatInputField(
                         // Reasoning effort chip — only shown for models that support it;
                         // positioned far right as a model-setting indicator.
                         if (supportsReasoning) {
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(Spacing.small))
                             Box {
                                 themedTooltip(text = stringResource("chat.reasoning.effort.tooltip")) {
                                     Surface(
@@ -1085,8 +1085,8 @@ fun chatInputField(
                                             modifier = Modifier.padding(
                                                 start = Spacing.small,
                                                 end = Spacing.small,
-                                                top = 3.dp,
-                                                bottom = 3.dp,
+                                                top = Spacing.micro,
+                                                bottom = Spacing.micro,
                                             ),
                                             horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                                             verticalAlignment = Alignment.CenterVertically,
@@ -1154,7 +1154,7 @@ fun chatInputField(
                         // Grouped near Send since it's an input-modality toggle (dictation),
                         // not a content-attachment action like Attach/Image on the left.
                         if (voiceInputEnabled) {
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(Spacing.small))
                             val voiceShortcutHint = KeyMapManager.AppShortcut.TOGGLE_VOICE_RECORDING.getDisplayString()
                             val voiceTooltip = when (voiceRecordingState) {
                                 VoiceRecordingState.IDLE -> stringResource("chat.voice.record", voiceShortcutHint)
@@ -1184,7 +1184,7 @@ fun chatInputField(
                                             shape = CircleShape,
                                         ),
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
+                                Spacer(modifier = Modifier.width(Spacing.extraSmall))
                                 Text(
                                     // Ticks up each second and turns solid red in the final 10s
                                     // before MAX_VOICE_RECORDING_SECONDS auto-stops the recording —
@@ -1197,13 +1197,13 @@ fun chatInputField(
                                         AppColors.warningColor()
                                     },
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
+                                Spacer(modifier = Modifier.width(Spacing.extraSmall))
                                 voiceWaveform(
                                     samples = voiceWaveformSamples,
                                     color = MaterialTheme.colorScheme.error,
                                     modifier = Modifier.width(48.dp).height(18.dp),
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
+                                Spacer(modifier = Modifier.width(Spacing.small))
                             }
 
                             // Persistent (non-hover) "transcribing" status — the STT request
@@ -1214,13 +1214,13 @@ fun chatInputField(
                                     size = 14.dp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
+                                Spacer(modifier = Modifier.width(Spacing.extraSmall))
                                 Text(
                                     text = stringResource("chat.voice.transcribing"),
                                     style = AppTextStyles.caption,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
+                                Spacer(modifier = Modifier.width(Spacing.small))
                             }
 
                             themedTooltip(text = voiceTooltip) {
@@ -1255,7 +1255,7 @@ fun chatInputField(
                         }
 
                         // ── Send / Stop button — beside reasoning chip ──────────────
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(Spacing.medium))
                         if (isLoading || isThinking) {
                             IconButton(
                                 onClick = onStopResponse,
@@ -1309,7 +1309,7 @@ fun chatInputField(
                     Text(
                         text = errorMessage,
                         style = AppTextStyles.errorText,
-                        modifier = Modifier.padding(start = 16.dp, top = 4.dp),
+                        modifier = Modifier.padding(start = Spacing.large, top = Spacing.extraSmall),
                     )
                 }
             }
@@ -1479,8 +1479,8 @@ private fun toolsIndicatorButton(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                    modifier = Modifier.padding(horizontal = Spacing.small),
                 ) {
                     Icon(
                         Icons.Default.Build,
@@ -1576,7 +1576,7 @@ private fun toolsIndicatorButton(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             AppComponents.loadingSpinner(size = 24.dp)
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(Spacing.small))
                             Text(stringResource("chat.tools.popup.loading"))
                         }
                     }
@@ -1688,8 +1688,8 @@ private fun mcpServerItem(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    .padding(start = Spacing.extraSmall, end = Spacing.medium, top = Spacing.extraSmall, bottom = Spacing.extraSmall),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 CompositionLocalProvider(LocalRippleConfiguration provides null) {
@@ -1719,13 +1719,13 @@ private fun mcpServerItem(
                         .pointerHoverIcon(
                             if (server.tools.isNotEmpty()) PointerIcon.Hand else PointerIcon.Default,
                         )
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                        .padding(horizontal = Spacing.extraSmall, vertical = Spacing.micro),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     // Server info
                     Column(modifier = Modifier.weight(1f)) {
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
@@ -1821,9 +1821,9 @@ private fun mcpServerItem(
                             DropdownMenuItem(
                                 text = {
                                     Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                                         verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.padding(vertical = 4.dp),
+                                        modifier = Modifier.padding(vertical = Spacing.extraSmall),
                                     ) {
                                         CompositionLocalProvider(LocalRippleConfiguration provides null) {
                                             Checkbox(
@@ -1840,7 +1840,7 @@ private fun mcpServerItem(
                                             )
                                         }
                                         Column(
-                                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                                            verticalArrangement = Arrangement.spacedBy(Spacing.micro),
                                         ) {
                                             Text(
                                                 text = toolName,
@@ -1962,7 +1962,7 @@ private fun fileAttachmentItem(
                     }
                 }
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (isTextFile) {
@@ -1997,7 +1997,7 @@ private fun fileAttachmentItem(
                         .fillMaxWidth()
                         .heightIn(max = 240.dp)
                         .background(AppColors.surfaceColor(AppColors.Elevation.RAISED))
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .padding(horizontal = Spacing.medium, vertical = Spacing.small),
                 ) {
                     when {
                         isLoadingPreview -> {
@@ -2114,8 +2114,8 @@ private fun directiveChip(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                    modifier = Modifier.padding(horizontal = Spacing.small),
                 ) {
                     Icon(
                         Icons.Default.AutoAwesome,
@@ -2287,8 +2287,8 @@ private fun directiveChip(
                                     .padding(
                                         start = Spacing.extraSmall,
                                         end = Spacing.small,
-                                        top = 2.dp,
-                                        bottom = 2.dp,
+                                        top = Spacing.micro,
+                                        bottom = Spacing.micro,
                                     )
                                     .pointerHoverIcon(PointerIcon.Hand),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -2312,7 +2312,7 @@ private fun directiveChip(
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 if (directive.scope == DirectiveScope.TEAM) {
-                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Spacer(modifier = Modifier.width(Spacing.extraSmall))
                                     Surface(
                                         shape = MaterialTheme.shapes.extraSmall,
                                         color = MaterialTheme.colorScheme.tertiaryContainer,
@@ -2321,7 +2321,7 @@ private fun directiveChip(
                                             text = stringResource("directive.scope.team"),
                                             style = AppTextStyles.hint,
                                             color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                                            modifier = Modifier.padding(horizontal = Spacing.extraSmall, vertical = Spacing.micro),
                                         )
                                     }
                                 }
@@ -2375,8 +2375,8 @@ private fun webSearchRagChip(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                modifier = Modifier.padding(horizontal = Spacing.small),
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Language,

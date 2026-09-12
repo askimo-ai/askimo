@@ -136,7 +136,7 @@ fun eventLogWindow(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 2.dp),
+                        .padding(vertical = Spacing.micro),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -183,7 +183,7 @@ private fun eventLogItem(event: Event) {
                     Text(
                         text = event.source.name,
                         style = AppTextStyles.fieldLabel.copy(color = MaterialTheme.colorScheme.onPrimaryContainer),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
                     )
                 }
             }

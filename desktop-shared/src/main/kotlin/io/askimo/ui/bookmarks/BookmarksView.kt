@@ -77,7 +77,7 @@ fun bookmarksView(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(end = 8.dp)
+                .padding(end = Spacing.small)
                 .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -85,7 +85,7 @@ fun bookmarksView(
                 modifier = Modifier
                     .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                     .fillMaxWidth()
-                    .padding(start = 24.dp, end = 36.dp, top = 24.dp, bottom = 24.dp),
+                    .padding(start = Spacing.extraLarge, end = Spacing.scrollbarGutter, top = Spacing.extraLarge, bottom = Spacing.extraLarge),
             ) {
                 // ── Header ────────────────────────────────────────────────────
                 Row(
@@ -290,7 +290,7 @@ private fun bookmarkMessageRow(
         val isBookmarkHovered by bookmarkHoverSource.collectIsHoveredAsState()
         Box(
             modifier = Modifier
-                .padding(top = 2.dp)
+                .padding(top = Spacing.micro)
                 .size(20.dp)
                 .clip(CircleShape)
                 .background(
@@ -320,14 +320,14 @@ private fun bookmarkMessageRow(
                 style = AppTextStyles.hint,
                 color = AppColors.secondaryIconColor(),
             )
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(Spacing.micro))
             // Message preview — rendered as markdown
             markdownText(
                 markdown = content.take(600),
                 modifier = Modifier.fillMaxWidth(),
             )
             timestamp?.let { ts ->
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(Spacing.micro))
                 Text(
                     text = TimeUtil.formatFullDateTime(ts, Locale.getDefault()),
                     style = AppTextStyles.hint,

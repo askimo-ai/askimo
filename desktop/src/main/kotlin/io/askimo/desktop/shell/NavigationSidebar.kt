@@ -50,6 +50,7 @@ import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.LocalFontScale
+import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.session.SessionsViewModel
 import io.askimo.ui.shell.SidebarNavItem
@@ -204,8 +205,8 @@ private fun communityUserProfileSection(
                         indication = null,
                     ) { showMenu = true }
                     .pointerHoverIcon(PointerIcon.Hand)
-                    .padding((8 * fontScale).dp),
-                horizontalArrangement = Arrangement.spacedBy((12 * fontScale).dp),
+                    .padding(Spacing.small),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
@@ -219,7 +220,7 @@ private fun communityUserProfileSection(
                 }
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy((2 * fontScale).dp),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.micro),
                 ) {
                     Text(
                         text = profile?.name ?: stringResource("user.profile.default_name"),
@@ -275,7 +276,7 @@ private fun communityUserProfileSection(
                     selected = false,
                     onClick = { showMenu = true },
                     modifier = Modifier
-                        .padding(vertical = (8 * fontScale).dp)
+                        .padding(vertical = Spacing.small)
                         .pointerHoverIcon(PointerIcon.Hand),
                     colors = AppColors.navigationRailItemColors(),
                 )

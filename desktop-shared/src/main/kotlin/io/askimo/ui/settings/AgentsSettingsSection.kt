@@ -272,7 +272,7 @@ fun agentsSettingsSection() {
                     modifier = Modifier
                         .fillMaxSize()
                         .background(AppColors.surfaceColor(AppColors.Elevation.RECESSED))
-                        .padding(vertical = 12.dp),
+                        .padding(vertical = Spacing.medium),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Top,
                 ) {
@@ -434,7 +434,7 @@ private fun skillsMainContent(
                 modifier = Modifier
                     .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                     .fillMaxWidth()
-                    .padding(start = Spacing.extraLarge, top = Spacing.extraLarge, bottom = Spacing.extraLarge, end = 36.dp),
+                    .padding(start = Spacing.extraLarge, top = Spacing.extraLarge, bottom = Spacing.extraLarge, end = Spacing.scrollbarGutter),
                 verticalArrangement = Arrangement.spacedBy(Spacing.large),
             ) {
                 // Header row
@@ -474,7 +474,7 @@ private fun skillsMainContent(
                                     Text(
                                         text = runtime,
                                         style = AppTextStyles.hint,
-                                        modifier = Modifier.padding(horizontal = Spacing.small, vertical = 3.dp),
+                                        modifier = Modifier.padding(horizontal = Spacing.small, vertical = Spacing.micro),
                                     )
                                 }
                             }
@@ -726,7 +726,7 @@ private fun skillEditorContent(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Name + description column
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.micro)) {
                 // ── Name row ──
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -855,7 +855,7 @@ private fun skillEditorContent(
                 color = MaterialTheme.colorScheme.surface,
                 contentColor = MaterialTheme.colorScheme.onSurface,
             ) {
-                Box(modifier = Modifier.padding(16.dp)) {
+                Box(modifier = Modifier.padding(Spacing.large)) {
                     if (isPreviewMode) {
                         revealingMarkdownText(
                             markdown = body.ifBlank { "*${stringResource("settings.agents.editor.system.prompt.placeholder")}*" },
@@ -1040,7 +1040,7 @@ private fun fileEditorContent(
             color = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface,
         ) {
-            Box(modifier = Modifier.padding(16.dp).fillMaxSize()) {
+            Box(modifier = Modifier.padding(Spacing.large).fillMaxSize()) {
                 if (isMarkdown && isPreviewMode) {
                     revealingMarkdownText(
                         markdown = body.ifBlank { "*${stringResource("settings.agents.editor.empty.file")}*" },
@@ -1109,7 +1109,7 @@ private fun skillsTreePanel(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
+                .padding(horizontal = Spacing.medium, vertical = Spacing.medium),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -1205,7 +1205,7 @@ private fun skillsTreePanel(
                 }
             },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.small, vertical = Spacing.small),
         )
         HorizontalDivider()
 
@@ -1225,8 +1225,8 @@ private fun skillsTreePanel(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(scrollState)
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+                    .padding(horizontal = Spacing.small, vertical = Spacing.small),
+                verticalArrangement = Arrangement.spacedBy(Spacing.micro),
             ) {
                 if (filteredTree.isEmpty()) {
                     Box(
@@ -1314,7 +1314,7 @@ private fun skillTreeNodeItem(
                             }
                         }
                         .pointerHoverIcon(PointerIcon.Hand)
-                        .padding(start = (depth * 12).dp, top = 4.dp, bottom = 4.dp, end = 4.dp),
+                        .padding(start = (depth * 12).dp, top = Spacing.extraSmall, bottom = Spacing.extraSmall, end = Spacing.extraSmall),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                 ) {
@@ -1447,7 +1447,7 @@ private fun skillTreeNodeItem(
                     .hoverable(interactionSource)
                     .clickable { onSelectFile(node) }
                     .pointerHoverIcon(PointerIcon.Hand)
-                    .padding(horizontal = 8.dp, vertical = 5.dp),
+                    .padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -1606,7 +1606,7 @@ private fun previewEditSegmentButton(
             )
             .clickable { onToggle(isPreview) }
             .pointerHoverIcon(PointerIcon.Hand)
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
         contentAlignment = Alignment.Center,
     ) {
         Row(

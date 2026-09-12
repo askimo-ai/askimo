@@ -260,8 +260,8 @@ fun ragSourcesTree(
                     else -> {
                         LazyColumn(
                             state = searchListState,
-                            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 22.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                            modifier = Modifier.fillMaxWidth().padding(start = Spacing.large, end = Spacing.extraLarge),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.micro),
                         ) {
                             // Result count header
                             item {
@@ -302,7 +302,7 @@ fun ragSourcesTree(
                 // Normal tree view
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 22.dp),
+                    modifier = Modifier.fillMaxWidth().padding(start = Spacing.large, end = Spacing.extraLarge),
                     verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                 ) {
                     items(treeNodes) { node ->
@@ -357,7 +357,7 @@ fun ragSourcesTree(
                             style = AppTextStyles.hint,
                             color = LocalContentColor.current,
                             fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(start = 4.dp),
+                            modifier = Modifier.padding(start = Spacing.extraSmall),
                         )
                     }
                 }
@@ -407,7 +407,7 @@ private fun searchResultItem(
                     onClick = { onSelect(node) },
                     onDoubleClick = { if (isFile) openInFileBrowser(path) else openInFileBrowser(path) },
                 )
-                .padding(horizontal = 4.dp, vertical = 3.dp)
+                .padding(horizontal = Spacing.extraSmall, vertical = Spacing.micro)
                 .pointerHoverIcon(PointerIcon.Hand),
             horizontalArrangement = Arrangement.spacedBy(Spacing.small),
             verticalAlignment = Alignment.CenterVertically,
@@ -592,7 +592,7 @@ private fun folderNodeItem(
                             onNodeSelected(node)
                         })
                         .onClick(matcher = PointerMatcher.mouse(PointerButton.Secondary), onClick = { showContextMenu = true })
-                        .padding(start = (level * 16).dp, top = 4.dp, bottom = 4.dp, end = 4.dp)
+                        .padding(start = (level * 16).dp, top = Spacing.extraSmall, bottom = Spacing.extraSmall, end = Spacing.extraSmall)
                         .pointerHoverIcon(PointerIcon.Hand),
                     horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                     verticalAlignment = Alignment.CenterVertically,
@@ -668,7 +668,7 @@ private fun fileNodeItem(
                     .background(backgroundColor, RoundedCornerShape(4.dp))
                     .onClick(matcher = PointerMatcher.mouse(PointerButton.Primary), onClick = { onNodeSelected(node) }, onDoubleClick = { openInFileBrowser(node.path) })
                     .onClick(matcher = PointerMatcher.mouse(PointerButton.Secondary), onClick = { showContextMenu = true })
-                    .padding(start = (level * 16 + 16).dp, top = 4.dp, bottom = 4.dp, end = 4.dp)
+                    .padding(start = (level * 16 + 16).dp, top = Spacing.extraSmall, bottom = Spacing.extraSmall, end = Spacing.extraSmall)
                     .pointerHoverIcon(PointerIcon.Hand),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                 verticalAlignment = Alignment.CenterVertically,
@@ -762,7 +762,7 @@ private fun urlNodeItem(
                     .background(backgroundColor, RoundedCornerShape(4.dp))
                     .onClick(matcher = PointerMatcher.mouse(PointerButton.Primary), onClick = { onNodeSelected(node) }, onDoubleClick = { openInBrowser(node.url) })
                     .onClick(matcher = PointerMatcher.mouse(PointerButton.Secondary), onClick = { showContextMenu = true })
-                    .padding(start = (level * 16).dp, top = 4.dp, bottom = 4.dp, end = 4.dp)
+                    .padding(start = (level * 16).dp, top = Spacing.extraSmall, bottom = Spacing.extraSmall, end = Spacing.extraSmall)
                     .pointerHoverIcon(PointerIcon.Hand),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                 verticalAlignment = Alignment.CenterVertically,

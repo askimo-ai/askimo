@@ -91,7 +91,7 @@ fun voiceSettingsSection() {
                 modifier = Modifier
                     .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                     .fillMaxWidth()
-                    .padding(start = Spacing.extraLarge, top = Spacing.extraLarge, bottom = Spacing.extraLarge, end = 36.dp),
+                    .padding(start = Spacing.extraLarge, top = Spacing.extraLarge, bottom = Spacing.extraLarge, end = Spacing.scrollbarGutter),
                 verticalArrangement = Arrangement.spacedBy(Spacing.large),
             ) {
                 Text(
@@ -472,7 +472,7 @@ private fun voiceConfigCard() {
                         Text(
                             text = stringResource("settings.voice.reuse_provider_key"),
                             style = AppTextStyles.caption,
-                            modifier = Modifier.padding(start = 4.dp),
+                            modifier = Modifier.padding(start = Spacing.extraSmall),
                         )
                     }
                     reuseKeyStatus?.let { status ->
@@ -550,7 +550,7 @@ private fun voiceProviderSelector(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
+                            .padding(Spacing.medium),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -636,7 +636,7 @@ private fun voiceOptionSelector(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(12.dp),
+                        .padding(Spacing.medium),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {

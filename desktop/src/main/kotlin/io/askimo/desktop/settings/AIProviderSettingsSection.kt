@@ -93,7 +93,7 @@ fun aiProviderSettingsSection(viewModel: AIProviderViewModel) {
                 modifier = Modifier
                     .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                     .fillMaxWidth()
-                    .padding(start = 24.dp, top = 24.dp, bottom = 24.dp, end = 36.dp),
+                    .padding(start = Spacing.extraLarge, top = Spacing.extraLarge, bottom = Spacing.extraLarge, end = Spacing.scrollbarGutter),
                 verticalArrangement = Arrangement.spacedBy(Spacing.large),
             ) {
                 Text(
@@ -222,7 +222,7 @@ private fun providerModelConfigCard(instance: ProviderInstance, viewModel: AIPro
                     Text(
                         text = stringResource("settings.provider.model.config.guide"),
                         style = AppTextStyles.caption,
-                        modifier = Modifier.padding(start = 4.dp),
+                        modifier = Modifier.padding(start = Spacing.extraSmall),
                     )
                 }
             }

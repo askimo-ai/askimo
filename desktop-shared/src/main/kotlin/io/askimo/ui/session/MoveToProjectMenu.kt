@@ -8,13 +8,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOff
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -25,8 +25,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.PointerIcon
-import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -34,6 +32,7 @@ import io.askimo.core.chat.domain.Project
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
+import io.askimo.ui.common.theme.LocalFontScale
 import io.askimo.ui.common.theme.Spacing
 
 /**
@@ -60,9 +59,10 @@ fun moveToProjectMenuItem(
     var showSubmenu by remember { mutableStateOf(false) }
     var itemWidth by remember { mutableStateOf(0.dp) }
     val density = LocalDensity.current
+    val fontScale = LocalFontScale.current
 
     Box {
-        DropdownMenuItem(
+        AppComponents.menuItem(
             text = { Text(stringResource("session.move.to.project")) },
             onClick = {
                 showSubmenu = !showSubmenu
@@ -72,6 +72,7 @@ fun moveToProjectMenuItem(
                     Icons.AutoMirrored.Filled.DriveFileMove,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size((20 * fontScale).dp),
                 )
             },
             trailingIcon = {
@@ -79,19 +80,18 @@ fun moveToProjectMenuItem(
                     Icons.Default.ChevronRight,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size((20 * fontScale).dp),
                 )
             },
-            modifier = Modifier
-                .pointerHoverIcon(PointerIcon.Hand)
-                .onGloballyPositioned { coordinates ->
-                    itemWidth = with(density) { coordinates.size.width.toDp() }
-                },
+            modifier = Modifier.onGloballyPositioned { coordinates ->
+                itemWidth = with(density) { coordinates.size.width.toDp() }
+            },
         )
 
         // Submenu popup
         if (showSubmenu) {
             Box(
-                modifier = Modifier.offset(x = itemWidth, y = (-8).dp),
+                modifier = Modifier.offset(x = itemWidth, y = -Spacing.small),
             ) {
                 AppComponents.dropdownMenu(
                     expanded = showSubmenu,
@@ -99,7 +99,7 @@ fun moveToProjectMenuItem(
                 ) {
                     Column {
                         // "New Project" option
-                        DropdownMenuItem(
+                        AppComponents.menuItem(
                             text = { Text(stringResource("session.move.to.project.new")) },
                             onClick = {
                                 showSubmenu = false
@@ -111,9 +111,9 @@ fun moveToProjectMenuItem(
                                     Icons.Default.Add,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size((20 * fontScale).dp),
                                 )
                             },
-                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         )
 
                         // Separator
@@ -125,7 +125,7 @@ fun moveToProjectMenuItem(
 
                         // List of existing projects
                         projects.forEach { project ->
-                            DropdownMenuItem(
+                            AppComponents.menuItem(
                                 text = { Text(project.name) },
                                 onClick = {
                                     showSubmenu = false
@@ -137,15 +137,15 @@ fun moveToProjectMenuItem(
                                         Icons.Default.Folder,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.size((20 * fontScale).dp),
                                     )
                                 },
-                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                             )
                         }
 
                         // Show message if no projects
                         if (projects.isEmpty()) {
-                            DropdownMenuItem(
+                            AppComponents.menuItem(
                                 text = {
                                     Text(
                                         "No projects available",
@@ -177,7 +177,8 @@ fun removeFromProjectMenuItem(
     onRemoveFromProject: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    DropdownMenuItem(
+    val fontScale = LocalFontScale.current
+    AppComponents.menuItem(
         text = {
             Text(stringResource("session.remove.from.project", projectName))
         },
@@ -190,8 +191,8 @@ fun removeFromProjectMenuItem(
                 Icons.Default.FolderOff,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size((20 * fontScale).dp),
             )
         },
-        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
     )
 }

@@ -95,7 +95,7 @@ fun plansGalleryView(
                 modifier = Modifier
                     .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                     .fillMaxWidth()
-                    .padding(start = 24.dp, end = 36.dp, top = 24.dp, bottom = 24.dp),
+                    .padding(start = Spacing.extraLarge, end = Spacing.scrollbarGutter, top = Spacing.extraLarge, bottom = Spacing.extraLarge),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -153,7 +153,7 @@ fun plansGalleryView(
                     text = stringResource("plans.description"),
 
                     style = AppTextStyles.bodySecondary,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),
+                    modifier = Modifier.padding(top = Spacing.extraSmall, bottom = Spacing.large),
                 )
 
                 val builtInCount = viewModel.plans.count { it.builtIn }
@@ -330,7 +330,7 @@ private fun planTab(
                     ),
             )
         } else {
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(Spacing.extraSmall))
         }
     }
 }
@@ -353,7 +353,7 @@ private fun planCountBadge(count: Int, isSelected: Boolean) {
             } else {
                 MaterialTheme.colorScheme.onSurfaceVariant
             },
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+            modifier = Modifier.padding(horizontal = Spacing.extraSmall, vertical = Spacing.micro),
         )
     }
 }
@@ -397,7 +397,7 @@ private fun planCard(
                     text = plan.name,
                     style = AppTextStyles.sectionTitle,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f).padding(top = 4.dp),
+                    modifier = Modifier.weight(1f).padding(top = Spacing.extraSmall),
                 )
                 if (onDelete != null || onEdit != null || onDuplicate != null) {
                     Box {

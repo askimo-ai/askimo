@@ -32,6 +32,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.unit.dp
 import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppTextStyles
+import io.askimo.ui.common.theme.Spacing
 
 /**
  * Primary action button with filled background.
@@ -183,7 +184,7 @@ fun linkButton(
                     onClick = onClick,
                 )
                 .pointerHoverIcon(PointerIcon.Hand, overrideDescendants = true)
-                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .padding(horizontal = Spacing.small, vertical = Spacing.extraSmall)
                 .drawBehind {
                     if (isHovered && enabled) {
                         val strokeWidth = 1.dp.toPx()
@@ -196,7 +197,7 @@ fun linkButton(
                     }
                 },
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
         ) {
             content()
         }

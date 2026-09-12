@@ -21,6 +21,7 @@ import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
+import io.askimo.ui.common.theme.Spacing
 
 @Composable
 fun deleteProjectDialog(
@@ -32,7 +33,7 @@ fun deleteProjectDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(

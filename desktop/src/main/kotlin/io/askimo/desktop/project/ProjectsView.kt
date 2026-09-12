@@ -104,7 +104,7 @@ fun projectsView(
                 modifier = Modifier
                     .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                     .fillMaxWidth()
-                    .padding(start = 24.dp, end = 36.dp, top = 24.dp, bottom = 24.dp),
+                    .padding(start = Spacing.extraLarge, end = Spacing.scrollbarGutter, top = Spacing.extraLarge, bottom = Spacing.extraLarge),
             ) {
                 // ── Title + New Project button ─────────────────────────────────
                 Row(
@@ -131,7 +131,7 @@ fun projectsView(
                     text = stringResource("projects.description"),
 
                     style = AppTextStyles.bodySecondary,
-                    modifier = Modifier.padding(top = 6.dp, bottom = 4.dp),
+                    modifier = Modifier.padding(top = Spacing.extraSmall, bottom = Spacing.extraSmall),
                 )
 
                 if (!viewModel.embeddingModelConfigured && onNavigateToAiProviderSettings != null) {
@@ -400,7 +400,7 @@ private fun projectTable(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(AppColors.surfaceColor(AppColors.Elevation.RAISED))
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(horizontal = Spacing.large, vertical = Spacing.small),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // Star column spacer
@@ -527,7 +527,7 @@ private fun projectRow(
                 indication = null,
             ) { onSelectProject(project.id) }
             .pointerHoverIcon(PointerIcon.Hand)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = Spacing.large, vertical = Spacing.small),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Star toggle

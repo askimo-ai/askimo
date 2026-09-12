@@ -161,7 +161,7 @@ fun planHistorySidePanel(
                                             AppColors.surfaceColor(AppColors.Elevation.RECESSED),
                                             shape = MaterialTheme.shapes.extraSmall,
                                         )
-                                        .padding(horizontal = 6.dp, vertical = 1.dp),
+                                        .padding(horizontal = Spacing.extraSmall, vertical = Spacing.micro),
                                 ) {
                                     Text(
                                         text = "${executions.size}",
