@@ -264,14 +264,6 @@ fun appearanceSettingsSection() {
                 )
 
                 themeOption(
-                    title = stringResource("layout.density.comfortable"),
-                    description = stringResource("layout.density.comfortable.description"),
-                    icon = { Icon(Icons.Default.ViewComfy, contentDescription = null) },
-                    selected = currentLayoutDensity == LayoutDensity.COMFORTABLE,
-                    onClick = { ThemePreferences.setLayoutDensity(LayoutDensity.COMFORTABLE) },
-                )
-
-                themeOption(
                     title = stringResource("layout.density.compact"),
                     description = stringResource("layout.density.compact.description"),
                     icon = { Icon(Icons.Default.ViewCompact, contentDescription = null) },
@@ -285,6 +277,14 @@ fun appearanceSettingsSection() {
                     icon = { Icon(Icons.Default.ViewComfy, contentDescription = null) },
                     selected = currentLayoutDensity == LayoutDensity.RELAXED,
                     onClick = { ThemePreferences.setLayoutDensity(LayoutDensity.RELAXED) },
+                )
+
+                themeOption(
+                    title = stringResource("layout.density.comfortable"),
+                    description = stringResource("layout.density.comfortable.description"),
+                    icon = { Icon(Icons.Default.ViewComfy, contentDescription = null) },
+                    selected = currentLayoutDensity == LayoutDensity.COMFORTABLE,
+                    onClick = { ThemePreferences.setLayoutDensity(LayoutDensity.COMFORTABLE) },
                 )
 
                 themeOption(
