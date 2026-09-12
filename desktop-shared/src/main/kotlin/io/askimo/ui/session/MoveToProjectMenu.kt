@@ -6,7 +6,6 @@ package io.askimo.ui.session
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -16,7 +15,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOff
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -27,8 +25,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.PointerIcon
-import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -66,7 +62,7 @@ fun moveToProjectMenuItem(
     val fontScale = LocalFontScale.current
 
     Box {
-        DropdownMenuItem(
+        AppComponents.menuItem(
             text = { Text(stringResource("session.move.to.project")) },
             onClick = {
                 showSubmenu = !showSubmenu
@@ -87,12 +83,9 @@ fun moveToProjectMenuItem(
                     modifier = Modifier.size((20 * fontScale).dp),
                 )
             },
-            contentPadding = PaddingValues(horizontal = Spacing.medium, vertical = Spacing.small),
-            modifier = Modifier
-                .pointerHoverIcon(PointerIcon.Hand)
-                .onGloballyPositioned { coordinates ->
-                    itemWidth = with(density) { coordinates.size.width.toDp() }
-                },
+            modifier = Modifier.onGloballyPositioned { coordinates ->
+                itemWidth = with(density) { coordinates.size.width.toDp() }
+            },
         )
 
         // Submenu popup
@@ -106,7 +99,7 @@ fun moveToProjectMenuItem(
                 ) {
                     Column {
                         // "New Project" option
-                        DropdownMenuItem(
+                        AppComponents.menuItem(
                             text = { Text(stringResource("session.move.to.project.new")) },
                             onClick = {
                                 showSubmenu = false
@@ -121,8 +114,6 @@ fun moveToProjectMenuItem(
                                     modifier = Modifier.size((20 * fontScale).dp),
                                 )
                             },
-                            contentPadding = PaddingValues(horizontal = Spacing.medium, vertical = Spacing.small),
-                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         )
 
                         // Separator
@@ -134,7 +125,7 @@ fun moveToProjectMenuItem(
 
                         // List of existing projects
                         projects.forEach { project ->
-                            DropdownMenuItem(
+                            AppComponents.menuItem(
                                 text = { Text(project.name) },
                                 onClick = {
                                     showSubmenu = false
@@ -149,14 +140,12 @@ fun moveToProjectMenuItem(
                                         modifier = Modifier.size((20 * fontScale).dp),
                                     )
                                 },
-                                contentPadding = PaddingValues(horizontal = Spacing.medium, vertical = Spacing.small),
-                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                             )
                         }
 
                         // Show message if no projects
                         if (projects.isEmpty()) {
-                            DropdownMenuItem(
+                            AppComponents.menuItem(
                                 text = {
                                     Text(
                                         "No projects available",
@@ -165,7 +154,6 @@ fun moveToProjectMenuItem(
                                 },
                                 onClick = { /* Do nothing */ },
                                 enabled = false,
-                                contentPadding = PaddingValues(horizontal = Spacing.medium, vertical = Spacing.small),
                             )
                         }
                     }
@@ -190,7 +178,7 @@ fun removeFromProjectMenuItem(
     onDismiss: () -> Unit,
 ) {
     val fontScale = LocalFontScale.current
-    DropdownMenuItem(
+    AppComponents.menuItem(
         text = {
             Text(stringResource("session.remove.from.project", projectName))
         },
@@ -206,7 +194,5 @@ fun removeFromProjectMenuItem(
                 modifier = Modifier.size((20 * fontScale).dp),
             )
         },
-        contentPadding = PaddingValues(horizontal = Spacing.medium, vertical = Spacing.small),
-        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
     )
 }

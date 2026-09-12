@@ -13,7 +13,6 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -32,6 +31,7 @@ import io.askimo.core.event.internal.ProjectsRefreshEvent
 import io.askimo.core.event.internal.SessionsRefreshEvent
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
+import io.askimo.ui.common.theme.AppComponents.menuItem
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.shell.DeveloperModePreferences
 
@@ -101,7 +101,7 @@ fun sessionActionsMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            DropdownMenuItem(
+            menuItem(
                 text = {
                     Text(
                         text = stringResource("session.export"),
@@ -119,9 +119,8 @@ fun sessionActionsMenu(
                         tint = MaterialTheme.colorScheme.onSurface,
                     )
                 },
-                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
             )
-            DropdownMenuItem(
+            menuItem(
                 text = {
                     Text(
                         text = stringResource("action.rename"),
@@ -139,10 +138,9 @@ fun sessionActionsMenu(
                         tint = MaterialTheme.colorScheme.onSurface,
                     )
                 },
-                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
             )
 
-            DropdownMenuItem(
+            menuItem(
                 text = {
                     Text(
                         text = if (isStarred) stringResource("session.unstar") else stringResource("session.star"),
@@ -162,7 +160,6 @@ fun sessionActionsMenu(
                         tint = MaterialTheme.colorScheme.onSurface,
                     )
                 },
-                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
             )
 
             // Move to Project submenu
@@ -217,7 +214,7 @@ fun sessionActionsMenu(
             if (DeveloperModePreferences.isEnabled() &&
                 DeveloperModePreferences.isActive.value
             ) {
-                DropdownMenuItem(
+                menuItem(
                     text = {
                         Text(
                             text = stringResource("developer.menu.show.session.summary"),
@@ -235,11 +232,10 @@ fun sessionActionsMenu(
                             tint = MaterialTheme.colorScheme.secondary,
                         )
                     },
-                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                 )
             }
 
-            DropdownMenuItem(
+            menuItem(
                 text = {
                     Text(
                         text = stringResource("action.delete"),
@@ -257,7 +253,6 @@ fun sessionActionsMenu(
                         tint = MaterialTheme.colorScheme.error,
                     )
                 },
-                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
             )
         }
     }
