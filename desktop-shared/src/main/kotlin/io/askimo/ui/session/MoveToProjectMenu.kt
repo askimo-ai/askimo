@@ -6,8 +6,10 @@ package io.askimo.ui.session
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Add
@@ -34,6 +36,7 @@ import io.askimo.core.chat.domain.Project
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
+import io.askimo.ui.common.theme.LocalFontScale
 import io.askimo.ui.common.theme.Spacing
 
 /**
@@ -60,6 +63,7 @@ fun moveToProjectMenuItem(
     var showSubmenu by remember { mutableStateOf(false) }
     var itemWidth by remember { mutableStateOf(0.dp) }
     val density = LocalDensity.current
+    val fontScale = LocalFontScale.current
 
     Box {
         DropdownMenuItem(
@@ -72,6 +76,7 @@ fun moveToProjectMenuItem(
                     Icons.AutoMirrored.Filled.DriveFileMove,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size((20 * fontScale).dp),
                 )
             },
             trailingIcon = {
@@ -79,8 +84,10 @@ fun moveToProjectMenuItem(
                     Icons.Default.ChevronRight,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size((20 * fontScale).dp),
                 )
             },
+            contentPadding = PaddingValues(horizontal = Spacing.medium, vertical = Spacing.small),
             modifier = Modifier
                 .pointerHoverIcon(PointerIcon.Hand)
                 .onGloballyPositioned { coordinates ->
@@ -91,7 +98,7 @@ fun moveToProjectMenuItem(
         // Submenu popup
         if (showSubmenu) {
             Box(
-                modifier = Modifier.offset(x = itemWidth, y = (-8).dp),
+                modifier = Modifier.offset(x = itemWidth, y = -Spacing.small),
             ) {
                 AppComponents.dropdownMenu(
                     expanded = showSubmenu,
@@ -111,8 +118,10 @@ fun moveToProjectMenuItem(
                                     Icons.Default.Add,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size((20 * fontScale).dp),
                                 )
                             },
+                            contentPadding = PaddingValues(horizontal = Spacing.medium, vertical = Spacing.small),
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         )
 
@@ -137,8 +146,10 @@ fun moveToProjectMenuItem(
                                         Icons.Default.Folder,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.size((20 * fontScale).dp),
                                     )
                                 },
+                                contentPadding = PaddingValues(horizontal = Spacing.medium, vertical = Spacing.small),
                                 modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                             )
                         }
@@ -154,6 +165,7 @@ fun moveToProjectMenuItem(
                                 },
                                 onClick = { /* Do nothing */ },
                                 enabled = false,
+                                contentPadding = PaddingValues(horizontal = Spacing.medium, vertical = Spacing.small),
                             )
                         }
                     }
@@ -177,6 +189,7 @@ fun removeFromProjectMenuItem(
     onRemoveFromProject: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val fontScale = LocalFontScale.current
     DropdownMenuItem(
         text = {
             Text(stringResource("session.remove.from.project", projectName))
@@ -190,8 +203,10 @@ fun removeFromProjectMenuItem(
                 Icons.Default.FolderOff,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size((20 * fontScale).dp),
             )
         },
+        contentPadding = PaddingValues(horizontal = Spacing.medium, vertical = Spacing.small),
         modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
     )
 }

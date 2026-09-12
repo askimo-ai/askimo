@@ -4,6 +4,8 @@
  */
 package io.askimo.ui.session
 
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeveloperMode
@@ -19,8 +21,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.unit.dp
 import io.askimo.core.chat.domain.Project
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.LocalFontScale
+import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.shell.DeveloperModePreferences
 
 /**
@@ -33,6 +38,7 @@ object SessionActionMenu {
         onExport: () -> Unit,
         onDismiss: () -> Unit,
     ) {
+        val fontScale = LocalFontScale.current
         DropdownMenuItem(
             text = { Text(stringResource("session.export")) },
             onClick = {
@@ -43,8 +49,10 @@ object SessionActionMenu {
                 Icon(
                     Icons.Default.Share,
                     contentDescription = null,
+                    modifier = Modifier.size((20 * fontScale).dp),
                 )
             },
+            contentPadding = PaddingValues(horizontal = Spacing.medium, vertical = Spacing.small),
             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
         )
     }
@@ -54,6 +62,7 @@ object SessionActionMenu {
         onRename: () -> Unit,
         onDismiss: () -> Unit,
     ) {
+        val fontScale = LocalFontScale.current
         DropdownMenuItem(
             text = { Text(stringResource("session.rename.title")) },
             onClick = {
@@ -64,8 +73,10 @@ object SessionActionMenu {
                 Icon(
                     Icons.Default.Edit,
                     contentDescription = null,
+                    modifier = Modifier.size((20 * fontScale).dp),
                 )
             },
+            contentPadding = PaddingValues(horizontal = Spacing.medium, vertical = Spacing.small),
             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
         )
     }
@@ -76,6 +87,7 @@ object SessionActionMenu {
         onStar: () -> Unit,
         onDismiss: () -> Unit,
     ) {
+        val fontScale = LocalFontScale.current
         DropdownMenuItem(
             text = {
                 Text(
@@ -99,8 +111,10 @@ object SessionActionMenu {
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
+                    modifier = Modifier.size((20 * fontScale).dp),
                 )
             },
+            contentPadding = PaddingValues(horizontal = Spacing.medium, vertical = Spacing.small),
             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
         )
     }
@@ -110,6 +124,7 @@ object SessionActionMenu {
         onDelete: () -> Unit,
         onDismiss: () -> Unit,
     ) {
+        val fontScale = LocalFontScale.current
         DropdownMenuItem(
             text = { Text(stringResource("action.delete")) },
             onClick = {
@@ -121,8 +136,10 @@ object SessionActionMenu {
                     Icons.Default.Delete,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size((20 * fontScale).dp),
                 )
             },
+            contentPadding = PaddingValues(horizontal = Spacing.medium, vertical = Spacing.small),
             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
         )
     }
@@ -132,6 +149,7 @@ object SessionActionMenu {
         onShowSessionSummary: () -> Unit,
         onDismiss: () -> Unit,
     ) {
+        val fontScale = LocalFontScale.current
         DropdownMenuItem(
             text = { Text(stringResource("developer.menu.show.session.summary")) },
             onClick = {
@@ -143,8 +161,10 @@ object SessionActionMenu {
                     Icons.Default.DeveloperMode,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size((20 * fontScale).dp),
                 )
             },
+            contentPadding = PaddingValues(horizontal = Spacing.medium, vertical = Spacing.small),
             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
         )
     }
@@ -236,6 +256,7 @@ object SessionActionMenu {
         onReindexProject: (() -> Unit)? = null,
         onDismiss: () -> Unit,
     ) {
+        val fontScale = LocalFontScale.current
         DropdownMenuItem(
             text = { Text(stringResource("project.edit")) },
             onClick = {
@@ -246,8 +267,10 @@ object SessionActionMenu {
                 Icon(
                     Icons.Default.Edit,
                     contentDescription = null,
+                    modifier = Modifier.size((20 * fontScale).dp),
                 )
             },
+            contentPadding = PaddingValues(horizontal = Spacing.medium, vertical = Spacing.small),
             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
         )
 
@@ -264,8 +287,10 @@ object SessionActionMenu {
                         Icons.Default.DeveloperMode,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.size((20 * fontScale).dp),
                     )
                 },
+                contentPadding = PaddingValues(horizontal = Spacing.medium, vertical = Spacing.small),
                 modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
             )
         }
@@ -281,8 +306,10 @@ object SessionActionMenu {
                     Icons.Default.Delete,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size((20 * fontScale).dp),
                 )
             },
+            contentPadding = PaddingValues(horizontal = Spacing.medium, vertical = Spacing.small),
             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
         )
     }
