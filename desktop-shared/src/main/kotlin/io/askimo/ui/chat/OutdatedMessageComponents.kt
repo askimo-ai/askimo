@@ -41,6 +41,7 @@ import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppTextStyles
+import io.askimo.ui.common.theme.Spacing
 
 /**
  * Sealed class to represent different types of message groups
@@ -94,7 +95,7 @@ fun outdatedBranchComponent(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp, horizontal = 16.dp),
+            .padding(vertical = Spacing.small, horizontal = Spacing.large),
     ) {
         // Collapsible header
         Card(
@@ -111,7 +112,7 @@ fun outdatedBranchComponent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(12.dp),
+                    .padding(Spacing.medium),
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -125,7 +126,7 @@ fun outdatedBranchComponent(
                     tint = AppColors.secondaryIconColor(),
                     modifier = Modifier.size(20.dp),
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(Spacing.small))
                 Text(
                     text = stringResource("outdated.branch.header", messages.size),
                     style = AppTextStyles.caption,
@@ -140,12 +141,12 @@ fun outdatedBranchComponent(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, top = 8.dp)
+                    .padding(start = Spacing.large, top = Spacing.small)
                     .background(
                         AppColors.surfaceColor(AppColors.Elevation.RECESSED),
                         RoundedCornerShape(8.dp),
                     )
-                    .padding(8.dp),
+                    .padding(Spacing.small),
             ) {
                 messages.forEach { message ->
                     outdatedMessageItem(

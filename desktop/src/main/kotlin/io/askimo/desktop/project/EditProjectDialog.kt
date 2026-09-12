@@ -501,14 +501,14 @@ fun knowledgeSourceRow(
                     Icons.Default.CheckCircle,
                     contentDescription = "Valid",
                     tint = AppTextStyles.primaryContent,
-                    modifier = Modifier.size(16.dp).padding(start = 4.dp),
+                    modifier = Modifier.size(16.dp).padding(start = Spacing.extraSmall),
                 )
             } else {
                 Icon(
                     Icons.Default.Error,
                     contentDescription = "Invalid",
                     tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(16.dp).padding(start = 4.dp),
+                    modifier = Modifier.size(16.dp).padding(start = Spacing.extraSmall),
                 )
             }
         }

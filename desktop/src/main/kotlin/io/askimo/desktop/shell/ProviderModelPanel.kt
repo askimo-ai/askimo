@@ -162,7 +162,7 @@ internal fun providerModelPanel(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                        .padding(start = Spacing.medium, end = Spacing.extraSmall, top = Spacing.extraSmall, bottom = Spacing.extraSmall),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -188,7 +188,7 @@ internal fun providerModelPanel(
                         Text(
                             text = stringResource("provider.no.instances.hint"),
                             style = AppTextStyles.caption,
-                            modifier = Modifier.padding(horizontal = 12.dp),
+                            modifier = Modifier.padding(horizontal = Spacing.medium),
                         )
                     }
                 } else {
@@ -223,7 +223,7 @@ internal fun providerModelPanel(
                             modifier = Modifier
                                 .align(Alignment.CenterEnd)
                                 .fillMaxHeight()
-                                .padding(end = 2.dp),
+                                .padding(end = Spacing.micro),
                             style = AppComponents.scrollbarStyle(),
                         )
                     }
@@ -236,7 +236,7 @@ internal fun providerModelPanel(
                         .fillMaxWidth()
                         .clickable { onAddProvider() }
                         .pointerHoverIcon(PointerIcon.Hand)
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                        .padding(horizontal = Spacing.medium, vertical = Spacing.small),
                     horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -291,7 +291,7 @@ internal fun providerModelPanel(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(start = 10.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+                                        .padding(start = Spacing.small, end = Spacing.medium, top = Spacing.extraSmall, bottom = Spacing.extraSmall),
                                     horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
@@ -502,7 +502,7 @@ private fun modelListColumn(
                                                             AppColors.variantBadgeContainerColor(AppColors.BadgeTone.BUILT_IN),
                                                             RoundedCornerShape(4.dp),
                                                         )
-                                                        .padding(horizontal = 4.dp, vertical = 1.dp),
+                                                        .padding(horizontal = Spacing.extraSmall, vertical = Spacing.micro),
                                                 ) {
                                                     Text(
                                                         text = stringResource("provider.model.default.badge"),
@@ -529,7 +529,7 @@ private fun modelListColumn(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                                                .padding(horizontal = 16.dp, vertical = 6.dp),
+                                                .padding(horizontal = Spacing.large, vertical = Spacing.extraSmall),
                                         ) {
                                             Text(
                                                 text = provider.name,
@@ -559,7 +559,7 @@ private fun modelListColumn(
                             modifier = Modifier
                                 .align(Alignment.CenterEnd)
                                 .fillMaxHeight()
-                                .padding(end = 2.dp),
+                                .padding(end = Spacing.micro),
                             style = AppComponents.scrollbarStyle(),
                         )
                     }
@@ -570,7 +570,7 @@ private fun modelListColumn(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                            .padding(horizontal = Spacing.medium, vertical = Spacing.extraSmall),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -860,7 +860,7 @@ internal fun instanceRow(
                 .hoverable(interactionSource)
                 .clickable { onSelect() }
                 .pointerHoverIcon(PointerIcon.Hand)
-                .padding(start = 8.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                .padding(start = Spacing.small, end = Spacing.extraSmall, top = Spacing.extraSmall, bottom = Spacing.extraSmall),
             horizontalArrangement = Arrangement.spacedBy(Spacing.small),
             verticalAlignment = Alignment.CenterVertically,
         ) {

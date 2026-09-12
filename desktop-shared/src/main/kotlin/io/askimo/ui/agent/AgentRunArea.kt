@@ -201,12 +201,12 @@ internal fun agenticRunArea(
                     .align(Alignment.CenterHorizontally)
                     .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                     .fillMaxWidth()
-                    .padding(start = 24.dp, end = 20.dp, top = 8.dp),
+                    .padding(start = Spacing.extraLarge, end = Spacing.large, top = Spacing.small),
                 color = AppColors.surfaceColor(AppColors.Elevation.RAISED),
                 shape = MaterialTheme.shapes.small,
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.medium, vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.medium, vertical = Spacing.small),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                 ) {
@@ -250,7 +250,7 @@ internal fun agenticRunArea(
                     .align(Alignment.CenterHorizontally)
                     .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                     .fillMaxWidth()
-                    .padding(start = 24.dp, end = 20.dp, top = 8.dp),
+                    .padding(start = Spacing.extraLarge, end = Spacing.large, top = Spacing.small),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -289,14 +289,14 @@ internal fun agenticRunArea(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(transcriptScroll)
-                    .padding(end = 8.dp),
+                    .padding(end = Spacing.small),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Column(
                     modifier = Modifier
                         .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                         .fillMaxWidth()
-                        .padding(start = 24.dp, end = 12.dp, top = 8.dp, bottom = 16.dp),
+                        .padding(start = Spacing.extraLarge, end = Spacing.medium, top = Spacing.small, bottom = Spacing.large),
                     verticalArrangement = Arrangement.spacedBy(Spacing.medium),
                 ) {
                     // ── Skills-as-context pill row ───────────────────────────────────────
@@ -314,7 +314,7 @@ internal fun agenticRunArea(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = Spacing.medium, vertical = 10.dp),
+                                        .padding(horizontal = Spacing.medium, vertical = Spacing.small),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                                 ) {
@@ -338,7 +338,7 @@ internal fun agenticRunArea(
                                             Text(
                                                 text = skill.name,
                                                 style = AppTextStyles.hint,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                modifier = Modifier.padding(horizontal = Spacing.extraSmall, vertical = Spacing.micro),
                                                 maxLines = 1,
                                             )
                                         }
@@ -399,7 +399,7 @@ internal fun agenticRunArea(
                                                                 Icon(
                                                                     Icons.Default.Extension,
                                                                     contentDescription = null,
-                                                                    modifier = Modifier.size(16.dp).padding(top = 2.dp),
+                                                                    modifier = Modifier.size(16.dp).padding(top = Spacing.micro),
                                                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                                                 )
                                                                 Column {
@@ -424,7 +424,7 @@ internal fun agenticRunArea(
                                                     }
                                                     VerticalScrollbar(
                                                         adapter = rememberScrollbarAdapter(skillsListState),
-                                                        modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 2.dp),
+                                                        modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = Spacing.micro),
                                                         style = AppComponents.scrollbarStyle(),
                                                     )
                                                 }
@@ -464,7 +464,7 @@ internal fun agenticRunArea(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = Spacing.medium, vertical = 10.dp),
+                                    .padding(horizontal = Spacing.medium, vertical = Spacing.small),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                             ) {
@@ -550,7 +550,7 @@ internal fun agenticRunArea(
 
             VerticalScrollbar(
                 adapter = rememberScrollbarAdapter(transcriptScroll),
-                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 2.dp),
+                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = Spacing.micro),
                 style = AppComponents.scrollbarStyle(),
             )
         }
@@ -561,7 +561,7 @@ internal fun agenticRunArea(
                 modifier = Modifier
                     .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                     .fillMaxWidth()
-                    .padding(start = 24.dp, end = 36.dp, top = 8.dp, bottom = 16.dp),
+                    .padding(start = Spacing.extraLarge, end = Spacing.scrollbarGutter, top = Spacing.small, bottom = Spacing.large),
             ) {
                 Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
@@ -598,9 +598,9 @@ internal fun agenticRunArea(
                     Row(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(bottom = 6.dp, end = 8.dp),
+                            .padding(bottom = Spacing.extraSmall, end = Spacing.small),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                     ) {
                         // Agent picker pill — locked once the conversation has a turn in it
                         // (fresh run or re-opened history), so it can't be switched mid-session.
@@ -620,9 +620,9 @@ internal fun agenticRunArea(
                                         .pointerHoverIcon(if (agentPickerEnabled) PointerIcon.Hand else PointerIcon.Default),
                                 ) {
                                     Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                        modifier = Modifier.padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                                     ) {
                                         Box(
                                             modifier = Modifier

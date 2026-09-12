@@ -551,7 +551,7 @@ private fun renderListItem(
     val linkColor = MaterialTheme.colorScheme.tertiary
     val mathBg = AppColors.surfaceColor(AppColors.Elevation.RECESSED)
 
-    Column(modifier = Modifier.padding(vertical = 2.dp)) {
+    Column(modifier = Modifier.padding(vertical = Spacing.micro)) {
         // Single pass over the item's children in document order. Consecutive inline nodes are
         // buffered and flushed as one Text whenever a block node (code block, blockquote, table,
         // nested list) is hit, and once more at the end — so e.g. Paragraph → FencedCodeBlock →
@@ -662,7 +662,7 @@ private fun renderCodeBlock(codeBlock: FencedCodeBlock, viewportTopY: Float? = n
                     strokeWidth = 1.5.dp,
                     color = AppColors.tertiaryIconColor(),
                 )
-                Spacer(modifier = Modifier.width(5.dp))
+                Spacer(modifier = Modifier.width(Spacing.extraSmall))
                 Text(
                     text = if (language != null) language else "code",
                     style = AppTextStyles.hint,
@@ -790,7 +790,7 @@ private fun renderCodeBlock(codeBlock: FencedCodeBlock, viewportTopY: Float? = n
                 Row(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(top = copyButtonTopOffset, end = 4.dp),
+                        .padding(top = copyButtonTopOffset, end = Spacing.extraSmall),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     // Copy feedback
@@ -914,7 +914,7 @@ private fun imageDownloadButton(
                 )
                 .pointerHoverIcon(PointerIcon.Hand)
                 .clickable { onClick() }
-                .padding(6.dp),
+                .padding(Spacing.extraSmall),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -984,7 +984,7 @@ private fun renderImage(image: Image) {
                             onClick = { coroutineScope.launch { downloadImage(imageData = imageBytes) } },
                             modifier = Modifier
                                 .align(Alignment.BottomStart)
-                                .padding(start = 6.dp, bottom = 6.dp),
+                                .padding(start = Spacing.extraSmall, bottom = Spacing.extraSmall),
                         )
                     }
                 },
@@ -1018,7 +1018,7 @@ private fun renderImage(image: Image) {
                     onClick = { coroutineScope.launch { downloadImage(imageUrl = destination) } },
                     modifier = Modifier
                         .align(Alignment.BottomStart)
-                        .padding(start = 6.dp, bottom = 6.dp),
+                        .padding(start = Spacing.extraSmall, bottom = Spacing.extraSmall),
                 )
             }
         }

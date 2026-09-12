@@ -414,7 +414,7 @@ fun newProjectDialog(
                 secondaryButton(onClick = onDismiss) {
                     Text(stringResource("project.new.dialog.button.cancel"))
                 }
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(Spacing.small))
                 primaryButton(onClick = { handleCreate() }) {
                     Text(stringResource("project.new.dialog.button.create"))
                 }

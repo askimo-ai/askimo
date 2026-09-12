@@ -132,7 +132,7 @@ fun onboardingWizardDialog(
                         style = AppTextStyles.pageTitle,
                         textAlign = TextAlign.Center,
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(Spacing.extraSmall))
                     Text(
                         text = stringResource("onboarding.step.indicator", currentStep + 1, TOTAL_STEPS),
                         style = AppTextStyles.bodySecondary,
@@ -224,7 +224,7 @@ fun onboardingWizardDialog(
                             ),
                         ) {}
                         if (index < TOTAL_STEPS - 1) {
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(Spacing.small))
                         }
                     }
                 }
@@ -238,7 +238,7 @@ fun onboardingWizardDialog(
                 ) {
                     // Step 0 (language) has no back — it is required
                     if (currentStep == 0) {
-                        Spacer(modifier = Modifier.width(1.dp))
+                        Spacer(modifier = Modifier.width(Spacing.micro))
                     } else {
                         secondaryButton(onClick = { currentStep-- }) {
                             Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null)
@@ -313,7 +313,7 @@ private fun onboardingStepLanguage(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(12.dp),
+                                .padding(Spacing.medium),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -337,7 +337,7 @@ private fun onboardingStepLanguage(
                             DropdownMenuItem(
                                 text = {
                                     Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         if (locale == selectedLocale) {
@@ -347,7 +347,7 @@ private fun onboardingStepLanguage(
                                                 tint = MaterialTheme.colorScheme.onSurface,
                                             )
                                         } else {
-                                            Spacer(modifier = Modifier.width(24.dp))
+                                            Spacer(modifier = Modifier.width(Spacing.extraLarge))
                                         }
                                         Text(
                                             text = displayName,
@@ -619,7 +619,7 @@ private fun personaCard(
                 text = emoji,
                 style = MaterialTheme.typography.headlineMedium,
             )
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.micro)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -665,7 +665,7 @@ private fun onboardingStepAnalytics(
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
         // ── Header ────────────────────────────────────────────────────────────
         Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
             verticalAlignment = Alignment.Top,
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -673,9 +673,9 @@ private fun onboardingStepAnalytics(
                 imageVector = Icons.Default.BarChart,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(28.dp).padding(top = 2.dp),
+                modifier = Modifier.size(28.dp).padding(top = Spacing.micro),
             )
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
                 Text(
                     text = stringResource("onboarding.step.analytics.title"),
                     style = AppTextStyles.sectionTitle,
@@ -705,8 +705,8 @@ private fun onboardingStepAnalytics(
                     text = stringResource("onboarding.step.analytics.section.collected"),
                     style = AppTextStyles.hint,
                 )
-                Spacer(modifier = Modifier.height(6.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Spacer(modifier = Modifier.height(Spacing.extraSmall))
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
                     analyticsPrivacyRow(
                         text = stringResource("onboarding.step.analytics.collected.yes.features"),
                         positive = true,
@@ -724,8 +724,8 @@ private fun onboardingStepAnalytics(
                     text = stringResource("onboarding.step.analytics.section.never"),
                     style = AppTextStyles.hint,
                 )
-                Spacer(modifier = Modifier.height(6.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Spacer(modifier = Modifier.height(Spacing.extraSmall))
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
                     analyticsPrivacyRow(
                         text = stringResource("onboarding.step.analytics.collected.no.conversations"),
                         positive = false,
@@ -752,13 +752,13 @@ private fun onboardingStepAnalytics(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                    .padding(horizontal = Spacing.large, vertical = Spacing.medium),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(
-                    modifier = Modifier.weight(1f).padding(end = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier.weight(1f).padding(end = Spacing.large),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.micro),
                 ) {
                     Text(
                         text = if (analyticsAccepted) {

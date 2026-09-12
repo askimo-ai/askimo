@@ -43,8 +43,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -63,6 +63,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.painter.BitmapPainter
@@ -323,7 +324,7 @@ private fun expandedNavigationSidebar(
         ) {
             // New Chat
             themedTooltip(text = stringResource("chat.new.tooltip", Platform.modifierKey)) {
-                NavigationDrawerItem(
+                sidebarItem(
                     icon = { Icon(Icons.Default.Add, contentDescription = null) },
                     label = { Text(stringResource("chat.new"), style = AppTextStyles.groupTitle) },
                     selected = false,
@@ -331,8 +332,6 @@ private fun expandedNavigationSidebar(
                     modifier = Modifier
                         .padding(horizontal = Spacing.small)
                         .pointerHoverIcon(PointerIcon.Hand),
-                    shape = AppComponents.navigationItemShape,
-                    colors = AppColors.navigationDrawerItemColors(),
                 )
             }
 
@@ -366,7 +365,7 @@ private fun expandedNavigationSidebar(
             )
 
             // Sessions header (collapsible)
-            NavigationDrawerItem(
+            sidebarItem(
                 icon = {
                     Icon(
                         Icons.Default.History,
@@ -412,8 +411,6 @@ private fun expandedNavigationSidebar(
                 modifier = Modifier
                     .padding(horizontal = Spacing.small, vertical = Spacing.extraSmall)
                     .pointerHoverIcon(PointerIcon.Hand),
-                shape = AppComponents.navigationItemShape,
-                colors = AppColors.navigationDrawerItemColors(),
             )
 
             if (isSessionsExpanded) {
@@ -569,7 +566,7 @@ private fun sidebarNavItemRow(item: SidebarNavItem) {
             .padding(horizontal = Spacing.small)
             .hoverable(interactionSource),
     ) {
-        NavigationDrawerItem(
+        sidebarItem(
             icon = { Icon(item.icon, contentDescription = null) },
             label = {
                 Text(
@@ -582,9 +579,48 @@ private fun sidebarNavItemRow(item: SidebarNavItem) {
             onClick = item.onClick,
             badge = item.badge?.let { badgeFn -> { badgeFn(isHovered) } },
             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-            shape = AppComponents.navigationItemShape,
-            colors = AppColors.navigationDrawerItemColors(),
         )
+    }
+}
+
+@Composable
+private fun sidebarItem(
+    label: @Composable () -> Unit,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: (@Composable () -> Unit)? = null,
+    badge: (@Composable () -> Unit)? = null,
+    shape: Shape = AppComponents.navigationItemShape,
+) {
+    val containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+    val contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+
+    Surface(
+        selected = selected,
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        shape = shape,
+        color = containerColor,
+        contentColor = contentColor,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.large),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (icon != null) {
+                icon()
+            }
+            Box(modifier = Modifier.weight(1f)) {
+                label()
+            }
+            if (badge != null) {
+                badge()
+            }
+        }
     }
 }
 
@@ -717,7 +753,7 @@ fun sidebarLogoRow(
     }
 }
 
-// ─────────────────────────────────────────���───────────────��───────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // Pinned section
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -750,7 +786,7 @@ private fun pinnedSection(
             top = Spacing.small,
         ),
     ) {
-        NavigationDrawerItem(
+        sidebarItem(
             icon = {
                 Icon(
                     Icons.Default.Star,
@@ -778,8 +814,6 @@ private fun pinnedSection(
             modifier = Modifier
                 .padding(vertical = Spacing.extraSmall)
                 .pointerHoverIcon(PointerIcon.Hand),
-            shape = AppComponents.navigationItemShape,
-            colors = AppColors.navigationDrawerItemColors(),
         )
 
         if (isExpanded) {
@@ -827,11 +861,11 @@ private fun pinnedProjectItem(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = Spacing.extraSmall / 2f)
+            .padding(vertical = Spacing.micro)
             .hoverable(interactionSource),
     ) {
         themedTooltip(text = project.name) {
-            NavigationDrawerItem(
+            sidebarItem(
                 icon = { Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size((16 * fontScale).dp)) },
                 label = {
                     navigationItemLabelWithMenu(
@@ -843,10 +877,8 @@ private fun pinnedProjectItem(
                 selected = false,
                 onClick = { onSelectProject(project.id) },
                 modifier = Modifier
-                    .padding(vertical = Spacing.extraSmall / 2f)
+                    .padding(vertical = Spacing.micro)
                     .pointerHoverIcon(PointerIcon.Hand),
-                shape = AppComponents.navigationItemShape,
-                colors = AppColors.navigationDrawerItemColors(),
             )
         }
 
@@ -925,7 +957,7 @@ private fun pinnedSessionItem(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = Spacing.extraSmall / 2f)
+            .padding(vertical = Spacing.micro)
             .hoverable(interactionSource),
     ) {
         sessionDrawerItemContent(
@@ -1042,7 +1074,7 @@ private fun sessionsList(
             }
 
             if (sessionsViewModel.totalSessionCount > SessionsViewModel.MAX_SIDEBAR_SESSIONS) {
-                NavigationDrawerItem(
+                sidebarItem(
                     icon = null,
                     label = {
                         Text(
@@ -1053,10 +1085,8 @@ private fun sessionsList(
                     selected = false,
                     onClick = onNavigateToSessions,
                     modifier = Modifier
-                        .padding(vertical = Spacing.extraSmall / 2f)
+                        .padding(vertical = Spacing.micro)
                         .pointerHoverIcon(PointerIcon.Hand),
-                    shape = AppComponents.navigationItemShape,
-                    colors = AppColors.navigationDrawerItemColors(),
                 )
             }
         }
@@ -1102,7 +1132,7 @@ private fun sessionItemWithMenu(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = Spacing.extraSmall / 2f)
+            .padding(vertical = Spacing.micro)
             .hoverable(interactionSource),
     ) {
         sessionDrawerItemContent(
@@ -1147,7 +1177,7 @@ private fun sessionItemWithMenu(
     }
 }
 
-// ───────────────────────────────────���─────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // Shared sub-components
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1164,7 +1194,7 @@ private fun sessionDrawerItemContent(
     val fontScale = LocalFontScale.current
 
     sessionTooltip(session = session) {
-        NavigationDrawerItem(
+        sidebarItem(
             icon = if (isChatInProgress) {
                 {
                     CircularProgressIndicator(
@@ -1190,8 +1220,6 @@ private fun sessionDrawerItemContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .pointerHoverIcon(PointerIcon.Hand),
-            shape = AppComponents.navigationItemShape,
-            colors = AppColors.navigationDrawerItemColors(),
         )
     }
 }
@@ -1237,7 +1265,7 @@ private fun navigationItemLabelWithMenu(
         } else if (bookmarkCount > 0) {
             val bookmarkColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppColors.countBadgeAccentColor()
             Row(
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.micro),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(start = Spacing.extraSmall),
             ) {

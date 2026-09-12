@@ -31,6 +31,7 @@ import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
+import io.askimo.ui.common.theme.Spacing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -175,7 +176,7 @@ fun urlInputDialog(
                 Text(stringResource("project.dialog.url.button.cancel"))
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(Spacing.small))
 
             primaryButton(
                 onClick = { handleAdd() },
@@ -183,7 +184,7 @@ fun urlInputDialog(
             ) {
                 if (isValidating) {
                     AppComponents.loadingSpinner(size = 16.dp)
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(Spacing.small))
                 }
                 Text(
                     if (isValidating) {

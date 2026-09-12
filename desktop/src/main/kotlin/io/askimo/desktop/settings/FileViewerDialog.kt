@@ -46,6 +46,7 @@ import androidx.compose.ui.window.DialogProperties
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
+import io.askimo.ui.common.theme.Spacing
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.awt.Toolkit
@@ -84,7 +85,7 @@ fun fileViewerDialog(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(24.dp),
+                    .padding(Spacing.extraLarge),
             ) {
                 // Header
                 Row(
@@ -99,7 +100,7 @@ fun fileViewerDialog(
                         Text(
                             text = filePath,
                             style = AppTextStyles.caption,
-                            modifier = Modifier.padding(top = 4.dp),
+                            modifier = Modifier.padding(top = Spacing.extraSmall),
                         )
                     }
                     IconButton(onClick = onDismiss) {
@@ -110,7 +111,7 @@ fun fileViewerDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(Spacing.large))
 
                 // Content with scrollbar
                 Box(
@@ -127,7 +128,7 @@ fun fileViewerDialog(
                             text = content,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp)
+                                .padding(Spacing.large)
                                 .verticalScroll(scrollState),
                             fontFamily = FontFamily.Monospace,
                             fontSize = 13.sp,
@@ -140,12 +141,12 @@ fun fileViewerDialog(
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
                             .fillMaxHeight()
-                            .padding(end = 4.dp),
+                            .padding(end = Spacing.extraSmall),
                         style = AppComponents.scrollbarStyle(),
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(Spacing.large))
 
                 // Footer buttons
                 Row(
@@ -170,7 +171,7 @@ fun fileViewerDialog(
                         Icon(
                             imageVector = Icons.Default.ContentCopy,
                             contentDescription = null,
-                            modifier = Modifier.padding(end = 8.dp),
+                            modifier = Modifier.padding(end = Spacing.small),
                         )
                         Text(
                             if (isCopied) {

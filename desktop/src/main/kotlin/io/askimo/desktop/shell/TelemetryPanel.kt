@@ -266,7 +266,7 @@ private fun llmTableHeader(
                     .clickable { onSort(column) }
                     .pointerHoverIcon(PointerIcon.Hand),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.micro),
             ) {
                 Text(
                     text = label,
@@ -361,7 +361,7 @@ private fun telemetryStat(
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        verticalArrangement = Arrangement.spacedBy(Spacing.micro),
     ) {
         Text(
             text = value,
@@ -391,7 +391,7 @@ private fun telemetryMetricCard(
         ),
     ) {
         Column(
-            modifier = Modifier.padding(10.dp),
+            modifier = Modifier.padding(Spacing.small),
             verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
         ) {
             if (valueTooltip != null) {

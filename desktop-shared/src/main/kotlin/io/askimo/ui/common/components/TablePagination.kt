@@ -118,9 +118,9 @@ fun tablePageSizeSelector(
                 modifier = Modifier
                     .clickable { showMenu = true }
                     .pointerHoverIcon(PointerIcon.Hand)
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.micro),
             ) {
                 Text(
                     text = pageSize.toString(),

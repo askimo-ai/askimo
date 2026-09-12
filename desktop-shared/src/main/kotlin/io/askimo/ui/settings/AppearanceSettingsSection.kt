@@ -189,7 +189,7 @@ fun appearanceSettingsSection() {
                 modifier = Modifier
                     .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                     .fillMaxWidth()
-                    .padding(start = 24.dp, top = 24.dp, bottom = 24.dp, end = 36.dp),
+                    .padding(start = Spacing.extraLarge, top = Spacing.extraLarge, bottom = Spacing.extraLarge, end = Spacing.scrollbarGutter),
                 verticalArrangement = Arrangement.spacedBy(Spacing.large),
             ) {
                 Text(
@@ -571,8 +571,8 @@ private fun accentPresetTile(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+                .padding(Spacing.small),
+            verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
             horizontalAlignment = Alignment.Start,
         ) {
             Box(
@@ -586,7 +586,7 @@ private fun accentPresetTile(
                     ),
             )
 
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.micro)) {
                 Text(
                     text = preset.label,
                     style = AppTextStyles.fieldLabel,
@@ -890,7 +890,7 @@ private fun backgroundImageOption(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .fillMaxWidth()
-                    .padding(8.dp),
+                    .padding(Spacing.small),
             ) {
                 Text(
                     text = backgroundImage.displayName,
@@ -903,7 +903,7 @@ private fun backgroundImageOption(
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(6.dp)
+                        .padding(Spacing.extraSmall)
                         .size(20.dp)
                         .background(MaterialTheme.colorScheme.primary, shape = CircleShape),
                     contentAlignment = Alignment.Center,
@@ -1007,7 +1007,7 @@ private fun backgroundImageCustomOption(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .fillMaxWidth()
-                    .padding(8.dp),
+                    .padding(Spacing.small),
             ) {
                 Text(
                     text = if (painter != null) stringResource("settings.background.image.custom") else browseLabel,
@@ -1020,7 +1020,7 @@ private fun backgroundImageCustomOption(
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(6.dp)
+                        .padding(Spacing.extraSmall)
                         .size(20.dp)
                         .background(MaterialTheme.colorScheme.primary, shape = CircleShape),
                     contentAlignment = Alignment.Center,
@@ -1037,7 +1037,7 @@ private fun backgroundImageCustomOption(
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .padding(6.dp)
+                        .padding(Spacing.extraSmall)
                         .size(20.dp)
                         .background(MaterialTheme.colorScheme.error, shape = CircleShape)
                         .pointerHoverIcon(PointerIcon.Hand)
@@ -1118,7 +1118,7 @@ private fun uiScaleSection() {
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            modifier = Modifier.fillMaxWidth().padding(Spacing.medium),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {

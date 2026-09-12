@@ -91,7 +91,7 @@ fun happinessGateDialog(
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            verticalArrangement = Arrangement.spacedBy(Spacing.large),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
@@ -164,7 +164,7 @@ private fun sentimentButton(
             text = label,
             style = AppTextStyles.groupTitle,
             modifier = Modifier
-                .padding(14.dp)
+                .padding(Spacing.medium)
                 .fillMaxWidth(),
             textAlign = TextAlign.Center,
         )
@@ -207,7 +207,7 @@ fun feedbackPromptDialog(
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            verticalArrangement = Arrangement.spacedBy(Spacing.large),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             when {
@@ -442,9 +442,9 @@ private fun feedbackReasonChip(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(horizontal = Spacing.medium, vertical = Spacing.small),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
         ) {
             Text(text = reason.emoji, style = AppTextStyles.body)
             Text(
@@ -489,7 +489,7 @@ fun starPromptDialog(
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            verticalArrangement = Arrangement.spacedBy(Spacing.large),
         ) {
             if (thanked) {
                 // ── Thank-you screen ───────────────────────────────────

@@ -97,7 +97,7 @@ fun composeTopMenuBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp),
+                .padding(horizontal = Spacing.small),
             horizontalArrangement = Arrangement.spacedBy(Spacing.small),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -314,7 +314,7 @@ private fun menuAnchor(
                 .clickableCard { onExpandToggle() }
                 // Measure height so the popup can be offset to exactly the bottom edge.
                 .onSizeChanged { anchorHeightPx = it.height }
-                .padding(horizontal = 8.dp, vertical = 6.dp),
+                .padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
         )
 
         if (expanded) {

@@ -24,6 +24,7 @@ import io.askimo.core.providers.ModelDTO
 import io.askimo.core.providers.ModelProvider
 import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppTextStyles
+import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.clickableCard
 
 /**
@@ -51,7 +52,7 @@ fun groupedModelListAsCards(
                 text = provider.name,
                 style = AppTextStyles.hint,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(horizontal = 0.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 0.dp, vertical = Spacing.small),
             )
         }
 
@@ -60,7 +61,7 @@ fun groupedModelListAsCards(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 8.dp)
+                    .padding(bottom = Spacing.small)
                     .clickableCard { onModelClick(dto.modelId) },
                 colors = if (isSelected) {
                     AppColors.cardColors(AppColors.Elevation.ACCENT)
@@ -71,7 +72,7 @@ fun groupedModelListAsCards(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(Spacing.large),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {

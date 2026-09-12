@@ -138,7 +138,7 @@ fun discoverView(
                 modifier = Modifier
                     .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                     .fillMaxWidth()
-                    .padding(start = 24.dp, end = 36.dp, top = 32.dp, bottom = 32.dp),
+                    .padding(start = Spacing.extraLarge, end = Spacing.scrollbarGutter, top = 32.dp, bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(Spacing.extraLarge),
             ) {
                 headerSection(
@@ -508,7 +508,7 @@ private fun tokenUsageCustomDateDialog(
                 headline = {
                     Text(
                         text = stringResource("discover.tokens.custom.from"),
-                        modifier = Modifier.padding(start = 24.dp, end = 12.dp, bottom = 12.dp),
+                        modifier = Modifier.padding(start = Spacing.extraLarge, end = Spacing.medium, bottom = Spacing.medium),
                         style = MaterialTheme.typography.labelLarge,
                     )
                 },
@@ -552,7 +552,7 @@ private fun tokenUsageCustomDateDialog(
                 headline = {
                     Text(
                         text = stringResource("discover.tokens.custom.to"),
-                        modifier = Modifier.padding(start = 24.dp, end = 12.dp, bottom = 12.dp),
+                        modifier = Modifier.padding(start = Spacing.extraLarge, end = Spacing.medium, bottom = Spacing.medium),
                         style = MaterialTheme.typography.labelLarge,
                     )
                 },
@@ -610,7 +610,7 @@ private fun tokenUsageSectionHeader(
 
         // Right: period dropdown + optional total-tokens badge
         Row(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box {
@@ -764,7 +764,7 @@ private fun summaryStatItem(value: String, label: String, modifier: Modifier = M
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        verticalArrangement = Arrangement.spacedBy(Spacing.micro),
     ) {
         Text(text = value, style = AppTextStyles.itemTitle)
         Text(text = label, style = AppTextStyles.hint, textAlign = TextAlign.Center)
@@ -781,7 +781,7 @@ private fun tokenBarRow(
     calls: Int,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.extraSmall),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
     ) {
@@ -930,7 +930,7 @@ private fun recentSessionsSection(
             Text(
                 text = stringResource("discover.recent.empty"),
                 style = AppTextStyles.bodySecondary,
-                modifier = Modifier.padding(vertical = 8.dp),
+                modifier = Modifier.padding(vertical = Spacing.small),
             )
         } else {
             Surface(shape = MaterialTheme.shapes.large, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
@@ -968,7 +968,7 @@ private fun recentSessionRow(
             )
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onResumeSession(session.id) }
             .pointerHoverIcon(PointerIcon.Hand)
-            .padding(horizontal = Spacing.large, vertical = 14.dp),
+            .padding(horizontal = Spacing.large, vertical = Spacing.medium),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -982,7 +982,7 @@ private fun recentSessionRow(
                 Text(text = session.title, style = AppTextStyles.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(Spacing.large))
         Text(text = TimeUtil.formatDisplay(session.updatedAt), style = AppTextStyles.caption)
     }
 }

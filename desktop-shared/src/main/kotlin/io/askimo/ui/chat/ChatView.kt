@@ -635,7 +635,7 @@ fun chatView(
                                     if (statusText != null) {
                                         themedTooltip(text = statusText) {
                                             Row(
-                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                                                 verticalAlignment = Alignment.CenterVertically,
                                             ) {
                                                 Icon(
@@ -781,7 +781,7 @@ fun chatView(
                                                             overflow = TextOverflow.Ellipsis,
                                                             modifier = Modifier
                                                                 .widthIn(max = 280.dp)
-                                                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                                                                .padding(horizontal = Spacing.small, vertical = Spacing.small),
                                                         )
                                                     },
                                                 ) {
@@ -799,7 +799,7 @@ fun chatView(
                                                                 val isBookmarkIconHovered by bookmarkIconHoverSource.collectIsHoveredAsState()
                                                                 Box(
                                                                     modifier = Modifier
-                                                                        .padding(top = 4.dp)
+                                                                        .padding(top = Spacing.extraSmall)
                                                                         .size(24.dp)
                                                                         .hoverable(bookmarkIconHoverSource)
                                                                         .pointerHoverIcon(PointerIcon.Hand)
@@ -895,15 +895,15 @@ fun chatView(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                            .padding(horizontal = Spacing.large, vertical = Spacing.small),
                         colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(12.dp),
+                                .padding(Spacing.medium),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                         ) {
                             // Search icon
                             Icon(
@@ -934,7 +934,7 @@ fun chatView(
                                     },
                                     style = AppTextStyles.caption,
                                     color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    modifier = Modifier.padding(horizontal = 8.dp),
+                                    modifier = Modifier.padding(horizontal = Spacing.small),
                                 )
                             }
 
@@ -1100,8 +1100,8 @@ fun chatView(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .padding(end = 8.dp) // room for scrollbar
+                            .padding(horizontal = Spacing.large, vertical = Spacing.small)
+                            .padding(end = Spacing.small) // room for scrollbar
                             .verticalScroll(messagesScrollState)
                             .focusRequester(messageListFocusRequester)
                             .focusable()
@@ -1118,7 +1118,7 @@ fun chatView(
                                         stringResource("chat.search.not.found", searchQuery),
                                         style = MaterialTheme.typography.bodyLarge,
                                         color = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.align(Alignment.Center).padding(top = 32.dp),
+                                        modifier = Modifier.align(Alignment.Center).padding(top = Spacing.extraLarge),
                                     )
                                 }
 
@@ -1156,7 +1156,7 @@ fun chatView(
                                         stringResource("chat.welcome"),
                                         style = MaterialTheme.typography.bodyLarge,
                                         color = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.align(Alignment.Center).padding(top = 32.dp),
+                                        modifier = Modifier.align(Alignment.Center).padding(top = Spacing.extraLarge),
                                     )
                                 }
 
@@ -1211,7 +1211,7 @@ fun chatView(
                             modifier = Modifier
                                 .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                                .padding(horizontal = Spacing.large, vertical = Spacing.extraSmall),
                             colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
                         ) {
                             Row(
@@ -1313,7 +1313,7 @@ fun chatView(
                         modifier = Modifier
                             .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                             .fillMaxWidth()
-                            .padding(16.dp),
+                            .padding(Spacing.large),
                     )
                 } // end centered Box
             } // End of main chat Column
@@ -1365,9 +1365,9 @@ fun chatView(
                     shadowElevation = 8.dp,
                 ) {
                     Column(
-                        modifier = Modifier.padding(horizontal = 48.dp, vertical = 36.dp),
+                        modifier = Modifier.padding(horizontal = Spacing.extraLarge * 2, vertical = Spacing.extraLarge + Spacing.medium),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.large),
                     ) {
                         Icon(
                             imageVector = Icons.Default.AttachFile,
@@ -1448,9 +1448,9 @@ private fun memoryPressureBanner(
         modifier = Modifier
             .fillMaxWidth()
             .background(bg)
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+            .padding(horizontal = Spacing.large, vertical = Spacing.small),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
     ) {
         Text(
             text = message,

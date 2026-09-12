@@ -153,7 +153,7 @@ fun planEditorView(
                     SelectionContainer {
                         Text(
                             text = saveError,
-                            modifier = Modifier.padding(horizontal = 24.dp, vertical = Spacing.small),
+                            modifier = Modifier.padding(horizontal = Spacing.extraLarge, vertical = Spacing.small),
                             style = AppTextStyles.caption,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
@@ -169,7 +169,7 @@ fun planEditorView(
                     SelectionContainer {
                         Text(
                             text = "❌ $validationError",
-                            modifier = Modifier.padding(horizontal = 24.dp, vertical = Spacing.small),
+                            modifier = Modifier.padding(horizontal = Spacing.extraLarge, vertical = Spacing.small),
                             style = AppTextStyles.caption,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
@@ -183,7 +183,7 @@ fun planEditorView(
                     color = MaterialTheme.colorScheme.primaryContainer,
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = Spacing.small),
+                        modifier = Modifier.padding(horizontal = Spacing.extraLarge, vertical = Spacing.small),
                         horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -216,7 +216,7 @@ fun planEditorView(
                     .widthIn(max = 1400.dp)
                     .fillMaxWidth()
                     .weight(1f)
-                    .padding(horizontal = 24.dp, vertical = Spacing.large),
+                    .padding(horizontal = Spacing.extraLarge, vertical = Spacing.large),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.large),
             ) {
                 // ── Left: AI generation panel (new plans only) + YAML editor ──────

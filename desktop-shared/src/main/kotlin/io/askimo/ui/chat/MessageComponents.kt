@@ -379,7 +379,7 @@ fun messageBubble(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (addTopPadding) Modifier.padding(top = 20.dp) else Modifier),
+            .then(if (addTopPadding) Modifier.padding(top = Spacing.large) else Modifier),
     ) {
         if (message.isUser) {
             userMessageBubble(
@@ -535,7 +535,7 @@ private fun userMessageBubble(
                     }
                 }
 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(Spacing.small))
 
                 Box(
                     modifier = Modifier
@@ -578,7 +578,7 @@ private fun userMessageBubble(
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                         style = AppTextStyles.groupTitle,
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(Spacing.small))
                 }
 
                 Box(
@@ -754,7 +754,7 @@ private fun aiMessageBubble(
                     )
                 }
             }
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(Spacing.small))
 
             // AI message content
             Box {
@@ -877,7 +877,7 @@ private fun aiMessageBubble(
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(bottom = 4.dp, end = 4.dp),
+                            .padding(bottom = Spacing.extraSmall, end = Spacing.extraSmall),
                     ) {
                         themedTooltip(text = stringResource("action.retry")) {
                             IconButton(
@@ -902,7 +902,7 @@ private fun aiMessageBubble(
                         contentDescription = stringResource("message.bookmark.description"),
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(top = 4.dp, end = 4.dp)
+                            .padding(top = Spacing.extraSmall, end = Spacing.extraSmall)
                             .size(16.dp),
                         tint = MaterialTheme.colorScheme.primary,
                     )
@@ -911,7 +911,7 @@ private fun aiMessageBubble(
         }
 
         // Action controls bar
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(Spacing.small))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Start,
@@ -927,8 +927,8 @@ private fun aiMessageBubble(
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     themedTooltip(text = stringResource("message.copy")) {
@@ -1118,12 +1118,12 @@ private fun aiMessageBubble(
             }
 
             if (showCopyFeedback) {
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(Spacing.small))
                 Text(
                     text = stringResource("mermaid.feedback.copied"),
                     modifier = Modifier
                         .background(MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.small)
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = Spacing.large, vertical = Spacing.small),
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                     style = AppTextStyles.groupTitle,
                 )
@@ -1190,7 +1190,7 @@ private fun aiMessageBubble(
                 Text(
                     text = stringResource("message.edited.indicator"),
                     style = AppTextStyles.hint,
-                    modifier = Modifier.padding(start = 12.dp, top = 2.dp),
+                    modifier = Modifier.padding(start = Spacing.medium, top = Spacing.micro),
                 )
             }
         }
@@ -1322,7 +1322,7 @@ internal fun thinkingSection(
                             .fillMaxWidth()
                             .heightIn(max = 200.dp)
                             .verticalScroll(scrollState)
-                            .padding(start = Spacing.small, end = Spacing.medium, top = 2.dp, bottom = 2.dp),
+                            .padding(start = Spacing.small, end = Spacing.medium, top = Spacing.micro, bottom = Spacing.micro),
                     ) {
                         inlineMarkdownText(
                             markdown = thinkingContent,
@@ -1645,7 +1645,7 @@ internal fun toolCallsSection(
                         .fillMaxWidth()
                         .heightIn(max = 320.dp)
                         .verticalScroll(listScroll)
-                        .padding(top = Spacing.extraSmall, bottom = Spacing.extraSmall, end = 10.dp),
+                        .padding(top = Spacing.extraSmall, bottom = Spacing.extraSmall, end = Spacing.small),
                     verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                 ) {
                     toolCalls.forEach { toolCall ->
@@ -1805,7 +1805,7 @@ private fun toolCallRow(toolCall: ToolCallInfo) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = Spacing.extraSmall),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.micro),
                 ) {
                     if (!toolCall.arguments.isNullOrBlank() && !isSkillCall) {
                         toolCallDetailSection(
@@ -1852,7 +1852,7 @@ private fun toolCallDetailSection(
                         color = AppColors.codeBlockBackground(),
                         shape = RoundedCornerShape(4.dp),
                     )
-                    .padding(horizontal = Spacing.extraSmall, vertical = 2.dp),
+                    .padding(horizontal = Spacing.extraSmall, vertical = Spacing.micro),
             )
         }
     }
@@ -1884,9 +1884,9 @@ private fun fileAttachmentChip(
             ),
         ) {
             Row(
-                modifier = Modifier.padding(8.dp),
+                modifier = Modifier.padding(Spacing.small),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
             ) {
                 Icon(
                     imageVector = Icons.Default.AttachFile,
@@ -1935,13 +1935,13 @@ fun aiMessageEditDialog(
         Surface(
             modifier = Modifier
                 .width(900.dp)
-                .padding(16.dp),
+                .padding(Spacing.large),
             shape = MaterialTheme.shapes.large,
             tonalElevation = 8.dp,
         ) {
             Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.padding(Spacing.extraLarge),
+                verticalArrangement = Arrangement.spacedBy(Spacing.large),
             ) {
                 // Title
                 Text(
@@ -1960,7 +1960,7 @@ fun aiMessageEditDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .fillMaxHeight()
-                            .padding(end = 12.dp), // room for the scrollbar
+                            .padding(end = Spacing.medium), // room for the scrollbar
                         textStyle = AppTextStyles.body,
                         colors = AppColors.outlinedTextFieldColors(),
                         label = { Text(stringResource("message.ai.edit.content.label")) },
@@ -1988,7 +1988,7 @@ fun aiMessageEditDialog(
                         Text(stringResource("action.cancel"))
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(Spacing.small))
 
                     primaryButton(
                         onClick = {

@@ -98,7 +98,7 @@ fun sessionsView(
                 modifier = Modifier
                     .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                     .fillMaxWidth()
-                    .padding(start = 24.dp, end = 36.dp, top = 24.dp, bottom = 24.dp),
+                    .padding(start = Spacing.extraLarge, end = Spacing.scrollbarGutter, top = Spacing.extraLarge, bottom = Spacing.extraLarge),
             ) {
                 // ── Header ────────────────────────────────────────────────────
                 Row(
@@ -329,7 +329,7 @@ private fun sessionTable(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(AppColors.surfaceColor(AppColors.Elevation.RAISED))
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(horizontal = Spacing.large, vertical = Spacing.small),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // Star column spacer
@@ -454,7 +454,7 @@ private fun sessionRow(
                 indication = null,
             ) { onResumeSession(session.id) }
             .pointerHoverIcon(PointerIcon.Hand)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = Spacing.large, vertical = Spacing.small),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Star toggle

@@ -320,7 +320,7 @@ private fun providerTypePickerScreen(viewModel: ProviderWizardViewModel) {
                                 text = stringResource("provider.search.no_results"),
                                 style = AppTextStyles.caption,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = Spacing.medium),
+                                modifier = Modifier.padding(horizontal = Spacing.medium, vertical = Spacing.medium),
                             )
                         }
                     } else {
@@ -354,7 +354,7 @@ private fun providerTypePickerScreen(viewModel: ProviderWizardViewModel) {
                 }
                 VerticalScrollbar(
                     adapter = rememberScrollbarAdapter(listState),
-                    modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 2.dp),
+                    modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = Spacing.micro),
                     style = AppComponents.scrollbarStyle(),
                 )
             }
@@ -453,7 +453,7 @@ private fun providerPickerEntryRow(
             .background(bg)
             .clickable(onClick = onClick)
             .pointerHoverIcon(PointerIcon.Hand)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = Spacing.medium, vertical = Spacing.small),
         horizontalArrangement = Arrangement.spacedBy(Spacing.small),
         verticalAlignment = Alignment.CenterVertically,
     ) {

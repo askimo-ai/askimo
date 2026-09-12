@@ -580,7 +580,7 @@ private fun toolCategoryChip(category: ToolCategory) {
         modifier = Modifier
             .clip(RoundedCornerShape(4.dp))
             .background(bg)
-            .padding(horizontal = 6.dp, vertical = 2.dp),
+            .padding(horizontal = Spacing.extraSmall, vertical = Spacing.micro),
     ) {
         Text(
             text = label,
@@ -621,7 +621,7 @@ private fun toolStrategyChip(strategy: Int) {
         modifier = Modifier
             .clip(RoundedCornerShape(4.dp))
             .background(bg)
-            .padding(horizontal = 6.dp, vertical = 2.dp),
+            .padding(horizontal = Spacing.extraSmall, vertical = Spacing.micro),
     ) {
         Text(
             text = label,

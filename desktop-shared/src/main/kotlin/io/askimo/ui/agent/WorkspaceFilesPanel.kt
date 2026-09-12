@@ -85,6 +85,7 @@ import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.AppTextStyles
+import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.filePreviewPane
 import io.askimo.ui.common.ui.themedTooltip
 import kotlinx.coroutines.Dispatchers
@@ -389,9 +390,9 @@ internal fun workspaceFilesPanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 10.dp, end = 4.dp, top = 8.dp, bottom = 6.dp),
+                    .padding(start = Spacing.small, end = Spacing.extraSmall, top = Spacing.small, bottom = Spacing.extraSmall),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.micro),
             ) {
                 if (onWorkDirChanged != null) {
                     // ── Workspace switcher ───────────────────────────────────
@@ -406,9 +407,9 @@ internal fun workspaceFilesPanel(
                                         onClick = { workspaceMenuExpanded = true },
                                     )
                                     .pointerHoverIcon(PointerIcon.Hand)
-                                    .padding(start = 4.dp, end = 2.dp, top = 2.dp, bottom = 2.dp),
+                                    .padding(start = Spacing.extraSmall, end = Spacing.micro, top = Spacing.micro, bottom = Spacing.micro),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                             ) {
                                 Icon(
                                     Icons.Default.FolderOpen,
@@ -476,7 +477,7 @@ internal fun workspaceFilesPanel(
                                         }
                                     },
                                     trailingIcon = {
-                                        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.micro)) {
                                             themedTooltip(text = stringResource("agents.view.workspace.switcher.pin")) {
                                                 IconButton(
                                                     onClick = {
@@ -568,7 +569,7 @@ internal fun workspaceFilesPanel(
                         workDir.name.ifEmpty { workDir.path },
                         style = AppTextStyles.fieldLabel,
                         fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.weight(1f).padding(start = 4.dp),
+                        modifier = Modifier.weight(1f).padding(start = Spacing.extraSmall),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -645,7 +646,7 @@ internal fun workspaceFilesPanel(
                         stringResource("agents.view.workspace.empty"),
                         style = AppTextStyles.caption,
                         color = AppColors.tertiaryIconColor(),
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier.padding(Spacing.large),
                     )
                 }
 
@@ -654,7 +655,7 @@ internal fun workspaceFilesPanel(
                         buildWorkspaceRenderList(rootChildren, depth = 0, expandedPaths = expandedPaths)
                     }
                     Box(modifier = Modifier.fillMaxSize()) {
-                        LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(vertical = 4.dp)) {
+                        LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(vertical = Spacing.extraSmall)) {
                             items(renderItems, key = { it.node.file.absolutePath }) { item ->
                                 workspaceNodeRow(
                                     node = item.node,
@@ -684,7 +685,7 @@ internal fun workspaceFilesPanel(
                         }
                         VerticalScrollbar(
                             adapter = rememberScrollbarAdapter(listState),
-                            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 2.dp),
+                            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = Spacing.micro),
                             style = AppComponents.scrollbarStyle(),
                         )
                     }
@@ -775,9 +776,9 @@ private fun workspaceNodeRow(
                             Modifier
                         },
                     )
-                    .padding(start = (depth * 14 + 8).dp, top = 3.dp, bottom = 3.dp, end = 8.dp)
+                    .padding(start = (depth * 14 + 8).dp, top = Spacing.micro, bottom = Spacing.micro, end = Spacing.small)
                     .pointerHoverIcon(PointerIcon.Hand),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 when (node) {
@@ -823,7 +824,7 @@ private fun workspaceNodeRow(
                                 AppColors.surfaceColor(AppColors.Elevation.EMPHASIS),
                                 RoundedCornerShape(3.dp),
                             )
-                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                            .padding(horizontal = Spacing.extraSmall, vertical = Spacing.micro)
                             .focusRequester(renameFocusRequester)
                             .onKeyEvent { event ->
                                 when (event.key) {

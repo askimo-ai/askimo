@@ -69,6 +69,7 @@ import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppTextStyles
+import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.TooltipPlacement
 import io.askimo.ui.common.ui.themedTooltip
@@ -249,7 +250,7 @@ internal fun agentsPageHeader(
     }
 
     // ── Description + runtimes: full width below the title row ─────────────
-    Spacer(modifier = Modifier.height(4.dp))
+    Spacer(modifier = Modifier.height(Spacing.extraSmall))
     SelectionContainer {
         Text(
             text = stringResource("agents.view.description", runtimesLabel),
@@ -257,10 +258,10 @@ internal fun agentsPageHeader(
             modifier = Modifier.fillMaxWidth(),
         )
     }
-    Spacer(modifier = Modifier.height(8.dp))
+    Spacer(modifier = Modifier.height(Spacing.small))
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
     ) {
         Text(
             text = stringResource("settings.agents.runtimes"),
@@ -274,7 +275,7 @@ internal fun agentsPageHeader(
                 Text(
                     text = runtime,
                     style = AppTextStyles.hint,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    modifier = Modifier.padding(horizontal = Spacing.small, vertical = Spacing.micro),
                 )
             }
         }
@@ -308,7 +309,7 @@ private fun agenticContent(
                 .align(Alignment.CenterHorizontally)
                 .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
                 .fillMaxWidth()
-                .padding(start = 24.dp, end = 36.dp, top = 24.dp, bottom = 8.dp),
+                .padding(start = Spacing.extraLarge, end = Spacing.scrollbarGutter, top = Spacing.extraLarge, bottom = Spacing.small),
         ) {
             agentsPageHeader(
                 onNavigateToSkillsSettings = onNavigateToSkillsSettings,
@@ -401,9 +402,9 @@ private fun agenticWorkspacePanel(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = 8.dp, end = 4.dp, top = 5.dp, bottom = 5.dp),
+                            .padding(start = Spacing.small, end = Spacing.extraSmall, top = Spacing.extraSmall, bottom = Spacing.extraSmall),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                     ) {
                         Text(
                             text = stringResource("agents.view.tab.workspace"),
@@ -459,7 +460,7 @@ private fun agenticWorkspacePanel(
                                 },
                             )
                             .pointerHoverIcon(PointerIcon.Hand)
-                            .padding(vertical = 16.dp),
+                            .padding(vertical = Spacing.large),
                         contentAlignment = Alignment.TopCenter,
                     ) {
                         Icon(

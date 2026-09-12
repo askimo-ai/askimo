@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.LocalCodeFontFamily
+import io.askimo.ui.common.theme.Spacing
 
 /**
  * Reusable code/text viewer with:
@@ -117,7 +118,7 @@ fun codeViewerBlock(
                         .width(lineNumberWidth)
                         .fillMaxHeight()
                         .background(gutterBackground)
-                        .padding(vertical = 12.dp),
+                        .padding(vertical = Spacing.medium),
                     horizontalAlignment = Alignment.End,
                 ) {
                     lines.forEachIndexed { index, _ ->
@@ -127,7 +128,7 @@ fun codeViewerBlock(
                             fontFamily = codeFontFamily,
                             color = lineNumberColor,
                             softWrap = false,
-                            modifier = Modifier.padding(end = 8.dp),
+                            modifier = Modifier.padding(end = Spacing.small),
                         )
                     }
                 }
@@ -149,7 +150,7 @@ fun codeViewerBlock(
                 modifier = Modifier
                     .weight(1f)
                     .horizontalScroll(hScrollState)
-                    .padding(top = 12.dp, bottom = 12.dp, start = 12.dp, end = 12.dp),
+                    .padding(top = Spacing.medium, bottom = Spacing.medium, start = Spacing.medium, end = Spacing.medium),
             )
         }
 
@@ -159,7 +160,7 @@ fun codeViewerBlock(
                     adapter = rememberScrollbarAdapter(hScrollState),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                        .padding(horizontal = Spacing.extraSmall, vertical = Spacing.micro),
                     style = ScrollbarStyle(
                         minimalHeight = 16.dp,
                         thickness = 6.dp,
