@@ -155,10 +155,22 @@ internal fun agenticRunArea(
         }
     }
 
+    // Reassigned once voiceRecordingController exists (declared below) — see sendMessage().
+    // Kept as a mutable cell rather than reordering declarations because sendMessage() and
+    // voiceRecordingController's onTranscript callback need to reference *each other*
+    // (Kotlin doesn't support forward-referencing a local val/fun from an earlier lambda).
+    var cancelVoiceRecordingOnSend: () -> Unit = {}
+
     fun sendMessage() {
         val agent = viewModel.selectedAgent ?: return
         val text = inputText.text.trim()
         if (text.isBlank() || !viewModel.selectedAgentReady || viewModel.isRunning) return
+        // Starting a run means the user is done dictating — cancel any in-progress recording or
+        // in-flight transcription now, while the mic button/shortcut can still reach it. Once
+        // viewModel.isRunning flips true below, `busy = true` makes toggle() (button + shortcut)
+        // a no-op, so an active recording would otherwise be stuck with no manual-stop path until
+        // the 120s auto-stop.
+        cancelVoiceRecordingOnSend()
         inputText = TextFieldValue("")
         viewModel.sendMessage(agent, text)
     }
@@ -191,6 +203,15 @@ internal fun agenticRunArea(
     )
     val toggleVoiceRecording: () -> Unit = {
         if (voiceInputEnabled) voiceRecordingController.toggle()
+    }
+    cancelVoiceRecordingOnSend = { voiceRecordingController.cancelAll() }
+
+    // The controller is remembered without a `workspace.id` key (recreating it mid-recording
+    // would just orphan the AudioRecorder), so guard against a switch instead: cancel any
+    // in-progress recording/transcription tied to the *previous* workspace so its transcript can
+    // never be delivered into the newly selected workspace's goal field.
+    LaunchedEffect(workspace.id) {
+        voiceRecordingController.cancelAll()
     }
 
     // Report "has active conversation" up to the header whenever it changes, so the header's

@@ -56,6 +56,7 @@ import io.askimo.ui.common.ui.themedTooltip
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -110,6 +111,11 @@ class VoiceRecordingController internal constructor(
 
     private val audioRecorder = AudioRecorder()
 
+    // Tracks the coroutine launched by [stopRecordingAndTranscribe] so [cancelAll] can abort an
+    // in-flight STT request (e.g. on workspace switch) instead of letting its `onTranscript`
+    // callback fire later and write into whatever input field is current at that point.
+    private var transcriptionJob: Job? = null
+
     /** Auto-stop cap surfaced for UI display (e.g. turning the elapsed label red near the end). */
     val maxRecordingSeconds: Int get() = MAX_VOICE_RECORDING_SECONDS
 
@@ -127,14 +133,35 @@ class VoiceRecordingController internal constructor(
     }
 
     /**
+     * Tears down the entire voice-dictation lifecycle: cancels an in-progress recording (if any)
+     * *and* aborts an in-flight transcription request (if any), then resets to IDLE. Unlike
+     * [cancelIfRecording] (used on composable dispose, where a stray late `onTranscript` callback
+     * is harmless because the composition is gone), this must be called whenever the *caller*
+     * changes identity but the controller survives — e.g. the user switches workspaces mid
+     * recording/transcription — so a transcript captured for the old context can never be
+     * delivered into the new one.
+     */
+    fun cancelAll() {
+        cancelIfRecording()
+        transcriptionJob?.cancel()
+        transcriptionJob = null
+        voiceRecordingState = VoiceRecordingState.IDLE
+    }
+
+    /**
      * Shared "stop recording, transcribe, insert text" logic — invoked both when the user
      * manually stops (via [toggle]) and when the recorder is auto-stopped after
-     * [MAX_VOICE_RECORDING_SECONDS] (see [trackElapsedWhileRecording]).
+     * [MAX_VOICE_RECORDING_SECONDS] (see [trackElapsedWhileRecording]). Those two call sites race
+     * (the timer's `RECORDING` check and its call here aren't atomic with a concurrent manual
+     * stop), so guard the RECORDING → TRANSCRIBING transition as a check-and-set: only the
+     * caller that actually observes `RECORDING` flips the state and proceeds, so
+     * `audioRecorder.stop()` — which is not safe to call concurrently — is never invoked twice.
      */
     fun stopRecordingAndTranscribe() {
+        if (voiceRecordingState != VoiceRecordingState.RECORDING) return
         voiceRecordingState = VoiceRecordingState.TRANSCRIBING
         Snapshot.withMutableSnapshot { voiceWaveformSamples = emptyList() }
-        scope.launch {
+        transcriptionJob = scope.launch {
             try {
                 val wavBytes = withContext(Dispatchers.IO) { audioRecorder.stop() }
                 val transcript = withContext(Dispatchers.IO) {
@@ -152,6 +179,7 @@ class VoiceRecordingController internal constructor(
                 EventBus.post(AppErrorEvent(title = errorTitleProvider(), message = e.message ?: "Voice recording failed"))
             } finally {
                 voiceRecordingState = VoiceRecordingState.IDLE
+                transcriptionJob = null
             }
         }
     }
@@ -194,7 +222,10 @@ class VoiceRecordingController internal constructor(
      * Auto-stop safety cap — ticks [recordingElapsedSeconds] once per second while RECORDING and
      * triggers [stopRecordingAndTranscribe] once [MAX_VOICE_RECORDING_SECONDS] is reached, so a
      * forgotten/stuck recording can't run indefinitely. Driven by a `LaunchedEffect` keyed on
-     * [voiceRecordingState] in [rememberVoiceRecordingController].
+     * [voiceRecordingState] in [rememberVoiceRecordingController]. The `RECORDING` checks here are
+     * just an early-exit for the (overwhelmingly common) case where nothing else stopped the
+     * recording — they're *not* what prevents a double-stop if a manual [toggle] races this loop
+     * right after a check passes; that's guarded inside [stopRecordingAndTranscribe] itself.
      */
     internal suspend fun trackElapsedWhileRecording() {
         if (voiceRecordingState != VoiceRecordingState.RECORDING) return
@@ -243,10 +274,11 @@ fun rememberVoiceRecordingController(
         controller.trackElapsedWhileRecording()
     }
 
-    // Cancel any in-progress recording if this composable leaves the composition
-    // (e.g. user navigates away mid-recording) to avoid leaking an open mic line.
+    // Cancel any in-progress recording/transcription if this composable leaves the composition
+    // (e.g. user navigates away mid-recording) to avoid leaking an open mic line or delivering a
+    // late transcript into a stale callback.
     DisposableEffect(controller) {
-        onDispose { controller.cancelIfRecording() }
+        onDispose { controller.cancelAll() }
     }
 
     return controller
