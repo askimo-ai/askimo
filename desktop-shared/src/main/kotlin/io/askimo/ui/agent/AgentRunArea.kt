@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -73,6 +74,7 @@ import io.askimo.core.agent.domain.AgentRunRecord
 import io.askimo.core.agent.domain.SkillDefinition
 import io.askimo.core.agent.domain.Workspace
 import io.askimo.core.chat.dto.grouped
+import io.askimo.core.config.AppConfig
 import io.askimo.core.user.repository.UserProfileRepository
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.keymap.KeyMapManager
@@ -85,6 +87,8 @@ import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.service.AvatarService
+import io.askimo.ui.voice.rememberVoiceRecordingController
+import io.askimo.ui.voice.voiceRecordingControls
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -157,6 +161,36 @@ internal fun agenticRunArea(
         if (text.isBlank() || !viewModel.selectedAgentReady || viewModel.isRunning) return
         inputText = TextFieldValue("")
         viewModel.sendMessage(agent, text)
+    }
+
+    // ── Voice input (🎤) ─────────────────────────────────────────────────────
+    // Cache both flags off the UI thread — AppConfig.voice resolves a key from the OS
+    // keychain, so this mirrors chatInputField's voiceInputEnabled/webSearchEnabled caching.
+    // Hidden entirely when disabled (default) — zero UI impact for existing users.
+    var voiceInputEnabled by remember { mutableStateOf(false) }
+    var voiceAutoSendTranscript by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        voiceInputEnabled = withContext(Dispatchers.IO) { AppConfig.voice.enabled }
+        voiceAutoSendTranscript = withContext(Dispatchers.IO) { AppConfig.voice.autoSendTranscript }
+    }
+
+    // Shared voice-recording lifecycle (mic capture, waveform, auto-stop timer, STT)
+    val voiceRecordingController = rememberVoiceRecordingController(
+        busy = viewModel.isRunning,
+        onTranscript = { transcript ->
+            val currentText = inputText.text
+            val newText = if (currentText.isBlank()) transcript else "$currentText $transcript"
+            inputText = TextFieldValue(text = newText, selection = TextRange(newText.length))
+
+            // Fully hands-free mode: run immediately instead of waiting for the user to press
+            // Run. Off by default — see AppConfig.voice.autoSendTranscript.
+            if (voiceAutoSendTranscript && newText.isNotBlank() && !viewModel.isRunning) {
+                sendMessage()
+            }
+        },
+    )
+    val toggleVoiceRecording: () -> Unit = {
+        if (voiceInputEnabled) voiceRecordingController.toggle()
     }
 
     // Report "has active conversation" up to the header whenever it changes, so the header's
@@ -586,6 +620,15 @@ internal fun agenticRunArea(
                                         true
                                     }
 
+                                    KeyMapManager.AppShortcut.TOGGLE_VOICE_RECORDING -> {
+                                        if (voiceInputEnabled && !viewModel.isRunning) {
+                                            toggleVoiceRecording()
+                                            true
+                                        } else {
+                                            false
+                                        }
+                                    }
+
                                     else -> false
                                 }
                             },
@@ -602,6 +645,15 @@ internal fun agenticRunArea(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                     ) {
+                        // ── Voice input (🎤) — hidden entirely when disabled in Settings > Voice ──
+                        if (voiceInputEnabled) {
+                            voiceRecordingControls(
+                                controller = voiceRecordingController,
+                                enabled = !viewModel.isRunning,
+                            )
+                            Spacer(modifier = Modifier.width(Spacing.extraSmall))
+                        }
+
                         // Agent picker pill — locked once the conversation has a turn in it
                         // (fresh run or re-opened history), so it can't be switched mid-session.
                         val agentPickerEnabled = viewModel.allAgents.isNotEmpty() &&

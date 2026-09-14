@@ -4,11 +4,6 @@
  */
 package io.askimo.ui.chat
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -30,7 +25,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -47,7 +41,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Language
@@ -69,7 +62,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -77,14 +69,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -153,12 +142,8 @@ import io.askimo.ui.common.ui.util.FileDialogUtils
 import io.askimo.ui.session.manageDirectivesDialog
 import io.askimo.ui.session.newDirectiveDialog
 import io.askimo.ui.util.Platform
-import io.askimo.ui.voice.AudioRecorder
-import io.askimo.ui.voice.MicrophoneUnavailableException
-import io.askimo.ui.voice.VoiceAudioFormat
-import io.askimo.ui.voice.VoiceServiceException
-import io.askimo.ui.voice.VoiceServiceRegistry
-import kotlinx.coroutines.CancellationException
+import io.askimo.ui.voice.rememberVoiceRecordingController
+import io.askimo.ui.voice.voiceRecordingControls
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -170,56 +155,10 @@ import java.time.Instant
 import java.util.UUID
 import kotlin.collections.minus
 import kotlin.collections.plus
-import kotlin.math.sqrt
 import kotlin.ranges.coerceIn
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
 
 private val log = currentFileLogger()
-
-/**
- * Auto-stop cap for voice dictation. Not a Whisper file-size concern (25MB/request allows
- * ~13 minutes at our 16kHz/16-bit mono capture rate) — purely a UX/safety bound so a
- * forgotten/stuck recording can't run indefinitely — see the auto-stop
- * `LaunchedEffect` inside `chatInputField`.
- */
-private const val MAX_VOICE_RECORDING_SECONDS = 120
-
-/**
- * States for the 🎤 voice-input button in the controls row.
- * IDLE → RECORDING (mic open, capturing) → TRANSCRIBING (STT in flight) → IDLE.
- */
-private enum class VoiceRecordingState {
-    IDLE,
-    RECORDING,
-    TRANSCRIBING,
-}
-
-/**
- * Live bar-style waveform driven by [samples] (each in `0f..1f`), most-recent last.
- * Used next to the 🎤 button while [VoiceRecordingState.RECORDING] to give immediate visual
- * feedback that the microphone is actually picking up sound, not just that recording started.
- */
-@Composable
-private fun voiceWaveform(
-    samples: List<Float>,
-    color: Color,
-    modifier: Modifier = Modifier,
-) {
-    Canvas(modifier = modifier) {
-        if (samples.isEmpty()) return@Canvas
-        val barWidth = size.width / samples.size
-        val gap = barWidth * 0.3f
-        samples.forEachIndexed { index, level ->
-            val barHeight = (level * size.height).coerceIn(2f, size.height)
-            drawRect(
-                color = color,
-                topLeft = Offset(index * barWidth, (size.height - barHeight) / 2f),
-                size = Size((barWidth - gap).coerceAtLeast(1f), barHeight),
-            )
-        }
-    }
-}
 
 /**
  * Reusable chat input field component with attachment support.
@@ -408,32 +347,6 @@ fun chatInputField(
     LaunchedEffect(Unit) {
         voiceInputEnabled = withContext(Dispatchers.IO) { AppConfig.voice.enabled }
     }
-    var voiceRecordingState by remember { mutableStateOf(VoiceRecordingState.IDLE) }
-    val audioRecorder = remember { AudioRecorder() }
-    val voiceErrorTitle = stringResource("chat.voice.error.title")
-
-    // Rolling window of recent mic amplitude samples (0f..1f), fed from AudioRecorder's
-    // capture-thread level callback — drives the live waveform shown while RECORDING.
-    var voiceWaveformSamples by remember { mutableStateOf<List<Float>>(emptyList()) }
-    val maxWaveformSamples = 40
-
-    // Ticking elapsed-seconds counter shown next to the waveform while RECORDING — also
-    // drives the [MAX_VOICE_RECORDING_SECONDS] auto-stop below.
-    var recordingElapsedSeconds by remember { mutableStateOf(0) }
-
-    // Cancel any in-progress recording if this composable leaves the composition
-    // (e.g. user navigates away mid-recording) to avoid leaking an open mic line.
-    DisposableEffect(Unit) {
-        onDispose {
-            if (audioRecorder.isRecording) {
-                Thread({ audioRecorder.cancel() }, "askimo-audio-recorder-dispose-cancel").apply {
-                    isDaemon = true
-                    start()
-                }
-            }
-            Snapshot.withMutableSnapshot { voiceWaveformSamples = emptyList() }
-        }
-    }
 
     // Notify caller whenever the user changes the enabled server selection.
     LaunchedEffect(enabledServerIds) {
@@ -522,98 +435,34 @@ fun chatInputField(
     // stale snapshot of the text as it existed when the coroutine was launched.
     val latestInputText by rememberUpdatedState(inputText)
 
-    // Shared "stop recording, transcribe, insert text" logic — invoked both when the user
-    // manually stops (toggleVoiceRecording below) and when the recorder is auto-stopped after
-    // [MAX_VOICE_RECORDING_SECONDS] (see the LaunchedEffect right below toggleVoiceRecording).
-    val stopRecordingAndTranscribe: () -> Unit = {
-        voiceRecordingState = VoiceRecordingState.TRANSCRIBING
-        Snapshot.withMutableSnapshot { voiceWaveformSamples = emptyList() }
-        scope.launch {
-            try {
-                val wavBytes = withContext(Dispatchers.IO) { audioRecorder.stop() }
-                val transcript = withContext(Dispatchers.IO) {
-                    VoiceServiceRegistry.speechToText(AppConfig.voice)
-                        .transcribe(wavBytes, VoiceAudioFormat.WAV)
-                }
-                if (transcript.isNotBlank()) {
-                    val currentText = latestInputText.text
-                    val newText = if (currentText.isBlank()) {
-                        transcript
-                    } else {
-                        "$currentText $transcript"
-                    }
-                    onInputTextChange(
-                        TextFieldValue(text = newText, selection = TextRange(newText.length)),
-                    )
-
-                    // Fully hands-free mode: send immediately instead of waiting for the user
-                    // to press Send. Off by default — see AppConfig.voice.autoSendTranscript.
-                    val autoSend = withContext(Dispatchers.IO) { AppConfig.voice.autoSendTranscript }
-                    if (autoSend && newText.isNotBlank() && !isLoading) {
-                        onSendMessage(creationMode)
-                    }
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: VoiceServiceException) {
-                EventBus.post(AppErrorEvent(title = voiceErrorTitle, message = e.message ?: "Voice transcription failed"))
-            } catch (e: Exception) {
-                EventBus.post(AppErrorEvent(title = voiceErrorTitle, message = e.message ?: "Voice recording failed"))
-            } finally {
-                voiceRecordingState = VoiceRecordingState.IDLE
+    // Shared voice-recording lifecycle (mic capture, waveform, auto-stop timer, STT) — see
+    // io.askimo.ui.voice.VoiceRecordingController. onTranscript inserts the transcript into the
+    // input field and optionally auto-sends (see AppConfig.voice.autoSendTranscript).
+    val voiceRecordingController = rememberVoiceRecordingController(
+        busy = isLoading,
+        onTranscript = { transcript ->
+            val currentText = latestInputText.text
+            val newText = if (currentText.isBlank()) {
+                transcript
+            } else {
+                "$currentText $transcript"
             }
-        }
-    }
+            onInputTextChange(
+                TextFieldValue(text = newText, selection = TextRange(newText.length)),
+            )
 
-    // Shared toggle logic — invoked both by the 🎤 button's onClick and by the
-    // Cmd/Ctrl+Shift+M keyboard shortcut (TOGGLE_VOICE_RECORDING) so behavior stays identical.
-    val toggleVoiceRecording: () -> Unit = toggle@{
-        if (!voiceInputEnabled || isLoading) return@toggle
-        when (voiceRecordingState) {
-            VoiceRecordingState.IDLE -> {
-                try {
-                    Snapshot.withMutableSnapshot { voiceWaveformSamples = emptyList() }
-                    audioRecorder.start { level ->
-                        // `level` is raw linear RMS (see PcmAudioEncoder.computeRmsLevel) — normal
-                        // speech volume is far below full-scale, so raw values (~0.01-0.1) always
-                        // collapse to the waveform's minimum bar height. Apply a perceptual sqrt
-                        // curve + gain (like a real VU meter) so speech visibly moves the bars.
-                        val boostedLevel = (sqrt(level.coerceIn(0f, 1f)) * 1.6f).coerceIn(0f, 1f)
-                        Snapshot.withMutableSnapshot {
-                            voiceWaveformSamples = (voiceWaveformSamples + boostedLevel).takeLast(maxWaveformSamples)
-                        }
-                    }
-                    voiceRecordingState = VoiceRecordingState.RECORDING
-                } catch (e: MicrophoneUnavailableException) {
-                    EventBus.post(AppErrorEvent(title = voiceErrorTitle, message = e.message ?: "Microphone unavailable"))
+            // Fully hands-free mode: send immediately instead of waiting for the user
+            // to press Send. Off by default — see AppConfig.voice.autoSendTranscript.
+            scope.launch {
+                val autoSend = withContext(Dispatchers.IO) { AppConfig.voice.autoSendTranscript }
+                if (autoSend && newText.isNotBlank() && !isLoading) {
+                    onSendMessage(creationMode)
                 }
             }
-
-            VoiceRecordingState.RECORDING -> stopRecordingAndTranscribe()
-
-            VoiceRecordingState.TRANSCRIBING -> {
-                // Ignore triggers while a transcription request is in flight.
-            }
-        }
-    }
-
-    // Auto-stop safety cap — ticks recordingElapsedSeconds once per second while RECORDING and
-    // triggers stopRecordingAndTranscribe() once [MAX_VOICE_RECORDING_SECONDS] is reached, so a
-    // forgotten/stuck recording can't run indefinitely. See [MAX_VOICE_RECORDING_SECONDS] doc.
-    LaunchedEffect(voiceRecordingState) {
-        if (voiceRecordingState == VoiceRecordingState.RECORDING) {
-            val startedAt = System.currentTimeMillis()
-            recordingElapsedSeconds = 0
-            while (voiceRecordingState == VoiceRecordingState.RECORDING) {
-                delay(1.seconds)
-                if (voiceRecordingState != VoiceRecordingState.RECORDING) break
-                recordingElapsedSeconds = ((System.currentTimeMillis() - startedAt) / 1000).toInt()
-                if (recordingElapsedSeconds >= MAX_VOICE_RECORDING_SECONDS) {
-                    stopRecordingAndTranscribe()
-                    break
-                }
-            }
-        }
+        },
+    )
+    val toggleVoiceRecording: () -> Unit = {
+        if (voiceInputEnabled) voiceRecordingController.toggle()
     }
 
     // ── Rotating placeholder hints ─────────────────────────────────────────────
@@ -1155,103 +1004,10 @@ fun chatInputField(
                         // not a content-attachment action like Attach/Image on the left.
                         if (voiceInputEnabled) {
                             Spacer(modifier = Modifier.width(Spacing.small))
-                            val voiceShortcutHint = KeyMapManager.AppShortcut.TOGGLE_VOICE_RECORDING.getDisplayString()
-                            val voiceTooltip = when (voiceRecordingState) {
-                                VoiceRecordingState.IDLE -> stringResource("chat.voice.record", voiceShortcutHint)
-                                VoiceRecordingState.RECORDING -> stringResource("chat.voice.recording.stop")
-                                VoiceRecordingState.TRANSCRIBING -> stringResource("chat.voice.transcribing")
-                            }
-
-                            // Persistent (non-hover) "recording" status — a pulsing dot + live
-                            // waveform reflecting mic input level, so it's obvious at a glance
-                            // (not just via the tooltip/icon tint) that audio is being captured.
-                            if (voiceRecordingState == VoiceRecordingState.RECORDING) {
-                                val infiniteTransition = rememberInfiniteTransition(label = "voiceRecordingPulse")
-                                val pulseAlpha by infiniteTransition.animateFloat(
-                                    initialValue = 1f,
-                                    targetValue = 0.25f,
-                                    animationSpec = infiniteRepeatable(
-                                        animation = tween(durationMillis = 700),
-                                        repeatMode = RepeatMode.Reverse,
-                                    ),
-                                    label = "voiceRecordingPulseAlpha",
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .size(6.dp)
-                                        .background(
-                                            color = MaterialTheme.colorScheme.error.copy(alpha = pulseAlpha),
-                                            shape = CircleShape,
-                                        ),
-                                )
-                                Spacer(modifier = Modifier.width(Spacing.extraSmall))
-                                Text(
-                                    // Ticks up each second and turns solid red in the final 10s
-                                    // before MAX_VOICE_RECORDING_SECONDS auto-stops the recording —
-                                    // the only user-facing signal of the cap, no separate popup.
-                                    text = stringResource("chat.voice.recording.label.timed", recordingElapsedSeconds),
-                                    style = AppTextStyles.caption,
-                                    color = if (recordingElapsedSeconds >= MAX_VOICE_RECORDING_SECONDS - 10) {
-                                        MaterialTheme.colorScheme.error
-                                    } else {
-                                        AppColors.warningColor()
-                                    },
-                                )
-                                Spacer(modifier = Modifier.width(Spacing.extraSmall))
-                                voiceWaveform(
-                                    samples = voiceWaveformSamples,
-                                    color = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.width(48.dp).height(18.dp),
-                                )
-                                Spacer(modifier = Modifier.width(Spacing.small))
-                            }
-
-                            // Persistent (non-hover) "transcribing" status — the STT request
-                            // round-trips to a remote/mobile AI service and can take a few
-                            // seconds, so show a spinner + label at all times
-                            if (voiceRecordingState == VoiceRecordingState.TRANSCRIBING) {
-                                AppComponents.loadingSpinner(
-                                    size = 14.dp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Spacer(modifier = Modifier.width(Spacing.extraSmall))
-                                Text(
-                                    text = stringResource("chat.voice.transcribing"),
-                                    style = AppTextStyles.caption,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Spacer(modifier = Modifier.width(Spacing.small))
-                            }
-
-                            themedTooltip(text = voiceTooltip) {
-                                val micInteractionSource = remember { MutableInteractionSource() }
-                                IconButton(
-                                    onClick = toggleVoiceRecording,
-                                    enabled = !isLoading && voiceRecordingState != VoiceRecordingState.TRANSCRIBING,
-                                    interactionSource = micInteractionSource,
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .accessibleFocusable(micInteractionSource)
-                                        .pointerHoverIcon(PointerIcon.Hand),
-                                ) {
-                                    // The spinner + "Transcribing…" label to the left already
-                                    // carries the busy indicator during TRANSCRIBING — keep the
-                                    // mic icon here too (dimmed) instead of a second spinner.
-                                    Icon(
-                                        Icons.Default.Mic,
-                                        contentDescription = voiceTooltip,
-                                        tint = when (voiceRecordingState) {
-                                            VoiceRecordingState.RECORDING -> MaterialTheme.colorScheme.error
-
-                                            VoiceRecordingState.TRANSCRIBING ->
-                                                AppColors.tertiaryIconColor()
-
-                                            VoiceRecordingState.IDLE -> MaterialTheme.colorScheme.onSurface
-                                        },
-                                        modifier = Modifier.size(16.dp),
-                                    )
-                                }
-                            }
+                            voiceRecordingControls(
+                                controller = voiceRecordingController,
+                                enabled = !isLoading,
+                            )
                         }
 
                         // ── Send / Stop button — beside reasoning chip ──────────────
