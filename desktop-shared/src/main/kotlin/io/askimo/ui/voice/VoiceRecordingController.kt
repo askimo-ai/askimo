@@ -57,9 +57,12 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import kotlin.math.sqrt
 import kotlin.time.Duration.Companion.seconds
 
@@ -111,6 +114,22 @@ class VoiceRecordingController internal constructor(
 
     private val audioRecorder = AudioRecorder()
 
+    // Serializes every AudioRecorder start/stop/cancel call onto a single background thread —
+    // mirrors AudioRecorder's own "not thread-safe for concurrent start/stop" contract. Without
+    // this, cancelIfRecording()/cancelAll() (which fire off audioRecorder.cancel() on a detached
+    // thread and return immediately) could race a subsequent toggle()'s start() call before that
+    // cancel finishes, tripping AudioRecorder.start()'s uncaught `check(!isRecording)`.
+    private val recorderExecutor: ExecutorService = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "askimo-audio-recorder-ops").apply { isDaemon = true }
+    }
+    private val recorderDispatcher = recorderExecutor.asCoroutineDispatcher()
+
+    // True whenever a start()/stop()/cancel() call is queued or running on [recorderExecutor] —
+    // blocks toggle() from enqueuing a conflicting operation (e.g. a start racing an in-flight
+    // cancel, or two overlapping starts) until the current one finishes.
+    @Volatile
+    private var recorderOperationPending = false
+
     // Tracks the coroutine launched by [stopRecordingAndTranscribe] so [cancelAll] can abort an
     // in-flight STT request (e.g. on workspace switch) instead of letting its `onTranscript`
     // callback fire later and write into whatever input field is current at that point.
@@ -119,17 +138,28 @@ class VoiceRecordingController internal constructor(
     /** Auto-stop cap surfaced for UI display (e.g. turning the elapsed label red near the end). */
     val maxRecordingSeconds: Int get() = MAX_VOICE_RECORDING_SECONDS
 
-    val isRecording: Boolean get() = audioRecorder.isRecording
-
     /** Cancels any in-progress recording without transcribing — call when leaving composition. */
     fun cancelIfRecording() {
-        if (audioRecorder.isRecording) {
-            Thread({ audioRecorder.cancel() }, "askimo-audio-recorder-dispose-cancel").apply {
-                isDaemon = true
-                start()
+        Snapshot.withMutableSnapshot { voiceWaveformSamples = emptyList() }
+        if (!audioRecorder.isRecording) return
+        recorderOperationPending = true
+        recorderExecutor.execute {
+            try {
+                audioRecorder.cancel()
+            } finally {
+                recorderOperationPending = false
             }
         }
-        Snapshot.withMutableSnapshot { voiceWaveformSamples = emptyList() }
+    }
+
+    /**
+     * Releases [recorderExecutor]'s background thread. Call once, when this controller's owning
+     * composable truly leaves the composition — not from [cancelAll], which resets the recording
+     * lifecycle (e.g. on workspace switch) while the controller/executor keep serving future
+     * recordings.
+     */
+    fun shutdown() {
+        recorderExecutor.shutdown()
     }
 
     /**
@@ -161,9 +191,11 @@ class VoiceRecordingController internal constructor(
         if (voiceRecordingState != VoiceRecordingState.RECORDING) return
         voiceRecordingState = VoiceRecordingState.TRANSCRIBING
         Snapshot.withMutableSnapshot { voiceWaveformSamples = emptyList() }
+        recorderOperationPending = true
         transcriptionJob = scope.launch {
             try {
-                val wavBytes = withContext(Dispatchers.IO) { audioRecorder.stop() }
+                val wavBytes = withContext(recorderDispatcher) { audioRecorder.stop() }
+                recorderOperationPending = false
                 val transcript = withContext(Dispatchers.IO) {
                     VoiceServiceRegistry.speechToText(AppConfig.voice)
                         .transcribe(wavBytes, VoiceAudioFormat.WAV)
@@ -180,6 +212,7 @@ class VoiceRecordingController internal constructor(
             } finally {
                 voiceRecordingState = VoiceRecordingState.IDLE
                 transcriptionJob = null
+                recorderOperationPending = false
             }
         }
     }
@@ -189,24 +222,33 @@ class VoiceRecordingController internal constructor(
      * Cmd/Ctrl+Shift+M keyboard shortcut (TOGGLE_VOICE_RECORDING) so behavior stays identical.
      */
     fun toggle() {
-        if (busyProvider()) return
+        if (busyProvider() || recorderOperationPending) return
         when (voiceRecordingState) {
             VoiceRecordingState.IDLE -> {
-                try {
-                    Snapshot.withMutableSnapshot { voiceWaveformSamples = emptyList() }
-                    audioRecorder.start { level ->
-                        // `level` is raw linear RMS (see PcmAudioEncoder.computeRmsLevel) — normal
-                        // speech volume is far below full-scale, so raw values (~0.01-0.1) always
-                        // collapse to the waveform's minimum bar height. Apply a perceptual sqrt
-                        // curve + gain (like a real VU meter) so speech visibly moves the bars.
-                        val boostedLevel = (sqrt(level.coerceIn(0f, 1f)) * 1.6f).coerceIn(0f, 1f)
-                        Snapshot.withMutableSnapshot {
-                            voiceWaveformSamples = (voiceWaveformSamples + boostedLevel).takeLast(MAX_WAVEFORM_SAMPLES)
+                // Run on recorderExecutor so this start() is strictly ordered after any
+                // still-in-flight cancel()/stop() from a previous cancelIfRecording()/cancelAll()
+                // or stopRecordingAndTranscribe() call — otherwise it could race the recorder's
+                // uncaught `check(!isRecording)` guard.
+                recorderOperationPending = true
+                recorderExecutor.execute {
+                    try {
+                        Snapshot.withMutableSnapshot { voiceWaveformSamples = emptyList() }
+                        audioRecorder.start { level ->
+                            // `level` is raw linear RMS (see PcmAudioEncoder.computeRmsLevel) — normal
+                            // speech volume is far below full-scale, so raw values (~0.01-0.1) always
+                            // collapse to the waveform's minimum bar height. Apply a perceptual sqrt
+                            // curve + gain (like a real VU meter) so speech visibly moves the bars.
+                            val boostedLevel = (sqrt(level.coerceIn(0f, 1f)) * 1.6f).coerceIn(0f, 1f)
+                            Snapshot.withMutableSnapshot {
+                                voiceWaveformSamples = (voiceWaveformSamples + boostedLevel).takeLast(MAX_WAVEFORM_SAMPLES)
+                            }
                         }
+                        voiceRecordingState = VoiceRecordingState.RECORDING
+                    } catch (e: MicrophoneUnavailableException) {
+                        EventBus.post(AppErrorEvent(title = errorTitleProvider(), message = e.message ?: "Microphone unavailable"))
+                    } finally {
+                        recorderOperationPending = false
                     }
-                    voiceRecordingState = VoiceRecordingState.RECORDING
-                } catch (e: MicrophoneUnavailableException) {
-                    EventBus.post(AppErrorEvent(title = errorTitleProvider(), message = e.message ?: "Microphone unavailable"))
                 }
             }
 
@@ -276,9 +318,12 @@ fun rememberVoiceRecordingController(
 
     // Cancel any in-progress recording/transcription if this composable leaves the composition
     // (e.g. user navigates away mid-recording) to avoid leaking an open mic line or delivering a
-    // late transcript into a stale callback.
+    // late transcript into a stale callback, and release the controller's background thread.
     DisposableEffect(controller) {
-        onDispose { controller.cancelAll() }
+        onDispose {
+            controller.cancelAll()
+            controller.shutdown()
+        }
     }
 
     return controller

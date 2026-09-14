@@ -207,9 +207,11 @@ internal fun agenticRunArea(
     cancelVoiceRecordingOnSend = { voiceRecordingController.cancelAll() }
 
     // The controller is remembered without a `workspace.id` key (recreating it mid-recording
-    // would just orphan the AudioRecorder), so guard against a switch instead: cancel any
-    // in-progress recording/transcription tied to the *previous* workspace so its transcript can
-    // never be delivered into the newly selected workspace's goal field.
+    // would just orphan the AudioRecorder), so guard against any of the identities it can be
+    // implicitly tied to — workspace switch, "New chat", or preloading a past run — instead.
+    // Each of these clears/replaces `inputText` without the controller knowing, so a still
+    // in-flight recording/transcription must be torn down here or its (stale) transcript could
+    // land in — and even auto-run against — the newly reset/preloaded goal.
     LaunchedEffect(workspace.id) {
         voiceRecordingController.cancelAll()
     }
@@ -224,6 +226,7 @@ internal fun agenticRunArea(
     // into this composable directly, keeping AgentRunViewModel the sole owner of the transcript.
     LaunchedEffect(newConversationRequestKey) {
         if (newConversationRequestKey > 0) {
+            voiceRecordingController.cancelAll()
             inputText = TextFieldValue("")
             viewModel.startNewConversation()
         }
@@ -231,6 +234,7 @@ internal fun agenticRunArea(
 
     LaunchedEffect(preloadRecord) {
         if (preloadRecord != null) {
+            voiceRecordingController.cancelAll()
             inputText = TextFieldValue("")
             viewModel.preload(preloadRecord)
             onPreloadConsumed()
