@@ -117,6 +117,7 @@ private fun webSearchConfigCard() {
     // API keys loaded async from keychain — start blank
     var braveApiKey by remember { mutableStateOf("") }
     var tavilyApiKey by remember { mutableStateOf("") }
+    var serplyApiKey by remember { mutableStateOf("") }
     var backendDropdownExpanded by remember { mutableStateOf(false) }
 
     var testStatus by remember { mutableStateOf<TestStatus?>(null) }
@@ -128,6 +129,7 @@ private fun webSearchConfigCard() {
         val resolved = withContext(Dispatchers.IO) { AppConfig.webSearch }
         braveApiKey = if (WebSearchConfig.isActualKey(resolved.braveApiKey)) resolved.braveApiKey else ""
         tavilyApiKey = if (WebSearchConfig.isActualKey(resolved.tavilyApiKey)) resolved.tavilyApiKey else ""
+        serplyApiKey = if (WebSearchConfig.isActualKey(resolved.serplyApiKey)) resolved.serplyApiKey else ""
     }
 
     // ── Debounced saves for typed fields (keychain I/O — must NOT block the UI thread) ──
@@ -140,6 +142,10 @@ private fun webSearchConfigCard() {
     LaunchedEffect(tavilyApiKey) {
         delay(500.milliseconds)
         withContext(Dispatchers.IO) { AppConfig.updateField("webSearch.tavilyApiKey", tavilyApiKey) }
+    }
+    LaunchedEffect(serplyApiKey) {
+        delay(500.milliseconds)
+        withContext(Dispatchers.IO) { AppConfig.updateField("webSearch.serplyApiKey", serplyApiKey) }
     }
     LaunchedEffect(searxngEndpoint) {
         delay(500.milliseconds)
@@ -324,6 +330,17 @@ private fun webSearchConfigCard() {
                     )
                 }
 
+                WebSearchBackend.SERPLY -> {
+                    HorizontalDivider()
+                    serplyApiKeyField(
+                        value = serplyApiKey,
+                        onValueChange = { newValue ->
+                            serplyApiKey = newValue
+                            testStatus = null
+                        },
+                    )
+                }
+
                 WebSearchBackend.SEARXNG -> {
                     HorizontalDivider()
                     searxngEndpointField(
@@ -447,6 +464,39 @@ private fun tavilyApiKeyField(
                 runCatching {
                     if (Desktop.isDesktopSupported()) {
                         Desktop.getDesktop().browse(URI("https://app.tavily.com"))
+                    }
+                }
+            },
+        ) {
+            Icon(Icons.Default.Info, contentDescription = null, tint = linkColor, modifier = Modifier.size(14.dp))
+            Text(
+                text = stringResource("settings.web_search.get_api_key"),
+                style = AppTextStyles.caption.copy(color = linkColor),
+                modifier = Modifier.padding(start = Spacing.extraSmall),
+            )
+        }
+    }
+}
+
+@Composable
+private fun serplyApiKeyField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    linkColor: Color = AppTextStyles.primaryContent,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+        AppComponents.appSecretTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = { Text(stringResource("settings.web_search.api_key")) },
+            placeholder = { Text(stringResource("settings.web_search.api_key.placeholder")) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        linkButton(
+            onClick = {
+                runCatching {
+                    if (Desktop.isDesktopSupported()) {
+                        Desktop.getDesktop().browse(URI("https://serply.io"))
                     }
                 }
             },

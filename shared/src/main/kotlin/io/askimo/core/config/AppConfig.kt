@@ -429,10 +429,12 @@ enum class WebSearchBackend {
     SEARXNG,
     BRAVE,
     TAVILY,
+    SERPLY,
 }
 
 private const val WEB_SEARCH_KEY_BRAVE = "websearch.brave.key"
 private const val WEB_SEARCH_KEY_TAVILY = "websearch.tavily.key"
+private const val WEB_SEARCH_KEY_SERPLY = "websearch.serply.key"
 private const val WEB_SEARCH_KEY_PLACEHOLDER = "***keychain***"
 
 /**
@@ -450,12 +452,15 @@ data class WebSearchConfig(
     val braveApiKey: String = "",
     /** Raw field — may be blank or `***keychain***`. Use [AppConfig.webSearch] resolved accessors. */
     val tavilyApiKey: String = "",
+    /** Raw field — may be blank or `***keychain***`. Use [AppConfig.webSearch] resolved accessors. */
+    val serplyApiKey: String = "",
 ) {
     companion object {
         fun isKeyPlaceholder(value: String): Boolean = value == WEB_SEARCH_KEY_PLACEHOLDER
         fun isActualKey(value: String): Boolean = value.isNotBlank() && !isKeyPlaceholder(value)
         fun getSecureBraveKey(): String? = SecureKeyManager.retrieveSecretKey(WEB_SEARCH_KEY_BRAVE)
         fun getSecureTavilyKey(): String? = SecureKeyManager.retrieveSecretKey(WEB_SEARCH_KEY_TAVILY)
+        fun getSecureSerplyKey(): String? = SecureKeyManager.retrieveSecretKey(WEB_SEARCH_KEY_SERPLY)
         fun setSecureBraveKey(key: String): SecureKeyManager.StorageResult = if (key.isEmpty()) {
             SecureKeyManager.removeSecretKey(WEB_SEARCH_KEY_BRAVE)
             SecureKeyManager.StorageResult(success = true, method = SecureKeyManager.StorageMethod.KEYCHAIN)
@@ -467,6 +472,12 @@ data class WebSearchConfig(
             SecureKeyManager.StorageResult(success = true, method = SecureKeyManager.StorageMethod.KEYCHAIN)
         } else {
             SecureKeyManager.storeSecuredKey(WEB_SEARCH_KEY_TAVILY, key)
+        }
+        fun setSecureSerplyKey(key: String): SecureKeyManager.StorageResult = if (key.isEmpty()) {
+            SecureKeyManager.removeSecretKey(WEB_SEARCH_KEY_SERPLY)
+            SecureKeyManager.StorageResult(success = true, method = SecureKeyManager.StorageMethod.KEYCHAIN)
+        } else {
+            SecureKeyManager.storeSecuredKey(WEB_SEARCH_KEY_SERPLY, key)
         }
         fun getKeyPlaceholder(): String = WEB_SEARCH_KEY_PLACEHOLDER
     }
@@ -634,8 +645,16 @@ object AppConfig {
             } else {
                 config.tavilyApiKey
             }
-            return if (braveKey != config.braveApiKey || tavilyKey != config.tavilyApiKey) {
-                config.copy(braveApiKey = braveKey, tavilyApiKey = tavilyKey)
+            val serplyKey = if (!WebSearchConfig.isActualKey(config.serplyApiKey)) {
+                WebSearchConfig.getSecureSerplyKey() ?: ""
+            } else {
+                config.serplyApiKey
+            }
+            val changed = braveKey != config.braveApiKey ||
+                tavilyKey != config.tavilyApiKey ||
+                serplyKey != config.serplyApiKey
+            return if (changed) {
+                config.copy(braveApiKey = braveKey, tavilyApiKey = tavilyKey, serplyApiKey = serplyKey)
             } else {
                 config
             }
@@ -825,6 +844,7 @@ object AppConfig {
           searxng_endpoint: https://searx.be
           brave_api_key:
           tavily_api_key:
+          serply_api_key:
           enabled: true
 
         voice:
@@ -1347,6 +1367,33 @@ object AppConfig {
                 }
 
                 else -> config.copy(tavilyApiKey = key)
+            }
+        }
+
+        "serplyApiKey" -> {
+            val key = value as String
+            when {
+                WebSearchConfig.isActualKey(key) -> {
+                    val result = WebSearchConfig.setSecureSerplyKey(key)
+                    when (result.method) {
+                        StorageMethod.KEYCHAIN ->
+                            log.debug("Serply API key stored securely in keychain")
+
+                        StorageMethod.ENCRYPTED ->
+                            log.warn("Serply API key stored with encryption ({})", result.warningMessage)
+
+                        StorageMethod.INSECURE_FALLBACK ->
+                            log.warn("⚠️ Serply API key storage: {}", result.warningMessage)
+                    }
+                    config.copy(serplyApiKey = WebSearchConfig.getKeyPlaceholder())
+                }
+
+                key.isEmpty() -> {
+                    WebSearchConfig.setSecureSerplyKey("")
+                    config.copy(serplyApiKey = "")
+                }
+
+                else -> config.copy(serplyApiKey = key)
             }
         }
 

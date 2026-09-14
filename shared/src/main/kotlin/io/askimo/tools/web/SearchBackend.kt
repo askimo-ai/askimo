@@ -11,6 +11,7 @@ package io.askimo.tools.web
  * - [DuckDuckGoBackend]  — scraping-based, zero-config, no API key required
  * - [BraveBackend]       — Brave Search API, requires `BRAVE_SEARCH_API_KEY`
  * - [TavilyBackend]      — Tavily API, requires `TAVILY_API_KEY`
+ * - [SerplyBackend]      — Serply API (Google organic results), requires `SERPLY_API_KEY`
  * - [SearxNGBackend]     — self-hosted SearxNG instance, configurable endpoint
  */
 interface SearchBackend {

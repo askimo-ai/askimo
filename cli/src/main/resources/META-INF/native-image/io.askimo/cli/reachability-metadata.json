@@ -4039,10 +4039,10 @@
     "allDeclaredFields": true,
     "methods": [ {
       "name": "<init>",
-      "parameterTypes": [ "io.askimo.core.config.WebSearchBackend", "java.lang.String", "boolean", "java.lang.String", "java.lang.String" ]
+      "parameterTypes": [ "io.askimo.core.config.WebSearchBackend", "java.lang.String", "boolean", "java.lang.String", "java.lang.String", "java.lang.String" ]
     }, {
       "name": "<init>",
-      "parameterTypes": [ "io.askimo.core.config.WebSearchBackend", "java.lang.String", "boolean", "java.lang.String", "java.lang.String", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
+      "parameterTypes": [ "io.askimo.core.config.WebSearchBackend", "java.lang.String", "boolean", "java.lang.String", "java.lang.String", "java.lang.String", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
     }, {
       "name": "getBackend",
       "parameterTypes": [ ]
@@ -4054,6 +4054,9 @@
       "parameterTypes": [ ]
     }, {
       "name": "getSearxngEndpoint",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getSerplyApiKey",
       "parameterTypes": [ ]
     }, {
       "name": "getTavilyApiKey",
