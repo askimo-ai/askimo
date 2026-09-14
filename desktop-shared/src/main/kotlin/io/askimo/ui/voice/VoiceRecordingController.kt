@@ -130,6 +130,18 @@ class VoiceRecordingController internal constructor(
     @Volatile
     private var recorderOperationPending = false
 
+    // Bumped every time [cancelAll]/[cancelIfRecording] invalidates the current lifecycle
+    // (workspace switch, "New chat", preload, or dispose). A start()/stop() task running on
+    // [recorderExecutor] can take real time (opening the mic line, or the full stop()/join()),
+    // during which cancelAll() may already run and reset state to IDLE — reading
+    // `audioRecorder.isRecording` from the *caller* thread at that moment can't reliably tell
+    // whether such a task is mid-flight. Each task instead captures this value before it starts
+    // and re-checks it right before publishing any state change: if it no longer matches,
+    // cancelAll() has already moved the world on, so the task tears down what it opened (or
+    // leaves state alone) instead of clobbering a fresher recording cycle.
+    @Volatile
+    private var operationGeneration = 0L
+
     // Tracks the coroutine launched by [stopRecordingAndTranscribe] so [cancelAll] can abort an
     // in-flight STT request (e.g. on workspace switch) instead of letting its `onTranscript`
     // callback fire later and write into whatever input field is current at that point.
@@ -141,11 +153,18 @@ class VoiceRecordingController internal constructor(
     /** Cancels any in-progress recording without transcribing — call when leaving composition. */
     fun cancelIfRecording() {
         Snapshot.withMutableSnapshot { voiceWaveformSamples = emptyList() }
-        if (!audioRecorder.isRecording) return
+        // Bump unconditionally (not just `if (audioRecorder.isRecording)`) — a start() may still
+        // be queued/opening the mic on recorderExecutor, which this (caller) thread can't
+        // reliably observe via isRecording. Bumping invalidates that start() (see toggle()'s
+        // generation check); the queued cancel task below then runs strictly after it (FIFO on
+        // the same single-thread executor) and tears the line down if it did end up open.
+        operationGeneration++
         recorderOperationPending = true
         recorderExecutor.execute {
             try {
-                audioRecorder.cancel()
+                if (audioRecorder.isRecording) {
+                    audioRecorder.cancel()
+                }
             } finally {
                 recorderOperationPending = false
             }
@@ -189,6 +208,7 @@ class VoiceRecordingController internal constructor(
      */
     fun stopRecordingAndTranscribe() {
         if (voiceRecordingState != VoiceRecordingState.RECORDING) return
+        val generation = operationGeneration
         voiceRecordingState = VoiceRecordingState.TRANSCRIBING
         Snapshot.withMutableSnapshot { voiceWaveformSamples = emptyList() }
         recorderOperationPending = true
@@ -200,7 +220,10 @@ class VoiceRecordingController internal constructor(
                     VoiceServiceRegistry.speechToText(AppConfig.voice)
                         .transcribe(wavBytes, VoiceAudioFormat.WAV)
                 }
-                if (transcript.isNotBlank()) {
+                // Guard against a cancelAll() that ran after cooperative job-cancellation missed
+                // its window (e.g. it landed mid blocking-call) — never deliver a transcript for
+                // a generation that's already been invalidated.
+                if (transcript.isNotBlank() && operationGeneration == generation) {
                     onTranscript(transcript)
                 }
             } catch (e: CancellationException) {
@@ -210,7 +233,12 @@ class VoiceRecordingController internal constructor(
             } catch (e: Exception) {
                 EventBus.post(AppErrorEvent(title = errorTitleProvider(), message = e.message ?: "Voice recording failed"))
             } finally {
-                voiceRecordingState = VoiceRecordingState.IDLE
+                // Only reset to IDLE if nothing has superseded this generation — otherwise this
+                // stale cleanup could clobber a *newer* recording cycle's RECORDING/TRANSCRIBING
+                // state (see toggle()'s IDLE branch for the matching start()-side guard).
+                if (operationGeneration == generation) {
+                    voiceRecordingState = VoiceRecordingState.IDLE
+                }
                 transcriptionJob = null
                 recorderOperationPending = false
             }
@@ -227,8 +255,11 @@ class VoiceRecordingController internal constructor(
             VoiceRecordingState.IDLE -> {
                 // Run on recorderExecutor so this start() is strictly ordered after any
                 // still-in-flight cancel()/stop() from a previous cancelIfRecording()/cancelAll()
-                // or stopRecordingAndTranscribe() call — otherwise it could race the recorder's
-                // uncaught `check(!isRecording)` guard.
+                // or stopRecordingAndTranscribe() call. Capture the generation *before* the
+                // (possibly slow) start() call so a concurrent cancelAll() can be detected
+                // afterward — if it ran meanwhile, tear down what was just opened instead of
+                // publishing RECORDING into a context that's already moved on.
+                val generation = operationGeneration
                 recorderOperationPending = true
                 recorderExecutor.execute {
                     try {
@@ -243,7 +274,14 @@ class VoiceRecordingController internal constructor(
                                 voiceWaveformSamples = (voiceWaveformSamples + boostedLevel).takeLast(MAX_WAVEFORM_SAMPLES)
                             }
                         }
-                        voiceRecordingState = VoiceRecordingState.RECORDING
+                        if (operationGeneration == generation) {
+                            voiceRecordingState = VoiceRecordingState.RECORDING
+                        } else {
+                            // A cancelAll() ran while this start() was opening the mic — tear down
+                            // what was just opened instead of publishing RECORDING into a
+                            // context that's already been invalidated.
+                            audioRecorder.cancel()
+                        }
                     } catch (e: MicrophoneUnavailableException) {
                         EventBus.post(AppErrorEvent(title = errorTitleProvider(), message = e.message ?: "Microphone unavailable"))
                     } finally {
