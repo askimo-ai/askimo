@@ -88,6 +88,18 @@ enum class OpenAiCompatibleTemplate(
         helpTextKey = "provider.template.deepseek.help",
     ),
 
+    HUGGING_FACE(
+        displayName = "Hugging Face",
+        initials = "HF",
+        taglineKey = "provider.template.hugging_face.tagline",
+        baseUrl = "https://router.huggingface.co/v1",
+        apiKeyRequired = true,
+        apiKeyUrl = "https://huggingface.co/settings/tokens",
+        helpTextKey = "provider.template.hugging_face.help",
+        apiMode = OpenAiApiMode.RESPONSES,
+        httpVersion = HttpVersion.HTTP_1_1,
+    ),
+
     GROQ(
         displayName = "Groq",
         initials = "GR",
@@ -154,7 +166,7 @@ enum class OpenAiCompatibleTemplate(
     ),
 
     DOCKER_AI(
-        displayName = "Docker AI",
+        displayName = "Docker Model Runner",
         initials = "DA",
         taglineKey = "provider.template.docker_ai.tagline",
         baseUrl = "http://localhost:12434/v1",
