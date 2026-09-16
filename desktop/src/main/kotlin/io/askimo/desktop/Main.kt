@@ -26,6 +26,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -68,6 +69,7 @@ import io.askimo.core.context.getConfigInfo
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.Event
 import io.askimo.core.event.EventBus
+import io.askimo.core.event.internal.ChatCompletedEvent
 import io.askimo.core.event.internal.LanguageDirectiveChangedEvent
 import io.askimo.core.event.internal.NavigateToProviderSettingsEvent
 import io.askimo.core.event.internal.RunCodeEvent
@@ -82,6 +84,7 @@ import io.askimo.core.util.AskimoHome
 import io.askimo.core.util.PersonalAskimoHome
 import io.askimo.desktop.chat.communityProjectSidePanel
 import io.askimo.desktop.di.allDesktopModules
+import io.askimo.desktop.notifications.AppNotifier
 import io.askimo.desktop.plan.planEditorView
 import io.askimo.desktop.project.ProjectsViewModel
 import io.askimo.desktop.project.editProjectDialog
@@ -184,6 +187,8 @@ import java.awt.Cursor
 import java.awt.Desktop
 import java.awt.GraphicsEnvironment
 import java.awt.Toolkit
+import java.awt.event.WindowEvent
+import java.awt.event.WindowFocusListener
 import java.net.URI
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -315,6 +320,29 @@ fun main(args: Array<String>) {
 fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = null) {
     var isReady by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { isReady = true }
+
+    // Tracks whether the Askimo window currently has OS focus — used to decide whether to
+    // fire an OS-level notification when a chat response completes (see NotificationsConfig).
+    var isWindowFocused by remember { mutableStateOf(true) }
+    DisposableEffect(frameWindowScope) {
+        val window = frameWindowScope?.window
+        if (window == null) {
+            onDispose {}
+        } else {
+            val listener = object : WindowFocusListener {
+                override fun windowGainedFocus(e: WindowEvent) {
+                    isWindowFocused = true
+                }
+
+                override fun windowLostFocus(e: WindowEvent) {
+                    isWindowFocused = false
+                }
+            }
+            isWindowFocused = window.isFocused
+            window.addWindowFocusListener(listener)
+            onDispose { window.removeWindowFocusListener(listener) }
+        }
+    }
 
     var currentView by remember { mutableStateOf(View.DISCOVER) }
     var previousView by remember { mutableStateOf(View.CHAT) }
@@ -522,6 +550,35 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
         EventBus.internalEvents
             .filterIsInstance<NavigateToProviderSettingsEvent>()
             .collect { settingsViewModel.onChangeProvider() }
+    }
+
+    // Fire an OS-level notification when a chat response finishes, so users who've switched
+    // away from Askimo (e.g. during a long agent run) know to come back — see
+    // NotificationsConfig for the opt-in settings gating this.
+    LaunchedEffect(Unit) {
+        EventBus.internalEvents
+            .filterIsInstance<ChatCompletedEvent>()
+            .collect { event ->
+                val notifications = AppConfig.notifications
+                if (!notifications.enabled) return@collect
+
+                // Never notify about the session the user is actively viewing while the app
+                // is focused — only relevant when onlyWhenUnfocused is off, since otherwise
+                // focus alone already suppresses this case.
+                val isActiveVisibleSession = isWindowFocused && event.sessionId == sessionManager.activeSessionId
+                if (isActiveVisibleSession) return@collect
+
+                if (notifications.onlyWhenUnfocused && isWindowFocused) return@collect
+
+                val title = "Askimo"
+                val preview = event.preview
+                val message = when {
+                    event.failed -> "Response failed"
+                    notifications.showDetails && !preview.isNullOrBlank() -> preview
+                    else -> "Response ready"
+                }
+                AppNotifier.notify(title, message)
+            }
     }
 
     val deleteSessionCommand = remember {

@@ -31,6 +31,7 @@ import io.askimo.core.event.internal.ProjectRefreshEvent
 import io.askimo.core.event.internal.SessionTitleUpdatedEvent
 import io.askimo.core.logging.logger
 import io.askimo.core.memory.MemoryPressureLevel
+import io.askimo.core.util.TextUtils
 import io.askimo.ui.session.SessionManager
 import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
@@ -453,7 +454,12 @@ class ChatViewModel(
                 activeThread.isComplete.collect { isComplete ->
                     if (currentSessionId.value == sessionId && isComplete) {
                         isLoading = false
-                        EventBus.post(ChatCompletedEvent(sessionId = sessionId))
+                        EventBus.post(
+                            ChatCompletedEvent(
+                                sessionId = sessionId,
+                                preview = TextUtils.stripMarkdownForPreview(currentResponse),
+                            ),
+                        )
                         isThinking = false
                         stopThinkingTimer()
 

@@ -592,6 +592,30 @@ data class VoiceConfig(
     }
 }
 
+/**
+ * Configuration for the optional OS-level "chat response completed" notification feature.
+ * Lives under the `notifications:` key in askimo.yml.
+ *
+ * Enabled by default (opt-out) since it's a low-friction quality-of-life feature — unlike
+ * [VoiceConfig] it requires no API keys/setup and has no meaningful side effects when on.
+ */
+data class NotificationsConfig(
+    val enabled: Boolean = true,
+    /**
+     * When true (default), the OS notification is only shown while the Askimo window does not
+     * have OS focus — i.e. the user has switched away to another app. When false, a notification
+     * is shown every time a chat response completes, regardless of focus.
+     */
+    val onlyWhenUnfocused: Boolean = true,
+    /**
+     * When true, the notification body includes a short plain-text preview of the completed
+     * response (see `ChatCompletedEvent.preview`). Off by default for privacy — e.g. so a
+     * response isn't shown on a locked/shared screen — leaving only a generic
+     * "Response ready"/"Response failed" message.
+     */
+    val showDetails: Boolean = false,
+)
+
 data class AppConfigData(
     val embedding: EmbeddingConfig = EmbeddingConfig(),
     val retry: RetryConfig = RetryConfig(),
@@ -606,6 +630,7 @@ data class AppConfigData(
     val analytics: AnalyticsConfig = AnalyticsConfig(),
     val webSearch: WebSearchConfig = WebSearchConfig(),
     val voice: VoiceConfig = VoiceConfig(),
+    val notifications: NotificationsConfig = NotificationsConfig(),
     val context: AppContextParams = AppContextParams.noOp(),
     val currentLocale: String? = null,
 )
@@ -687,6 +712,12 @@ object AppConfig {
      * Stored in [AppConfigData.currentLocale] under the `current_locale:` YAML key.
      */
     val currentLocale: String? get() = delegate.currentLocale
+
+    /**
+     * Configuration for the optional OS-level "chat response completed" notification feature.
+     * See [NotificationsConfig] for field semantics.
+     */
+    val notifications: NotificationsConfig get() = delegate.notifications
 
     /**
      * Raw proxy configuration **without** keychain/secure-storage lookup.
@@ -1081,6 +1112,8 @@ object AppConfig {
                 "webSearch" -> current.copy(webSearch = updateWebSearchField(current.webSearch, field, value))
 
                 "voice" -> current.copy(voice = updateVoiceField(current.voice, field, value))
+
+                "notifications" -> current.copy(notifications = updateNotificationsField(current.notifications, field, value))
 
                 else -> {
                     log.displayError("Unknown config section: $section", null)
@@ -1487,6 +1520,19 @@ object AppConfig {
 
         else -> {
             log.displayError("Unknown voice field: $field", null)
+            config
+        }
+    }
+
+    private fun updateNotificationsField(config: NotificationsConfig, field: String, value: Any): NotificationsConfig = when (field) {
+        "enabled" -> config.copy(enabled = value as Boolean)
+
+        "onlyWhenUnfocused" -> config.copy(onlyWhenUnfocused = value as Boolean)
+
+        "showDetails" -> config.copy(showDetails = value as Boolean)
+
+        else -> {
+            log.displayError("Unknown notifications field: $field", null)
             config
         }
     }

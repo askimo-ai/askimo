@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.Extension
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.NetworkCheck
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.HorizontalDivider
@@ -70,6 +71,7 @@ enum class SettingsSection {
     NETWORK,
     WEB_SEARCH,
     VOICE,
+    NOTIFICATIONS,
     SHORTCUTS,
     MCP_SERVERS,
     AGENTS,
@@ -203,6 +205,12 @@ fun settingsViewWithSidebar(
                         onClick = { onSectionChange(SettingsSection.VOICE) },
                     )
                     settingsSidebarItem(
+                        title = stringResource("settings.notifications"),
+                        icon = Icons.Outlined.Notifications,
+                        isSelected = selectedSection == SettingsSection.NOTIFICATIONS,
+                        onClick = { onSectionChange(SettingsSection.NOTIFICATIONS) },
+                    )
+                    settingsSidebarItem(
                         title = stringResource("settings.shortcuts"),
                         icon = Icons.Outlined.Keyboard,
                         isSelected = selectedSection == SettingsSection.SHORTCUTS,
@@ -285,6 +293,7 @@ fun settingsViewWithSidebar(
                         SettingsSection.NETWORK -> networkSettingsSection()
                         SettingsSection.WEB_SEARCH -> webSearchSettingsSection()
                         SettingsSection.VOICE -> voiceSettingsSection()
+                        SettingsSection.NOTIFICATIONS -> notificationsSettingsSection()
                         SettingsSection.SHORTCUTS -> shortcutsSettingsSection()
                         SettingsSection.MCP_SERVERS -> mcpServerTemplatesSection()
                         SettingsSection.AGENTS -> agentsSettingsSection()
