@@ -127,6 +127,13 @@ interface PinnedSidebarState {
 }
 
 /**
+ * Read-only state contract for the sidebar's resource collections section.
+ */
+interface ResourceCollectionsSidebarState {
+    val collectionCount: Int
+}
+
+/**
  * Shared navigation sidebar component with collapsible/expandable functionality.
  *
  * The caller is responsible for two variable parts:
@@ -148,6 +155,9 @@ fun navigationSidebar(
     // Session/project state
     projectsState: ProjectsSidebarState,
     pinnedState: PinnedSidebarState,
+    resourceCollectionsState: ResourceCollectionsSidebarState = object : ResourceCollectionsSidebarState {
+        override val collectionCount = 0
+    },
     sessionsViewModel: SessionsViewModel,
     currentSessionId: String?,
     // Actions
@@ -166,6 +176,9 @@ fun navigationSidebar(
     onEditProject: (String) -> Unit = {},
     onDeleteProject: (String) -> Unit = {},
     onMoveSessionToNewProject: (sessionId: String) -> Unit = {},
+    isResourceCollectionsExpanded: Boolean = false,
+    onToggleResourceCollections: () -> Unit = {},
+    onNewResourceCollection: () -> Unit = {},
     // Slot: the caller renders the bottom user-profile row (avatar + menu)
     userProfileContent: @Composable () -> Unit,
 ) {
@@ -207,6 +220,7 @@ fun navigationSidebar(
             isSessionsSelected = isSessionsSelected,
             projectsState = projectsState,
             pinnedState = pinnedState,
+            resourceCollectionsState = resourceCollectionsState,
             sessionsViewModel = sessionsViewModel,
             currentSessionId = effectiveSessionId,
             onToggleExpand = onToggleExpand,
@@ -224,6 +238,9 @@ fun navigationSidebar(
             onEditProject = onEditProject,
             onDeleteProject = onDeleteProject,
             onMoveSessionToNewProject = onMoveSessionToNewProject,
+            isResourceCollectionsExpanded = isResourceCollectionsExpanded,
+            onToggleResourceCollections = onToggleResourceCollections,
+            onNewResourceCollection = onNewResourceCollection,
             userProfileContent = userProfileContent,
         )
     } else {
@@ -251,6 +268,7 @@ private fun expandedNavigationSidebar(
     isSessionsSelected: Boolean,
     projectsState: ProjectsSidebarState,
     pinnedState: PinnedSidebarState,
+    resourceCollectionsState: ResourceCollectionsSidebarState,
     sessionsViewModel: SessionsViewModel,
     currentSessionId: String?,
     onToggleExpand: () -> Unit,
@@ -268,6 +286,9 @@ private fun expandedNavigationSidebar(
     onEditProject: (String) -> Unit,
     onDeleteProject: (String) -> Unit,
     onMoveSessionToNewProject: (sessionId: String) -> Unit,
+    isResourceCollectionsExpanded: Boolean,
+    onToggleResourceCollections: () -> Unit,
+    onNewResourceCollection: () -> Unit,
     userProfileContent: @Composable () -> Unit,
 ) {
     val fontScale = LocalFontScale.current
@@ -427,6 +448,78 @@ private fun expandedNavigationSidebar(
                     onShowSessionSummary = onShowSessionSummary,
                     availableProjects = projectsState.projects,
                     onMoveSessionToNewProject = onMoveSessionToNewProject,
+                )
+            }
+
+            // Visual separator between sessions and resource collections
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
+                color = AppColors.codeBlockBorderColor(),
+            )
+
+            // Resource Collections header (collapsible)
+            sidebarItem(
+                icon = {
+                    Icon(
+                        Icons.Default.FolderOpen,
+                        contentDescription = null,
+                        modifier = Modifier.size((16 * fontScale).dp),
+                        tint = AppTextStyles.secondaryContent,
+                    )
+                },
+                label = {
+                    Text(
+                        stringResource("resourcecollections.title").uppercase(),
+                        style = AppTextStyles.sidebarSectionHeader,
+                        color = AppTextStyles.secondaryContent,
+                    )
+                },
+                selected = false,
+                onClick = onToggleResourceCollections,
+                badge = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                    ) {
+                        if (!isResourceCollectionsExpanded && resourceCollectionsState.collectionCount > 0) {
+                            Text(
+                                text = if (resourceCollectionsState.collectionCount > 99) "99+" else "${resourceCollectionsState.collectionCount}",
+                                style = AppTextStyles.hint,
+                            )
+                        }
+                        Icon(
+                            imageVector = if (isResourceCollectionsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = if (isResourceCollectionsExpanded) "Collapse" else "Expand",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size((18 * fontScale).dp),
+                        )
+                    }
+                },
+                modifier = Modifier
+                    .padding(horizontal = Spacing.small, vertical = Spacing.extraSmall)
+                    .pointerHoverIcon(PointerIcon.Hand),
+            )
+
+            if (isResourceCollectionsExpanded) {
+                sidebarItem(
+                    icon = {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size((14 * fontScale).dp),
+                        )
+                    },
+                    label = {
+                        Text(
+                            stringResource("resourcecollection.create"),
+                            style = AppTextStyles.hint,
+                        )
+                    },
+                    selected = false,
+                    onClick = onNewResourceCollection,
+                    modifier = Modifier
+                        .padding(horizontal = Spacing.medium, vertical = Spacing.extraSmall)
+                        .pointerHoverIcon(PointerIcon.Hand),
                 )
             }
         }
