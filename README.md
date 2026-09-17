@@ -134,7 +134,7 @@ You shouldn't have to choose between the best AI model, your privacy, and gettin
 - **Vision** - Attach images to conversations; works with any multimodal model
 
 **Search & Data**
-- **Web search (multiple backends)** - Search the web with DuckDuckGo (no API key), Brave Search API, Tavily, [Serply](https://serply.io) (Google organic results), or your own SearxNG instance
+- **Web search (multiple backends)** - Search the web with DuckDuckGo (no API key), Brave Search API, Tavily, Serply, or your own SearxNG instance
 - **Local RAG** - Index local folders, files, and web URLs. Hybrid BM25 + vector retrieval with an AI classifier that skips retrieval when the query doesn't need it. Your data never leaves your machine.
 
 **Workflows & Extensibility**

@@ -42,6 +42,23 @@
         </text>
     </g>
 
+    <!-- Agent CLI integrations -->
+    <g font-family="Inter, SF Pro Display, Arial, sans-serif">
+        <text x="74" y="450" font-size="18" font-weight="700" fill="#94A3B8" letter-spacing="1">
+            WORKS WITH YOUR AGENT CLI
+        </text>
+    </g>
+    <g font-family="Inter, SF Pro Display, Arial, sans-serif" font-size="20" font-weight="700" text-anchor="middle" dominant-baseline="middle">
+        <rect x="74" y="470" width="160" height="40" rx="20" fill="#431407" stroke="#FB923C" stroke-width="2"/>
+        <text x="154" y="491" fill="#FED7AA">Claude Code</text>
+
+        <rect x="250" y="470" width="110" height="40" rx="20" fill="#022C22" stroke="#34D399" stroke-width="2"/>
+        <text x="305" y="491" fill="#6EE7B7">Codex</text>
+
+        <rect x="376" y="470" width="160" height="40" rx="20" fill="#082F49" stroke="#38BDF8" stroke-width="2"/>
+        <text x="456" y="491" fill="#BAE6FD">Antigravity</text>
+    </g>
+
     <!-- Feature pills (bottom) -->
     <g font-family="Inter, SF Pro Display, Arial, sans-serif" font-size="20" font-weight="700" text-anchor="middle" dominant-baseline="middle">
         <rect x="47" y="582" width="90" height="36" rx="18" fill="#1E1B4B" stroke="#818CF8" stroke-width="2"/>
