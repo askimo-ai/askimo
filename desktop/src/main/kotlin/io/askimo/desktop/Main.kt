@@ -562,12 +562,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                 val notifications = AppConfig.notifications
                 if (!notifications.enabled) return@collect
 
-                // Never notify about the session the user is actively viewing while the app
-                // is focused — only relevant when onlyWhenUnfocused is off, since otherwise
-                // focus alone already suppresses this case.
-                val isActiveVisibleSession = isWindowFocused && event.sessionId == sessionManager.activeSessionId
-                if (isActiveVisibleSession) return@collect
-
                 if (notifications.onlyWhenUnfocused && isWindowFocused) return@collect
 
                 val title = "Askimo"
