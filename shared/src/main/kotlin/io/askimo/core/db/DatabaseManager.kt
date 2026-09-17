@@ -14,6 +14,7 @@ import io.askimo.core.chat.repository.ChatMessageRepository
 import io.askimo.core.chat.repository.ChatSessionRepository
 import io.askimo.core.chat.repository.ModelClassificationRepository
 import io.askimo.core.chat.repository.ProjectRepository
+import io.askimo.core.chat.repository.ResourceCollectionRepository
 import io.askimo.core.chat.repository.ResourceSegmentRepository
 import io.askimo.core.chat.repository.SessionMemoryRepository
 import io.askimo.core.chat.repository.UserMemoryRepository
@@ -109,6 +110,7 @@ class DatabaseManager private constructor(
         createUserInterestsTable(connection)
         createUserPreferencesTable(connection)
         createProjectsTable(connection)
+        createResourceCollectionsTable(connection)
         createSessionsTable(connection)
         createMessagesTable(connection)
         createAttachmentsTable(connection)
@@ -239,6 +241,32 @@ class DatabaseManager private constructor(
         }
     }
 
+    private fun createResourceCollectionsTable(conn: Connection) {
+        conn.createStatement().use { stmt ->
+            stmt.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS resource_collections (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    knowledge_sources_config TEXT NOT NULL DEFAULT '{}',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    is_starred INTEGER NOT NULL DEFAULT 0,
+                    is_system_collection INTEGER NOT NULL DEFAULT 0,
+                    synced_at TEXT
+                )
+                """.trimIndent(),
+            )
+            // Create index for efficient starred collection queries
+            stmt.executeUpdate(
+                """
+                CREATE INDEX IF NOT EXISTS idx_resource_collections_starred_updated
+                ON resource_collections (is_starred DESC, updated_at DESC)
+                """.trimIndent(),
+            )
+        }
+    }
     private fun createSessionsTable(conn: Connection) {
         conn.createStatement().use { stmt ->
             stmt.execute("PRAGMA foreign_keys = ON")
@@ -286,6 +314,15 @@ class DatabaseManager private constructor(
             try {
                 stmt.executeUpdate(
                     "ALTER TABLE chat_sessions ADD COLUMN is_user_renamed INTEGER DEFAULT 0",
+                )
+            } catch (_: Exception) {
+                // Column already exists — safe to ignore.
+            }
+
+            // Migration: Add activeResourceCollectionIds column for persistent resource collection selections.
+            try {
+                stmt.executeUpdate(
+                    "ALTER TABLE chat_sessions ADD COLUMN active_resource_collection_ids VARCHAR(2000) DEFAULT '[]'",
                 )
             } catch (_: Exception) {
                 // Column already exists — safe to ignore.
@@ -380,6 +417,12 @@ class DatabaseManager private constructor(
 
             try {
                 stmt.executeUpdate("ALTER TABLE chat_messages ADD COLUMN content_json TEXT")
+            } catch (_: Exception) {
+                // Column already exists — safe to ignore.
+            }
+
+            try {
+                stmt.executeUpdate("ALTER TABLE chat_messages ADD COLUMN used_resource_collection_ids VARCHAR(2000) DEFAULT '[]'")
             } catch (_: Exception) {
                 // Column already exists — safe to ignore.
             }
@@ -891,6 +934,9 @@ class DatabaseManager private constructor(
         WorkspaceRepository(this)
     }
 
+    private val _resourceCollectionRepository: ResourceCollectionRepository by lazy {
+        ResourceCollectionRepository(this)
+    }
     private val _llmUsageRepository: LlmUsageRepository by lazy {
         LlmUsageRepository(this)
     }
@@ -972,6 +1018,12 @@ class DatabaseManager private constructor(
      * All access to agent workspaces should go through this repository.
      */
     fun getWorkspaceRepository(): WorkspaceRepository = _workspaceRepository
+
+    /**
+     * Get the singleton ResourceCollectionRepository instance.
+     * All access to resource collections should go through this repository.
+     */
+    fun getResourceCollectionRepository(): ResourceCollectionRepository = _resourceCollectionRepository
 
     /**
      * Get the singleton LlmUsageRepository instance.

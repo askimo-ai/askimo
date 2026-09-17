@@ -30,6 +30,9 @@ data class ChatMessage(
     // Ordered tool-call + response-text content blocks (Tool + Token only) — see
     // ChatMessageDTO.contentBlocks for the full rationale.
     val contentBlocks: List<TurnTimelineEntry> = emptyList(),
+    /** Which collections were used for this message (for replay + context).
+     * Includes both persistent chip selections + on-demand @mentions at time of send. */
+    val usedResourceCollectionIds: List<String> = emptyList(),
 )
 
 /**
@@ -61,6 +64,11 @@ object ChatMessagesTable : Table("chat_messages") {
 
     /** JSON-encoded `List<TurnTimelineEntry>` (Tool + Token only) — mirrors agent_run_history.content_json. */
     val contentJson = text("content_json").nullable()
+
+    /** JSON array of resource collection IDs used for this message (e.g., ["hr-handbook", "tech-docs"] or []).
+     * Tracks which collections were active (persistent chip selections + on-demand @mentions)
+     * at the time this message was sent, enabling replay with the same RAG context. */
+    val usedResourceCollectionIds = varchar("used_resource_collection_ids", 2000).default("[]")
 
     val syncedAt = varchar("synced_at", 32).nullable()
 
