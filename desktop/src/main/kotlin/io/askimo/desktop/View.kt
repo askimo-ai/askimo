@@ -17,4 +17,5 @@ enum class View {
     SKILLS,
     SETTINGS,
     BOOKMARKS,
+    RESOURCE_COLLECTIONS,
 }

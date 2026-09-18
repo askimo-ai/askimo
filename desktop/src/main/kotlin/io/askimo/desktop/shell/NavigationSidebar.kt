@@ -53,6 +53,7 @@ import io.askimo.ui.common.theme.LocalFontScale
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.session.SessionsViewModel
+import io.askimo.ui.shell.ResourceCollectionsSidebarState
 import io.askimo.ui.shell.SidebarNavItem
 import io.askimo.ui.shell.rememberAvatarImage
 import io.askimo.ui.shell.sidebarUserAvatar
@@ -96,6 +97,13 @@ fun navigationSidebar(
     onNavigateToPlans: () -> Unit = {},
     onNavigateToSkills: () -> Unit = {},
     onNavigateToDiscover: () -> Unit = {},
+    onNavigateToResourceCollections: () -> Unit = {},
+    resourceCollectionsState: ResourceCollectionsSidebarState = object : ResourceCollectionsSidebarState {
+        override val collectionCount = 0
+    },
+    isResourceCollectionsExpanded: Boolean = false,
+    onToggleResourceCollections: () -> Unit = {},
+    onNewResourceCollection: () -> Unit = {},
 ) {
     val isProjectsSelected = currentView == View.PROJECTS
     val navItems = listOf(
@@ -141,6 +149,14 @@ fun navigationSidebar(
             isVisible = showSkillsInSidebar,
             onClick = onNavigateToSkills,
         ),
+        SidebarNavItem(
+            id = "resourcecollections",
+            labelRes = "resourcecollections.title",
+            icon = Icons.Default.FolderOpen,
+            isSelected = currentView == View.RESOURCE_COLLECTIONS,
+            isVisible = true,
+            onClick = onNavigateToResourceCollections,
+        ),
     )
     sharedNavigationSidebar(
         isExpanded = isExpanded,
@@ -150,6 +166,7 @@ fun navigationSidebar(
         isSessionsSelected = currentView == View.SESSIONS,
         projectsState = projectsViewModel,
         pinnedState = sessionsViewModel,
+        resourceCollectionsState = resourceCollectionsState,
         sessionsViewModel = sessionsViewModel,
         currentSessionId = currentSessionId,
         onToggleExpand = onToggleExpand,
@@ -167,6 +184,9 @@ fun navigationSidebar(
         onMoveSessionToNewProject = onMoveSessionToNewProject,
         onEditProject = onEditProject,
         onDeleteProject = onDeleteProject,
+        isResourceCollectionsExpanded = isResourceCollectionsExpanded,
+        onToggleResourceCollections = onToggleResourceCollections,
+        onNewResourceCollection = onNewResourceCollection,
         userProfileContent = {
             communityUserProfileSection(
                 profile = userProfile,

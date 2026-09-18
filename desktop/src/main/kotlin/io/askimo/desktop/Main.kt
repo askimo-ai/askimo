@@ -91,6 +91,7 @@ import io.askimo.desktop.project.editProjectDialog
 import io.askimo.desktop.project.newProjectDialog
 import io.askimo.desktop.project.projectView
 import io.askimo.desktop.project.projectsView
+import io.askimo.desktop.resourcecollection.resourceCollectionsView
 import io.askimo.desktop.settings.AIProviderViewModel
 import io.askimo.desktop.settings.SettingsSection
 import io.askimo.desktop.settings.aboutDialog
@@ -1201,6 +1202,9 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                         },
                                                         onNavigateToDiscover = {
                                                             currentView = View.DISCOVER
+                                                        },
+                                                        onNavigateToResourceCollections = {
+                                                            currentView = View.RESOURCE_COLLECTIONS
                                                         },
                                                     )
                                                 } // End BoxWithConstraints
@@ -2411,6 +2415,12 @@ fun mainContent(
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
+            }
+
+            View.RESOURCE_COLLECTIONS -> {
+                resourceCollectionsView(
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
         }
     }
