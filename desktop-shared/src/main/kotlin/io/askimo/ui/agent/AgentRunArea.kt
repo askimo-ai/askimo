@@ -49,13 +49,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -115,7 +113,6 @@ private fun agentReadinessDotColor(state: AgentReadiness?): Color = when (state)
 internal fun agenticRunArea(
     skills: List<SkillDefinition>,
     workspace: Workspace,
-    onRunCompleted: () -> Unit = {},
     preloadRecord: AgentRunRecord? = null,
     onPreloadConsumed: () -> Unit = {},
     onConversationStateChanged: (Boolean) -> Unit = {},
@@ -124,17 +121,12 @@ internal fun agenticRunArea(
     onSelectHistoryRecord: (AgentRunRecord) -> Unit = {},
     onDeleteHistoryRecord: (AgentRunRecord) -> Unit = {},
 ) {
-    val latestOnRunCompleted = rememberUpdatedState(onRunCompleted)
+    // Get or create ViewModel from global manager (persists across navigation)
     val viewModel = remember(workspace.id) {
-        AgentRunViewModel(
+        AgentRunManager.getOrCreateAgentRunViewModel(
             workspace = workspace,
             skills = skills,
-            onRunCompleted = { latestOnRunCompleted.value() },
         )
-    }
-
-    DisposableEffect(viewModel) {
-        onDispose { viewModel.close() }
     }
 
     // ── Local, pure-UI state (not part of AgentRunViewModel) ────────────────

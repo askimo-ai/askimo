@@ -110,7 +110,6 @@ fun agentsView(
                     agenticContent(
                         skills = skills,
                         workspace = currentWorkspace,
-                        onRunCompleted = { viewModel.onRunCompleted() },
                         onNavigateToSkillsSettings = onNavigateToSkillsSettings,
                         preloadRecord = viewModel.pendingHistoryRecord,
                         onPreloadConsumed = { viewModel.consumePendingHistoryRecord() },
@@ -126,7 +125,6 @@ fun agentsView(
                 agenticContent(
                     skills = skills,
                     workspace = currentWorkspace,
-                    onRunCompleted = { viewModel.onRunCompleted() },
                     onNavigateToSkillsSettings = onNavigateToSkillsSettings,
                     showPanelToggle = true,
                     panelVisible = showOverlayPanel,
@@ -294,7 +292,6 @@ internal fun agentsPageHeader(
 private fun agenticContent(
     skills: List<SkillDefinition>,
     workspace: Workspace,
-    onRunCompleted: () -> Unit,
     onNavigateToSkillsSettings: () -> Unit,
     showPanelToggle: Boolean = false,
     panelVisible: Boolean = false,
@@ -342,7 +339,6 @@ private fun agenticContent(
             agenticRunArea(
                 skills = skills,
                 workspace = workspace,
-                onRunCompleted = onRunCompleted,
                 preloadRecord = preloadRecord,
                 onPreloadConsumed = onPreloadConsumed,
                 onConversationStateChanged = { hasActiveConversation = it },

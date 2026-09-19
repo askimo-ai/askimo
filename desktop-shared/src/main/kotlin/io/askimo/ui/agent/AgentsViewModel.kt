@@ -13,6 +13,7 @@ import io.askimo.core.agent.repository.AgentRunHistoryRepository
 import io.askimo.core.agent.service.WorkspaceService
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
+import io.askimo.core.event.internal.AgentRunCompletedEvent
 import io.askimo.core.event.internal.AgentRunTitleUpdatedEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,10 +24,8 @@ import org.koin.core.context.GlobalContext
 import java.io.File
 
 /**
- * ViewModel backing `agentsView` — owns the current [Workspace], the run-history list shown
- * in the side panel, and the pending history record selected for preload. Mirrors
- * [io.askimo.ui.chat.ChatViewModel]'s role for regular chat, keeping this business logic
- * (workspace resolution, history refresh, title-event patching) out of the composable.
+ * ViewModel backing `agentsView` — owns current workspace, run-history list, and pending
+ * history record for preload. Mirrors [io.askimo.ui.chat.ChatViewModel] for agent runs.
  */
 internal class AgentsViewModel(
     private val scope: CoroutineScope,
@@ -57,6 +56,7 @@ internal class AgentsViewModel(
     init {
         resolveWorkspace()
         observeTitleEvents()
+        observeRunCompletionEvents()
     }
 
     private fun resolveWorkspace() {
@@ -83,6 +83,24 @@ internal class AgentsViewModel(
         }
     }
 
+    /**
+     * Refresh history when a run completes in the current workspace.
+     * Prevents stale issues when ViewModel survives navigation.
+     */
+    private fun observeRunCompletionEvents() {
+        scope.launch {
+            EventBus.internalEvents
+                .filterIsInstance<AgentRunCompletedEvent>()
+                .collect { event ->
+                    val currentWorkspace = workspace
+                    if (currentWorkspace != null && event.workspaceId == currentWorkspace.id) {
+                        historyRefreshKey++
+                        refreshHistory()
+                    }
+                }
+        }
+    }
+
     fun refreshHistory() {
         val ws = workspace ?: return
         scope.launch {
@@ -95,6 +113,8 @@ internal class AgentsViewModel(
     }
 
     fun selectWorkspace(dir: File) {
+        // Old ViewModel stays cached so in-flight runs complete. Manager evicts inactive
+        // ViewModels when capacity is reached.
         workspace = workspaceService.select(dir)
         historyRefreshKey++
         refreshHistory()
@@ -114,10 +134,5 @@ internal class AgentsViewModel(
             historyRefreshKey++
             refreshHistory()
         }
-    }
-
-    fun onRunCompleted() {
-        historyRefreshKey++
-        refreshHistory()
     }
 }
