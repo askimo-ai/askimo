@@ -95,6 +95,10 @@ internal class AgentsViewModel(
     }
 
     fun selectWorkspace(dir: File) {
+        // Close the old workspace's AgentRunViewModel before switching
+        workspace?.let { oldWorkspace ->
+            AgentRunManager.closeAgentRun(oldWorkspace.id)
+        }
         workspace = workspaceService.select(dir)
         historyRefreshKey++
         refreshHistory()
