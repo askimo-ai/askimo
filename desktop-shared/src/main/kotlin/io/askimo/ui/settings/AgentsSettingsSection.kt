@@ -195,10 +195,7 @@ fun agentsSettingsSection() {
         Card(
             modifier = Modifier.width(animatedPanelWidth).fillMaxHeight(),
             shape = RectangleShape,
-            colors = CardDefaults.cardColors(
-                containerColor = AppColors.sidebarSurfaceColor(),
-                contentColor = MaterialTheme.colorScheme.onSurface,
-            ),
+            colors = AppColors.sidebarCardColors(),
         ) {
             if (isPanelExpanded) {
                 skillsTreePanel(

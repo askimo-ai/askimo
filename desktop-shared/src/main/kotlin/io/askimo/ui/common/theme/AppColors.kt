@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
  * |----------------------------------------------------------|-------------|
  * | Sidebar background                                        | [sidebarSurfaceColor] |
  * | Sidebar header row (logo/title bar)                       | [sidebarHeaderColor] + [sidebarHeaderContentColor] |
+ * | Card/panel sitting on the sidebar tint (side panels, directive/agent cards) | [sidebarCardColors] |
  * | Settings/search-result card, static pill, table header    | [cardColors] / [surfaceColor] with [Elevation.RAISED] |
  * | Row hover highlight (non-selection)                       | [surfaceColor] with [Elevation.RAISED] |
  * | Selected list/tree row                                    | [surfaceColor] with [Elevation.SELECTED] |
@@ -48,6 +49,7 @@ import androidx.compose.ui.unit.dp
  * | Recessed panel (viewer, collapsed rail)                   | [surfaceColor] with [Elevation.RECESSED] |
  * | Dialog / dropdown / popup surface                         | [popupContainerColor], [popupBorderStroke], [popupColorScheme] |
  * | Full-screen modal scrim                                   | [scrimColor] |
+ * | Any `Card` whose containerColor is [surfaceColor]/[Elevation] (highlighted/toggle state cards, info banners) | [cardColors] — never pass `surfaceColor(tier)` as a raw `containerColor` without it |
  * | Badge distinguishing a category/variant (e.g. built-in vs custom) | [variantBadgeContainerColor] / [variantBadgeContentColor] with [BadgeTone] |
  * | Small numeric count badge (e.g. bookmark count)           | [countBadgeAccentColor] |
  * | Disabled text/icon                                        | [disabledContentColor] |
@@ -117,9 +119,8 @@ object AppColors {
     }
 
     /**
-     * Muted secondary-text variant of [contentColorFor] — preserves a primary/secondary text
-     * hierarchy even when sitting on a colored [Elevation.SELECTED]/[Elevation.ACCENT]
-     * container (e.g. the hex code shown under a selected accent-color preset's label).
+     * Muted secondary-text variant of [contentColorFor] — keeps a primary/secondary text
+     * hierarchy even on a colored [Elevation.SELECTED]/[Elevation.ACCENT] container.
      */
     @Composable
     fun secondaryContentColorFor(tier: Elevation): Color = contentColorFor(tier).copy(alpha = 0.82f)
@@ -141,24 +142,22 @@ object AppColors {
     fun popupContainerColor(): Color = MaterialTheme.colorScheme.surface
 
     /**
-     * Dimming overlay tint for scrims — full-screen modal backdrops (dialog-over-content),
-     * and small always-dark badges that need contrast against arbitrary photo content
-     * (e.g. an icon button overlaid on an image thumbnail).
+     * Dimming overlay tint for scrims — full-screen modal backdrops and small always-dark
+     * badges needing contrast against arbitrary photo content.
      *
-     * Built on [MaterialTheme.colorScheme.scrim], which — unlike `onSurface`/`onSurfaceVariant` —
-     * is specified to stay black-ish in both light and dark themes, so it's the only token-safe
-     * base for an overlay that must always read as "dark" regardless of the active theme.
+     * Built on [MaterialTheme.colorScheme.scrim], which stays black-ish in both light and
+     * dark themes, making it the only token-safe base for an overlay that must always read
+     * as "dark".
      *
      * @param alpha Strength of the dim — heavier for full-screen backdrops (~0.3-0.35),
-     *   lighter or heavier for small icon badges depending on desired contrast (~0.4-0.5).
+     *   lighter or heavier for icon badges depending on desired contrast (~0.4-0.5).
      */
     @Composable
     fun scrimColor(alpha: Float): Color = MaterialTheme.colorScheme.scrim.copy(alpha = alpha)
 
     /**
-     * Consistent 1 dp border for all floating surfaces.
-     * Provides subtle depth definition without relying on elevation alone, and
-     * ensures popups read clearly against any window background.
+     * Consistent 1 dp border for all floating surfaces — subtle depth definition so popups
+     * read clearly against any window background.
      */
     @Composable
     fun popupBorderStroke(): BorderStroke = BorderStroke(
@@ -167,31 +166,23 @@ object AppColors {
     )
 
     /**
-     * Drop-shadow elevation for floating Card surfaces (e.g. notification popup).
-     * Controls visible shadow only — kept separate from [popupSurfaceTonalElevation]
-     * so shadow depth and tonal colour are independently adjustable.
+     * Drop-shadow elevation for floating Card surfaces. Shadow only — kept separate from
+     * [popupSurfaceTonalElevation] so shadow depth and tonal colour are independently adjustable.
      */
     val popupElevation: Dp = 8.dp
 
     /**
-     * Tonal elevation for dialog/popup Surfaces — intentionally **0.dp**.
-     *
-     * M3 tonal elevation blends a primary-colour overlay into the Surface
-     * background, making a scaffold dialog / alert dialog appear slightly different
-     * from a dropdown menu (which forces all surfaceContainer tonal slots to plain
-     * surface via [popupColorScheme]). Keeping this at zero ensures every popup
-     * background resolves to the same pure [popupContainerColor] regardless of the
-     * active theme seed colour.
+     * Tonal elevation for dialog/popup Surfaces — intentionally **0.dp**, so every popup
+     * background resolves to the same [popupContainerColor] regardless of theme seed colour
+     * (M3 tonal elevation would otherwise blend a primary-colour overlay in).
      */
     val popupSurfaceTonalElevation: Dp = 0.dp
 
     /**
-     * Shared MaterialTheme colorScheme override for all popup surfaces.
-     *
-     * Forces every M3 surfaceContainer tonal slot to [popupContainerColor] so
-     * that Material3 components rendered inside (DropdownMenu, AlertDialog, etc.)
-     * pick up the canonical popup background rather than their own tonal slot.
-     * Combine with [popupSurfaceTonalElevation] = 0 for a fully consistent look.
+     * Shared MaterialTheme colorScheme override for all popup surfaces — forces every M3
+     * surfaceContainer tonal slot to [popupContainerColor] so components rendered inside
+     * (DropdownMenu, AlertDialog, etc.) pick up the canonical popup background. Combine with
+     * [popupSurfaceTonalElevation] = 0 for a fully consistent look.
      */
     @Composable
     fun popupColorScheme() = MaterialTheme.colorScheme.let { cs ->
@@ -248,11 +239,9 @@ object AppColors {
     )
 
     /**
-     * Closed set of badge "variants" for MCP server tool-count badges — a built-in server
-     * reads as a distinct hue from a custom/user-added one. Kept as an enum (like
-     * [StatusTone]) rather than accepting an arbitrary [Color] parameter, so every badge in
-     * the app draws from the same fixed, curated palette instead of each call site inventing
-     * its own hue.
+     * Closed set of badge "variants" for MCP server tool-count badges — built-in reads as a
+     * distinct hue from custom/user-added. Kept as an enum (like [StatusTone]) so every badge
+     * draws from the same curated palette instead of each call site inventing its own hue.
      */
     enum class BadgeTone {
         /** Built-in / first-party integration. */
@@ -263,10 +252,10 @@ object AppColors {
     }
 
     /**
-     * Background tint for a small colored badge/chip that distinguishes a category or
-     * variant (e.g. built-in vs custom), scaled by [contentAlpha] so a disabled badge fades
-     * along with the rest of its row instead of fighting for attention. Named distinctly
-     * from [countBadgeAccentColor] — this one answers "which variant is this," not "how many."
+     * Background tint for a small colored badge/chip distinguishing a category or variant
+     * (e.g. built-in vs custom), scaled by [contentAlpha] so a disabled badge fades with the
+     * rest of its row. Distinct from [countBadgeAccentColor] — this answers "which variant,"
+     * not "how many."
      */
     @Composable
     fun variantBadgeContainerColor(tone: BadgeTone, contentAlpha: Float = 1f): Color {
@@ -278,9 +267,8 @@ object AppColors {
     }
 
     /**
-     * Content tint paired with [variantBadgeContainerColor]. [isEnabled] additionally mutes a
-     * [BadgeTone.CUSTOM] badge to [tertiaryIconColor] when its row is disabled, matching the
-     * existing MCP-server-row disabled treatment.
+     * Content tint paired with [variantBadgeContainerColor]. [isEnabled] mutes a
+     * [BadgeTone.CUSTOM] badge to [tertiaryIconColor] when its row is disabled.
      */
     @Composable
     fun variantBadgeContentColor(tone: BadgeTone, contentAlpha: Float = 1f, isEnabled: Boolean = true): Color = when (tone) {
@@ -289,43 +277,41 @@ object AppColors {
     }
 
     /**
-     * Accent tint for a small numeric count badge (e.g. the bookmark-count badge on a
-     * sidebar session row) — primary at reduced strength so it reads as a subtle inline
-     * indicator rather than a primary-colored call to action. Unlike [variantBadgeContentColor],
-     * this isn't a "which variant" choice — every count badge in the app uses this same tint.
+     * Accent tint for a small numeric count badge (e.g. bookmark count on a sidebar session
+     * row) — primary at reduced strength, reading as a subtle inline indicator rather than a
+     * call to action. Every count badge in the app uses this same tint.
      */
     @Composable
     fun countBadgeAccentColor(): Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
 
     /**
-     * Track color for [AppComponents.loadingSpinner] when it sits on top of a filled/primary
-     * button — needs to be a translucent [MaterialTheme.colorScheme.onPrimary] rather than the
-     * spinner's usual neutral track, since a neutral track wouldn't read against a primary fill.
+     * Track color for [AppComponents.loadingSpinner] on top of a filled/primary button —
+     * a translucent [MaterialTheme.colorScheme.onPrimary] since a neutral track wouldn't
+     * read against a primary fill.
      */
     @Composable
     fun onPrimaryTrackColor(): Color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.3f)
 
     /**
-     * Warning tint — [MaterialTheme.colorScheme.error] at reduced opacity. Used for
-     * non-destructive but important alerts/status (warning icons, "failed" accents) that
-     * should read as visually distinct without being as alarming as a full-strength error.
+     * Warning tint — [MaterialTheme.colorScheme.error] at reduced opacity, for non-destructive
+     * but important alerts/status that should be distinct without being as alarming as a
+     * full-strength error.
      */
     @Composable
     fun warningColor(): Color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
 
     /**
-     * Muted destructive-action tint — [MaterialTheme.colorScheme.error] at 70% opacity. The
-     * standard tint for delete/remove icon buttons across the app (history rows, file panels,
-     * etc) — slightly softer than [warningColor] since it's an available action rather than
-     * a status/warning that must stay maximally legible.
+     * Muted destructive-action tint — the standard tint for delete/remove icon buttons
+     * across the app, slightly softer than [warningColor] since it's an available action
+     * rather than a status that must stay maximally legible.
      */
     @Composable
     fun destructiveIconColor(): Color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
 
     /**
-     * Accent tint for a draggable resize handle/divider while hovered — signals "this is
-     * interactive" without a full-strength primary fill. Pair with [codeBlockBorderColor]
-     * (or [MaterialTheme.colorScheme.outlineVariant]) for the at-rest state.
+     * Accent tint for a draggable resize handle/divider while hovered — signals
+     * "interactive" without a full-strength primary fill. Pair with [codeBlockBorderColor]
+     * for the at-rest state.
      */
     @Composable
     fun resizeHandleHoverColor(): Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
@@ -428,6 +414,22 @@ object AppColors {
     fun sidebarHeaderColor(): Color = sidebarTint(headerStrength = true)
 
     /**
+     * [CardColors] for any `Card` whose background is [sidebarSurfaceColor] (side panels,
+     * directive/agent cards on the sidebar tint, etc).
+     *
+     * **Always use this instead of** `CardDefaults.cardColors(containerColor = AppColors.sidebarSurfaceColor())`
+     * alone: [sidebarSurfaceColor] is a custom-blended color, not an exact
+     * [MaterialTheme.colorScheme] slot, so Material3 can't auto-resolve a matching content
+     * color for it and silently falls back to whatever is ambient — causing low-contrast
+     * text. Pairing the two here prevents that at new call sites.
+     */
+    @Composable
+    fun sidebarCardColors(): CardColors = CardDefaults.cardColors(
+        containerColor = sidebarSurfaceColor(),
+        contentColor = MaterialTheme.colorScheme.onSurface,
+    )
+
+    /**
      * Contrast-safe text/icon color for content painted directly on [sidebarHeaderColor] —
      * e.g. the logo, app title, and collapse/expand icon in the sidebar header row.
      */
@@ -447,8 +449,7 @@ object AppColors {
 
     /**
      * Shifts [MaterialTheme.colorScheme.surface] toward black/white by [amount] — the one
-     * primitive behind every "surface, but slightly shaded" background in the app
-     * ([userMessageBackground], [codeBlockBackground]).
+     * primitive behind every "surface, but slightly shaded" background in the app.
      */
     @Composable
     private fun shadedSurface(amount: Float): Color {
@@ -482,16 +483,15 @@ object AppColors {
 
     /**
      * Translucent scrim painted over a full outdated message bubble (any role) to mute it —
-     * pairs with [outdatedUserMessageBackground] but applies to the whole bubble (including
-     * AI messages) rather than just the user-bubble shade.
+     * pairs with [outdatedUserMessageBackground] but applies to the whole bubble rather than
+     * just the user-bubble shade.
      */
     @Composable
     fun outdatedMessageOverlayColor(): Color = MaterialTheme.colorScheme.surface.copy(alpha = 0.4f)
 
     /**
      * Dim scrim painted over a background/thumbnail image tile so overlaid label text stays
-     * readable regardless of the image's own colors (e.g. the background-image picker tiles
-     * in Appearance settings).
+     * readable regardless of the image's own colors.
      */
     @Composable
     fun imageThumbnailScrimColor(): Color = MaterialTheme.colorScheme.surface.copy(alpha = 0.45f)
@@ -526,41 +526,37 @@ object AppColors {
     fun tertiaryIconColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
 
     // ── Charts ────────────────────────────────────────────────────────────────
-    // Shared tints for simple inline bar/line charts (e.g. the daily-activity chart in
-    // Usage settings) whose bars are colored per-series rather than always primary —
-    // centralised here so every chart derives its "track" and "value label" shades from
-    // the same two fixed opacities instead of each chart hand-rolling its own alpha.
+    // Shared tints for simple inline bar/line charts whose bars are colored per-series
+    // rather than always primary — centralised so every chart derives its "track" and
+    // "value label" shades from the same two fixed opacities.
 
     /**
      * Faint backdrop tint for a colored chart bar/segment — [hue] at low opacity, giving a
-     * "full range" track behind a bar without needing a separate neutral track color.
+     * "full range" track without needing a separate neutral track color.
      */
     fun chartBarTrackColor(hue: Color): Color = hue.copy(alpha = 0.2f)
 
     /**
-     * Value-label tint paired with a chart bar's [hue] — slightly dimmed from full strength
-     * so the numeric label reads as secondary to the bar itself.
+     * Value-label tint paired with a chart bar's [hue] — dimmed slightly so the label reads
+     * as secondary to the bar itself.
      */
     fun chartValueLabelColor(hue: Color): Color = hue.copy(alpha = 0.85f)
 
     /** Placeholder background for a loading skeleton row/box — same neutral tier used for
-     *  progress-bar tracks, so skeletons read as "not yet data" rather than a distinct color. */
+     *  progress-bar tracks, so skeletons read as "not yet data". */
     @Composable
     fun skeletonPlaceholderColor(): Color = surfaceColor(Elevation.RECESSED)
 
     // ── Card Content Tints ────────────────────────────────────────────────────
-    // A notification/status card's `contentColor` varies by card type (e.g.
-    // onSecondaryContainer for an update card, onSurfaceVariant for a plain one) — these
-    // derive consistent "badge / secondary / monospace-detail" shades from *whatever*
-    // [contentColor] the card is using, so every card type gets the same visual hierarchy
-    // without each one hand-picking its own alpha.
+    // A notification/status card's `contentColor` varies by card type — these derive
+    // consistent "badge / secondary / monospace-detail" shades from whatever [contentColor]
+    // the card is using, so every card type gets the same visual hierarchy.
 
-    /** Small pill/badge background derived from a card's own [contentColor] (e.g. the
-     *  version-bump badge on an update notification card). */
+    /** Small pill/badge background derived from a card's own [contentColor]. */
     fun cardBadgeContainerColor(contentColor: Color): Color = contentColor.copy(alpha = 0.15f)
 
-    /** De-emphasized secondary text/caption tint on a colored card (e.g. a notification
-     *  card's timestamp) — dimmed from the card's own [contentColor]. */
+    /** De-emphasized secondary text/caption tint on a colored card, dimmed from the card's
+     *  own [contentColor]. */
     fun cardSecondaryContentColor(contentColor: Color): Color = contentColor.copy(alpha = 0.7f)
 
     /** Expandable monospace detail text (stack trace / error message) on a colored card —

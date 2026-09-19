@@ -137,40 +137,35 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Ensures only one AI message's 🔊 playback is active at a time across the whole message list.
- *
- * Backed by a single shared [AudioPlayer] instance and Compose [mutableStateOf] properties so
- * every [aiMessageBubble] instance reactively reflects whichever message (if any) is currently
- * synthesizing/playing — no per-bubble player instances, no manual cross-bubble coordination.
+ * Ensures only one AI message's 🔊 playback is active at a time. Backed by a shared
+ * [AudioPlayer] and Compose state so every [aiMessageBubble] reflects whichever message is
+ * currently synthesizing/playing.
  */
 internal object VoicePlaybackController {
     private val player = AudioPlayer()
 
-    /** The coroutine currently synthesizing/playing chunks, if any — cancelled by [stopAll]. */
+    /** Coroutine currently synthesizing/playing, if any — cancelled by [stopAll]. */
     private var playbackJob: Job? = null
 
-    /** ID of the message currently awaiting TTS synthesis, or null. */
+    /** ID of the message awaiting TTS synthesis, or null. */
     var loadingMessageId by mutableStateOf<String?>(null)
         private set
 
-    /** ID of the message currently playing back audio, or null. */
+    /** ID of the message currently playing audio, or null. */
     var playingMessageId by mutableStateOf<String?>(null)
         private set
 
     /**
-     * Bounded in-memory cache of already-synthesized audio chunks, keyed by message id — lets
-     * replaying/stopping a recently-played response (e.g. via the "toggle last response
-     * playback" shortcut) skip a fresh TTS API round-trip. App-lifetime only: never persisted
-     * to disk, cleared on restart. Capped by both entry count ([VoiceConfig.ttsCacheMaxMessages])
-     * and total bytes ([VoiceConfig.ttsCacheMaxBytes]) — insertion order is preserved so the
-     * oldest entry is evicted first once either cap is exceeded (`accessOrder = false`: this is
-     * a "cache recent responses" policy, not "cache most-recently-used").
+     * In-memory cache of synthesized audio chunks by message id, so replaying a recent response
+     * skips a fresh TTS call. App-lifetime only (never persisted). Capped by entry count
+     * ([VoiceConfig.ttsCacheMaxMessages]) and total bytes ([VoiceConfig.ttsCacheMaxBytes]);
+     * oldest entry evicted first once either cap is exceeded.
      */
     private val ttsCache = LinkedHashMap<String, List<ByteArray>>()
 
     private fun cacheTotalBytes(): Long = ttsCache.values.sumOf { chunks -> chunks.sumOf { chunk -> chunk.size.toLong() } }
 
-    /** Removes [messageId]'s cached audio, if any — call when a message's content changes (edit). */
+    /** Removes [messageId]'s cached audio — call when its content changes (edit). */
     @Synchronized
     fun invalidate(messageId: String) {
         ttsCache.remove(messageId)
@@ -183,9 +178,7 @@ internal object VoicePlaybackController {
         val maxMessages = AppConfig.voice.ttsCacheMaxMessages
         val maxBytes = AppConfig.voice.ttsCacheMaxBytes
 
-        // Track the running total incrementally instead of calling cacheTotalBytes() on every
-        // loop iteration (which would re-sum every chunk of every cached message each time —
-        // O(n) per call, O(n^2) overall for an eviction pass of n entries).
+        // Track running total incrementally rather than re-summing on every loop iteration.
         var totalBytes = cacheTotalBytes()
         val iterator = ttsCache.entries.iterator()
         while (iterator.hasNext() && (ttsCache.size > maxMessages || totalBytes > maxBytes)) {
@@ -195,7 +188,7 @@ internal object VoicePlaybackController {
         }
     }
 
-    /** Stops whatever is currently playing/loading, regardless of which message it belongs to. */
+    /** Stops whatever is currently playing/loading, regardless of message. */
     fun stopAll() {
         player.stop()
         playbackJob?.cancel()
@@ -205,16 +198,15 @@ internal object VoicePlaybackController {
     }
 
     /**
-     * Toggles playback for [messageId]: stops it if it's already playing/loading, otherwise stops
-     * any other message's playback first (single-playback rule) and starts synthesizing+playing
-     * [text] via the configured [io.askimo.core.config.VoiceConfig.ttsProvider].
+     * Toggles playback for [messageId]: stops it if already playing/loading, otherwise stops
+     * any other message's playback first and starts synthesizing+playing [text] via the
+     * configured [io.askimo.core.config.VoiceConfig.ttsProvider].
      *
-     * [text] is split via [chunkTextForTts] into pieces that fit under the TTS provider's
-     * per-request character limit (OpenAI's `/v1/audio/speech` caps input at 4096 chars); each
-     * chunk is synthesized and played back-to-back so long messages aren't truncated.
+     * [text] is split via [chunkTextForTts] into pieces under the TTS provider's per-request
+     * character limit; each chunk is synthesized and played back-to-back.
      *
-     * If [messageId]'s audio was already synthesized and is still cached (see [ttsCache]),
-     * playback starts immediately from the cached bytes — no TTS API call is made.
+     * If [messageId]'s audio is already cached (see [ttsCache]), playback starts immediately
+     * from the cached bytes — no TTS API call is made.
      */
     fun toggle(messageId: String, text: String, scope: CoroutineScope, onError: (String) -> Unit) {
         if (playingMessageId == messageId || loadingMessageId == messageId) {
@@ -288,15 +280,14 @@ internal object VoicePlaybackController {
                 playingMessageId = null
                 onError(e.message ?: "Voice playback failed")
             } finally {
-                // Clear once this run ends (success, caught error, or cancellation) so
-                // `playbackJob` doesn't linger on a finished job. Guarded by identity since a
-                // cancelled job's `finally` can run after a newer toggle() already replaced it.
+                // Clear once this run ends so `playbackJob` doesn't linger. Guarded by identity
+                // since a cancelled job's `finally` can run after a newer toggle() replaced it.
                 if (playbackJob === thisJob) playbackJob = null
             }
         }
     }
 
-    /** Plays previously-cached [chunks] back-to-back for [messageId], bypassing TTS synthesis. */
+    /** Plays previously-cached [chunks] back-to-back for [messageId], skipping TTS synthesis. */
     private suspend fun playCachedChunks(messageId: String, chunks: List<ByteArray>, format: VoiceAudioFormat) {
         chunks.forEachIndexed { index, audioBytes ->
             if (index == 0) {
@@ -320,13 +311,10 @@ internal object VoicePlaybackController {
  * Builds a click handler for `file://` links rendered inside markdown messages.
  *
  * When [projectId] is non-null (project chat), the click is delegated to the in-app file
- * viewer via [EventBus] (see `ProjectSidePanel`'s `FilePreviewRequestEvent` listener).
- * Otherwise it falls back to opening the file with the OS default application.
+ * viewer via [EventBus]. Otherwise it falls back to opening the file with the OS default app.
  *
  * Shared by every markdown render site that needs `file://` link interception — the default
- * message body ([aiMessageBubble]) as well as [turnTimelineView]'s `customBody` callers
- * (`ChatMessageList`, `AgentMessageList`) — so behavior stays consistent regardless of which
- * layout renders a given message.
+ * message body ([aiMessageBubble]) and [turnTimelineView]'s `customBody` callers.
  */
 fun fileLinkClickHandler(projectId: String? = null): (url: String) -> Unit = { url ->
     if (url.startsWith("file://")) {
@@ -367,9 +355,8 @@ fun messageBubble(
     projectId: String? = null,
     toolCalls: List<ToolCallInfo> = emptyList(),
     thinkingContent: String = "",
-    // When non-null, rendered instead of the built-in thinking/toolCalls/text sections —
-    // used to show an ordered (chronological) tool/thinking/text timeline for a message
-    // instead of the fixed thinking-then-tools-then-text layout. See `turnTimelineView`.
+    // When non-null, rendered instead of the built-in thinking/toolCalls/text sections — used
+    // for an ordered (chronological) tool/thinking/text timeline. See `turnTimelineView`.
     customBody: (@Composable () -> Unit)? = null,
     bookmarkedMessageIds: Set<String> = emptySet(),
     onToggleBookmark: ((String) -> Unit)? = null,
@@ -1234,14 +1221,12 @@ private fun aiMessageBubble(
 }
 
 /**
- * Collapsible section that displays AI thinking/reasoning tokens above the response text.
+ * Collapsible section showing AI thinking/reasoning tokens above the response text.
  *
  * Auto-expands as soon as the first thinking token arrives during streaming; stays expanded
- * so the user can review the full trace after the response completes. Can be collapsed
- * manually by clicking the header.
+ * afterward so the trace remains reviewable. Can be collapsed manually via the header.
  *
- * Displays a "💭 Thinking…" header while streaming and "💭 Thought" when complete.
- * The body uses a muted italic style visually distinct from the main response.
+ * Shows "💭 Thinking…" while streaming and "💭 Thought" when complete, in a muted italic style.
  */
 @Composable
 internal fun thinkingSection(
@@ -1349,17 +1334,14 @@ internal fun thinkingSection(
 
 /**
  * Renders timeline groups in chronological order — tool-call and thinking groups reuse this
- * file's own collapsible sections ([toolCallsSection]/[thinkingSection]); token groups render
- * as normal markdown; status groups show as a small muted subtitle. Each group gets its own
- * remembered expand/collapse state, keyed by [stableKey] — content-based rather than list
- * position, since `grouped()` runs `collapsedEffectiveTools()` first, which can drop earlier
- * groups entirely (superseded tool retries + the thinking that led to them) as new entries
- * stream in. That shifts later groups' *indices* between recompositions even though their
- * *content* hasn't changed, which — if keyed by index — would reattach one group's remembered
- * expand/collapse state to a completely different, unrelated group occupying the same slot.
+ * file's collapsible sections ([toolCallsSection]/[thinkingSection]); token groups render as
+ * markdown; status groups show as a small muted subtitle. Each group's expand/collapse state
+ * is keyed by [stableKey] (content-based, not list position) since `grouped()` can drop earlier
+ * groups as new entries stream in, shifting later groups' *indices* even when their *content*
+ * is unchanged — an index-based key would misattach state to the wrong group.
  *
- * Used both for the live streaming turn (agentic runs) and for finalized/historical AI
- * messages (via [messageBubble]'s `customBody`), so order is preserved identically in both.
+ * Used for both the live streaming turn and finalized/historical AI messages (via
+ * [messageBubble]'s `customBody`), so ordering stays consistent in both.
  */
 @Composable
 internal fun turnTimelineView(
@@ -1372,14 +1354,11 @@ internal fun turnTimelineView(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
     ) {
-        // Tracks how many times each stableKey() value has already been seen while iterating
-        // groups below, so repeated *identical* content (e.g. two StatusGroups with the same
-        // text, or a model repeating a phrase across separate ThinkingGroups) gets a distinct
-        // "#<occurrence>" suffix — see [renderKey] doc.
+        // Tracks occurrences of each stableKey() seen so far, so repeated identical content
+        // (e.g. duplicate status text) gets a distinct "#<occurrence>" suffix — see [renderKey].
         val occurrenceByStableKey = mutableMapOf<String, Int>()
         groups.forEachIndexed { index, group ->
-            // Only the *last* group can still be actively receiving new streamed deltas (see
-            // grouped()) — every earlier group's content is already frozen. See [renderKey].
+            // Only the last group can still be receiving new streamed deltas — see [renderKey].
             val isStreamingTail = isStreaming && index == groups.lastIndex
             val stableKey = group.stableKey()
             val occurrence = occurrenceByStableKey.getOrDefault(stableKey, 0)
@@ -1387,24 +1366,26 @@ internal fun turnTimelineView(
             key(group.renderKey(isStreamingTail, occurrence)) {
                 when (group) {
                     is TurnTimelineGroup.StatusGroup -> {
-                        Text(
-                            text = group.entries.last().text,
-                            style = AppTextStyles.caption,
-                            color = AppColors.secondaryIconColor(),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                        if (isStreamingTail) {
+                            // Still live — show a ticking elapsed suffix so identical ambient
+                            // updates still read as "in progress" rather than stuck.
+                            tickingStatusText(text = group.entries.last().text, tickerKey = stableKey)
+                        } else {
+                            Text(
+                                text = group.entries.last().text,
+                                style = AppTextStyles.caption,
+                                color = AppColors.secondaryIconColor(),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
                     }
 
                     is TurnTimelineGroup.ToolGroup -> {
                         var expanded by remember { mutableStateOf(true) }
-                        // Auto-collapse once this group is no longer the actively-streaming
-                        // step. Without this, every ToolGroup stayed expanded forever, so a
-                        // long agentic run — whose tool calls are usually interleaved with
-                        // Thinking chunks and therefore split into many small, separate
-                        // ToolGroups rather than one big one — rendered as dozens of
-                        // fully-expanded sections stacked down the transcript. Still
+                        // Auto-collapse once no longer the actively-streaming step, so a long
+                        // agentic run doesn't leave dozens of expanded sections. Still
                         // user-toggleable afterwards.
                         LaunchedEffect(isStreamingTail) {
                             if (!isStreamingTail) expanded = false
@@ -1417,14 +1398,18 @@ internal fun turnTimelineView(
                     }
 
                     is TurnTimelineGroup.ThinkingGroup -> {
-                        var expanded by remember { mutableStateOf(true) }
-                        thinkingSection(
-                            thinkingContent = group.text,
-                            isStreaming = false,
-                            isExpanded = expanded,
-                            onToggle = { expanded = !expanded },
-                            onLinkClick = onLinkClick,
-                        )
+                        // A blank thinking group carries nothing worth showing.
+                        if (group.text.isNotBlank()) {
+                            var expanded by remember { mutableStateOf(true) }
+                            thinkingSection(
+                                thinkingContent = group.text,
+                                // "Thinking..." while streaming tail, "Thought" once superseded.
+                                isStreaming = isStreamingTail,
+                                isExpanded = expanded,
+                                onToggle = { expanded = !expanded },
+                                onLinkClick = onLinkClick,
+                            )
+                        }
                     }
 
                     is TurnTimelineGroup.TokenGroup -> {
@@ -1439,12 +1424,9 @@ internal fun turnTimelineView(
             }
         }
 
-        // After the AI's last tool call finishes, there's a gap where the model is
-        // processing the tool result before it emits the next thinking/text chunk — with
-        // no other signal during that gap, the user has no feedback that the AI is still
-        // working (it looks like it's halted). Show a ticking "Processing..." row for
-        // exactly that window; it disappears the instant a new thinking/token group is
-        // appended to the timeline (grouped() will no longer report the ToolGroup as last).
+        // After the last tool call finishes, there's a gap while the model processes the
+        // result before emitting the next chunk. Show a ticking "Processing..." row for that
+        // window; it disappears once a new thinking/token group is appended.
         val lastGroup = groups.lastOrNull()
         if (isStreaming &&
             lastGroup is TurnTimelineGroup.ToolGroup &&
@@ -1458,12 +1440,10 @@ internal fun turnTimelineView(
 }
 
 /**
- * Ticking "AI is processing..." row shown right after the last tool call in a turn
- * finishes, while the model works on the tool result before emitting its next
- * thinking/token chunk (see [turnTimelineView]). Self-contained ticker, same pattern as
- * [toolCallsSection]'s elapsed timer — the elapsed count starts from the moment this
- * composable first appears (i.e. right when the tool flipped to DONE), and the whole row
- * disappears as soon as the caller ([turnTimelineView]) stops rendering it.
+ * Ticking "AI is processing..." row shown after the last tool call in a turn finishes, while
+ * the model works on the result before its next chunk (see [turnTimelineView]). Elapsed count
+ * starts when this composable first appears; the row disappears once the caller stops
+ * rendering it.
  */
 @Composable
 private fun aiProcessingIndicator() {
@@ -1493,23 +1473,46 @@ private fun aiProcessingIndicator() {
 }
 
 /**
+ * Renders a [TurnTimelineGroup.StatusGroup]'s text with a live "(Ns)" elapsed suffix while it's
+ * still the actively-streaming group — a generic stand-in for any agent's ambient "still
+ * working" status, not tied to a specific agent's text or event shape.
+ *
+ * Restarts when [tickerKey] changes (the status text changed) and freezes once
+ * [turnTimelineView] stops treating this group as the streaming tail.
+ */
+@Composable
+private fun tickingStatusText(text: String, tickerKey: String) {
+    val startedAtMillis = remember(tickerKey) { System.currentTimeMillis() }
+    var nowMillis by remember(tickerKey) { mutableStateOf(startedAtMillis) }
+    LaunchedEffect(tickerKey) {
+        while (true) {
+            delay(1.seconds)
+            nowMillis = System.currentTimeMillis()
+        }
+    }
+    val elapsedSeconds = ((nowMillis - startedAtMillis) / 1000).coerceAtLeast(0)
+
+    Text(
+        text = stringResource("message.status.elapsed", text, elapsedSeconds),
+        style = AppTextStyles.caption,
+        color = AppColors.secondaryIconColor(),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/**
  * A content-derived identity for a [TurnTimelineGroup]:
  *
- * - [TurnTimelineGroup.StatusGroup] — `"status:"` + each entry's text, joined with `|`.
- * - [TurnTimelineGroup.ToolGroup] — `"tool:"` + each entry's [ToolCallInfo.toolName], joined
- *   with `|` (arguments/result/status are intentionally excluded, since those mutate in place
- *   as a call goes from running to done).
- * - [TurnTimelineGroup.ThinkingGroup] — `"thinking:"` + a compact digest of the group's
- *   accumulated text (see [textDigest]), avoiding a full copy of potentially large text on
- *   every recomposition.
- * - [TurnTimelineGroup.TokenGroup] — `"token:"` + a compact digest of the group's accumulated
- *   text (see [textDigest]).
+ * - [TurnTimelineGroup.StatusGroup] — `"status:"` + entry texts joined with `|`.
+ * - [TurnTimelineGroup.ToolGroup] — `"tool:"` + entry tool names joined with `|` (arguments/
+ *   result/status excluded since those mutate as a call goes from running to done).
+ * - [TurnTimelineGroup.ThinkingGroup] / [TurnTimelineGroup.TokenGroup] — `"thinking:"`/`"token:"`
+ *   + a compact digest of the accumulated text (see [textDigest]).
  *
- * Used as the base for the [key] in [turnTimelineView] via [renderKey], which additionally
- * substitutes a fixed marker for the currently-streaming group and appends an occurrence suffix
- * to break ties between groups that resolve to an identical [stableKey] — this occurrence
- * suffix also acts as the collision-handling strategy for the (extremely unlikely) case where
- * two distinct texts share the same digest.
+ * Used as the base for [key] in [turnTimelineView] via [renderKey], which substitutes a fixed
+ * marker for the streaming group and appends an occurrence suffix to break ties.
  */
 internal fun TurnTimelineGroup.stableKey(): String = when (this) {
     is TurnTimelineGroup.StatusGroup -> "status:" + entries.joinToString("|") { it.text }
@@ -1520,29 +1523,21 @@ internal fun TurnTimelineGroup.stableKey(): String = when (this) {
 
 /**
  * Compact, non-copying identity for a (potentially large) accumulated text, used by
- * [stableKey] instead of the full text to avoid large allocations on every recomposition:
- * the text's length combined with its [String.hashCode], formatted as `"<length>:<hashCode>"`.
+ * [stableKey] instead of the full text: length + [String.hashCode], as `"<length>:<hashCode>"`.
  */
 private fun String.textDigest(): String = "$length:${hashCode()}"
 
 /**
  * Computes the [key] to use for a group in [turnTimelineView].
  *
- * - If [isStreamingTail] is true, the group is keyed by a fixed, content-independent marker
- *   (`"live:thinking"`/`"live:token"`/`"live:status"`/`"live:tool"`) instead of [stableKey].
- *   This is essential for [TurnTimelineGroup.ToolGroup] in particular: its [stableKey] embeds
- *   the full, growing list of tool names in the group, so while it's still actively receiving
- *   new tool calls (no other event type has interrupted it yet), using [stableKey] directly
- *   would change the key on every single new call — forcing Compose to fully discard and
- *   remount the composable (and its `expanded`/scroll/detail state) each time, instead of
- *   updating it in place. At most one group is ever the streaming tail, so this fixed marker
- *   never collides with another group's key.
+ * - If [isStreamingTail], uses a fixed content-independent marker (`"live:thinking"`/
+ *   `"live:token"`/`"live:status"`/`"live:tool"`) instead of [stableKey]. This matters most for
+ *   [TurnTimelineGroup.ToolGroup]: its [stableKey] grows with each new tool call, so using it
+ *   directly while streaming would remount the composable (losing expand/scroll state) on every
+ *   new call. Only one group is ever the streaming tail, so this marker never collides.
  * - Otherwise, the base key is [stableKey].
- * - [occurrence] — the number of prior groups in the same pass that already resolved to the
- *   same base key — is appended as a `"#<occurrence>"` suffix whenever non-zero, guaranteeing
- *   the returned key is unique among siblings even when multiple groups share identical
- *   content. Omitted when [occurrence] is `0`, so the common non-duplicate case keeps the
- *   plain base key unchanged.
+ * - [occurrence] (count of prior groups with the same base key) is appended as `"#<occurrence>"`
+ *   when non-zero, so duplicate content still gets unique keys.
  */
 internal fun TurnTimelineGroup.renderKey(isStreamingTail: Boolean, occurrence: Int): String {
     val base = if (isStreamingTail) {
@@ -1559,15 +1554,12 @@ internal fun TurnTimelineGroup.renderKey(isStreamingTail: Boolean, occurrence: I
 }
 
 /**
- * Collapsible section that displays AI tool calls above the response text.
- * Shows "▶ Running tool… (Ns)" — with a live-ticking elapsed timer — when any tool is active,
- * "▶ Used N tool(s)" when all are done. Expands automatically when a tool starts running;
- * collapses manually by the user.
+ * Collapsible section displaying AI tool calls above the response text.
+ * Shows "▶ Running tool… (Ns)" with a live elapsed timer while any tool is active, "▶ Used N
+ * tool(s)" once all are done. Auto-expands when a tool starts running; collapses manually.
  *
- * The elapsed timer exists because a tool call (e.g. a long shell command) can run silently
- * for a while with no other events — without it the user has no feedback that the AI is still
- * working, unlike the pre-first-token "Thinking... Ns" indicator (which stops as soon as any
- * event, including a tool call starting, arrives — see ChatViewModel.subscribeToThread).
+ * The elapsed timer gives feedback during long-running tool calls (e.g. shell commands) where
+ * no other events would otherwise indicate the AI is still working.
  */
 @Composable
 internal fun toolCallsSection(
@@ -1577,9 +1569,8 @@ internal fun toolCallsSection(
 ) {
     val hasRunning = toolCalls.any { it.status == ToolCallStatus.RUNNING }
 
-    // Live elapsed-seconds ticker, driven by the earliest still-running call's start time —
-    // only ticks while a tool is actually running, so it's a no-op (and stops recomposing)
-    // once every call in this group has completed.
+    // Live elapsed-seconds ticker driven by the earliest still-running call's start time —
+    // stops once every call in this group has completed.
     var nowMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(hasRunning) {
         while (hasRunning) {
@@ -1627,9 +1618,8 @@ internal fun toolCallsSection(
             )
         }
 
-        // Expanded: one row per tool call. Capped to a scrollable viewport (rather than an
-        // unbounded Column) so a turn with dozens/hundreds of calls doesn't blow out the
-        // whole message bubble — same capped-scroll pattern as thinkingSection's body.
+        // Expanded: one row per tool call, capped to a scrollable viewport so a turn with
+        // many calls doesn't blow out the whole message bubble.
         if (isExpanded) {
             val listScroll = rememberScrollState()
             var viewportHeightPx by remember { mutableStateOf(0) }
@@ -1670,11 +1660,8 @@ internal fun toolCallsSection(
 
 /**
  * Heuristic for detecting a Claude Code native Skill invocation. Claude registers a distinct
- * tool per discovered skill, named after the skill's materialized folder (see
- * [io.askimo.core.agent.domain.SkillDefinition.slug]), itself namespaced with a `skill(s)-`
- * prefix by Claude Code's own Skill-tool machinery — e.g. `skills-skills-pptx` for a skill
- * materialized at `.claude/skills/skills-pptx/`. There is no generic `"Skill"` wrapper tool
- * with the skill name as an argument; the tool name itself already **is** the skill identifier.
+ * tool per discovered skill, named after its materialized folder, namespaced with a
+ * `skill(s)-` prefix — e.g. `skills-skills-pptx`. The tool name itself is the skill identifier.
  */
 private fun String.isSkillToolCall(): Boolean = startsWith("skill", ignoreCase = true)
 
@@ -1682,20 +1669,16 @@ private fun String.isSkillToolCall(): Boolean = startsWith("skill", ignoreCase =
  * Single row showing a tool name, its running/done/failed status icon, and an optional
  * expandable section with the raw arguments and result.
  *
- * Uses a blockquote-style left accent bar whose colour reflects the call's status:
- *   • running  → onSurfaceVariant (neutral)
- *   • done     → primary (success)
- *   • failed   → error (destructive)
+ * Uses a blockquote-style left accent bar coloured by status: running → neutral,
+ * done → primary, failed → error.
  */
 @Composable
 private fun toolCallRow(toolCall: ToolCallInfo) {
     val isDone = toolCall.status == ToolCallStatus.DONE
     val hasFailed = toolCall.hasFailed
     val isSkillCall = toolCall.toolName.isSkillToolCall()
-    // For a Skill invocation, the skill id (e.g. "skills-skills-pptx") already flows through as
-    // `arguments` (see ClaudeAgent's tool_use handling) and is shown inline in the header below —
-    // repeating it again in an expandable "Arguments:" section would be redundant, so it's
-    // excluded from `hasDetails` here (a `result`, if any, is still shown/expandable).
+    // For a Skill invocation, the skill id already shows inline in the header below, so it's
+    // excluded from `hasDetails` to avoid repeating it in an "Arguments:" section.
     val hasDetails = (!toolCall.arguments.isNullOrBlank() && !isSkillCall) || !toolCall.result.isNullOrBlank()
 
     var detailsExpanded by remember { mutableStateOf(false) }

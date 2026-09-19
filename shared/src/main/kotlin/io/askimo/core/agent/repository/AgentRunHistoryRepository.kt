@@ -7,6 +7,7 @@ package io.askimo.core.agent.repository
 import io.askimo.core.agent.domain.AgentRunHistoryTable
 import io.askimo.core.agent.domain.AgentRunRecord
 import io.askimo.core.chat.dto.TurnTimelineEntry
+import io.askimo.core.chat.dto.truncatedForStorage
 import io.askimo.core.db.AbstractSQLiteRepository
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.logging.logger
@@ -52,7 +53,11 @@ class AgentRunHistoryRepository internal constructor(
                 it[agentId] = record.agentId
                 it[agentSessionId] = record.agentSessionId
                 it[activityLog] = encodeLog(record.activityLog)
-                it[contentJson] = if (record.contentBlocks.isEmpty()) null else json.encodeToString(record.contentBlocks)
+                it[contentJson] = if (record.contentBlocks.isEmpty()) {
+                    null
+                } else {
+                    json.encodeToString(record.contentBlocks.truncatedForStorage())
+                }
                 it[inputTokens] = record.inputTokens
                 it[outputTokens] = record.outputTokens
                 it[totalTokens] = record.totalTokens

@@ -39,7 +39,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -548,10 +547,7 @@ fun chatView(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = Spacing.large, vertical = Spacing.small),
-                        colors = CardDefaults.cardColors(
-                            containerColor = AppColors.sidebarSurfaceColor(),
-                            contentColor = MaterialTheme.colorScheme.onSurface,
-                        ),
+                        colors = AppColors.sidebarCardColors(),
                     ) {
                         Row(
                             modifier = Modifier
@@ -599,6 +595,7 @@ fun chatView(
                                                 Text(
                                                     text = project.name.take(3).uppercase(),
                                                     style = AppTextStyles.fieldLabel,
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
                                                     fontWeight = FontWeight.Bold,
                                                 )
                                             }
@@ -1224,7 +1221,7 @@ fun chatView(
                                 Text(
                                     text = stringResource("chat.tool.approval.prompt", pendingToolApproval.toolName),
                                     style = AppTextStyles.caption,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.weight(1f),
                                 )
                                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {

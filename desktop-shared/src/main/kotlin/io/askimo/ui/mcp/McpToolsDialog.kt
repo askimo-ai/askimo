@@ -24,7 +24,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -192,6 +191,8 @@ fun mcpToolsDialog(
             modifier = Modifier.fillMaxWidth(),
             colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
         ) {
+            val accentContentColor = AppColors.contentColorFor(AppColors.Elevation.ACCENT)
+            val accentSecondaryContentColor = AppColors.secondaryContentColorFor(AppColors.Elevation.ACCENT)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -201,10 +202,10 @@ fun mcpToolsDialog(
                 Text(
                     text = stringResource("mcp.tools.dialog.instance.info"),
                     style = AppTextStyles.itemTitle,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    color = accentContentColor,
                 )
                 HorizontalDivider(
-                    color = AppColors.tertiaryIconColor(),
+                    color = accentContentColor.copy(alpha = 0.3f),
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -213,13 +214,13 @@ fun mcpToolsDialog(
                     Text(
                         text = stringResource("mcp.instance.field.serverId"),
                         style = AppTextStyles.caption,
-                        color = AppColors.secondaryIconColor(),
+                        color = accentSecondaryContentColor,
                     )
                     SelectionContainer {
                         Text(
                             text = instance.serverId,
                             style = AppTextStyles.caption,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            color = accentContentColor,
                         )
                     }
                 }
@@ -227,7 +228,7 @@ fun mcpToolsDialog(
                     Text(
                         text = stringResource("mcp.tools.dialog.parameters"),
                         style = AppTextStyles.caption,
-                        color = AppColors.secondaryIconColor(),
+                        color = accentSecondaryContentColor,
                         modifier = Modifier.padding(top = Spacing.extraSmall),
                     )
                     instance.parameterValues.forEach { (key, value) ->
@@ -244,7 +245,7 @@ fun mcpToolsDialog(
                                 Text(
                                     text = key,
                                     style = AppTextStyles.caption,
-                                    color = AppColors.tertiaryIconColor(),
+                                    color = accentSecondaryContentColor,
                                 )
                             }
                             Row(
@@ -257,7 +258,7 @@ fun mcpToolsDialog(
                                         Text(
                                             text = value,
                                             style = AppTextStyles.caption,
-                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                            color = accentContentColor,
                                             modifier = Modifier.padding(start = Spacing.small),
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
@@ -267,7 +268,7 @@ fun mcpToolsDialog(
                                     Text(
                                         text = if (isSecret) "••••••••" else value,
                                         style = AppTextStyles.caption,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        color = accentContentColor,
                                         modifier = Modifier
                                             .weight(1f, fill = false)
                                             .padding(start = Spacing.small),
@@ -288,7 +289,7 @@ fun mcpToolsDialog(
                                                 if (showSecret) "mcp.instance.password.hide" else "mcp.instance.password.show",
                                             ),
                                             modifier = Modifier.size(14.dp),
-                                            tint = AppColors.tertiaryIconColor(),
+                                            tint = accentSecondaryContentColor,
                                         )
                                     }
                                 }
@@ -346,10 +347,10 @@ fun mcpToolsDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .alpha(if (tool.enabled) 1f else 0.5f),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            ),
+                            colors = AppColors.cardColors(AppColors.Elevation.RAISED),
                         ) {
+                            val raisedSecondaryContentColor =
+                                AppColors.secondaryContentColorFor(AppColors.Elevation.RAISED)
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -374,7 +375,7 @@ fun mcpToolsDialog(
                                         Text(
                                             text = stringResource("mcp.tool.enabled.label"),
                                             style = AppTextStyles.caption,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = raisedSecondaryContentColor,
                                         )
                                         Switch(
                                             checked = tool.enabled,
@@ -503,7 +504,7 @@ private fun toolApprovalPolicyControl(
         Text(
             text = stringResource("mcp.tool.approval.label"),
             style = AppTextStyles.caption,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppColors.secondaryContentColorFor(AppColors.Elevation.RAISED),
         )
         ToolApprovalPolicy.entries.forEach { policy ->
             approvalPolicyButton(

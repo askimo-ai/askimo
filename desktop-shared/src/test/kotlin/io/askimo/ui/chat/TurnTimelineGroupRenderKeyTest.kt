@@ -8,6 +8,8 @@ import io.askimo.core.chat.dto.ToolCallInfo
 import io.askimo.core.chat.dto.ToolCallStatus
 import io.askimo.core.chat.dto.TurnTimelineEntry
 import io.askimo.core.chat.dto.TurnTimelineGroup
+import io.askimo.core.chat.dto.appendDeduped
+import io.askimo.core.chat.dto.grouped
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -73,5 +75,20 @@ class TurnTimelineGroupRenderKeyTest {
 
         assertEquals(group.stableKey(), base)
         assertEquals("${group.stableKey()}#1", second)
+    }
+
+    @Test
+    fun `StatusGroup stableKey stays stable across a deduplicated burst of identical status updates`() {
+        // Regression check for the "empty Claude thinking" burst: without appendDeduped, each
+        // repeat of the exact same ambient status would grow the StatusGroup's entry list,
+        // changing its stableKey() on every repeat (since stableKey joins every entry's text)
+        // even though nothing user-visible actually changed. appendDeduped must keep this a
+        // single entry so the frozen (non-streaming-tail) key never moves.
+        var timeline = emptyList<TurnTimelineEntry>()
+        repeat(5) { timeline = timeline.appendDeduped(TurnTimelineEntry.Status("thinking…")) }
+
+        val group = timeline.grouped().single() as TurnTimelineGroup.StatusGroup
+        assertEquals(1, group.entries.size)
+        assertEquals("status:thinking…", group.stableKey())
     }
 }

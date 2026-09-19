@@ -5,7 +5,6 @@
 package io.askimo.ui.shell
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -44,44 +44,46 @@ fun splashScreen(isConnecting: Boolean = false) {
         ).toComposeImageBitmap()
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
+        contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
-        Column(
-            modifier = Modifier.align(Alignment.Center),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(Spacing.large),
-        ) {
-            Image(
-                painter = BitmapPainter(bitmap),
-                contentDescription = "Askimo logo",
-                modifier = Modifier.size(80.dp),
-            )
-            Text(
-                text = VersionInfo.name,
-                style = AppTextStyles.pageTitle,
-            )
-            Text(
-                text = "v${VersionInfo.version}",
-                style = AppTextStyles.caption,
-            )
-        }
-
-        if (isConnecting) {
+        Box(modifier = Modifier.fillMaxSize()) {
             Column(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(Spacing.extraLarge),
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(Spacing.small),
+                modifier = Modifier.align(Alignment.Center),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(Spacing.large),
             ) {
-                AppComponents.loadingSpinner(size = 16.dp)
+                Image(
+                    painter = BitmapPainter(bitmap),
+                    contentDescription = "Askimo logo",
+                    modifier = Modifier.size(80.dp),
+                )
                 Text(
-                    text = "Connecting…",
+                    text = VersionInfo.name,
+                    style = AppTextStyles.pageTitle,
+                )
+                Text(
+                    text = "v${VersionInfo.version}",
                     style = AppTextStyles.caption,
                 )
+            }
+
+            if (isConnecting) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(Spacing.extraLarge),
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(Spacing.small),
+                ) {
+                    AppComponents.loadingSpinner(size = 16.dp)
+                    Text(
+                        text = "Connecting…",
+                        style = AppTextStyles.caption,
+                    )
+                }
             }
         }
     }

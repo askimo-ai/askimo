@@ -67,8 +67,8 @@ class ClaudeAgent : ExternalAgentTemplate() {
 
     /**
      * Materializes [skill] into `<workDir>/.claude/skills/<folder-name>/` so Claude Code's
-     * own native "Skills" mechanism (its `Skill` tool) can also discover and invoke it —
-     * on top of the ambient `--append-system-prompt` injection already done in [run].
+     * native "Skills" mechanism can also discover and invoke it — on top of the ambient
+     * `--append-system-prompt` injection already done in [run].
      */
     override fun materializeSkill(skill: SkillDefinition, workDir: File): AutoCloseable = materializeSkillFolder(skill, workDir.toPath().resolve(".claude").resolve("skills"))
 
@@ -90,8 +90,8 @@ class ClaudeAgent : ExternalAgentTemplate() {
             add("--append-system-prompt")
             add(systemPrompt.trim())
         }
-        // Claude Code keeps its own conversation transcript/context per session id;
-        // `--resume` continues it instead of Askimo replaying prior turns itself.
+        // Claude Code keeps its own conversation transcript per session id; `--resume`
+        // continues it instead of Askimo replaying prior turns itself.
         if (!resumeSessionId.isNullOrBlank()) {
             add("--resume")
             add(resumeSessionId)
@@ -124,17 +124,17 @@ class ClaudeAgent : ExternalAgentTemplate() {
             "system" -> {
                 val subtype = event.fields["subtype"] as? String
                 if (subtype == "init") {
-                    // Claude Code's own session id — capture it so a follow-up turn can
-                    // pass it back via `--resume` and continue this same conversation
-                    // (Claude manages the transcript/context internally, not Askimo).
+                    // Claude's own session id — capture it so a follow-up turn can pass it
+                    // back via `--resume` and continue this conversation (Claude manages
+                    // the transcript internally, not Askimo).
                     val sessionId = event.fields["session_id"] as? String
                     if (!sessionId.isNullOrBlank()) updateExecutionMetadata(sessionId = sessionId)
 
                     val model = event.fields["model"] as? String
 
                     if (AppConfig.developer.enabled && AppConfig.developer.active) {
-                        // Dev mode: surface everything useful for debugging how the CLI is
-                        // actually running — model, permission mode, tool/MCP counts, cwd.
+                        // Dev mode: surface model, permission mode, tool/MCP counts, cwd —
+                        // useful for debugging how the CLI is actually running.
                         val toolCount = (event.fields["tools"] as? String)
                             ?.let { ClaudeStreamJsonEventParser.parseArray(it).size }
                         val mcpCount = (event.fields["mcp_servers"] as? String)
@@ -173,24 +173,12 @@ class ClaudeAgent : ExternalAgentTemplate() {
 
                             @Suppress("UNCHECKED_CAST")
                             val input = fields["input"] as? Map<String, Any>
-                            val detail = input
-                                ?.let { it["file_path"] ?: it["command"] ?: it.values.firstOrNull() }
-                                ?.toString()
-                                ?.let {
-                                    if (it.length > ExternalAgent.TOOL_DETAIL_MAX_LENGTH) {
-                                        it.take(ExternalAgent.TOOL_DETAIL_MAX_LENGTH) + "…"
-                                    } else {
-                                        it
-                                    }
-                                }
-                            onToolCall(toolName, detail)
+                            onToolCall(toolName, buildToolCallDetail(input))
                         }
 
                         "thinking" -> {
-                            val thinking = fields["thinking"] as? String ?: continue
-                            if (thinking.isBlank()) {
-                                continue
-                            }
+                            val thinking = fields["thinking"] as? String
+                            if (thinking.isNullOrBlank()) continue
                             log.debug("claude thinking: {}", thinking.take(200))
                             onThinking(thinking)
                         }
@@ -244,6 +232,28 @@ class ClaudeAgent : ExternalAgentTemplate() {
                     // Pure lifecycle marker — nothing worth surfacing to the user as a status row.
                 }
             }
+        }
+    }
+
+    /**
+     * Builds the display detail for a `tool_use` event's `input`. Prefers a `file_path`/
+     * `command` "target" plus, when present, the tool's actual generated content (`content`
+     * for `Write`, `new_string` for `Edit`) — without this, a `Write`/`Edit` call's real
+     * content would never surface, since `file_path` always won the old fallback chain
+     * before `content` was even looked at.
+     *
+     * Deliberately returns the **full, untruncated** detail: the live timeline shows the
+     * entire content; only the persisted copy gets capped, right before being written to
+     * `content_json` (see [io.askimo.core.chat.dto.truncatedForStorage]).
+     */
+    private fun buildToolCallDetail(input: Map<String, Any>?): String? {
+        if (input == null) return null
+        val target = input["file_path"] ?: input["command"]
+        val content = ((input["content"] ?: input["new_string"]) as? String)?.takeIf { it.isNotBlank() }
+        return when {
+            target != null && content != null -> "$target: $content"
+            target != null -> target.toString()
+            else -> input.values.firstOrNull()?.toString()
         }
     }
 }

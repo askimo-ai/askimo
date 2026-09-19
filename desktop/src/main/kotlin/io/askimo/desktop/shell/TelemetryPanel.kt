@@ -23,7 +23,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -386,9 +385,7 @@ private fun telemetryMetricCard(
 ) {
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(
-            containerColor = AppColors.surfaceColor(AppColors.Elevation.SELECTED),
-        ),
+        colors = AppColors.cardColors(AppColors.Elevation.SELECTED),
     ) {
         Column(
             modifier = Modifier.padding(Spacing.small),

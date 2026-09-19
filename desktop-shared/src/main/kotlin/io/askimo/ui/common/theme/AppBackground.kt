@@ -8,6 +8,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
@@ -29,25 +31,22 @@ val LocalBackgroundActive = compositionLocalOf { false }
 /**
  * Wraps [content] with an optional full-app background image.
  *
- * When [backgroundImage] is [BackgroundImage.None] this composable is a transparent
- * pass-through — no extra layers are drawn.
+ * Also establishes the app-wide default [LocalContentColor] (`onSurface`), since this
+ * composable wraps the entire app with a plain `Box` rather than a `Surface` — without it
+ * [AppTextStyles] tokens would fall back to plain black.
  *
- * When an image is selected two layers sit between the photo and the app content:
- * 1. The image fills the entire available space with [ContentScale.Crop].
- * 2. A theme-aware semi-transparent overlay is drawn on top:
- *    - **Dark themes** ([useDarkMode] = `true`): a dark/black overlay at
- *      [DARK_OVERLAY_ALPHA] — white text (the default on dark schemes) pops
- *      clearly against the dimmed photo.
- *    - **Light themes** ([useDarkMode] = `false`): a light/white overlay at
- *      [LIGHT_OVERLAY_ALPHA] — dark text (the default on light schemes) remains
- *      crisp without the image looking washed out.
+ * When [backgroundImage] is [BackgroundImage.None], this is a transparent pass-through.
+ * Otherwise, two layers sit between the photo and the app content:
+ * 1. The image fills the space with [ContentScale.Crop].
+ * 2. A theme-aware semi-transparent overlay keeps text readable: dark overlay
+ *    ([DARK_OVERLAY_ALPHA]) for dark themes so white text pops, light overlay
+ *    ([LIGHT_OVERLAY_ALPHA]) for light themes so dark text stays crisp.
  *
  * Background images are intentionally independent of the active [ThemeMode].
  *
- * @param useDarkMode Pass `true` for dark/night colour schemes (DARK, NORD, INDIGO,
- *   SYSTEM-in-dark) and `false` for all light colour schemes. This drives which
- *   overlay colour is chosen so text always contrasts well with the photo.
+ * @param useDarkMode Whether the active colour scheme is dark, so the right overlay is chosen.
  */
+
 @Composable
 fun appBackground(
     backgroundImage: BackgroundImage,
@@ -55,8 +54,12 @@ fun appBackground(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
+    val onSurface = MaterialTheme.colorScheme.onSurface
+
     if (backgroundImage is BackgroundImage.None) {
-        Box(modifier = modifier) { content() }
+        Box(modifier = modifier) {
+            CompositionLocalProvider(LocalContentColor provides onSurface, content = content)
+        }
         return
     }
 
@@ -64,8 +67,8 @@ fun appBackground(
         try {
             val bytes: ByteArray? = when (backgroundImage) {
                 is BackgroundImage.Preset -> {
-                    // Bundled classpath resource — try context classloader first, then
-                    // fallback via anonymous object (for modules that depend on this one).
+                    // Bundled classpath resource — try context classloader, then fall back
+                    // to an anonymous object (for modules depending on this one).
                     Thread.currentThread().contextClassLoader
                         ?.getResourceAsStream(backgroundImage.resourcePath)
                         ?.readBytes()
@@ -89,9 +92,8 @@ fun appBackground(
         }
     }
 
-    // Choose overlay colour and alpha based on whether the active theme is dark or light.
-    // Dark theme  → dark overlay so white text stands out against the bright photo areas.
-    // Light theme → light overlay so dark text stands out without the image overpowering the UI.
+    // Overlay colour/alpha depends on theme: dark → dark overlay so white text stands out;
+    // light → light overlay so dark text stands out without overpowering the photo.
     val overlayColor = if (useDarkMode) {
         Color.Black.copy(alpha = DARK_OVERLAY_ALPHA)
     } else {
@@ -116,22 +118,21 @@ fun appBackground(
         }
 
         // Layer 3: actual app content — tell children a background image is active
-        CompositionLocalProvider(LocalBackgroundActive provides (painter != null)) {
-            content()
-        }
+        CompositionLocalProvider(
+            LocalBackgroundActive provides (painter != null),
+            LocalContentColor provides onSurface,
+            content = content,
+        )
     }
 }
 
 /**
- * Overlay alpha for **dark** themes.
- * A moderately dark veil dims bright photo areas so white text (used in dark
- * colour schemes) always has sufficient contrast.
+ * Overlay alpha for **dark** themes — dims bright photo areas so white text stays readable.
  */
 private const val DARK_OVERLAY_ALPHA = 0.60f
 
 /**
- * Overlay alpha for **light** themes.
- * A lighter wash keeps the image visible while giving dark text (used in light
- * colour schemes) a clean, bright surface to sit against.
+ * Overlay alpha for **light** themes — keeps the image visible while giving dark text a
+ * clean surface to sit against.
  */
 private const val LIGHT_OVERLAY_ALPHA = 0.65f

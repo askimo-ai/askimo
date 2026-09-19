@@ -35,7 +35,6 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -165,6 +164,7 @@ fun agentsView(
 
 @Composable
 internal fun agentsPageHeader(
+    skills: List<SkillDefinition>,
     onNavigateToSkillsSettings: () -> Unit,
     showPanelToggle: Boolean = false,
     panelVisible: Boolean = false,
@@ -280,6 +280,12 @@ internal fun agentsPageHeader(
             }
         }
     }
+
+    Spacer(modifier = Modifier.height(Spacing.small))
+    skillsContextPill(
+        skills = skills,
+        onNavigateToSkillsSettings = onNavigateToSkillsSettings,
+    )
 }
 
 // ── Agentic main content ───────────────────────────────────────────────────
@@ -312,6 +318,7 @@ private fun agenticContent(
                 .padding(start = Spacing.extraLarge, end = Spacing.scrollbarGutter, top = Spacing.extraLarge, bottom = Spacing.small),
         ) {
             agentsPageHeader(
+                skills = skills,
                 onNavigateToSkillsSettings = onNavigateToSkillsSettings,
                 showPanelToggle = showPanelToggle,
                 panelVisible = panelVisible,
@@ -320,6 +327,14 @@ private fun agenticContent(
                 onNewChat = { newConversationRequestKey++ },
             )
         }
+        HorizontalDivider(
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .widthIn(max = ThemePreferences.CONTENT_MAX_WIDTH)
+                .fillMaxWidth()
+                .padding(start = Spacing.extraLarge, end = Spacing.scrollbarGutter, top = Spacing.small, bottom = Spacing.medium),
+            color = AppColors.codeBlockBorderColor(),
+        )
 
         // ── Agentic execution area — owns its own transcript scroll and a chat
         //    input pinned to the bottom, mirroring chatView's message-list + input layout ──
@@ -328,7 +343,6 @@ private fun agenticContent(
                 skills = skills,
                 workspace = workspace,
                 onRunCompleted = onRunCompleted,
-                onNavigateToSkillsSettings = onNavigateToSkillsSettings,
                 preloadRecord = preloadRecord,
                 onPreloadConsumed = onPreloadConsumed,
                 onConversationStateChanged = { hasActiveConversation = it },
@@ -368,10 +382,7 @@ private fun agenticWorkspacePanel(
     Card(
         modifier = Modifier.width(animatedWidth).fillMaxHeight(),
         shape = RectangleShape,
-        colors = CardDefaults.cardColors(
-            containerColor = AppColors.sidebarSurfaceColor(),
-            contentColor = MaterialTheme.colorScheme.onSurface,
-        ),
+        colors = AppColors.sidebarCardColors(),
     ) {
         Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(0.dp)) {
             // ── Left drag handle (only when expanded) ─────────────────────
