@@ -19,17 +19,17 @@ import kotlinx.coroutines.cancel
 /**
  * Global service managing [AgentRunViewModel] instances across the entire application.
  *
- * ViewModels are cached by workspace ID and survive navigation away from the agent view.
- * This allows in-flight agent runs to complete even when the user navigates to Settings,
- * Projects, or Chat.
+ * ViewModels survive navigation (e.g., to Settings, Projects, Chat) so in-flight agent runs
+ * can complete in the background. One instance per application lifetime.
  *
- * One instance per application lifetime; no lifecycle tied to any composable.
- *
- * Run completion is published via [EventBus] (see [AgentRunCompletedEvent]) to avoid
- * stale callback issues when ViewModels persist across navigation while observers change.
+ * Run completion is published via [EventBus] to prevent stale callback issues when ViewModels
+ * persist while observers change. Cache is bounded to [MAX_CACHED_VIEWMODELS]; inactive ViewModels
+ * are cleaned up on capacity, preventing unbounded memory growth.
  */
 object AgentRunManager {
     private val log = logger<AgentRunManager>()
+
+    private const val MAX_CACHED_VIEWMODELS = 10
 
     // Cache of AgentRunViewModel instances by workspace ID
     private val agentRunViewModels = mutableMapOf<String, AgentRunViewModel>()
@@ -39,6 +39,9 @@ object AgentRunManager {
 
     // Repository for saving agent run history
     private val historyRepo: AgentRunHistoryRepository = DatabaseManager.getInstance().getAgentRunHistoryRepository()
+
+    // Track the currently active workspace to avoid removing it from cache
+    private var activeWorkspaceId: String? = null
 
     init {
         Runtime.getRuntime().addShutdownHook(
@@ -50,14 +53,22 @@ object AgentRunManager {
     }
 
     /**
-     * Get or create a cached [AgentRunViewModel] for a workspace.
-     * Publishes run completion via [EventBus], so observers attached after creation still get notified.
+     * Get or create a cached [AgentRunViewModel]. Cleans up inactive ViewModels at capacity.
+     * Run completion is published via [EventBus] so all observers get notified.
      */
     internal fun getOrCreateAgentRunViewModel(
         workspace: Workspace,
         skills: List<SkillDefinition>,
     ): AgentRunViewModel {
-        agentRunViewModels[workspace.id]?.let { return it }
+        agentRunViewModels[workspace.id]?.let {
+            activeWorkspaceId = workspace.id
+            return it
+        }
+
+        // Clean up inactive ViewModels before creating a new one (mirrors SessionManager pattern)
+        if (agentRunViewModels.size >= MAX_CACHED_VIEWMODELS) {
+            cleanupInactiveViewModels()
+        }
 
         val viewModel = AgentRunViewModel(
             workspace = workspace,
@@ -67,6 +78,7 @@ object AgentRunManager {
         )
 
         agentRunViewModels[workspace.id] = viewModel
+        activeWorkspaceId = workspace.id
         log.debug("Created AgentRunViewModel for workspace: ${workspace.id} (total cached: ${agentRunViewModels.size})")
         return viewModel
     }
@@ -81,14 +93,45 @@ object AgentRunManager {
 
     /**
      * Close and remove a cached [AgentRunViewModel].
-     * Call this when a workspace is deleted or no longer needed.
+     * Only call this for explicit cleanup (workspace deletion).
      *
      * @param workspaceId The workspace ID to close the ViewModel for
      */
     internal fun closeAgentRun(workspaceId: String) {
         agentRunViewModels.remove(workspaceId)?.let { viewModel ->
             viewModel.close()
+            if (activeWorkspaceId == workspaceId) {
+                activeWorkspaceId = null
+            }
             log.debug("Closed AgentRunViewModel for workspace: $workspaceId (total cached: ${agentRunViewModels.size})")
+        }
+    }
+
+    /**
+     * Remove inactive ViewModels (not active, not running) at capacity.
+     * If none are inactive, remove oldest to make room. Mirrors SessionManager.
+     */
+    private fun cleanupInactiveViewModels() {
+        val inactiveViewModels = agentRunViewModels.filter { (workspaceId, viewModel) ->
+            workspaceId != activeWorkspaceId && !viewModel.isRunning
+        }
+
+        if (inactiveViewModels.isEmpty()) {
+            // All ViewModels are either active or running. Remove the oldest one.
+            val oldestWorkspace = agentRunViewModels.keys
+                .firstOrNull { it != activeWorkspaceId }
+
+            if (oldestWorkspace != null) {
+                agentRunViewModels[oldestWorkspace]?.close()
+                agentRunViewModels.remove(oldestWorkspace)
+                log.warn("Removed oldest ViewModel (at capacity): $oldestWorkspace")
+            }
+        } else {
+            // Remove one inactive ViewModel
+            val (workspaceId, viewModel) = inactiveViewModels.entries.first()
+            viewModel.close()
+            agentRunViewModels.remove(workspaceId)
+            log.debug("Removed inactive ViewModel: $workspaceId (total cached: ${agentRunViewModels.size})")
         }
     }
 
@@ -100,6 +143,7 @@ object AgentRunManager {
         log.info("Shutting down AgentRunManager. Closing ${agentRunViewModels.size} agent run ViewModels.")
         agentRunViewModels.values.forEach { it.close() }
         agentRunViewModels.clear()
+        activeWorkspaceId = null
         scope.cancel()
     }
 }
