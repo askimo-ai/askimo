@@ -48,6 +48,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -86,6 +87,15 @@ fun agentsView(
     val viewModel = remember { AgentsViewModel(scope) }
     val skills by remember { mutableStateOf(skillRepository.getSkillsOnly()) }
     var showOverlayPanel by remember { mutableStateOf(false) }
+
+    // Clean up the current workspace's AgentRunViewModel when this view is disposed
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.workspace?.let { workspace ->
+                AgentRunManager.closeAgentRun(workspace.id)
+            }
+        }
+    }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isWide = maxWidth >= 1100.dp
