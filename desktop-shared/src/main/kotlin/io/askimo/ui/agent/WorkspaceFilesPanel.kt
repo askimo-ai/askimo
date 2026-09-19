@@ -198,6 +198,19 @@ internal fun workspaceFilesPanel(
         isLoading = false
     }
 
+    // Reconcile selection state with the refreshed tree. Files renamed/deleted externally
+    // (or nested deep inside a collapsed folder, so `rootChildren` itself doesn't change)
+    // otherwise leave `selectedPaths`/`lastSelectedPath`/`selectedFile` pointing at paths that
+    // no longer exist — inflating `selectedCount` and letting the bulk-delete handlers below
+    // filter down to an empty `deleteConfirmNodes` list, which crashes the confirm dialog on
+    // `nodes.first()`.
+    LaunchedEffect(refreshKey, internalRefreshKey) {
+        val stalePaths = withContext(Dispatchers.IO) { selectedPaths.keys.filterNot { File(it).exists() } }
+        stalePaths.forEach { selectedPaths.remove(it) }
+        lastSelectedPath?.let { path -> if (!File(path).exists()) lastSelectedPath = null }
+        selectedFile?.let { file -> if (!file.exists()) selectedFile = null }
+    }
+
     // ── Auto-refresh on filesystem changes (e.g. agent writing files) ─────────
     LaunchedEffect(workspaceWatcher) {
         val changeEvents = Channel<Unit>(Channel.CONFLATED)
@@ -300,7 +313,7 @@ internal fun workspaceFilesPanel(
     val listState = rememberLazyListState()
 
     // ── Delete confirmation dialog ────────────────────────────────────────────
-    deleteConfirmNodes?.let { nodes ->
+    deleteConfirmNodes?.takeIf { it.isNotEmpty() }?.let { nodes ->
         val isMultiple = nodes.size > 1
         AppComponents.alertDialog(
             onDismissRequest = { deleteConfirmNodes = null },
@@ -490,6 +503,7 @@ internal fun workspaceFilesPanel(
                                     .flatMap { buildWorkspaceRenderList(listOf(it), 0, expandedPaths) }
                                     .map { it.node }
                                     .filter { selectedPaths[it.file.absolutePath] == true }
+                                    .takeIf { it.isNotEmpty() }
                             },
                             modifier = Modifier.size(24.dp).pointerHoverIcon(PointerIcon.Hand),
                         ) {
@@ -824,7 +838,10 @@ internal fun workspaceFilesPanel(
                                     onRequestDelete = { node ->
                                         val nodePath = node.file.absolutePath
                                         deleteConfirmNodes = if (selectedPaths[nodePath] == true && selectedCount > 1) {
-                                            renderItems.filter { selectedPaths[it.node.file.absolutePath] == true }.map { it.node }
+                                            renderItems.filter { selectedPaths[it.node.file.absolutePath] == true }
+                                                .map { it.node }
+                                                .takeIf { it.isNotEmpty() }
+                                                ?: listOf(node)
                                         } else {
                                             listOf(node)
                                         }
