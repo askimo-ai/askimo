@@ -34,7 +34,6 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -95,10 +94,7 @@ fun planHistorySidePanel(
     Card(
         modifier = modifier.width(animatedWidth).fillMaxHeight(),
         shape = RectangleShape,
-        colors = CardDefaults.cardColors(
-            containerColor = AppColors.sidebarSurfaceColor(),
-            contentColor = MaterialTheme.colorScheme.onSurface,
-        ),
+        colors = AppColors.sidebarCardColors(),
     ) {
         Row(
             modifier = Modifier.fillMaxSize(),

@@ -164,6 +164,7 @@ import io.askimo.ui.shell.feedbackPromptDialog
 import io.askimo.ui.shell.globalErrorHandler
 import io.askimo.ui.shell.globalSearchDialog
 import io.askimo.ui.shell.happinessGateDialog
+import io.askimo.ui.shell.isScreenshotMode
 import io.askimo.ui.shell.keyboardShortcutsDialog
 import io.askimo.ui.shell.rememberPersistedWindowState
 import io.askimo.ui.shell.rememberThemeState
@@ -309,6 +310,7 @@ fun main(args: Array<String>) {
             },
             title = "Askimo",
             state = windowState,
+            undecorated = isScreenshotMode,
         ) {
             app(frameWindowScope = this@Window, windowState = windowState)
         }

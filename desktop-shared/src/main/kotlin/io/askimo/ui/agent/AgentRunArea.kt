@@ -7,7 +7,10 @@ package io.askimo.ui.agent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -56,6 +59,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -85,6 +89,7 @@ import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
+import io.askimo.ui.common.theme.clickableRounded
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.service.AvatarService
 import io.askimo.ui.voice.rememberVoiceRecordingController
@@ -111,7 +116,6 @@ internal fun agenticRunArea(
     skills: List<SkillDefinition>,
     workspace: Workspace,
     onRunCompleted: () -> Unit = {},
-    onNavigateToSkillsSettings: () -> Unit = {},
     preloadRecord: AgentRunRecord? = null,
     onPreloadConsumed: () -> Unit = {},
     onConversationStateChanged: (Boolean) -> Unit = {},
@@ -136,7 +140,6 @@ internal fun agenticRunArea(
     // ── Local, pure-UI state (not part of AgentRunViewModel) ────────────────
     var inputText by remember { mutableStateOf(TextFieldValue("")) }
     var agentDropdownExpanded by remember { mutableStateOf(false) }
-    var skillsListExpanded by remember { mutableStateOf(false) }
 
     val avatarService = remember { GlobalContext.get().get<AvatarService>() }
     val userProfileRepository = remember { GlobalContext.get().get<UserProfileRepository>() }
@@ -358,196 +361,6 @@ internal fun agenticRunArea(
                         .padding(start = Spacing.extraLarge, end = Spacing.medium, top = Spacing.small, bottom = Spacing.large),
                     verticalArrangement = Arrangement.spacedBy(Spacing.medium),
                 ) {
-                    // ── Skills-as-context pill row ───────────────────────────────────────
-                    if (skills.isNotEmpty()) {
-                        var pillHeightPx by remember { mutableStateOf(0) }
-                        Box {
-                            Surface(
-                                color = AppColors.surfaceColor(AppColors.Elevation.RAISED),
-                                shape = MaterialTheme.shapes.small,
-                                modifier = Modifier
-                                    .clickable(onClick = { skillsListExpanded = true })
-                                    .pointerHoverIcon(PointerIcon.Hand)
-                                    .onGloballyPositioned { coordinates -> pillHeightPx = coordinates.size.height },
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = Spacing.medium, vertical = Spacing.small),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                                ) {
-                                    Icon(
-                                        Icons.Default.Extension,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(14.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    Text(
-                                        text = stringResource("agents.agentic.skills.available", skills.size),
-                                        style = AppTextStyles.hint,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    val maxVisible = 4
-                                    skills.take(maxVisible).forEach { skill ->
-                                        Surface(
-                                            color = AppColors.surfaceColor(AppColors.Elevation.RECESSED),
-                                            shape = MaterialTheme.shapes.extraSmall,
-                                        ) {
-                                            Text(
-                                                text = skill.name,
-                                                style = AppTextStyles.hint,
-                                                modifier = Modifier.padding(horizontal = Spacing.extraSmall, vertical = Spacing.micro),
-                                                maxLines = 1,
-                                            )
-                                        }
-                                    }
-                                    if (skills.size > maxVisible) {
-                                        Text(
-                                            text = "+${skills.size - maxVisible}",
-                                            style = AppTextStyles.hint,
-                                        )
-                                    }
-                                    Icon(
-                                        Icons.Default.ExpandMore,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(14.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-
-                            if (skillsListExpanded) {
-                                val skillsListState = rememberLazyListState()
-                                Popup(
-                                    alignment = Alignment.TopStart,
-                                    offset = IntOffset(0, pillHeightPx + with(LocalDensity.current) { 4.dp.roundToPx() }),
-                                    onDismissRequest = { skillsListExpanded = false },
-                                    properties = PopupProperties(focusable = true),
-                                ) {
-                                    MaterialTheme(colorScheme = AppColors.popupColorScheme()) {
-                                        Surface(
-                                            modifier = Modifier.width(380.dp),
-                                            color = AppColors.popupContainerColor(),
-                                            border = AppColors.popupBorderStroke(),
-                                            shape = RoundedCornerShape(8.dp),
-                                            tonalElevation = AppColors.popupSurfaceTonalElevation,
-                                            shadowElevation = AppColors.popupElevation,
-                                        ) {
-                                            Column {
-                                                Box(modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp)) {
-                                                    LazyColumn(
-                                                        state = skillsListState,
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        contentPadding = PaddingValues(
-                                                            top = Spacing.extraSmall,
-                                                            bottom = Spacing.extraSmall,
-                                                            end = 10.dp,
-                                                        ),
-                                                    ) {
-                                                        items(skills) { skill ->
-                                                            Row(
-                                                                modifier = Modifier
-                                                                    .fillMaxWidth()
-                                                                    .clickable(onClick = { skillsListExpanded = false })
-                                                                    .pointerHoverIcon(PointerIcon.Hand)
-                                                                    .padding(horizontal = Spacing.medium, vertical = Spacing.small),
-                                                                verticalAlignment = Alignment.Top,
-                                                                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                                                            ) {
-                                                                Icon(
-                                                                    Icons.Default.Extension,
-                                                                    contentDescription = null,
-                                                                    modifier = Modifier.size(16.dp).padding(top = Spacing.micro),
-                                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                                )
-                                                                Column {
-                                                                    Text(
-                                                                        text = skill.name,
-                                                                        style = AppTextStyles.body,
-                                                                        maxLines = 1,
-                                                                        overflow = TextOverflow.Ellipsis,
-                                                                    )
-                                                                    if (skill.description.isNotBlank()) {
-                                                                        Text(
-                                                                            text = skill.description,
-                                                                            style = AppTextStyles.hint,
-                                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                                            maxLines = 2,
-                                                                            overflow = TextOverflow.Ellipsis,
-                                                                        )
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                    VerticalScrollbar(
-                                                        adapter = rememberScrollbarAdapter(skillsListState),
-                                                        modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = Spacing.micro),
-                                                        style = AppComponents.scrollbarStyle(),
-                                                    )
-                                                }
-
-                                                // ── Sticky footer — always visible, outside the scroll area ──
-                                                HorizontalDivider(color = AppColors.codeBlockBorderColor())
-                                                Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .clickable(
-                                                            onClick = {
-                                                                skillsListExpanded = false
-                                                                onNavigateToSkillsSettings()
-                                                            },
-                                                        )
-                                                        .pointerHoverIcon(PointerIcon.Hand)
-                                                        .padding(horizontal = Spacing.medium, vertical = Spacing.medium),
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                ) {
-                                                    Text(
-                                                        text = stringResource("agents.view.manage"),
-                                                        style = AppTextStyles.body,
-                                                        color = MaterialTheme.colorScheme.primary,
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        Surface(
-                            color = AppColors.surfaceColor(AppColors.Elevation.RAISED),
-                            shape = MaterialTheme.shapes.small,
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = Spacing.medium, vertical = Spacing.small),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                            ) {
-                                Icon(
-                                    Icons.Default.Extension,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp),
-                                    tint = AppColors.tertiaryIconColor(),
-                                )
-                                Text(
-                                    text = stringResource("agents.agentic.no.skills.hint"),
-                                    style = AppTextStyles.hint,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                TextButton(
-                                    onClick = onNavigateToSkillsSettings,
-                                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                                ) {
-                                    Text(text = stringResource("agents.view.manage"), style = AppTextStyles.hint)
-                                }
-                            }
-                        }
-                    }
-
                     // ── Agent setup hint (needs auth) ────────────────────────────────────
                     if (viewModel.agentStateMap[viewModel.selectedAgentRaw?.id] == AgentReadiness.NEEDS_SETUP) {
                         Surface(
@@ -622,7 +435,19 @@ internal fun agenticRunArea(
                     .fillMaxWidth()
                     .padding(start = Spacing.extraLarge, end = Spacing.scrollbarGutter, top = Spacing.small, bottom = Spacing.large),
             ) {
-                Box(modifier = Modifier.fillMaxWidth()) {
+                val agentInputInteractionSource = remember { MutableInteractionSource() }
+                val agentInputFocused by agentInputInteractionSource.collectIsFocusedAsState()
+                val agentInputBorderColor = if (agentInputFocused) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.42f)
+                }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(if (agentInputFocused) 2.dp else 1.dp, agentInputBorderColor, RoundedCornerShape(4.dp))
+                        .clip(RoundedCornerShape(4.dp)),
+                ) {
                     OutlinedTextField(
                         value = inputText,
                         onValueChange = { inputText = it },
@@ -659,17 +484,26 @@ internal fun agenticRunArea(
                             },
                         minLines = 4,
                         maxLines = 10,
-                        colors = AppColors.outlinedTextFieldColors(),
+                        interactionSource = agentInputInteractionSource,
+                        // Border is provided by the outer container above; keep this one
+                        // transparent (same pattern as chatInputField).
+                        colors = AppColors.outlinedTextFieldColors(
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent,
+                        ),
                     )
 
-                    // ── Agent picker + Send — overlaid bottom-right ──
+                    // ── Agent picker + Send — a separate controls bar below the text, not
+                    // an overlay on top of it (see the comment above) ──
                     Row(
                         modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(bottom = Spacing.extraSmall, end = Spacing.small),
+                            .fillMaxWidth()
+                            .padding(start = Spacing.small, end = Spacing.small, bottom = Spacing.extraSmall),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                     ) {
+                        Spacer(modifier = Modifier.weight(1f))
+
                         // ── Voice input (🎤) — hidden entirely when disabled in Settings > Voice ──
                         if (voiceInputEnabled) {
                             voiceRecordingControls(
@@ -693,7 +527,11 @@ internal fun agenticRunArea(
                                     color = AppColors.surfaceColor(AppColors.Elevation.EMPHASIS),
                                     border = BorderStroke(1.dp, AppColors.codeBlockBorderColor()),
                                     modifier = Modifier
-                                        .clickable(enabled = agentPickerEnabled, onClick = { agentDropdownExpanded = true })
+                                        .clickableRounded(
+                                            shape = MaterialTheme.shapes.small,
+                                            enabled = agentPickerEnabled,
+                                            onClick = { agentDropdownExpanded = true },
+                                        )
                                         .pointerHoverIcon(if (agentPickerEnabled) PointerIcon.Hand else PointerIcon.Default),
                                 ) {
                                     Row(
@@ -793,6 +631,204 @@ internal fun agenticRunArea(
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+// ── Skills-as-context pill ──────────────────────────────────────────────────
+@Composable
+internal fun skillsContextPill(
+    skills: List<SkillDefinition>,
+    onNavigateToSkillsSettings: () -> Unit,
+) {
+    var skillsListExpanded by remember { mutableStateOf(false) }
+
+    if (skills.isNotEmpty()) {
+        var pillHeightPx by remember { mutableStateOf(0) }
+        Box {
+            Surface(
+                color = AppColors.surfaceColor(AppColors.Elevation.RAISED),
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier
+                    .clickableRounded(shape = MaterialTheme.shapes.small, onClick = { skillsListExpanded = true })
+                    .pointerHoverIcon(PointerIcon.Hand)
+                    .onGloballyPositioned { coordinates -> pillHeightPx = coordinates.size.height },
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.medium, vertical = Spacing.small),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                ) {
+                    Icon(
+                        Icons.Default.Extension,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = stringResource("agents.agentic.skills.available", skills.size),
+                        style = AppTextStyles.hint,
+                        modifier = Modifier.weight(1f),
+                    )
+                    val maxVisible = 4
+                    skills.take(maxVisible).forEach { skill ->
+                        Surface(
+                            color = AppColors.surfaceColor(AppColors.Elevation.RECESSED),
+                            shape = MaterialTheme.shapes.extraSmall,
+                        ) {
+                            Text(
+                                text = skill.name,
+                                style = AppTextStyles.hint,
+                                modifier = Modifier.padding(horizontal = Spacing.extraSmall, vertical = Spacing.micro),
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                    if (skills.size > maxVisible) {
+                        Text(
+                            text = "+${skills.size - maxVisible}",
+                            style = AppTextStyles.hint,
+                        )
+                    }
+                    Icon(
+                        Icons.Default.ExpandMore,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            if (skillsListExpanded) {
+                val skillsListState = rememberLazyListState()
+                Popup(
+                    alignment = Alignment.TopStart,
+                    offset = IntOffset(0, pillHeightPx + with(LocalDensity.current) { 4.dp.roundToPx() }),
+                    onDismissRequest = { skillsListExpanded = false },
+                    properties = PopupProperties(focusable = true),
+                ) {
+                    MaterialTheme(colorScheme = AppColors.popupColorScheme()) {
+                        Surface(
+                            modifier = Modifier.width(380.dp),
+                            color = AppColors.popupContainerColor(),
+                            border = AppColors.popupBorderStroke(),
+                            shape = RoundedCornerShape(8.dp),
+                            tonalElevation = AppColors.popupSurfaceTonalElevation,
+                            shadowElevation = AppColors.popupElevation,
+                        ) {
+                            Column {
+                                Box(modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp)) {
+                                    LazyColumn(
+                                        state = skillsListState,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        contentPadding = PaddingValues(
+                                            top = Spacing.extraSmall,
+                                            bottom = Spacing.extraSmall,
+                                            end = 10.dp,
+                                        ),
+                                    ) {
+                                        items(skills) { skill ->
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable(onClick = { skillsListExpanded = false })
+                                                    .pointerHoverIcon(PointerIcon.Hand)
+                                                    .padding(horizontal = Spacing.medium, vertical = Spacing.small),
+                                                verticalAlignment = Alignment.Top,
+                                                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Extension,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp).padding(top = Spacing.micro),
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                                Column {
+                                                    Text(
+                                                        text = skill.name,
+                                                        style = AppTextStyles.body,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                    )
+                                                    if (skill.description.isNotBlank()) {
+                                                        Text(
+                                                            text = skill.description,
+                                                            style = AppTextStyles.hint,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            maxLines = 2,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    VerticalScrollbar(
+                                        adapter = rememberScrollbarAdapter(skillsListState),
+                                        modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = Spacing.micro),
+                                        style = AppComponents.scrollbarStyle(),
+                                    )
+                                }
+
+                                // ── Sticky footer — always visible, outside the scroll area ──
+                                HorizontalDivider(color = AppColors.codeBlockBorderColor())
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable(
+                                            onClick = {
+                                                skillsListExpanded = false
+                                                onNavigateToSkillsSettings()
+                                            },
+                                        )
+                                        .pointerHoverIcon(PointerIcon.Hand)
+                                        .padding(horizontal = Spacing.medium, vertical = Spacing.medium),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = stringResource("agents.view.manage"),
+                                        style = AppTextStyles.body,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        Surface(
+            color = AppColors.surfaceColor(AppColors.Elevation.RAISED),
+            shape = MaterialTheme.shapes.small,
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.medium, vertical = Spacing.small),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+            ) {
+                Icon(
+                    Icons.Default.Extension,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = AppColors.tertiaryIconColor(),
+                )
+                Text(
+                    text = stringResource("agents.agentic.no.skills.hint"),
+                    style = AppTextStyles.hint,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(
+                    onClick = onNavigateToSkillsSettings,
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                ) {
+                    Text(text = stringResource("agents.view.manage"), style = AppTextStyles.hint)
                 }
             }
         }

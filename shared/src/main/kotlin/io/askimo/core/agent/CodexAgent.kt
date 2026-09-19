@@ -292,17 +292,19 @@ class CodexAgent : ExternalAgentTemplate() {
             "command_execution" -> {
                 val command = item["command"] as? String
                 val exitCode = item["exit_code"]
+                // Full, untruncated detail — the live timeline is allowed to be large; only
+                // the persisted copy gets capped (see truncatedForStorage()).
                 val detail = buildString {
                     append(command ?: "")
                     if (exitCode != null) append(" (exit $exitCode)")
-                }.take(ExternalAgent.TOOL_DETAIL_MAX_LENGTH)
+                }
                 onToolCall("exec", detail)
             }
 
             "mcp_tool_call" -> {
                 val toolName = item["tool"] as? String ?: item["name"] as? String ?: "mcp_tool"
                 val args = item["arguments"] ?: item["args"]
-                onToolCall(toolName, args?.toString()?.take(ExternalAgent.TOOL_DETAIL_MAX_LENGTH))
+                onToolCall(toolName, args?.toString())
             }
 
             else -> log.debug("codex unhandled item type: {}", item["type"])

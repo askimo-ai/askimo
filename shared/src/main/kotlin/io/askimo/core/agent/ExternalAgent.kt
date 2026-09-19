@@ -232,8 +232,10 @@ interface ExternalAgent {
      * @param onToken         Called for each content token as it arrives (pure response text).
      * @param onToolCall       Called when the agent actually invokes a tool (e.g. reads a file,
      *                        runs a command) — `toolName` is the tool's name, `detail` is an
-     *                        optional short, human-readable summary of its arguments (e.g. the
-     *                        file path or command being run), truncated for display. Defaults
+     *                        optional human-readable summary of its arguments (e.g. the file
+     *                        path/command, plus generated content for write/edit tools) — kept
+     *                        full/untruncated here; only the copy persisted to `content_json` is
+     *                        capped (see [io.askimo.core.chat.dto.truncatedForStorage]). Defaults
      *                        to no-op. This is distinct from [onStatus]: a tool call is a
      *                        discrete, structured event the UI renders as a "tool call" chip.
      * @param onStatus        Called with a short human-readable status string for non-tool
@@ -285,16 +287,5 @@ interface ExternalAgent {
             ),
         )
         return result
-    }
-
-    companion object {
-        /**
-         * Max length of a tool call's `detail` string before truncation. Implementations of
-         * tool-call detection (e.g. `ClaudeAgent.parseStdoutLine`) should truncate any `detail`
-         * they build to this length before passing it to the `onToolCall` callback in [run] —
-         * some tools (e.g. write/edit) can carry a full file's contents or a large diff as an
-         * argument, and `detail` is documented above as "truncated for display".
-         */
-        const val TOOL_DETAIL_MAX_LENGTH = 200
     }
 }

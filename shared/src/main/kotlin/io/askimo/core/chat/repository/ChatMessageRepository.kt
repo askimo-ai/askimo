@@ -11,6 +11,7 @@ import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.domain.ChatSessionsTable
 import io.askimo.core.chat.domain.FileAttachment
 import io.askimo.core.chat.dto.TurnTimelineEntry
+import io.askimo.core.chat.dto.truncatedForStorage
 import io.askimo.core.context.MessageRole
 import io.askimo.core.db.AbstractSQLiteRepository
 import io.askimo.core.db.DatabaseManager
@@ -70,7 +71,7 @@ private fun decodeChatContentBlocks(raw: String?): List<TurnTimelineEntry> {
         .getOrDefault(emptyList())
 }
 
-private fun encodeChatContentBlocks(blocks: List<TurnTimelineEntry>): String? = if (blocks.isEmpty()) null else chatContentJson.encodeToString(blocks)
+private fun encodeChatContentBlocks(blocks: List<TurnTimelineEntry>): String? = if (blocks.isEmpty()) null else chatContentJson.encodeToString(blocks.truncatedForStorage())
 
 private fun ResultRow.toChatMessage(): ChatMessage = ChatMessage(
     id = this[ChatMessagesTable.id],

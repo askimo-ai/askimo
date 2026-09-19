@@ -23,6 +23,7 @@ import io.askimo.core.chat.dto.ToolCallInfo
 import io.askimo.core.chat.dto.ToolCallStatus
 import io.askimo.core.chat.dto.TurnTimelineEntry
 import io.askimo.core.chat.dto.TurnTimelineGroup
+import io.askimo.core.chat.dto.appendDeduped
 import io.askimo.core.chat.dto.collapsedEffectiveTools
 import io.askimo.core.chat.dto.grouped
 import io.askimo.core.context.AppContext
@@ -276,7 +277,7 @@ internal class AgentRunViewModel(
         timelineMutex.withLock {
             if (turnId != currentTurnId.get()) return@withLock
             completeRunningTools()
-            timeline = timeline + entry
+            timeline = timeline.appendDeduped(entry)
         }
     }
 
@@ -539,13 +540,11 @@ internal class AgentRunViewModel(
                         workDir = workDir,
                         resumeSessionId = resumeSessionId,
                         onToken = { token ->
-                            // Guarded by the same turnId check as the timeline append below —
-                            // without it, a stale callback from a turn already invalidated by
-                            // bumpTurnId() (e.g. a forced cancel-timeout) could keep silently
-                            // accumulating post-cancellation text into currentTurnResponse even
-                            // though its timeline writes are correctly rejected, so the
-                            // finalized/persisted response text would diverge from the frozen
-                            // finalTimeline snapshot.
+                            // Same turnId guard as the timeline append below — otherwise a
+                            // stale callback (e.g. after a forced cancel-timeout) could keep
+                            // appending to currentTurnResponse after its timeline writes are
+                            // already rejected, desyncing the persisted response from
+                            // finalTimeline.
                             if (turnId == currentTurnId.get()) {
                                 currentTurnResponse += token
                             }
@@ -560,7 +559,7 @@ internal class AgentRunViewModel(
                                 appendTimelineEntry(
                                     turnId,
                                     TurnTimelineEntry.Tool(
-                                        ToolCallInfo.truncated(toolName = toolName, status = ToolCallStatus.RUNNING, arguments = detail),
+                                        ToolCallInfo(toolName = toolName, status = ToolCallStatus.RUNNING, arguments = detail),
                                     ),
                                 )
                             }

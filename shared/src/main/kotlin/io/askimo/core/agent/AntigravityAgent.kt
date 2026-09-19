@@ -280,7 +280,7 @@ class AntigravityAgent : ExternalAgentTemplate() {
                         @Suppress("UNCHECKED_CAST")
                         val toolParams = toolInfo?.get("parameters") as? Map<String, Any>
                         val toolName = event.fields["tool_name"] as? String ?: "tool"
-                        val detail = toolParams?.let { formatToolArgs(it).take(ExternalAgent.TOOL_DETAIL_MAX_LENGTH) }
+                        val detail = toolParams?.let { formatToolArgs(it) }
                         onToolCall(toolName, detail?.ifBlank { null })
                     }
 

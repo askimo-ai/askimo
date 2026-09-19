@@ -216,7 +216,9 @@ class SessionManager(
                 }
                 if (!alreadyRunning) {
                     _timeline.value += TurnTimelineEntry.Tool(
-                        ToolCallInfo.truncated(toolName = toolName, status = ToolCallStatus.RUNNING, arguments = arguments),
+                        // Full, untruncated arguments — the live timeline is allowed to be
+                        // large; only the persisted copy gets capped (see truncatedForStorage()).
+                        ToolCallInfo(toolName = toolName, status = ToolCallStatus.RUNNING, arguments = arguments),
                     )
                 }
             }
@@ -236,7 +238,8 @@ class SessionManager(
                 val startedAtMillis = (list.getOrNull(idx) as? TurnTimelineEntry.Tool)?.toolCall?.startedAtMillis
                     ?: System.currentTimeMillis()
                 val updated = TurnTimelineEntry.Tool(
-                    ToolCallInfo.truncated(
+                    // Full, untruncated arguments/result — see markToolRunning() above.
+                    ToolCallInfo(
                         toolName = toolName,
                         status = ToolCallStatus.DONE,
                         arguments = arguments,

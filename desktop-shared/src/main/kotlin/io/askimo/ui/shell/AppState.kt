@@ -40,6 +40,11 @@ import kotlin.time.Duration.Companion.seconds
  */
 private val SYSTEM_THEME_POLL_INTERVAL = 30.seconds
 
+val isScreenshotMode: Boolean = System.getenv("ASKIMO_SCREENSHOT_MODE") == "true"
+
+private val SCREENSHOT_MODE_WIDTH = 1920.dp
+private val SCREENSHOT_MODE_HEIGHT = 1080.dp
+
 // ── ChatViewState ─────────────────────────────────────────────────────────────
 
 /**
@@ -118,17 +123,38 @@ fun rememberPersistedWindowState(): WindowState {
     val isMaximized = ThemePreferences.isWindowMaximized()
 
     val windowState = rememberWindowState(
-        width = if (savedWidth > 0) savedWidth.dp else 1920.dp,
-        height = if (savedHeight > 0) savedHeight.dp else 1080.dp,
+        width = if (isScreenshotMode) {
+            SCREENSHOT_MODE_WIDTH
+        } else if (savedWidth > 0) {
+            savedWidth.dp
+        } else {
+            1920.dp
+        },
+        height = if (isScreenshotMode) {
+            SCREENSHOT_MODE_HEIGHT
+        } else if (savedHeight > 0) {
+            savedHeight.dp
+        } else {
+            1080.dp
+        },
         position = if (savedX >= 0 && savedY >= 0) {
             WindowPosition(savedX.dp, savedY.dp)
         } else {
             WindowPosition.Aligned(Alignment.Center)
         },
-        placement = if (isMaximized) WindowPlacement.Maximized else WindowPlacement.Floating,
+        placement = if (isScreenshotMode) {
+            WindowPlacement.Floating
+        } else if (isMaximized) {
+            WindowPlacement.Maximized
+        } else {
+            WindowPlacement.Floating
+        },
     )
 
     LaunchedEffect(windowState.size, windowState.position, windowState.placement) {
+        // Never persist window geometry captured while in screenshot mode —
+        // it's a temporary fixed-size session, not a real user preference.
+        if (isScreenshotMode) return@LaunchedEffect
         ThemePreferences.saveWindowState(
             width = windowState.size.width.value.toInt(),
             height = windowState.size.height.value.toInt(),

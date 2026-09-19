@@ -600,12 +600,8 @@ private fun personaCard(
                     Modifier
                 },
             ),
-        colors = CardDefaults.cardColors(
-            containerColor = if (highlighted) {
-                AppColors.surfaceColor(AppColors.Elevation.SELECTED)
-            } else {
-                AppColors.surfaceColor(AppColors.Elevation.RAISED)
-            },
+        colors = AppColors.cardColors(
+            if (highlighted) AppColors.Elevation.SELECTED else AppColors.Elevation.RAISED,
         ),
     ) {
         Row(
@@ -741,12 +737,8 @@ private fun onboardingStepAnalytics(
         // ── Toggle card ───────────────────────────────────────────────────────
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = if (analyticsAccepted) {
-                    AppColors.surfaceColor(AppColors.Elevation.SELECTED)
-                } else {
-                    AppColors.surfaceColor(AppColors.Elevation.RAISED)
-                },
+            colors = AppColors.cardColors(
+                if (analyticsAccepted) AppColors.Elevation.SELECTED else AppColors.Elevation.RAISED,
             ),
         ) {
             Row(

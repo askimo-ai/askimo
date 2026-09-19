@@ -33,7 +33,6 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -118,10 +117,7 @@ fun communityProjectSidePanel(
     Card(
         modifier = modifier.width(animatedWidth).fillMaxHeight(),
         shape = RectangleShape,
-        colors = CardDefaults.cardColors(
-            containerColor = AppColors.sidebarSurfaceColor(),
-            contentColor = MaterialTheme.colorScheme.onSurface,
-        ),
+        colors = AppColors.sidebarCardColors(),
     ) {
         Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(0.dp)) {
             if (isExpanded) {

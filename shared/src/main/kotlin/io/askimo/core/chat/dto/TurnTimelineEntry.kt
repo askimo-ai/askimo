@@ -7,17 +7,16 @@ package io.askimo.core.chat.dto
 import kotlinx.serialization.Serializable
 
 /**
- * A single chronologically-ordered event captured during one AI response turn — a real
- * tool invocation, a chunk of visible reasoning ("thinking"), a chunk of the final response
- * text, or a non-tool lifecycle status update.
+ * A single chronologically-ordered event captured during one AI response turn — a real tool
+ * invocation, a chunk of visible reasoning ("thinking"), a chunk of the final response text,
+ * or a non-tool lifecycle status update.
  *
- * Used by BOTH agentic runs ([io.askimo.core.agent.domain.AgentRunRecord]) and regular chat
- * turns ([io.askimo.core.chat.domain.ChatMessage]) — not agent-specific despite this file's
+ * Used by both agentic runs and regular chat turns — not agent-specific despite this file's
  * historical name, since both flows stream the same kind of ordered tool/thinking/text events.
  *
  * Kept in arrival order so the UI can render exactly what happened, when it happened, instead
- * of bucketing everything into fixed thinking/tools/text sections regardless of when each
- * actually occurred (e.g. tool call → some text → another tool call → more text).
+ * of bucketing everything into fixed thinking/tools/text sections (e.g. tool call → some text
+ * → another tool call → more text).
  *
  * `@Serializable` so [Tool]/[Token] entries (never [Thinking]/[Status]) can be persisted as
  * JSON in [io.askimo.core.agent.domain.AgentRunRecord.contentBlocks] and
@@ -51,6 +50,56 @@ sealed interface TurnTimelineGroup {
 }
 
 /**
+ * Appends [entry] to this list, collapsing consecutive duplicate [TurnTimelineEntry.Status]
+ * updates into one — an agent's stream can legitimately emit the same ambient "still working"
+ * status repeatedly with no new information (e.g. a burst of empty "thinking" events before
+ * any real reasoning text arrives). Without this, every repeat would grow the timeline and
+ * re-key the derived render group, restarting any elapsed-time UI tied to what is, from the
+ * user's perspective, a single unbroken phase.
+ *
+ * Deliberately generic — keyed only on [TurnTimelineEntry.Status.text] equality, nothing
+ * agent-specific — so it applies uniformly to every `ExternalAgent` without any needing its
+ * own dedup logic. Non-Status entries (and a Status whose text changed) are always appended.
+ */
+fun List<TurnTimelineEntry>.appendDeduped(entry: TurnTimelineEntry): List<TurnTimelineEntry> {
+    val last = lastOrNull()
+    if (entry is TurnTimelineEntry.Status && last is TurnTimelineEntry.Status && last.text == entry.text) {
+        return this
+    }
+    return this + entry
+}
+
+/**
+ * Caps every [TurnTimelineEntry.Tool]'s [ToolCallInfo.arguments]/[ToolCallInfo.result] to
+ * [ToolCallInfo.MAX_FIELD_LENGTH] — for use **only** right before persisting a turn (e.g.
+ * [io.askimo.core.agent.repository.AgentRunHistoryRepository.save] /
+ * [io.askimo.core.chat.repository.ChatMessageRepository]'s `encodeChatContentBlocks`).
+ *
+ * The live, in-session timeline deliberately keeps the full, untruncated content (a
+ * `Write`/`Edit` tool's generated file content is often the AI's actual "response" for that
+ * turn) — only what gets written to `content_json` needs a cap, to keep the database and any
+ * future sync payload bounded. Status/Thinking/Token entries pass through unchanged (thinking
+ * is never persisted at all — see [TurnTimelineEntry] doc — and token/status text isn't
+ * expected to reach megabytes).
+ */
+fun List<TurnTimelineEntry>.truncatedForStorage(): List<TurnTimelineEntry> = map { entry ->
+    if (entry is TurnTimelineEntry.Tool) {
+        TurnTimelineEntry.Tool(
+            ToolCallInfo.truncated(
+                toolName = entry.toolCall.toolName,
+                status = entry.toolCall.status,
+                arguments = entry.toolCall.arguments,
+                result = entry.toolCall.result,
+                hasFailed = entry.toolCall.hasFailed,
+                startedAtMillis = entry.toolCall.startedAtMillis,
+            ),
+        )
+    } else {
+        entry
+    }
+}
+
+/**
  * Collapses a "retry loop" — the AI calling the same tool repeatedly (often with different
  * args) until it succeeds — down to the effective attempts, keyed by [ToolCallInfo.toolName]
  * + [ToolCallInfo.hasFailed]. An earlier call is dropped only if it **failed** and a later
@@ -62,7 +111,7 @@ sealed interface TurnTimelineGroup {
  * vary their args on every failed attempt anyway.
  *
  * [TurnTimelineEntry.Thinking] preceding a dropped attempt is discarded with it; thinking
- * before a *kept* attempt is preserved.
+ * before a kept attempt is preserved.
  *
  * E.g. `Thinking, ToolA(args1, FAILED), Thinking, ToolA(args2, FAILED), Thinking, ToolA(args3),
  * ToolB` → `Thinking, ToolA(args3), ToolB`.
@@ -84,31 +133,28 @@ fun List<TurnTimelineEntry>.collapsedEffectiveTools(): List<TurnTimelineEntry> {
     forEachIndexed { index, entry ->
         when (entry) {
             is TurnTimelineEntry.Thinking -> {
-                // Buffered — only kept if it turns out to precede a *kept* tool call.
+                // Buffered — only kept if it precedes a *kept* tool call.
                 pendingThinking.add(entry)
             }
 
             is TurnTimelineEntry.Tool -> {
                 val isLastForTool = lastToolIndexByName[entry.toolCall.toolName] == index
-                // Keep every call that succeeded, plus the last attempt for a tool regardless
-                // of outcome. Only drop a call when it failed AND a later attempt at the same
-                // tool exists — see the function doc for why this (not arguments) is the
-                // correct dedup signal.
+                // Keep every successful call, plus the last attempt per tool regardless of
+                // outcome. Drop a call only when it failed AND a later attempt exists — see
+                // the function doc for why this (not arguments) is the correct dedup signal.
                 if (isLastForTool || !entry.toolCall.hasFailed) {
                     result.addAll(pendingThinking)
                     pendingThinking.clear()
                     result.add(entry)
                 } else {
-                    // A failed, superseded attempt — discard the reasoning that led to this
-                    // dead-end attempt along with the attempt itself.
+                    // A failed, superseded attempt — discard the reasoning that led here too.
                     pendingThinking.clear()
                 }
             }
 
             else -> {
-                // Status/Token entries are never part of a "retry loop" — flush any pending
-                // reasoning first (it wasn't followed by a tool call, e.g. the AI just thought
-                // out loud), then pass the entry through untouched.
+                // Status/Token entries aren't part of a retry loop — flush any pending
+                // reasoning first (it wasn't followed by a tool call), then pass through.
                 result.addAll(pendingThinking)
                 pendingThinking.clear()
                 result.add(entry)

@@ -5,7 +5,6 @@
 package io.askimo.ui.agent
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -42,6 +41,7 @@ import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
+import io.askimo.ui.common.theme.clickableRounded
 import io.askimo.ui.common.ui.TooltipPlacement
 import io.askimo.ui.common.ui.themedTooltip
 import java.time.ZoneId
@@ -82,7 +82,7 @@ private fun skillRunHistoryPanelRow(
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
 
-    themedTooltip(text = tooltipText, placement = TooltipPlacement.LEFT) {
+    themedTooltip(text = tooltipText, placement = TooltipPlacement.AUTO) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -96,7 +96,7 @@ private fun skillRunHistoryPanelRow(
                     },
                     shape = RoundedCornerShape(8.dp),
                 )
-                .clickable(onClick = onClick)
+                .clickableRounded(shape = RoundedCornerShape(8.dp), onClick = onClick)
                 .padding(start = Spacing.medium, end = Spacing.extraSmall, top = Spacing.small, bottom = Spacing.small),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.small),

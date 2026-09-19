@@ -91,6 +91,22 @@ import androidx.compose.ui.window.PopupProperties
 import io.askimo.ui.common.i18n.stringResource
 
 /**
+ * Like [Modifier.clickable], but also [clip]s this element to [shape] *first* — fixes a
+ * recurring Compose Desktop gotcha: a plain `.clickable(...)` renders its click/focus ripple
+ * as a plain rectangle that overflows past rounded corners, because ripple indication only
+ * respects a `clip` earlier in the *same* modifier chain — a separately-drawn
+ * background/border shape doesn't constrain it.
+ *
+ * Use this instead of `.clickable(...)` for any rounded chip, pill, card, or list row.
+ */
+fun Modifier.clickableRounded(
+    shape: Shape,
+    enabled: Boolean = true,
+    onClickLabel: String? = null,
+    onClick: () -> Unit,
+): Modifier = this.clip(shape).clickable(enabled = enabled, onClickLabel = onClickLabel, onClick = onClick)
+
+/**
  * Composable widgets and layout tokens shared across the app — dialogs, dropdown menus,
  * form fields, cards, spinners, popups. For color tokens (backgrounds, borders, content
  * colors), see [AppColors]; this object consumes those tokens but doesn't define new ones.
@@ -114,12 +130,11 @@ object AppComponents {
      * A card with standardized hover behavior across all themes.
      *
      * Bakes in:
-     * - `.clip(shape)` **before** `hoverable`/`clickable` so the ripple and hover
-     *   highlight are always clipped to rounded corners (prevents the rectangle-border bug).
-     * - Default: [AppColors.Elevation.RAISED] + [AppColors.codeBlockBorderColor] (`outlineVariant`) border.
-     * - Hover:   [AppColors.Elevation.SELECTED] + `primary.copy(alpha = 0.4f)` border — the
-     *   same tier used for an actually-selected item elsewhere, so hover and selection never
-     *   read as two different colors.
+     * - `.clip(shape)` before `hoverable`/`clickable` so the ripple/hover highlight is always
+     *   clipped to rounded corners.
+     * - Default: [AppColors.Elevation.RAISED] + [AppColors.codeBlockBorderColor] border.
+     * - Hover: [AppColors.Elevation.SELECTED] + `primary.copy(alpha = 0.4f)` border — same
+     *   tier used for an actually-selected item, so hover and selection never look different.
      *
      * Use this instead of bare [Card] whenever the card is clickable.
      */
@@ -212,11 +227,8 @@ object AppComponents {
     /**
      * A themed [OutlinedTextField] for secret values (API keys, passwords).
      *
-     * Renders as a password field by default and provides an inline eye-icon toggle
-     * so the user can reveal the actual value they typed. Visibility state is local
-     * to each call site and resets whenever the composable leaves the composition.
-     *
-     * All other behaviour (colors, debounce, etc.) is left to the caller.
+     * Renders as a password field by default, with an inline eye-icon toggle to reveal the
+     * value. Visibility state is local to each call site and resets when it leaves composition.
      */
     @Composable
     fun appSecretTextField(
@@ -266,7 +278,7 @@ object AppComponents {
     // ── Form Fields ───────────────────────────────────────────────────────────
 
     /**
-     * Standardised form-field layout that enforces a consistent vertical rhythm:
+     * Standardised form-field layout with consistent vertical rhythm:
      *
      * ```
      * [Label]           ┐
@@ -276,12 +288,11 @@ object AppComponents {
      * [hint slot]         extraSmall gap — hint is a sub-annotation of the input
      * ```
      *
-     *
      * @param label       Field label rendered in [AppTextStyles.groupTitle].
      * @param description One-line helper text rendered in [AppTextStyles.caption].
      * @param required    When `true`, appends " *" to the label.
-     * @param hint        Optional composable rendered below [content] with [Spacing.extraSmall]
-     *                    top gap (e.g. the currently-selected option description for a SelectField).
+     * @param hint        Optional composable rendered below [content] (e.g. the currently
+     *                    selected option description for a SelectField).
      * @param content     The interactive control (text field, button row, etc.).
      */
     @Composable
@@ -311,8 +322,8 @@ object AppComponents {
 
     /**
      * A themed [DropdownMenuItem] with consistent UX across the app:
-     * - Always reserves leading-icon space for a [Check] mark, rendered transparently
-     *   when not selected — keeping all item texts left-aligned regardless of selection.
+     * - Always reserves leading-icon space for a [Check] mark, rendered transparently when
+     *   not selected — keeps item texts left-aligned regardless of selection.
      * - Shows a hand [PointerIcon] on hover.
      * - Optionally renders a subtle [HorizontalDivider] below the item — pass
      *   `showDivider = false` for the last item in a list.
@@ -353,12 +364,10 @@ object AppComponents {
     /**
      * Density-scaled minimum height for dropdown/menu items.
      *
-     * Material3's [DropdownMenuItem] enforces its own fixed 48.dp minimum height internally,
-     * which silently swallows any [Spacing]-based vertical `contentPadding` — the padding
-     * change never becomes visible because the row gets clamped back up to 48.dp regardless
-     * of density. Combining this scaled `heightIn(min = ...)` with density-aware content
-     * padding forces the row to actually grow/shrink with [LocalLayoutDensity] instead of
-     * always sitting at the Material3 default.
+     * Material3's [DropdownMenuItem] enforces its own fixed 48.dp minimum height, which
+     * silently swallows any [Spacing]-based vertical `contentPadding`. Combining this scaled
+     * `heightIn(min = ...)` with density-aware content padding forces the row to actually
+     * grow/shrink with [LocalLayoutDensity] instead of always sitting at the M3 default.
      */
     val menuItemMinHeight: Dp
         @Composable get() = 48.dp * LocalLayoutDensity.current.scale
@@ -369,8 +378,8 @@ object AppComponents {
 
     /**
      * The standard [DropdownMenuItem] for this app — always density-aware via
-     * [menuItemMinHeight]/[menuItemContentPadding] so item spacing correctly follows the
-     * user's Layout Density setting, and always shows a hand [PointerIcon] on hover.
+     * [menuItemMinHeight]/[menuItemContentPadding], and always shows a hand [PointerIcon]
+     * on hover.
      *
      * Use this instead of a raw [DropdownMenuItem] anywhere in the app that renders items
      * inside a dropdown menu — e.g. session/project action menus.
@@ -507,23 +516,22 @@ object AppComponents {
      *
      * **Scroll contract** — this composable internally wraps its content in a `verticalScroll`.
      * Do **not** apply [androidx.compose.foundation.verticalScroll] or
-     * [androidx.compose.foundation.horizontalScroll] directly inside the [content] lambda
-     * without a bounded `heightIn` / `height` constraint.  Doing so causes an
-     * [IllegalStateException] at runtime:
-     * _"Vertically scrollable component was measured with an infinity maximum height constraints"_.
+     * [androidx.compose.foundation.horizontalScroll] directly inside [content] without a
+     * bounded `heightIn`/`height` constraint, or it throws an [IllegalStateException] at
+     * runtime ("Vertically scrollable component was measured with infinity maximum height").
      *
-     * ℹ️ The `NestedScrollInScrollingWrapper` Detekt rule enforces this contract automatically.
+     * ℹ️ The `NestedScrollInScrollingWrapper` Detekt rule enforces this automatically.
      *
-     * If you need an independently scrollable sub-list inside the content, give the inner
-     * container an explicit max-height constraint first:
+     * For an independently scrollable sub-list, give the inner container an explicit
+     * max-height constraint first:
      * ```kotlin
      * Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())
      * ```
      *
-     * @param stickyHeader Optional composable rendered **between the title bar and the scrollable
-     *   content area**, outside the scroll viewport.  Use it for controls that must always be
-     *   visible regardless of scroll position — e.g. a search field above a long model list.
-     *   Each child is automatically separated by [sectionSpacing].
+     * @param stickyHeader Optional composable rendered between the title bar and the
+     *   scrollable content area, outside the scroll viewport — for controls that must stay
+     *   visible regardless of scroll position (e.g. a search field above a long model list).
+     *   Each child is separated by [sectionSpacing].
      */
     @Composable
     fun scaffoldDialog(
@@ -731,12 +739,11 @@ object AppComponents {
     /**
      * Standardised small loading spinner for all UI contexts.
      *
-     * Color defaults to [LocalContentColor] so it automatically matches its container:
-     *   - inside a `primaryButton`                        → onPrimary
-     *   - inside a `AppColors.cardColors(Elevation.ACCENT)` card → onPrimaryContainer
-     *   - on a plain surface                               → onSurface
+     * Color defaults to [LocalContentColor] so it automatically matches its container
+     * (onPrimary inside a `primaryButton`, onPrimaryContainer on an accent card, onSurface
+     * on a plain surface).
      *
-     * Bakes in `strokeWidth = 2.dp` (lighter than M3 default of 4.dp) for inline use.
+     * Bakes in `strokeWidth = 2.dp` (lighter than M3's 4.dp default) for inline use.
      *
      * @param size  Spinner diameter. 16.dp when inline in a button, 18.dp standalone (default).
      * @param color Override only when a dynamic/semantic color is needed (e.g. a status color).
@@ -770,16 +777,16 @@ object AppComponents {
         thickness = 6.dp,
         shape = MaterialTheme.shapes.small,
         hoverDurationMillis = 300,
-        unhoverColor = AppColors.surfaceColor(AppColors.Elevation.RECESSED),
-        hoverColor = AppColors.tertiaryIconColor(),
+        unhoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+        hoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
     )
 
     /**
      * A floating popup anchored to any position via [positionProvider], using the same
-     * background, border, and elevation tokens as all other popup surfaces in the app.
+     * background, border, and elevation tokens as other popup surfaces in the app.
      *
-     * Use this instead of a raw [Popup] + [Surface] whenever you need a custom-positioned
-     * overlay (e.g. an upward-opening chip picker, command palette).
+     * Use this instead of a raw [Popup] + [Surface] for a custom-positioned overlay (e.g. an
+     * upward-opening chip picker, command palette).
      */
     @Composable
     fun anchoredPopup(
@@ -811,14 +818,14 @@ object AppComponents {
     }
 
     /**
-     * Single-line text that reveals content clipped by ellipsis/truncation when hovered,
-     * by scrolling horizontally at a constant speed — the classic "marquee on hover" pattern
-     * used for long list-item titles (session names, project names, tab titles, etc.).
+     * Single-line text that reveals ellipsis-truncated content when hovered, by scrolling
+     * horizontally at a constant speed — the classic "marquee on hover" pattern for long
+     * list-item titles (session names, project names, tab titles, etc.).
      *
      * Text that already fits the available width never scrolls.
      *
-     * @param isHovered Drives the scroll: `true` starts/holds the scroll, `false` stops it
-     * immediately and the caller's own truncation (`TextOverflow.Ellipsis`) applies.
+     * @param isHovered Drives the scroll: `true` starts/holds it, `false` stops it immediately
+     *   and the caller's own truncation (`TextOverflow.Ellipsis`) applies.
      */
     @Composable
     fun marqueeText(
