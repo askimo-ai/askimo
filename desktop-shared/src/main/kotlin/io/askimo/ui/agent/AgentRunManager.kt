@@ -8,6 +8,8 @@ import io.askimo.core.agent.domain.SkillDefinition
 import io.askimo.core.agent.domain.Workspace
 import io.askimo.core.agent.repository.AgentRunHistoryRepository
 import io.askimo.core.db.DatabaseManager
+import io.askimo.core.event.EventBus
+import io.askimo.core.event.internal.AgentRunCompletedEvent
 import io.askimo.core.logging.logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -17,12 +19,14 @@ import kotlinx.coroutines.cancel
 /**
  * Global service managing [AgentRunViewModel] instances across the entire application.
  *
- * Mirrors [io.askimo.ui.session.SessionManager]'s caching pattern: ViewModels are cached
- * by workspace ID and survive navigation away from the agent view (e.g., switching to
- * Settings, Projects, or other views). This ensures in-flight agent runs complete and
- * persist to history regardless of where the user navigates.
+ * ViewModels are cached by workspace ID and survive navigation away from the agent view.
+ * This allows in-flight agent runs to complete even when the user navigates to Settings,
+ * Projects, or Chat.
  *
  * One instance per application lifetime; no lifecycle tied to any composable.
+ *
+ * Run completion is published via [EventBus] (see [AgentRunCompletedEvent]) to avoid
+ * stale callback issues when ViewModels persist across navigation while observers change.
  */
 object AgentRunManager {
     private val log = logger<AgentRunManager>()
@@ -46,18 +50,12 @@ object AgentRunManager {
     }
 
     /**
-     * Get or create an [AgentRunViewModel] for a workspace.
-     * The ViewModel persists across navigation and is reused on subsequent access.
-     *
-     * @param workspace The workspace to manage agent runs for
-     * @param skills The skill definitions available for this workspace
-     * @param onRunCompleted Callback to invoke when an agent run completes
-     * @return Cached or newly-created AgentRunViewModel for this workspace
+     * Get or create a cached [AgentRunViewModel] for a workspace.
+     * Publishes run completion via [EventBus], so observers attached after creation still get notified.
      */
     internal fun getOrCreateAgentRunViewModel(
         workspace: Workspace,
         skills: List<SkillDefinition>,
-        onRunCompleted: () -> Unit = {},
     ): AgentRunViewModel {
         agentRunViewModels[workspace.id]?.let { return it }
 
@@ -65,12 +63,20 @@ object AgentRunManager {
             workspace = workspace,
             skills = skills,
             historyRepo = historyRepo,
-            onRunCompleted = onRunCompleted,
+            onRunCompleted = { publishRunCompleted(workspace.id) },
         )
 
         agentRunViewModels[workspace.id] = viewModel
         log.debug("Created AgentRunViewModel for workspace: ${workspace.id} (total cached: ${agentRunViewModels.size})")
         return viewModel
+    }
+
+    /**
+     * Publish a run completion event to the EventBus.
+     * Called internally by AgentRunViewModel when a run finishes.
+     */
+    private fun publishRunCompleted(workspaceId: String) {
+        EventBus.post(AgentRunCompletedEvent(workspaceId))
     }
 
     /**

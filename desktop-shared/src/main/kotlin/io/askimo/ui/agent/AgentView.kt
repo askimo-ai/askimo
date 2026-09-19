@@ -43,7 +43,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -88,15 +87,6 @@ fun agentsView(
     val skills by remember { mutableStateOf(skillRepository.getSkillsOnly()) }
     var showOverlayPanel by remember { mutableStateOf(false) }
 
-    // Clean up the current workspace's AgentRunViewModel when this view is disposed
-    DisposableEffect(Unit) {
-        onDispose {
-            viewModel.workspace?.let { workspace ->
-                AgentRunManager.closeAgentRun(workspace.id)
-            }
-        }
-    }
-
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isWide = maxWidth >= 1100.dp
         LaunchedEffect(isWide) { if (isWide) showOverlayPanel = false }
@@ -120,7 +110,6 @@ fun agentsView(
                     agenticContent(
                         skills = skills,
                         workspace = currentWorkspace,
-                        onRunCompleted = { viewModel.onRunCompleted() },
                         onNavigateToSkillsSettings = onNavigateToSkillsSettings,
                         preloadRecord = viewModel.pendingHistoryRecord,
                         onPreloadConsumed = { viewModel.consumePendingHistoryRecord() },
@@ -136,7 +125,6 @@ fun agentsView(
                 agenticContent(
                     skills = skills,
                     workspace = currentWorkspace,
-                    onRunCompleted = { viewModel.onRunCompleted() },
                     onNavigateToSkillsSettings = onNavigateToSkillsSettings,
                     showPanelToggle = true,
                     panelVisible = showOverlayPanel,
@@ -304,7 +292,6 @@ internal fun agentsPageHeader(
 private fun agenticContent(
     skills: List<SkillDefinition>,
     workspace: Workspace,
-    onRunCompleted: () -> Unit,
     onNavigateToSkillsSettings: () -> Unit,
     showPanelToggle: Boolean = false,
     panelVisible: Boolean = false,
@@ -352,7 +339,6 @@ private fun agenticContent(
             agenticRunArea(
                 skills = skills,
                 workspace = workspace,
-                onRunCompleted = onRunCompleted,
                 preloadRecord = preloadRecord,
                 onPreloadConsumed = onPreloadConsumed,
                 onConversationStateChanged = { hasActiveConversation = it },

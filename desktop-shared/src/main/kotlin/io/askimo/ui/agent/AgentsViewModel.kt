@@ -13,6 +13,7 @@ import io.askimo.core.agent.repository.AgentRunHistoryRepository
 import io.askimo.core.agent.service.WorkspaceService
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
+import io.askimo.core.event.internal.AgentRunCompletedEvent
 import io.askimo.core.event.internal.AgentRunTitleUpdatedEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -57,6 +58,7 @@ internal class AgentsViewModel(
     init {
         resolveWorkspace()
         observeTitleEvents()
+        observeRunCompletionEvents()
     }
 
     private fun resolveWorkspace() {
@@ -78,6 +80,26 @@ internal class AgentsViewModel(
                         } else {
                             record
                         }
+                    }
+                }
+        }
+    }
+
+    /**
+     * Observes run completion events from the EventBus.
+     * When a run completes in the current workspace, refreshes the history list.
+     * This ensures that newly completed runs appear in the history without stale-callback issues
+     * that occur when the ViewModel survives navigation but observers change.
+     */
+    private fun observeRunCompletionEvents() {
+        scope.launch {
+            EventBus.internalEvents
+                .filterIsInstance<AgentRunCompletedEvent>()
+                .collect { event ->
+                    val currentWorkspace = workspace
+                    if (currentWorkspace != null && event.workspaceId == currentWorkspace.id) {
+                        historyRefreshKey++
+                        refreshHistory()
                     }
                 }
         }
@@ -118,10 +140,5 @@ internal class AgentsViewModel(
             historyRefreshKey++
             refreshHistory()
         }
-    }
-
-    fun onRunCompleted() {
-        historyRefreshKey++
-        refreshHistory()
     }
 }

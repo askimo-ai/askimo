@@ -113,7 +113,6 @@ private fun agentReadinessDotColor(state: AgentReadiness?): Color = when (state)
 internal fun agenticRunArea(
     skills: List<SkillDefinition>,
     workspace: Workspace,
-    onRunCompleted: () -> Unit = {},
     preloadRecord: AgentRunRecord? = null,
     onPreloadConsumed: () -> Unit = {},
     onConversationStateChanged: (Boolean) -> Unit = {},
@@ -127,7 +126,6 @@ internal fun agenticRunArea(
         AgentRunManager.getOrCreateAgentRunViewModel(
             workspace = workspace,
             skills = skills,
-            onRunCompleted = onRunCompleted,
         )
     }
 
