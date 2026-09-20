@@ -225,6 +225,21 @@ class UnsupportedSamplingException(
 }
 
 /**
+ * The AI hit the configured cap on tool-calling round trips (`maxToolCallingRoundTrips`)
+ * before finishing its response — typically means the task needed more tool round trips
+ * than currently allowed, or the model got stuck looping on tool calls.
+ *
+ * Surfaced as a user error (not a system error) because it's directly fixable by the user:
+ * increasing the limit in Settings > Advanced resolves it.
+ */
+class MaxToolCallingRoundTripsExceededException(
+    cause: Throwable? = null,
+) : UserException("Exceeded maximum tool calling round trips", cause) {
+    override fun getMessageKey() = "error.max_tool_calling_round_trips"
+    override fun getMessageArgs() = emptyMap<String, String>()
+}
+
+/**
  * No AI provider has been configured yet (currentProvider == UNKNOWN).
  */
 class ProviderNotConfiguredException :

@@ -141,6 +141,14 @@ object ExceptionMapper {
         val combinedMessage = messages.joinToString(" | ")
 
         return when {
+            // Tool-calling round-trip cap exceeded — the model looped on tool calls (or the
+            // task genuinely needed more round trips) than the configured
+            // `maxToolCallingRoundTrips` limit allows. Fixable by the user in
+            // Settings > Advanced, so checked before the generic system-error fallback.
+            combinedMessage.contains("exceeded", ignoreCase = true) &&
+                combinedMessage.contains("tool calling round trip", ignoreCase = true) ->
+                MaxToolCallingRoundTripsExceededException(cause = rootCause)
+
             // Local AI server internal error – process crashed, model failed to load, etc.
             // Covers Ollama, Docker AI, LocalAI, LMStudio, and any OpenAI-compatible local backend.
             combinedMessage.contains("process has terminated", ignoreCase = true) ||
