@@ -406,7 +406,7 @@ data class ModelTimeoutsConfig(
  * by Jackson (`FAIL_ON_UNKNOWN_PROPERTIES = false`). No migration or data loss occurs.
  */
 data class ModelsConfig(
-    val maxToolCallingRoundTrips: Int = 10,
+    val maxToolCallingRoundTrips: Int = 50,
     val timeouts: ModelTimeoutsConfig = ModelTimeoutsConfig(),
 )
 
