@@ -96,21 +96,19 @@ class DatabaseManager private constructor(
      * Applies any pending [SchemaMigrations.all] entries, tracked via SQLite's
      * `PRAGMA user_version` counter. Called automatically during datasource creation.
      *
-     * Pre-existing databases (created before this versioned system) are detected by
-     * having tables but `user_version` 0, and are stamped with
-     * [SchemaMigrations.BASELINE_VERSION] instead of replaying every historical
-     * migration, since the old ad-hoc `CREATE TABLE IF NOT EXISTS` / `ALTER TABLE`
-     * approach already kept them up to date.
+     * Every migration in [SchemaMigrations.all] is written to be idempotent (`CREATE TABLE
+     * IF NOT EXISTS`, `addColumnIfMissing`-style checks, or try/catch-swallowed DROP
+     * statements), so a pre-existing database (created before this versioned system, or one
+     * that only partially kept up with the old ad-hoc approach) is simply replayed through
+     * the full list from version 0 — there is no need to trust/guess how far the old ad-hoc
+     * system got. This used to jump straight to a hardcoded baseline version, but that skipped
+     * real migrations for any database not perfectly in sync with that assumption (e.g. missing
+     * a column added by an earlier migration), causing "no such table/column" errors later.
      *
      * @param connection An open database connection for executing initialization SQL
      */
     private fun initializeTables(connection: Connection) {
         var version = getUserVersion(connection)
-
-        if (version == 0 && tableExists(connection, "user_profiles")) {
-            version = SchemaMigrations.BASELINE_VERSION
-            setUserVersion(connection, version)
-        }
 
         val migrations = SchemaMigrations.all
         while (version < migrations.size) {
@@ -127,8 +125,6 @@ class DatabaseManager private constructor(
     private fun setUserVersion(conn: Connection, version: Int) {
         conn.createStatement().use { it.executeUpdate("PRAGMA user_version = $version") }
     }
-
-    private fun tableExists(conn: Connection, name: String): Boolean = conn.metaData.getTables(null, null, name, null).use { it.next() }
 
     private val _chatSessionRepository: ChatSessionRepository by lazy {
         ChatSessionRepository(this)
