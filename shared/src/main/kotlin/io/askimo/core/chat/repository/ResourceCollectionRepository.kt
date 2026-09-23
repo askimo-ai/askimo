@@ -242,11 +242,28 @@ class ResourceCollectionRepository internal constructor(
         description: String? = null,
         knowledgeSources: List<KnowledgeSourceConfig>,
     ): Boolean = transaction(database) {
+        val newConfig = KnowledgeSourceSerializer.serialize(knowledgeSources)
+
+        // Reset persisted index status if sources changed — otherwise a silently-skipped
+        // re-index (e.g. no embedding model configured) leaves a stale READY/WATCHING
+        // status that no longer matches the actual vectors.
+        val previousConfig = ResourceCollectionsTable
+            .select(ResourceCollectionsTable.knowledgeSourcesConfig)
+            .where { ResourceCollectionsTable.id eq collectionId }
+            .firstOrNull()
+            ?.get(ResourceCollectionsTable.knowledgeSourcesConfig)
+        val sourcesChanged = previousConfig != null && previousConfig != newConfig
+
         val updated = ResourceCollectionsTable.update({ ResourceCollectionsTable.id eq collectionId }) {
             it[ResourceCollectionsTable.name] = name
             it[ResourceCollectionsTable.description] = description
-            it[knowledgeSourcesConfig] = KnowledgeSourceSerializer.serialize(knowledgeSources)
+            it[knowledgeSourcesConfig] = newConfig
             it[updatedAt] = Instant.now()
+            if (sourcesChanged) {
+                it[indexStatus] = IndexStatus.NOT_STARTED.name
+                it[lastIndexedAt] = null
+                it[indexError] = null
+            }
         } > 0
 
         if (updated) {
