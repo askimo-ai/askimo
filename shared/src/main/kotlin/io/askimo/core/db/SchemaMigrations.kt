@@ -520,6 +520,35 @@ object SchemaMigrations {
                 )
             }
         },
+        // 59: resource_collections re-creation for pre-versioned databases. Migrations
+        // 10-13 (which create this table) never ran for a database stamped straight to
+        // BASELINE_VERSION (see DatabaseManager.initializeTables) — that baseline assumes
+        // the old ad-hoc CREATE-TABLE-IF-NOT-EXISTS code path already created every table
+        // up to that point, but resource_collections was introduced after the baseline was
+        // fixed at 58, so it was never part of that ad-hoc set. Re-running the same
+        // statements here is a no-op for databases that already have the table (from
+        // migration 10) and fixes it for baseline-stamped ones.
+        Migration { conn ->
+            conn.createStatement().use { stmt ->
+                stmt.executeUpdate(
+                    """
+                    CREATE TABLE IF NOT EXISTS resource_collections (
+                        id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        description TEXT,
+                        knowledge_sources_config TEXT NOT NULL DEFAULT '{}',
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL,
+                        is_system_collection INTEGER NOT NULL DEFAULT 0,
+                        synced_at TEXT
+                    )
+                    """.trimIndent(),
+                )
+            }
+            addColumnIfMissing(conn, "resource_collections", "index_status", "TEXT NOT NULL DEFAULT 'NOT_STARTED'")
+            addColumnIfMissing(conn, "resource_collections", "last_indexed_at", "TEXT")
+            addColumnIfMissing(conn, "resource_collections", "index_error", "TEXT")
+        },
 
         // --- Add new migrations below this line. Never edit the entries above. ---
     )
