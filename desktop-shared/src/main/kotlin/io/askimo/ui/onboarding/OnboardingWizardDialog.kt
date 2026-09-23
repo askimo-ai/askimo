@@ -29,11 +29,12 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -111,149 +112,157 @@ fun onboardingWizardDialog(
         onDismissRequest = { /* prevent accidental dismissal */ },
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        Surface(
-            modifier = Modifier.width(760.dp).height(820.dp),
-            shape = MaterialTheme.shapes.large,
-            tonalElevation = 8.dp,
-        ) {
-            Column(
+        MaterialTheme(colorScheme = AppColors.popupColorScheme()) {
+            val dialogShape = MaterialTheme.shapes.large
+            val border = AppColors.popupBorderStroke()
+            Surface(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(32.dp),
-                verticalArrangement = Arrangement.SpaceBetween,
+                    .width(760.dp)
+                    .height(820.dp)
+                    .border(border.width, border.brush, dialogShape),
+                shape = dialogShape,
+                color = AppColors.popupContainerColor(),
+                tonalElevation = AppColors.popupSurfaceTonalElevation,
             ) {
-                // ── Header ────────────────────────────────────────────────────
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        text = stringResource("onboarding.title"),
-                        style = AppTextStyles.pageTitle,
-                        textAlign = TextAlign.Center,
-                    )
-                    Spacer(modifier = Modifier.height(Spacing.extraSmall))
-                    Text(
-                        text = stringResource("onboarding.step.indicator", currentStep + 1, TOTAL_STEPS),
-                        style = AppTextStyles.bodySecondary,
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(Spacing.large))
-
-                // ── Step content ─────────────────────────────────────────────
-                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
+                        .fillMaxSize()
+                        .padding(32.dp),
+                    verticalArrangement = Arrangement.SpaceBetween,
                 ) {
+                    // ── Header ────────────────────────────────────────────────────
                     Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = stringResource("onboarding.title"),
+                            style = AppTextStyles.pageTitle,
+                            textAlign = TextAlign.Center,
+                        )
+                        Spacer(modifier = Modifier.height(Spacing.extraSmall))
+                        Text(
+                            text = stringResource("onboarding.step.indicator", currentStep + 1, TOTAL_STEPS),
+                            style = AppTextStyles.bodySecondary,
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(Spacing.large))
+
+                    // ── Step content ─────────────────────────────────────────────
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .verticalScroll(scrollState),
+                            .weight(1f),
                     ) {
-                        when (currentStep) {
-                            0 -> onboardingStepLanguage(
-                                selectedLocale = selectedLocale,
-                                onLocaleChange = { selectedLocale = it },
-                            )
-
-                            1 -> onboardingStepWelcome()
-
-                            2 -> onboardingStepProfile(
-                                name = name,
-                                occupation = occupation,
-                                onNameChange = { name = it },
-                                onOccupationChange = { occupation = it },
-                            )
-
-                            3 -> onboardingStepDirectives()
-
-                            4 -> onboardingStepPersona(
-                                selectedPersona = selectedPersona,
-                                onPersonaSelected = { persona ->
-                                    selectedPersona = persona
-                                    val (plans, skills, projects) = when (persona) {
-                                        "developer" -> Triple(false, true, true)
-                                        "researcher" -> Triple(true, false, true)
-                                        "manager" -> Triple(true, false, false)
-                                        else -> Triple(true, true, true) // "everything"
-                                    }
-                                    ApplicationPreferences.setShowPlansInSidebar(plans)
-                                    ApplicationPreferences.setShowSkillsInSidebar(skills)
-                                    ApplicationPreferences.setShowProjectsInSidebar(projects)
-                                    onPersonaSelected?.invoke(plans, skills, projects)
-                                },
-                            )
-
-                            5 -> onboardingStepAnalytics(
-                                analyticsAccepted = analyticsAccepted,
-                                onAnalyticsAcceptedChange = { analyticsAccepted = it },
-                            )
-
-                            6 -> onboardingStepReady()
-                        }
-                    }
-
-                    VerticalScrollbar(
-                        adapter = rememberScrollbarAdapter(scrollState),
-                        modifier = Modifier.align(Alignment.CenterEnd),
-                        style = AppComponents.scrollbarStyle(),
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(Spacing.large))
-
-                // ── Progress dots ─────────────────────────────────────────────
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    repeat(TOTAL_STEPS) { index ->
-                        Card(
+                        Column(
                             modifier = Modifier
-                                .width(if (index == currentStep) 32.dp else 8.dp)
-                                .height(8.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (index == currentStep) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.surfaceVariant
-                                },
-                            ),
-                        ) {}
-                        if (index < TOTAL_STEPS - 1) {
-                            Spacer(modifier = Modifier.width(Spacing.small))
+                                .fillMaxWidth()
+                                .verticalScroll(scrollState),
+                        ) {
+                            when (currentStep) {
+                                0 -> onboardingStepLanguage(
+                                    selectedLocale = selectedLocale,
+                                    onLocaleChange = { selectedLocale = it },
+                                )
+
+                                1 -> onboardingStepWelcome()
+
+                                2 -> onboardingStepProfile(
+                                    name = name,
+                                    occupation = occupation,
+                                    onNameChange = { name = it },
+                                    onOccupationChange = { occupation = it },
+                                )
+
+                                3 -> onboardingStepDirectives()
+
+                                4 -> onboardingStepPersona(
+                                    selectedPersona = selectedPersona,
+                                    onPersonaSelected = { persona ->
+                                        selectedPersona = persona
+                                        val (plans, skills, projects) = when (persona) {
+                                            "developer" -> Triple(false, true, true)
+                                            "researcher" -> Triple(true, false, true)
+                                            "manager" -> Triple(true, false, false)
+                                            else -> Triple(true, true, true) // "everything"
+                                        }
+                                        ApplicationPreferences.setShowPlansInSidebar(plans)
+                                        ApplicationPreferences.setShowSkillsInSidebar(skills)
+                                        ApplicationPreferences.setShowProjectsInSidebar(projects)
+                                        onPersonaSelected?.invoke(plans, skills, projects)
+                                    },
+                                )
+
+                                5 -> onboardingStepAnalytics(
+                                    analyticsAccepted = analyticsAccepted,
+                                    onAnalyticsAcceptedChange = { analyticsAccepted = it },
+                                )
+
+                                6 -> onboardingStepReady()
+                            }
+                        }
+
+                        VerticalScrollbar(
+                            adapter = rememberScrollbarAdapter(scrollState),
+                            modifier = Modifier.align(Alignment.CenterEnd),
+                            style = AppComponents.scrollbarStyle(),
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(Spacing.large))
+
+                    // ── Progress dots ─────────────────────────────────────────────
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        repeat(TOTAL_STEPS) { index ->
+                            Card(
+                                modifier = Modifier
+                                    .width(if (index == currentStep) 32.dp else 8.dp)
+                                    .height(8.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (index == currentStep) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        AppColors.statusAccentColor(AppColors.StatusTone.NEUTRAL)
+                                    },
+                                ),
+                            ) {}
+                            if (index < TOTAL_STEPS - 1) {
+                                Spacer(modifier = Modifier.width(Spacing.small))
+                            }
                         }
                     }
-                }
 
-                // ── Navigation ────────────────────────────────────────────────
-                Spacer(modifier = Modifier.height(Spacing.large))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    // Step 0 (language) has no back — it is required
-                    if (currentStep == 0) {
-                        Spacer(modifier = Modifier.width(Spacing.micro))
-                    } else {
-                        secondaryButton(onClick = { currentStep-- }) {
-                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null)
-                            Text(stringResource("onboarding.previous"))
+                    // ── Navigation ────────────────────────────────────────────────
+                    Spacer(modifier = Modifier.height(Spacing.large))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        // Step 0 (language) has no back — it is required
+                        if (currentStep == 0) {
+                            Spacer(modifier = Modifier.width(Spacing.micro))
+                        } else {
+                            secondaryButton(onClick = { currentStep-- }) {
+                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null)
+                                Text(stringResource("onboarding.previous"))
+                            }
                         }
-                    }
 
-                    if (currentStep < TOTAL_STEPS - 1) {
-                        primaryButton(onClick = { currentStep++ }) {
-                            Text(stringResource("onboarding.next"))
-                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
-                        }
-                    } else {
-                        primaryButton(onClick = { onComplete(selectedLocale, analyticsAccepted, name, occupation) }) {
-                            Text(stringResource("onboarding.finish"))
+                        if (currentStep < TOTAL_STEPS - 1) {
+                            primaryButton(onClick = { currentStep++ }) {
+                                Text(stringResource("onboarding.next"))
+                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                            }
+                        } else {
+                            primaryButton(onClick = { onComplete(selectedLocale, analyticsAccepted, name, occupation) }) {
+                                Text(stringResource("onboarding.finish"))
+                            }
                         }
                     }
                 }
@@ -306,9 +315,7 @@ private fun onboardingStepLanguage(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickableCard { dropdownExpanded = true },
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                        ),
+                        colors = AppColors.cardColors(AppColors.Elevation.EMPHASIS),
                     ) {
                         Row(
                             modifier = Modifier
@@ -324,7 +331,7 @@ private fun onboardingStepLanguage(
                             Icon(
                                 Icons.Default.Edit,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                tint = AppColors.secondaryIconColor(),
                             )
                         }
                     }
@@ -334,32 +341,19 @@ private fun onboardingStepLanguage(
                         onDismissRequest = { dropdownExpanded = false },
                     ) {
                         availableLanguages.forEach { (locale, displayName) ->
-                            DropdownMenuItem(
+                            AppComponents.themedDropdownMenuItem(
                                 text = {
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        if (locale == selectedLocale) {
-                                            Icon(
-                                                Icons.Default.Check,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onSurface,
-                                            )
-                                        } else {
-                                            Spacer(modifier = Modifier.width(Spacing.extraLarge))
-                                        }
-                                        Text(
-                                            text = displayName,
-                                            style = AppTextStyles.body,
-                                        )
-                                    }
+                                    Text(
+                                        text = displayName,
+                                        style = AppTextStyles.body,
+                                    )
                                 },
                                 onClick = {
                                     onLocaleChange(locale)
                                     ThemePreferences.setLocale(locale)
                                     dropdownExpanded = false
                                 },
+                                isSelected = locale == selectedLocale,
                             )
                         }
                     }
@@ -629,7 +623,7 @@ private fun personaCard(
                         Icon(
                             Icons.Default.Check,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface,
+                            tint = AppTextStyles.primaryContent,
                             modifier = Modifier.size(18.dp),
                         )
                     }
@@ -668,7 +662,7 @@ private fun onboardingStepAnalytics(
             Icon(
                 imageVector = Icons.Default.BarChart,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface,
+                tint = AppTextStyles.primaryContent,
                 modifier = Modifier.size(28.dp).padding(top = Spacing.micro),
             )
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
@@ -838,12 +832,12 @@ private fun onboardingStepReady() {
                     title = stringResource("onboarding.step.ready.link.docs"),
                     onClick = { uriHandler.openUri("https://$DOMAIN/docs/") },
                 )
-                HorizontalDivider()
+                HorizontalDivider(color = AppColors.secondaryContentColorFor(AppColors.Elevation.ACCENT).copy(alpha = 0.3f))
                 onboardingLinkItem(
                     title = stringResource("onboarding.step.ready.link.providers"),
                     onClick = { uriHandler.openUri("https://$DOMAIN/docs/desktop/ai-providers/") },
                 )
-                HorizontalDivider()
+                HorizontalDivider(color = AppColors.secondaryContentColorFor(AppColors.Elevation.ACCENT).copy(alpha = 0.3f))
                 onboardingLinkItem(
                     title = stringResource("onboarding.step.ready.link.github"),
                     onClick = { uriHandler.openUri("https://github.com/askimo-ai/askimo") },
@@ -903,7 +897,7 @@ private fun onboardingLinkItem(title: String, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .pointerHoverIcon(PointerIcon.Hand),
-        colors = AppColors.primaryTextButtonColors(),
+        colors = ButtonDefaults.textButtonColors(contentColor = LocalContentColor.current),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
