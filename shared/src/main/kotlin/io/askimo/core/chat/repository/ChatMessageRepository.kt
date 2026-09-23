@@ -25,6 +25,7 @@ import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.greaterEq
@@ -37,6 +38,7 @@ import org.jetbrains.exposed.v1.core.lowerCase
 import org.jetbrains.exposed.v1.jdbc.andWhere
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
@@ -226,6 +228,17 @@ class ChatMessageRepository internal constructor(
         messages.map { message ->
             message.copy(attachments = attachmentsMap[message.id] ?: emptyList())
         }
+    }
+
+    /**
+     * Counts messages with [role] across all sessions — e.g. total user prompts ever sent,
+     */
+    fun countByRole(role: MessageRole): Int = transaction(database) {
+        val count = ChatMessagesTable.id.count()
+        ChatMessagesTable
+            .select(count)
+            .where { ChatMessagesTable.role eq role.value }
+            .first()[count].toInt()
     }
 
     /**

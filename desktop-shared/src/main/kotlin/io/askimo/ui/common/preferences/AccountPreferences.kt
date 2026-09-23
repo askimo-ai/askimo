@@ -30,6 +30,12 @@ class AccountPreferences private constructor(private val prefs: PropertyFilePref
         private const val SNOOZE_DAYS = 30L
 
         /**
+         * Messages-sent threshold for the later "power user" share nudge — much higher than
+         * [MINIMUM_MESSAGES_BEFORE_PROMPT] so it targets heavy users, not the initial ask.
+         */
+        private const val POWER_USER_MESSAGE_THRESHOLD = 100
+
+        /**
          * Returns [AccountPreferences] scoped to [accountId] (typically the user's email,
          * lowercased and sanitized for use as a file name).
          */
@@ -199,6 +205,83 @@ class AccountPreferences private constructor(private val prefs: PropertyFilePref
         StarPromptState.SNOOZED -> {
             val snoozeDate = getSnoozeDate() ?: return false
             LocalDate.now().isAfter(snoozeDate.plusDays(SNOOZE_DAYS))
+        }
+    }
+
+    /**
+     * Whether the user completed the star flow *positively* (starred/already-starred) rather
+     * than just reaching [StarPromptState.PERMANENTLY_DONE] via a feedback submission. Gates
+     * [shouldShowSharePrompt].
+     *
+     * [markStarredPositively] and [markFeedbackCompletedWithoutStarring] always write an
+     * explicit marker, so only pre-marker (legacy) installs fall through to inferring a
+     * positive from [StarPromptState.PERMANENTLY_DONE] — inferred once, then persisted.
+     */
+    fun hasStarredPositively(): Boolean {
+        safeGet("star.starred_positively", null)?.let { return it.toBooleanStrictOrNull() ?: false }
+        val inferredPositive = getStarPromptState() == StarPromptState.PERMANENTLY_DONE
+        safePutBoolean("star.starred_positively", inferredPositive)
+        return inferredPositive
+    }
+
+    /** Call from the star prompt's "Star on GitHub" / "Already starred ✓" handlers only. */
+    fun markStarredPositively() = safePutBoolean("star.starred_positively", true)
+
+    /**
+     * Call when neutral/unhappy feedback reaches [StarPromptState.PERMANENTLY_DONE] without
+     * starring, so [hasStarredPositively] doesn't mistake it for a positive star.
+     */
+    fun markFeedbackCompletedWithoutStarring() = safePutBoolean("star.starred_positively", false)
+
+    // ── Share prompt state machine (independent of the star prompt) ──────────
+    //
+    // Kept separate from [StarPromptState] so a user who already starred (or gave one-off
+    // feedback) isn't permanently excluded from a later, higher-engagement share ask.
+
+    enum class SharePromptState { NEVER_SHOWN, SNOOZED, PERMANENTLY_DONE }
+
+    private fun getSharePromptState(): SharePromptState = when (safeGet("share.prompt_state", null)) {
+        SharePromptState.SNOOZED.name -> SharePromptState.SNOOZED
+        SharePromptState.PERMANENTLY_DONE.name -> SharePromptState.PERMANENTLY_DONE
+        else -> SharePromptState.NEVER_SHOWN
+    }
+
+    private fun setSharePromptState(state: SharePromptState) = safePut("share.prompt_state", state.name)
+
+    private fun getShareSnoozeDate(): LocalDate? = safeGet("share.snoozed_at", null)
+        ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+
+    private fun setShareSnoozeDate(date: LocalDate = LocalDate.now()) = safePut("share.snoozed_at", date.toString())
+
+    /** User clicked "Maybe later" on the share prompt — snooze for [SNOOZE_DAYS] days. */
+    fun snoozeSharePrompt() {
+        setSharePromptState(SharePromptState.SNOOZED)
+        setShareSnoozeDate()
+    }
+
+    /** User shared — never show the share prompt again. */
+    fun dismissSharePromptPermanently() = setSharePromptState(SharePromptState.PERMANENTLY_DONE)
+
+    /**
+     * Returns true when the "power user" share nudge should be shown — a milestone-triggered
+     * ask distinct from [shouldShowStarPrompt]:
+     * - Only fires for users who already responded positively to the star prompt (see
+     *   [hasStarredPositively]) — this is "you clearly love it, help us grow," not a cold ask.
+     * - Gated on [POWER_USER_MESSAGE_THRESHOLD] so it targets heavy users specifically.
+     *
+     * Pass [sentMessageCount] = total user messages sent across all sessions.
+     */
+    fun shouldShowSharePrompt(sentMessageCount: Int = 0): Boolean {
+        if (!hasStarredPositively()) return false
+        return when (getSharePromptState()) {
+            SharePromptState.PERMANENTLY_DONE -> false
+
+            SharePromptState.NEVER_SHOWN -> sentMessageCount >= POWER_USER_MESSAGE_THRESHOLD
+
+            SharePromptState.SNOOZED -> {
+                val snoozeDate = getShareSnoozeDate() ?: return false
+                LocalDate.now().isAfter(snoozeDate.plusDays(SNOOZE_DAYS))
+            }
         }
     }
 

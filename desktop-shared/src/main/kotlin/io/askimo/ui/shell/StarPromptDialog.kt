@@ -5,9 +5,6 @@
 package io.askimo.ui.shell
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.hoverable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -123,8 +120,7 @@ fun happinessGateDialog(
                         Analytics.track(AnalyticsEvent.USER_SENTIMENT_HAPPY)
                         onHappy()
                     },
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    tier = AppColors.Elevation.ACCENT,
                 )
                 sentimentButton(
                     label = stringResource("happiness.gate.neutral"),
@@ -147,8 +143,7 @@ fun happinessGateDialog(
 private fun sentimentButton(
     label: String,
     onClick: () -> Unit,
-    containerColor: Color = MaterialTheme.colorScheme.surfaceVariant,
-    contentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    tier: AppColors.Elevation = AppColors.Elevation.RAISED,
 ) {
     Surface(
         modifier = Modifier
@@ -157,8 +152,8 @@ private fun sentimentButton(
             .clickable(onClick = onClick)
             .pointerHoverIcon(PointerIcon.Hand),
         shape = MaterialTheme.shapes.medium,
-        color = containerColor,
-        contentColor = contentColor,
+        color = AppColors.surfaceColor(tier),
+        contentColor = AppColors.contentColorFor(tier),
     ) {
         Text(
             text = label,
@@ -353,7 +348,6 @@ fun feedbackPromptDialog(
                                 Text(
                                     text = stringResource("feedback.comment.encourage.hint"),
                                     style = AppTextStyles.caption,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         } else {
@@ -363,26 +357,29 @@ fun feedbackPromptDialog(
                         maxLines = 5,
                         shape = MaterialTheme.shapes.medium,
                     )
-                    // ── Optional email ─────────────────────────────────────
-                    OutlinedTextField(
-                        value = email,
-                        onValueChange = { email = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = {
-                            Text(text = stringResource("feedback.email.label"), style = AppTextStyles.caption)
-                        },
-                        placeholder = {
-                            Text(text = stringResource("feedback.email.placeholder"), style = AppTextStyles.caption)
-                        },
-                        supportingText = {
-                            Text(
-                                text = stringResource("feedback.email.hint"),
-                                style = AppTextStyles.caption,
-                            )
-                        },
-                        singleLine = true,
-                        shape = MaterialTheme.shapes.medium,
-                    )
+                    // ── Optional email — skipped on the neutral path to keep the ask lightweight;
+                    // it's the unhappy/direct paths where a follow-up actually matters ──
+                    if (!isNeutralPath) {
+                        OutlinedTextField(
+                            value = email,
+                            onValueChange = { email = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = {
+                                Text(text = stringResource("feedback.email.label"), style = AppTextStyles.caption)
+                            },
+                            placeholder = {
+                                Text(text = stringResource("feedback.email.placeholder"), style = AppTextStyles.caption)
+                            },
+                            supportingText = {
+                                Text(
+                                    text = stringResource("feedback.email.hint"),
+                                    style = AppTextStyles.caption,
+                                )
+                            },
+                            singleLine = true,
+                            shape = MaterialTheme.shapes.medium,
+                        )
+                    }
                     // ── Action buttons ─────────────────────────────────────
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -390,7 +387,13 @@ fun feedbackPromptDialog(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         TextButton(
-                            onClick = { if (showReminderOnSkip) showReminder = true else onSnooze() },
+                            onClick = {
+                                Analytics.track(
+                                    AnalyticsEvent.USER_FEEDBACK_SKIPPED,
+                                    mapOf("sentiment" to (pathSentiment ?: "menu")),
+                                )
+                                if (showReminderOnSkip) showReminder = true else onSnooze()
+                            },
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         ) {
                             Text(
@@ -409,9 +412,14 @@ fun feedbackPromptDialog(
                                 onSubmit(selectedReasons, comment.trim(), email.trim())
                                 submitted = true
                             },
-                            enabled = (selectedReasons.isNotEmpty() || comment.isNotBlank()) &&
-                                (FeedbackReason.MISSING_FEATURE !in selectedReasons || comment.isNotBlank()) &&
-                                (FeedbackReason.OTHER !in selectedReasons || comment.isNotBlank()),
+
+                            enabled = if (isNeutralPath) {
+                                selectedReasons.isNotEmpty() || comment.isNotBlank()
+                            } else {
+                                (selectedReasons.isNotEmpty() || comment.isNotBlank()) &&
+                                    (FeedbackReason.MISSING_FEATURE !in selectedReasons || comment.isNotBlank()) &&
+                                    (FeedbackReason.OTHER !in selectedReasons || comment.isNotBlank())
+                            },
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         ) {
                             Text(text = stringResource("feedback.action.send"))
@@ -430,14 +438,15 @@ private fun feedbackReasonChip(
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val tier = if (selected) AppColors.Elevation.SELECTED else AppColors.Elevation.RAISED
     Surface(
         modifier = modifier
             .clip(MaterialTheme.shapes.medium)
             .clickable(onClick = onToggle)
             .pointerHoverIcon(PointerIcon.Hand),
         shape = MaterialTheme.shapes.medium,
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-        contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+        color = AppColors.surfaceColor(tier),
+        contentColor = AppColors.contentColorFor(tier),
     ) {
         Row(
             modifier = Modifier
@@ -608,26 +617,145 @@ fun starPromptDialog(
     }
 }
 
+/**
+ * Milestone-triggered ask for engaged users who already responded positively to
+ * [starPromptDialog] (starred or clicked "Already starred ✓") — asks them to *share*
+ * instead of re-showing the star card, which would be a dead end for someone who already
+ * starred. Fired independently via [io.askimo.ui.common.preferences.AccountPreferences.shouldShowSharePrompt],
+ * gated on a much higher message-count threshold so it specifically reaches heavy users
+ * rather than firing back-to-back with the initial ask.
+ *
+ * @param onDismiss User clicked "Maybe later" — snoozes the prompt for future re-asking.
+ * @param onShared  User picked a share target from the dropdown — fires once; caller should
+ *                  track the acceptance analytics event and mark the prompt permanently done.
+ * @param onClose   User clicked "Done" on the post-share thank-you screen — just closes the
+ *                  dialog. Kept separate from [onShared] so the accepted analytics event and
+ *                  permanent-dismiss state aren't recorded a second time.
+ */
+@Composable
+fun sharePromptDialog(
+    onDismiss: () -> Unit,
+    onShared: () -> Unit,
+    onClose: () -> Unit,
+    showReminderOnMaybeLater: Boolean = true,
+) {
+    var thanked by remember { mutableStateOf(false) }
+    var showReminder by remember { mutableStateOf(false) }
+
+    AppComponents.scaffoldDialog(
+        onDismissRequest = {},
+        width = 480.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(Spacing.large),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            when {
+                thanked -> {
+                    // ── Thank-you screen ───────────────────────────────────
+                    Text(text = "🙏", style = AppTextStyles.emptyStateEmoji)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(Spacing.small),
+                    ) {
+                        Text(
+                            text = stringResource("star.prompt.thanks.title"),
+                            style = AppTextStyles.sectionTitle,
+                            textAlign = TextAlign.Center,
+                        )
+                        Text(
+                            text = stringResource("star.prompt.thanks.message"),
+                            style = AppTextStyles.bodySecondary,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = onClose, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+                            Text(text = stringResource("star.prompt.thanks.done"), style = AppTextStyles.caption)
+                        }
+                    }
+                }
+
+                showReminder -> {
+                    // ── Maybe-later reminder screen ────────────────────────
+                    Text(text = "💡", style = AppTextStyles.emptyStateEmoji)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(Spacing.small),
+                    ) {
+                        Text(
+                            text = stringResource("share.prompt.remind.title"),
+                            style = AppTextStyles.sectionTitle,
+                            textAlign = TextAlign.Center,
+                        )
+                        Text(
+                            text = stringResource("share.prompt.remind.message"),
+                            style = AppTextStyles.bodySecondary,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = onDismiss, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+                            Text(text = stringResource("star.prompt.remind.got.it"), style = AppTextStyles.caption)
+                        }
+                    }
+                }
+
+                else -> {
+                    // ── Default screen ─────────────────────────────────────
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(Spacing.small),
+                    ) {
+                        Text(
+                            text = stringResource("share.prompt.title"),
+                            style = AppTextStyles.sectionTitle,
+                            textAlign = TextAlign.Center,
+                        )
+                        Text(
+                            text = stringResource("share.prompt.message"),
+                            style = AppTextStyles.bodySecondary,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+
+                    shareActionCard(
+                        onShared = {
+                            onShared()
+                            thanked = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(
+                            onClick = { if (showReminderOnMaybeLater) showReminder = true else onDismiss() },
+                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                        ) {
+                            Text(
+                                text = stringResource("star.prompt.maybe.later"),
+                                style = AppTextStyles.caption,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun shareActionCard(
     onShared: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isHovered by interactionSource.collectIsHoveredAsState()
     var showMenu by remember { mutableStateOf(false) }
 
     Box(modifier = modifier) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(MaterialTheme.shapes.medium)
-                .hoverable(interactionSource)
-                .clickable { showMenu = true }
-                .pointerHoverIcon(PointerIcon.Hand),
-            shape = MaterialTheme.shapes.medium,
-            color = if (isHovered) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = if (isHovered) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+        AppComponents.clickableCard(
+            onClick = { showMenu = true },
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Column(
                 modifier = Modifier.padding(Spacing.large),
@@ -643,16 +771,10 @@ private fun shareActionCard(
                 Text(
                     text = stringResource("star.prompt.share.button"),
                     style = AppTextStyles.groupTitle,
-                    color = if (isHovered) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
                     text = stringResource("star.prompt.share.description"),
                     style = AppTextStyles.caption,
-                    color = if (isHovered) {
-                        AppColors.contentColorFor(AppColors.Elevation.SELECTED)
-                    } else {
-                        AppColors.secondaryIconColor()
-                    },
                 )
             }
         }
@@ -686,19 +808,7 @@ private fun supportActionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isHovered by interactionSource.collectIsHoveredAsState()
-
-    Surface(
-        modifier = modifier
-            .clip(MaterialTheme.shapes.medium)
-            .hoverable(interactionSource)
-            .clickable(onClick = onClick)
-            .pointerHoverIcon(PointerIcon.Hand),
-        shape = MaterialTheme.shapes.medium,
-        color = if (isHovered) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-        contentColor = if (isHovered) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-    ) {
+    AppComponents.clickableCard(onClick = onClick, modifier = modifier) {
         Column(
             modifier = Modifier.padding(Spacing.large),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -713,16 +823,10 @@ private fun supportActionCard(
             Text(
                 text = label,
                 style = AppTextStyles.groupTitle,
-                color = if (isHovered) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = description,
                 style = AppTextStyles.caption,
-                color = if (isHovered) {
-                    AppColors.contentColorFor(AppColors.Elevation.SELECTED)
-                } else {
-                    AppColors.secondaryIconColor()
-                },
             )
         }
     }

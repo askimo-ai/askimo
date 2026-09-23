@@ -314,6 +314,29 @@ enum class AnalyticsEvent(
         "User dismissed the star prompt without starring.",
     ),
 
+    // ── Share prompt (power-user milestone) ──────────────────────────────────
+
+    /**
+     * The milestone-triggered share prompt was displayed — fires for users who already
+     * starred positively and have since crossed the power-user message threshold.
+     */
+    SHARE_PROMPT_SHOWN(
+        "share_prompt_shown",
+        "Power-user share prompt displayed to the user.",
+    ),
+
+    /** User picked a share target (X, LinkedIn, etc.) from the share prompt. */
+    SHARE_PROMPT_ACCEPTED(
+        "share_prompt_accepted",
+        "User shared Askimo from the power-user share prompt.",
+    ),
+
+    /** User dismissed the power-user share prompt without sharing. */
+    SHARE_PROMPT_DISMISSED(
+        "share_prompt_dismissed",
+        "User dismissed the power-user share prompt without sharing.",
+    ),
+
     // ── User sentiment ───────────────────────────────────────────────────────────
 
     /** User responded "Yes, loving it" to the happiness gate before the star prompt. */
@@ -341,6 +364,16 @@ enum class AnalyticsEvent(
     USER_FEEDBACK_SUBMITTED(
         "user_feedback_submitted",
         "User submitted inline feedback. Properties: sentiment (neutral|unhappy), reasons (comma-separated), has_comment (true|false).",
+    ),
+
+    /**
+     * User clicked "Skip" on [feedbackPromptDialog] without submitting anything.
+     * Properties: `sentiment` (neutral|unhappy|menu). Paired with [USER_FEEDBACK_SUBMITTED]
+     * to measure feedback-form drop-off, particularly for the neutral path.
+     */
+    USER_FEEDBACK_SKIPPED(
+        "user_feedback_skipped",
+        "User skipped the inline feedback form without submitting. Properties: sentiment (neutral|unhappy|menu).",
     ),
 
     // ── Consent ──────────────────────────────────────────────────────────────
