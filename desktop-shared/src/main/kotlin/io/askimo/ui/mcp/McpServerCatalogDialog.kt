@@ -20,8 +20,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -111,11 +111,26 @@ fun mcpServerCatalogDialog(
                 verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
             ) {
                 McpServerTemplateRegistry.CATEGORIES.forEach { cat ->
+                    val isSelected = cat == selectedCategory
                     FilterChip(
-                        selected = cat == selectedCategory,
+                        selected = isSelected,
                         onClick = { selectedCategory = cat },
                         label = { Text(cat, style = AppTextStyles.hint) },
                         modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = AppColors.surfaceColor(AppColors.Elevation.RAISED),
+                            labelColor = AppColors.contentColorFor(AppColors.Elevation.RAISED),
+                            selectedContainerColor = AppColors.surfaceColor(AppColors.Elevation.SELECTED),
+                            selectedLabelColor = AppColors.contentColorFor(AppColors.Elevation.SELECTED),
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = isSelected,
+                            borderColor = AppColors.codeBlockBorderColor(),
+                            selectedBorderColor = MaterialTheme.colorScheme.primary,
+                            borderWidth = 1.dp,
+                            selectedBorderWidth = 1.dp,
+                        ),
                     )
                 }
             }
@@ -183,7 +198,7 @@ private fun mcpTemplateCatalogCard(
 
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
         shape = MaterialTheme.shapes.medium,
     ) {
         Column(

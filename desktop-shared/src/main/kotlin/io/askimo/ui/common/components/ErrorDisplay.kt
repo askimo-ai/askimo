@@ -6,6 +6,7 @@ package io.askimo.ui.common.components
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -32,12 +33,14 @@ fun inlineErrorMessage(
             color = MaterialTheme.colorScheme.errorContainer,
             shape = MaterialTheme.shapes.small,
         ) {
-            Text(
-                text = errorMessage,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-                style = AppTextStyles.caption,
-                modifier = Modifier.padding(Spacing.medium),
-            )
+            SelectionContainer {
+                Text(
+                    text = errorMessage,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = AppTextStyles.caption,
+                    modifier = Modifier.padding(Spacing.medium),
+                )
+            }
         }
     }
 }
@@ -45,6 +48,8 @@ fun inlineErrorMessage(
 /**
  * Displays an inline success message with consistent styling.
  * Used in dialogs and forms to confirm a successful operation.
+ *
+ * The message text is selectable so users can copy it.
  *
  * @param message The success message to display. If null, nothing is rendered.
  * @param modifier The modifier to be applied to the container
@@ -60,12 +65,14 @@ fun inlineSuccessMessage(
             color = MaterialTheme.colorScheme.tertiaryContainer,
             shape = MaterialTheme.shapes.small,
         ) {
-            Text(
-                text = message,
-                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                style = AppTextStyles.caption,
-                modifier = Modifier.padding(Spacing.medium),
-            )
+            SelectionContainer {
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    style = AppTextStyles.caption,
+                    modifier = Modifier.padding(Spacing.medium),
+                )
+            }
         }
     }
 }
