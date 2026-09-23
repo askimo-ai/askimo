@@ -54,7 +54,6 @@ import io.askimo.ui.common.theme.LocalFontScale
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.session.SessionsViewModel
-import io.askimo.ui.shell.ResourceCollectionsSidebarState
 import io.askimo.ui.shell.SidebarNavItem
 import io.askimo.ui.shell.rememberAvatarImage
 import io.askimo.ui.shell.sidebarUserAvatar
@@ -75,6 +74,7 @@ fun navigationSidebar(
     showPlansInSidebar: Boolean = true,
     showSkillsInSidebar: Boolean = true,
     showProjectsInSidebar: Boolean = true,
+    showResourceCollectionsInSidebar: Boolean = true,
     onToggleExpand: () -> Unit,
     onNewChat: () -> Unit,
     onToggleProjects: () -> Unit,
@@ -99,12 +99,6 @@ fun navigationSidebar(
     onNavigateToSkills: () -> Unit = {},
     onNavigateToDiscover: () -> Unit = {},
     onNavigateToResourceCollections: () -> Unit = {},
-    resourceCollectionsState: ResourceCollectionsSidebarState = object : ResourceCollectionsSidebarState {
-        override val collectionCount = 0
-    },
-    isResourceCollectionsExpanded: Boolean = false,
-    onToggleResourceCollections: () -> Unit = {},
-    onNewResourceCollection: () -> Unit = {},
 ) {
     val isProjectsSelected = currentView == View.PROJECTS
     val navItems = listOf(
@@ -139,7 +133,7 @@ fun navigationSidebar(
             labelRes = "resourcecollections.title",
             icon = Icons.AutoMirrored.Filled.LibraryBooks,
             isSelected = currentView == View.RESOURCE_COLLECTIONS,
-            isVisible = true,
+            isVisible = showResourceCollectionsInSidebar,
             onClick = onNavigateToResourceCollections,
         ),
         SidebarNavItem(
@@ -151,10 +145,10 @@ fun navigationSidebar(
             onClick = onNavigateToPlans,
         ),
         SidebarNavItem(
-            id = "skills",
+            id = "agents",
             labelRes = "agents.nav.title",
             icon = Icons.Default.Extension,
-            isSelected = currentView == View.SKILLS,
+            isSelected = currentView == View.AGENTS,
             isVisible = showSkillsInSidebar,
             onClick = onNavigateToSkills,
         ),
@@ -167,7 +161,6 @@ fun navigationSidebar(
         isSessionsSelected = currentView == View.SESSIONS,
         projectsState = projectsViewModel,
         pinnedState = sessionsViewModel,
-        resourceCollectionsState = resourceCollectionsState,
         sessionsViewModel = sessionsViewModel,
         currentSessionId = currentSessionId,
         onToggleExpand = onToggleExpand,
@@ -185,9 +178,6 @@ fun navigationSidebar(
         onMoveSessionToNewProject = onMoveSessionToNewProject,
         onEditProject = onEditProject,
         onDeleteProject = onDeleteProject,
-        isResourceCollectionsExpanded = isResourceCollectionsExpanded,
-        onToggleResourceCollections = onToggleResourceCollections,
-        onNewResourceCollection = onNewResourceCollection,
         userProfileContent = {
             communityUserProfileSection(
                 profile = userProfile,

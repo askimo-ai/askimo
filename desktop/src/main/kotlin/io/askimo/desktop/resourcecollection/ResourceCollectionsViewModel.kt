@@ -24,7 +24,6 @@ import io.askimo.core.event.user.IndexingStartedEvent
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
 import io.askimo.core.rag.container.IndexingContainerType
-import io.askimo.ui.shell.ResourceCollectionsSidebarState
 import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -44,7 +43,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class ResourceCollectionsViewModel(
     private val scope: CoroutineScope,
     private val resourceCollectionService: ResourceCollectionService = GlobalContext.get().get(),
-) : ResourceCollectionsSidebarState {
+) {
     private val log = logger<ResourceCollectionsViewModel>()
     private val collectionRepository = DatabaseManager.getInstance().getResourceCollectionRepository()
 
@@ -68,12 +67,6 @@ class ResourceCollectionsViewModel(
 
     var sortDirection by mutableStateOf(CollectionSortDirection.DESC)
         private set
-
-    /**
-     * ResourceCollectionsSidebarState implementation
-     */
-    override val collectionCount: Int
-        get() = collections.size
 
     private var searchDebounceJob: Job? = null
 

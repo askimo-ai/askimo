@@ -7,9 +7,6 @@ package io.askimo.ui.plan
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.hoverable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -379,16 +376,13 @@ private fun planCard(
     onDuplicate: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isHovered by interactionSource.collectIsHoveredAsState()
     var showMenu by remember { mutableStateOf(false) }
 
     clickableCard(
         onClick = onSelect,
         // fillMaxHeight stretches the card to match the tallest card in the row (IntrinsicSize.Max)
-        // hoverable connects isHovered so the play icon tint responds to cursor position
-        modifier = modifier.fillMaxHeight().hoverable(interactionSource),
-    ) {
+        modifier = modifier.fillMaxHeight(),
+    ) { isHovered ->
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -417,7 +411,7 @@ private fun planCard(
                             Icon(
                                 Icons.Default.MoreVert,
                                 contentDescription = "More options",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                tint = AppTextStyles.secondaryContent,
                                 modifier = Modifier.size(16.dp),
                             )
                         }
@@ -500,9 +494,9 @@ private fun planCard(
                     Icons.Default.PlayArrow,
                     contentDescription = stringResource("plans.run"),
                     tint = if (isHovered) {
-                        MaterialTheme.colorScheme.onSurface
+                        AppTextStyles.primaryContent
                     } else {
-                        AppColors.tertiaryIconColor()
+                        AppColors.cardMutedIconColor(AppTextStyles.primaryContent)
                     },
                     modifier = Modifier.size(20.dp),
                 )

@@ -56,16 +56,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
 import io.askimo.core.chat.domain.ResourceCollection
 import io.askimo.core.chat.repository.CollectionSortColumn
 import io.askimo.core.chat.repository.CollectionSortDirection
+import io.askimo.core.rag.state.IndexStatus
 import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.components.indexStatusIcon
 import io.askimo.ui.common.components.indexStatusLabel
+import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.tablePageSizeSelector
 import io.askimo.ui.common.components.tablePagination
 import io.askimo.ui.common.i18n.stringResource
@@ -88,6 +92,7 @@ fun resourceCollectionsView(
     modifier: Modifier = Modifier,
 ) {
     val scrollState = rememberScrollState()
+    val uriHandler = LocalUriHandler.current
     var pageSize by remember { mutableStateOf(10) }
     var showNewCollectionDialog by remember { mutableStateOf(false) }
 
@@ -141,6 +146,14 @@ fun resourceCollectionsView(
                     style = AppTextStyles.bodySecondary,
                     modifier = Modifier.padding(top = Spacing.extraSmall, bottom = Spacing.extraSmall),
                 )
+
+                linkButton(onClick = { uriHandler.openUri("https://$DOMAIN/docs/desktop/rag/") }) {
+                    Text(
+                        text = stringResource("rag.learn.more"),
+                        style = AppTextStyles.caption,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(Spacing.large))
 
@@ -508,19 +521,44 @@ private fun collectionRow(
         )
 
         // Status
-        themedTooltip(text = indexStatusLabel(collection.indexStatus)) {
-            Row(
-                modifier = Modifier.widthIn(min = 110.dp).padding(horizontal = Spacing.large),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-            ) {
-                indexStatusIcon(status = collection.indexStatus)
-                Text(
-                    text = indexStatusLabel(collection.indexStatus),
-                    style = AppTextStyles.caption,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+        Row(
+            modifier = Modifier.widthIn(min = 110.dp).padding(horizontal = Spacing.large),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+        ) {
+            themedTooltip(text = indexStatusLabel(collection.indexStatus)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                ) {
+                    indexStatusIcon(status = collection.indexStatus)
+                    Text(
+                        text = indexStatusLabel(collection.indexStatus),
+                        style = AppTextStyles.caption,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            // On-demand indexing: NOT_STARTED means the collection was never indexed
+            // (auto-index only fires when sources exist at creation time); FAILED means
+            // it errored out or was interrupted (e.g. app closed mid-index — see
+            // RagIndexer.recoverInterruptedIndexingStatuses). Either way, the user
+            // explicitly decides when to (re)start indexing rather than it happening silently.
+            if (collection.indexStatus == IndexStatus.NOT_STARTED || collection.indexStatus == IndexStatus.FAILED) {
+                themedTooltip(text = stringResource("resourcecollection.reindex")) {
+                    IconButton(
+                        onClick = { onReindexCollection(collection.id) },
+                        modifier = Modifier.size(20.dp).pointerHoverIcon(PointerIcon.Hand),
+                    ) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = stringResource("resourcecollection.reindex"),
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
         }
 

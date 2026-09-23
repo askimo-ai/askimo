@@ -111,10 +111,53 @@ object AppColors {
         Elevation.ACCENT -> MaterialTheme.colorScheme.primaryContainer
     }
 
-    /** Matching content (text/icon) [Color] for [tier] — always paired with [surfaceColor]. */
+    /**
+     * [tier]'s [surfaceColor] as actually rendered — alpha-blended onto the base
+     * [MaterialTheme.colorScheme.surface]. Needed since [surfaceColor] is translucent for
+     * every tier but [Elevation.ACCENT], so contrast checks need the *composited* color.
+     */
+    @Composable
+    private fun compositedSurfaceColor(tier: Elevation): Color {
+        val base = MaterialTheme.colorScheme.surface
+        val tint = surfaceColor(tier)
+        val a = tint.alpha
+        return Color(
+            red = tint.red * a + base.red * (1f - a),
+            green = tint.green * a + base.green * (1f - a),
+            blue = tint.blue * a + base.blue * (1f - a),
+            alpha = 1f,
+        )
+    }
+
+    /**
+     * Picks the [candidates] entry with the strongest luminance contrast against [background] —
+     * measures rather than assumes, for cases where a theoretical color-scheme role (e.g.
+     * `onPrimaryContainer`) may not hold up for a dynamically generated palette.
+     */
+    private fun contrastSafeColor(background: Color, candidates: List<Color>): Color {
+        val backgroundLuminance = background.luminance()
+        return candidates.maxByOrNull { kotlin.math.abs(it.luminance() - backgroundLuminance) } ?: candidates.first()
+    }
+
+    /**
+     * Matching content (text/icon) [Color] for [tier] — always paired with [surfaceColor].
+     *
+     * [Elevation.SELECTED]/[Elevation.ACCENT] use [contrastSafeColor] rather than a fixed
+     * `onPrimaryContainer`, since the palette is generated dynamically (see
+     * [generateAppColorScheme]) and [Elevation.SELECTED]'s background is only a 30%-alpha tint —
+     * `onPrimaryContainer` isn't guaranteed to read against that for every generated palette.
+     */
     @Composable
     fun contentColorFor(tier: Elevation): Color = when (tier) {
-        Elevation.SELECTED, Elevation.ACCENT -> MaterialTheme.colorScheme.onPrimaryContainer
+        Elevation.SELECTED, Elevation.ACCENT -> contrastSafeColor(
+            compositedSurfaceColor(tier),
+            listOf(
+                MaterialTheme.colorScheme.onPrimaryContainer,
+                MaterialTheme.colorScheme.onSurface,
+                MaterialTheme.colorScheme.inverseOnSurface,
+            ),
+        )
+
         else -> MaterialTheme.colorScheme.onSurface
     }
 
@@ -562,4 +605,11 @@ object AppColors {
     /** Expandable monospace detail text (stack trace / error message) on a colored card —
      *  dimmed less than [cardSecondaryContentColor] since code needs to stay legible. */
     fun cardMonospaceDetailColor(contentColor: Color): Color = contentColor.copy(alpha = 0.85f)
+
+    /**
+     * Muted variant of a card's own ambient content color for a decorative/action icon that
+     * intensifies to full [contentColor] when hovered/active (e.g. a play button). Dimmer than
+     * [cardSecondaryContentColor] (70%) since icons stay legible at lower opacity than text.
+     */
+    fun cardMutedIconColor(contentColor: Color): Color = contentColor.copy(alpha = 0.5f)
 }

@@ -355,10 +355,10 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     var isSidebarExpanded by remember { mutableStateOf(true) }
     var isProjectsExpanded by remember { mutableStateOf(true) }
     var isSessionsExpanded by remember { mutableStateOf(true) }
-    var isResourceCollectionsExpanded by remember { mutableStateOf(false) }
     var showPlansInSidebar by remember { mutableStateOf(ApplicationPreferences.getShowPlansInSidebar()) }
     var showSkillsInSidebar by remember { mutableStateOf(ApplicationPreferences.getShowSkillsInSidebar()) }
     var showProjectsInSidebar by remember { mutableStateOf(ApplicationPreferences.getShowProjectsInSidebar()) }
+    var showResourceCollectionsInSidebar by remember { mutableStateOf(ApplicationPreferences.getShowResourceCollectionsInSidebar()) }
     var showTokenUsageCard by remember { mutableStateOf(ApplicationPreferences.getShowTokenUsageCard()) }
     var selectedProjectId by remember { mutableStateOf<String?>(null) }
     var selectedCollectionId by remember { mutableStateOf<String?>(null) }
@@ -386,7 +386,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     var feedbackOpenedFromMenu by remember { mutableStateOf(false) }
     var showNewProjectDialog by remember { mutableStateOf(false) }
     var showEditProjectDialog by remember { mutableStateOf(false) }
-    var showNewResourceCollectionDialog by remember { mutableStateOf(false) }
     var showGlobalSearchDialog by remember { mutableStateOf(false) }
     var showKeyboardShortcutsDialog by remember { mutableStateOf(false) }
     var editingProjectId by remember { mutableStateOf<String?>(null) }
@@ -758,13 +757,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
             }
         }
     }
-    val onNavigateToSessionsMenuAction = {
-        currentView = View.SESSIONS
-    }
-    val onNavigateToProjectsMenuAction = {
-        currentView = View.PROJECTS
-        Analytics.track(AnalyticsEvent.RAG_PANEL_OPENED)
-    }
     val onNavigateToDiscoverMenuAction = {
         currentView = View.DISCOVER
     }
@@ -807,6 +799,11 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
         ApplicationPreferences.setShowProjectsInSidebar(showProjectsInSidebar)
         NativeMenuBar.updateProjectsMenuLabel(showProjectsInSidebar)
     }
+    val onToggleResourceCollectionsMenuAction = {
+        showResourceCollectionsInSidebar = !showResourceCollectionsInSidebar
+        ApplicationPreferences.setShowResourceCollectionsInSidebar(showResourceCollectionsInSidebar)
+        NativeMenuBar.updateResourceCollectionsMenuLabel(showResourceCollectionsInSidebar)
+    }
     val onShowSystemDiagnosticsMenuAction = {
         showSystemDiagnosticsDialog = true
     }
@@ -841,8 +838,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                 onShowSettings = onShowSettingsMenuAction,
                 onCheckForUpdates = onCheckForUpdatesMenuAction,
                 onToggleFullScreen = onToggleFullScreenMenuAction,
-                onNavigateToSessions = onNavigateToSessionsMenuAction,
-                onNavigateToProjects = onNavigateToProjectsMenuAction,
                 onNavigateToDiscover = onNavigateToDiscoverMenuAction,
                 onToggleSidebar = onToggleSidebarMenuAction,
                 onInvalidateCaches = onInvalidateCachesMenuAction,
@@ -852,11 +847,13 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                 onOpenTerminal = onOpenTerminalMenuAction,
                 onClearPreferences = onClearPreferencesMenuAction,
                 onTogglePlans = onTogglePlansMenuAction,
-                onToggleSkills = onToggleSkillsMenuAction,
+                onToggleAgents = onToggleSkillsMenuAction,
                 onToggleProjects = onToggleProjectsMenuAction,
+                onToggleResourceCollections = onToggleResourceCollectionsMenuAction,
                 isPlansVisible = showPlansInSidebar,
-                isSkillsVisible = showSkillsInSidebar,
+                isAgentsVisible = showSkillsInSidebar,
                 isProjectsVisible = showProjectsInSidebar,
+                isResourceCollectionsVisible = showResourceCollectionsInSidebar,
                 isFullScreen = isFullScreen,
                 onShowSystemDiagnostics = onShowSystemDiagnosticsMenuAction,
                 onNavigateToBookmarks = onNavigateToBookmarksMenuAction,
@@ -955,11 +952,13 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                     onOpenTerminal = onOpenTerminalMenuAction,
                                     onClearPreferences = onClearPreferencesMenuAction,
                                     onTogglePlans = onTogglePlansMenuAction,
-                                    onToggleSkills = onToggleSkillsMenuAction,
+                                    onToggleAgents = onToggleSkillsMenuAction,
                                     onToggleProjects = onToggleProjectsMenuAction,
+                                    onToggleResourceCollections = onToggleResourceCollectionsMenuAction,
                                     isPlansVisible = showPlansInSidebar,
-                                    isSkillsVisible = showSkillsInSidebar,
+                                    isAgentsVisible = showSkillsInSidebar,
                                     isProjectsVisible = showProjectsInSidebar,
+                                    isResourceCollectionsVisible = showResourceCollectionsInSidebar,
                                     isFullScreen = isFullScreen,
                                     onShowSystemDiagnostics = onShowSystemDiagnosticsMenuAction,
                                     onNavigateToBookmarks = onNavigateToBookmarksMenuAction,
@@ -1140,6 +1139,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                         showPlansInSidebar = showPlansInSidebar,
                                                         showSkillsInSidebar = showSkillsInSidebar,
                                                         showProjectsInSidebar = showProjectsInSidebar,
+                                                        showResourceCollectionsInSidebar = showResourceCollectionsInSidebar,
                                                         onToggleExpand = { isSidebarExpanded = !isSidebarExpanded },
                                                         onNewChat = {
                                                             chatViewModel?.clearChat()
@@ -1203,19 +1203,13 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                             Analytics.track(AnalyticsEvent.PLAN_VIEW_OPENED)
                                                         },
                                                         onNavigateToSkills = {
-                                                            currentView = View.SKILLS
+                                                            currentView = View.AGENTS
                                                         },
                                                         onNavigateToDiscover = {
                                                             currentView = View.DISCOVER
                                                         },
                                                         onNavigateToResourceCollections = {
                                                             currentView = View.RESOURCE_COLLECTIONS
-                                                        },
-                                                        resourceCollectionsState = resourceCollectionsViewModel,
-                                                        isResourceCollectionsExpanded = isResourceCollectionsExpanded,
-                                                        onToggleResourceCollections = { isResourceCollectionsExpanded = !isResourceCollectionsExpanded },
-                                                        onNewResourceCollection = {
-                                                            showNewResourceCollectionDialog = true
                                                         },
                                                     )
                                                 } // End BoxWithConstraints
@@ -1305,7 +1299,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                             Analytics.track(AnalyticsEvent.PLAN_VIEW_OPENED)
                                                         },
                                                         onNavigateToSkills = {
-                                                            currentView = View.SKILLS
+                                                            currentView = View.AGENTS
                                                         },
                                                         onNavigateToSkillsSettings = {
                                                             settingsSection = SettingsSection.AGENTS
@@ -2249,7 +2243,7 @@ fun mainContent(
                 onNavigateToProjects = onNavigateToProjects,
                 onNavigateToPlans = onNavigateToPlans,
                 onNavigateToSkills = onNavigateToSkills,
-                onNavigateToMcpSettings = onNavigateToMcpSettings,
+                onNavigateToResourceCollections = onNavigateToResourceCollections,
                 showTokenUsageCard = showTokenUsageCard,
                 onToggleTokenUsageCard = onToggleTokenUsageCard,
                 onOpenSystemDiagnostics = onOpenSystemDiagnostics,
@@ -2430,7 +2424,7 @@ fun mainContent(
                 modifier = Modifier.fillMaxSize(),
             )
 
-            View.SKILLS -> agentsView(
+            View.AGENTS -> agentsView(
                 onNavigateToSkillsSettings = onNavigateToSkillsSettings,
             )
 

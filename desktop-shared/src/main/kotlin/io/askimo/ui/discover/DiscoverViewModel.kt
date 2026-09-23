@@ -7,12 +7,12 @@ package io.askimo.ui.discover
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import io.askimo.core.agent.repository.SkillRepository
+import io.askimo.core.agent.repository.AgentRunHistoryRepository
 import io.askimo.core.chat.repository.ChatSessionRepository
 import io.askimo.core.chat.repository.ProjectRepository
-import io.askimo.core.mcp.McpInstanceService
+import io.askimo.core.chat.repository.ResourceCollectionRepository
+import io.askimo.core.db.DatabaseManager
 import io.askimo.core.plan.repository.PlanDefRepository
-import io.askimo.core.util.AskimoHome
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -23,7 +23,8 @@ class DiscoverViewModel(
     private val chatSessionRepository: ChatSessionRepository,
     private val projectRepository: ProjectRepository,
     private val planDefRepository: PlanDefRepository,
-    private val mcpInstanceService: McpInstanceService,
+    private val agentRunHistoryRepository: AgentRunHistoryRepository = DatabaseManager.getInstance().getAgentRunHistoryRepository(),
+    private val resourceCollectionRepository: ResourceCollectionRepository = DatabaseManager.getInstance().getResourceCollectionRepository(),
 ) {
     var totalChats by mutableStateOf<Int?>(null)
         private set
@@ -34,10 +35,10 @@ class DiscoverViewModel(
     var totalPlans by mutableStateOf<Int?>(null)
         private set
 
-    var totalSkills by mutableStateOf<Int?>(null)
+    var totalAgentRuns by mutableStateOf<Int?>(null)
         private set
 
-    var totalMcpServers by mutableStateOf(0)
+    var totalResourceCollections by mutableStateOf<Int?>(null)
         private set
 
     init {
@@ -46,8 +47,8 @@ class DiscoverViewModel(
                 totalChats = chatSessionRepository.countAll()
                 totalProjects = projectRepository.countAll()
                 totalPlans = planDefRepository.count()
-                totalSkills = SkillRepository.countSkills(AskimoHome.skillsDir())
-                totalMcpServers = runCatching { mcpInstanceService.getInstances().size }.getOrDefault(0)
+                totalAgentRuns = agentRunHistoryRepository.countAll()
+                totalResourceCollections = resourceCollectionRepository.countAll()
             }
         }
     }

@@ -308,6 +308,35 @@ class ResourceCollectionRepository internal constructor(
     }
 
     /**
+     * Marks every collection left in [IndexStatus.QUEUED] or [IndexStatus.INDEXING] as
+     * [IndexStatus.FAILED] with [error] — used by RagIndexer's startup recovery to flag
+     * collections whose indexing was interrupted by an app crash/force-quit (on fresh
+     * startup no job can genuinely still be running).
+     *
+     * Filters and updates entirely in SQL, in a single transaction, instead of loading
+     * every collection via [getAllCollections] (deserializing knowledge sources, etc. for
+     * rows that don't even match) and issuing a separate `update` per interrupted row —
+     * avoidable latency/memory overhead on startup for large collection counts.
+     *
+     * @return ids of the collections that were updated, for the caller to log.
+     */
+    fun markInterruptedIndexingAsFailed(error: String): List<String> = transaction(database) {
+        val interruptedStatuses = listOf(IndexStatus.QUEUED.name, IndexStatus.INDEXING.name)
+        val interruptedIds = ResourceCollectionsTable
+            .select(ResourceCollectionsTable.id)
+            .where { ResourceCollectionsTable.indexStatus inList interruptedStatuses }
+            .map { it[ResourceCollectionsTable.id] }
+
+        if (interruptedIds.isNotEmpty()) {
+            ResourceCollectionsTable.update({ ResourceCollectionsTable.indexStatus inList interruptedStatuses }) {
+                it[indexStatus] = IndexStatus.FAILED.name
+                it[indexError] = error
+            }
+        }
+        interruptedIds
+    }
+
+    /**
      * Delete a resource collection. Note: does not delete indexed files — those are
      * cleaned up separately by ResourceCollectionService/ProjectIndexer.
      *
