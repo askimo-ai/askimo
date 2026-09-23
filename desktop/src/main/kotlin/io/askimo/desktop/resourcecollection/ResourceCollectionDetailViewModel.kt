@@ -190,7 +190,7 @@ class ResourceCollectionDetailViewModel(
                             containerId = collectionId,
                             containerType = IndexingContainerType.RESOURCE_COLLECTION,
                             knowledgeSources = newSources,
-                            watchForChanges = false,
+                            watchForChanges = true,
                         ),
                     )
                 }

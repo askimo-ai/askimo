@@ -183,8 +183,9 @@ fun resourceCollectionsView(
                 Spacer(modifier = Modifier.height(Spacing.large))
 
                 // ── Loading / error / empty ───────────────────────────────────────
+                val pagedCollectionsSnapshot = viewModel.pagedCollections
                 when {
-                    viewModel.isLoading -> {
+                    viewModel.isLoading && pagedCollectionsSnapshot == null -> {
                         Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
                             AppComponents.loadingSpinner()
                         }
@@ -208,7 +209,7 @@ fun resourceCollectionsView(
                         }
                     }
 
-                    viewModel.pagedCollections?.isEmpty == true -> {
+                    pagedCollectionsSnapshot == null || pagedCollectionsSnapshot.isEmpty -> {
                         Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
                                 if (viewModel.searchQuery.isNotBlank()) {
@@ -226,7 +227,7 @@ fun resourceCollectionsView(
 
                     else -> {
                         collectionTable(
-                            collections = viewModel.pagedCollections!!.items,
+                            collections = pagedCollectionsSnapshot.items,
                             onSelectCollection = onSelectCollection,
                             onDeleteCollection = { viewModel.deleteCollection(it) },
                             onUpdateCollection = { id, name, description, knowledgeSources ->

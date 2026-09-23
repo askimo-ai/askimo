@@ -104,7 +104,7 @@ fun resourceCollectionView(
                     containerId = collectionId,
                     containerType = IndexingContainerType.RESOURCE_COLLECTION,
                     knowledgeSources = null,
-                    watchForChanges = false,
+                    watchForChanges = true,
                 ),
             )
             log.debug("Indexing requested for resource collection $collectionId")
