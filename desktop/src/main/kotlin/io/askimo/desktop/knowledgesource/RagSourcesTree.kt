@@ -2,7 +2,7 @@
  *
  * Copyright (c) 2026 Askimo
  */
-package io.askimo.desktop.chat
+package io.askimo.desktop.knowledgesource
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.PointerMatcher
@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -101,22 +102,23 @@ private val log = currentFileLogger()
 private const val SEARCH_RESULTS_CAP = 200
 
 /**
- * Tree view component for displaying RAG knowledge sources.
- * Shows files and folders with expandable/collapsible functionality.
- * In search mode, a pre-built flat index is filtered (debounced 300 ms, capped at 200 results).
+ * Tree view of RAG knowledge sources — expandable/collapsible files and folders. In search
+ * mode, a pre-built flat index is filtered (debounced 300 ms, capped at 200 results).
  *
- * When [onAddToChat] is provided, each file/folder row gains a "+" quick-add button,
- * a context-menu "Add to chat" option, and a sticky bottom bar for multi-file selection.
+ * When [onAddToChat] is set, each row gets a "+" quick-add button, a context-menu "Add to
+ * chat" option, and a sticky bottom bar for multi-file selection.
  *
- * @param sources          Knowledge source configs to display.
- * @param modifier         Optional modifier.
- * @param selectedNode     Currently selected node (hoisted to allow viewer integration).
- * @param onNodeSelected   Called when a node is selected; passes `null` to deselect.
- * @param onRemove         Called when the user removes a knowledge source.
- * @param onAddToChat      Called with a list of file paths to attach to the current chat message.
- *                         Pass `null` to disable the feature.
+ * Shared between the Project side panel and Resource Collection detail view — neither
+ * package depends on the other, both depend only on this component.
+ *
+ * @param sources        Knowledge source configs to display.
+ * @param selectedNode   Currently selected node (hoisted for viewer integration).
+ * @param onNodeSelected Called on selection; `null` to deselect.
+ * @param onRemove       Called when the user removes a knowledge source.
+ * @param onAddToChat    Called with file paths to attach to chat; `null` to disable.
+ * @param onWatchToggle  Called when toggling "watch for changes" on a top-level folder
+ *                       (level 0 only); `null` to disable the toggle UI.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ragSourcesTree(
     sources: List<KnowledgeSourceConfig>,
@@ -126,6 +128,7 @@ fun ragSourcesTree(
     onNodeSelected: (TreeNode?) -> Unit = {},
     onRemove: (KnowledgeSourceConfig) -> Unit = {},
     onAddToChat: ((List<String>) -> Unit)? = null,
+    onWatchToggle: ((LocalFoldersKnowledgeSourceConfig, Boolean) -> Unit)? = null,
 ) {
     val chatSelection = remember { mutableStateSetOf<String>() }
 
@@ -316,6 +319,7 @@ fun ragSourcesTree(
                             chatSelection = chatSelection,
                             onAddToChat = onAddToChat,
                             expandedPaths = expandedFolders,
+                            onWatchToggle = onWatchToggle,
                         )
                     }
                 }
@@ -547,10 +551,11 @@ private fun treeNodeItem(
     chatSelection: SnapshotStateSet<String> = remember { mutableStateSetOf() },
     onAddToChat: ((List<String>) -> Unit)? = null,
     expandedPaths: SnapshotStateMap<String, Boolean> = remember { mutableStateMapOf() },
+    onWatchToggle: ((LocalFoldersKnowledgeSourceConfig, Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     when (node) {
-        is FolderTreeNode -> folderNodeItem(node, level, indexedPaths, selectedNode, onNodeSelected, onRemove, chatSelection, onAddToChat, expandedPaths, modifier)
+        is FolderTreeNode -> folderNodeItem(node, level, indexedPaths, selectedNode, onNodeSelected, onRemove, chatSelection, onAddToChat, expandedPaths, onWatchToggle, modifier)
         is FileTreeNode -> fileNodeItem(node, level, indexedPaths, selectedNode, onNodeSelected, onRemove, chatSelection, onAddToChat, modifier)
         is UrlTreeNode -> urlNodeItem(node, level, selectedNode, onNodeSelected, onRemove, modifier)
     }
@@ -568,6 +573,7 @@ private fun folderNodeItem(
     chatSelection: SnapshotStateSet<String> = remember { mutableStateSetOf() },
     onAddToChat: ((List<String>) -> Unit)? = null,
     expandedPaths: SnapshotStateMap<String, Boolean> = remember { mutableStateMapOf() },
+    onWatchToggle: ((LocalFoldersKnowledgeSourceConfig, Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val isExpanded = expandedPaths[node.path] ?: false
@@ -610,6 +616,15 @@ private fun folderNodeItem(
                         modifier = Modifier.size(18.dp),
                     )
                     Text(text = node.displayName, style = AppTextStyles.caption, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    if (level == 0 && onWatchToggle != null) {
+                        themedTooltip(text = stringResource("projects.sources.watch.tooltip")) {
+                            Checkbox(
+                                checked = node.source.watchForChanges,
+                                onCheckedChange = { checked -> onWatchToggle(node.source, checked) },
+                                modifier = Modifier.size(28.dp).pointerHoverIcon(PointerIcon.Hand),
+                            )
+                        }
+                    }
                 }
                 AppComponents.dropdownMenu(expanded = showContextMenu, onDismissRequest = { showContextMenu = false }, offset = DpOffset(x = 0.dp, y = 0.dp)) {
                     DropdownMenuItem(text = { Text(stringResource("rag.tree.folder.open")) }, onClick = {
@@ -630,7 +645,7 @@ private fun folderNodeItem(
         if (isExpanded && children.isNotEmpty()) {
             Column {
                 children.forEach { child ->
-                    treeNodeItem(node = child, level = level + 1, indexedPaths = indexedPaths, selectedNode = selectedNode, onNodeSelected = onNodeSelected, onRemove = onRemove, chatSelection = chatSelection, onAddToChat = onAddToChat, expandedPaths = expandedPaths)
+                    treeNodeItem(node = child, level = level + 1, indexedPaths = indexedPaths, selectedNode = selectedNode, onNodeSelected = onNodeSelected, onRemove = onRemove, chatSelection = chatSelection, onAddToChat = onAddToChat, expandedPaths = expandedPaths, onWatchToggle = null)
                 }
             }
         }

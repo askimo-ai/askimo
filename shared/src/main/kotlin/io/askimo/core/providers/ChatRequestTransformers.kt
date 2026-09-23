@@ -257,7 +257,9 @@ object ChatRequestTransformers {
         is AiMessage -> {
             val text = message.text() ?: ""
             if (message.hasToolExecutionRequests()) {
-                text + "::" + message.toolExecutionRequests().joinToString(",") { it.id() }
+                "$text::" + message.toolExecutionRequests().joinToString(",") { req ->
+                    (req.id() as String?) ?: "${req.name()}(${req.arguments()})"
+                }
             } else {
                 text
             }
@@ -265,7 +267,7 @@ object ChatRequestTransformers {
 
         is SystemMessage -> message.text()
 
-        is ToolExecutionResultMessage -> "${message.id()}::${message.text() ?: ""}"
+        is ToolExecutionResultMessage -> "${message.id() ?: message.toolName()}::${message.text() ?: ""}"
 
         else -> ""
     }

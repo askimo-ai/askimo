@@ -18,12 +18,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -50,9 +47,15 @@ import io.askimo.core.chat.domain.KnowledgeSourceConfig
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.service.ChatDirectiveService
 import io.askimo.core.db.DatabaseManager
-import io.askimo.core.event.EventBus
-import io.askimo.core.event.internal.ProjectIndexRemovalEvent
-import io.askimo.core.event.internal.ProjectIndexingRequestedEvent
+import io.askimo.core.rag.container.IndexingContainerType
+import io.askimo.desktop.knowledgesource.KnowledgeSourceBrowser
+import io.askimo.desktop.knowledgesource.KnowledgeSourceItem
+import io.askimo.desktop.knowledgesource.applyKnowledgeSourceDiff
+import io.askimo.desktop.knowledgesource.buildKnowledgeSourceConfigs
+import io.askimo.desktop.knowledgesource.knowledgeSourceRow
+import io.askimo.desktop.knowledgesource.parseKnowledgeSourceConfigs
+import io.askimo.desktop.knowledgesource.urlInputDialog
+import io.askimo.desktop.knowledgesource.validateUrl
 import io.askimo.ui.common.components.inlineErrorMessage
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.rememberDialogState
@@ -230,12 +233,6 @@ private fun editProjectFormDialog(
         // Build knowledge source configurations from UI items
         val knowledgeSourceConfigs = buildKnowledgeSourceConfigs(knowledgeSources)
 
-        // Detect added and removed knowledge sources
-        val oldSources = project.knowledgeSources.toSet()
-        val newSources = knowledgeSourceConfigs.toSet()
-        val addedSources = newSources - oldSources
-        val removedSources = oldSources - newSources
-
         // Save the project
         onSave(
             project.id,
@@ -244,27 +241,13 @@ private fun editProjectFormDialog(
             knowledgeSourceConfigs,
         )
 
-        // Emit removal events for deleted sources
-        removedSources.forEach { source ->
-            EventBus.post(
-                ProjectIndexRemovalEvent(
-                    projectId = project.id,
-                    knowledgeSource = source,
-                    reason = "Knowledge source removed by user",
-                ),
-            )
-        }
-
-        // Emit indexing events for newly added sources
-        if (addedSources.isNotEmpty()) {
-            EventBus.post(
-                ProjectIndexingRequestedEvent(
-                    projectId = project.id,
-                    knowledgeSources = addedSources.toList(),
-                    watchForChanges = true,
-                ),
-            )
-        }
+        // Detect added/removed knowledge sources and trigger indexing/removal events
+        applyKnowledgeSourceDiff(
+            containerId = project.id,
+            containerType = IndexingContainerType.PROJECT,
+            oldSources = project.knowledgeSources,
+            newSources = knowledgeSourceConfigs,
+        )
     }
 
     LaunchedEffect(Unit) {
@@ -464,64 +447,5 @@ private fun editProjectFormDialog(
                 )
             },
         )
-    }
-}
-
-/**
- * Composable for displaying a single knowledge source row with remove button
- */
-@Composable
-fun knowledgeSourceRow(
-    source: KnowledgeSourceItem,
-    onRemove: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.extraSmall),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.weight(1f),
-        ) {
-            Icon(
-                source.typeInfo.icon,
-                contentDescription = null,
-                modifier = Modifier.padding(end = Spacing.small).size(20.dp),
-                tint = AppTextStyles.primaryContent,
-            )
-            Text(
-                text = source.displayName,
-                style = AppTextStyles.body,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (source.isValid) {
-                Icon(
-                    Icons.Default.CheckCircle,
-                    contentDescription = "Valid",
-                    tint = AppTextStyles.primaryContent,
-                    modifier = Modifier.size(16.dp).padding(start = Spacing.extraSmall),
-                )
-            } else {
-                Icon(
-                    Icons.Default.Error,
-                    contentDescription = "Invalid",
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(16.dp).padding(start = Spacing.extraSmall),
-                )
-            }
-        }
-
-        IconButton(
-            onClick = onRemove,
-            modifier = Modifier.size(32.dp).pointerHoverIcon(PointerIcon.Hand),
-        ) {
-            Icon(
-                Icons.Default.Close,
-                contentDescription = "Remove",
-                modifier = Modifier.size(18.dp),
-            )
-        }
     }
 }

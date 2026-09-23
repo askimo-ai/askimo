@@ -16,6 +16,7 @@ import io.askimo.core.db.resolvePageParams
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.PushDataToServerEvent
 import io.askimo.core.logging.logger
+import io.askimo.core.util.JsonUtils.json
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
@@ -48,7 +49,28 @@ private fun ResultRow.toChatSession(): ChatSession = ChatSession(
     directiveId = this[ChatSessionsTable.directiveId],
     isStarred = this[ChatSessionsTable.isStarred] == 1,
     isUserRenamed = this[ChatSessionsTable.isUserRenamed] == 1,
+    activeResourceCollectionIds = decodeResourceCollectionIds(this[ChatSessionsTable.activeResourceCollectionIds]),
 )
+
+/**
+ * Decode the JSON array stored in [ChatSessionsTable.activeResourceCollectionIds] into a
+ * list of collection IDs. Falls back to an empty list for blank/malformed values so a
+ * corrupt cell never breaks session loading.
+ */
+private fun decodeResourceCollectionIds(raw: String): List<String> {
+    if (raw.isBlank()) return emptyList()
+    return try {
+        json.decodeFromString<List<String>>(raw)
+    } catch (_: Exception) {
+        emptyList()
+    }
+}
+
+/**
+ * Encode a list of collection IDs to JSON for storage in
+ * [ChatSessionsTable.activeResourceCollectionIds].
+ */
+private fun encodeResourceCollectionIds(ids: List<String>): String = json.encodeToString(ids)
 
 /**
  * Repository for managing chat sessions.
@@ -75,6 +97,7 @@ class ChatSessionRepository internal constructor(
                 it[ChatSessionsTable.projectId] = sessionWithInjectedFields.projectId
                 it[ChatSessionsTable.directiveId] = sessionWithInjectedFields.directiveId
                 it[ChatSessionsTable.isStarred] = if (sessionWithInjectedFields.isStarred) 1 else 0
+                it[ChatSessionsTable.activeResourceCollectionIds] = encodeResourceCollectionIds(sessionWithInjectedFields.activeResourceCollectionIds)
             }
         }
 
@@ -224,6 +247,21 @@ class ChatSessionRepository internal constructor(
             it[updatedAt] = Instant.now()
         } > 0
     }.also { if (it) EventBus.post(PushDataToServerEvent(reason = "session directive changed")) }
+
+    /**
+     * Update the persistent set of active Resource Collections for a chat session
+     * (chip state — see [ChatSession.activeResourceCollectionIds]).
+     *
+     * @param sessionId The session id
+     * @param collectionIds The full replacement list of active collection ids
+     * @return true if updated successfully
+     */
+    fun updateSessionActiveResourceCollections(sessionId: String, collectionIds: List<String>): Boolean = transaction(database) {
+        ChatSessionsTable.update({ ChatSessionsTable.id eq sessionId }) {
+            it[activeResourceCollectionIds] = encodeResourceCollectionIds(collectionIds)
+            it[updatedAt] = Instant.now()
+        } > 0
+    }.also { if (it) EventBus.post(PushDataToServerEvent(reason = "session active resource collections changed")) }
 
     /**
      * Delete a chat session.
@@ -440,6 +478,7 @@ class ChatSessionRepository internal constructor(
                             it[projectId] = session.projectId
                             it[directiveId] = session.directiveId
                             it[isStarred] = if (session.isStarred) 1 else 0
+                            it[activeResourceCollectionIds] = encodeResourceCollectionIds(session.activeResourceCollectionIds)
                             it[syncedAt] = nowStr
                         }
                         log.debug("upsertFromServer: inserted session {}", session.id)
@@ -451,6 +490,7 @@ class ChatSessionRepository internal constructor(
                             it[projectId] = session.projectId
                             it[directiveId] = session.directiveId
                             it[isStarred] = if (session.isStarred) 1 else 0
+                            it[activeResourceCollectionIds] = encodeResourceCollectionIds(session.activeResourceCollectionIds)
                             it[syncedAt] = nowStr
                         }
                         log.debug("upsertFromServer: updated session {} (server newer)", session.id)

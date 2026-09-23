@@ -4,7 +4,7 @@
  */
 package io.askimo.desktop.di
 
-import io.askimo.core.rag.ProjectIndexer
+import io.askimo.core.rag.RagIndexer
 import org.koin.dsl.module
 
 /**
@@ -12,9 +12,10 @@ import org.koin.dsl.module
  */
 val desktopRagModule = module {
     single(createdAtStart = true) {
-        ProjectIndexer(
+        RagIndexer(
             appContext = get(),
             projectRepository = get(),
+            resourceCollectionRepository = get(),
         )
     }
 }

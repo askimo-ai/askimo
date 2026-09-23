@@ -13,6 +13,7 @@ import io.askimo.core.context.AppContext
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.user.IndexingInProgressEvent
 import io.askimo.core.logging.logger
+import io.askimo.core.rag.container.IndexingContainerType
 import io.askimo.core.rag.filter.FilterChain
 import io.askimo.core.rag.state.IndexProgress
 import io.askimo.core.rag.state.IndexStatus
@@ -28,15 +29,17 @@ import kotlin.io.path.isRegularFile
  * individual files without directory traversal.
  */
 class LocalFilesIndexingCoordinator(
-    projectId: String,
-    projectName: String,
+    containerId: String,
+    containerName: String,
+    containerType: IndexingContainerType,
     override val knowledgeSourceConfig: LocalFilesKnowledgeSourceConfig,
     embeddingStore: EmbeddingStore<TextSegment>,
     embeddingModel: EmbeddingModel,
     appContext: AppContext,
 ) : BaseLocalIndexingCoordinator<LocalFilesKnowledgeSourceConfig>(
-    projectId = projectId,
-    projectName = projectName,
+    containerId = containerId,
+    containerName = containerName,
+    containerType = containerType,
     embeddingStore = embeddingStore,
     embeddingModel = embeddingModel,
     appContext = appContext,
@@ -72,7 +75,7 @@ class LocalFilesIndexingCoordinator(
             val previousState = stateManager.loadPersistedState()
             val previousHashes: Map<String, String> = previousState?.fileHashes ?: emptyMap()
 
-            log.info("Starting indexing for project $projectId with ${paths.size} files")
+            log.info("Starting indexing for project $containerId with ${paths.size} files")
 
             val fileHashes = ConcurrentHashMap<String, String>()
             val skippedNames = mutableListOf<String>()
@@ -111,7 +114,7 @@ class LocalFilesIndexingCoordinator(
 
             return success
         } catch (e: Exception) {
-            log.error("Indexing failed for project $projectId", e)
+            log.error("Indexing failed for project $containerId", e)
             updateProgress { copy(status = IndexStatus.FAILED, error = e.message ?: "Unknown error") }
             return false
         }
@@ -178,8 +181,9 @@ class LocalFilesIndexingCoordinator(
                     }
                     EventBus.emit(
                         IndexingInProgressEvent(
-                            projectId = projectId,
-                            projectName = projectName,
+                            containerId = containerId,
+                            containerName = containerName,
+                            containerType = containerType,
                             filesIndexed = processedFilesCounter.get(),
                             totalFiles = totalFilesCounter.get(),
                             resourceId = stateManager.resourceId,
@@ -213,7 +217,7 @@ class LocalFilesIndexingCoordinator(
      * File-level indexing doesn't support watching (no directory to watch).
      */
     override fun startWatching(scope: CoroutineScope) {
-        log.debug("File watching not supported for file-level indexing (project $projectId)")
+        log.debug("File watching not supported for file-level indexing (project $containerId)")
     }
 
     /**
@@ -227,6 +231,6 @@ class LocalFilesIndexingCoordinator(
      * Close coordinator and cleanup resources.
      */
     override fun close() {
-        log.debug("Closed LocalFilesIndexingCoordinator for project $projectId")
+        log.debug("Closed LocalFilesIndexingCoordinator for project $containerId")
     }
 }

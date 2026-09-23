@@ -2,7 +2,7 @@
  *
  * Copyright (c) 2026 Askimo
  */
-package io.askimo.desktop.project
+package io.askimo.desktop.knowledgesource
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
@@ -18,7 +18,10 @@ import java.net.URI
 import java.util.UUID
 
 /**
- * UI representation of a knowledge source item
+ * UI representation of a knowledge source item.
+ *
+ * Shared between the Project and Resource Collection features so that neither
+ * package depends on the other for knowledge-source handling.
  */
 sealed class KnowledgeSourceItem {
     abstract val id: String

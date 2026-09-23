@@ -4,14 +4,9 @@
  */
 package io.askimo.desktop.project
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -36,21 +31,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -63,35 +52,32 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
-import io.askimo.core.chat.domain.LocalFilesKnowledgeSourceConfig
 import io.askimo.core.chat.domain.LocalFoldersKnowledgeSourceConfig
 import io.askimo.core.chat.domain.Project
-import io.askimo.core.chat.domain.UrlKnowledgeSourceConfig
 import io.askimo.core.chat.dto.FileAttachmentDTO
 import io.askimo.core.chat.service.ChatDirectiveService
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
-import io.askimo.core.event.internal.ProjectIndexingRequestedEvent
-import io.askimo.core.event.internal.ProjectReIndexEvent
+import io.askimo.core.event.internal.IndexingRequestedEvent
+import io.askimo.core.event.internal.ProjectRefreshEvent
+import io.askimo.core.event.internal.ReIndexEvent
 import io.askimo.core.event.internal.SessionsRefreshEvent
-import io.askimo.core.i18n.LocalizationManager
-import io.askimo.core.rag.state.IndexProgress
+import io.askimo.core.rag.container.IndexingContainerType
 import io.askimo.core.rag.state.IndexStatus
 import io.askimo.core.util.TimeUtil
+import io.askimo.desktop.knowledgesource.addReferenceMaterialDialog
+import io.askimo.desktop.knowledgesource.buildKnowledgeSourceConfigs
+import io.askimo.desktop.knowledgesource.knowledgeSourcesPanel
+import io.askimo.desktop.knowledgesource.mergeKnowledgeSourceConfigs
 import io.askimo.ui.chat.CreationMode
 import io.askimo.ui.chat.chatInputField
-import io.askimo.ui.common.components.linkButton
-import io.askimo.ui.common.components.successIcon
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
@@ -104,11 +90,8 @@ import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.session.SessionActionMenu
 import io.askimo.ui.session.SessionActionMenu.projectViewMenu
 import io.askimo.ui.session.sessionTooltip
-import kotlinx.coroutines.delay
 import org.koin.core.context.GlobalContext
 import org.koin.core.parameter.parametersOf
-import java.awt.Desktop
-import java.net.URI
 import kotlin.collections.emptyList
 import kotlin.let
 
@@ -151,16 +134,15 @@ fun projectView(
     // Get repository
     val projectRepository = remember { DatabaseManager.getInstance().getProjectRepository() }
 
-    // Broadcast indexing request when entering the project view so that
-    // all knowledge sources are (re-)indexed / watched for changes.
-    // Gated on embeddingModelConfigured — otherwise ProjectIndexer would call
-    // appContext.getEmbeddingModel(), throw, and surface a global AppErrorEvent dialog
-    // on top of the "configure embedding model" banner shown below.
+    // Broadcast an indexing request on entry so sources are (re-)indexed/watched.
+    // Gated on embeddingModelConfigured — otherwise RagIndexer would throw and surface
+    // a duplicate error dialog on top of the banner shown below.
     LaunchedEffect(currentProject.id, viewModel.embeddingModelConfigured) {
         if (viewModel.embeddingModelConfigured) {
             EventBus.post(
-                ProjectIndexingRequestedEvent(
-                    projectId = currentProject.id,
+                IndexingRequestedEvent(
+                    containerId = currentProject.id,
+                    containerType = IndexingContainerType.PROJECT,
                     knowledgeSources = null,
                     watchForChanges = true,
                 ),
@@ -168,8 +150,8 @@ fun projectView(
         }
     }
 
-    // ProjectView has a sticky chat input at the bottom — it needs a bounded Column
-    // so that weight(1f) works correctly. We apply CONTENT_MAX_WIDTH manually.
+    // Sticky chat input at the bottom needs a bounded Column for weight(1f) to work;
+    // CONTENT_MAX_WIDTH is applied manually here.
     val scrollState = rememberScrollState()
 
     Box(
@@ -307,14 +289,14 @@ fun projectView(
                                         onReindexProject = {
                                             showProjectMenu = false
                                             if (!viewModel.embeddingModelConfigured) {
-                                                // No-op: banner above already prompts the user to
-                                                // configure an embedding model first.
+                                                // No-op — banner above already prompts to configure an embedding model.
                                             } else if (indexProgress.status == IndexStatus.INDEXING) {
                                                 showReIndexConfirmDialog = true
                                             } else {
                                                 EventBus.post(
-                                                    ProjectReIndexEvent(
-                                                        projectId = currentProject.id,
+                                                    ReIndexEvent(
+                                                        containerId = currentProject.id,
+                                                        containerType = IndexingContainerType.PROJECT,
                                                         reason = "Manual re-index requested by user from project menu",
                                                     ),
                                                 )
@@ -327,13 +309,26 @@ fun projectView(
                         }
                     }
 
-                    // Knowledge Sources Panel
+                    // Shared collapsible component (see knowledgesource.knowledgeSourcesPanel),
+                    // also used by the Resource Collection detail view.
                     knowledgeSourcesPanel(
-                        currentProject = currentProject,
-                        viewModel = viewModel,
+                        key = currentProject.id,
+                        knowledgeSources = currentProject.knowledgeSources,
+                        indexProgress = indexProgress,
                         onShowAddDialog = { showAddReferenceMaterialDialog = true },
                         modifier = Modifier.padding(bottom = Spacing.extraLarge),
-                    )
+                    ) { source ->
+                        knowledgeSourceItem(
+                            source = source,
+                            onDelete = { viewModel.deleteKnowledgeSource(source) },
+                            onRescan = { viewModel.rescanKnowledgeSource(source) },
+                            onWatchToggle = { watch ->
+                                if (source is LocalFoldersKnowledgeSourceConfig) {
+                                    viewModel.toggleWatchForChanges(source, watch)
+                                }
+                            },
+                        )
+                    }
 
                     // Sessions Section
                     if (projectSessions.isNotEmpty()) {
@@ -375,8 +370,7 @@ fun projectView(
                 }
             } // end scrollable content column
 
-            // Fixed chat input footer — isolated composable so keystrokes only
-            // recompose the footer, not the entire project view.
+            // Isolated footer so keystrokes only recompose it, not the whole project view.
             projectChatInputFooter(
                 projectId = currentProject.id,
                 projectName = currentProject.name,
@@ -406,15 +400,16 @@ fun projectView(
         )
     }
 
-    // Re-index confirmation dialog (shown when user requests re-index while project is actively indexing)
+    // Re-index confirmation (shown when a re-index is requested while already indexing)
     if (showReIndexConfirmDialog) {
         reIndexConfirmDialog(
             projectName = currentProject.name,
             onConfirm = {
                 showReIndexConfirmDialog = false
                 EventBus.post(
-                    ProjectReIndexEvent(
-                        projectId = currentProject.id,
+                    ReIndexEvent(
+                        containerId = currentProject.id,
+                        containerType = IndexingContainerType.PROJECT,
                         reason = "Manual re-index confirmed by user from project menu",
                     ),
                 )
@@ -426,7 +421,6 @@ fun projectView(
     // Add reference material dialog
     if (showAddReferenceMaterialDialog) {
         addReferenceMaterialDialog(
-            projectId = currentProject.id,
             onDismiss = { showAddReferenceMaterialDialog = false },
             onAdd = { newSources ->
                 // Build knowledge source configs from the new items
@@ -446,18 +440,28 @@ fun projectView(
                     knowledgeSources = mergedConfigs,
                 )
 
-                // Trigger re-indexing for the new sources (only if embeddings are configured;
-                // otherwise the sources are saved but left un-indexed until the user configures
-                // an embedding model — see the banner above).
+                // Re-index the new sources only if embeddings are configured; otherwise
+                // they're saved but left un-indexed until the user configures a model
+                // (see banner above).
                 if (viewModel.embeddingModelConfigured) {
                     EventBus.post(
-                        ProjectIndexingRequestedEvent(
-                            projectId = currentProject.id,
+                        IndexingRequestedEvent(
+                            containerId = currentProject.id,
+                            containerType = IndexingContainerType.PROJECT,
                             knowledgeSources = newConfigs,
                             watchForChanges = true,
                         ),
                     )
                 }
+
+                // The dialog is container-agnostic and doesn't post this itself — it's
+                // the caller's responsibility (see ResourceCollectionDetailView's equivalent).
+                EventBus.post(
+                    ProjectRefreshEvent(
+                        projectId = currentProject.id,
+                        reason = "Knowledge sources added via dialog",
+                    ),
+                )
 
                 showAddReferenceMaterialDialog = false
             },
@@ -602,249 +606,6 @@ private fun sessionCard(
 }
 
 @Composable
-private fun knowledgeSourcesPanel(
-    currentProject: Project,
-    viewModel: ProjectViewModel,
-    onShowAddDialog: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var isExpanded by remember(currentProject.id) {
-        mutableStateOf(currentProject.knowledgeSources.isEmpty())
-    }
-
-    val indexProgress = viewModel.indexProgress
-
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(Spacing.large),
-        ) {
-            // Collapsible header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = Spacing.extraSmall),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // Left side - clickable expansion area (only if sources exist)
-                if (currentProject.knowledgeSources.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable(
-                                onClick = { isExpanded = !isExpanded },
-                                indication = null,
-                                interactionSource = remember { MutableInteractionSource() },
-                            )
-                            .pointerHoverIcon(PointerIcon.Hand),
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.LibraryBooks,
-                            contentDescription = null,
-                            tint = AppTextStyles.primaryContent,
-                            modifier = Modifier.size(20.dp),
-                        )
-
-                        Text(
-                            text = stringResource("projects.sources.count", currentProject.knowledgeSources.size),
-                            style = AppTextStyles.body,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-
-                        // ── Indexed badge ──────────────────────────────────
-                        if (indexProgress.isComplete) {
-                            themedTooltip(text = stringResource("project.indexing.ready.tooltip")) {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(Spacing.micro),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    successIcon(size = 14.dp)
-                                    Text(
-                                        text = stringResource("project.indexing.ready.label"),
-                                        style = AppTextStyles.hint,
-                                    )
-                                }
-                            }
-                        }
-
-                        val rotation by animateFloatAsState(
-                            targetValue = if (isExpanded) 180f else 0f,
-                            label = "rotation",
-                        )
-
-                        Icon(
-                            imageVector = Icons.Default.KeyboardArrowDown,
-                            contentDescription = if (isExpanded) {
-                                stringResource("projects.sources.collapse")
-                            } else {
-                                stringResource("projects.sources.expand")
-                            },
-                            tint = AppTextStyles.primaryContent,
-                            modifier = Modifier.rotate(rotation),
-                        )
-
-                        themedTooltip(text = stringResource("projects.sources.info.tooltip")) {
-                            Icon(
-                                imageVector = Icons.Default.Info,
-                                contentDescription = null,
-                                tint = AppColors.secondaryIconColor(),
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .pointerHoverIcon(PointerIcon.Hand),
-                            )
-                        }
-                    }
-                } else {
-                    // Empty state header
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.LibraryBooks,
-                            contentDescription = null,
-                            tint = AppTextStyles.primaryContent,
-                            modifier = Modifier.size(20.dp),
-                        )
-
-                        Text(
-                            text = stringResource("projects.sources.empty.title"),
-                            style = AppTextStyles.body,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                }
-
-                // Right side - Guide link + Add button (always visible)
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    linkButton(
-                        onClick = {
-                            try {
-                                if (Desktop.isDesktopSupported()) {
-                                    Desktop.getDesktop().browse(URI("https://$DOMAIN/docs/desktop/rag/"))
-                                }
-                            } catch (_: Exception) {}
-                        },
-                    ) {
-                        Icon(
-                            Icons.Default.Info,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                        )
-                        Text(
-                            text = stringResource("projects.sources.guide"),
-                            style = AppTextStyles.caption,
-                            modifier = Modifier.padding(start = Spacing.extraSmall),
-                        )
-                    }
-
-                    themedTooltip(text = stringResource("projects.sources.add.tooltip")) {
-                        IconButton(
-                            onClick = onShowAddDialog,
-                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = stringResource("projects.sources.add.tooltip"),
-                                tint = AppTextStyles.primaryContent,
-                            )
-                        }
-                    }
-                }
-            }
-
-            // ── Index progress indicator ───────────────────────────────────
-            indexProgressIndicator(
-                indexProgress = indexProgress,
-                hasKnowledgeSources = currentProject.knowledgeSources.isNotEmpty(),
-            )
-
-            // ── Skipped files warning ──────────────────────────────────────
-            skippedFilesWarning(skippedFileNames = indexProgress.skippedFileNames)
-
-            // Expandable content
-            if (currentProject.knowledgeSources.isNotEmpty()) {
-                AnimatedVisibility(
-                    visible = isExpanded,
-                    enter = expandVertically(),
-                    exit = shrinkVertically(),
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = Spacing.medium),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.medium),
-                    ) {
-                        HorizontalDivider(
-                            modifier = Modifier.fillMaxWidth(),
-                            color = AppColors.codeBlockBorderColor(),
-                        )
-
-                        val groupedSources = currentProject.knowledgeSources.groupBy { source ->
-                            when (source) {
-                                is LocalFoldersKnowledgeSourceConfig -> stringResource("projects.sources.type.local_folders")
-                                is LocalFilesKnowledgeSourceConfig -> stringResource("projects.sources.type.local_files")
-                                is UrlKnowledgeSourceConfig -> stringResource("projects.sources.type.urls")
-                            }
-                        }
-
-                        groupedSources.forEach { (groupName, sources) ->
-                            Text(
-                                text = groupName,
-                                style = AppTextStyles.fieldLabel,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(top = Spacing.small, bottom = Spacing.extraSmall),
-                            )
-                            sources.forEach { source ->
-                                knowledgeSourceItem(
-                                    source = source,
-                                    onDelete = { viewModel.deleteKnowledgeSource(source) },
-                                    onRescan = { viewModel.rescanKnowledgeSource(source) },
-                                    onWatchToggle = { watch ->
-                                        if (source is LocalFoldersKnowledgeSourceConfig) {
-                                            viewModel.toggleWatchForChanges(source, watch)
-                                        }
-                                    },
-                                )
-                            }
-                        }
-                    }
-                }
-            } else {
-                // Empty state description below the header
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = Spacing.medium),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.medium),
-                ) {
-                    HorizontalDivider(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = AppColors.codeBlockBorderColor(),
-                    )
-                    Text(
-                        text = stringResource("projects.sources.empty.description"),
-                        style = AppTextStyles.caption,
-                        color = AppColors.secondaryIconColor(),
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun knowledgeSourceItem(
     source: KnowledgeSourceConfig,
     onDelete: () -> Unit = {},
@@ -942,224 +703,9 @@ private fun knowledgeSourceItem(
     }
 }
 
-@Composable
-private fun indexProgressIndicator(
-    indexProgress: IndexProgress,
-    hasKnowledgeSources: Boolean,
-) {
-    if (!hasKnowledgeSources) return
-
-    when (indexProgress.status) {
-        IndexStatus.QUEUED -> {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = Spacing.small),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                AppComponents.loadingSpinner(size = 14.dp)
-                Text(
-                    text = stringResource("project.indexing.queued", indexProgress.blockedByName!!),
-                    style = AppTextStyles.caption,
-                )
-            }
-        }
-
-        IndexStatus.INDEXING -> {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = Spacing.small),
-                verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    indexProgress.resourceIdentifier?.let { resourceIdentifier ->
-                        Text(
-                            text = stringResource("project.indexing.label", resourceIdentifier),
-                            style = AppTextStyles.caption,
-                        )
-                    }
-                    if (indexProgress.totalFiles > 0) {
-                        Text(
-                            text = "${indexProgress.processedFiles} / ${indexProgress.totalFiles} (${indexProgress.progressPercentFormatted}%)",
-                            style = AppTextStyles.caption,
-                        )
-                    }
-                }
-
-                if (indexProgress.progressPercent > 0f) {
-                    LinearProgressIndicator(
-                        progress = { indexProgress.progressPercent / 100f },
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        trackColor = AppColors.surfaceColor(AppColors.Elevation.RECESSED),
-                    )
-                } else {
-                    LinearProgressIndicator(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        trackColor = AppColors.surfaceColor(AppColors.Elevation.RECESSED),
-                    )
-                }
-                indexProgress.currentFile?.let { file ->
-                    val backendElapsedMs = indexProgress.currentFileElapsedMs
-
-                    // Baseline resets whenever a new file starts being processed.
-                    val baseWallClock = remember(indexProgress.currentFile) { mutableStateOf(System.currentTimeMillis()) }
-                    val baseElapsed = remember(indexProgress.currentFile) { mutableStateOf(0L) }
-                    var liveElapsedMs by remember(indexProgress.currentFile) { mutableStateOf(0L) }
-
-                    // Skip that first fire and start the timer from zero for each new file.
-                    val seenFirstBackendUpdate = remember(indexProgress.currentFile) { mutableStateOf(false) }
-
-                    // When the backend emits a higher value (a batch just completed),
-                    // advance the baseline so the display never goes backwards.
-                    LaunchedEffect(backendElapsedMs) {
-                        if (!seenFirstBackendUpdate.value) {
-                            seenFirstBackendUpdate.value = true
-                            return@LaunchedEffect
-                        }
-                        if (backendElapsedMs >= baseElapsed.value) {
-                            baseElapsed.value = backendElapsedMs
-                            baseWallClock.value = System.currentTimeMillis()
-                            liveElapsedMs = backendElapsedMs
-                        }
-                    }
-
-                    // Tick every 500 ms to interpolate smoothly between backend events.
-                    LaunchedEffect(indexProgress.currentFile) {
-                        while (true) {
-                            delay(500)
-                            liveElapsedMs = baseElapsed.value + (System.currentTimeMillis() - baseWallClock.value)
-                        }
-                    }
-
-                    val elapsedText = when {
-                        liveElapsedMs >= 1000 -> " (${LocalizationManager.formatNumber(liveElapsedMs / 1000)}s)"
-                        else -> ""
-                    }
-                    Text(
-                        text = "$file$elapsedText",
-                        style = AppTextStyles.hint,
-                        color = AppColors.secondaryIconColor(),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-        }
-
-        IndexStatus.FAILED -> {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = Spacing.small),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(16.dp),
-                )
-                Text(
-                    text = indexProgress.error
-                        ?: stringResource("project.indexing.failed"),
-                    style = AppTextStyles.errorText,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-
-        else -> Unit // READY, WATCHING, NOT_STARTED — no indicator needed
-    }
-}
-
 /**
- * Collapsible warning shown in the knowledge sources panel when one or more files
- * could not be indexed (e.g. image-only PDFs with no extractable text).
- */
-@Composable
-private fun skippedFilesWarning(skippedFileNames: List<String>) {
-    if (skippedFileNames.isEmpty()) return
-
-    var expanded by remember { mutableStateOf(false) }
-    val rotation by animateFloatAsState(
-        targetValue = if (expanded) 180f else 0f,
-        label = "skipped_rotation",
-    )
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = Spacing.small),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(
-                    onClick = { expanded = !expanded },
-                    indication = null,
-                    interactionSource = remember { MutableInteractionSource() },
-                )
-                .pointerHoverIcon(PointerIcon.Hand),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Default.Info,
-                contentDescription = null,
-                tint = AppTextStyles.secondaryContent,
-                modifier = Modifier.size(14.dp),
-            )
-            Text(
-                text = "${skippedFileNames.size} file(s) skipped — no extractable text (e.g. image-only PDFs)",
-                style = AppTextStyles.hint,
-                modifier = Modifier.weight(1f),
-            )
-            Icon(
-                imageVector = Icons.Default.KeyboardArrowDown,
-                contentDescription = null,
-                tint = AppTextStyles.secondaryContent,
-                modifier = Modifier
-                    .size(16.dp)
-                    .rotate(rotation),
-            )
-        }
-
-        AnimatedVisibility(
-            visible = expanded,
-            enter = expandVertically(),
-            exit = shrinkVertically(),
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = Spacing.extraSmall, start = Spacing.large),
-                verticalArrangement = Arrangement.spacedBy(Spacing.micro),
-            ) {
-                skippedFileNames.forEach { name ->
-                    Text(
-                        text = "• $name",
-                        style = AppTextStyles.hint,
-                        color = AppColors.secondaryIconColor(),
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * Isolated footer composable that owns all chat-input state.
- * Keeping state here prevents keystrokes from recomposing the heavy scrollable
- * content above (hero card, knowledge sources panel, session cards).
+ * Isolated footer owning all chat-input state, so keystrokes don't recompose the
+ * heavy scrollable content above (hero card, knowledge sources panel, session cards).
  */
 @Composable
 private fun projectChatInputFooter(
@@ -1171,8 +717,8 @@ private fun projectChatInputFooter(
     var inputText by remember { mutableStateOf(TextFieldValue("")) }
     var attachments by remember { mutableStateOf<List<FileAttachmentDTO>>(emptyList()) }
     var currentEnabledServerIds by remember { mutableStateOf(emptySet<String>()) }
-    // Pre-select this project's default directive (falling back to the user's global
-    // default) so new chats in this project start with the right instructions.
+    // Pre-select this project's default directive (falling back to the global default)
+    // so new chats start with the right instructions.
     var selectedDirective by remember(projectId) {
         mutableStateOf(
             GlobalContext.get().get<ChatDirectiveService>().resolveDefaultDirectiveId(projectId),

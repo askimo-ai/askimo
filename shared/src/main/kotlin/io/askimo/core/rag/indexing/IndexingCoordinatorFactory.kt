@@ -9,6 +9,7 @@ import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.store.embedding.EmbeddingStore
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
 import io.askimo.core.context.AppContext
+import io.askimo.core.rag.container.IndexingContainerType
 
 /**
  * Factory for creating appropriate IndexingCoordinator based on knowledge source types.
@@ -19,8 +20,9 @@ object IndexingCoordinatorFactory {
     /**
      * Create an indexing coordinator for a single knowledge source.
      *
-     * @param projectId The project ID
-     * @param projectName The project name
+     * @param containerId The container (project or resource collection) ID
+     * @param containerName The container (project or resource collection) name
+     * @param containerType Whether this container is a project or a resource collection
      * @param knowledgeSource The knowledge source to index
      * @param embeddingStore The embedding store
      * @param embeddingModel The embedding model
@@ -29,8 +31,9 @@ object IndexingCoordinatorFactory {
      * @throws IllegalArgumentException if the knowledge source type is not supported
      */
     fun createCoordinator(
-        projectId: String,
-        projectName: String,
+        containerId: String,
+        containerName: String,
+        containerType: IndexingContainerType,
         knowledgeSource: KnowledgeSourceConfig,
         embeddingStore: EmbeddingStore<TextSegment>,
         embeddingModel: EmbeddingModel,
@@ -44,8 +47,9 @@ object IndexingCoordinatorFactory {
             )
 
         return provider.createCoordinator(
-            projectId = projectId,
-            projectName = projectName,
+            containerId = containerId,
+            containerName = containerName,
+            containerType = containerType,
             knowledgeSource = knowledgeSource,
             embeddingStore = embeddingStore,
             embeddingModel = embeddingModel,

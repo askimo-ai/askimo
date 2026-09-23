@@ -9,11 +9,28 @@ import ch.qos.logback.classic.filter.LevelFilter
 import ch.qos.logback.core.rolling.RollingFileAppender
 import ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy
 import ch.qos.logback.core.rolling.TimeBasedRollingPolicy
+import io.askimo.core.config.AnalyticsConfig
 import io.askimo.core.config.AppConfigData
+import io.askimo.core.config.ChatConfig
+import io.askimo.core.config.DeveloperConfig
 import io.askimo.core.config.EmbeddingConfig
+import io.askimo.core.config.FilterConfig
 import io.askimo.core.config.IndexingConfig
+import io.askimo.core.config.MemoryConfig
+import io.askimo.core.config.MemoryMode
+import io.askimo.core.config.ModelTimeoutsConfig
+import io.askimo.core.config.ModelsConfig
+import io.askimo.core.config.NotificationsConfig
+import io.askimo.core.config.ProjectType
+import io.askimo.core.config.ProxyConfig
+import io.askimo.core.config.ProxyType
+import io.askimo.core.config.RagConfig
 import io.askimo.core.config.RetryConfig
 import io.askimo.core.config.ThrottleConfig
+import io.askimo.core.config.VoiceConfig
+import io.askimo.core.config.VoiceProvider
+import io.askimo.core.config.WebSearchBackend
+import io.askimo.core.config.WebSearchConfig
 import io.askimo.core.context.AppContextParams
 import io.askimo.core.context.ParamKey
 import io.askimo.core.providers.AskimoPromptTemplateFactory
@@ -55,7 +72,20 @@ class AskimoFeature : Feature {
             EmbeddingConfig::class.java,
             RetryConfig::class.java,
             ThrottleConfig::class.java,
+            FilterConfig::class.java,
+            ProjectType::class.java,
             IndexingConfig::class.java,
+            DeveloperConfig::class.java,
+            ProxyConfig::class.java,
+            ChatConfig::class.java,
+            MemoryConfig::class.java,
+            RagConfig::class.java,
+            ModelTimeoutsConfig::class.java,
+            ModelsConfig::class.java,
+            AnalyticsConfig::class.java,
+            WebSearchConfig::class.java,
+            VoiceConfig::class.java,
+            NotificationsConfig::class.java,
             AppContextParams::class.java,
             ParamKey::class.java,
             ProviderSettings::class.java,
@@ -68,6 +98,15 @@ class AskimoFeature : Feature {
             XAiSettings::class.java,
             OpenAiCompatibleSettings::class.java,
             NoopProviderSettings::class.java,
+        )
+
+        // Register enums used inside config classes for reflection (Jackson may need to
+        // reflectively access values()/valueOf() and constants during YAML deserialization)
+        registerAllDeclared(
+            VoiceProvider::class.java,
+            ProxyType::class.java,
+            MemoryMode::class.java,
+            WebSearchBackend::class.java,
         )
 
         // Handle LangChain4j internal Jackson deserializer (package-private, cannot import directly)

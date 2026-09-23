@@ -1,0 +1,333 @@
+/* SPDX-License-Identifier: AGPLv3
+ *
+ * Copyright (c) 2026 Askimo
+ */
+package io.askimo.desktop.resourcecollection
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import io.askimo.core.chat.service.ResourceCollectionService
+import io.askimo.core.logging.logger
+import io.askimo.desktop.knowledgesource.KnowledgeSourceItem
+import io.askimo.desktop.knowledgesource.buildKnowledgeSourceConfigs
+import io.askimo.desktop.knowledgesource.knowledgeSourceRow
+import io.askimo.desktop.knowledgesource.urlInputDialog
+import io.askimo.desktop.knowledgesource.validateFile
+import io.askimo.desktop.knowledgesource.validateFolder
+import io.askimo.desktop.knowledgesource.validateUrl
+import io.askimo.ui.common.components.inlineErrorMessage
+import io.askimo.ui.common.components.primaryButton
+import io.askimo.ui.common.components.rememberDialogState
+import io.askimo.ui.common.components.secondaryButton
+import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
+import io.askimo.ui.common.theme.AppComponents
+import io.askimo.ui.common.theme.AppTextStyles
+import io.askimo.ui.common.theme.Spacing
+import io.askimo.ui.common.ui.util.FileDialogUtils
+import kotlinx.coroutines.launch
+import org.koin.core.context.GlobalContext
+import java.util.UUID
+import kotlin.collections.plus
+
+private object NewResourceCollectionDialog
+private val log = logger<NewResourceCollectionDialog>()
+
+/**
+ * Dialog for creating a new resource collection with name, description, and reference materials.
+ */
+@Composable
+fun newResourceCollectionDialog(
+    onDismiss: () -> Unit,
+    onCreateCollection: (name: String, description: String?) -> Unit,
+    resourceCollectionService: ResourceCollectionService = GlobalContext.get().get(),
+) {
+    var collectionName by remember { mutableStateOf("") }
+    var collectionDescription by remember { mutableStateOf("") }
+    var knowledgeSources by remember { mutableStateOf<List<KnowledgeSourceItem>>(emptyList()) }
+    var showAddSourceMenu by remember { mutableStateOf(false) }
+    var showUrlInputDialog by remember { mutableStateOf(false) }
+    var nameError by remember { mutableStateOf<String?>(null) }
+    var showSuccess by remember { mutableStateOf(false) }
+    var createdCollectionName by remember { mutableStateOf("") }
+
+    val scope = rememberCoroutineScope()
+    val dialogState = rememberDialogState()
+
+    // Retrieve string resources in composable scope
+    val errorEmptyName = stringResource("resourcecollection.new.dialog.error.empty.name")
+    val errorCreateFailed = stringResource("resourcecollection.new.dialog.error.create.failed")
+    val browseFolderTitle = stringResource("resourcecollection.new.dialog.folder.browse")
+    val browseFileTitle = stringResource("resourcecollection.new.dialog.file.browse")
+
+    // Browse for folder
+    fun browseForFolder() {
+        scope.launch {
+            val folderPath = FileDialogUtils.pickFolderPath(browseFolderTitle) ?: return@launch
+            knowledgeSources = knowledgeSources + KnowledgeSourceItem.Folder(
+                id = UUID.randomUUID().toString(),
+                path = folderPath,
+                isValid = validateFolder(folderPath),
+            )
+        }
+    }
+
+    // Browse for files
+    fun browseForFiles() {
+        scope.launch {
+            val paths = FileDialogUtils.pickFilePaths(browseFileTitle)
+            paths.forEach { path ->
+                knowledgeSources = knowledgeSources + KnowledgeSourceItem.File(
+                    id = UUID.randomUUID().toString(),
+                    path = path,
+                    isValid = validateFile(path),
+                )
+            }
+        }
+    }
+
+    // Handle adding a source based on type
+    fun handleAddSource(typeInfo: KnowledgeSourceItem.TypeInfo) {
+        when (typeInfo) {
+            KnowledgeSourceItem.TypeInfo.FOLDER -> browseForFolder()
+            KnowledgeSourceItem.TypeInfo.FILE -> browseForFiles()
+            KnowledgeSourceItem.TypeInfo.URL -> showUrlInputDialog = true
+        }
+    }
+
+    // Validate and create collection
+    fun handleCreate() {
+        if (collectionName.isBlank()) {
+            nameError = errorEmptyName
+            return
+        }
+
+        scope.launch {
+            try {
+                val knowledgeSourceConfigs = buildKnowledgeSourceConfigs(knowledgeSources)
+
+                val createdCollection = resourceCollectionService.createCollection(
+                    name = collectionName.trim(),
+                    description = collectionDescription.takeIf { it.isNotBlank() },
+                    knowledgeSources = knowledgeSourceConfigs,
+                    isSystemCollection = false,
+                )
+
+                createdCollectionName = collectionName.trim()
+                showSuccess = true
+
+                onCreateCollection(
+                    createdCollection.name,
+                    createdCollection.description,
+                )
+            } catch (e: Exception) {
+                log.error("Failed to create collection", e)
+                dialogState.setError(e, errorCreateFailed.format(e.message ?: "Unknown error"))
+            }
+        }
+    }
+
+    if (showSuccess) {
+        // ── Success screen ──────────────────────────────────────────────────────
+        AppComponents.scaffoldDialog(
+            onDismissRequest = onDismiss,
+            width = 500.dp,
+            actions = {
+                primaryButton(onClick = onDismiss) {
+                    Text(stringResource("resourcecollection.new.dialog.success.close"))
+                }
+            },
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.large),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(Spacing.medium),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(56.dp),
+                )
+                Text(
+                    text = stringResource("resourcecollection.new.dialog.success.title"),
+                    style = AppTextStyles.pageTitle,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = stringResource("resourcecollection.new.dialog.success.message", createdCollectionName),
+                    style = AppTextStyles.bodySecondary,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+    } else {
+        // ── Create form ─────────────────────────────────────────────────────────
+        AppComponents.scaffoldDialog(
+            onDismissRequest = onDismiss,
+            onCloseRequest = onDismiss,
+            width = 800.dp,
+            showSectionDividers = true,
+            title = {
+                Text(
+                    text = stringResource("resourcecollection.new.dialog.title"),
+                    style = AppTextStyles.pageTitle,
+                )
+            },
+            // Name + description are pinned above the scroll viewport so they're
+            // always visible even when a long list of knowledge sources is added.
+            stickyHeader = {
+                OutlinedTextField(
+                    value = collectionName,
+                    onValueChange = {
+                        collectionName = it
+                        nameError = null
+                    },
+                    label = { Text(stringResource("resourcecollection.new.dialog.name.label")) },
+                    placeholder = { Text(stringResource("resourcecollection.new.dialog.name.placeholder")) },
+                    isError = nameError != null,
+                    supportingText = nameError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = AppColors.outlinedTextFieldColors(),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                )
+
+                OutlinedTextField(
+                    value = collectionDescription,
+                    onValueChange = { collectionDescription = it },
+                    label = { Text(stringResource("resourcecollection.new.dialog.description.label")) },
+                    placeholder = { Text(stringResource("resourcecollection.new.dialog.description.placeholder")) },
+                    minLines = 3,
+                    maxLines = 5,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = AppColors.outlinedTextFieldColors(),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { handleCreate() }),
+                )
+            },
+            content = {
+                // ── Reference Materials ─────────────────────────────────────────
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+                    Text(
+                        text = stringResource("resourcecollection.new.dialog.materials.label"),
+                        style = AppTextStyles.body,
+                    )
+
+                    knowledgeSources.forEach { source ->
+                        knowledgeSourceRow(
+                            source = source,
+                            onRemove = { knowledgeSources = knowledgeSources - source },
+                        )
+                    }
+
+                    Box {
+                        OutlinedButton(
+                            onClick = { showAddSourceMenu = true },
+                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(Spacing.small))
+                            Text(stringResource("resourcecollection.new.dialog.materials.add"))
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                        }
+
+                        AppComponents.dropdownMenu(
+                            expanded = showAddSourceMenu,
+                            onDismissRequest = { showAddSourceMenu = false },
+                        ) {
+                            KnowledgeSourceItem.availableTypes.forEachIndexed { index, typeInfo ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            showAddSourceMenu = false
+                                            handleAddSource(typeInfo)
+                                        }
+                                        .pointerHoverIcon(PointerIcon.Hand)
+                                        .padding(horizontal = Spacing.medium, vertical = Spacing.small),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                                ) {
+                                    Icon(
+                                        typeInfo.icon,
+                                        contentDescription = null,
+                                        tint = AppTextStyles.primaryContent,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                    Text(
+                                        text = stringResource(typeInfo.typeLabelKey),
+                                        style = AppTextStyles.body,
+                                    )
+                                }
+                                if (index < KnowledgeSourceItem.availableTypes.lastIndex) {
+                                    HorizontalDivider(
+                                        color = AppColors.codeBlockBorderColor(),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                inlineErrorMessage(errorMessage = dialogState.errorMessage)
+            },
+            actions = {
+                secondaryButton(onClick = onDismiss) {
+                    Text(stringResource("resourcecollection.new.dialog.button.cancel"))
+                }
+                Spacer(modifier = Modifier.width(Spacing.small))
+                primaryButton(onClick = { handleCreate() }) {
+                    Text(stringResource("resourcecollection.new.dialog.button.create"))
+                }
+            },
+        )
+    }
+
+    // Show URL input dialog when requested
+    if (showUrlInputDialog) {
+        urlInputDialog(
+            onDismiss = { showUrlInputDialog = false },
+            onUrlAdded = { url ->
+                knowledgeSources = knowledgeSources + KnowledgeSourceItem.Url(
+                    id = UUID.randomUUID().toString(),
+                    url = url,
+                    isValid = validateUrl(url),
+                )
+            },
+        )
+    }
+}

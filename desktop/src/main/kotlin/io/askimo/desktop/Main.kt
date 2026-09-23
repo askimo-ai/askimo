@@ -91,6 +91,9 @@ import io.askimo.desktop.project.editProjectDialog
 import io.askimo.desktop.project.newProjectDialog
 import io.askimo.desktop.project.projectView
 import io.askimo.desktop.project.projectsView
+import io.askimo.desktop.resourcecollection.ResourceCollectionsViewModel
+import io.askimo.desktop.resourcecollection.resourceCollectionView
+import io.askimo.desktop.resourcecollection.resourceCollectionsView
 import io.askimo.desktop.settings.AIProviderViewModel
 import io.askimo.desktop.settings.SettingsSection
 import io.askimo.desktop.settings.aboutDialog
@@ -352,11 +355,13 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     var isSidebarExpanded by remember { mutableStateOf(true) }
     var isProjectsExpanded by remember { mutableStateOf(true) }
     var isSessionsExpanded by remember { mutableStateOf(true) }
+    var isResourceCollectionsExpanded by remember { mutableStateOf(false) }
     var showPlansInSidebar by remember { mutableStateOf(ApplicationPreferences.getShowPlansInSidebar()) }
     var showSkillsInSidebar by remember { mutableStateOf(ApplicationPreferences.getShowSkillsInSidebar()) }
     var showProjectsInSidebar by remember { mutableStateOf(ApplicationPreferences.getShowProjectsInSidebar()) }
     var showTokenUsageCard by remember { mutableStateOf(ApplicationPreferences.getShowTokenUsageCard()) }
     var selectedProjectId by remember { mutableStateOf<String?>(null) }
+    var selectedCollectionId by remember { mutableStateOf<String?>(null) }
     var sidebarWidthFraction by remember { mutableStateOf(ThemePreferences.getMainSidebarWidthFraction()) }
     var isFullScreen by remember { mutableStateOf(windowState?.placement == WindowPlacement.Fullscreen) }
     var showQuitDialog by remember { mutableStateOf(false) }
@@ -381,6 +386,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     var feedbackOpenedFromMenu by remember { mutableStateOf(false) }
     var showNewProjectDialog by remember { mutableStateOf(false) }
     var showEditProjectDialog by remember { mutableStateOf(false) }
+    var showNewResourceCollectionDialog by remember { mutableStateOf(false) }
     var showGlobalSearchDialog by remember { mutableStateOf(false) }
     var showKeyboardShortcutsDialog by remember { mutableStateOf(false) }
     var editingProjectId by remember { mutableStateOf<String?>(null) }
@@ -542,6 +548,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     val discoverViewModel = remember { koin.get<DiscoverViewModel> { parametersOf(scope) } }
     val settingsViewModel = remember { koin.get<AIProviderViewModel> { parametersOf(scope) } }
     val updateViewModel = remember { koin.get<UpdateViewModel> { parametersOf(scope) } }
+    val resourceCollectionsViewModel = remember { koin.get<ResourceCollectionsViewModel> { parametersOf(scope) } }
 
     // Listen for errors via the GlobalErrorHandler.
     globalErrorHandler { state -> errorDialogState = state }
@@ -743,9 +750,8 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
         updateViewModel.checkForUpdates(silent = false)
     }
     val onToggleFullScreenMenuAction: () -> Unit = {
-        val state = windowState
-        if (state != null) {
-            state.placement = if (state.placement == WindowPlacement.Fullscreen) {
+        if (windowState != null) {
+            windowState.placement = if (windowState.placement == WindowPlacement.Fullscreen) {
                 WindowPlacement.Floating
             } else {
                 WindowPlacement.Fullscreen
@@ -1202,6 +1208,15 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                         onNavigateToDiscover = {
                                                             currentView = View.DISCOVER
                                                         },
+                                                        onNavigateToResourceCollections = {
+                                                            currentView = View.RESOURCE_COLLECTIONS
+                                                        },
+                                                        resourceCollectionsState = resourceCollectionsViewModel,
+                                                        isResourceCollectionsExpanded = isResourceCollectionsExpanded,
+                                                        onToggleResourceCollections = { isResourceCollectionsExpanded = !isResourceCollectionsExpanded },
+                                                        onNewResourceCollection = {
+                                                            showNewResourceCollectionDialog = true
+                                                        },
                                                     )
                                                 } // End BoxWithConstraints
 
@@ -1337,6 +1352,20 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                             previousView = currentView
                                                             currentView = View.SETTINGS
                                                         },
+                                                        onSelectCollection = { collectionId ->
+                                                            selectedCollectionId = collectionId
+                                                            currentView = View.RESOURCE_COLLECTION_DETAIL
+                                                        },
+                                                        onNavigateBackFromCollection = {
+                                                            currentView = View.RESOURCE_COLLECTIONS
+                                                            selectedCollectionId = null
+                                                            resourceCollectionsViewModel.refresh()
+                                                        },
+                                                        onNavigateToResourceCollections = {
+                                                            currentView = View.RESOURCE_COLLECTIONS
+                                                        },
+                                                        selectedCollectionId = selectedCollectionId,
+                                                        resourceCollectionsViewModel = resourceCollectionsViewModel,
                                                     )
                                                 } else {
                                                     Box(
@@ -2181,10 +2210,14 @@ fun mainContent(
     onNavigateToPlanEditor: () -> Unit = {},
     onNavigateToMcpSettings: () -> Unit = {},
     onNavigateToAiProviderSettings: () -> Unit = {},
+    onSelectCollection: (String) -> Unit = {},
+    onNavigateBackFromCollection: () -> Unit = {},
+    onNavigateToResourceCollections: () -> Unit = {},
     activeSessionId: String?,
     sessionChatState: ChatViewState?,
     onChatStateChange: (TextFieldValue, List<FileAttachmentDTO>, ChatMessageDTO?) -> Unit,
     selectedProjectId: String?,
+    selectedCollectionId: String?,
     userAvatarPath: String? = null,
     userProfile: UserProfile? = null,
     discoverViewModel: DiscoverViewModel,
@@ -2192,6 +2225,7 @@ fun mainContent(
     onToggleTokenUsageCard: (Boolean) -> Unit = {},
     onOpenSystemDiagnostics: () -> Unit = {},
     bookmarksViewModel: BookmarksViewModel? = null,
+    resourceCollectionsViewModel: ResourceCollectionsViewModel? = null,
 ) {
     Box(
         modifier = Modifier
@@ -2252,6 +2286,7 @@ fun mainContent(
                     },
                     onNavigateToProject = onSelectProject,
                     onNavigateToMcpSettings = onNavigateToMcpSettings,
+                    onNavigateToResourceCollections = onNavigateToResourceCollections,
                     onMoveSessionToNewProject = { _ -> onNewProject() },
                     userAvatarPath = userAvatarPath,
                     projectSidePanelSlot = { proj, ragStatus, ragPct, indexedPaths, expanded, onExpandedChange, onAddToChat ->
@@ -2410,6 +2445,48 @@ fun mainContent(
                         },
                         modifier = Modifier.fillMaxSize(),
                     )
+                }
+            }
+
+            View.RESOURCE_COLLECTIONS -> {
+                if (resourceCollectionsViewModel != null) {
+                    resourceCollectionsView(
+                        viewModel = resourceCollectionsViewModel,
+                        onSelectCollection = onSelectCollection,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "Resource Collections ViewModel not initialized",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            }
+
+            View.RESOURCE_COLLECTION_DETAIL -> {
+                if (selectedCollectionId != null) {
+                    resourceCollectionView(
+                        collectionId = selectedCollectionId,
+                        onBack = onNavigateBackFromCollection,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = stringResource("resourcecollections.error.not.found"),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
             }
         }

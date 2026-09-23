@@ -8,16 +8,17 @@ import io.askimo.core.chat.domain.LocalFoldersKnowledgeSourceConfig
 import io.askimo.core.event.Event
 import io.askimo.core.event.EventSource
 import io.askimo.core.event.EventType
+import io.askimo.core.rag.container.IndexingContainerType
 import java.time.Instant
 
 /**
- * Event emitted when the user toggles the "watch for changes" setting for a local
- * folder knowledge source. This is an internal event that triggers ProjectIndexer to
- * start or stop the live file watcher for the already-running coordinator, without a
- * full re-index.
+ * Emitted when the user toggles "watch for changes" for a local folder knowledge
+ * source. Triggers [io.askimo.core.rag.RagIndexer] to start/stop the live file
+ * watcher for the already-running coordinator, without a full re-index.
  */
 data class KnowledgeSourceWatchToggledEvent(
-    val projectId: String,
+    val containerId: String,
+    val containerType: IndexingContainerType,
     val knowledgeSource: LocalFoldersKnowledgeSourceConfig,
     val watchForChanges: Boolean,
     override val timestamp: Instant = Instant.now(),
@@ -25,5 +26,5 @@ data class KnowledgeSourceWatchToggledEvent(
 ) : Event {
     override val type = EventType.INTERNAL
 
-    override fun getDetails(): String = "Watch toggle requested for project $projectId, source: ${knowledgeSource.resourceIdentifier} -> $watchForChanges"
+    override fun getDetails(): String = "Watch toggle requested for $containerType $containerId, source: ${knowledgeSource.resourceIdentifier} -> $watchForChanges"
 }

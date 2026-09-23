@@ -2693,7 +2693,249 @@
       "parameterTypes": [ ]
     } ]
   }, {
+    "type": "io.askimo.core.agent.ExternalAgent"
+  }, {
+    "type": "io.askimo.core.agent.ExternalAgentTemplate"
+  }, {
+    "type": "io.askimo.core.agent.repository.AgentRunHistoryRepositoryIT",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    }, {
+      "name": "setUp",
+      "parameterTypes": [ "java.nio.file.Path" ]
+    }, {
+      "name": "setUpClass",
+      "parameterTypes": [ "java.nio.file.Path" ]
+    }, {
+      "name": "should delete a single record by id",
+      "parameterTypes": [ ]
+    }, {
+      "name": "should delete all records for a workspace",
+      "parameterTypes": [ ]
+    }, {
+      "name": "should delete all turns for a conversation",
+      "parameterTypes": [ ]
+    }, {
+      "name": "should find all records across workspaces newest first",
+      "parameterTypes": [ ]
+    }, {
+      "name": "should find all turns for a conversation oldest first",
+      "parameterTypes": [ ]
+    }, {
+      "name": "should find records by workspace id newest first",
+      "parameterTypes": [ ]
+    }, {
+      "name": "should not delete turns from other conversations when deleting by conversation id",
+      "parameterTypes": [ ]
+    }, {
+      "name": "should not return records from other workspaces",
+      "parameterTypes": [ "java.nio.file.Path" ]
+    }, {
+      "name": "should not update title on turns from other conversations",
+      "parameterTypes": [ ]
+    }, {
+      "name": "should persist error and nullable fields correctly",
+      "parameterTypes": [ ]
+    }, {
+      "name": "should preserve embedded newlines within a single activity log entry",
+      "parameterTypes": [ ]
+    }, {
+      "name": "should return empty activity log when none recorded",
+      "parameterTypes": [ ]
+    }, {
+      "name": "should return empty list for unknown conversation id",
+      "parameterTypes": [ ]
+    }, {
+      "name": "should round-trip activity log entries in order",
+      "parameterTypes": [ ]
+    }, {
+      "name": "should save and retrieve a run record",
+      "parameterTypes": [ ]
+    }, {
+      "name": "should treat null optional fields as null after round-trip",
+      "parameterTypes": [ ]
+    }, {
+      "name": "should update title on every turn belonging to a conversation",
+      "parameterTypes": [ ]
+    }, {
+      "name": "tearDown",
+      "parameterTypes": [ ]
+    }, {
+      "name": "tearDownClass",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "io.askimo.core.agent.repository.AgentRunHistoryRepositoryIT$Companion"
+  }, {
+    "type": "io.askimo.core.agent.repository.WorkspaceRepositoryIT",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    }, {
+      "name": "setUpClass",
+      "parameterTypes": [ "java.nio.file.Path" ]
+    }, {
+      "name": "should bump lastUsedAt via touch",
+      "parameterTypes": [ "java.nio.file.Path" ]
+    }, {
+      "name": "should bump lastUsedAt when upserting an existing workspace",
+      "parameterTypes": [ "java.nio.file.Path" ]
+    }, {
+      "name": "should delete a workspace reference without deleting the folder on disk",
+      "parameterTypes": [ "java.nio.file.Path" ]
+    }, {
+      "name": "should find workspace by id",
+      "parameterTypes": [ "java.nio.file.Path" ]
+    }, {
+      "name": "should find workspace by path",
+      "parameterTypes": [ "java.nio.file.Path" ]
+    }, {
+      "name": "should not create duplicate workspace for the same path",
+      "parameterTypes": [ "java.nio.file.Path" ]
+    }, {
+      "name": "should not rename workspace to a blank name",
+      "parameterTypes": [ "java.nio.file.Path" ]
+    }, {
+      "name": "should pin and unpin a workspace",
+      "parameterTypes": [ "java.nio.file.Path" ]
+    }, {
+      "name": "should register a new workspace on first use",
+      "parameterTypes": [ "java.nio.file.Path" ]
+    }, {
+      "name": "should rename a workspace",
+      "parameterTypes": [ "java.nio.file.Path" ]
+    }, {
+      "name": "should return all workspaces pinned first then most recently used",
+      "parameterTypes": [ "java.nio.file.Path" ]
+    }, {
+      "name": "should return false when renaming unknown workspace",
+      "parameterTypes": [ ]
+    }, {
+      "name": "should return most recently used workspace regardless of pinned status",
+      "parameterTypes": [ "java.nio.file.Path" ]
+    }, {
+      "name": "should return null when finding workspace by unknown id",
+      "parameterTypes": [ ]
+    }, {
+      "name": "should return null when finding workspace by unknown path",
+      "parameterTypes": [ "java.nio.file.Path" ]
+    }, {
+      "name": "should treat different casings of same normalized path as same workspace",
+      "parameterTypes": [ "java.nio.file.Path" ]
+    }, {
+      "name": "should use provided display name when registering a new workspace",
+      "parameterTypes": [ "java.nio.file.Path" ]
+    }, {
+      "name": "tearDown",
+      "parameterTypes": [ ]
+    }, {
+      "name": "tearDownClass",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "io.askimo.core.agent.repository.WorkspaceRepositoryIT$Companion"
+  }, {
     "type": "io.askimo.core.chat.domain.SessionMemory"
+  }, {
+    "type": "io.askimo.core.chat.dto.TurnTimelineEntryAppendDedupedTest",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    }, {
+      "name": "a Status with different text is appended, not collapsed",
+      "parameterTypes": [ ]
+    }, {
+      "name": "a repeated Status text is appended again once a different entry interrupted the run",
+      "parameterTypes": [ ]
+    }, {
+      "name": "appending to an empty list always succeeds",
+      "parameterTypes": [ ]
+    }, {
+      "name": "identical consecutive Status entries collapse into one",
+      "parameterTypes": [ ]
+    }, {
+      "name": "non-Status entries are never deduplicated, even if identical",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "io.askimo.core.chat.dto.TurnTimelineEntryCollapsedEffectiveToolsTest",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    }, {
+      "name": "A(failed) A(success) B with different arguments - failed attempt collapses away",
+      "parameterTypes": [ ]
+    }, {
+      "name": "A(failed) A(success) B with identical arguments - still collapses to A(last) B",
+      "parameterTypes": [ ]
+    }, {
+      "name": "a successful call followed by a later failed call to the same tool keeps both",
+      "parameterTypes": [ ]
+    }, {
+      "name": "back-to-back retries with no thinking between them still collapse",
+      "parameterTypes": [ ]
+    }, {
+      "name": "distinct tools each called once - all kept in order",
+      "parameterTypes": [ ]
+    }, {
+      "name": "empty list returns empty",
+      "parameterTypes": [ ]
+    }, {
+      "name": "grouped() applies the same collapse before building groups",
+      "parameterTypes": [ ]
+    }, {
+      "name": "grouped() still merges genuinely consecutive thinking chunks (no tool between them)",
+      "parameterTypes": [ ]
+    }, {
+      "name": "interleaved retries of two different tools each collapse independently",
+      "parameterTypes": [ ]
+    }, {
+      "name": "last attempt is kept even if it also failed",
+      "parameterTypes": [ ]
+    }, {
+      "name": "no tool calls - passthrough unchanged",
+      "parameterTypes": [ ]
+    }, {
+      "name": "retry loop for A followed by a distinct tool B keeps both steps",
+      "parameterTypes": [ ]
+    }, {
+      "name": "same tool called twice successfully with different arguments - both kept (not a retry)",
+      "parameterTypes": [ ]
+    }, {
+      "name": "same tool called twice successfully with identical arguments - both kept",
+      "parameterTypes": [ ]
+    }, {
+      "name": "single tool call - kept regardless of preceding thinking",
+      "parameterTypes": [ ]
+    }, {
+      "name": "status and token entries pass through untouched around a retry loop",
+      "parameterTypes": [ ]
+    }, {
+      "name": "thinking not followed by any tool call is preserved",
+      "parameterTypes": [ ]
+    }, {
+      "name": "thinking-tool retry loop collapses to last thinking plus last tool",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "io.askimo.core.chat.dto.TurnTimelineEntryTruncatedForStorageTest",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    }, {
+      "name": "long tool arguments and result are truncated",
+      "parameterTypes": [ ]
+    }, {
+      "name": "non-Tool entries are passed through unchanged",
+      "parameterTypes": [ ]
+    }, {
+      "name": "other ToolCallInfo fields are preserved",
+      "parameterTypes": [ ]
+    }, {
+      "name": "short tool arguments are left untouched",
+      "parameterTypes": [ ]
+    } ]
   }, {
     "type": "io.askimo.core.chat.repository.ChatDirectiveRepositoryIT",
     "allDeclaredFields": true,
@@ -3148,7 +3390,13 @@
       "name": "should return empty list when no projects exist",
       "parameterTypes": [ ]
     }, {
+      "name": "should return false when setting default directive on non-existent project",
+      "parameterTypes": [ ]
+    }, {
       "name": "should return false when updating non-existent project",
+      "parameterTypes": [ ]
+    }, {
+      "name": "should set and clear default directive for a project",
       "parameterTypes": [ ]
     }, {
       "name": "should update project",
@@ -3232,6 +3480,44 @@
     } ]
   }, {
     "type": "io.askimo.core.chat.repository.SessionMemoryRepositoryIT$Companion"
+  }, {
+    "type": "io.askimo.core.chat.service.ChatDirectiveServiceIT",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    }, {
+      "name": "clearing global default resolves to null",
+      "parameterTypes": [ ]
+    }, {
+      "name": "falls back to global default when project default directive was deleted",
+      "parameterTypes": [ ]
+    }, {
+      "name": "falls back to global default when project has no default",
+      "parameterTypes": [ ]
+    }, {
+      "name": "resolves to global default when set and no project given",
+      "parameterTypes": [ ]
+    }, {
+      "name": "resolves to null when global default directive was deleted",
+      "parameterTypes": [ ]
+    }, {
+      "name": "resolves to null when no defaults are set",
+      "parameterTypes": [ ]
+    }, {
+      "name": "resolves to project default over global default",
+      "parameterTypes": [ ]
+    }, {
+      "name": "setUpClass",
+      "parameterTypes": [ "java.nio.file.Path" ]
+    }, {
+      "name": "tearDown",
+      "parameterTypes": [ ]
+    }, {
+      "name": "tearDownClass",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "io.askimo.core.chat.service.ChatDirectiveServiceIT$Companion"
   }, {
     "type": "io.askimo.core.chat.service.ChatSessionServiceIT",
     "allDeclaredFields": true,
@@ -3505,11 +3791,17 @@
     }, {
       "name": "updateRagField",
       "parameterTypes": [ "io.askimo.core.config.RagConfig", "java.lang.String", "java.lang.Object" ]
+    }, {
+      "name": "updateVoiceField",
+      "parameterTypes": [ "io.askimo.core.config.VoiceConfig", "java.lang.String", "java.lang.Object" ]
     } ]
   }, {
     "type": "io.askimo.core.config.AppConfigData",
     "allDeclaredFields": true,
     "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ "io.askimo.core.config.EmbeddingConfig", "io.askimo.core.config.RetryConfig", "io.askimo.core.config.ThrottleConfig", "io.askimo.core.config.IndexingConfig", "io.askimo.core.config.DeveloperConfig", "io.askimo.core.config.ChatConfig", "io.askimo.core.config.MemoryConfig", "io.askimo.core.config.RagConfig", "io.askimo.core.config.ModelsConfig", "io.askimo.core.config.ProxyConfig", "io.askimo.core.config.AnalyticsConfig", "io.askimo.core.config.WebSearchConfig", "io.askimo.core.config.VoiceConfig", "io.askimo.core.config.NotificationsConfig", "io.askimo.core.context.AppContextParams", "java.lang.String", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
+    }, {
       "name": "<init>",
       "parameterTypes": [ "io.askimo.core.config.EmbeddingConfig", "io.askimo.core.config.RetryConfig", "io.askimo.core.config.ThrottleConfig", "io.askimo.core.config.IndexingConfig", "io.askimo.core.config.DeveloperConfig", "io.askimo.core.config.ChatConfig", "io.askimo.core.config.MemoryConfig", "io.askimo.core.config.RagConfig", "io.askimo.core.config.ModelsConfig", "io.askimo.core.config.ProxyConfig", "io.askimo.core.config.AnalyticsConfig", "io.askimo.core.config.WebSearchConfig", "io.askimo.core.context.AppContextParams", "java.lang.String", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
     }, {
@@ -3546,6 +3838,9 @@
       "name": "getModels",
       "parameterTypes": [ ]
     }, {
+      "name": "getNotifications",
+      "parameterTypes": [ ]
+    }, {
       "name": "getProxy",
       "parameterTypes": [ ]
     }, {
@@ -3556,6 +3851,9 @@
       "parameterTypes": [ ]
     }, {
       "name": "getThrottle",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getVoice",
       "parameterTypes": [ ]
     }, {
       "name": "getWebSearch",
@@ -3656,6 +3954,18 @@
       "parameterTypes": [ ]
     }, {
       "name": "updateRagField should handle useAbsolutePathInCitations",
+      "parameterTypes": [ ]
+    }, {
+      "name": "updateVoiceField ttsSpeed should accept numeric values within range",
+      "parameterTypes": [ ]
+    }, {
+      "name": "updateVoiceField ttsSpeed should clamp out-of-range values",
+      "parameterTypes": [ ]
+    }, {
+      "name": "updateVoiceField ttsSpeed should fall back to current value on unparseable string",
+      "parameterTypes": [ ]
+    }, {
+      "name": "updateVoiceField ttsSpeed should reject non-finite values and fall back to current value",
       "parameterTypes": [ ]
     } ]
   }, {
@@ -3898,6 +4208,18 @@
       "parameterTypes": [ ]
     } ]
   }, {
+    "type": "io.askimo.core.config.NotificationsConfig",
+    "methods": [ {
+      "name": "getEnabled",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getOnlyWhenUnfocused",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getShowDetails",
+      "parameterTypes": [ ]
+    } ]
+  }, {
     "type": "io.askimo.core.config.ProjectType",
     "allDeclaredFields": true,
     "methods": [ {
@@ -4031,6 +4353,64 @@
       "name": "getPerRequestSleepMs",
       "parameterTypes": [ ]
     } ]
+  }, {
+    "type": "io.askimo.core.config.VoiceConfig",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ "boolean", "io.askimo.core.config.VoiceProvider", "io.askimo.core.config.VoiceProvider", "java.lang.String", "java.lang.String", "java.lang.String", "double", "boolean", "java.lang.String", "java.lang.String", "java.lang.String", "boolean", "boolean", "java.util.List", "int", "long", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
+    }, {
+      "name": "getAutoPlayResponses",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getAutoSendTranscript",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getEnabled",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getLocalSttEndpoint",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getLocalTtsEndpoint",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getOpenAiApiKey",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getOpenAiTtsVoices",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getSttModel",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getSttProvider",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getTtsCacheMaxBytes",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getTtsCacheMaxMessages",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getTtsModel",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getTtsProvider",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getTtsSpeed",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getTtsVoice",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getUseProviderKeyForVoice",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "io.askimo.core.config.VoiceConfig$Companion"
+  }, {
+    "type": "io.askimo.core.config.VoiceProvider"
   }, {
     "type": "io.askimo.core.config.WebSearchBackend",
     "allDeclaredFields": true
@@ -4670,6 +5050,9 @@
       "name": "getParameters",
       "parameterTypes": [ ]
     }, {
+      "name": "getProtocolVersion",
+      "parameterTypes": [ ]
+    }, {
       "name": "getStdioConfig",
       "parameterTypes": [ ]
     }, {
@@ -5076,6 +5459,30 @@
       "parameterTypes": [ ]
     } ]
   }, {
+    "type": "io.askimo.core.memory.MemoryMessageTest",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    }, {
+      "name": "shouldDropLegacyToolResultMessagesWithoutId",
+      "parameterTypes": [ ]
+    }, {
+      "name": "shouldDropToolResultMessagesWithBlankToolName",
+      "parameterTypes": [ ]
+    }, {
+      "name": "shouldFilterOutOnlyLegacyToolResultsFromMixedHistory",
+      "parameterTypes": [ ]
+    }, {
+      "name": "shouldPreservePairingThroughJsonSerialization",
+      "parameterTypes": [ ]
+    }, {
+      "name": "shouldPreserveToolExecutionRequests",
+      "parameterTypes": [ ]
+    }, {
+      "name": "shouldPreserveToolExecutionResultId",
+      "parameterTypes": [ ]
+    } ]
+  }, {
     "type": "io.askimo.core.memory.TokenAwareSummarizingMemoryTest",
     "allDeclaredFields": true,
     "methods": [ {
@@ -5083,6 +5490,15 @@
       "parameterTypes": [ ]
     }, {
       "name": "default token estimator uses 1_75 multiplier",
+      "parameterTypes": [ ]
+    }, {
+      "name": "loadFromFilteredMemory should drop a tool_result row with a non-null but blank toolCallId",
+      "parameterTypes": [ ]
+    }, {
+      "name": "loadFromFilteredMemory should drop a tool_result row with a valid toolCallId but blank toolName",
+      "parameterTypes": [ ]
+    }, {
+      "name": "loadFromFilteredMemory should keep valid text and tool-call messages",
       "parameterTypes": [ ]
     }, {
       "name": "mergeWithExistingSummary caps keyFacts at MAX_KEY_FACTS",
@@ -5274,6 +5690,24 @@
       "parameterTypes": [ ]
     }, {
       "name": "shouldTruncateOldMessagesWhenExceedingBudget",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "io.askimo.core.providers.ChatRequestTransformersTest$ToolCallTests",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ "io.askimo.core.providers.ChatRequestTransformersTest" ]
+    }, {
+      "name": "shouldCollapseSameIdSameTextToolResultDuplicate",
+      "parameterTypes": [ ]
+    }, {
+      "name": "shouldKeepToolCallPairsAtomicWhenTruncating",
+      "parameterTypes": [ ]
+    }, {
+      "name": "shouldNotCollapseDifferentIdSameTextToolResults",
+      "parameterTypes": [ ]
+    }, {
+      "name": "shouldNotDropParallelToolResultsWithIdenticalText",
       "parameterTypes": [ ]
     } ]
   }, {
@@ -5721,6 +6155,9 @@
       "parameterTypes": [ ]
     }, {
       "name": "defaultSettingsTest",
+      "parameterTypes": [ ]
+    }, {
+      "name": "probeContextSizeReturnsValidValue",
       "parameterTypes": [ ]
     }, {
       "name": "setUp",
@@ -6422,6 +6859,118 @@
   }, {
     "type": "io.askimo.core.security.TestProviderSettings$Companion"
   }, {
+    "type": "io.askimo.core.skills.ExternalAgentTemplateMaterializeSkillTest",
+    "fields": [ {
+      "name": "skillsRootDir"
+    }, {
+      "name": "sourceRoot"
+    } ],
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "io.askimo.core.skills.ExternalAgentTemplateMaterializeSkillTest$FakeAgent"
+  }, {
+    "type": "io.askimo.core.skills.ExternalAgentTemplateMaterializeSkillTest$MaterializeFolder",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ "io.askimo.core.skills.ExternalAgentTemplateMaterializeSkillTest" ]
+    }, {
+      "name": "close() is a no-op when the folder pre-existed (never deletes user-owned content)",
+      "parameterTypes": [ ]
+    }, {
+      "name": "close() removes only what was materialized",
+      "parameterTypes": [ ]
+    }, {
+      "name": "dot git directory is excluded from the copy",
+      "parameterTypes": [ ]
+    }, {
+      "name": "entry point is normalized to uppercase SKILL dot md regardless of source casing",
+      "parameterTypes": [ ]
+    }, {
+      "name": "materializes into a folder named after the skill's slug, not its leaf folder name",
+      "parameterTypes": [ ]
+    }, {
+      "name": "only the canonical entry file wins when both skill dot md and SKILL dot md exist on a case-sensitive filesystem",
+      "parameterTypes": [ ]
+    }, {
+      "name": "pre-existing folder with the same slug is left untouched, never clobbered",
+      "parameterTypes": [ ]
+    }, {
+      "name": "supplemental files are copied alongside skill dot md",
+      "parameterTypes": [ ]
+    }, {
+      "name": "two skills with the same leaf folder name from different packs both materialize without collision",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "io.askimo.core.skills.ExternalAgentTemplateMaterializeSkillTest$MaterializeSymlink",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ "io.askimo.core.skills.ExternalAgentTemplateMaterializeSkillTest" ]
+    }, {
+      "name": "close() removes only the symlink, not the source folder",
+      "parameterTypes": [ ]
+    }, {
+      "name": "pre-existing folder or link with the same slug is left untouched",
+      "parameterTypes": [ ]
+    }, {
+      "name": "symlink points at the skill's own source folder",
+      "parameterTypes": [ ]
+    }, {
+      "name": "symlinks into a link named after the skill's slug, not its leaf folder name",
+      "parameterTypes": [ ]
+    }, {
+      "name": "two skills with the same leaf folder name from different packs both get symlinked without collision",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "io.askimo.core.skills.SkillDefinitionSlugTest",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    }, {
+      "name": "accented characters are replaced with hyphens, not kept as-is",
+      "parameterTypes": [ ]
+    }, {
+      "name": "blank result falls back to a non-empty default",
+      "parameterTypes": [ ]
+    }, {
+      "name": "fully non-ascii path falls back to a non-empty default",
+      "parameterTypes": [ ]
+    }, {
+      "name": "multi-level category folds every segment into the slug",
+      "parameterTypes": [ ]
+    }, {
+      "name": "repeated separators collapse to a single hyphen",
+      "parameterTypes": [ ]
+    }, {
+      "name": "root-level skill slug is just the file base name",
+      "parameterTypes": [ ]
+    }, {
+      "name": "single category folds into slug with a hyphen",
+      "parameterTypes": [ ]
+    }, {
+      "name": "slug is capped at a reasonable max length",
+      "parameterTypes": [ ]
+    }, {
+      "name": "slug is deterministic for the same relative path",
+      "parameterTypes": [ ]
+    }, {
+      "name": "spaces and punctuation are sanitized to single hyphens",
+      "parameterTypes": [ ]
+    }, {
+      "name": "two skills with the same leaf name but different categories produce different slugs",
+      "parameterTypes": [ ]
+    }, {
+      "name": "uppercase is lowercased",
+      "parameterTypes": [ ]
+    }, {
+      "name": "windows-style backslash separators are normalized like forward slashes",
+      "parameterTypes": [ ]
+    } ]
+  }, {
     "type": "io.askimo.core.skills.SkillRepositoryTest",
     "allDeclaredFields": true,
     "fields": [ {
@@ -6519,6 +7068,12 @@
       "parameterTypes": [ ]
     }, {
       "name": "skill folder name comes from folder when frontmatter name is blank",
+      "parameterTypes": [ ]
+    }, {
+      "name": "skill folder name falls back to folder name when frontmatter name key is blank",
+      "parameterTypes": [ ]
+    }, {
+      "name": "skill folder name is NOT overridden by a name colon line appearing only in the body",
       "parameterTypes": [ ]
     }, {
       "name": "skill folder sibling md files are NOT listed as separate skills",
@@ -6664,6 +7219,60 @@
       "parameterTypes": [ ]
     } ]
   }, {
+    "type": "io.askimo.core.skills.SkillRepositoryTest$SaveRenamesFolderToMatchName",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ "io.askimo.core.skills.SkillRepositoryTest" ]
+    }, {
+      "name": "save appends a numeric suffix when the target folder name is already taken",
+      "parameterTypes": [ ]
+    }, {
+      "name": "save does not rename or suffix when the current folder differs from the target only by case",
+      "parameterTypes": [ ]
+    }, {
+      "name": "save does not rename when a name colon line appears only in the body, not frontmatter",
+      "parameterTypes": [ ]
+    }, {
+      "name": "save does not rename when folder name already matches",
+      "parameterTypes": [ ]
+    }, {
+      "name": "save does not rename when frontmatter has no name field",
+      "parameterTypes": [ ]
+    }, {
+      "name": "save does not rename when frontmatter name key has only whitespace value",
+      "parameterTypes": [ ]
+    }, {
+      "name": "save does not rename when frontmatter name key is present but blank",
+      "parameterTypes": [ ]
+    }, {
+      "name": "save does not rename when name colon line appears after the frontmatter block",
+      "parameterTypes": [ ]
+    }, {
+      "name": "save gives up and leaves folder as-is once MAX_RENAME_SUFFIX_ATTEMPTS is exhausted",
+      "parameterTypes": [ ]
+    }, {
+      "name": "save keeps incrementing the suffix past multiple collisions",
+      "parameterTypes": [ ]
+    }, {
+      "name": "save never overwrites a pre-existing folder with the target name",
+      "parameterTypes": [ ]
+    }, {
+      "name": "save on a root-level skill dot md never attempts to rename skillsDir itself",
+      "parameterTypes": [ ]
+    }, {
+      "name": "save on a supplemental file never renames the skill folder",
+      "parameterTypes": [ ]
+    }, {
+      "name": "save preserves supplemental files when renaming the folder",
+      "parameterTypes": [ ]
+    }, {
+      "name": "save renames folder to match a differing frontmatter name",
+      "parameterTypes": [ ]
+    }, {
+      "name": "save sanitizes the frontmatter name into a lowercase kebab-case folder name",
+      "parameterTypes": [ ]
+    } ]
+  }, {
     "type": "io.askimo.core.telemetry.LlmUsageRepositoryTest",
     "methods": [ {
       "name": "<init>",
@@ -6749,6 +7358,45 @@
       "name": "impl"
     } ]
   }, {
+    "type": "io.askimo.core.util.PcmAudioEncoderTest",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    }, {
+      "name": "computeRmsLevel handles an empty buffer",
+      "parameterTypes": [ ]
+    }, {
+      "name": "computeRmsLevel ignores a trailing odd byte",
+      "parameterTypes": [ ]
+    }, {
+      "name": "computeRmsLevel result is always clamped between 0 and 1",
+      "parameterTypes": [ ]
+    }, {
+      "name": "computeRmsLevel returns 0 for silence",
+      "parameterTypes": [ ]
+    }, {
+      "name": "computeRmsLevel returns 0_5 for a half-scale constant signal",
+      "parameterTypes": [ ]
+    }, {
+      "name": "computeRmsLevel returns 1 for a full-scale constant signal",
+      "parameterTypes": [ ]
+    }, {
+      "name": "encodeBytesAsWav produces a valid RIFF WAVE header",
+      "parameterTypes": [ ]
+    }, {
+      "name": "encodeBytesAsWav round-trips through AudioSystem with the original PCM data",
+      "parameterTypes": [ ]
+    }, {
+      "name": "encodeFileAsWav streams PCM from disk and matches encodeBytesAsWav for the same data",
+      "parameterTypes": [ ]
+    }, {
+      "name": "encodeFileAsWav with a non-positive frame count produces an empty WAV even if the file has data",
+      "parameterTypes": [ ]
+    }, {
+      "name": "encodeFileAsWav with null path produces an empty but valid WAV",
+      "parameterTypes": [ ]
+    } ]
+  }, {
     "type": "io.askimo.core.util.ProcessBuilderExtTest",
     "allDeclaredFields": true,
     "methods": [ {
@@ -6765,6 +7413,9 @@
       "parameterTypes": [ ]
     }, {
       "name": "ProcessBuilderExt should work with redirectErrorStream",
+      "parameterTypes": [ ]
+    }, {
+      "name": "parseRegistryPath is safe to call on non-Windows platforms too",
       "parameterTypes": [ ]
     } ]
   }, {
@@ -9656,6 +10307,10 @@
     "glob": "META-INF/services/java.sql.Driver"
   }, {
     "glob": "META-INF/services/java.time.zone.ZoneRulesProvider"
+  }, {
+    "glob": "META-INF/services/javax.sound.sampled.spi.AudioFileReader"
+  }, {
+    "glob": "META-INF/services/javax.sound.sampled.spi.AudioFileWriter"
   }, {
     "glob": "META-INF/services/javax.xml.parsers.SAXParserFactory"
   }, {

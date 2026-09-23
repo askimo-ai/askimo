@@ -19,6 +19,9 @@ data class ChatSession(
     val isStarred: Boolean = false,
     /** True when the user has manually renamed this session — suppresses auto title-refresh. */
     val isUserRenamed: Boolean = false,
+    /** Persistent user-selected resource collections for this session (chip state).
+     * On-demand mentions (@mention) are tracked per-message, not here. */
+    val activeResourceCollectionIds: List<String> = emptyList(),
 )
 
 const val SESSION_TITLE_MAX_LENGTH = 256
@@ -42,6 +45,10 @@ object ChatSessionsTable : Table("chat_sessions") {
     val isUserRenamed = integer("is_user_renamed").default(0)
 
     val syncedAt = varchar("synced_at", 32).nullable()
+
+    /** JSON array of resource collection IDs (e.g., ["col-1", "col-2"]).
+     * Tracks persistent user selections (chip state) for this session. */
+    val activeResourceCollectionIds = varchar("active_resource_collection_ids", 2000).default("[]")
 
     override val primaryKey = PrimaryKey(id)
 

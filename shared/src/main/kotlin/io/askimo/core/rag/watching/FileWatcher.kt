@@ -29,7 +29,7 @@ import kotlin.io.path.listDirectoryEntries
  * Watches file system for changes
  */
 class FileWatcher(
-    private val projectId: String,
+    private val containerId: String,
     private val onFileChange: suspend (Path, WatchEvent.Kind<*>) -> Unit,
     private val onWatchError: (Path, Exception) -> Unit = { _, _ -> },
 ) {
@@ -97,14 +97,14 @@ class FileWatcher(
                 registerDirectoryTree(path)
             }
 
-            log.info("Started watching path ${path.fileName} directories for project $projectId")
+            log.info("Started watching path ${path.fileName} directories for project $containerId")
 
             // Launch watch loop in coroutine
             scope.launch(Dispatchers.IO) {
                 watchForChanges()
             }
         } catch (e: Exception) {
-            log.error("Failed to start file watching for project $projectId", e)
+            log.error("Failed to start file watching for project $containerId", e)
             reportWatchError(path, e)
         }
     }
@@ -150,18 +150,18 @@ class FileWatcher(
     private suspend fun watchForChanges() {
         val watchService = watchService ?: return
 
-        log.debug("File watcher active for project $projectId")
+        log.debug("File watcher active for project $containerId")
 
         try {
             while (!isShuttingDown) {
                 val key = try {
                     watchService.take()
                 } catch (e: InterruptedException) {
-                    log.debug("File watcher interrupted for project $projectId")
+                    log.debug("File watcher interrupted for project $containerId")
                     break
                 } catch (_: ClosedWatchServiceException) {
                     // WatchService was closed (project deleted or stopped watching)
-                    log.debug("File watcher closed for project $projectId")
+                    log.debug("File watcher closed for project $containerId")
                     break
                 }
 
@@ -173,7 +173,7 @@ class FileWatcher(
                     val kind = ev.kind()
 
                     if (kind == StandardWatchEventKinds.OVERFLOW) {
-                        log.warn("Watch event overflow for project $projectId")
+                        log.warn("Watch event overflow for project $containerId")
                         continue
                     }
 
@@ -196,16 +196,16 @@ class FileWatcher(
                 if (!key.reset()) {
                     watchKeys.remove(key)
                     if (watchKeys.isEmpty()) {
-                        log.info("No more directories to watch for project $projectId")
+                        log.info("No more directories to watch for project $containerId")
                         break
                     }
                 }
             }
         } catch (e: Exception) {
             if (e !is ClosedWatchServiceException) {
-                log.error("File watcher error for project $projectId", e)
+                log.error("File watcher error for project $containerId", e)
             } else {
-                log.debug("File watcher closed for project $projectId")
+                log.debug("File watcher closed for project $containerId")
             }
         }
     }
@@ -220,9 +220,9 @@ class FileWatcher(
             watchService?.close()
             watchKeys.clear()
 
-            log.info("Stopped file watching for project $projectId")
+            log.info("Stopped file watching for project $containerId")
         } catch (e: Exception) {
-            log.error("Failed to stop file watching for project $projectId", e)
+            log.error("Failed to stop file watching for project $containerId", e)
         }
     }
 }

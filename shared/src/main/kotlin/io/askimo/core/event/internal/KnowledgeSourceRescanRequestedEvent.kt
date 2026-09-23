@@ -8,20 +8,22 @@ import io.askimo.core.chat.domain.KnowledgeSourceConfig
 import io.askimo.core.event.Event
 import io.askimo.core.event.EventSource
 import io.askimo.core.event.EventType
+import io.askimo.core.rag.container.IndexingContainerType
 import java.time.Instant
 
 /**
- * Event emitted when the user requests a manual rescan of a single knowledge source
- * (issue #619). This is an internal event that triggers ProjectIndexer to re-index just
- * this source, without touching the rest of the project's knowledge sources.
+ * Emitted when the user requests a manual rescan of a single knowledge source.
+ * Triggers [io.askimo.core.rag.RagIndexer] to re-index just this source, without touching
+ * the container's other knowledge sources.
  */
 data class KnowledgeSourceRescanRequestedEvent(
-    val projectId: String,
+    val containerId: String,
+    val containerType: IndexingContainerType,
     val knowledgeSource: KnowledgeSourceConfig,
     override val timestamp: Instant = Instant.now(),
     override val source: EventSource = EventSource.SYSTEM,
 ) : Event {
     override val type = EventType.INTERNAL
 
-    override fun getDetails(): String = "Rescan requested for project $projectId, source: ${knowledgeSource.resourceIdentifier}"
+    override fun getDetails(): String = "Rescan requested for $containerType $containerId, source: ${knowledgeSource.resourceIdentifier}"
 }

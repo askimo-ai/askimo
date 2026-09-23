@@ -87,13 +87,13 @@ import java.net.URI
 /**
  * Wrapper to give each notification event a stable unique key for [LazyColumn].
  *
- * [projectId] is non-null for indexing events and is used as the deduplication key
+ * [containerId] is non-null for indexing events and is used as the deduplication key
  * so that in-progress cards replace each other rather than stacking.
  */
 data class NotificationEventItem(
     val id: String,
     val event: Event,
-    val projectId: String? = null,
+    val containerId: String? = null,
 )
 
 /**
@@ -122,7 +122,7 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
     // Upserts a terminal indexing card (completed / failed) and bumps the unread badge
     // only when a new card is added — not when replacing an existing in-progress card.
     fun upsertIndexingEvent(item: NotificationEventItem) {
-        val existingIdx = events.indexOfFirst { it.projectId == item.projectId }
+        val existingIdx = events.indexOfFirst { it.containerId == item.containerId }
         if (existingIdx >= 0) {
             events[existingIdx] = item
             // Replace in-place — card was already counted, don't bump badge
@@ -152,22 +152,22 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
         }
     }
 
-    // Indexing events live on internalEvents — deduplicated by projectId.
+    // Indexing events live on internalEvents — deduplicated by containerId.
     LaunchedEffect(Unit) {
         EventBus.internalEvents.collect { event ->
             when (event) {
                 is IndexingQueuedEvent,
                 is IndexingStartedEvent,
                 -> {
-                    val projectId = when (event) {
-                        is IndexingQueuedEvent -> event.projectId
-                        else -> (event as IndexingStartedEvent).projectId
+                    val containerId = when (event) {
+                        is IndexingQueuedEvent -> event.containerId
+                        else -> (event as IndexingStartedEvent).containerId
                     }
-                    val existingIdx = events.indexOfFirst { it.projectId == projectId }
+                    val existingIdx = events.indexOfFirst { it.containerId == containerId }
                     val item = NotificationEventItem(
-                        id = "indexing_$projectId",
+                        id = "indexing_$containerId",
                         event = event,
-                        projectId = projectId,
+                        containerId = containerId,
                     )
                     if (existingIdx >= 0) {
                         // Replace in-place — card was already counted, don't bump badge
@@ -184,7 +184,7 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
                         NotificationEventItem(
                             id = "${eventCounter++}_${event.timestamp.toEpochMilli()}",
                             event = event,
-                            projectId = event.projectId,
+                            containerId = event.containerId,
                         ),
                     )
                     // Badge-only — don't force-open popup
@@ -195,21 +195,21 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
                         NotificationEventItem(
                             id = "${eventCounter++}_${event.timestamp.toEpochMilli()}",
                             event = event,
-                            projectId = event.projectId,
+                            containerId = event.containerId,
                         ),
                     )
                     showEventPopup = true // User must see failures
                 }
 
                 is FileRemovedFromIndexEvent -> {
-                    // Each removal is its own notification — not deduped by projectId,
+                    // Each removal is its own notification — not deduped by containerId,
                     // since multiple files can be removed independently.
                     events.add(
                         0,
                         NotificationEventItem(
                             id = "${eventCounter++}_${event.timestamp.toEpochMilli()}",
                             event = event,
-                            projectId = "removed_${event.projectId}_${event.fileName}_${event.timestamp.toEpochMilli()}",
+                            containerId = "removed_${event.containerId}_${event.fileName}_${event.timestamp.toEpochMilli()}",
                         ),
                     )
                     unreadCount++
@@ -646,19 +646,19 @@ fun notificationEventCard(
                 Spacer(Modifier.height(Spacing.micro))
             }
 
-            // ── Project name (indexing events) ──────────────────────────────────────
+            // ── Container name (indexing events) ────────────────────────────────────
             if (isIndexingEvent) {
-                val projectName = when (event) {
-                    is IndexingQueuedEvent -> event.projectName
-                    is IndexingStartedEvent -> event.projectName
-                    is IndexingCompletedEvent -> event.projectName
-                    is IndexingFailedEvent -> event.projectName
-                    is FileRemovedFromIndexEvent -> event.projectName
+                val containerName = when (event) {
+                    is IndexingQueuedEvent -> event.containerName
+                    is IndexingStartedEvent -> event.containerName
+                    is IndexingCompletedEvent -> event.containerName
+                    is IndexingFailedEvent -> event.containerName
+                    is FileRemovedFromIndexEvent -> event.containerName
                     else -> null
                 }
-                if (projectName != null) {
+                if (containerName != null) {
                     Text(
-                        text = projectName,
+                        text = containerName,
                         style = AppTextStyles.fieldLabel,
                         color = contentColor,
                     )

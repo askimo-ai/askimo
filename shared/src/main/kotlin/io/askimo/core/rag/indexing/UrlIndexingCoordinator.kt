@@ -11,6 +11,7 @@ import io.askimo.core.chat.domain.UrlKnowledgeSourceConfig
 import io.askimo.core.chat.util.UrlContentExtractor
 import io.askimo.core.context.AppContext
 import io.askimo.core.logging.logger
+import io.askimo.core.rag.container.IndexingContainerType
 import io.askimo.core.rag.state.IndexProgress
 import io.askimo.core.rag.state.IndexStateManager
 import io.askimo.core.rag.state.IndexStatus
@@ -26,8 +27,9 @@ import java.util.concurrent.atomic.AtomicInteger
  * Fetches web content via HTTP and indexes it for retrieval.
  */
 class UrlIndexingCoordinator(
-    private val projectId: String,
-    private val projectName: String,
+    private val containerId: String,
+    private val containerName: String,
+    private val containerType: IndexingContainerType,
     override val knowledgeSourceConfig: UrlKnowledgeSourceConfig,
     private val embeddingStore: EmbeddingStore<TextSegment>,
     private val embeddingModel: EmbeddingModel,
@@ -38,8 +40,8 @@ class UrlIndexingCoordinator(
     private val urls = listOf(knowledgeSourceConfig.resourceIdentifier)
 
     private val resourceContentProcessor = ResourceContentProcessor(appContext)
-    private val stateManager = IndexStateManager(projectId, "urls", knowledgeSourceConfig.resourceIdentifier)
-    private val hybridIndexer = HybridIndexer(embeddingStore, embeddingModel, projectId)
+    private val stateManager = IndexStateManager(containerId, "urls", knowledgeSourceConfig.resourceIdentifier)
+    private val hybridIndexer = HybridIndexer(embeddingStore, embeddingModel, containerId)
 
     private val _progress = MutableStateFlow(IndexProgress())
     override val progress: StateFlow<IndexProgress> = _progress
@@ -66,7 +68,7 @@ class UrlIndexingCoordinator(
             val previousState = stateManager.loadPersistedState()
             val previousHashes: Map<String, String> = previousState?.fileHashes ?: emptyMap()
 
-            log.info("Starting URL indexing for project $projectId with ${urls.size} URLs")
+            log.info("Starting URL indexing for $containerType $containerId with ${urls.size} URLs")
 
             val urlHashes = ConcurrentHashMap<String, String>()
 
@@ -111,14 +113,14 @@ class UrlIndexingCoordinator(
             )
 
             log.info(
-                "Completed URL indexing for project $projectId: " +
+                "Completed URL indexing for project $containerId: " +
                     "${processedUrls - skippedUrls} URLs indexed, " +
                     "$skippedUrls URLs skipped (unchanged), " +
                     "${deletedUrls.size} URLs removed",
             )
             return true
         } catch (e: Exception) {
-            log.error("URL indexing failed for project $projectId", e)
+            log.error("URL indexing failed for project $containerId", e)
             _progress.value = _progress.value.copy(
                 status = IndexStatus.FAILED,
                 error = e.message ?: "Unknown error",
@@ -155,8 +157,8 @@ class UrlIndexingCoordinator(
                 url = url,
                 content = extractedContent.content,
                 metadata = mapOf(
-                    "project_id" to projectId,
-                    "project_name" to projectName,
+                    "project_id" to containerId,
+                    "project_name" to containerName,
                     "source_type" to "url",
                     "url" to url,
                     "title" to (extractedContent.title ?: ""),
@@ -249,10 +251,10 @@ class UrlIndexingCoordinator(
             )
             hybridIndexer.removeFileFromIndex(syntheticPath)
         } catch (e: Exception) {
-            log.error("Failed to clear hybrid index for URL ${knowledgeSourceConfig.resourceIdentifier} in project $projectId", e)
+            log.error("Failed to clear hybrid index for URL ${knowledgeSourceConfig.resourceIdentifier} in project $containerId", e)
         }
         stateManager.clearStates()
-        log.info("Cleared all index states for project $projectId (url: ${knowledgeSourceConfig.resourceIdentifier})")
+        log.info("Cleared all index states for project $containerId (url: ${knowledgeSourceConfig.resourceIdentifier})")
     }
 
     override fun close() {

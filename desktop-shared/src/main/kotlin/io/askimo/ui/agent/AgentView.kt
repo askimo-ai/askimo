@@ -32,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Card
@@ -181,11 +182,22 @@ internal fun agentsPageHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = stringResource("agents.view.title"),
-            style = AppTextStyles.pageTitle,
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.weight(1f),
-        )
+        ) {
+            Icon(
+                Icons.Default.Extension,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = stringResource("agents.view.title"),
+                style = AppTextStyles.pageTitle,
+            )
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             themedTooltip(text = stringResource("chat.new")) {
                 IconButton(

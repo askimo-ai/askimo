@@ -31,7 +31,6 @@ import java.time.Instant
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 @AskimoTestHome
@@ -79,7 +78,7 @@ class HybridIndexerTest {
         indexer = HybridIndexer(
             embeddingStore = embeddingStore,
             embeddingModel = embeddingModel,
-            projectId = projectId,
+            containerId = projectId,
             segmentRepository = segmentRepository,
         )
     }
@@ -288,8 +287,15 @@ class HybridIndexerTest {
     @Nested
     inner class ProjectDeletedDuringIndexing {
 
+        // `file_segments.container_id` no longer has a hard FK to `projects(id)` — this table is
+        // shared between Projects and Resource Collections, so a single-table FK is no longer valid
+        // (see SchemaMigrations, migration #44). Deleting the owning project row mid-indexing
+        // therefore no longer causes a SQLITE_CONSTRAINT_FOREIGNKEY failure; segment mapping inserts
+        // succeed regardless, and cleanup of orphaned rows is handled at the application level
+        // (RagIndexer.clearIndex -> removeAllSegmentMappingsForProject) rather than via DB cascade.
+
         @Test
-        fun `flushRemainingSegments returns false when project row deleted mid-indexing`() = runBlocking<Unit> {
+        fun `flushRemainingSegments still succeeds when project row deleted mid-indexing`() = runBlocking<Unit> {
             val f = file("doc.txt")
             indexer.addSegmentToBatch(segment(f), f)
 
@@ -298,51 +304,24 @@ class HybridIndexerTest {
 
             val result = indexer.flushRemainingSegments()
 
-            assertFalse(result, "flush must return false when the project row has been deleted")
+            assertTrue(result, "flush must still succeed — file_segments no longer has an FK to projects")
+            assertTrue(segmentRepository.getSegmentIdsForFile(projectId, f).isNotEmpty())
         }
 
         @Test
-        fun `addSegmentToBatch returns false when a full batch flush triggers FK violation`() = runBlocking<Unit> {
+        fun `addSegmentToBatch still succeeds when a full batch flush occurs after project deletion`() = runBlocking<Unit> {
             val f = file("batch.txt")
 
             // Fill batch to default batch size - 1 (49) — no auto-flush yet
             repeat(49) { i -> indexer.addSegmentToBatch(segment(f, i, "chunk $i"), f) }
 
-            // Delete the project row so the FK constraint fires on the 50th add
+            // Delete the project row before the 50th add triggers the batch flush
             db.getProjectRepository().deleteProject(projectId)
 
             val result = indexer.addSegmentToBatch(segment(f, 49, "chunk 49"), f)
 
-            assertFalse(result, "addSegmentToBatch must return false when the batch flush fails due to FK violation")
-        }
-
-        @Test
-        fun `pending mappings are cleared after FK failure so a second flush is a no-op`() = runBlocking<Unit> {
-            val f = file("retry.txt")
-            indexer.addSegmentToBatch(segment(f), f)
-
-            // Trigger FK failure
-            db.getProjectRepository().deleteProject(projectId)
-            indexer.flushRemainingSegments()
-
-            // Re-create the project row so subsequent DB writes would succeed if retried
-            db.getProjectRepository().createProject(
-                Project(
-                    id = projectId,
-                    name = "Recreated",
-                    description = null,
-                    knowledgeSources = emptyList(),
-                    createdAt = Instant.now(),
-                    updatedAt = Instant.now(),
-                ),
-            )
-
-            indexer.flushRemainingSegments()
-
-            assertTrue(
-                segmentRepository.getSegmentIdsForFile(projectId, f).isEmpty(),
-                "No segments should be in DB — pendingMappings must be cleared on FK failure, not retried",
-            )
+            assertTrue(result, "addSegmentToBatch must still succeed — no FK blocks the insert anymore")
+            assertEquals(50, segmentRepository.getSegmentIdsForFile(projectId, f).size)
         }
     }
 }

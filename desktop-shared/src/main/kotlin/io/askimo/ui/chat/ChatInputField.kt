@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.AttachFile
@@ -41,6 +42,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Language
@@ -101,15 +103,18 @@ import androidx.compose.ui.window.PopupPositionProvider
 import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.chat.domain.ChatDirective
 import io.askimo.core.chat.domain.DirectiveScope
+import io.askimo.core.chat.domain.ResourceCollection
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
 import io.askimo.core.chat.service.ChatDirectiveService
+import io.askimo.core.chat.service.ResourceCollectionService
 import io.askimo.core.chat.util.FileContentExtractor
 import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.error.AppErrorEvent
 import io.askimo.core.event.internal.ImageCapabilityDetectedEvent
+import io.askimo.core.event.internal.ReIndexEvent
 import io.askimo.core.event.internal.ReasoningEffortChangedEvent
 import io.askimo.core.event.internal.ThinkingSupportDetectedEvent
 import io.askimo.core.event.internal.ToolSupportDetectedEvent
@@ -123,8 +128,12 @@ import io.askimo.core.memory.MemoryPressureLevel
 import io.askimo.core.providers.ModelCapabilitiesCache
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ReasoningEffort
+import io.askimo.core.rag.container.IndexingContainerType
+import io.askimo.core.rag.state.IndexStatus
 import io.askimo.core.util.TimeUtil
 import io.askimo.core.util.formatFileSize
+import io.askimo.ui.common.components.indexStatusIcon
+import io.askimo.ui.common.components.indexStatusLabel
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.keymap.KeyMapManager
 import io.askimo.ui.common.keymap.onImeAwarePreviewKeyEvent
@@ -199,6 +208,9 @@ fun chatInputField(
     onToggleDirective: (String?) -> Unit = {},
     isProjectSession: Boolean = false,
     onWebSearchInRagChange: ((Boolean) -> Unit)? = null,
+    activeResourceCollectionIds: List<String> = emptyList(),
+    onActiveResourceCollectionsChange: ((List<String>) -> Unit)? = null,
+    onNavigateToResourceCollections: (() -> Unit)? = null,
     memoryPressureLevel: MemoryPressureLevel = MemoryPressureLevel.NORMAL,
     memoryUtilization: Float = 0f,
     memoryUsedTokens: Int = 0,
@@ -210,11 +222,10 @@ fun chatInputField(
 ) {
     val inputFocusRequester = remember { FocusRequester() }
 
-    // State for creation mode (Chat, Image, etc.)
-    // Reset to Chat mode when switching to a different session
+    // Creation mode (Chat, Image, ...); resets to Chat when the session changes.
     var creationMode by remember(sessionId) { mutableStateOf<CreationMode>(CreationMode.Chat) }
 
-    // Read current provider + model from AppContext — reactive to provider/model switches
+    // Current provider/model — reactive to switches.
     val appParams = AppContext.getInstance().params
     val resolvedProvider: ModelProvider? = appParams.activeProviderType.takeIf { it != ModelProvider.UNKNOWN }
     val currentModel: String = appParams.model
@@ -230,8 +241,7 @@ fun chatInputField(
         )
     }
 
-    // Whether the current model supports tool calling.
-    // Only disabled when the probe has run AND returned false — unknown (null) stays enabled.
+    // Tool-calling support; disabled only after a probe returns false (unknown stays enabled).
     var modelSupportsTools by remember(resolvedProvider, currentModel) {
         mutableStateOf(
             if (resolvedProvider != null && currentModel.isNotBlank() &&
@@ -244,7 +254,7 @@ fun chatInputField(
         )
     }
 
-    // Listen for the probe result and update when it arrives for the active model.
+    // Update when the thinking-support probe result arrives for the active model.
     LaunchedEffect(resolvedProvider, currentModel) {
         EventBus.internalEvents.collect { event ->
             if (event is ThinkingSupportDetectedEvent &&
@@ -256,7 +266,7 @@ fun chatInputField(
         }
     }
 
-    // Listen for tool support probe result and update reactively.
+    // Update when the tool-support probe result arrives for the active model.
     LaunchedEffect(resolvedProvider, currentModel) {
         EventBus.internalEvents.collect { event ->
             if (event is ToolSupportDetectedEvent &&
@@ -284,7 +294,7 @@ fun chatInputField(
     val providerNotSetLabel = stringResource("provider.not.set")
     val missingImageModelTitle = stringResource("chat.image.model.missing.title")
 
-    // Listen for image capability probe results and update when it arrives for the active model.
+    // Update when the image-capability probe result arrives for the active model.
     LaunchedEffect(resolvedProvider, currentModel) {
         EventBus.internalEvents.collect { event ->
             if (event is ImageCapabilityDetectedEvent &&
@@ -296,12 +306,12 @@ fun chatInputField(
         }
     }
 
-    // Reasoning effort — state created once; synced from cache via LaunchedEffect when
-    // provider/model changes so the remember block itself never re-runs on dropdown clicks.
+    // Reasoning effort state; synced from cache on provider/model change so `remember`
+    // itself never re-runs on dropdown clicks.
     var reasoningEffort by remember { mutableStateOf(ReasoningEffort.DEFAULT) }
     var showReasoningDropdown by remember { mutableStateOf(false) }
 
-    // Sync from cache whenever the active provider/model changes (not on every recomposition).
+    // Sync from cache whenever the active provider/model changes.
     LaunchedEffect(resolvedProvider, currentModel) {
         reasoningEffort = if (resolvedProvider != null && currentModel.isNotBlank()) {
             ModelCapabilitiesCache.getReasoningLevel(resolvedProvider, currentModel)
@@ -310,7 +320,7 @@ fun chatInputField(
         }
     }
 
-    // Persist user-selected effort back to cache (only fires when the value actually changes).
+    // Persist effort changes back to cache (only fires when the value actually changes).
     LaunchedEffect(reasoningEffort) {
         if (supportsReasoning && resolvedProvider != null && currentModel.isNotBlank()) {
             ModelCapabilitiesCache.setReasoningLevel(resolvedProvider, currentModel, reasoningEffort)
@@ -324,25 +334,22 @@ fun chatInputField(
         }
     }
 
-    // Session-scoped set of server IDs enabled by the user via the tools popup.
-    // Empty by default — all tools are off until the user opts in.
+    // Server IDs enabled via the tools popup; empty by default (opt-in), scoped to the session.
     var enabledServerIds by remember(sessionId) { mutableStateOf(emptySet<String>()) }
 
     // Session-scoped web-search-in-RAG toggle. Resets when the session changes.
     var webSearchInRag by remember(sessionId) { mutableStateOf(false) }
 
-    // Cache web-search enabled flag — AppConfig.webSearch hits the OS keychain on every
-    // call (SecureKeyManager.retrieveSecretKey). Read off the UI thread so the first
-    // composition is never blocked (avoids navigation lag into ProjectView).
+    // Cache the enabled flag off the UI thread — AppConfig.webSearch hits the OS keychain
+    // on every call, which would otherwise block the first composition.
     var webSearchEnabled by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         webSearchEnabled = withContext(Dispatchers.IO) { AppConfig.webSearch.enabled }
     }
 
     // ── Voice input (🎤) ─────────────────────────────────────────────────────
-    // Cache the enabled flag the same way as webSearchEnabled above — AppConfig.voice
-    // also resolves a key from the OS keychain, so keep it off the UI thread.
-    // Hidden entirely when disabled (default) — zero UI impact for existing users.
+    // Cache off the UI thread like webSearchEnabled above — AppConfig.voice also hits the
+    // keychain. Hidden entirely when disabled (default), so no UI impact for existing users.
     var voiceInputEnabled by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         voiceInputEnabled = withContext(Dispatchers.IO) { AppConfig.voice.enabled }
@@ -368,6 +375,29 @@ fun chatInputField(
         defaultDirectiveId = directiveService.getGlobalDefaultDirectiveId()
     }
 
+    // Resource Collections chip state (see ChatActions.setActiveResourceCollections). At most
+    // one collection is selectable; it feeds the RAG retriever like a project's knowledge
+    // sources (see ChatSessionService.createRetrieverForContainer).
+    var resourceCollectionsPopupExpanded by remember { mutableStateOf(false) }
+    val resourceCollectionService = remember {
+        KoinJavaComponent.get<ResourceCollectionService>(ResourceCollectionService::class.java)
+    }
+    var availableResourceCollections by remember { mutableStateOf<List<ResourceCollection>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        availableResourceCollections = withContext(Dispatchers.IO) {
+            resourceCollectionService.getAllCollections()
+        }
+    }
+    // Refresh on each popup open so collections created/edited elsewhere (e.g. the sidebar)
+    // show up without a full reload.
+    LaunchedEffect(resourceCollectionsPopupExpanded) {
+        if (resourceCollectionsPopupExpanded) {
+            availableResourceCollections = withContext(Dispatchers.IO) {
+                resourceCollectionService.getAllCollections()
+            }
+        }
+    }
+
     // State for resizable text field.
     val fontScale = LocalFontScale.current
     val inlineControlsBottomPadding = 44.dp
@@ -379,9 +409,8 @@ fun chatInputField(
     var textFieldHeight by remember(sessionId, fontScale) { mutableStateOf(defaultTextFieldHeight) }
     var manuallyResized by remember(sessionId, fontScale) { mutableStateOf(false) }
 
-    // Real measured text-block height (TextMeasurer) instead of lineHeight * lineCount — avoids
-    // per-line rounding drift when the font's actual line height differs from our lineHeight
-    // constant (e.g. +1 wrapped line growing the box by 9dp instead of 10).
+    // Measured text-block height (TextMeasurer) instead of lineHeight * lineCount, avoiding
+    // per-line rounding drift when the font's actual line height differs from our constant.
     var textFieldWidthPx by remember { mutableStateOf(0f) }
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
@@ -389,8 +418,8 @@ fun chatInputField(
     val measuredTextHeight = remember(inputText.text, textFieldWidthPx, measurementTextStyle) {
         if (inputText.text.isEmpty()) return@remember lineHeight
 
-        // OutlinedTextField's default internal horizontal content padding (M3 spec) — subtracted
-        // so the measured width matches the actual space available for text.
+        // Subtract OutlinedTextField's default horizontal content padding (M3 spec) so the
+        // measured width matches the actual space available for text.
         val horizontalPaddingPx = with(density) { 32.dp.toPx() }
         val availableWidthPx = (textFieldWidthPx - horizontalPaddingPx).coerceAtLeast(0f).toInt()
         if (availableWidthPx <= 0) return@remember lineHeight
@@ -404,7 +433,7 @@ fun chatInputField(
         with(density) { layoutResult.size.height.toDp() }
     }
 
-    // Approximate height per line (can be adjusted based on your text style)
+    // Approximate height per line, adjustable based on text style.
     val calculatedHeight = measuredTextHeight + padding + inlineControlsBottomPadding
     val maxVisibleInputLines = ((textFieldHeight - inlineControlsBottomPadding - 1.dp - 32.dp) / lineHeight)
         .toInt()
@@ -429,15 +458,13 @@ fun chatInputField(
     val selectFileTitle = stringResource("chat.select.file")
     val scope = rememberCoroutineScope()
 
-    // Always reflects the latest recomposition's inputText — read via .value at the point the
-    // transcript is applied below (not captured by direct closure over `inputText`), so edits the
-    // user makes to the input field *while* transcription is in flight aren't overwritten by a
-    // stale snapshot of the text as it existed when the coroutine was launched.
+    // Always reflects the latest inputText (via rememberUpdatedState) so edits made while
+    // transcription is in flight aren't overwritten by a stale snapshot.
     val latestInputText by rememberUpdatedState(inputText)
 
     // Shared voice-recording lifecycle (mic capture, waveform, auto-stop timer, STT) — see
-    // io.askimo.ui.voice.VoiceRecordingController. onTranscript inserts the transcript into the
-    // input field and optionally auto-sends (see AppConfig.voice.autoSendTranscript).
+    // io.askimo.ui.voice.VoiceRecordingController. onTranscript inserts the transcript and
+    // optionally auto-sends (see AppConfig.voice.autoSendTranscript).
     val voiceRecordingController = rememberVoiceRecordingController(
         busy = isLoading,
         onTranscript = { transcript ->
@@ -451,8 +478,8 @@ fun chatInputField(
                 TextFieldValue(text = newText, selection = TextRange(newText.length)),
             )
 
-            // Fully hands-free mode: send immediately instead of waiting for the user
-            // to press Send. Off by default — see AppConfig.voice.autoSendTranscript.
+            // Hands-free mode: auto-send instead of waiting for the user to press Send.
+            // Off by default — see AppConfig.voice.autoSendTranscript.
             scope.launch {
                 val autoSend = withContext(Dispatchers.IO) { AppConfig.voice.autoSendTranscript }
                 if (autoSend && newText.isNotBlank() && !isLoading) {
@@ -466,8 +493,8 @@ fun chatInputField(
     }
 
     // ── Rotating placeholder hints ─────────────────────────────────────────────
-    // Cycles through discoverability hints (web search, URL, attach) only while
-    // the input is empty and the AI is not responding.
+    // Cycles discoverability hints (web search, URL, attach) while input is empty
+    // and the AI isn't responding.
     val placeholderHints = listOf(
         placeholder,
         stringResource("chat.input.placeholder.hint.attach", Platform.modifierKey),
@@ -639,8 +666,7 @@ fun chatInputField(
             }
 
             Column {
-                // Resize handle — scoped to the text field column only so it
-                // doesn't overlap the send button.
+                // Resize handle, scoped to the text field column so it doesn't overlap the send button.
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -777,8 +803,7 @@ fun chatInputField(
 
                         Spacer(modifier = Modifier.width(Spacing.micro))
 
-                        // Image button — only show if model requires explicit toggle mode
-                        // For multi-modal models (native image generation), hide this button
+                        // Image button — only shown for models without native image generation.
                         if (!supportsNativeImageGeneration) {
                             themedTooltip(
                                 text = stringResource("chat.create.image.menu"),
@@ -852,6 +877,30 @@ fun chatInputField(
                             onShowManageDirectivesDialog = { showManageDirectivesDialog = true },
                         )
 
+                        // ── Resource Collections chip — persistent selection (see
+                        // ChatActions.setActiveResourceCollections). At most one collection is
+                        // active per session, feeding the RAG retriever like a project's
+                        // knowledge sources when the session has no project.
+                        if (onActiveResourceCollectionsChange != null && !isProjectSession) {
+                            Spacer(modifier = Modifier.width(Spacing.extraSmall))
+                            resourceCollectionsChip(
+                                availableCollections = availableResourceCollections,
+                                activeCollectionIds = activeResourceCollectionIds,
+                                isLoading = isLoading,
+                                onToggleCollection = { collectionId ->
+                                    val updated = if (collectionId in activeResourceCollectionIds) {
+                                        emptyList()
+                                    } else {
+                                        listOf(collectionId)
+                                    }
+                                    onActiveResourceCollectionsChange(updated)
+                                },
+                                popupExpanded = resourceCollectionsPopupExpanded,
+                                onPopupExpandedChange = { resourceCollectionsPopupExpanded = it },
+                                onNavigateToResourceCollections = onNavigateToResourceCollections,
+                            )
+                        }
+
                         // ── Web search in RAG chip — only in project sessions when web search is configured ──
                         if (isProjectSession && webSearchEnabled) {
                             Spacer(modifier = Modifier.width(Spacing.extraSmall))
@@ -865,8 +914,8 @@ fun chatInputField(
                             )
                         }
 
-                        // Image mode chip — only show when user explicitly toggles to Image mode
-                        // and the model requires explicit toggle (not native image generation)
+                        // Image mode chip — shown only when the user has explicitly toggled to
+                        // Image mode on a model without native image generation.
                         if (creationMode is CreationMode.Image && !supportsNativeImageGeneration) {
                             Spacer(modifier = Modifier.width(Spacing.extraSmall))
                             Surface(
@@ -911,7 +960,7 @@ fun chatInputField(
                             budgetTokens = memoryBudgetTokens,
                         )
 
-                        // Reasoning effort chip — only shown for models that support it;
+                        // Reasoning effort chip — shown only for models that support it;
                         // positioned far right as a model-setting indicator.
                         if (supportsReasoning) {
                             Spacer(modifier = Modifier.width(Spacing.small))
@@ -1120,8 +1169,8 @@ fun chatInputField(
 }
 
 /**
- * Tools indicator button that shows available MCP servers and tools.
- * Displays tool count badge and opens a popup with server/tool hierarchy.
+ * Indicator button showing available MCP servers/tools as a count badge; opens a popup
+ * with the server/tool hierarchy.
  *
  * @param sessionId Optional session ID to determine if this is a project chat
  * @param isLoading Whether the chat is currently loading
@@ -1151,8 +1200,8 @@ private fun toolsIndicatorButton(
             null
         }
     }
-    // Load MCP servers eagerly once the composable is attached, and cache for the lifetime
-    // of this composable. Re-opening the popup is instant — no loading spinner shown again.
+    // Load MCP servers eagerly once attached, and cache for this composable's lifetime —
+    // re-opening the popup is instant with no loading spinner shown again.
     LaunchedEffect(Unit) {
         // Skip if already loaded for this projectId
         if (mcpServers.isNotEmpty()) return@LaunchedEffect
@@ -1419,11 +1468,10 @@ private data class McpServerInfo(
 )
 
 /**
- * Displays a single MCP server item with a toggle checkbox and a dropdown submenu for its tools.
+ * Single MCP server row with a toggle checkbox and a submenu popup listing its tools.
  *
- * The card has two separate interaction zones:
- * - Checkbox (left): toggles the server enabled/disabled for this session.
- * - Chevron / card body (right): opens the tools submenu (read-only tool list).
+ * Two interaction zones: the checkbox toggles enabled state; the row body opens the
+ * read-only tools submenu.
  */
 @Composable
 private fun mcpServerItem(
@@ -1528,7 +1576,7 @@ private fun mcpServerItem(
             }
         }
 
-        // Submenu popup with tools — top-right of the MCP row to avoid overlapping server rows.
+        // Submenu popup with tools — top-right of the row to avoid overlapping server rows.
         if (showToolsSubmenu) {
             AppComponents.anchoredPopup(
                 positionProvider = object : PopupPositionProvider {
@@ -1638,7 +1686,7 @@ private fun fileAttachmentItem(
     var previewContent by remember { mutableStateOf<String?>(null) }
     var isLoadingPreview by remember { mutableStateOf(false) }
 
-    // Determine if the file is previewable as text — delegate to FileContentExtractor
+    // Preview only text files — delegate detection to FileContentExtractor.
     val isTextFile = FileContentExtractor.isTextFile(attachment.fileName)
 
     LaunchedEffect(expanded) {
@@ -1791,11 +1839,10 @@ private fun fileAttachmentItem(
 }
 
 /**
- * Directive selector chip + upward-opening popup.
+ * Directive selector chip with an upward-opening popup.
  *
- * Shows the currently active directive name (or a generic label when none is selected).
- * Clicking the chip opens an upward popup with a scrollable directive list, checkboxes to
- * toggle selection, and footer actions to create / manage directives.
+ * Shows the active directive name (or a generic label). The popup lists all directives
+ * with toggle checkboxes, plus actions to create/manage them.
  */
 @Composable
 private fun directiveChip(
@@ -2091,11 +2138,293 @@ private fun directiveChip(
 }
 
 /**
- * Chip that toggles live web search inclusion in the RAG retrieval pipeline.
+ * Resource Collections selector chip with an upward-opening popup (same UX as [directiveChip]).
  *
- * Shown in project chat sessions when [AppConfig.webSearch.enabled] is true.
- * When active the chip is highlighted and the [HybridContentRetriever] will
- * include live web results (via the configured [SearchBackend]) in its RRF fusion.
+ * Only one collection can be active at a time; selecting a new one replaces the previous
+ * selection. Feeds the RAG retriever like a project's knowledge sources when the session has
+ * no project (see `ChatSessionService.createRetrieverForContainer` and
+ * [ChatActions.setActiveResourceCollections]).
+ */
+@Composable
+private fun resourceCollectionsChip(
+    availableCollections: List<ResourceCollection>,
+    activeCollectionIds: List<String>,
+    isLoading: Boolean,
+    onToggleCollection: (String) -> Unit,
+    popupExpanded: Boolean,
+    onPopupExpandedChange: (Boolean) -> Unit,
+    onNavigateToResourceCollections: (() -> Unit)? = null,
+) {
+    val activeCollection = availableCollections.find { it.id == activeCollectionIds.firstOrNull() }
+    val activeDescription = activeCollection?.description?.takeIf { it.isNotBlank() }
+    val uriHandler = LocalUriHandler.current
+
+    val chipAnchor: @Composable (@Composable () -> Unit) -> Unit =
+        if (activeCollection != null && activeDescription != null) {
+            { content ->
+                themedRichTooltip(
+                    tooltipContent = {
+                        Column(
+                            modifier = Modifier
+                                .widthIn(min = 250.dp, max = 420.dp)
+                                .padding(horizontal = Spacing.medium, vertical = Spacing.small),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.small),
+                        ) {
+                            Text(
+                                text = activeCollection.name,
+                                style = AppTextStyles.caption,
+                            )
+                            HorizontalDivider(
+                                color = AppColors.codeBlockBorderColor(),
+                            )
+                            Text(
+                                text = activeDescription,
+                                style = AppTextStyles.hint,
+                                maxLines = 10,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    },
+                    content = content,
+                )
+            }
+        } else {
+            { content ->
+                themedTooltip(
+                    text = activeCollection?.name ?: stringResource("chat.resourceCollections"),
+                    content = content,
+                )
+            }
+        }
+
+    Box {
+        chipAnchor {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (activeCollection != null) {
+                    MaterialTheme.colorScheme.secondaryContainer
+                } else {
+                    AppColors.surfaceColor(AppColors.Elevation.EMPHASIS)
+                },
+                tonalElevation = 2.dp,
+                modifier = Modifier
+                    .height(28.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(
+                        enabled = !isLoading,
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { onPopupExpandedChange(true) },
+                    )
+                    .pointerHoverIcon(PointerIcon.Hand),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                    modifier = Modifier.padding(horizontal = Spacing.small),
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.LibraryBooks,
+                        contentDescription = stringResource("chat.resourceCollections"),
+                        tint = if (activeCollection != null) {
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                        } else {
+                            AppColors.tertiaryIconColor()
+                        },
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text(
+                        text = activeCollection?.name ?: stringResource("chat.resourceCollections"),
+                        style = AppTextStyles.hint,
+                        color = if (activeCollection != null) {
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                        } else {
+                            AppColors.tertiaryIconColor()
+                        },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.widthIn(max = 100.dp),
+                    )
+                    // Hint that the collection isn't ready for retrieval yet; indexing must be
+                    // triggered manually (see the dropdown action below).
+                    if (activeCollection != null &&
+                        activeCollection.indexStatus != IndexStatus.READY &&
+                        activeCollection.indexStatus != IndexStatus.WATCHING
+                    ) {
+                        indexStatusIcon(status = activeCollection.indexStatus, size = 12.dp)
+                    }
+                }
+            }
+        }
+
+        // Upward-opening popup anchored to the chip's top edge
+        if (popupExpanded) {
+            AppComponents.anchoredPopup(
+                positionProvider = object : PopupPositionProvider {
+                    override fun calculatePosition(
+                        anchorBounds: IntRect,
+                        windowSize: IntSize,
+                        layoutDirection: LayoutDirection,
+                        popupContentSize: IntSize,
+                    ): IntOffset = IntOffset(
+                        x = anchorBounds.left,
+                        y = anchorBounds.top - popupContentSize.height - 4,
+                    )
+                },
+                onDismissRequest = { onPopupExpandedChange(false) },
+                modifier = Modifier.widthIn(min = 350.dp, max = 420.dp),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = Spacing.medium,
+                            end = Spacing.extraSmall,
+                            top = Spacing.small,
+                            bottom = Spacing.small,
+                        ),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource("chat.resourceCollections"),
+                        style = AppTextStyles.sectionTitle,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
+                        if (onNavigateToResourceCollections != null) {
+                            themedTooltip(text = stringResource("chat.resourceCollections.manage")) {
+                                IconButton(
+                                    onClick = {
+                                        onNavigateToResourceCollections()
+                                        onPopupExpandedChange(false)
+                                    },
+                                    modifier = Modifier.size(32.dp).pointerHoverIcon(PointerIcon.Hand),
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.Settings,
+                                        contentDescription = stringResource("chat.resourceCollections.manage"),
+                                        modifier = Modifier.size(16.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                        themedTooltip(text = stringResource("chat.resourceCollections.learn.more")) {
+                            IconButton(
+                                onClick = {
+                                    uriHandler.openUri("https://$DOMAIN/docs/desktop/rag/")
+                                    onPopupExpandedChange(false)
+                                },
+                                modifier = Modifier.size(32.dp).pointerHoverIcon(PointerIcon.Hand),
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Info,
+                                    contentDescription = stringResource("chat.resourceCollections.learn.more"),
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider()
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 280.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    if (availableCollections.isEmpty()) {
+                        Text(
+                            text = stringResource("chat.resourceCollections.empty"),
+                            style = AppTextStyles.bodySecondary,
+                            modifier = Modifier.padding(
+                                horizontal = Spacing.medium,
+                                vertical = Spacing.medium,
+                            ),
+                        )
+                    }
+                    availableCollections.forEach { collection ->
+                        val isSelected = collection.id in activeCollectionIds
+                        val collectionDescription = collection.description?.takeIf { it.isNotBlank() }
+                        themedTooltip(
+                            text = collectionDescription ?: "",
+                            placement = TooltipPlacement.RIGHT,
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onToggleCollection(collection.id) }
+                                    .padding(
+                                        start = Spacing.extraSmall,
+                                        end = Spacing.small,
+                                        top = Spacing.micro,
+                                        bottom = Spacing.micro,
+                                    )
+                                    .pointerHoverIcon(PointerIcon.Hand),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                CompositionLocalProvider(LocalRippleConfiguration provides null) {
+                                    Checkbox(
+                                        checked = isSelected,
+                                        onCheckedChange = { onToggleCollection(collection.id) },
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .pointerHoverIcon(PointerIcon.Hand),
+                                    )
+                                }
+                                Text(
+                                    text = collection.name,
+                                    style = AppTextStyles.body,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                themedTooltip(text = indexStatusLabel(collection.indexStatus)) {
+                                    indexStatusIcon(
+                                        status = collection.indexStatus,
+                                        modifier = Modifier.padding(end = Spacing.extraSmall),
+                                    )
+                                }
+                                if (collection.indexStatus == IndexStatus.NOT_STARTED || collection.indexStatus == IndexStatus.FAILED) {
+                                    themedTooltip(text = stringResource("resourcecollection.reindex")) {
+                                        IconButton(
+                                            onClick = {
+                                                EventBus.post(
+                                                    ReIndexEvent(
+                                                        containerId = collection.id,
+                                                        containerType = IndexingContainerType.RESOURCE_COLLECTION,
+                                                        reason = "Manual index requested from chat resource collections chip",
+                                                    ),
+                                                )
+                                            },
+                                            modifier = Modifier.size(28.dp).pointerHoverIcon(PointerIcon.Hand),
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Refresh,
+                                                contentDescription = stringResource("resourcecollection.reindex"),
+                                                modifier = Modifier.size(14.dp),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Toggles live web search inclusion in the RAG pipeline.
+ *
+ * Shown in project sessions when [AppConfig.webSearch.enabled] is true. When active, the
+ * [HybridContentRetriever] includes live web results in its RRF fusion.
  */
 @Composable
 private fun webSearchRagChip(
@@ -2159,11 +2488,11 @@ private fun webSearchRagChip(
 }
 
 /**
- * Circular arc chip that shows current memory utilisation.
+ * Circular arc chip showing memory utilisation.
  *
- * - Arc colour is [MemoryPressureLevel.NORMAL] → primary, WARNING → amber, CRITICAL → error.
- * - At WARNING or CRITICAL the chip becomes clickable (calls [onCompress]).
- * - While [isCompressing] is true the arc is replaced with a [CircularProgressIndicator].
+ * - Arc colour: [MemoryPressureLevel.NORMAL] → primary, WARNING → amber, CRITICAL → error.
+ * - Clickable at WARNING/CRITICAL (calls [onCompress]).
+ * - Replaced by a [CircularProgressIndicator] while [isCompressing].
  */
 @Composable
 private fun memoryUsageChip(

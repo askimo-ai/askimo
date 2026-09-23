@@ -35,11 +35,12 @@ class ResourceSegmentRepository(
 
     /**
      * Save multiple segment mappings in a batch.
+     * @param containerId ID of the owning container — either a Project id or a Resource Collection id.
      * @param resourceId String identifier for the resource (file path, URL, etc.).
      *                   Backslashes are normalized to forward slashes for cross-platform consistency.
      */
     fun saveSegmentMappings(
-        projectId: String,
+        containerId: String,
         resourceId: String,
         segmentIds: List<Pair<String, Int>>,
     ) {
@@ -51,7 +52,7 @@ class ResourceSegmentRepository(
                 data = segmentIds,
                 ignore = true,
             ) { (segmentId, chunkIndex) ->
-                this[ResourceSegmentsTable.projectId] = projectId
+                this[ResourceSegmentsTable.containerId] = containerId
                 this[ResourceSegmentsTable.resourceId] = normalizedId
                 this[ResourceSegmentsTable.segmentId] = segmentId
                 this[ResourceSegmentsTable.chunkIndex] = chunkIndex
@@ -66,11 +67,11 @@ class ResourceSegmentRepository(
      * Paths are normalized to forward slashes for cross-platform consistency.
      */
     fun saveSegmentMappings(
-        projectId: String,
+        containerId: String,
         filePath: Path,
         segmentIds: List<Pair<String, Int>>,
     ) {
-        saveSegmentMappings(projectId, filePath.toNormalizedString(), segmentIds)
+        saveSegmentMappings(containerId, filePath.toNormalizedString(), segmentIds)
     }
 
     /**
@@ -78,14 +79,14 @@ class ResourceSegmentRepository(
      * @param resourceId String identifier for the resource; backslashes are normalized.
      */
     fun getSegmentIdsForResource(
-        projectId: String,
+        containerId: String,
         resourceId: String,
     ): List<String> = transaction(database) {
         val normalizedId = resourceId.replace('\\', '/')
         ResourceSegmentsTable
             .selectAll()
             .where {
-                (ResourceSegmentsTable.projectId eq projectId) and
+                (ResourceSegmentsTable.containerId eq containerId) and
                     (ResourceSegmentsTable.resourceId eq normalizedId)
             }
             .orderBy(ResourceSegmentsTable.chunkIndex)
@@ -97,21 +98,21 @@ class ResourceSegmentRepository(
      * Paths are normalized to forward slashes for cross-platform consistency.
      */
     fun getSegmentIdsForFile(
-        projectId: String,
+        containerId: String,
         filePath: Path,
-    ): List<String> = getSegmentIdsForResource(projectId, filePath.toNormalizedString())
+    ): List<String> = getSegmentIdsForResource(containerId, filePath.toNormalizedString())
 
     /**
      * Remove all segment mappings for a specific resource.
      * @param resourceId String identifier for the resource; backslashes are normalized.
      */
     fun removeSegmentMappingsForResource(
-        projectId: String,
+        containerId: String,
         resourceId: String,
     ): Int = transaction(database) {
         val normalizedId = resourceId.replace('\\', '/')
         ResourceSegmentsTable.deleteWhere {
-            (ResourceSegmentsTable.projectId eq projectId) and
+            (ResourceSegmentsTable.containerId eq containerId) and
                 (ResourceSegmentsTable.resourceId eq normalizedId)
         }
     }
@@ -121,17 +122,17 @@ class ResourceSegmentRepository(
      * Paths are normalized to forward slashes for cross-platform consistency.
      */
     fun removeSegmentMappingsForFile(
-        projectId: String,
+        containerId: String,
         filePath: Path,
-    ): Int = removeSegmentMappingsForResource(projectId, filePath.toNormalizedString())
+    ): Int = removeSegmentMappingsForResource(containerId, filePath.toNormalizedString())
 
     /**
-     * Remove ALL segment mappings for an entire project.
-     * Used when the project index is fully cleared (e.g. re-index or embedding model change).
+     * Remove ALL segment mappings for an entire container (project or resource collection).
+     * Used when the index is fully cleared (e.g. re-index or embedding model change).
      */
-    fun removeAllSegmentMappingsForProject(projectId: String): Int = transaction(database) {
+    fun removeAllSegmentMappingsForProject(containerId: String): Int = transaction(database) {
         ResourceSegmentsTable.deleteWhere {
-            ResourceSegmentsTable.projectId eq projectId
+            ResourceSegmentsTable.containerId eq containerId
         }
     }
 
@@ -140,14 +141,14 @@ class ResourceSegmentRepository(
      * Used to clean up all segments under a deleted directory.
      * [dirPrefix] is normalized to forward slashes for cross-platform consistency.
      */
-    fun getSegmentIdsForDirectory(projectId: String, dirPrefix: String): List<String> {
+    fun getSegmentIdsForDirectory(containerId: String, dirPrefix: String): List<String> {
         val normalized = dirPrefix.replace('\\', '/')
         val prefix = if (normalized.endsWith("/")) normalized else "$normalized/"
         return transaction(database) {
             ResourceSegmentsTable
                 .selectAll()
                 .where {
-                    (ResourceSegmentsTable.projectId eq projectId) and
+                    (ResourceSegmentsTable.containerId eq containerId) and
                         (ResourceSegmentsTable.resourceId like "$prefix%")
                 }
                 .map { it[ResourceSegmentsTable.segmentId] }
@@ -159,12 +160,12 @@ class ResourceSegmentRepository(
      * Returns the number of rows deleted.
      * [dirPrefix] is normalized to forward slashes for cross-platform consistency.
      */
-    fun removeSegmentMappingsForDirectory(projectId: String, dirPrefix: String): Int {
+    fun removeSegmentMappingsForDirectory(containerId: String, dirPrefix: String): Int {
         val normalized = dirPrefix.replace('\\', '/')
         val prefix = if (normalized.endsWith("/")) normalized else "$normalized/"
         return transaction(database) {
             ResourceSegmentsTable.deleteWhere {
-                (ResourceSegmentsTable.projectId eq projectId) and
+                (ResourceSegmentsTable.containerId eq containerId) and
                     (ResourceSegmentsTable.resourceId like "$prefix%")
             }
         }

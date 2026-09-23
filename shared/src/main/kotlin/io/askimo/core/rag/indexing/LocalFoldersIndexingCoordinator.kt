@@ -14,6 +14,7 @@ import io.askimo.core.event.EventBus
 import io.askimo.core.event.error.AppErrorEvent
 import io.askimo.core.event.user.IndexingInProgressEvent
 import io.askimo.core.logging.logger
+import io.askimo.core.rag.container.IndexingContainerType
 import io.askimo.core.rag.filter.FilterChain
 import io.askimo.core.rag.state.IndexProgress
 import io.askimo.core.rag.state.IndexStatus
@@ -37,15 +38,17 @@ import kotlin.io.path.pathString
  * avoids mutex/semaphore complexity, and produces predictable progress on any machine.
  */
 class LocalFoldersIndexingCoordinator(
-    projectId: String,
-    projectName: String,
+    containerId: String,
+    containerName: String,
+    containerType: IndexingContainerType,
     override val knowledgeSourceConfig: LocalFoldersKnowledgeSourceConfig,
     embeddingStore: EmbeddingStore<TextSegment>,
     embeddingModel: EmbeddingModel,
     appContext: AppContext,
 ) : BaseLocalIndexingCoordinator<LocalFoldersKnowledgeSourceConfig>(
-    projectId = projectId,
-    projectName = projectName,
+    containerId = containerId,
+    containerName = containerName,
+    containerType = containerType,
     embeddingStore = embeddingStore,
     embeddingModel = embeddingModel,
     appContext = appContext,
@@ -94,7 +97,7 @@ class LocalFoldersIndexingCoordinator(
 
                 totalFilesCounter.set(allFiles.size)
                 updateProgress { copy(totalFiles = allFiles.size) }
-                log.info("Found ${allFiles.size} indexable files for project $projectId starting at $path")
+                log.info("Found ${allFiles.size} indexable files for project $containerId starting at $path")
 
                 log.debug("Loading previous hashes for {} files from DB", allFiles.size)
                 val previousHashes = stateManager.getHashesForFiles(allFiles.map { it.toAbsolutePath().toString() })
@@ -133,14 +136,14 @@ class LocalFoldersIndexingCoordinator(
                         skippedFileNames = skippedNames,
                     )
                 }
-                log.info("Completed indexing for project $projectName: ${processedFilesCounter.get()} files processed at path $path")
+                log.info("Completed indexing for project $containerName: ${processedFilesCounter.get()} files processed at path $path")
                 true
             } catch (e: CancellationException) {
-                log.info("Indexing cancelled for project $projectName: ${e.message}")
+                log.info("Indexing cancelled for project $containerName: ${e.message}")
                 updateProgress { copy(status = IndexStatus.FAILED, error = "Indexing cancelled: ${e.message}") }
                 throw e // must rethrow so the coroutine machinery knows it was cancelled
             } catch (e: Exception) {
-                log.error("Indexing failed for project $projectName", e)
+                log.error("Indexing failed for project $containerName", e)
                 updateProgress { copy(status = IndexStatus.FAILED, error = e.message ?: "Unknown error") }
                 false
             }
@@ -228,8 +231,9 @@ class LocalFoldersIndexingCoordinator(
                     }
                     EventBus.emit(
                         IndexingInProgressEvent(
-                            projectId = projectId,
-                            projectName = projectName,
+                            containerId = containerId,
+                            containerName = containerName,
+                            containerType = containerType,
                             filesIndexed = processedFilesCounter.get(),
                             totalFiles = totalFilesCounter.get(),
                             resourceId = stateManager.resourceId,
@@ -254,21 +258,22 @@ class LocalFoldersIndexingCoordinator(
 
     override fun startWatching(scope: CoroutineScope) {
         if (fileWatcher != null) {
-            log.debug("File watcher already active for project $projectId")
+            log.debug("File watcher already active for project $containerId")
             return
         }
         val changeHandler = FileChangeHandler(
-            projectId = projectId,
-            projectName = projectName,
+            containerId = containerId,
+            containerName = containerName,
+            containerType = containerType,
             embeddingStore = embeddingStore,
             embeddingModel = embeddingModel,
             appContext = appContext,
         )
         fileWatcher = FileWatcher(
-            projectId = projectId,
+            containerId = containerId,
             onFileChange = { path, kind -> changeHandler.handleFileChange(path, kind) },
             onWatchError = { path, e ->
-                log.error("File watching failed for $path in project $projectId", e)
+                log.error("File watching failed for $path in project $containerId", e)
                 EventBus.post(
                     AppErrorEvent(
                         title = "File watching could not be started",
@@ -281,13 +286,13 @@ class LocalFoldersIndexingCoordinator(
             },
         )
         fileWatcher?.startWatching(filePath, scope)
-        log.info("Started file watching for project $projectId")
+        log.info("Started file watching for project $containerId")
     }
 
     override fun stopWatching() {
         fileWatcher?.stopWatching()
         fileWatcher = null
-        log.info("Stopped file watching $filePath for project $projectId")
+        log.info("Stopped file watching $filePath for project $containerId")
     }
 
     /**
@@ -296,6 +301,6 @@ class LocalFoldersIndexingCoordinator(
     override fun close() {
         cancelled = true
         stopWatching()
-        log.debug("Closed LocalFoldersIndexingCoordinator for project $projectId (cancelled in-progress indexing)")
+        log.debug("Closed LocalFoldersIndexingCoordinator for project $containerId (cancelled in-progress indexing)")
     }
 }

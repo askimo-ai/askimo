@@ -10,6 +10,7 @@ import dev.langchain4j.store.embedding.EmbeddingStore
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
 import io.askimo.core.chat.domain.LocalFilesKnowledgeSourceConfig
 import io.askimo.core.context.AppContext
+import io.askimo.core.rag.container.IndexingContainerType
 import io.askimo.core.rag.indexing.IndexingCoordinator
 import io.askimo.core.rag.indexing.IndexingCoordinatorProvider
 import io.askimo.core.rag.indexing.LocalFilesIndexingCoordinator
@@ -21,15 +22,17 @@ class LocalFilesIndexingProvider : IndexingCoordinatorProvider {
     override fun supportedType(): Class<out KnowledgeSourceConfig> = LocalFilesKnowledgeSourceConfig::class.java
 
     override fun createCoordinator(
-        projectId: String,
-        projectName: String,
+        containerId: String,
+        containerName: String,
+        containerType: IndexingContainerType,
         knowledgeSource: KnowledgeSourceConfig,
         embeddingStore: EmbeddingStore<TextSegment>,
         embeddingModel: EmbeddingModel,
         appContext: AppContext,
     ): IndexingCoordinator<KnowledgeSourceConfig> = LocalFilesIndexingCoordinator(
-        projectId = projectId,
-        projectName = projectName,
+        containerId = containerId,
+        containerName = containerName,
+        containerType = containerType,
         knowledgeSourceConfig = knowledgeSource as LocalFilesKnowledgeSourceConfig,
         embeddingStore = embeddingStore,
         embeddingModel = embeddingModel,

@@ -11,11 +11,11 @@ import java.nio.file.Path
 
 /**
  * Manages the persisted state of an index for a single knowledge-source coordinator.
- * Scoped to (projectId, sourceType, resourceId) so multiple coordinators on the same
- * project never share or overwrite each other's state.
+ * Scoped to (containerId, sourceType, resourceId) so multiple coordinators on the same
+ * container (project or resource collection) never share or overwrite each other's state.
  */
 class IndexStateManager(
-    private val projectId: String,
+    private val containerId: String,
     private val sourceType: String, // 'folders', 'files', or 'urls'
     val resourceId: String, // KnowledgeSourceConfig.resourceIdentifier
 ) {
@@ -27,10 +27,10 @@ class IndexStateManager(
      */
     fun loadPersistedState(): IndexPersistedState? {
         return try {
-            val fileHashes = repository.getHashesForSourceType(projectId, sourceType, resourceId)
+            val fileHashes = repository.getHashesForSourceType(containerId, sourceType, resourceId)
 
             if (fileHashes.isEmpty()) {
-                log.debug("No persisted state found for project $projectId, resource $resourceId")
+                log.debug("No persisted state found for container $containerId, resource $resourceId")
                 return null
             }
 
@@ -40,7 +40,7 @@ class IndexStateManager(
                 fileHashes = fileHashes,
             )
         } catch (e: Exception) {
-            log.error("Failed to load persisted state for project $projectId, resource $resourceId", e)
+            log.error("Failed to load persisted state for container $containerId, resource $resourceId", e)
             null
         }
     }
@@ -53,26 +53,26 @@ class IndexStateManager(
         fileHashes: Map<String, String>,
     ) {
         try {
-            repository.batchSaveFileStates(projectId, fileHashes, sourceType, resourceId)
-            log.debug("Saved index state for project $projectId, resource $resourceId: $totalFilesIndexed files")
+            repository.batchSaveFileStates(containerId, fileHashes, sourceType, resourceId)
+            log.debug("Saved index state for container $containerId, resource $resourceId: $totalFilesIndexed files")
         } catch (e: Exception) {
-            log.error("Failed to save index state for project $projectId, resource $resourceId", e)
+            log.error("Failed to save index state for container $containerId, resource $resourceId", e)
         }
     }
 
     // ── Chunked / incremental API (used by LocalFoldersIndexingCoordinator) ──
 
     /** Batch-query previous hashes for a subset of file paths (one DB round-trip per chunk). */
-    fun getHashesForFiles(filePaths: List<String>): Map<String, String> = repository.getHashesForFiles(projectId, resourceId, filePaths)
+    fun getHashesForFiles(filePaths: List<String>): Map<String, String> = repository.getHashesForFiles(containerId, resourceId, filePaths)
 
     /** Return all stored paths for this coordinator — used for deleted-file detection. */
-    fun getStoredPaths(): Set<String> = repository.getPathsForResource(projectId, resourceId)
+    fun getStoredPaths(): Set<String> = repository.getPathsForResource(containerId, resourceId)
 
     /** Persist hashes for a batch of changed files without touching unchanged entries. */
-    fun saveFileHashesBatch(fileHashes: Map<String, String>) = repository.upsertFileHashesBatch(projectId, resourceId, sourceType, fileHashes)
+    fun saveFileHashesBatch(fileHashes: Map<String, String>) = repository.upsertFileHashesBatch(containerId, resourceId, sourceType, fileHashes)
 
     /** Remove state entries for files that were deleted from disk. */
-    fun removeFilePaths(filePaths: Set<String>) = repository.removeFilePaths(projectId, resourceId, filePaths)
+    fun removeFilePaths(filePaths: Set<String>) = repository.removeFilePaths(containerId, resourceId, filePaths)
 
     /**
      * Compute a lightweight change-detection key from file metadata.
@@ -93,10 +93,10 @@ class IndexStateManager(
      */
     fun clearStates() {
         try {
-            repository.clearResourceState(projectId, resourceId)
-            log.info("Cleared index states for project $projectId, resource $resourceId")
+            repository.clearResourceState(containerId, resourceId)
+            log.info("Cleared index states for container $containerId, resource $resourceId")
         } catch (e: Exception) {
-            log.error("Failed to clear index states for project $projectId, resource $resourceId", e)
+            log.error("Failed to clear index states for container $containerId, resource $resourceId", e)
         }
     }
 
@@ -105,9 +105,9 @@ class IndexStateManager(
         private val localSourceTypes = setOf("folders", "files")
 
         /**
-         * Returns all indexed local file paths for the given project.
+         * Returns all indexed local file paths for the given container (project or resource collection).
          */
-        fun getIndexedLocalPathsForProject(projectId: String): Set<String> = repository.getPathsForProject(projectId, localSourceTypes)
+        fun getIndexedLocalPathsForContainer(containerId: String): Set<String> = repository.getPathsForProject(containerId, localSourceTypes)
             .mapTo(HashSet()) { IndexPathNormalizer.normalize(it) }
 
         /**

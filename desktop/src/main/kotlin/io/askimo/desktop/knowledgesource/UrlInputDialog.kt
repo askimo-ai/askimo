@@ -2,7 +2,7 @@
  *
  * Copyright (c) 2026 Askimo
  */
-package io.askimo.desktop.project
+package io.askimo.desktop.knowledgesource
 
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,6 +44,8 @@ private val log = logger<UrlInputDialog>()
 /**
  * Dialog for entering and validating a URL.
  * Validates the URL format and checks if it's accessible via HTTP GET.
+ *
+ * Shared between the Project and Resource Collection features.
  */
 @Composable
 fun urlInputDialog(
@@ -138,13 +140,13 @@ fun urlInputDialog(
         width = 600.dp,
         title = {
             Text(
-                text = stringResource("project.dialog.url.title"),
+                text = stringResource("knowledgesource.dialog.url.title"),
                 style = AppTextStyles.pageTitle,
             )
         },
         content = {
             Text(
-                text = stringResource("project.dialog.url.description"),
+                text = stringResource("knowledgesource.dialog.url.description"),
                 style = AppTextStyles.bodySecondary,
             )
 
@@ -154,7 +156,7 @@ fun urlInputDialog(
                     urlInput = it
                     urlError = null
                 },
-                label = { Text(stringResource("project.dialog.url.label")) },
+                label = { Text(stringResource("knowledgesource.dialog.url.label")) },
                 placeholder = { Text("https://example.com/docs") },
                 isError = urlError != null,
                 supportingText = urlError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
@@ -173,7 +175,7 @@ fun urlInputDialog(
                 onClick = onDismiss,
                 enabled = !isValidating,
             ) {
-                Text(stringResource("project.dialog.url.button.cancel"))
+                Text(stringResource("knowledgesource.dialog.url.button.cancel"))
             }
 
             Spacer(modifier = Modifier.width(Spacing.small))
@@ -188,9 +190,9 @@ fun urlInputDialog(
                 }
                 Text(
                     if (isValidating) {
-                        stringResource("project.dialog.url.button.validating")
+                        stringResource("knowledgesource.dialog.url.button.validating")
                     } else {
-                        stringResource("project.dialog.url.button.add")
+                        stringResource("knowledgesource.dialog.url.button.add")
                     },
                 )
             }
