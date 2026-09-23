@@ -8,15 +8,17 @@ import io.askimo.core.chat.domain.KnowledgeSourceConfig
 import io.askimo.core.event.Event
 import io.askimo.core.event.EventSource
 import io.askimo.core.event.EventType
+import io.askimo.core.rag.container.IndexingContainerType
 import java.time.Instant
 
 /**
  * Event emitted when a specific knowledge source should be removed from the index.
- * This is an internal event that triggers ProjectIndexer to delete the embeddings
- * and index state associated with the given knowledge source.
+ * This is an internal event that triggers [io.askimo.core.rag.RagIndexer] to delete the
+ * embeddings and index state associated with the given knowledge source.
  */
-data class ProjectIndexRemovalEvent(
-    val projectId: String,
+data class IndexRemovalEvent(
+    val containerId: String,
+    val containerType: IndexingContainerType,
     val knowledgeSource: KnowledgeSourceConfig,
     val reason: String = "Knowledge source removed",
     override val timestamp: Instant = Instant.now(),
@@ -24,5 +26,5 @@ data class ProjectIndexRemovalEvent(
 ) : Event {
     override val type = EventType.INTERNAL
 
-    override fun getDetails(): String = "Removal requested for project $projectId, source: ${knowledgeSource.resourceIdentifier} — $reason"
+    override fun getDetails(): String = "Removal requested for $containerType $containerId, source: ${knowledgeSource.resourceIdentifier} — $reason"
 }

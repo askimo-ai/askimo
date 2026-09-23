@@ -2,7 +2,7 @@
  *
  * Copyright (c) 2026 Askimo
  */
-package io.askimo.desktop.project
+package io.askimo.desktop.knowledgesource
 
 import io.askimo.ui.common.ui.util.FileDialogUtils
 import java.util.UUID

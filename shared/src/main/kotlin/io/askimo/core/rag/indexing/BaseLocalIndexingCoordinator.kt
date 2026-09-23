@@ -12,6 +12,7 @@ import io.askimo.core.context.AppContext
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.user.IndexingInProgressEvent
 import io.askimo.core.logging.logger
+import io.askimo.core.rag.container.IndexingContainerType
 import io.askimo.core.rag.state.IndexProgress
 import io.askimo.core.rag.state.IndexStateManager
 import io.askimo.core.rag.state.IndexStatus
@@ -27,8 +28,9 @@ import java.util.concurrent.atomic.AtomicInteger
  * (delete detection, flush, state persistence, progress update, and completion log).
  */
 abstract class BaseLocalIndexingCoordinator<T : KnowledgeSourceConfig>(
-    protected val projectId: String,
-    protected val projectName: String,
+    protected val containerId: String,
+    protected val containerName: String,
+    protected val containerType: IndexingContainerType,
     protected val embeddingStore: EmbeddingStore<TextSegment>,
     protected val embeddingModel: EmbeddingModel,
     protected val appContext: AppContext,
@@ -39,8 +41,8 @@ abstract class BaseLocalIndexingCoordinator<T : KnowledgeSourceConfig>(
     private val log = logger<BaseLocalIndexingCoordinator<*>>()
 
     protected val resourceContentProcessor = ResourceContentProcessor(appContext)
-    protected val stateManager = IndexStateManager(projectId, stateManagerScope, resourceId)
-    protected val hybridIndexer = HybridIndexer(embeddingStore, embeddingModel, projectId)
+    protected val stateManager = IndexStateManager(containerId, stateManagerScope, resourceId)
+    protected val hybridIndexer = HybridIndexer(embeddingStore, embeddingModel, containerId)
 
     private val _progress = MutableStateFlow(IndexProgress())
     override val progress: StateFlow<IndexProgress> = _progress
@@ -90,8 +92,9 @@ abstract class BaseLocalIndexingCoordinator<T : KnowledgeSourceConfig>(
         if (processedFiles % 10 == 0 || processedFiles == totalFiles) {
             EventBus.emit(
                 IndexingInProgressEvent(
-                    projectId = projectId,
-                    projectName = projectName,
+                    containerId = containerId,
+                    containerName = containerName,
+                    containerType = containerType,
                     filesIndexed = processedFiles,
                     totalFiles = totalFiles,
                     resourceId = stateManager.resourceId,
@@ -125,8 +128,9 @@ abstract class BaseLocalIndexingCoordinator<T : KnowledgeSourceConfig>(
         }
         EventBus.emit(
             IndexingInProgressEvent(
-                projectId = projectId,
-                projectName = projectName,
+                containerId = containerId,
+                containerName = containerName,
+                containerType = containerType,
                 filesIndexed = processedFilesCounter.get(),
                 totalFiles = totalFilesCounter.get(),
                 resourceId = stateManager.resourceId,
@@ -173,7 +177,7 @@ abstract class BaseLocalIndexingCoordinator<T : KnowledgeSourceConfig>(
         updateProgress { copy(status = IndexStatus.READY, processedFiles = processedFiles) }
 
         log.info(
-            "Completed indexing for project $projectName: " +
+            "Completed indexing for project $containerName: " +
                 "${processedFiles - skippedFiles} files indexed, " +
                 "$skippedFiles files skipped (unchanged), " +
                 "${deletedFiles.size} files removed",
@@ -227,9 +231,9 @@ abstract class BaseLocalIndexingCoordinator<T : KnowledgeSourceConfig>(
         try {
             hybridIndexer.removeDirectoryFromIndex(Path.of(stateManager.resourceId))
         } catch (e: Exception) {
-            log.error("Failed to clear hybrid index for resource ${stateManager.resourceId} in project $projectId", e)
+            log.error("Failed to clear hybrid index for resource ${stateManager.resourceId} in project $containerId", e)
         }
         stateManager.clearStates()
-        log.info("Cleared all index states for project $projectId (resource: ${stateManager.resourceId})")
+        log.info("Cleared all index states for project $containerId (resource: ${stateManager.resourceId})")
     }
 }

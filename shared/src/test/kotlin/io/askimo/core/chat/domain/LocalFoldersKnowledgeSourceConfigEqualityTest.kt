@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 /**
  * [LocalFoldersKnowledgeSourceConfig] is a data class, so `==` compares ALL properties,
  * including [LocalFoldersKnowledgeSourceConfig.watchForChanges]. This matters because
- * `ProjectIndexer.handleWatchToggleEvent` looks up the coordinator for a toggled source
+ * `RagIndexer.handleWatchToggleEvent` looks up the coordinator for a toggled source
  * via `coordinators.find { it.knowledgeSourceConfig == event.knowledgeSource }` — and
  * `event.knowledgeSource` is the ALREADY-toggled copy (new watchForChanges value), while
  * the live coordinator still holds the config as it was when the source was indexed

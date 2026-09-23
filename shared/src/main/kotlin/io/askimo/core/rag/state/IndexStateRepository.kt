@@ -18,8 +18,8 @@ import java.time.Instant
 
 /**
  * Repository for managing file index state in the database.
- * All operations are scoped to (projectId, resourceId) so that multiple
- * coordinators for the same project never interfere with each other.
+ * All operations are scoped to (containerId, resourceId) so that multiple
+ * coordinators for the same container (project or resource collection) never interfere with each other.
  */
 class IndexStateRepository(
     private val databaseManager: DatabaseManager,
@@ -36,16 +36,16 @@ class IndexStateRepository(
     }
 
     /**
-     * Get all file hashes for a specific coordinator (project + resource + source type).
+     * Get all file hashes for a specific coordinator (container + resource + source type).
      */
     fun getHashesForSourceType(
-        projectId: String,
+        containerId: String,
         sourceType: String,
         resourceId: String,
     ): Map<String, String> = transaction(database) {
         IndexFileStateTable.selectAll()
             .where {
-                (IndexFileStateTable.projectId eq projectId) and
+                (IndexFileStateTable.containerId eq containerId) and
                     (IndexFileStateTable.sourceType eq sourceType) and
                     (IndexFileStateTable.resourceId eq resourceId)
             }
@@ -56,10 +56,10 @@ class IndexStateRepository(
 
     /**
      * Get hashes for a specific subset of file paths.
-     * Used by chunked indexing to avoid loading the entire project's hashes at once.
+     * Used by chunked indexing to avoid loading the entire container's hashes at once.
      */
     fun getHashesForFiles(
-        projectId: String,
+        containerId: String,
         resourceId: String,
         filePaths: List<String>,
     ): Map<String, String> {
@@ -69,7 +69,7 @@ class IndexStateRepository(
             transaction(database) {
                 IndexFileStateTable.selectAll()
                     .where {
-                        (IndexFileStateTable.projectId eq projectId) and
+                        (IndexFileStateTable.containerId eq containerId) and
                             (IndexFileStateTable.resourceId eq resourceId) and
                             (IndexFileStateTable.filePath inList chunk)
                     }
@@ -84,33 +84,33 @@ class IndexStateRepository(
      * Used for deleted-file detection: compare against the current filesystem scan.
      */
     fun getPathsForResource(
-        projectId: String,
+        containerId: String,
         resourceId: String,
     ): Set<String> = transaction(database) {
         IndexFileStateTable.selectAll()
             .where {
-                (IndexFileStateTable.projectId eq projectId) and
+                (IndexFileStateTable.containerId eq containerId) and
                     (IndexFileStateTable.resourceId eq resourceId)
             }
             .mapTo(HashSet<String>()) { it[IndexFileStateTable.filePath] }
     }
 
     /**
-     * Get all indexed paths for a project, optionally limited by source types.
+     * Get all indexed paths for a container, optionally limited by source types.
      * Used by UI cache hydration to avoid per-resource queries.
      */
     fun getPathsForProject(
-        projectId: String,
+        containerId: String,
         sourceTypes: Set<String> = emptySet(),
     ): Set<String> = transaction(database) {
         if (sourceTypes.isEmpty()) {
             IndexFileStateTable.selectAll()
-                .where { IndexFileStateTable.projectId eq projectId }
+                .where { IndexFileStateTable.containerId eq containerId }
                 .mapTo(HashSet<String>()) { it[IndexFileStateTable.filePath] }
         } else {
             IndexFileStateTable.selectAll()
                 .where {
-                    (IndexFileStateTable.projectId eq projectId) and
+                    (IndexFileStateTable.containerId eq containerId) and
                         (IndexFileStateTable.sourceType inList sourceTypes.toList())
                 }
                 .mapTo(HashSet<String>()) { it[IndexFileStateTable.filePath] }
@@ -123,7 +123,7 @@ class IndexStateRepository(
      * Used by chunked indexing to persist state incrementally per chunk.
      */
     fun upsertFileHashesBatch(
-        projectId: String,
+        containerId: String,
         resourceId: String,
         sourceType: String,
         fileHashes: Map<String, String>,
@@ -132,12 +132,12 @@ class IndexStateRepository(
         transaction(database) {
             for (chunk in fileHashes.keys.toList().chunked(IN_LIST_CHUNK_SIZE)) {
                 IndexFileStateTable.deleteWhere {
-                    (IndexFileStateTable.projectId eq projectId) and
+                    (IndexFileStateTable.containerId eq containerId) and
                         (IndexFileStateTable.resourceId eq resourceId) and
                         (IndexFileStateTable.filePath inList chunk)
                 }
             }
-            batchInsertFileHashes(projectId, resourceId, sourceType, fileHashes)
+            batchInsertFileHashes(containerId, resourceId, sourceType, fileHashes)
         }
     }
 
@@ -146,18 +146,18 @@ class IndexStateRepository(
      * Deletes stale entries first so removed files don't linger across indexing runs.
      */
     fun batchSaveFileStates(
-        projectId: String,
+        containerId: String,
         fileHashes: Map<String, String>,
         sourceType: String,
         resourceId: String,
     ) = transaction(database) {
         IndexFileStateTable.deleteWhere {
-            (IndexFileStateTable.projectId eq projectId) and
+            (IndexFileStateTable.containerId eq containerId) and
                 (IndexFileStateTable.sourceType eq sourceType) and
                 (IndexFileStateTable.resourceId eq resourceId)
         }
-        batchInsertFileHashes(projectId, resourceId, sourceType, fileHashes)
-        log.trace("Saved ${fileHashes.size} file states for project $projectId, resource $resourceId")
+        batchInsertFileHashes(containerId, resourceId, sourceType, fileHashes)
+        log.trace("Saved ${fileHashes.size} file states for container $containerId, resource $resourceId")
     }
 
     /**
@@ -165,7 +165,7 @@ class IndexStateRepository(
      * Must be called inside an existing transaction.
      */
     private fun batchInsertFileHashes(
-        projectId: String,
+        containerId: String,
         resourceId: String,
         sourceType: String,
         fileHashes: Map<String, String>,
@@ -173,7 +173,7 @@ class IndexStateRepository(
         if (fileHashes.isEmpty()) return
         val now = Instant.now()
         IndexFileStateTable.batchInsert(fileHashes.entries) { (filePath, hash) ->
-            this[IndexFileStateTable.projectId] = projectId
+            this[IndexFileStateTable.containerId] = containerId
             this[IndexFileStateTable.resourceId] = resourceId
             this[IndexFileStateTable.filePath] = filePath
             this[IndexFileStateTable.fileHash] = hash
@@ -186,7 +186,7 @@ class IndexStateRepository(
      * Remove state entries for specific deleted file paths.
      */
     fun removeFilePaths(
-        projectId: String,
+        containerId: String,
         resourceId: String,
         filePaths: Set<String>,
     ) {
@@ -194,7 +194,7 @@ class IndexStateRepository(
         transaction(database) {
             for (chunk in filePaths.toList().chunked(IN_LIST_CHUNK_SIZE)) {
                 IndexFileStateTable.deleteWhere {
-                    (IndexFileStateTable.projectId eq projectId) and
+                    (IndexFileStateTable.containerId eq containerId) and
                         (IndexFileStateTable.resourceId eq resourceId) and
                         (IndexFileStateTable.filePath inList chunk)
                 }
@@ -206,11 +206,26 @@ class IndexStateRepository(
      * Delete state for a single coordinator (one knowledge source).
      * Used when removing a specific knowledge source from a project.
      */
-    fun clearResourceState(projectId: String, resourceId: String) = transaction(database) {
+    fun clearResourceState(containerId: String, resourceId: String) = transaction(database) {
         val deleted = IndexFileStateTable.deleteWhere {
-            (IndexFileStateTable.projectId eq projectId) and
+            (IndexFileStateTable.containerId eq containerId) and
                 (IndexFileStateTable.resourceId eq resourceId)
         }
-        log.info("Cleared $deleted file states for project $projectId, resource $resourceId")
+        log.info("Cleared $deleted file states for container $containerId, resource $resourceId")
+    }
+
+    /**
+     * Delete all file-hash state for an entire container, across every resource/source type.
+     * Must be called whenever the on-disk/vector index for a container is wiped without going
+     * through each coordinator's [IndexStateManager.clearStates] (e.g. app-restart re-index or
+     * embedding-model-mismatch rebuild with no live coordinators) — otherwise a freshly created
+     * coordinator loads these stale hashes, treats every unchanged-on-disk file as already
+     * indexed, skips re-embedding it, and reports the now-empty index as READY.
+     */
+    fun clearAllStatesForContainer(containerId: String) = transaction(database) {
+        val deleted = IndexFileStateTable.deleteWhere {
+            IndexFileStateTable.containerId eq containerId
+        }
+        log.info("Cleared $deleted file states for container $containerId")
     }
 }

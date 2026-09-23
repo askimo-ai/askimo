@@ -45,6 +45,13 @@ import io.askimo.core.chat.service.ChatDirectiveService
 import io.askimo.core.chat.service.ProjectService
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.logging.logger
+import io.askimo.desktop.knowledgesource.KnowledgeSourceItem
+import io.askimo.desktop.knowledgesource.buildKnowledgeSourceConfigs
+import io.askimo.desktop.knowledgesource.knowledgeSourceRow
+import io.askimo.desktop.knowledgesource.urlInputDialog
+import io.askimo.desktop.knowledgesource.validateFile
+import io.askimo.desktop.knowledgesource.validateFolder
+import io.askimo.desktop.knowledgesource.validateUrl
 import io.askimo.ui.common.components.inlineErrorMessage
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.rememberDialogState

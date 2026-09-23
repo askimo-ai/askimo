@@ -14,6 +14,7 @@ import io.askimo.core.event.user.IndexingCompletedEvent
 import io.askimo.core.event.user.IndexingFailedEvent
 import io.askimo.core.event.user.IndexingStartedEvent
 import io.askimo.core.logging.logger
+import io.askimo.core.rag.container.IndexingContainerType
 import io.askimo.core.rag.filter.FilterChain
 import io.askimo.core.rag.indexing.HybridIndexer
 import io.askimo.core.rag.indexing.ResourceContentProcessor
@@ -29,15 +30,16 @@ import kotlin.io.path.walk
  * Handles file change events from the file watcher
  */
 class FileChangeHandler(
-    private val projectId: String,
-    private val projectName: String,
+    private val containerId: String,
+    private val containerName: String,
+    private val containerType: IndexingContainerType,
     private val embeddingStore: EmbeddingStore<TextSegment>,
     private val embeddingModel: EmbeddingModel,
     private val appContext: AppContext,
 ) {
     private val log = logger<FileChangeHandler>()
     private val resourceContentProcessor = ResourceContentProcessor(appContext)
-    private val batchIndexer = HybridIndexer(embeddingStore, embeddingModel, projectId)
+    private val batchIndexer = HybridIndexer(embeddingStore, embeddingModel, containerId)
 
     private val filterChain: FilterChain = FilterChain.DEFAULT
 
@@ -56,8 +58,9 @@ class FileChangeHandler(
             batchIndexer.removeFileFromIndex(filePath)
             EventBus.emit(
                 FileRemovedFromIndexEvent(
-                    projectId = projectId,
-                    projectName = projectName,
+                    containerId = containerId,
+                    containerName = containerName,
+                    containerType = containerType,
                     fileName = filePath.fileName.toString(),
                 ),
             )
@@ -67,7 +70,13 @@ class FileChangeHandler(
         // New directory created — index all files inside it
         if (kind == StandardWatchEventKinds.ENTRY_CREATE && filePath.isDirectory()) {
             log.debug("Directory created: {}, indexing all files inside...", filePath.fileName)
-            EventBus.emit(IndexingStartedEvent(projectId = projectId, projectName = projectName))
+            EventBus.emit(
+                IndexingStartedEvent(
+                    containerId = containerId,
+                    containerName = containerName,
+                    containerType = containerType,
+                ),
+            )
             try {
                 var indexedCount = 0
                 filePath.walk()
@@ -78,8 +87,9 @@ class FileChangeHandler(
                 batchIndexer.flushRemainingSegments()
                 EventBus.emit(
                     IndexingCompletedEvent(
-                        projectId = projectId,
-                        projectName = projectName,
+                        containerId = containerId,
+                        containerName = containerName,
+                        containerType = containerType,
                         filesIndexed = indexedCount,
                     ),
                 )
@@ -87,8 +97,9 @@ class FileChangeHandler(
                 log.error("Failed to index new directory {}", filePath.fileName, e)
                 EventBus.emit(
                     IndexingFailedEvent(
-                        projectId = projectId,
-                        projectName = projectName,
+                        containerId = containerId,
+                        containerName = containerName,
+                        containerType = containerType,
                         errorMessage = e.message ?: "Failed to index new directory ${filePath.fileName}",
                     ),
                 )
@@ -106,21 +117,29 @@ class FileChangeHandler(
             StandardWatchEventKinds.ENTRY_MODIFY,
             -> {
                 log.debug("File changed: {}, re-indexing...", filePath.fileName)
-                EventBus.emit(IndexingStartedEvent(projectId = projectId, projectName = projectName))
+                EventBus.emit(
+                    IndexingStartedEvent(
+                        containerId = containerId,
+                        containerName = containerName,
+                        containerType = containerType,
+                    ),
+                )
                 val success = reindexFile(filePath)
                 if (success) {
                     EventBus.emit(
                         IndexingCompletedEvent(
-                            projectId = projectId,
-                            projectName = projectName,
+                            containerId = containerId,
+                            containerName = containerName,
+                            containerType = containerType,
                             filesIndexed = 1,
                         ),
                     )
                 } else {
                     EventBus.emit(
                         IndexingFailedEvent(
-                            projectId = projectId,
-                            projectName = projectName,
+                            containerId = containerId,
+                            containerName = containerName,
+                            containerType = containerType,
                             errorMessage = "Failed to re-index '${filePath.fileName}'",
                         ),
                     )

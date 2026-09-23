@@ -22,6 +22,7 @@ import io.askimo.core.chat.repository.ChatMessageRepository
 import io.askimo.core.chat.repository.ChatSessionRepository
 import io.askimo.core.chat.repository.PaginationDirection
 import io.askimo.core.chat.repository.ProjectRepository
+import io.askimo.core.chat.repository.ResourceCollectionRepository
 import io.askimo.core.chat.repository.SessionMemoryRepository
 import io.askimo.core.chat.util.FileContentExtractor
 import io.askimo.core.chat.util.FileSizeExceededException
@@ -43,6 +44,8 @@ import io.askimo.core.memory.TokenAwareSummarizingMemory
 import io.askimo.core.providers.ChatClient
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.rag.RagUtils
+import io.askimo.core.rag.container.IndexingContainer
+import io.askimo.core.rag.container.asIndexingContainer
 import io.askimo.core.util.formatFileSize
 import io.askimo.core.vision.toUserMessage
 import kotlinx.coroutines.CoroutineScope
@@ -97,6 +100,8 @@ data class ResumeSessionPaginatedResult(
     val cursor: Instant? = null,
     val hasMore: Boolean = false,
     val errorMessage: String? = null,
+    /** Persistent user-selected resource collections for this session (chip state). */
+    val activeResourceCollectionIds: List<String> = emptyList(),
 )
 
 /**
@@ -116,6 +121,7 @@ class ChatSessionService(
     private val messageRepository: ChatMessageRepository = DatabaseManager.getInstance().getChatMessageRepository(),
     private val sessionMemoryRepository: SessionMemoryRepository = DatabaseManager.getInstance().getSessionMemoryRepository(),
     private val projectRepository: ProjectRepository = DatabaseManager.getInstance().getProjectRepository(),
+    private val resourceCollectionRepository: ResourceCollectionRepository = DatabaseManager.getInstance().getResourceCollectionRepository(),
     private val appContext: AppContext,
 ) {
     private val log = logger<ChatSessionService>()
@@ -123,13 +129,11 @@ class ChatSessionService(
     private val eventScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
-     * Cache of session contexts (ChatClient + TokenAwareSummarizingMemory).
-     * Each session can have TWO contexts: regular and vision.
-     * Cache keys: "sessionId" for regular, "sessionId_vision" for vision.
-     * Caffeine provides automatic eviction when memory is low or sessions are inactive.
+     * Cache of session contexts (ChatClient + memory). Each session can have two
+     * contexts (regular + vision), keyed as "sessionId" / "sessionId_vision".
      */
     private val sessionContextCache: Cache<String, SessionChatContext> = Caffeine.newBuilder()
-        .maximumSize(20) // Increased to accommodate both regular and vision clients
+        .maximumSize(20) // regular + vision clients
         .expireAfterAccess(30.minutes.toJavaDuration())
         .removalListener<String, SessionChatContext> { sessionId, context, cause ->
             if (context != null && sessionId != null) {
@@ -139,16 +143,15 @@ class ChatSessionService(
         .build()
 
     /**
-     * Cache of shared memory instances.
-     * Both regular and vision clients share the same memory to maintain conversation continuity.
+     * Shared memory instances — regular and vision clients use the same memory
+     * to keep conversation continuity.
      */
     private val memoryCache: Cache<String, TokenAwareSummarizingMemory> = Caffeine.newBuilder()
         .maximumSize(10)
         .expireAfterAccess(30.minutes.toJavaDuration())
         .removalListener<String, TokenAwareSummarizingMemory> { sessionId, memory, _ ->
-            // Only summarize when new messages were added since the last summary cycle.
-            // Skipping when nothing is new avoids a wasteful AI API call (e.g. user
-            // opened a session, read it, and navigated away without sending anything).
+            // Skip summarization if nothing changed since the last cycle (avoids a
+            // wasteful AI call, e.g. user opened a session and left without sending).
             if (memory != null && sessionId != null) {
                 if (memory.hasNewMessagesSinceLastSummary()) {
                     log.debug("Memory evicted for session {}, triggering background summarization", sessionId)
@@ -161,24 +164,17 @@ class ChatSessionService(
         .build()
 
     /**
-     * Per-session web-search-in-RAG toggle.
-     * Keyed by sessionId; absent = false (disabled by default).
-     * Changing the value invalidates the session context cache so that
-     * the next [getOrCreateClientForSession] call rebuilds the retriever
-     * pipeline. The memory cache is deliberately left untouched so that
-     * conversation history is preserved across the rebuild.
+     * Per-session web-search-in-RAG toggle. Absent = false. Changing the value
+     * invalidates the session context cache (memory cache is left untouched).
      */
     private val sessionWebSearchState = ConcurrentHashMap<String, Boolean>()
 
     /**
-     * Enable or disable live web search in the RAG pipeline for a specific session.
-     *
-     * When the value changes the cached [SessionChatContext] for that session is
-     * evicted so the next send recreates the [ContentRetriever] with the updated
-     * flag. The conversation memory is preserved.
+     * Enable/disable live web search in RAG for a session. Evicts the cached
+     * [SessionChatContext] so the next send rebuilds the retriever; memory is preserved.
      *
      * @param sessionId The session to update.
-     * @param enabled   true to include web results in RAG retrieval, false to exclude them.
+     * @param enabled   true to include web results in RAG retrieval.
      */
     fun setWebSearchForSession(sessionId: String, enabled: Boolean) {
         val previous = sessionWebSearchState.put(sessionId, enabled)
@@ -210,7 +206,7 @@ class ChatSessionService(
     }
 
     /**
-     * Handle model change event - clear all cached contexts since they use the old model.
+     * Handle model change — clear all cached contexts since they use the old model.
      */
     private fun handleModelChanged(event: ModelChangedEvent) {
         log.info("Model changed to ${event.newModel} for provider ${event.provider}, clearing cached contexts")
@@ -218,8 +214,8 @@ class ChatSessionService(
     }
 
     /**
-     * Handle reasoning effort change event - clear all cached contexts so the next send
-     * recreates the ChatClient with the updated reasoning level from ModelCapabilitiesCache.
+     * Handle reasoning effort change — clear cached contexts so the next send
+     * recreates the ChatClient with the updated reasoning level.
      */
     private fun handleReasoningEffortChanged(event: ReasoningEffortChangedEvent) {
         log.info("Reasoning effort changed to ${event.newEffort} for ${event.model} (${event.provider}), clearing cached contexts")
@@ -227,11 +223,8 @@ class ChatSessionService(
     }
 
     /**
-     * Get or create shared memory for a session.
-     * This ensures both regular and vision clients share the same conversation history.
-     *
-     * @param sessionId The session ID
-     * @return Shared TokenAwareSummarizingMemory instance
+     * Get or create shared memory for a session, so regular and vision clients
+     * share the same conversation history.
      */
     internal fun getOrCreateSharedMemory(sessionId: String): TokenAwareSummarizingMemory = memoryCache.get(sessionId) { _ ->
         TokenAwareSummarizingMemory(
@@ -244,31 +237,41 @@ class ChatSessionService(
     }
 
     /**
-     * Get or create a chat context (client + memory) for a session.
-     * Both regular and vision clients share the same memory to maintain conversation continuity.
-     *
-     * @param sessionId The session ID
-     * @return SessionChatContext containing the ChatClient and its associated memory
+     * Get or create a chat context (client + memory) for a session. Regular and
+     * vision clients share the same memory for conversation continuity.
      */
     private fun getOrCreateContextForSession(
         sessionId: String,
     ): SessionChatContext = sessionContextCache.get(sessionId) { _ ->
         val project = projectRepository.findProjectBySessionId(sessionId)
 
-        // Get or create shared memory - REUSE across both regular and vision clients
+        // Reuse shared memory across regular and vision clients
         val sharedMemory = getOrCreateSharedMemory(sessionId)
 
         val useWebSearch = sessionWebSearchState[sessionId] ?: false
 
-        // Create content retriever if project has indexed paths
-        val retriever = if (project != null) {
-            log.debug("Session $sessionId belongs to project: ${project.id}, useWebSearch=$useWebSearch")
-            createRetrieverForProject(appContext.createUtilityClient(), project, useWebSearch)
-        } else {
-            null
+        // Resolve the single RAG container backing this session's retriever: a
+        // project's sources take precedence; otherwise fall back to the session's
+        // chip-selected Resource Collection (at most one is ever active). Only one
+        // container is active at a time — combining both is a possible future enhancement.
+        val container: IndexingContainer? = when {
+            project != null -> project.asIndexingContainer()
+
+            else -> {
+                sessionRepository.getSession(sessionId)
+                    ?.activeResourceCollectionIds
+                    ?.firstOrNull()
+                    ?.let { resourceCollectionRepository.getCollection(it) }
+                    ?.asIndexingContainer()
+            }
         }
 
-        // Create client with vision support if requested
+        // Content retriever only if a container is active
+        val retriever = container?.let {
+            log.debug("Session {} using RAG container: {} {}, useWebSearch={}", sessionId, it.type, it.id, useWebSearch)
+            createRetrieverForContainer(appContext.createUtilityClient(), it, useWebSearch)
+        }
+
         val chatClient = appContext.createStatefulChatSession(
             sessionId = sessionId,
             retriever = retriever,
@@ -279,57 +282,47 @@ class ChatSessionService(
     }
 
     /**
-     * Get or create a ChatClient for a session.
-     * If needsVision=true, returns a vision-capable client.
-     * Both regular and vision clients share the same conversation memory.
-     *
-     * @param sessionId The session ID
-     * @return ChatClient for the session (vision-capable if requested)
+     * Get or create a ChatClient for a session (vision-capable if requested).
+     * Regular and vision clients share the same conversation memory.
      */
     fun getOrCreateClientForSession(
         sessionId: String,
     ): ChatClient = getOrCreateContextForSession(sessionId).chatClient
 
     /**
-     * Create a content retriever for a project if it has indexed paths.
-     * Uses hybrid search combining:
-     * - JVector for semantic similarity (vector embeddings)
-     * - Lucene for keyword matching (BM25)
-     * - Reciprocal Rank Fusion to merge results
-     * - Optionally live web search when [useWebSearch] is true
-     *
-     * @param project The project to create a retriever for
-     * @param useWebSearch Whether to include live web search results in the RAG pipeline
-     * @return Content retriever if project has indexed paths, null otherwise
+     * Build a [ContentRetriever] for any RAG-indexed [IndexingContainer] (a [Project] or a
+     * [io.askimo.core.chat.domain.ResourceCollection]). Same pipeline for both — hybrid
+     * vector (JVector) + keyword (Lucene) search with RRF fusion, optionally augmented
+     * with live web search. Only the container's id and knowledgeSources differ.
      */
-    private fun createRetrieverForProject(
+    private fun createRetrieverForContainer(
         classifierChatClient: ChatClient,
-        project: Project,
+        container: IndexingContainer,
         useWebSearch: Boolean = false,
     ): ContentRetriever? {
         try {
             val embeddingModel = appContext.getEmbeddingModel()
 
-            val embeddingStore = RagUtils.getEmbeddingStore(project.id, embeddingModel)
+            val embeddingStore = RagUtils.getEmbeddingStore(container.id, embeddingModel)
 
             val ragConfig = AppConfig.rag
 
             val vectorRetriever = RagUtils.enrichContentRetrieverWithLucene(
                 classifierChatClient,
-                project.id,
+                container.id,
                 EmbeddingStoreContentRetriever.builder()
                     .embeddingStore(embeddingStore)
                     .embeddingModel(embeddingModel)
                     .maxResults(ragConfig.vectorSearchMaxResults)
                     .minScore(ragConfig.vectorSearchMinScore)
                     .build(),
-                project.knowledgeSources.map { it.resourceIdentifier },
+                container.knowledgeSources.map { it.resourceIdentifier },
                 useWebSearch = useWebSearch,
             )
 
             return vectorRetriever
         } catch (e: Exception) {
-            log.error("Failed to create content retriever for project ${project.id}", e)
+            log.error("Failed to create content retriever for ${container.type} ${container.id}", e)
             return null
         }
     }
@@ -368,18 +361,15 @@ class ChatSessionService(
     fun getSessionsPagedWithoutProject(page: Int, pageSize: Int, sortOrder: SortOrder = SortOrder.DESC): Pageable<ChatSession> = sessionRepository.getSessionsPaged(page, pageSize, projectFilter = false, sortOrder = sortOrder)
 
     /**
-     * Returns the cached [TokenAwareSummarizingMemory] for [sessionId] if it is currently
-     * loaded in the memory cache, or null if the session has never been accessed / was evicted.
-     *
-     * Used by [io.askimo.ui.chat.ChatViewModel] to subscribe to [TokenAwareSummarizingMemory.pressureLevel]
-     * and to call [TokenAwareSummarizingMemory.forceCompact].
+     * Returns the cached memory for [sessionId] if currently loaded, or null if never
+     * accessed / evicted. Used by ChatViewModel to subscribe to pressureLevel and call forceCompact.
      */
     fun getMemoryForSession(sessionId: String): TokenAwareSummarizingMemory? = memoryCache.getIfPresent(sessionId)
 
     /**
-     * Returns the [TokenAwareSummarizingMemory] for [sessionId], creating and caching it
-     * synchronously if not already present. Memory creation is a fast local DB read —
-     * safe to call on any background thread immediately after session resume.
+     * Returns the memory for [sessionId], creating and caching it synchronously if
+     * absent. A fast local DB read — safe to call on any background thread right
+     * after session resume.
      */
     fun getOrCreateMemoryForSession(sessionId: String): TokenAwareSummarizingMemory = getOrCreateSharedMemory(sessionId)
 
@@ -405,8 +395,8 @@ class ChatSessionService(
             )
         }
 
-        // Asynchronously generate a better AI title using the first user message.
-        // The trimmed title is already persisted by createSession — this is a best-effort improvement.
+        // Asynchronously generate a better AI title from the first user message.
+        // The trimmed title is already persisted — this is a best-effort improvement.
         if (session.title.isNotBlank()) {
             eventScope.launch {
                 try {
@@ -418,9 +408,9 @@ class ChatSessionService(
                     """.trimIndent()
                     val utilityChatClient = appContext.createUtilityClient()
 
-                    // Normalize to a single line and cap the length before persisting/broadcasting —
-                    // mirrors TitleGenerator.fallbackTitle's contract, since the model isn't
-                    // guaranteed to honor the "short, no punctuation" instruction above.
+                    // Normalize to a single line and cap length before persisting/broadcasting
+                    // (mirrors TitleGenerator.fallbackTitle) since the model may not honor
+                    // the "short, no punctuation" instruction.
                     val aiTitle = utilityChatClient.sendMessage(prompt)
                         .trim()
                         .replace("\n", " ")
@@ -448,13 +438,10 @@ class ChatSessionService(
     }
 
     /**
-     * Fork a session from a specific AI message.
-     *
-     * Creates a new independent session pre-populated with all active (non-outdated)
-     * messages from [sourceSessionId] up to and including [upToMessageId].
-     * The forked session inherits the source session's [ChatSession.directiveId] and
-     * [ChatSession.projectId]. All messages are given fresh IDs; the source session is
-     * left completely untouched.
+     * Fork a session from a specific AI message. Creates a new independent session
+     * pre-populated with all active (non-outdated) messages from [sourceSessionId]
+     * up to and including [upToMessageId]. Inherits directiveId and projectId from
+     * the source; all messages get fresh IDs. The source session is left untouched.
      *
      * @param sourceSessionId The ID of the session to fork from.
      * @param upToMessageId   The ID of the AI message to fork from (inclusive).
@@ -466,7 +453,7 @@ class ChatSessionService(
         val sourceSession = sessionRepository.getSession(sourceSessionId)
             ?: throw IllegalArgumentException("Source session $sourceSessionId not found")
 
-        // Collect active messages up to and including the target message (chronological order).
+        // Active messages up to and including the target message (chronological order)
         val allMessages = messageRepository.getMessages(sourceSessionId)
         val activeMessages = allMessages.filter { !it.isOutdated }
         val targetIndex = activeMessages.indexOfFirst { it.id == upToMessageId }
@@ -475,7 +462,7 @@ class ChatSessionService(
         }
         val messagesToCopy = activeMessages.subList(0, targetIndex + 1)
 
-        // Create the forked session (no AI title generation — title is already descriptive).
+        // Create the forked session (title is already descriptive, no AI title generation)
         val forkedSession = sessionRepository.createSession(
             ChatSession(
                 id = "",
@@ -485,7 +472,7 @@ class ChatSessionService(
             ),
         )
 
-        // Bulk-insert all copied messages under the new session ID with fresh UUIDs.
+        // Bulk-insert copied messages under the new session ID with fresh UUIDs
         val copiedMessages = messagesToCopy.map { msg ->
             msg.copy(
                 id = "", // auto-UUID in addMessages()
@@ -497,12 +484,11 @@ class ChatSessionService(
         }
         messageRepository.addMessages(copiedMessages)
 
-        // Update the session's updatedAt timestamp to reflect the bulk write.
+        // Reflect the bulk write in the session's updatedAt
         sessionRepository.touchSession(forkedSession.id)
 
-        // Warm up a chat client for the new session in the background.
-        // This is optional and doesn't block the fork — if it fails (e.g., no model
-        // configured in tests), the client will be created on-demand when needed.
+        // Warm up a chat client for the new session in the background (optional —
+        // falls back to on-demand creation if it fails, e.g. no model in tests).
         eventScope.launch {
             try {
                 getOrCreateClientForSession(forkedSession.id)
@@ -591,6 +577,28 @@ class ChatSessionService(
     fun updateSessionDirective(sessionId: String, directiveId: String?): Boolean = sessionRepository.updateSessionDirective(sessionId, directiveId)
 
     /**
+     * Update the persistent set of active Resource Collections for a session
+     * (chip state — see [ChatSession.activeResourceCollectionIds]).
+     *
+     * Note: this only persists the selection; it doesn't (yet) feed RAG retrieval —
+     * that wiring is a separate, later phase.
+     *
+     * @param sessionId The ID of the session to update
+     * @param collectionIds The full replacement list of active collection ids
+     * @return true if the session was updated, false if it didn't exist
+     */
+    fun updateSessionActiveResourceCollections(sessionId: String, collectionIds: List<String>): Boolean {
+        val updated = sessionRepository.updateSessionActiveResourceCollections(sessionId, collectionIds)
+        if (updated) {
+            // Invalidate the cached client/retriever so the next message rebuilds the
+            // RAG pipeline against the newly selected collection (or none, if cleared).
+            sessionContextCache.invalidate(sessionId)
+            log.debug("Active resource collections updated for session {}, context cache invalidated", sessionId)
+        }
+        return updated
+    }
+
+    /**
      * Add a message to a session and update the session's timestamp.
      *
      * @param message The message to add
@@ -609,12 +617,9 @@ class ChatSessionService(
         sessionId: String,
         response: String,
         /**
-         * Pre-generated ID for the assistant message.
-         *
-         * When supplied, this ID is used as-is so the client and server agree on the same
-         * stable message identity. Leaving this blank (default) causes a new UUID to be
-         * generated at insert time, preserving backward-compatible behaviour for callers
-         * that do not pre-generate IDs.
+         * Pre-generated ID for the assistant message. When supplied, used as-is so
+         * client and server agree on the same identity. Left blank (default), a new
+         * UUID is generated at insert time.
          */
         messageId: String = "",
         isFailed: Boolean = false,
@@ -622,14 +627,13 @@ class ChatSessionService(
         outputTokens: Int? = null,
         totalTokens: Int? = null,
         durationMs: Long? = null,
-        // Ordered tool-call + response-text content blocks for this turn (Tool + Token only,
-        // no Thinking/Status) — mirrors AgentRunRecord.contentBlocks. See
-        // SessionManager.StreamingThread.timeline for the source.
+        // Ordered tool-call + response-text blocks for this turn (Tool + Token only) —
+        // mirrors AgentRunRecord.contentBlocks; see SessionManager.StreamingThread.timeline.
         contentBlocks: List<TurnTimelineEntry> = emptyList(),
     ): ChatMessage {
-        // When a stable messageId was supplied and the message is not a failure, the server
-        // already persisted the assistant message. Pre-mark synced at INSERT time so no
-        // separate markSynced() UPDATE is needed — single DB call.
+        // When a stable messageId was supplied and the message isn't a failure, the
+        // server already persisted it. Pre-mark synced at insert time so no separate
+        // markSynced() UPDATE is needed.
         val isPreSynced = messageId.isNotBlank() && !isFailed &&
             appContext.getActiveProvider() == ModelProvider.ASKIMO_PRO
         return addMessage(
@@ -672,13 +676,11 @@ class ChatSessionService(
         val sharedMemory = memoryCache.getIfPresent(sessionId)
 
         if (sharedMemory != null) {
-            // 1. Delete session memory from database
+            // Clear session memory and reload with the most recent 50 active messages
             sessionMemoryRepository.deleteBySessionId(sessionId)
 
-            // 2. Get the most recent 50 active messages (sorted and limited in database)
             val remainingMessages = messageRepository.getRecentActiveMessages(sessionId, limit = 50).drop(1)
 
-            // 3. Convert to MemoryMessage and reload memory
             val memoryMessages = remainingMessages.map { msg ->
                 MemoryMessage(
                     content = msg.content,
@@ -750,23 +752,20 @@ class ChatSessionService(
                 direction = PaginationDirection.BACKWARD,
             )
 
-            // Fetch project if session belongs to one
             val project = existingSession.projectId?.let { projectId ->
                 projectRepository.getProject(projectId)
             }
 
-            // Eagerly create and cache the memory synchronously so that pressureLevel /
-            // utilization StateFlows are immediately live when ChatViewModel subscribes.
-            // This is a fast local DB read (loads saved summary + message list) and safe
-            // to call on the calling thread — the session already exists at this point.
+            // Eagerly create/cache memory so pressureLevel/utilization StateFlows are
+            // live as soon as ChatViewModel subscribes. Fast local DB read, safe here.
             try {
                 getOrCreateSharedMemory(sessionId)
             } catch (e: Exception) {
                 log.debug("Could not eagerly create shared memory for session $sessionId: ${e.message}")
             }
 
-            // Pre-create the full chat client (model + retriever) asynchronously in the
-            // background — this is heavier and must not block UI message rendering.
+            // Pre-create the full chat client (model + retriever) in the background —
+            // heavier, must not block UI message rendering.
             eventScope.launch {
                 try {
                     getOrCreateClientForSession(sessionId)
@@ -785,6 +784,7 @@ class ChatSessionService(
                 messages = messages.toDTOs(),
                 cursor = cursor,
                 hasMore = cursor != null,
+                activeResourceCollectionIds = existingSession.activeResourceCollectionIds,
             )
         } else {
             ResumeSessionPaginatedResult(
@@ -853,31 +853,22 @@ class ChatSessionService(
     fun getStarredSessions(): List<ChatSession> = sessionRepository.getStarredSessions()
 
     /**
-     * Prepares user message with attachments and URL contents, returns UserMessage for multi-modal support.
+     * Prepares a user message with attachments and URL contents as a UserMessage for
+     * multi-modal support (text, images, file attachments, extracted URL contents).
      *
-     * Handles both text-only messages and multi-modal messages containing images, file attachments,
-     * and extracted URL contents. Uses VisionExtensions.toUserMessage() for automatic conversion.
-     *
-     * The directive (system instructions + session-specific directive) is prepended to the user message
-     * to act as system-level instructions. While ideally these would be separate system messages,
-     * the current LangChain4j AI Services architecture sets system messages at build time,
-     * so we prepend directives to user messages to allow per-session customization.
-     *
-     * The format is:
+     * The directive (system instructions + session-specific directive) is prepended to
+     * the user message to act as system-level instructions. LangChain4j AI Services sets
+     * system messages at build time, so directives are prepended here to allow per-session
+     * customization:
      * ```
      * [System Directive]
-     *
      * ---
-     *
      * [Session-Specific Directive]
-     *
      * ---
-     *
      * [User Message with Attachments and URL Contents]
      * ```
-     *
-     * If attachments are present, they will be included inline in the message using file:// format.
-     * If URLs are detected in the message with explicit intent, their content will be extracted and appended.
+     * Attachments are inlined using file:// format; URLs detected with explicit intent
+     * have their content extracted and appended.
      *
      * @return UserMessage ready to send to the AI (supports text + images)
      */
@@ -887,8 +878,8 @@ class ChatSessionService(
         willSaveUserMessage: Boolean,
     ): List<Content> {
         if (willSaveUserMessage) {
-            // Pre-mark the user message as synced at INSERT time when the active provider
-            // persists messages server-side — single DB call, no separate UPDATE needed.
+            // Pre-mark synced at insert time when the active provider persists messages
+            // server-side — single DB call, no separate UPDATE needed.
             val preSyncedAt = if (appContext.getActiveProvider() == ModelProvider.ASKIMO_PRO) {
                 Instant.now()
             } else {
@@ -908,7 +899,7 @@ class ChatSessionService(
 
         sessionRepository.touchSession(sessionId)
 
-        // Generate title only if session doesn't have one yet
+        // Generate a title only if the session doesn't have one yet
         val session = sessionRepository.getSession(sessionId)
         if (session?.title.isNullOrBlank()) {
             val generatedTitle = sessionRepository.generateAndUpdateTitle(sessionId, userMessage.content)
@@ -923,13 +914,10 @@ class ChatSessionService(
             }
         }
 
-        // Construct enriched message with attachments and URL contents
+        // Enrich with attachments/URL contents, then convert (handles text-only and
+        // multi-modal images).
         val enrichedContent = constructMessageWithAttachmentsAndUrls(userMessage)
-
-        // Create enriched ChatMessageDTO with combined content but preserve image attachments
         val enrichedMessage = userMessage.copy(content = enrichedContent)
-
-        // Convert to UserMessage - this handles both text-only and multi-modal (images)
         return enrichedMessage.toUserMessage()
     }
 
@@ -965,9 +953,8 @@ class ChatSessionService(
         val rows = messageRepository.getAllBookmarkedWithSessions()
         if (rows.isEmpty()) return emptyList()
 
-        // groupBy on a LinkedHashMap preserves the insertion order from the DB result,
-        // so sessions remain sorted by updatedAt DESC and messages within each group
-        // remain sorted by createdAt ASC — exactly the DB ORDER BY clause.
+        // groupBy on a LinkedHashMap preserves DB result order, so sessions stay
+        // sorted by updatedAt DESC and messages by createdAt ASC, per the ORDER BY.
         return rows
             .groupBy({ it.second }, { it.first })
             .map { (session, messages) -> BookmarkGroup(session, messages.map { it.toDTO() }) }

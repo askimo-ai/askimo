@@ -7,46 +7,44 @@ package io.askimo.core.event.user
 import io.askimo.core.event.Event
 import io.askimo.core.event.EventSource
 import io.askimo.core.event.EventType
+import io.askimo.core.rag.container.IndexingContainerType
 import java.time.Instant
 
 /**
- * Event emitted when a project is queued for indexing because another project
- * is currently being indexed. The project will start indexing once the queue clears.
+ * Emitted when a container (project or resource collection) is queued for indexing
+ * because another container is currently indexing. Starts once the queue clears.
  */
 data class IndexingQueuedEvent(
-    val projectId: String,
-    val projectName: String,
-    /** Name of the project currently being indexed that is blocking this one. */
-    val blockedByProjectName: String,
+    val containerId: String,
+    val containerName: String,
+    val containerType: IndexingContainerType,
+    /** Name of the container currently being indexed that is blocking this one. */
+    val blockedByContainerName: String,
     override val timestamp: Instant = Instant.now(),
     override val source: EventSource = EventSource.SYSTEM,
 ) : Event {
     override val type = EventType.INTERNAL
-    override fun getDetails(): String = "Project '$projectName' is queued for indexing, waiting for '$blockedByProjectName'"
+    override fun getDetails(): String = "'$containerName' is queued for indexing, waiting for '$blockedByContainerName'"
 }
 
-/**
- * Event emitted when project indexing starts.
- * This is a user-facing event shown in the notification footer.
- */
+/** Emitted when indexing starts for a container. User-facing, shown in the notification footer. */
 data class IndexingStartedEvent(
-    val projectId: String,
-    val projectName: String,
+    val containerId: String,
+    val containerName: String,
+    val containerType: IndexingContainerType,
     override val timestamp: Instant = Instant.now(),
     override val source: EventSource = EventSource.SYSTEM,
 ) : Event {
     override val type = EventType.INTERNAL
 
-    override fun getDetails(): String = "Indexing project '$projectName' ..."
+    override fun getDetails(): String = "Indexing '$containerName' ..."
 }
 
-/**
- * Event emitted periodically during project indexing to show progress.
- * This is a user-facing event shown in the notification footer.
- */
+/** Emitted periodically during indexing to show progress. User-facing, shown in the notification footer. */
 data class IndexingInProgressEvent(
-    val projectId: String,
-    val projectName: String,
+    val containerId: String,
+    val containerName: String,
+    val containerType: IndexingContainerType,
     val filesIndexed: Int,
     val totalFiles: Int,
     val resourceId: String,
@@ -68,17 +66,15 @@ data class IndexingInProgressEvent(
             0
         }
         val fileInfo = currentFile?.let { " | current: $it" }.orEmpty()
-        return "Indexing project '$projectName': $filesIndexed/$totalFiles files, $chunksIndexed/$totalChunks chunks ($percentage%) [resource: $resourceId$fileInfo]"
+        return "Indexing '$containerName': $filesIndexed/$totalFiles files, $chunksIndexed/$totalChunks chunks ($percentage%) [resource: $resourceId$fileInfo]"
     }
 }
 
-/**
- * Event emitted when project indexing completes successfully.
- * This is a user-facing event shown in the notification footer.
- */
+/** Emitted when indexing completes successfully for a container. User-facing, shown in the notification footer. */
 data class IndexingCompletedEvent(
-    val projectId: String,
-    val projectName: String,
+    val containerId: String,
+    val containerName: String,
+    val containerType: IndexingContainerType,
     val filesIndexed: Int,
     val skippedFileNames: List<String> = emptyList(),
     override val timestamp: Instant = Instant.now(),
@@ -92,39 +88,38 @@ data class IndexingCompletedEvent(
         } else {
             ""
         }
-        return "Successfully indexed $filesIndexed file(s) for project '$projectName'$skippedNote"
+        return "Successfully indexed $filesIndexed file(s) for '$containerName'$skippedNote"
     }
 }
 
-/**
- * Event emitted when project indexing fails.
- * This is a user-facing event shown in the notification footer.
- */
+/** Emitted when indexing fails for a container. User-facing, shown in the notification footer. */
 data class IndexingFailedEvent(
-    val projectId: String,
-    val projectName: String,
+    val containerId: String,
+    val containerName: String,
+    val containerType: IndexingContainerType,
     val errorMessage: String,
     override val timestamp: Instant = Instant.now(),
     override val source: EventSource = EventSource.SYSTEM,
 ) : Event {
     override val type = EventType.INTERNAL
 
-    override fun getDetails(): String = "Failed to index project '$projectName': $errorMessage"
+    override fun getDetails(): String = "Failed to index '$containerName': $errorMessage"
 }
 
 /**
- * Event emitted when the file watcher detects that a watched file (or directory) was
- * deleted from disk and it has been removed from the project's index.
- * This is a user-facing event shown in the notification footer.
+ * Emitted when the file watcher detects a watched file (or directory) was deleted from
+ * disk and it's been removed from the container's index. User-facing, shown in the
+ * notification footer.
  */
 data class FileRemovedFromIndexEvent(
-    val projectId: String,
-    val projectName: String,
+    val containerId: String,
+    val containerName: String,
+    val containerType: IndexingContainerType,
     val fileName: String,
     override val timestamp: Instant = Instant.now(),
     override val source: EventSource = EventSource.SYSTEM,
 ) : Event {
     override val type = EventType.INTERNAL
 
-    override fun getDetails(): String = "'$fileName' was detected as removed and has been removed from the index for project '$projectName'"
+    override fun getDetails(): String = "'$fileName' was detected as removed and has been removed from the index for '$containerName'"
 }

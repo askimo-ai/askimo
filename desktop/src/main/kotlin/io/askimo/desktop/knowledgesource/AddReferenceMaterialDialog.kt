@@ -2,7 +2,7 @@
  *
  * Copyright (c) 2026 Askimo
  */
-package io.askimo.desktop.project
+package io.askimo.desktop.knowledgesource
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,8 +32,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.unit.dp
-import io.askimo.core.event.EventBus
-import io.askimo.core.event.internal.ProjectRefreshEvent
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
@@ -43,14 +41,14 @@ import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import kotlinx.coroutines.launch
 import java.util.UUID
-import kotlin.collections.plus
 
 /**
- * Dialog for adding reference materials to an existing project
+ * Dialog for adding reference materials (folders/files/URLs) to a Project or Resource
+ * Collection. Container-agnostic: it only builds a list of [KnowledgeSourceItem]s and
+ * hands them back via [onAdd] — persisting and re-indexing is up to the caller.
  */
 @Composable
 fun addReferenceMaterialDialog(
-    projectId: String,
     onDismiss: () -> Unit,
     onAdd: (List<KnowledgeSourceItem>) -> Unit,
 ) {
@@ -171,14 +169,6 @@ fun addReferenceMaterialDialog(
                 onClick = {
                     if (knowledgeSources.isNotEmpty()) {
                         onAdd(knowledgeSources)
-
-                        EventBus.post(
-                            ProjectRefreshEvent(
-                                projectId = projectId,
-                                reason = "Knowledge sources added via dialog",
-                            ),
-                        )
-
                         onDismiss()
                     }
                 },

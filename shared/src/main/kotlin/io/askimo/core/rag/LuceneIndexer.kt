@@ -33,7 +33,7 @@ import java.nio.file.Path
  * IndexWriter exists per Lucene index directory, preventing lock conflicts.
  */
 class LuceneIndexer private constructor(
-    private val projectId: String,
+    private val containerId: String,
 ) {
 
     private val log = logger<LuceneIndexer>()
@@ -48,7 +48,7 @@ class LuceneIndexer private constructor(
     }
 
     private val indexPath: Path
-        get() = RagUtils.getProjectLuceneIndexDir(projectId)
+        get() = RagUtils.getProjectLuceneIndexDir(containerId)
 
     companion object {
         const val FIELD_CONTENT = "content"
@@ -57,21 +57,21 @@ class LuceneIndexer private constructor(
         private val instances = mutableMapOf<String, LuceneIndexer>()
 
         /**
-         * Get or create a LuceneIndexer instance for a project.
-         * Thread-safe singleton pattern ensures only one IndexWriter per project.
+         * Get or create a LuceneIndexer instance for a container.
+         * Thread-safe singleton pattern ensures only one IndexWriter per container.
          */
         @Synchronized
-        fun getInstance(projectId: String): LuceneIndexer = instances.getOrPut(projectId) {
-            LuceneIndexer(projectId)
+        fun getInstance(containerId: String): LuceneIndexer = instances.getOrPut(containerId) {
+            LuceneIndexer(containerId)
         }
 
         /**
-         * Remove and close the LuceneIndexer instance for a project.
-         * Should be called when a project is deleted or indexer is no longer needed.
+         * Remove and close the LuceneIndexer instance for a container.
+         * Should be called when a container is deleted or indexer is no longer needed.
          */
         @Synchronized
-        fun removeInstance(projectId: String) {
-            instances.remove(projectId)?.close()
+        fun removeInstance(containerId: String) {
+            instances.remove(containerId)?.close()
         }
     }
 

@@ -62,13 +62,17 @@ import io.askimo.core.chat.domain.Project
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.FilePreviewRequestEvent
-import io.askimo.core.event.internal.ProjectIndexRemovalEvent
-import io.askimo.core.event.internal.ProjectIndexingRequestedEvent
-import io.askimo.core.event.internal.ProjectReIndexEvent
+import io.askimo.core.event.internal.IndexRemovalEvent
+import io.askimo.core.event.internal.IndexingRequestedEvent
 import io.askimo.core.event.internal.ProjectRefreshEvent
-import io.askimo.desktop.project.addReferenceMaterialDialog
-import io.askimo.desktop.project.buildKnowledgeSourceConfigs
-import io.askimo.desktop.project.mergeKnowledgeSourceConfigs
+import io.askimo.core.event.internal.ReIndexEvent
+import io.askimo.core.rag.container.IndexingContainerType
+import io.askimo.desktop.knowledgesource.FileTreeNode
+import io.askimo.desktop.knowledgesource.TreeNode
+import io.askimo.desktop.knowledgesource.addReferenceMaterialDialog
+import io.askimo.desktop.knowledgesource.buildKnowledgeSourceConfigs
+import io.askimo.desktop.knowledgesource.mergeKnowledgeSourceConfigs
+import io.askimo.desktop.knowledgesource.ragSourcesTree
 import io.askimo.desktop.project.reIndexConfirmDialog
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.preferences.ApplicationPreferences
@@ -219,7 +223,13 @@ fun communityProjectSidePanel(
                                                     if (ragIndexingStatus == "started" || ragIndexingStatus == "inprogress") {
                                                         showReIndexConfirmDialog = true
                                                     } else {
-                                                        EventBus.post(ProjectReIndexEvent(projectId = it.id, reason = "Manual re-index from side panel"))
+                                                        EventBus.post(
+                                                            ReIndexEvent(
+                                                                containerId = it.id,
+                                                                containerType = IndexingContainerType.PROJECT,
+                                                                reason = "Manual re-index from side panel",
+                                                            ),
+                                                        )
                                                     }
                                                 }
                                             },
@@ -259,7 +269,14 @@ fun communityProjectSidePanel(
                                             description = project.description,
                                             knowledgeSources = project.knowledgeSources.filter { it != source },
                                         )
-                                        EventBus.post(ProjectIndexRemovalEvent(projectId = project.id, knowledgeSource = source, reason = "Removed by user from side panel"))
+                                        EventBus.post(
+                                            IndexRemovalEvent(
+                                                containerId = project.id,
+                                                containerType = IndexingContainerType.PROJECT,
+                                                knowledgeSource = source,
+                                                reason = "Removed by user from side panel",
+                                            ),
+                                        )
                                         EventBus.post(ProjectRefreshEvent(projectId = project.id, reason = "Knowledge source removed"))
                                     }
                                 },
@@ -292,13 +309,25 @@ fun communityProjectSidePanel(
     if (showAddMaterialDialog && project != null) {
         val projectRepository = remember { DatabaseManager.getInstance().getProjectRepository() }
         addReferenceMaterialDialog(
-            projectId = project.id,
             onDismiss = { showAddMaterialDialog = false },
             onAdd = { newSources ->
                 val newConfigs = buildKnowledgeSourceConfigs(newSources)
                 val mergedConfigs = mergeKnowledgeSourceConfigs(existing = project.knowledgeSources, new = newConfigs)
                 projectRepository.updateProject(projectId = project.id, name = project.name, description = project.description, knowledgeSources = mergedConfigs)
-                EventBus.post(ProjectIndexingRequestedEvent(projectId = project.id, knowledgeSources = newConfigs, watchForChanges = true))
+                EventBus.post(
+                    IndexingRequestedEvent(
+                        containerId = project.id,
+                        containerType = IndexingContainerType.PROJECT,
+                        knowledgeSources = newConfigs,
+                        watchForChanges = true,
+                    ),
+                )
+                EventBus.post(
+                    ProjectRefreshEvent(
+                        projectId = project.id,
+                        reason = "Knowledge sources added via dialog",
+                    ),
+                )
                 showAddMaterialDialog = false
             },
         )
@@ -310,7 +339,13 @@ fun communityProjectSidePanel(
             projectName = project.name,
             onConfirm = {
                 showReIndexConfirmDialog = false
-                EventBus.post(ProjectReIndexEvent(projectId = project.id, reason = "Manual re-index confirmed by user from side panel"))
+                EventBus.post(
+                    ReIndexEvent(
+                        containerId = project.id,
+                        containerType = IndexingContainerType.PROJECT,
+                        reason = "Manual re-index confirmed by user from side panel",
+                    ),
+                )
             },
             onDismiss = { showReIndexConfirmDialog = false },
         )

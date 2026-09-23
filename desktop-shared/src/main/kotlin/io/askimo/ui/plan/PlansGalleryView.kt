@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -102,10 +103,21 @@ fun plansGalleryView(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        text = stringResource("plans.title"),
-                        style = AppTextStyles.pageTitle,
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Default.PlayCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.onBackground,
+                        )
+                        Text(
+                            text = stringResource("plans.title"),
+                            style = AppTextStyles.pageTitle,
+                        )
+                    }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                         verticalAlignment = Alignment.CenterVertically,

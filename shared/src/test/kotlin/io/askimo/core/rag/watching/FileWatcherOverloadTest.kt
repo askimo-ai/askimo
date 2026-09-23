@@ -41,7 +41,7 @@ class FileWatcherOverloadTest {
         val latch = CountDownLatch(dirCount)
 
         val watcher = FileWatcher(
-            projectId = "watch-overload-test",
+            containerId = "watch-overload-test",
             onFileChange = { path, _ ->
                 detected.add(path)
                 latch.countDown()

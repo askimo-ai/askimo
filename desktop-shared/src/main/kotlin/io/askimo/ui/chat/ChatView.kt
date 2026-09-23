@@ -95,7 +95,8 @@ import io.askimo.core.event.user.IndexingQueuedEvent
 import io.askimo.core.event.user.IndexingStartedEvent
 import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.memory.MemoryPressureLevel
-import io.askimo.core.rag.ProjectIndexer
+import io.askimo.core.rag.RagIndexer
+import io.askimo.core.rag.container.IndexingContainerType
 import io.askimo.core.util.TimeUtil.formatDisplay
 import io.askimo.core.util.formatFileSize
 import io.askimo.ui.common.components.primaryButton
@@ -146,6 +147,7 @@ fun chatView(
     onStarSession: (String, Boolean) -> Unit = { _, _ -> },
     onNavigateToProject: ((String) -> Unit)? = null,
     onNavigateToMcpSettings: (() -> Unit)? = null,
+    onNavigateToResourceCollections: (() -> Unit)? = null,
     onMoveSessionToNewProject: (sessionId: String) -> Unit = {},
     userAvatarPath: String? = null,
     serverBaseUrl: String? = null,
@@ -175,6 +177,7 @@ fun chatView(
     val currentSearchResultIndex = state.currentSearchResultIndex
     val isSearching = state.isSearching
     val selectedDirective = state.selectedDirective
+    val activeResourceCollectionIds = state.activeResourceCollectionIds
     val sessionTitle = state.sessionTitle
     val project = state.project
     val activeTimeline = state.activeTimeline
@@ -309,16 +312,16 @@ fun chatView(
     LaunchedEffect(project?.id) {
         if (project?.id != null && project.knowledgeSources.isNotEmpty()) {
             // Check if project is already indexed
-            val projectIndexer = try {
-                GlobalContext.get().get<ProjectIndexer>()
+            val ragIndexer = try {
+                GlobalContext.get().get<RagIndexer>()
             } catch (e: Exception) {
-                log.warn("ProjectIndexer not available: ${e.message}", e)
+                log.warn("RagIndexer not available: ${e.message}", e)
                 null
             }
 
-            if (projectIndexer != null) {
+            if (ragIndexer != null) {
                 val isIndexed = withContext(Dispatchers.IO) {
-                    projectIndexer.isProjectIndexed(project.id)
+                    ragIndexer.isContainerIndexed(project.id, IndexingContainerType.PROJECT)
                 }
 
                 if (isIndexed) {
@@ -329,16 +332,16 @@ fun chatView(
             }
 
             EventBus.internalEvents.collect { event ->
-                val eventProjectId = when (event) {
-                    is IndexingQueuedEvent -> event.projectId
-                    is IndexingStartedEvent -> event.projectId
-                    is IndexingInProgressEvent -> event.projectId
-                    is IndexingCompletedEvent -> event.projectId
-                    is IndexingFailedEvent -> event.projectId
+                val eventContainerId = when (event) {
+                    is IndexingQueuedEvent -> event.containerId.takeIf { event.containerType == IndexingContainerType.PROJECT }
+                    is IndexingStartedEvent -> event.containerId.takeIf { event.containerType == IndexingContainerType.PROJECT }
+                    is IndexingInProgressEvent -> event.containerId.takeIf { event.containerType == IndexingContainerType.PROJECT }
+                    is IndexingCompletedEvent -> event.containerId.takeIf { event.containerType == IndexingContainerType.PROJECT }
+                    is IndexingFailedEvent -> event.containerId.takeIf { event.containerType == IndexingContainerType.PROJECT }
                     else -> null
                 }
 
-                if (eventProjectId == project.id) {
+                if (eventContainerId == project.id) {
                     when (event) {
                         is IndexingQueuedEvent -> {
                             ragIndexingStatus = "queued"
@@ -1300,6 +1303,10 @@ fun chatView(
                         onToggleDirective = { id -> actions.setDirective(id) },
                         isProjectSession = project != null,
                         onWebSearchInRagChange = { enabled -> actions.setWebSearchInRag(enabled) },
+                        // Resource Collections chip — persistent chip selection (see ChatState.activeResourceCollectionIds)
+                        activeResourceCollectionIds = activeResourceCollectionIds,
+                        onActiveResourceCollectionsChange = { ids -> actions.setActiveResourceCollections(ids) },
+                        onNavigateToResourceCollections = onNavigateToResourceCollections,
                         memoryPressureLevel = memoryPressureLevel,
                         memoryUtilization = memoryUtilization,
                         memoryUsedTokens = memoryUsedTokens,

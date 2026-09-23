@@ -9,6 +9,7 @@ import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.store.embedding.EmbeddingStore
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
 import io.askimo.core.context.AppContext
+import io.askimo.core.rag.container.IndexingContainerType
 
 /**
  * Provider interface for creating IndexingCoordinator instances.
@@ -30,8 +31,9 @@ interface IndexingCoordinatorProvider {
     /**
      * Creates an IndexingCoordinator for the given knowledge source.
      *
-     * @param projectId The project ID
-     * @param projectName The project name
+     * @param containerId The container (project or resource collection) ID
+     * @param containerName The container (project or resource collection) name
+     * @param containerType Whether this container is a project or a resource collection
      * @param knowledgeSource The knowledge source configuration
      * @param embeddingStore The embedding store for storing vectors
      * @param embeddingModel The embedding model for generating embeddings
@@ -40,8 +42,9 @@ interface IndexingCoordinatorProvider {
      * @throws IllegalArgumentException if the knowledge source type is not supported
      */
     fun createCoordinator(
-        projectId: String,
-        projectName: String,
+        containerId: String,
+        containerName: String,
+        containerType: IndexingContainerType,
         knowledgeSource: KnowledgeSourceConfig,
         embeddingStore: EmbeddingStore<TextSegment>,
         embeddingModel: EmbeddingModel,

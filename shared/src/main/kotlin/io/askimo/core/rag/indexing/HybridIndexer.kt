@@ -39,13 +39,13 @@ import kotlin.time.Duration.Companion.seconds
 class HybridIndexer(
     private val embeddingStore: EmbeddingStore<TextSegment>,
     private val embeddingModel: EmbeddingModel,
-    private val projectId: String,
+    private val containerId: String,
     private val segmentRepository: ResourceSegmentRepository = DatabaseManager.getInstance().getResourceSegmentRepository(),
 ) {
     private val log = logger<HybridIndexer>()
-    private val luceneIndexer = LuceneIndexer.getInstance(projectId)
+    private val luceneIndexer = LuceneIndexer.getInstance(containerId)
 
-    // Telemetry identifiers — resolved once at construction so we don't call AppContext on every batch flush.
+    // Telemetry identifiers, resolved once at construction to avoid calling AppContext per batch.
     private val telemetryProvider: String
     private val telemetryModel: String
 
@@ -56,14 +56,13 @@ class HybridIndexer(
             ?: embeddingModel.javaClass.simpleName
     }
 
-    // Mutex for thread-safe batch operations
     private val batchMutex = Mutex()
 
-    private val segmentBatch = mutableListOf<Pair<TextSegment, Path>>() // Track file path with segment
+    private val segmentBatch = mutableListOf<Pair<TextSegment, Path>>() // segment + its file path
     private val pendingMappings = mutableListOf<Triple<Path, String, Int>>() // (filePath, segmentId, chunkIndex)
 
-    // Counter for periodic JVector saves — incremented on every successful batch flush.
-    // Saves every SAVE_EVERY_N_BATCHES flushes (~2500 segments) to balance disk I/O vs crash safety.
+    // Counter for periodic JVector saves, incremented on every successful batch flush.
+    // Saves every SAVE_EVERY_N_BATCHES flushes (~2500 segments) to balance I/O vs crash safety.
     private var flushCount = 0
 
     companion object {
@@ -71,9 +70,9 @@ class HybridIndexer(
     }
 
     /**
-     * Add segment to batch. If the batch is full, snapshots and clears the batch under
-     * the lock, then flushes **outside** the lock — so the expensive `embedAll` call
-     * never holds [batchMutex], preventing other coroutines from blocking indefinitely.
+     * Add a segment to the batch. If full, snapshots and clears it under the lock, then
+     * flushes **outside** the lock so the expensive `embedAll` call never holds
+     * [batchMutex], preventing other coroutines from blocking indefinitely.
      */
     suspend fun addSegmentToBatch(
         segment: TextSegment,
@@ -85,7 +84,7 @@ class HybridIndexer(
             AppConfig.indexing.embeddingBatchSize,
             segment.metadata().getString("file_name"),
             segment.metadata().getInteger("chunk_index") ?: 0,
-            projectId,
+            containerId,
         )
 
         val snapshot: List<Pair<TextSegment, Path>>? = batchMutex.withLock {
@@ -118,13 +117,13 @@ class HybridIndexer(
         }
         return if (snapshot != null) {
             flushSnapshot(snapshot).also {
-                // Final save after the last batch — ensures all segments are persisted.
-                // Guard against empty store: JVector throws IllegalStateException if save() is
-                // called when no embeddings have been added (e.g. all files unchanged on re-index).
+                // Final save after the last batch. Guard against an empty store: JVector
+                // throws if save() is called with no embeddings added (e.g. all files
+                // unchanged on re-index).
                 if (flushCount > 0) (embeddingStore as? JVectorEmbeddingStore)?.save()
             }
         } else {
-            // Nothing to flush — still persist any pending mappings
+            // Nothing to flush — still persist pending mappings
             try {
                 batchMutex.withLock { savePendingMappings() }
                 if (flushCount > 0) (embeddingStore as? JVectorEmbeddingStore)?.save()
@@ -145,13 +144,13 @@ class HybridIndexer(
 
         return try {
             withContext(Dispatchers.IO) {
-                log.debug("embedAll: calling embeddingModel for {} segments, project {}", segments.size, projectId)
+                log.debug("embedAll: calling embeddingModel for {} segments, project {}", segments.size, containerId)
                 val startMs = System.currentTimeMillis()
                 val response = withTimeout(60.seconds) {
                     embeddingModel.embedAll(segments)
                 }
                 val durationMs = System.currentTimeMillis() - startMs
-                log.debug("embedAll: completed for {} segments, project {}", segments.size, projectId)
+                log.debug("embedAll: completed for {} segments, project {}", segments.size, containerId)
 
                 // Record embedding token usage in telemetry (best-effort — not all providers return token counts)
                 runCatching {
@@ -171,11 +170,11 @@ class HybridIndexer(
                 embeddingStore.addAll(embeddings, segments)
                 flushCount++
                 if (flushCount % SAVE_EVERY_N_BATCHES == 0) {
-                    log.debug("Periodic JVector save at batch {} (~{} segments), project {}", flushCount, flushCount * AppConfig.indexing.embeddingBatchSize, projectId)
+                    log.debug("Periodic JVector save at batch {} (~{} segments), project {}", flushCount, flushCount * AppConfig.indexing.embeddingBatchSize, containerId)
                     (embeddingStore as? JVectorEmbeddingStore)?.save()
                 }
 
-                log.debug("Index segments by lucene {}, project={}", segments.size, projectId)
+                log.debug("Index segments by lucene {}, project={}", segments.size, containerId)
                 luceneIndexer.indexSegments(segments)
 
                 val mappings = segments.mapIndexed { i, seg ->
@@ -187,11 +186,11 @@ class HybridIndexer(
                     savePendingMappings()
                 }
 
-                log.trace("Hybrid indexed batch of {} segments (vector + keyword) for project {}", segments.size, projectId)
+                log.trace("Hybrid indexed batch of {} segments (vector + keyword) for project {}", segments.size, containerId)
             }
             true
         } catch (_: AlreadyClosedException) {
-            log.debug("Lucene IndexWriter already closed for project {} — indexing was cancelled", projectId)
+            log.debug("Lucene IndexWriter already closed for project {} — indexing was cancelled", containerId)
             false
         } catch (e: TimeoutCancellationException) {
             // TimeoutCancellationException is a CancellationException subclass — must be caught
@@ -201,7 +200,7 @@ class HybridIndexer(
             val displayNames = if (fileNames.size <= 3) fileNames.joinToString() else "${fileNames.take(3).joinToString()} and ${fileNames.size - 3} more"
             log.error(
                 "embedAll timed out after 60s for project {} — batch of {} segments, files: {}",
-                projectId,
+                containerId,
                 segments.size,
                 displayNames,
             )
@@ -229,7 +228,7 @@ class HybridIndexer(
                     "Batch size: {} segments, " +
                     "Largest segment: {} chars ({} est. tokens), " +
                     "File: {}, Chunk: {}, Index in batch: {}",
-                projectId,
+                containerId,
                 e.message,
                 segments.size,
                 maxSegmentChars,
@@ -249,10 +248,10 @@ class HybridIndexer(
 
             if (e.isInputTooLargeError()) {
                 // Surface as a prominent dialog (ERROR channel) so the user sees it
-                // immediately, not just as a passive notification-bell entry.
+                // immediately, not just a passive notification-bell entry.
                 EventBus.emit(
                     IndexingErrorEvent(
-                        projectId = projectId,
+                        projectId = containerId,
                         errorType = IndexingErrorType.EMBEDDING_INPUT_TOO_LARGE,
                         details = mapOf(
                             "files" to displayNames,
@@ -275,10 +274,10 @@ class HybridIndexer(
     }
 
     /**
-     * Save pending segment mappings to database.
+     * Save pending segment mappings to the database.
      *
-     * Always clears [pendingMappings] — on success AND on failure — so a subsequent
-     * call never retries the same mappings and causes a cascade of FK errors.
+     * Always clears [pendingMappings], on success and failure, so a retry never resends
+     * the same mappings and cascades FK errors.
      *
      * Throws on any database error so the caller ([flushSnapshot] / [flushRemainingSegments])
      * can return `false` and stop the indexing loop immediately.
@@ -294,7 +293,7 @@ class HybridIndexer(
                 val segmentData = mappings.map { (_, segmentId, chunkIndex) ->
                     segmentId to chunkIndex
                 }
-                segmentRepository.saveSegmentMappings(projectId, filePath, segmentData)
+                segmentRepository.saveSegmentMappings(containerId, filePath, segmentData)
             }
 
             log.trace("Saved {} segment mappings to database", pendingMappings.size)
@@ -308,7 +307,8 @@ class HybridIndexer(
                 log.warn(
                     "Project {} no longer exists in DB — abandoning segment mapping saves. " +
                         "This is expected when a project is deleted while indexing is in progress.",
-                    projectId,
+                    containerId,
+                    e,
                 )
             } else {
                 log.error("Failed to save segment mappings: {}", e.message, e)
@@ -342,7 +342,7 @@ class HybridIndexer(
      */
     fun removeFileFromIndex(filePath: Path) {
         try {
-            val segmentIds = segmentRepository.getSegmentIdsForFile(projectId, filePath)
+            val segmentIds = segmentRepository.getSegmentIdsForFile(containerId, filePath)
 
             if (segmentIds.isNotEmpty()) {
                 log.trace("Found {} segments for file {} - removing from hybrid index", segmentIds.size, filePath.fileName)
@@ -356,7 +356,7 @@ class HybridIndexer(
                 log.trace("Removed segments from keyword index for file {}", filePath.fileName)
 
                 // Remove from database
-                val removed = segmentRepository.removeSegmentMappingsForFile(projectId, filePath)
+                val removed = segmentRepository.removeSegmentMappingsForFile(containerId, filePath)
                 log.trace("Removed {} segment mappings from database for file {}", removed, filePath.fileName)
             } else {
                 log.trace("No segments found for file {}", filePath.fileName)
@@ -373,7 +373,7 @@ class HybridIndexer(
     fun removeDirectoryFromIndex(dirPath: Path) {
         try {
             val dirPrefix = dirPath.toAbsolutePath().toString()
-            val segmentIds = segmentRepository.getSegmentIdsForDirectory(projectId, dirPrefix)
+            val segmentIds = segmentRepository.getSegmentIdsForDirectory(containerId, dirPrefix)
 
             if (segmentIds.isNotEmpty()) {
                 log.debug("Removing {} segments for directory {} from hybrid index", segmentIds.size, dirPath.fileName)
@@ -381,13 +381,12 @@ class HybridIndexer(
                 // Remove from embedding store
                 embeddingStore.removeAll(segmentIds)
 
-                // Remove from Lucene keyword index — removeFile per stored path
-                // Lucene entries are keyed by file path string, so we need per-file removal.
-                // Re-query to get distinct resource_ids (file paths) under this dir.
+                // Remove from Lucene keyword index (entries are keyed by file path string,
+                // so removal is per-file; re-query for distinct paths under this dir).
                 luceneIndexer.removeDirectory(dirPrefix)
 
                 // Remove all DB mappings under this directory prefix
-                val removed = segmentRepository.removeSegmentMappingsForDirectory(projectId, dirPrefix)
+                val removed = segmentRepository.removeSegmentMappingsForDirectory(containerId, dirPrefix)
                 log.debug("Removed {} segment mappings from database for directory {}", removed, dirPath.fileName)
             } else {
                 log.debug("No segments found under directory {}", dirPath.fileName)
@@ -404,6 +403,6 @@ class HybridIndexer(
         // Hash the file path to a fixed 8-character hex string for compact, deterministic IDs
         val fileHash = filePath.hashCode().toString(16).padStart(8, '0')
 
-        return "$projectId:$fileHash:$chunkIndex"
+        return "$containerId:$fileHash:$chunkIndex"
     }
 }

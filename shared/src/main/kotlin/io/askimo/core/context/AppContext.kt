@@ -444,7 +444,7 @@ class AppContext private constructor(
      * identity changes whenever the user switches provider instance or embedding model,
      * even if the resulting vector dimension happens to stay the same. RAG indexing uses
      * this to detect stale project indexes that a dimension-only check would miss — see
-     * [io.askimo.core.rag.ProjectIndexer].
+     * [io.askimo.core.rag.RagIndexer].
      */
     fun activeEmbeddingModelIdentity(): String? {
         val instance = getActiveInstance() ?: return null

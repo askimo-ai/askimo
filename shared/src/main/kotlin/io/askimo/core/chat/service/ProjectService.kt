@@ -8,9 +8,10 @@ import io.askimo.core.chat.domain.KnowledgeSourceConfig
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.repository.ProjectRepository
 import io.askimo.core.event.EventBus
-import io.askimo.core.event.internal.ProjectDeletedEvent
-import io.askimo.core.event.internal.ProjectIndexingRequestedEvent
+import io.askimo.core.event.internal.ContainerDeletedEvent
+import io.askimo.core.event.internal.IndexingRequestedEvent
 import io.askimo.core.logging.logger
+import io.askimo.core.rag.container.IndexingContainerType
 import io.askimo.core.util.AskimoHome
 import java.time.Instant
 
@@ -53,8 +54,9 @@ class ProjectService(
         // Emit indexing event if the project has knowledge sources
         if (createdProject.knowledgeSources.isNotEmpty()) {
             EventBus.post(
-                ProjectIndexingRequestedEvent(
-                    projectId = createdProject.id,
+                IndexingRequestedEvent(
+                    containerId = createdProject.id,
+                    containerType = IndexingContainerType.PROJECT,
                     watchForChanges = true,
                 ),
             )
@@ -65,7 +67,7 @@ class ProjectService(
     }
 
     /**
-     * Deletes a project by ID and emits a [ProjectDeletedEvent].
+     * Deletes a project by ID and emits a [ContainerDeletedEvent].
      *
      * @return `true` if the project was deleted, `false` if it was not found.
      */
@@ -75,8 +77,8 @@ class ProjectService(
             val projectDir = AskimoHome.projectsDir().resolve(projectId)
             projectDir.toFile().deleteRecursively()
             log.debug("Deleted project directory at {}", projectDir)
-            EventBus.post(ProjectDeletedEvent(projectId = projectId))
-            log.debug("Deleted project $projectId and emitted ProjectDeletedEvent")
+            EventBus.post(ContainerDeletedEvent(containerId = projectId, containerType = IndexingContainerType.PROJECT))
+            log.debug("Deleted project $projectId and emitted ContainerDeletedEvent")
         }
         return deleted
     }

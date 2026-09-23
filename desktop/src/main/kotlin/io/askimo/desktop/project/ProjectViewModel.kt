@@ -14,14 +14,14 @@ import io.askimo.core.chat.domain.Project
 import io.askimo.core.context.AppContext
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
+import io.askimo.core.event.internal.IndexRemovalEvent
 import io.askimo.core.event.internal.KnowledgeSourceRescanRequestedEvent
 import io.askimo.core.event.internal.KnowledgeSourceWatchToggledEvent
 import io.askimo.core.event.internal.ModelChangedEvent
-import io.askimo.core.event.internal.ProjectIndexRemovalEvent
-import io.askimo.core.event.internal.ProjectReIndexEvent
 import io.askimo.core.event.internal.ProjectRefreshEvent
 import io.askimo.core.event.internal.ProjectSessionsRefreshEvent
 import io.askimo.core.event.internal.ProviderInstanceSavedEvent
+import io.askimo.core.event.internal.ReIndexEvent
 import io.askimo.core.event.user.IndexingCompletedEvent
 import io.askimo.core.event.user.IndexingFailedEvent
 import io.askimo.core.event.user.IndexingInProgressEvent
@@ -29,7 +29,8 @@ import io.askimo.core.event.user.IndexingQueuedEvent
 import io.askimo.core.event.user.IndexingStartedEvent
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
-import io.askimo.core.rag.ProjectIndexer
+import io.askimo.core.rag.RagIndexer
+import io.askimo.core.rag.container.IndexingContainerType
 import io.askimo.core.rag.state.IndexProgress
 import io.askimo.core.rag.state.IndexStatus
 import io.askimo.ui.util.ErrorHandler
@@ -49,7 +50,7 @@ import kotlinx.coroutines.withContext
 class ProjectViewModel(
     private val scope: CoroutineScope,
     private val projectId: String,
-    private val projectIndexer: ProjectIndexer? = null,
+    private val ragIndexer: RagIndexer? = null,
 ) {
     private val log = logger<ProjectViewModel>()
     private val projectRepository = DatabaseManager.getInstance().getProjectRepository()
@@ -205,8 +206,9 @@ class ProjectViewModel(
                 // until the user configures one; see the embedding-not-configured banner).
                 if (oldKnowledgeSources != knowledgeSources && embeddingModelConfigured) {
                     EventBus.post(
-                        ProjectReIndexEvent(
-                            projectId = projectId,
+                        ReIndexEvent(
+                            containerId = projectId,
+                            containerType = IndexingContainerType.PROJECT,
                             reason = "Knowledge sources updated",
                         ),
                     )
@@ -244,8 +246,9 @@ class ProjectViewModel(
                 }
 
                 EventBus.post(
-                    ProjectIndexRemovalEvent(
-                        projectId = project.id,
+                    IndexRemovalEvent(
+                        containerId = project.id,
+                        containerType = IndexingContainerType.PROJECT,
                         knowledgeSource = source,
                         reason = "Knowledge source removed by user",
                     ),
@@ -283,7 +286,8 @@ class ProjectViewModel(
 
                 EventBus.post(
                     KnowledgeSourceRescanRequestedEvent(
-                        projectId = project.id,
+                        containerId = project.id,
+                        containerType = IndexingContainerType.PROJECT,
                         knowledgeSource = source,
                     ),
                 )
@@ -323,7 +327,8 @@ class ProjectViewModel(
 
                 EventBus.post(
                     KnowledgeSourceWatchToggledEvent(
-                        projectId = project.id,
+                        containerId = project.id,
+                        containerType = IndexingContainerType.PROJECT,
                         knowledgeSource = updatedSource,
                         watchForChanges = watch,
                     ),
@@ -445,16 +450,21 @@ class ProjectViewModel(
     private fun observeIndexProgress() {
         scope.launch {
             merge(
-                EventBus.internalEvents.filterIsInstance<IndexingQueuedEvent>().filter { it.projectId == projectId },
-                EventBus.internalEvents.filterIsInstance<IndexingStartedEvent>().filter { it.projectId == projectId },
-                EventBus.internalEvents.filterIsInstance<IndexingInProgressEvent>().filter { it.projectId == projectId },
-                EventBus.internalEvents.filterIsInstance<IndexingCompletedEvent>().filter { it.projectId == projectId },
-                EventBus.internalEvents.filterIsInstance<IndexingFailedEvent>().filter { it.projectId == projectId },
+                EventBus.internalEvents.filterIsInstance<IndexingQueuedEvent>()
+                    .filter { it.containerType == IndexingContainerType.PROJECT && it.containerId == projectId },
+                EventBus.internalEvents.filterIsInstance<IndexingStartedEvent>()
+                    .filter { it.containerType == IndexingContainerType.PROJECT && it.containerId == projectId },
+                EventBus.internalEvents.filterIsInstance<IndexingInProgressEvent>()
+                    .filter { it.containerType == IndexingContainerType.PROJECT && it.containerId == projectId },
+                EventBus.internalEvents.filterIsInstance<IndexingCompletedEvent>()
+                    .filter { it.containerType == IndexingContainerType.PROJECT && it.containerId == projectId },
+                EventBus.internalEvents.filterIsInstance<IndexingFailedEvent>()
+                    .filter { it.containerType == IndexingContainerType.PROJECT && it.containerId == projectId },
             ).collect { event ->
                 indexProgress = when (event) {
                     is IndexingQueuedEvent -> IndexProgress(
                         status = IndexStatus.QUEUED,
-                        blockedByName = event.blockedByProjectName,
+                        blockedByName = event.blockedByContainerName,
                     )
 
                     is IndexingStartedEvent -> IndexProgress(status = IndexStatus.INDEXING)
@@ -515,7 +525,7 @@ class ProjectViewModel(
     }
 
     /**
-     * Sync the current index progress from [ProjectIndexer] as a one-shot snapshot on init.
+     * Sync the current index progress from [RagIndexer] as a one-shot snapshot on init.
      * Without this, navigating back to the project view shows a blank progress bar
      * because the ViewModel is recreated and misses all prior events.
      *
@@ -525,9 +535,9 @@ class ProjectViewModel(
      * coordinator's StateFlow, causing the "120/120 flash before counting from 1" bug.
      */
     private fun syncInitialIndexProgress() {
-        if (projectIndexer == null) return
+        if (ragIndexer == null) return
         scope.launch {
-            val initial = projectIndexer.getProgressFlow(projectId).first()
+            val initial = ragIndexer.getProgressFlow(projectId, IndexingContainerType.PROJECT).first()
             // Only apply the snapshot if observeIndexProgress hasn't already set a live state.
             if (indexProgress.status == IndexStatus.NOT_STARTED) {
                 indexProgress = initial

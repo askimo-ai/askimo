@@ -2,7 +2,7 @@
  *
  * Copyright (c) 2026 Askimo
  */
-package io.askimo.desktop.project
+package io.askimo.desktop.knowledgesource
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
@@ -18,7 +18,10 @@ import java.net.URI
 import java.util.UUID
 
 /**
- * UI representation of a knowledge source item
+ * UI representation of a knowledge source item.
+ *
+ * Shared between the Project and Resource Collection features so that neither
+ * package depends on the other for knowledge-source handling.
  */
 sealed class KnowledgeSourceItem {
     abstract val id: String
@@ -34,6 +37,7 @@ sealed class KnowledgeSourceItem {
         override val id: String,
         val path: String,
         override val isValid: Boolean,
+        val watchForChanges: Boolean = true,
     ) : KnowledgeSourceItem() {
         override val displayName = path
         override val typeInfo = TypeInfo.FOLDER
@@ -87,6 +91,7 @@ fun parseKnowledgeSourceConfigs(configs: List<KnowledgeSourceConfig>): List<Know
                 id = UUID.randomUUID().toString(),
                 path = config.resourceIdentifier,
                 isValid = validateFolder(config.resourceIdentifier),
+                watchForChanges = config.watchForChanges,
             )
         }
 
@@ -114,7 +119,7 @@ fun parseKnowledgeSourceConfigs(configs: List<KnowledgeSourceConfig>): List<Know
 fun buildKnowledgeSourceConfigs(sources: List<KnowledgeSourceItem>): List<KnowledgeSourceConfig> = sources.map { source ->
     when (source) {
         is KnowledgeSourceItem.Folder -> {
-            LocalFoldersKnowledgeSourceConfig(resourceIdentifier = source.path)
+            LocalFoldersKnowledgeSourceConfig(resourceIdentifier = source.path, watchForChanges = source.watchForChanges)
         }
 
         is KnowledgeSourceItem.File -> {

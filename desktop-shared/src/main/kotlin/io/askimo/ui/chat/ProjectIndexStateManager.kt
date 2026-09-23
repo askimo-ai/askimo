@@ -40,7 +40,7 @@ class ProjectIndexStateManager {
     suspend fun refreshActiveProject() {
         val projectId = activeProjectId ?: return
         _indexedPaths.value = withContext(Dispatchers.IO) {
-            IndexStateManager.getIndexedLocalPathsForProject(projectId)
+            IndexStateManager.getIndexedLocalPathsForContainer(projectId)
         }
         log.debug("Loaded ${_indexedPaths.value.size} indexed path(s) for project $projectId")
     }

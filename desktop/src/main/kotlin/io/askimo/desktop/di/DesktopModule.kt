@@ -8,6 +8,7 @@ import io.askimo.core.chat.service.ChatDirectiveService
 import io.askimo.core.chat.service.ChatSessionExporterService
 import io.askimo.core.chat.service.ChatSessionService
 import io.askimo.core.chat.service.ProjectService
+import io.askimo.core.chat.service.ResourceCollectionService
 import io.askimo.core.context.AppContext
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.mcp.McpClientFactory
@@ -19,6 +20,8 @@ import io.askimo.core.telemetry.TelemetryCollector
 import io.askimo.core.tools.ToolProviderImpl
 import io.askimo.desktop.project.ProjectViewModel
 import io.askimo.desktop.project.ProjectsViewModel
+import io.askimo.desktop.resourcecollection.ResourceCollectionDetailViewModel
+import io.askimo.desktop.resourcecollection.ResourceCollectionsViewModel
 import io.askimo.desktop.settings.AIProviderViewModel
 import io.askimo.ui.chat.ProjectIndexStateManager
 import io.askimo.ui.common.monitoring.SystemResourceMonitor
@@ -50,6 +53,7 @@ val desktopModule = module {
     single { get<DatabaseManager>().getChatMessageRepository() }
     single { get<DatabaseManager>().getChatDirectiveRepository() }
     single { get<DatabaseManager>().getProjectRepository() }
+    single { get<DatabaseManager>().getResourceCollectionRepository() }
     single { get<DatabaseManager>().getUserProfileRepository() }
     single { get<DatabaseManager>().getPlanExecutionRepository() }
     single { get<DatabaseManager>().getLlmUsageRepository() }
@@ -85,6 +89,8 @@ val desktopModule = module {
         )
     }
     single { ChatDirectiveService(repository = get(), userProfileRepository = get(), projectRepository = get()) }
+
+    single { ResourceCollectionService(ragIndexer = get()) }
 
     single { McpClientFactory() }
     single { McpInstanceService(mcpClientFactory = get()) }
@@ -133,11 +139,19 @@ val desktopModule = module {
     }
 
     factory { (scope: CoroutineScope, projectId: String) ->
-        ProjectViewModel(scope = scope, projectId = projectId, projectIndexer = getOrNull())
+        ProjectViewModel(scope = scope, projectId = projectId, ragIndexer = getOrNull())
     }
 
     factory { (scope: CoroutineScope) ->
         AIProviderViewModel(scope = scope, appContext = get<AppContext>(), providerInstanceService = get<ProviderInstanceService>())
+    }
+
+    factory { (scope: CoroutineScope) ->
+        ResourceCollectionsViewModel(scope = scope, resourceCollectionService = get())
+    }
+
+    factory { (scope: CoroutineScope, collectionId: String) ->
+        ResourceCollectionDetailViewModel(scope = scope, collectionId = collectionId, resourceCollectionService = get())
     }
 
     // Commands

@@ -16,13 +16,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Workspaces
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -53,6 +54,7 @@ import io.askimo.ui.common.theme.LocalFontScale
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.session.SessionsViewModel
+import io.askimo.ui.shell.ResourceCollectionsSidebarState
 import io.askimo.ui.shell.SidebarNavItem
 import io.askimo.ui.shell.rememberAvatarImage
 import io.askimo.ui.shell.sidebarUserAvatar
@@ -96,13 +98,20 @@ fun navigationSidebar(
     onNavigateToPlans: () -> Unit = {},
     onNavigateToSkills: () -> Unit = {},
     onNavigateToDiscover: () -> Unit = {},
+    onNavigateToResourceCollections: () -> Unit = {},
+    resourceCollectionsState: ResourceCollectionsSidebarState = object : ResourceCollectionsSidebarState {
+        override val collectionCount = 0
+    },
+    isResourceCollectionsExpanded: Boolean = false,
+    onToggleResourceCollections: () -> Unit = {},
+    onNewResourceCollection: () -> Unit = {},
 ) {
     val isProjectsSelected = currentView == View.PROJECTS
     val navItems = listOf(
         SidebarNavItem(
             id = "projects",
             labelRes = "project.title",
-            icon = Icons.Default.FolderOpen,
+            icon = Icons.Default.Workspaces,
             isSelected = isProjectsSelected,
             isVisible = showProjectsInSidebar,
             onClick = onToggleProjects,
@@ -124,6 +133,14 @@ fun navigationSidebar(
                     }
                 }
             },
+        ),
+        SidebarNavItem(
+            id = "resourcecollections",
+            labelRes = "resourcecollections.title",
+            icon = Icons.AutoMirrored.Filled.LibraryBooks,
+            isSelected = currentView == View.RESOURCE_COLLECTIONS,
+            isVisible = true,
+            onClick = onNavigateToResourceCollections,
         ),
         SidebarNavItem(
             id = "plans",
@@ -150,6 +167,7 @@ fun navigationSidebar(
         isSessionsSelected = currentView == View.SESSIONS,
         projectsState = projectsViewModel,
         pinnedState = sessionsViewModel,
+        resourceCollectionsState = resourceCollectionsState,
         sessionsViewModel = sessionsViewModel,
         currentSessionId = currentSessionId,
         onToggleExpand = onToggleExpand,
@@ -167,6 +185,9 @@ fun navigationSidebar(
         onMoveSessionToNewProject = onMoveSessionToNewProject,
         onEditProject = onEditProject,
         onDeleteProject = onDeleteProject,
+        isResourceCollectionsExpanded = isResourceCollectionsExpanded,
+        onToggleResourceCollections = onToggleResourceCollections,
+        onNewResourceCollection = onNewResourceCollection,
         userProfileContent = {
             communityUserProfileSection(
                 profile = userProfile,

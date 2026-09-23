@@ -46,7 +46,7 @@ class FileWatcherErrorReportingTest {
 
         val errors = CopyOnWriteArrayList<Pair<Path, Exception>>()
         val watcher = FileWatcher(
-            projectId = "watch-error-test",
+            containerId = "watch-error-test",
             onFileChange = { _, _ -> },
             onWatchError = { path, e -> errors.add(path to e) },
         )

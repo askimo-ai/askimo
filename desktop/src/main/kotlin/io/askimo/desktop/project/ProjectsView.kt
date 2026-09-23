@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.Workspaces
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -112,11 +113,22 @@ fun projectsView(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        text = stringResource("projects.title"),
-                        style = AppTextStyles.pageTitle,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Default.Workspaces,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.onBackground,
+                        )
+                        Text(
+                            text = stringResource("projects.title"),
+                            style = AppTextStyles.pageTitle,
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                    }
                     Button(
                         onClick = onNewProject,
                         modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),

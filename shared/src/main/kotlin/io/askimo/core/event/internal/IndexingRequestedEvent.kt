@@ -8,18 +8,20 @@ import io.askimo.core.chat.domain.KnowledgeSourceConfig
 import io.askimo.core.event.Event
 import io.askimo.core.event.EventSource
 import io.askimo.core.event.EventType
+import io.askimo.core.rag.container.IndexingContainerType
 import java.time.Instant
 
 /**
- * Event emitted when a project needs to be indexed.
- * This is an internal event that triggers ProjectIndexer to index the project files
- * using the provided embedding store and model.
+ * Event emitted when a container (project or resource collection) needs to be indexed.
+ * This is an internal event that triggers [io.askimo.core.rag.RagIndexer] to index the
+ * container's knowledge sources using the provided embedding store and model.
  *
  * @param knowledgeSources Optional list of specific sources to index.
- *   If null, all project sources will be indexed.
+ *   If null, all of the container's sources will be indexed.
  */
-data class ProjectIndexingRequestedEvent(
-    val projectId: String,
+data class IndexingRequestedEvent(
+    val containerId: String,
+    val containerType: IndexingContainerType,
     val watchForChanges: Boolean = true,
     val knowledgeSources: List<KnowledgeSourceConfig>? = null,
     override val timestamp: Instant = Instant.now(),
@@ -33,6 +35,6 @@ data class ProjectIndexingRequestedEvent(
         } else {
             ""
         }
-        return "Indexing requested for project $projectId$sourcesInfo"
+        return "Indexing requested for $containerType $containerId$sourcesInfo"
     }
 }

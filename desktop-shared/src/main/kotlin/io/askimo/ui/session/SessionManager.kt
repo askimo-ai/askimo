@@ -55,20 +55,15 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Manages multiple ChatViewModel instances with smart memory management AND streaming infrastructure.
- *
- * This manager consolidates:
- * 1. ChatViewModel lifecycle management (caching up to maxCachedViewModels)
+ * Manages ChatViewModel instances and streaming infrastructure together:
+ * 1. ChatViewModel lifecycle (caching up to [maxCachedViewModels])
  * 2. Streaming thread management (one thread per active session)
  * 3. Session state coordination
  *
- * Each session gets its own isolated ChatViewModel and can have at most ONE active streaming thread.
- * ViewModels are cached up to [maxCachedViewModels], and inactive ViewModels are automatically
- * cleaned up when the limit is reached.
+ * Each session has its own isolated ChatViewModel and at most one active streaming thread.
+ * Inactive ViewModels are cleaned up automatically once the cache limit is reached.
  *
- * A ViewModel is considered "safe to remove" when:
- * 1. It's not the currently active session
- * 2. It's not waiting for an AI response (no active streaming thread)
+ * A ViewModel is "safe to remove" when it's not the active session and has no active stream.
  */
 class SessionManager(
     private val chatSessionService: ChatSessionService,
@@ -101,12 +96,11 @@ class SessionManager(
         private set
 
     /**
-     * True when the user has started a "New Chat" while an existing session was active.
-     * In this state the active ViewModel has been cleared (currentSessionId = null) but
-     * activeSessionId still points at the previous session so that chatViewModel stays
-     * non-null and the input field remains visible.
-     * When the first message is sent and a SessionCreatedEvent fires, this flag causes
-     * the new session to be adopted as the active one, updating the sidebar selection.
+     * True when the user started a "New Chat" while a session was active. The active
+     * ViewModel is cleared (currentSessionId = null) but activeSessionId still points at
+     * the old session so chatViewModel stays non-null and the input field stays visible.
+     * When the first message fires a SessionCreatedEvent, this flag causes the new session
+     * to be adopted as active, updating the sidebar selection.
      */
     private var isPendingNewChat = false
 
@@ -136,14 +130,14 @@ class SessionManager(
     }
 
     /**
-     * Represents a single streaming thread for ONE question-answer pair.
-     * Thread closes automatically after completion or failure.
+     * A single streaming thread for one question-answer pair; closes automatically on
+     * completion or failure.
      *
      * [_timeline] is the single source of truth for everything the model's stream reported —
-     * response-text tokens, tool calls (running → done), and thinking chunks — kept in the
-     * exact chronological order they arrived, mirroring [io.askimo.core.chat.dto.TurnTimelineEntry]'s
-     * use in agentic runs. This lets the UI render true interleaving (e.g. text → tool call →
-     * more text) instead of bucketing everything into fixed thinking/tools/text sections.
+     * text tokens, tool calls (running → done), and thinking chunks — in true chronological
+     * order (mirrors [io.askimo.core.chat.dto.TurnTimelineEntry]'s use in agentic runs). This
+     * lets the UI render true interleaving (text → tool call → more text) instead of
+     * bucketing into fixed thinking/tools/text sections.
      */
     data class StreamingThread(
         val threadId: String,
@@ -155,9 +149,8 @@ class SessionManager(
         private val _savedMessage: MutableStateFlow<ChatMessage?> = MutableStateFlow(null),
         private val _pendingApproval: MutableStateFlow<ToolApprovalRequest?> = MutableStateFlow(null),
         // Wall-clock time the thread started "thinking" (before the first chunk arrives).
-        // Used to compute the correct elapsed "thinking" time when a ViewModel re-subscribes
-        // to this thread after the user switches away and back to this session, instead of
-        // resetting the on-screen timer to 0.
+        // Lets a re-subscribing ViewModel (after switching away and back) compute the
+        // correct elapsed time instead of resetting the on-screen timer to 0.
         val startTimeMillis: Long = System.currentTimeMillis(),
     ) {
         val timeline: StateFlow<List<TurnTimelineEntry>> = _timeline.asStateFlow()
@@ -216,8 +209,8 @@ class SessionManager(
                 }
                 if (!alreadyRunning) {
                     _timeline.value += TurnTimelineEntry.Tool(
-                        // Full, untruncated arguments — the live timeline is allowed to be
-                        // large; only the persisted copy gets capped (see truncatedForStorage()).
+                        // Full, untruncated arguments — only the persisted copy is capped
+                        // (see truncatedForStorage()).
                         ToolCallInfo(toolName = toolName, status = ToolCallStatus.RUNNING, arguments = arguments),
                     )
                 }
@@ -231,10 +224,8 @@ class SessionManager(
                 val idx = list.indexOfLast {
                     it is TurnTimelineEntry.Tool && it.toolCall.toolName == toolName && it.toolCall.status == ToolCallStatus.RUNNING
                 }
-                // Preserve the original start time from the RUNNING entry (rather than
-                // defaulting to "now") so a future "took Ns" label on the completed row
-                // remains possible even though the live elapsed-timer UI stops needing it
-                // once status flips to DONE.
+                // Preserve the RUNNING entry's original start time (instead of "now") so a
+                // future "took Ns" label stays possible even after the live timer stops.
                 val startedAtMillis = (list.getOrNull(idx) as? TurnTimelineEntry.Tool)?.toolCall?.startedAtMillis
                     ?: System.currentTimeMillis()
                 val updated = TurnTimelineEntry.Tool(
@@ -271,6 +262,7 @@ class SessionManager(
         willSaveUserMessage: Boolean,
         enabledServerIds: Set<String> = emptySet(),
         directiveId: String? = null,
+        activeResourceCollectionIds: List<String> = emptyList(),
     ): String? {
         // Create session lazily on first message (only once per session)
         if (!createdSessions.contains(sessionId)) {
@@ -291,6 +283,13 @@ class SessionManager(
                     if (directiveId != null) {
                         chatSessionService.updateSessionDirective(sessionId, directiveId)
                         log.debug("Applied directive $directiveId to new session $sessionId")
+                    }
+
+                    // Persist the chip-selected resource collections, if any. Display/
+                    // persistence only — not yet consumed by RAG.
+                    if (activeResourceCollectionIds.isNotEmpty()) {
+                        chatSessionService.updateSessionActiveResourceCollections(sessionId, activeResourceCollectionIds)
+                        log.debug("Applied active resource collections {} to new session {}", activeResourceCollectionIds, sessionId)
                     }
                 }
             }
@@ -343,8 +342,8 @@ class SessionManager(
                     var capturedTotalTokens: Int? = null
                     var capturedDurationMs: Long? = null
 
-                    // Fetch resolved tools for the approval guardrail.
-                    // Only fetched when MCP servers are enabled and the service is available.
+                    // Fetch resolved tools for the approval guardrail, only when MCP
+                    // servers are enabled and the service is available.
                     val resolvedTools: List<ToolConfig> = if (enabledServerIds.isNotEmpty() && mcpInstanceService != null) {
                         mcpInstanceService.getGlobalTools().getOrDefault(emptyList())
                     } else {
@@ -352,10 +351,10 @@ class SessionManager(
                     }
 
                     // Pre-generate the assistant message ID and set the ProxyChatContext
-                    // ThreadLocal on this thread so the correlating HTTP client can inject
-                    // the tracking headers into the outgoing proxy request.
-                    // The ThreadLocal is safe here because sendStreamingMessageWithCallback is
-                    // a blocking call that stays on this thread until the stream is complete.
+                    // ThreadLocal so the correlating HTTP client can inject tracking headers
+                    // into the outgoing proxy request. Safe here because
+                    // sendStreamingMessageWithCallback blocks this thread until the stream
+                    // completes.
                     val needsMessageCorrelation = AppContext.getInstance().getActiveProvider() == ModelProvider.ASKIMO_PRO
                     val assistantMessageId = if (needsMessageCorrelation) UUID.randomUUID().toString() else ""
                     if (needsMessageCorrelation) {
@@ -435,15 +434,15 @@ class SessionManager(
                             )
                     } finally {
                         // Always clear the ThreadLocal — prevents leaking context into
-                        // subsequent requests on the same thread from the pool.
+                        // subsequent pooled-thread requests.
                         if (needsMessageCorrelation) ProxyChatContext.clear()
                     }
 
                     val savedMessage = chatSessionService.saveAiResponse(
                         sessionId = sessionId,
                         response = fullResponse,
-                        // Pass the pre-generated ID so the server and local DB agree on
-                        // the same message identity, and saveAiResponse can mark it synced.
+                        // Pre-generated ID so the server and local DB agree on the same
+                        // message identity, letting saveAiResponse mark it synced.
                         messageId = assistantMessageId,
                         inputTokens = capturedInputTokens,
                         outputTokens = capturedOutputTokens,
@@ -455,15 +454,15 @@ class SessionManager(
                     thread.setSavedMessage(savedMessage)
                     log.debug("Streaming thread $threadId completed successfully. Saved response to session $sessionId.")
                 } else {
-                    // Handle other creation modes (e.g., image generation)
+                    // Handle other creation modes (e.g. image generation)
                     val imageModel = AppContext.getInstance().createImageModel()
                     val generateImage = imageModel.generate(userMessage.content).content()
 
-                    // Get MIME type from AI response for logging purposes
+                    // MIME type from the AI response, for logging only
                     val aiMimeType = generateImage.mimeType()
 
-                    // Convert to markdown format with base64 for preview
-                    // We always use image/png in markdown since we convert all images to PNG
+                    // Convert to markdown with base64 for preview — we always use image/png
+                    // since all images are converted to PNG.
                     val imageMarkdown = if (generateImage.url().path.isNotEmpty()) {
                         val base64Data = generateImage.base64Data()
                         val sourceUrl = generateImage.url().toString()
@@ -532,17 +531,16 @@ class SessionManager(
                     }
                 }
 
-                // Mark as complete so the ChatViewModel's completion monitoring triggers
-                // and replaces the temporary message with the saved one from database
+                // Mark as complete so ChatViewModel's completion monitoring triggers and
+                // replaces the temporary message with the saved one from the database.
                 thread.markComplete()
             } finally {
-                // Do NOT remove from activeThreads here.
-                // subscribeToThread() in ChatViewModel reads this thread to get the savedMessage
-                // and replace the temp UI message with the persisted one (real ID, isFailed flag).
-                // If a fast failure (e.g. JsonParseException on first token) completes and removes
-                // the thread before subscribeToThread runs, the temp message is stuck with id=null
-                // and the retry button silently does nothing.
-                // The thread is removed by ChatViewModel after the completion handler fires.
+                // Do NOT remove from activeThreads here — ChatViewModel.subscribeToThread()
+                // reads this thread to get savedMessage and replace the temp UI message with
+                // the persisted one (real ID, isFailed flag). If a fast failure removed the
+                // thread first, the temp message would be stuck with id=null and retry would
+                // silently do nothing. The thread is removed by ChatViewModel once its
+                // completion handler fires.
                 log.debug("Thread $threadId completed. Active streams: ${activeThreads.size}")
             }
         }
@@ -644,11 +642,10 @@ class SessionManager(
         isPendingNewChat = false
 
         // When transitioning from a "pending new chat" state, the ViewModel that sent the
-        // first message is still stored under the *old* activeSessionId key. Move it to
-        // the new sessionId so that getOrCreateChatViewModel(sessionId) returns the
-        // already-streaming instance instead of creating a fresh empty one (which would
-        // cause ChatView to show an empty conversation while the response streams in the
-        // background).
+        // first message is still stored under the *old* activeSessionId key. Move it to the
+        // new sessionId so getOrCreateChatViewModel(sessionId) returns the already-streaming
+        // instance instead of creating a fresh empty one (which would show an empty
+        // conversation while the response streams in the background).
         val currentActiveId = activeSessionId
         if (wasPendingNewChat && currentActiveId != null && currentActiveId != sessionId) {
             chatViewModels.remove(currentActiveId)?.let { existingViewModel ->
@@ -681,6 +678,7 @@ class SessionManager(
         enabledServerIds: Set<String> = emptySet(),
         directiveId: String? = null,
         useWebSearch: Boolean = false,
+        activeResourceCollectionIds: List<String> = emptyList(),
         onComplete: () -> Unit,
     ) {
         scope.launch {
@@ -689,9 +687,8 @@ class SessionManager(
                     chatDirectiveService.resolveDefaultDirectiveId(project)
                 }
 
-                // Create a new session associated with the project. This is blocking DB I/O —
-                // run it explicitly off the UI thread regardless of what dispatcher `scope`
-                // happens to use.
+                // Create a new session for the project. This is blocking DB I/O — run it
+                // explicitly off the UI thread regardless of `scope`'s dispatcher.
                 val newSession = withContext(Dispatchers.IO) {
                     chatSessionService.createSession(
                         ChatSession(
@@ -699,13 +696,10 @@ class SessionManager(
                             title = message,
                             directiveId = resolvedDirectiveId,
                             projectId = projectId,
+                            activeResourceCollectionIds = activeResourceCollectionIds,
                         ),
                     )
                 }
-
-                // `scope` runs on Dispatchers.Default and this project has no Dispatchers.Main
-                // artifact on the classpath, so we can't hop to Main. Snapshot.withMutableSnapshot
-                // batches these state writes atomically for Compose observers instead.
 
                 val viewModel = getOrCreateChatViewModel(newSession.id)
                 createdSessions.add(newSession.id)
@@ -713,7 +707,13 @@ class SessionManager(
                     // bindNewSession (not switchToSession/resumeSession) avoids an async DB
                     // reload racing sendMessage()'s in-memory mutation below.
                     activeSessionId = newSession.id
-                    viewModel.bindNewSession(sessionId = newSession.id, title = message, project = project, defaultDirectiveId = resolvedDirectiveId)
+                    viewModel.bindNewSession(
+                        sessionId = newSession.id,
+                        title = message,
+                        project = project,
+                        defaultDirectiveId = resolvedDirectiveId,
+                        initialActiveResourceCollectionIds = activeResourceCollectionIds,
+                    )
                 }
                 onComplete()
 

@@ -27,8 +27,8 @@ data class ChatMessage(
     val totalTokens: Int? = null,
     val durationMs: Long? = null,
     val isBookmarked: Boolean = false,
-    // Ordered tool-call + response-text content blocks (Tool + Token only) — see
-    // ChatMessageDTO.contentBlocks for the full rationale.
+    // Ordered tool-call + response-text blocks (Tool + Token only) — see
+    // ChatMessageDTO.contentBlocks for rationale.
     val contentBlocks: List<TurnTimelineEntry> = emptyList(),
 )
 
@@ -39,7 +39,7 @@ data class ChatMessage(
 object ChatMessagesTable : Table("chat_messages") {
     val id = varchar("id", 36)
 
-    // Foreign key to chat_sessions with CASCADE delete
+    // FK to chat_sessions with CASCADE delete
     val sessionId = varchar("session_id", 36)
 
     val role = varchar("role", 50)
@@ -47,8 +47,7 @@ object ChatMessagesTable : Table("chat_messages") {
     val createdAt = sqliteInstant("created_at")
     val isOutdated = integer("is_outdated").default(0)
 
-    // Column retained for data compatibility; no FK enforced —
-    // edit-parent feature is not active.
+    // Retained for data compatibility; no FK enforced — edit-parent feature inactive.
     val editParentId = varchar("edit_parent_id", 36).nullable()
 
     val isEdited = integer("is_edited").default(0)
@@ -67,7 +66,7 @@ object ChatMessagesTable : Table("chat_messages") {
     override val primaryKey = PrimaryKey(id)
 
     init {
-        // When a session is deleted, all its messages are automatically deleted.
+        // Cascade delete messages when their session is deleted.
         foreignKey(sessionId to ChatSessionsTable.id, onDelete = ReferenceOption.CASCADE)
     }
 }
