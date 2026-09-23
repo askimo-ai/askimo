@@ -685,12 +685,12 @@ fun sharePromptDialog(
                         verticalArrangement = Arrangement.spacedBy(Spacing.small),
                     ) {
                         Text(
-                            text = stringResource("star.prompt.remind.title"),
+                            text = stringResource("share.prompt.remind.title"),
                             style = AppTextStyles.sectionTitle,
                             textAlign = TextAlign.Center,
                         )
                         Text(
-                            text = stringResource("star.prompt.remind.message"),
+                            text = stringResource("share.prompt.remind.message"),
                             style = AppTextStyles.bodySecondary,
                             textAlign = TextAlign.Center,
                         )

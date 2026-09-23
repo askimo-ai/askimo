@@ -209,12 +209,20 @@ class AccountPreferences private constructor(private val prefs: PropertyFilePref
     }
 
     /**
-     * Whether the user completed the star flow *positively* — clicked "Star on GitHub" or
-     * "Already starred ✓", as opposed to [StarPromptState.PERMANENTLY_DONE] being set via a
-     * neutral/unhappy feedback submission. Gates [shouldShowSharePrompt] so we never nudge
-     * a user who was never positive about the project.
+     * Whether the user completed the star flow *positively* (starred/already-starred) rather
+     * than just reaching [StarPromptState.PERMANENTLY_DONE] via a feedback submission. Gates
+     * [shouldShowSharePrompt].
+     *
+     * Legacy installs only ever wrote [StarPromptState], so we can't tell which path led to
+     * [StarPromptState.PERMANENTLY_DONE]. On first read, that legacy state is inferred as
+     * positive (persisted) rather than permanently excluding pre-upgrade users.
      */
-    fun hasStarredPositively(): Boolean = safeGetBoolean("star.starred_positively", false)
+    fun hasStarredPositively(): Boolean {
+        safeGet("star.starred_positively", null)?.let { return it.toBooleanStrictOrNull() ?: false }
+        val inferredPositive = getStarPromptState() == StarPromptState.PERMANENTLY_DONE
+        safePutBoolean("star.starred_positively", inferredPositive)
+        return inferredPositive
+    }
 
     /** Call from the star prompt's "Star on GitHub" / "Already starred ✓" handlers only. */
     fun markStarredPositively() = safePutBoolean("star.starred_positively", true)
