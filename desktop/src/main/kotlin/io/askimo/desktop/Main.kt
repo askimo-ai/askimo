@@ -65,6 +65,7 @@ import io.askimo.core.chat.service.ChatSessionService
 import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
 import io.askimo.core.context.ExecutionMode
+import io.askimo.core.context.MessageRole
 import io.askimo.core.context.getConfigInfo
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.Event
@@ -171,6 +172,7 @@ import io.askimo.ui.shell.isScreenshotMode
 import io.askimo.ui.shell.keyboardShortcutsDialog
 import io.askimo.ui.shell.rememberPersistedWindowState
 import io.askimo.ui.shell.rememberThemeState
+import io.askimo.ui.shell.sharePromptDialog
 import io.askimo.ui.shell.splashScreen
 import io.askimo.ui.shell.starPromptDialog
 import io.askimo.ui.shell.systemResourcesDialog
@@ -380,6 +382,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     var pendingTerminalCommand by remember { mutableStateOf<PendingTerminalCommand?>(null) }
     var showStarPromptDialog by remember { mutableStateOf(false) }
     var starPromptOpenedFromMenu by remember { mutableStateOf(false) }
+    var showSharePromptDialog by remember { mutableStateOf(false) }
     var showHappinessGateDialog by remember { mutableStateOf(false) }
     var showFeedbackPromptDialog by remember { mutableStateOf(false) }
     var feedbackSentiment by remember { mutableStateOf("neutral") }
@@ -667,8 +670,16 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
         val launchCount = AccountPreferences.device().incrementLaunchCount()
         Analytics.trackRetentionMilestone(launchCount)
 
-        if (AccountPreferences.device().shouldShowStarPrompt()) {
+        val sentMessageCount = withContext(Dispatchers.IO) {
+            runCatching { koin.get<DatabaseManager>().getChatMessageRepository().countByRole(MessageRole.USER) }
+                .getOrDefault(0)
+        }
+
+        if (AccountPreferences.device().shouldShowStarPrompt(sentMessageCount)) {
             showHappinessGateDialog = true
+        } else if (AccountPreferences.device().shouldShowSharePrompt(sentMessageCount)) {
+            showSharePromptDialog = true
+            Analytics.track(AnalyticsEvent.SHARE_PROMPT_SHOWN)
         }
     }
 
@@ -1949,6 +1960,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                             },
                             onStar = {
                                 Analytics.track(AnalyticsEvent.STAR_PROMPT_ACCEPTED)
+                                AccountPreferences.device().markStarredPositively()
                                 AccountPreferences.device().dismissStarPromptPermanently()
                                 runCatching {
                                     if (Desktop.isDesktopSupported()) {
@@ -1960,11 +1972,30 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                             },
                             onAlreadyStarred = {
                                 Analytics.track(AnalyticsEvent.STAR_PROMPT_ACCEPTED)
+                                AccountPreferences.device().markStarredPositively()
                                 AccountPreferences.device().dismissStarPromptPermanently()
                                 starPromptOpenedFromMenu = false
                                 showStarPromptDialog = false
                             },
                             showReminderOnMaybeLater = !starPromptOpenedFromMenu,
+                        )
+                    }
+
+                    // Share Prompt Dialog (power-user milestone, separate from the star prompt)
+                    if (showSharePromptDialog) {
+                        sharePromptDialog(
+                            onDismiss = {
+                                Analytics.track(AnalyticsEvent.SHARE_PROMPT_DISMISSED)
+                                AccountPreferences.device().snoozeSharePrompt()
+                                showSharePromptDialog = false
+                            },
+                            onShared = {
+                                Analytics.track(AnalyticsEvent.SHARE_PROMPT_ACCEPTED)
+                                AccountPreferences.device().dismissSharePromptPermanently()
+                            },
+                            onClose = {
+                                showSharePromptDialog = false
+                            },
                         )
                     }
 
