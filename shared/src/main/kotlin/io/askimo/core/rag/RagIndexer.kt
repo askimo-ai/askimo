@@ -10,6 +10,7 @@ import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.store.embedding.EmbeddingStore
 import io.askimo.core.analytics.Analytics
 import io.askimo.core.analytics.AnalyticsEvent
+import io.askimo.core.chat.domain.KnowledgeSourceConfig
 import io.askimo.core.chat.domain.LocalFoldersKnowledgeSourceConfig
 import io.askimo.core.chat.repository.ProjectRepository
 import io.askimo.core.chat.repository.ResourceCollectionRepository
@@ -37,6 +38,7 @@ import io.askimo.core.rag.container.asIndexingContainer
 import io.askimo.core.rag.indexing.IndexingCoordinator
 import io.askimo.core.rag.indexing.IndexingCoordinatorFactory
 import io.askimo.core.rag.state.IndexProgress
+import io.askimo.core.rag.state.IndexStateRepository
 import io.askimo.core.rag.state.IndexStatus
 import io.askimo.core.util.AskimoHome
 import kotlinx.coroutines.CancellationException
@@ -49,6 +51,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
+import java.io.Closeable
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -377,7 +380,7 @@ class RagIndexer(
         }
 
         // Release the JVector embedding store (holds all vectors in-memory)
-        (embeddingStores.remove(containerKey) as? java.io.Closeable)?.let {
+        (embeddingStores.remove(containerKey) as? Closeable)?.let {
             try {
                 it.close()
             } catch (e: Exception) {
@@ -394,9 +397,10 @@ class RagIndexer(
             } catch (e: Exception) {
                 log.error("Failed to delete container folder for container $containerId", e)
             }
-        } else {
-            cleanupIndexData(containerId)
         }
+        // Always clear the in-memory Lucene instance + DB segment mappings — no DB cascade
+        // exists for ResourceSegmentsTable, so skipping this on delete leaves them orphaned.
+        cleanupIndexData(containerId)
         // Reset persistent progress so the UI shows NOT_STARTED after cleanup
         updateContainerProgress(containerId, containerType, IndexProgress())
     }
@@ -428,6 +432,16 @@ class RagIndexer(
         } catch (e: Exception) {
             log.error("Failed to remove segment mappings from database for container $containerId", e)
         }
+
+        // Remove persisted file-hash state. Without this, a coordinator rebuilt after this
+        // cleanup (no live coordinator to call clearAll()/clearStates() on, e.g. post-restart)
+        // loads these stale hashes, treats every unchanged-on-disk file as already indexed,
+        // and marks the now-empty index READY without re-embedding anything.
+        try {
+            IndexStateRepository(DatabaseManager.getInstance()).clearAllStatesForContainer(containerId)
+        } catch (e: Exception) {
+            log.error("Failed to clear index-file state for container $containerId", e)
+        }
     }
 
     /**
@@ -446,7 +460,7 @@ class RagIndexer(
      */
     private suspend fun performIndexing(
         container: IndexingContainer,
-        knowledgeSources: List<io.askimo.core.chat.domain.KnowledgeSourceConfig>,
+        knowledgeSources: List<KnowledgeSourceConfig>,
         embeddingStore: EmbeddingStore<TextSegment>,
         embeddingModel: EmbeddingModel,
         embeddingModelId: String?,
@@ -711,28 +725,86 @@ class RagIndexer(
             val knowledgeSource = event.knowledgeSource
 
             val containerCoordinators = coordinators[containerKey]
-            if (containerCoordinators != null) {
-                val coordinatorToRemove = containerCoordinators.find {
-                    it.knowledgeSourceConfig == event.knowledgeSource
-                }
-                if (coordinatorToRemove != null) {
-                    coordinatorToRemove.clearAll()
-                    coordinatorToRemove.close()
+            val coordinatorToRemove = containerCoordinators?.find {
+                it.knowledgeSourceConfig == event.knowledgeSource
+            }
 
-                    // Remove from the list of coordinators for this container
-                    coordinators[containerKey] = containerCoordinators.filterNot {
-                        it.knowledgeSourceConfig.resourceIdentifier == event.knowledgeSource.resourceIdentifier
-                    }
+            if (coordinatorToRemove != null) {
+                coordinatorToRemove.clearAll()
+                coordinatorToRemove.close()
 
-                    log.info("Removed index for knowledge source ${knowledgeSource.resourceIdentifier} from container $containerId")
-                } else {
-                    log.warn("No coordinator found for knowledge source ${knowledgeSource.resourceIdentifier} in container $containerId")
+                // Remove from the list of coordinators for this container
+                coordinators[containerKey] = containerCoordinators.filterNot {
+                    it.knowledgeSourceConfig.resourceIdentifier == event.knowledgeSource.resourceIdentifier
                 }
+
+                log.info("Removed index for knowledge source ${knowledgeSource.resourceIdentifier} from container $containerId")
             } else {
-                log.warn("No coordinators found for container $containerId when trying to remove index for source ${knowledgeSource.resourceIdentifier}")
+                // No live coordinator (e.g. app restart, or edited from the list without opening
+                // the detail view) — fall back to persisted-state cleanup so the source's
+                // vectors/Lucene entries/segment mappings don't get silently left behind.
+                log.warn(
+                    "No live coordinator for knowledge source ${knowledgeSource.resourceIdentifier} in " +
+                        "container $containerId — falling back to persisted-state cleanup",
+                )
+                removePersistedIndexForSource(containerId, containerType, knowledgeSource)
             }
         } catch (e: Exception) {
             log.error("Failed to handle index removal request for container ${event.containerId}", e)
+        }
+    }
+
+    /**
+     * Fallback cleanup for [handleRemoveIndexEvent] when no live coordinator exists: builds a
+     * throwaway coordinator (not stored in [coordinators]) just to reuse its polymorphic
+     * [IndexingCoordinator.clearAll], instead of duplicating per-source-type deletion logic here.
+     * Uses the *stored* embedding dimension, so no live embedding call is required.
+     */
+    private fun removePersistedIndexForSource(
+        containerId: String,
+        containerType: IndexingContainerType,
+        knowledgeSource: KnowledgeSourceConfig,
+    ) {
+        val dimension = RagUtils.getStoredEmbeddingDimension(containerId)
+        if (dimension == null) {
+            log.debug(
+                "No stored index metadata for container $containerId — nothing to clean up for " +
+                    "knowledge source ${knowledgeSource.resourceIdentifier}",
+            )
+            return
+        }
+
+        val embeddingModel = try {
+            appContext.getEmbeddingModel()
+        } catch (e: Exception) {
+            log.warn(
+                "Cannot reconstruct coordinator to remove knowledge source " +
+                    "${knowledgeSource.resourceIdentifier} from container $containerId — no embedding " +
+                    "model available (${e.message}). Persisted index data for this source was left in place.",
+            )
+            return
+        }
+
+        val containerName = resolveContainer(containerId, containerType)?.name ?: containerId
+        val embeddingStore = RagUtils.getEmbeddingStoreWithDimension(containerId, dimension)
+
+        val coordinator = IndexingCoordinatorFactory.createCoordinator(
+            containerId = containerId,
+            containerName = containerName,
+            containerType = containerType,
+            knowledgeSource = knowledgeSource,
+            embeddingStore = embeddingStore,
+            embeddingModel = embeddingModel,
+            appContext = appContext,
+        )
+        try {
+            coordinator.clearAll()
+            log.info(
+                "Removed persisted index for knowledge source ${knowledgeSource.resourceIdentifier} " +
+                    "from container $containerId (no live coordinator was present)",
+            )
+        } finally {
+            coordinator.close()
         }
     }
 
@@ -920,6 +992,14 @@ class RagIndexer(
                     it.clearAll()
                     it.close()
                 }
+                // Also close/drop the stale embedding store so it isn't reused below
+                (embeddingStores.remove(containerKey) as? Closeable)?.let {
+                    try {
+                        it.close()
+                    } catch (e: Exception) {
+                        log.warn("Failed to close stale embedding store for container $containerId", e)
+                    }
+                }
                 cleanupIndexData(containerId)
                 // Fall through — indexing runs with a clean slate
             } else {
@@ -943,7 +1023,11 @@ class RagIndexer(
                 }
             }
 
-            val embeddingStore = RagUtils.getEmbeddingStoreWithDimension(containerId, currentDimension)
+            // Reuse an already-open store for this container/path instead of opening a second
+            // JVector instance backed by the same persistence path — that would let watcher
+            // updates write through different in-memory instances and lose/overwrite vectors.
+            val embeddingStore = embeddingStores[containerKey]
+                ?: RagUtils.getEmbeddingStoreWithDimension(containerId, currentDimension)
 
             val container = try {
                 resolveContainer(containerId, containerType)

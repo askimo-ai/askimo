@@ -213,4 +213,19 @@ class IndexStateRepository(
         }
         log.info("Cleared $deleted file states for container $containerId, resource $resourceId")
     }
+
+    /**
+     * Delete all file-hash state for an entire container, across every resource/source type.
+     * Must be called whenever the on-disk/vector index for a container is wiped without going
+     * through each coordinator's [IndexStateManager.clearStates] (e.g. app-restart re-index or
+     * embedding-model-mismatch rebuild with no live coordinators) — otherwise a freshly created
+     * coordinator loads these stale hashes, treats every unchanged-on-disk file as already
+     * indexed, skips re-embedding it, and reports the now-empty index as READY.
+     */
+    fun clearAllStatesForContainer(containerId: String) = transaction(database) {
+        val deleted = IndexFileStateTable.deleteWhere {
+            IndexFileStateTable.containerId eq containerId
+        }
+        log.info("Cleared $deleted file states for container $containerId")
+    }
 }
