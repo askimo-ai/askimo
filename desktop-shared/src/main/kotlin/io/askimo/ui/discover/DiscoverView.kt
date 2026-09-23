@@ -856,7 +856,7 @@ private fun exploreFeaturesSection() {
         if (FeatureFlags.mcpIntegrationEnabled) add(ExploreCardData(Icons.Default.Extension, "discover.explore.mcp.title", "discover.explore.mcp.desc", "https://$DOMAIN/docs/desktop/mcp-integration/"))
         if (FeatureFlags.ragEnabled) add(ExploreCardData(Icons.AutoMirrored.Filled.LibraryBooks, "discover.explore.rag.title", "discover.explore.rag.desc", "https://$DOMAIN/docs/desktop/rag/"))
         if (FeatureFlags.plansEnabled) add(ExploreCardData(Icons.Default.PlayCircle, "discover.explore.plans.title", "discover.explore.plans.desc", "https://$DOMAIN/docs/desktop/plans/"))
-        if (FeatureFlags.agentsEnabled) add(ExploreCardData(Icons.Default.Extension, "discover.explore.skills.title", "discover.explore.skills.desc", "https://$DOMAIN/docs/desktop/skills/"))
+        if (FeatureFlags.agentsEnabled) add(ExploreCardData(Icons.Default.Extension, "discover.explore.agents.title", "discover.explore.agents.desc", "https://$DOMAIN/docs/desktop/skills/"))
     }
     if (enabledCards.isEmpty()) return
 
