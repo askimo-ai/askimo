@@ -177,7 +177,7 @@ fun composeTopMenuBar(
                         onTogglePlans?.invoke()
                     }
                 }
-                if (FeatureFlags.skillsEnabled) {
+                if (FeatureFlags.agentsEnabled) {
                     menuToggleAction("menu.view.agents", isAgentsVisible) {
                         expandedMenu = null
                         onToggleAgents?.invoke()

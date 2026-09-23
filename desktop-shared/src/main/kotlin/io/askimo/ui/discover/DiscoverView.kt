@@ -326,9 +326,9 @@ private fun statCardsSection(
             )
         }
 
-        if (FeatureFlags.skillsEnabled) {
+        if (FeatureFlags.agentsEnabled) {
             statCard(
-                label = stringResource("discover.stat.agents"),
+                label = stringResource("discover.stat.agent_runs"),
                 value = totalJobRuns?.let { LocalizationManager.formatNumber(it) } ?: "—",
                 icon = { Icon(Icons.Default.Extension, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                 onClick = onNavigateToAgents,
@@ -856,7 +856,7 @@ private fun exploreFeaturesSection() {
         if (FeatureFlags.mcpIntegrationEnabled) add(ExploreCardData(Icons.Default.Extension, "discover.explore.mcp.title", "discover.explore.mcp.desc", "https://$DOMAIN/docs/desktop/mcp-integration/"))
         if (FeatureFlags.ragEnabled) add(ExploreCardData(Icons.AutoMirrored.Filled.LibraryBooks, "discover.explore.rag.title", "discover.explore.rag.desc", "https://$DOMAIN/docs/desktop/rag/"))
         if (FeatureFlags.plansEnabled) add(ExploreCardData(Icons.Default.PlayCircle, "discover.explore.plans.title", "discover.explore.plans.desc", "https://$DOMAIN/docs/desktop/plans/"))
-        if (FeatureFlags.skillsEnabled) add(ExploreCardData(Icons.Default.Extension, "discover.explore.skills.title", "discover.explore.skills.desc", "https://$DOMAIN/docs/desktop/skills/"))
+        if (FeatureFlags.agentsEnabled) add(ExploreCardData(Icons.Default.Extension, "discover.explore.skills.title", "discover.explore.skills.desc", "https://$DOMAIN/docs/desktop/skills/"))
     }
     if (enabledCards.isEmpty()) return
 

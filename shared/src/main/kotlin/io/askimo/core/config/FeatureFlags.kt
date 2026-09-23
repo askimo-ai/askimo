@@ -11,7 +11,7 @@ package io.askimo.core.config
  */
 data class FeatureFlagsConfig(
     val plansEnabled: Boolean = true,
-    val skillsEnabled: Boolean = true,
+    val agentsEnabled: Boolean = true,
     val projectsEnabled: Boolean = true,
     val discoverEnabled: Boolean = true,
     val mcpIntegrationEnabled: Boolean = true,
@@ -34,7 +34,7 @@ object FeatureFlags {
     }
 
     val plansEnabled: Boolean get() = config.plansEnabled
-    val skillsEnabled: Boolean get() = config.skillsEnabled
+    val agentsEnabled: Boolean get() = config.agentsEnabled
     val projectsEnabled: Boolean get() = config.projectsEnabled
     val mcpIntegrationEnabled: Boolean get() = config.mcpIntegrationEnabled
     val ragEnabled: Boolean get() = config.ragEnabled

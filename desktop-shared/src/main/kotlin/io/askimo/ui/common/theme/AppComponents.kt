@@ -136,6 +136,12 @@ object AppComponents {
      * - Hover: [AppColors.Elevation.SELECTED] + `primary.copy(alpha = 0.4f)` border — same
      *   tier used for an actually-selected item, so hover and selection never look different.
      *
+     * [content] receives the card's own `isHovered` state — use this (instead of attaching a
+     * second, separate `hoverable`/`MutableInteractionSource` inside the card body) whenever an
+     * icon or detail inside the card needs to react to hover. Reusing the single interaction
+     * source the card itself uses to drive its background keeps both in perfect sync and avoids
+     * stacking multiple `hoverable` modifiers on the same node.
+     *
      * Use this instead of bare [Card] whenever the card is clickable.
      */
     @Composable
@@ -144,16 +150,17 @@ object AppComponents {
         modifier: Modifier = Modifier,
         shape: Shape = MaterialTheme.shapes.medium,
         colors: CardColors = AppColors.cardColors(AppColors.Elevation.RAISED),
-        content: @Composable ColumnScope.() -> Unit,
+        content: @Composable ColumnScope.(isHovered: Boolean) -> Unit,
     ) {
         val interactionSource = remember { MutableInteractionSource() }
         val isHovered by interactionSource.collectIsHoveredAsState()
+        val cardIsHovered = onClick != null && isHovered
 
-        val resolvedColors = if (onClick != null && isHovered) AppColors.cardColors(AppColors.Elevation.SELECTED) else colors
+        val resolvedColors = if (cardIsHovered) AppColors.cardColors(AppColors.Elevation.SELECTED) else colors
 
         val border = BorderStroke(
             1.dp,
-            if (onClick != null && isHovered) {
+            if (cardIsHovered) {
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
             } else {
                 AppColors.codeBlockBorderColor()
@@ -177,7 +184,7 @@ object AppComponents {
             colors = resolvedColors,
             border = border,
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            content = content,
+            content = { content(cardIsHovered) },
         )
     }
 

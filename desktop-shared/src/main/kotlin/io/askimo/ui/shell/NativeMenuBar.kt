@@ -301,7 +301,7 @@ object NativeMenuBar {
                 viewMenu.add(plansToggleItem)
             }
 
-            if (FeatureFlags.skillsEnabled) {
+            if (FeatureFlags.agentsEnabled) {
                 val skillsToggleItem = MenuItem("")
                 val updateSkillsMenuItemFunc: (Boolean) -> Unit = { visible ->
                     skillsToggleItem.label = (if (visible) "✓ " else "  ") +

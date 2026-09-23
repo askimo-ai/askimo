@@ -131,19 +131,17 @@ class RagIndexer(
      */
     private fun recoverInterruptedIndexingStatuses() {
         try {
-            resourceCollectionRepository.getAllCollections()
-                .filter { it.indexStatus == IndexStatus.QUEUED || it.indexStatus == IndexStatus.INDEXING }
-                .forEach { collection ->
-                    log.warn(
-                        "Resource collection ${collection.id} was left in ${collection.indexStatus} " +
-                            "from a previous run — marking as FAILED so it can be retried on demand",
-                    )
-                    resourceCollectionRepository.updateIndexStatus(
-                        collection.id,
-                        IndexStatus.FAILED,
-                        error = "Indexing was interrupted before it could finish (app was closed or crashed). Click reindex to retry.",
-                    )
-                }
+            val recoveredIds = resourceCollectionRepository.markInterruptedIndexingAsFailed(
+                error = "Indexing was interrupted before it could finish (app was closed or crashed). Click reindex to retry.",
+            )
+            if (recoveredIds.isNotEmpty()) {
+                log.warn(
+                    "Recovered {} resource collection(s) left in QUEUED/INDEXING from a previous run " +
+                        "— marked as FAILED so they can be retried on demand: {}",
+                    recoveredIds.size,
+                    recoveredIds,
+                )
+            }
         } catch (e: Exception) {
             log.warn("Failed to recover interrupted index statuses on startup", e)
         }
