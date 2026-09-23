@@ -1032,15 +1032,17 @@ class RagIndexer(
             return true
         }
 
-        // Index files exist on disk (container indexed in a previous session)
-        val indexDir = RagUtils.getProjectIndexDir(containerId, createIfNotExists = false)
-        if (!indexDir.toFile().exists()) {
+        // Index files exist on disk (container indexed in a previous session).
+        // LuceneIndexer stores its segment files under index/lucene, not directly under
+        // index/, so we must look there rather than at the top-level index directory.
+        val luceneDir = RagUtils.getProjectLuceneIndexDir(containerId)
+        if (!luceneDir.toFile().exists()) {
             return false
         }
 
         // Verify validity by checking for essential files
-        val indexFiles = indexDir.toFile().listFiles() ?: return false
-        return indexFiles.any { it.name.startsWith("segments_") } // Lucene segment files indicate valid index
+        val luceneFiles = luceneDir.toFile().listFiles() ?: return false
+        return luceneFiles.any { it.name.startsWith("segments_") } // Lucene segment files indicate valid index
     }
 
     /**

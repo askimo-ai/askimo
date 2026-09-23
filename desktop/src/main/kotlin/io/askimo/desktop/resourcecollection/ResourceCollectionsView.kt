@@ -61,6 +61,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
 import io.askimo.core.chat.domain.ResourceCollection
+import io.askimo.core.chat.repository.CollectionSortColumn
+import io.askimo.core.chat.repository.CollectionSortDirection
 import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.components.indexStatusIcon
 import io.askimo.ui.common.components.indexStatusLabel
@@ -74,9 +76,6 @@ import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.themedTooltip
 
-private enum class CollectionSortColumn { CREATED, MODIFIED }
-private enum class CollectionSortDirection { ASC, DESC }
-
 /**
  * Lists resource collections with search, sortable columns (Created/Modified),
  * and management actions (edit/delete/reindex). Shows an empty state with a
@@ -89,8 +88,6 @@ fun resourceCollectionsView(
     modifier: Modifier = Modifier,
 ) {
     val scrollState = rememberScrollState()
-    var sortColumn by remember { mutableStateOf(CollectionSortColumn.MODIFIED) }
-    var sortDirection by remember { mutableStateOf(CollectionSortDirection.DESC) }
     var pageSize by remember { mutableStateOf(10) }
     var showNewCollectionDialog by remember { mutableStateOf(false) }
 
@@ -236,16 +233,9 @@ fun resourceCollectionsView(
                                 viewModel.updateCollection(id, name, description, knowledgeSources)
                             },
                             onReindexCollection = { viewModel.reindexCollection(it) },
-                            sortColumn = sortColumn,
-                            sortDirection = sortDirection,
-                            onSortChange = { col ->
-                                if (sortColumn == col) {
-                                    sortDirection = if (sortDirection == CollectionSortDirection.DESC) CollectionSortDirection.ASC else CollectionSortDirection.DESC
-                                } else {
-                                    sortColumn = col
-                                    sortDirection = CollectionSortDirection.DESC
-                                }
-                            },
+                            sortColumn = viewModel.sortColumn,
+                            sortDirection = viewModel.sortDirection,
+                            onSortChange = { col -> viewModel.setSort(col) },
                         )
                     }
                 }
@@ -313,17 +303,10 @@ private fun collectionTable(
     sortDirection: CollectionSortDirection,
     onSortChange: (CollectionSortColumn) -> Unit,
 ) {
-    val sortedCollections = remember(collections, sortColumn, sortDirection) {
-        val comparator = when (sortColumn) {
-            CollectionSortColumn.MODIFIED -> compareBy<ResourceCollection> { it.updatedAt }
-            CollectionSortColumn.CREATED -> compareBy<ResourceCollection> { it.createdAt }
-        }
-        if (sortDirection == CollectionSortDirection.DESC) {
-            collections.sortedWith(comparator.reversed())
-        } else {
-            collections.sortedWith(comparator)
-        }
-    }
+    // Note: `collections` arrives already sorted from the repository (sort is applied at
+    // the query level, before pagination) — see [ResourceCollectionsViewModel.setSort].
+    // No client-side re-sort here since that would only reorder the current page's items
+    // and desync from the DB-chosen page boundaries.
 
     Surface(
         shape = MaterialTheme.shapes.medium,
@@ -384,7 +367,7 @@ private fun collectionTable(
 
             HorizontalDivider()
 
-            sortedCollections.forEachIndexed { index, collection ->
+            collections.forEachIndexed { index, collection ->
                 collectionRow(
                     collection = collection,
                     onSelectCollection = { onSelectCollection(collection.id) },
@@ -392,7 +375,7 @@ private fun collectionTable(
                     onUpdateCollection = onUpdateCollection,
                     onReindexCollection = onReindexCollection,
                 )
-                if (index < sortedCollections.lastIndex) {
+                if (index < collections.lastIndex) {
                     HorizontalDivider(color = AppColors.codeBlockBorderColor())
                 }
             }

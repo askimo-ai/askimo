@@ -13,8 +13,11 @@ import io.askimo.core.chat.service.ResourceCollectionService
 import io.askimo.core.context.AppContext
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
+import io.askimo.core.event.internal.IndexRemovalEvent
 import io.askimo.core.event.internal.IndexingRequestedEvent
 import io.askimo.core.event.internal.KnowledgeSourceWatchToggledEvent
+import io.askimo.core.event.internal.ModelChangedEvent
+import io.askimo.core.event.internal.ProviderInstanceSavedEvent
 import io.askimo.core.event.user.IndexingCompletedEvent
 import io.askimo.core.event.user.IndexingFailedEvent
 import io.askimo.core.event.user.IndexingInProgressEvent
@@ -32,6 +35,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.context.GlobalContext
@@ -79,6 +83,7 @@ class ResourceCollectionDetailViewModel(
         loadCollection()
         observeIndexProgress()
         refreshIndexedPaths()
+        observeEmbeddingModelEvents()
     }
 
     /**
@@ -143,6 +148,24 @@ class ResourceCollectionDetailViewModel(
     }
 
     /**
+     * Delete the current collection (including its persisted row and index data).
+     * @return true if the collection was deleted, false if it was already gone.
+     */
+    suspend fun deleteCollection(): Boolean = try {
+        withContext(Dispatchers.IO) {
+            resourceCollectionService.deleteCollection(collectionId)
+        }
+    } catch (e: Exception) {
+        log.error("Failed to delete collection", e)
+        errorMessage = ErrorHandler.getUserFriendlyError(
+            e,
+            "deleting collection",
+            LocalizationManager.getString("resourcecollections.error.deleting"),
+        )
+        false
+    }
+
+    /**
      * Add new sources, merged with existing ones, then trigger indexing for just
      * the new sources (mirrors ProjectView's "Add reference material" flow).
      */
@@ -196,6 +219,18 @@ class ResourceCollectionDetailViewModel(
                     current.description,
                     updated,
                 )
+
+                // Config update alone doesn't remove the source's embeddings/segments from the
+                // index — RagIndexer only reacts to this event to actually delete them.
+                EventBus.post(
+                    IndexRemovalEvent(
+                        containerId = collectionId,
+                        containerType = IndexingContainerType.RESOURCE_COLLECTION,
+                        knowledgeSource = source,
+                        reason = "Knowledge source removed by user",
+                    ),
+                )
+
                 loadCollection()
             } catch (e: Exception) {
                 log.error("Failed to delete knowledge source", e)
@@ -262,13 +297,31 @@ class ResourceCollectionDetailViewModel(
         }
     }
 
+    /** Re-checks [embeddingModelConfigured] and [embeddingSupportedByProvider] against [AppContext]. */
+    fun refreshEmbeddingModelStatus() {
+        embeddingModelConfigured = AppContext.getInstance().isEmbeddingModelConfigured()
+        embeddingSupportedByProvider = AppContext.getInstance().activeProviderSupportsEmbedding()
+    }
+
+    /** Refreshes embedding-model status on provider/model changes, so it doesn't go stale while this view is open. */
+    private fun observeEmbeddingModelEvents() {
+        scope.launch {
+            merge(
+                EventBus.internalEvents.filterIsInstance<ModelChangedEvent>(),
+                EventBus.internalEvents.filterIsInstance<ProviderInstanceSavedEvent>(),
+            ).collect {
+                refreshEmbeddingModelStatus()
+            }
+        }
+    }
+
     /**
      * Update [indexProgress] from EventBus indexing events — event-driven,
      * no polling or race conditions.
      */
     private fun observeIndexProgress() {
         scope.launch {
-            kotlinx.coroutines.flow.merge(
+            merge(
                 EventBus.internalEvents.filterIsInstance<IndexingQueuedEvent>()
                     .filter { it.containerType == IndexingContainerType.RESOURCE_COLLECTION && it.containerId == collectionId },
                 EventBus.internalEvents.filterIsInstance<IndexingStartedEvent>()

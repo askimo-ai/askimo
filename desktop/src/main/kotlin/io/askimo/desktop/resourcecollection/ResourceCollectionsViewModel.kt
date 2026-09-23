@@ -9,12 +9,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
 import io.askimo.core.chat.domain.ResourceCollection
+import io.askimo.core.chat.repository.CollectionSortColumn
+import io.askimo.core.chat.repository.CollectionSortDirection
 import io.askimo.core.chat.service.ResourceCollectionService
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.db.Pageable
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.ModelChangedEvent
 import io.askimo.core.event.internal.ReIndexEvent
+import io.askimo.core.event.user.IndexingCompletedEvent
+import io.askimo.core.event.user.IndexingFailedEvent
+import io.askimo.core.event.user.IndexingQueuedEvent
+import io.askimo.core.event.user.IndexingStartedEvent
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
 import io.askimo.core.rag.container.IndexingContainerType
@@ -24,7 +30,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.context.GlobalContext
@@ -53,6 +61,12 @@ class ResourceCollectionsViewModel(
         private set
 
     var searchQuery by mutableStateOf("")
+        private set
+
+    var sortColumn by mutableStateOf(CollectionSortColumn.MODIFIED)
+        private set
+
+    var sortDirection by mutableStateOf(CollectionSortDirection.DESC)
         private set
 
     /**
@@ -97,7 +111,10 @@ class ResourceCollectionsViewModel(
     }
 
     /**
-     * Load collections for a specific page, respecting any active [searchQuery].
+     * Load collections for a specific page, respecting any active [searchQuery] and
+     * [sortColumn]/[sortDirection]. Sorting is applied at the query level — the page
+     * boundaries themselves depend on the sort order, so it cannot be corrected
+     * client-side once there's more than one page.
      */
     fun loadCollectionsPaged(page: Int = 1) {
         isLoading = true
@@ -107,9 +124,9 @@ class ResourceCollectionsViewModel(
             try {
                 val result = withContext(Dispatchers.IO) {
                     if (searchQuery.isBlank()) {
-                        collectionRepository.getCollectionsPaged(page, collectionsPerPage)
+                        collectionRepository.getCollectionsPaged(page, collectionsPerPage, sortColumn, sortDirection)
                     } else {
-                        collectionRepository.searchCollectionsPaged(searchQuery, page, collectionsPerPage)
+                        collectionRepository.searchCollectionsPaged(searchQuery, page, collectionsPerPage, sortColumn, sortDirection)
                     }
                 }
                 pagedCollections = result
@@ -123,6 +140,20 @@ class ResourceCollectionsViewModel(
                 isLoading = false
             }
         }
+    }
+
+    /**
+     * Change the sort column/direction and reload page 1. Toggles direction if the same
+     * column is selected again, matching the table header click behavior.
+     */
+    fun setSort(column: CollectionSortColumn) {
+        if (sortColumn == column) {
+            sortDirection = if (sortDirection == CollectionSortDirection.DESC) CollectionSortDirection.ASC else CollectionSortDirection.DESC
+        } else {
+            sortColumn = column
+            sortDirection = CollectionSortDirection.DESC
+        }
+        loadCollectionsPaged(1)
     }
 
     /**
@@ -252,6 +283,12 @@ class ResourceCollectionsViewModel(
 
     /**
      * Subscribe to internal events to keep collection list updated.
+     *
+     * Indexing progress/status is persisted directly to the DB by
+     * [io.askimo.core.rag.RagIndexer] (see `persistCollectionIndexStatus`) without emitting
+     * [ModelChangedEvent] — so without the second subscription below, [ResourceCollection.indexStatus]
+     * in [collections]/[pagedCollections] would stay stale (typically NOT_STARTED) until some
+     * unrelated refresh happened to fire.
      */
     private fun subscribeToCollectionEvents() {
         scope.launch {
@@ -260,6 +297,21 @@ class ResourceCollectionsViewModel(
                 .collect {
                     refresh()
                 }
+        }
+
+        scope.launch {
+            merge(
+                EventBus.internalEvents.filterIsInstance<IndexingQueuedEvent>()
+                    .filter { it.containerType == IndexingContainerType.RESOURCE_COLLECTION },
+                EventBus.internalEvents.filterIsInstance<IndexingStartedEvent>()
+                    .filter { it.containerType == IndexingContainerType.RESOURCE_COLLECTION },
+                EventBus.internalEvents.filterIsInstance<IndexingCompletedEvent>()
+                    .filter { it.containerType == IndexingContainerType.RESOURCE_COLLECTION },
+                EventBus.internalEvents.filterIsInstance<IndexingFailedEvent>()
+                    .filter { it.containerType == IndexingContainerType.RESOURCE_COLLECTION },
+            ).collect {
+                refresh()
+            }
         }
     }
 }

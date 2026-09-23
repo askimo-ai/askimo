@@ -48,6 +48,25 @@ private fun ResultRow.toResourceCollection(): ResourceCollection = ResourceColle
 )
 
 /**
+ * Sortable columns for paged collection listings. Kept alongside the repository (rather
+ * than in the UI layer) since the sort must be applied at the query level — pagination
+ * offsets are computed against a specific DB ordering, so the UI cannot correctly re-sort
+ * an already-paged result set once there's more than one page.
+ */
+enum class CollectionSortColumn { CREATED, MODIFIED }
+enum class CollectionSortDirection { ASC, DESC }
+
+private fun CollectionSortColumn.toTableColumn() = when (this) {
+    CollectionSortColumn.CREATED -> ResourceCollectionsTable.createdAt
+    CollectionSortColumn.MODIFIED -> ResourceCollectionsTable.updatedAt
+}
+
+private fun CollectionSortDirection.toSortOrder() = when (this) {
+    CollectionSortDirection.ASC -> SortOrder.ASC
+    CollectionSortDirection.DESC -> SortOrder.DESC
+}
+
+/**
  * Repository for managing resource collections.
  */
 class ResourceCollectionRepository internal constructor(
@@ -135,9 +154,16 @@ class ResourceCollectionRepository internal constructor(
      * Get collections with pagination.
      * @param page 1-based page number
      * @param pageSize Number of items per page
+     * @param sortColumn Column to sort by before paging (page boundaries depend on this)
+     * @param sortDirection Sort direction
      * @return Paginated results
      */
-    fun getCollectionsPaged(page: Int = 1, pageSize: Int = 10): Pageable<ResourceCollection> = transaction(database) {
+    fun getCollectionsPaged(
+        page: Int = 1,
+        pageSize: Int = 10,
+        sortColumn: CollectionSortColumn = CollectionSortColumn.MODIFIED,
+        sortDirection: CollectionSortDirection = CollectionSortDirection.DESC,
+    ): Pageable<ResourceCollection> = transaction(database) {
         val countExpr = ResourceCollectionsTable.id.count()
         val totalItems = ResourceCollectionsTable.select(countExpr).first()[countExpr].toInt()
         val pageParams = resolvePageParams(totalItems, page, pageSize)
@@ -145,7 +171,7 @@ class ResourceCollectionRepository internal constructor(
 
         val pageCollections = ResourceCollectionsTable
             .selectAll()
-            .orderBy(ResourceCollectionsTable.updatedAt, SortOrder.DESC)
+            .orderBy(sortColumn.toTableColumn(), sortDirection.toSortOrder())
             .limit(pageSize)
             .offset(pageParams.offset)
             .map { it.toResourceCollection() }
@@ -164,9 +190,17 @@ class ResourceCollectionRepository internal constructor(
      * @param nameQuery Search term matched against collection names
      * @param page 1-based page number
      * @param pageSize Number of items per page
+     * @param sortColumn Column to sort by before paging (page boundaries depend on this)
+     * @param sortDirection Sort direction
      * @return Paginated results matching the query
      */
-    fun searchCollectionsPaged(nameQuery: String, page: Int = 1, pageSize: Int = 10): Pageable<ResourceCollection> = transaction(database) {
+    fun searchCollectionsPaged(
+        nameQuery: String,
+        page: Int = 1,
+        pageSize: Int = 10,
+        sortColumn: CollectionSortColumn = CollectionSortColumn.MODIFIED,
+        sortDirection: CollectionSortDirection = CollectionSortDirection.DESC,
+    ): Pageable<ResourceCollection> = transaction(database) {
         val pattern = "%${nameQuery.trim()}%"
 
         val countExpr = ResourceCollectionsTable.id.count()
@@ -180,7 +214,7 @@ class ResourceCollectionRepository internal constructor(
         val pageCollections = ResourceCollectionsTable
             .selectAll()
             .where { ResourceCollectionsTable.name like pattern }
-            .orderBy(ResourceCollectionsTable.updatedAt, SortOrder.DESC)
+            .orderBy(sortColumn.toTableColumn(), sortDirection.toSortOrder())
             .limit(pageSize)
             .offset(pageParams.offset)
             .map { it.toResourceCollection() }

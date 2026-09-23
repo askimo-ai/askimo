@@ -71,6 +71,7 @@ import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.themedTooltip
+import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 import org.koin.core.parameter.parametersOf
 
@@ -114,10 +115,6 @@ fun resourceCollectionView(
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // NOTE: this section intentionally wraps its actual content height (no
-            // weight, no fillMaxHeight overlay) so it never eats into the space the
-            // weighted tree section below needs. Mouse-wheel/trackpad scrolling still
-            // works via verticalScroll even without a visible scrollbar affordance.
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -303,7 +300,10 @@ fun resourceCollectionView(
             collectionName = currentCollection.name,
             onConfirm = {
                 showDeleteDialog = false
-                onBack()
+                scope.launch {
+                    viewModel.deleteCollection()
+                    onBack()
+                }
             },
             onDismiss = { showDeleteDialog = false },
         )

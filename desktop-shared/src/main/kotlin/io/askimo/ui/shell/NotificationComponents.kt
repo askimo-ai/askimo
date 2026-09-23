@@ -72,6 +72,7 @@ import io.askimo.core.event.user.IndexingCompletedEvent
 import io.askimo.core.event.user.IndexingFailedEvent
 import io.askimo.core.event.user.IndexingQueuedEvent
 import io.askimo.core.event.user.IndexingStartedEvent
+import io.askimo.core.rag.container.IndexingContainerType
 import io.askimo.core.util.TimeUtil.formatInstantDisplay
 import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.primaryButton
@@ -87,14 +88,18 @@ import java.net.URI
 /**
  * Wrapper to give each notification event a stable unique key for [LazyColumn].
  *
- * [containerId] is non-null for indexing events and is used as the deduplication key
- * so that in-progress cards replace each other rather than stacking.
+ * For indexing events, [id] is derived from both containerId and [IndexingContainerType]
+ * (see [indexingNotificationId]), since a project and a resource collection can share the
+ * same id. Reusing this id across an indexing run's queued/started/completed/failed
+ * lifecycle lets [id] double as the dedup key — no separate containerId field needed.
  */
 data class NotificationEventItem(
     val id: String,
     val event: Event,
-    val containerId: String? = null,
 )
+
+/** Stable dedup key for indexing lifecycle events belonging to the same container. */
+private fun indexingNotificationId(containerId: String, containerType: IndexingContainerType): String = "indexing_${containerType}_$containerId"
 
 /**
  * Notification bell icon displayed in the footer bar.
@@ -122,7 +127,7 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
     // Upserts a terminal indexing card (completed / failed) and bumps the unread badge
     // only when a new card is added — not when replacing an existing in-progress card.
     fun upsertIndexingEvent(item: NotificationEventItem) {
-        val existingIdx = events.indexOfFirst { it.containerId == item.containerId }
+        val existingIdx = events.indexOfFirst { it.id == item.id }
         if (existingIdx >= 0) {
             events[existingIdx] = item
             // Replace in-place — card was already counted, don't bump badge
@@ -152,22 +157,21 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
         }
     }
 
-    // Indexing events live on internalEvents — deduplicated by containerId.
+    // Indexing events — deduplicated by the stable indexing id (containerId + containerType).
     LaunchedEffect(Unit) {
         EventBus.internalEvents.collect { event ->
             when (event) {
                 is IndexingQueuedEvent,
                 is IndexingStartedEvent,
                 -> {
-                    val containerId = when (event) {
-                        is IndexingQueuedEvent -> event.containerId
-                        else -> (event as IndexingStartedEvent).containerId
+                    val notificationId = when (event) {
+                        is IndexingQueuedEvent -> indexingNotificationId(event.containerId, event.containerType)
+                        else -> (event as IndexingStartedEvent).let { indexingNotificationId(it.containerId, it.containerType) }
                     }
-                    val existingIdx = events.indexOfFirst { it.containerId == containerId }
+                    val existingIdx = events.indexOfFirst { it.id == notificationId }
                     val item = NotificationEventItem(
-                        id = "indexing_$containerId",
+                        id = notificationId,
                         event = event,
-                        containerId = containerId,
                     )
                     if (existingIdx >= 0) {
                         // Replace in-place — card was already counted, don't bump badge
@@ -182,9 +186,8 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
                 is IndexingCompletedEvent -> {
                     upsertIndexingEvent(
                         NotificationEventItem(
-                            id = "${eventCounter++}_${event.timestamp.toEpochMilli()}",
+                            id = indexingNotificationId(event.containerId, event.containerType),
                             event = event,
-                            containerId = event.containerId,
                         ),
                     )
                     // Badge-only — don't force-open popup
@@ -193,23 +196,20 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
                 is IndexingFailedEvent -> {
                     upsertIndexingEvent(
                         NotificationEventItem(
-                            id = "${eventCounter++}_${event.timestamp.toEpochMilli()}",
+                            id = indexingNotificationId(event.containerId, event.containerType),
                             event = event,
-                            containerId = event.containerId,
                         ),
                     )
                     showEventPopup = true // User must see failures
                 }
 
                 is FileRemovedFromIndexEvent -> {
-                    // Each removal is its own notification — not deduped by containerId,
-                    // since multiple files can be removed independently.
+                    // Not deduped — each removal is its own notification.
                     events.add(
                         0,
                         NotificationEventItem(
                             id = "${eventCounter++}_${event.timestamp.toEpochMilli()}",
                             event = event,
-                            containerId = "removed_${event.containerId}_${event.fileName}_${event.timestamp.toEpochMilli()}",
                         ),
                     )
                     unreadCount++
