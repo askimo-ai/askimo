@@ -2040,7 +2040,9 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                 )
                             },
                             onClose = {
-                                AccountPreferences.device().markFeedbackCompletedWithoutStarring()
+                                if (!feedbackOpenedFromMenu) {
+                                    AccountPreferences.device().markFeedbackCompletedWithoutStarring()
+                                }
                                 AccountPreferences.device().dismissStarPromptPermanently()
                                 feedbackOpenedFromMenu = false
                                 showFeedbackPromptDialog = false
