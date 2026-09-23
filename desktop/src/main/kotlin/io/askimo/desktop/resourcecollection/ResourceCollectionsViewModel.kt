@@ -240,31 +240,30 @@ class ResourceCollectionsViewModel(
 
     /**
      * Update a collection's metadata and knowledge sources.
+     * @return true if the update was persisted successfully.
      */
-    fun updateCollection(
+    suspend fun updateCollection(
         collectionId: String,
         name: String,
         description: String?,
         knowledgeSources: List<KnowledgeSourceConfig>,
-    ) {
-        scope.launch {
-            try {
-                val updated = withContext(Dispatchers.IO) {
-                    resourceCollectionService.updateCollection(collectionId, name, description, knowledgeSources)
-                }
-                if (updated) {
-                    refresh()
-                } else {
-                    errorMessage = LocalizationManager.getString("resourcecollections.error.not.found")
-                }
-            } catch (e: Exception) {
-                errorMessage = ErrorHandler.getUserFriendlyError(
-                    e,
-                    "updating collection",
-                    LocalizationManager.getString("resourcecollections.error.updating"),
-                )
-            }
+    ): Boolean = try {
+        val updated = withContext(Dispatchers.IO) {
+            resourceCollectionService.updateCollection(collectionId, name, description, knowledgeSources)
         }
+        if (updated) {
+            refresh()
+        } else {
+            errorMessage = LocalizationManager.getString("resourcecollections.error.not.found")
+        }
+        updated
+    } catch (e: Exception) {
+        errorMessage = ErrorHandler.getUserFriendlyError(
+            e,
+            "updating collection",
+            LocalizationManager.getString("resourcecollections.error.updating"),
+        )
+        false
     }
 
     /**

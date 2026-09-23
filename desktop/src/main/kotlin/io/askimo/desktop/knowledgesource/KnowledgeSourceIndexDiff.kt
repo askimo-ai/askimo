@@ -31,10 +31,17 @@ fun applyKnowledgeSourceDiff(
     newSources: List<KnowledgeSourceConfig>,
     watchForChanges: Boolean = true,
 ) {
-    val oldSet = oldSources.toSet()
-    val newSet = newSources.toSet()
-    val addedSources = newSet - oldSet
-    val removedSources = oldSet - newSet
+    // Diff by stable identity (type + resourceIdentifier), not full config equality —
+    // otherwise a watch-only toggle (part of equals()/hashCode()) would look like
+    // remove+add and trigger a spurious delete + re-index. Watcher changes are handled
+    // separately via KnowledgeSourceWatchToggledEvent.
+    fun identity(config: KnowledgeSourceConfig) = config::class to config.resourceIdentifier
+
+    val oldByIdentity = oldSources.associateBy(::identity)
+    val newByIdentity = newSources.associateBy(::identity)
+
+    val removedSources = oldByIdentity.filterKeys { it !in newByIdentity }.values
+    val addedSources = newByIdentity.filterKeys { it !in oldByIdentity }.values
 
     // Emit removal events for deleted sources
     removedSources.forEach { source ->

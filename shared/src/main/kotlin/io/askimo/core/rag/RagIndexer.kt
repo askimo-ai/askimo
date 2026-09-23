@@ -235,6 +235,14 @@ class RagIndexer(
                 .filterIsInstance<ContainerDeletedEvent>()
                 .collect { event ->
                     log.info("${event.containerType} deleted, cleaning up coordinator: ${event.containerId}")
+                    val taskKey = key(event.containerId, event.containerType)
+                    if (activeContainerKey == taskKey) {
+                        // Cancel immediately — the consumer loop's own preemption check
+                        // never fires here, since activeContainerKey is reset to null right
+                        // after the active job finishes, before the next task is dequeued.
+                        log.info("Container deleted while active — cancelling current indexing immediately: $taskKey")
+                        activeJob?.cancel()
+                    }
                     taskChannel.send(IndexingTask.Delete(event.containerId, event.containerType))
                 }
         }

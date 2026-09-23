@@ -73,7 +73,7 @@ import kotlin.collections.plus
 fun editResourceCollectionDialog(
     collection: ResourceCollection,
     onDismiss: () -> Unit,
-    onSave: (collectionId: String, name: String, description: String?, knowledgeSources: List<KnowledgeSourceConfig>) -> Unit,
+    onSave: suspend (collectionId: String, name: String, description: String?, knowledgeSources: List<KnowledgeSourceConfig>) -> Boolean,
 ) {
     var collectionName by remember { mutableStateOf(collection.name) }
     var collectionDescription by remember { mutableStateOf(collection.description ?: "") }
@@ -122,21 +122,25 @@ fun editResourceCollectionDialog(
         // Build knowledge source configurations from UI items
         val knowledgeSourceConfigs = buildKnowledgeSourceConfigs(knowledgeSources)
 
-        // Save the collection
-        onSave(
-            collection.id,
-            collectionName.trim(),
-            collectionDescription.trim().takeIf { it.isNotEmpty() },
-            knowledgeSourceConfigs,
-        )
+        scope.launch {
+            // Await the save and only post the diff (which mutates the index) if it actually
+            // persisted — otherwise the index would drift from the (unsaved) collection config.
+            val saved = onSave(
+                collection.id,
+                collectionName.trim(),
+                collectionDescription.trim().takeIf { it.isNotEmpty() },
+                knowledgeSourceConfigs,
+            )
 
-        // Detect added/removed knowledge sources and trigger indexing/removal events
-        applyKnowledgeSourceDiff(
-            containerId = collection.id,
-            containerType = IndexingContainerType.RESOURCE_COLLECTION,
-            oldSources = collection.knowledgeSources,
-            newSources = knowledgeSourceConfigs,
-        )
+            if (saved) {
+                applyKnowledgeSourceDiff(
+                    containerId = collection.id,
+                    containerType = IndexingContainerType.RESOURCE_COLLECTION,
+                    oldSources = collection.knowledgeSources,
+                    newSources = knowledgeSourceConfigs,
+                )
+            }
+        }
     }
 
     LaunchedEffect(Unit) {

@@ -37,6 +37,7 @@ sealed class KnowledgeSourceItem {
         override val id: String,
         val path: String,
         override val isValid: Boolean,
+        val watchForChanges: Boolean = true,
     ) : KnowledgeSourceItem() {
         override val displayName = path
         override val typeInfo = TypeInfo.FOLDER
@@ -90,6 +91,7 @@ fun parseKnowledgeSourceConfigs(configs: List<KnowledgeSourceConfig>): List<Know
                 id = UUID.randomUUID().toString(),
                 path = config.resourceIdentifier,
                 isValid = validateFolder(config.resourceIdentifier),
+                watchForChanges = config.watchForChanges,
             )
         }
 
@@ -117,7 +119,7 @@ fun parseKnowledgeSourceConfigs(configs: List<KnowledgeSourceConfig>): List<Know
 fun buildKnowledgeSourceConfigs(sources: List<KnowledgeSourceItem>): List<KnowledgeSourceConfig> = sources.map { source ->
     when (source) {
         is KnowledgeSourceItem.Folder -> {
-            LocalFoldersKnowledgeSourceConfig(resourceIdentifier = source.path)
+            LocalFoldersKnowledgeSourceConfig(resourceIdentifier = source.path, watchForChanges = source.watchForChanges)
         }
 
         is KnowledgeSourceItem.File -> {

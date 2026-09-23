@@ -314,8 +314,9 @@ fun resourceCollectionView(
             collection = currentCollection,
             onDismiss = { showEditDialog = false },
             onSave = { _, name, description, knowledgeSources ->
-                viewModel.updateCollection(name, description, knowledgeSources)
-                showEditDialog = false
+                val saved = viewModel.updateCollection(name, description, knowledgeSources)
+                if (saved) showEditDialog = false
+                saved
             },
         )
     }

@@ -298,7 +298,7 @@ private fun collectionTable(
     collections: List<ResourceCollection>,
     onSelectCollection: (String) -> Unit,
     onDeleteCollection: (String) -> Unit,
-    onUpdateCollection: (String, String, String?, List<KnowledgeSourceConfig>) -> Unit,
+    onUpdateCollection: suspend (String, String, String?, List<KnowledgeSourceConfig>) -> Boolean,
     onReindexCollection: (String) -> Unit,
     sortColumn: CollectionSortColumn,
     sortDirection: CollectionSortDirection,
@@ -423,7 +423,7 @@ private fun collectionRow(
     collection: ResourceCollection,
     onSelectCollection: () -> Unit,
     onDeleteCollection: (String) -> Unit,
-    onUpdateCollection: (String, String, String?, List<KnowledgeSourceConfig>) -> Unit,
+    onUpdateCollection: suspend (String, String, String?, List<KnowledgeSourceConfig>) -> Boolean,
     onReindexCollection: (String) -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -448,8 +448,9 @@ private fun collectionRow(
             collection = collection,
             onDismiss = { showEditDialog = false },
             onSave = { id, name, description, knowledgeSources ->
-                onUpdateCollection(id, name, description, knowledgeSources)
-                showEditDialog = false
+                val saved = onUpdateCollection(id, name, description, knowledgeSources)
+                if (saved) showEditDialog = false
+                saved
             },
         )
     }

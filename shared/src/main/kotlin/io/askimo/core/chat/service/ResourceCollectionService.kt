@@ -73,7 +73,7 @@ class ResourceCollectionService(
                 IndexingRequestedEvent(
                     containerId = created.id,
                     containerType = IndexingContainerType.RESOURCE_COLLECTION,
-                    watchForChanges = false,
+                    watchForChanges = true,
                 ),
             )
             log.debug("Emitted indexing event for collection ${created.id}")
@@ -181,7 +181,7 @@ class ResourceCollectionService(
                 IndexingRequestedEvent(
                     containerId = collectionId,
                     containerType = IndexingContainerType.RESOURCE_COLLECTION,
-                    watchForChanges = false,
+                    watchForChanges = true,
                 ),
             )
             log.debug("Triggered indexing for collection $collectionId with ${newKnowledgeSources.size} knowledge sources")
