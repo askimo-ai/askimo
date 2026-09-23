@@ -64,6 +64,23 @@ class AccountPreferencesSharePromptTest {
         assertFalse(prefs.hasStarredPositively())
     }
 
+    @Test
+    fun `feedback-only completion does not open the positive gate even though PERMANENTLY_DONE is reached`() = withDevicePrefs { prefs ->
+        prefs.markFeedbackCompletedWithoutStarring()
+        prefs.dismissStarPromptPermanently()
+
+        assertFalse(prefs.hasStarredPositively())
+        assertFalse(prefs.shouldShowSharePrompt(sentMessageCount = Int.MAX_VALUE))
+    }
+
+    @Test
+    fun `explicit false marker takes priority over the legacy PERMANENTLY_DONE inference`() = withDevicePrefs { prefs ->
+        seedDeviceProperty("star.prompt_state", AccountPreferences.StarPromptState.PERMANENTLY_DONE.name)
+        prefs.markFeedbackCompletedWithoutStarring()
+
+        assertFalse(prefs.hasStarredPositively())
+    }
+
     // ── Power-user message-count threshold (boundary at 100) ────────────────────
 
     @Test

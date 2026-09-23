@@ -213,9 +213,9 @@ class AccountPreferences private constructor(private val prefs: PropertyFilePref
      * than just reaching [StarPromptState.PERMANENTLY_DONE] via a feedback submission. Gates
      * [shouldShowSharePrompt].
      *
-     * Legacy installs only ever wrote [StarPromptState], so we can't tell which path led to
-     * [StarPromptState.PERMANENTLY_DONE]. On first read, that legacy state is inferred as
-     * positive (persisted) rather than permanently excluding pre-upgrade users.
+     * [markStarredPositively] and [markFeedbackCompletedWithoutStarring] always write an
+     * explicit marker, so only pre-marker (legacy) installs fall through to inferring a
+     * positive from [StarPromptState.PERMANENTLY_DONE] — inferred once, then persisted.
      */
     fun hasStarredPositively(): Boolean {
         safeGet("star.starred_positively", null)?.let { return it.toBooleanStrictOrNull() ?: false }
@@ -226,6 +226,12 @@ class AccountPreferences private constructor(private val prefs: PropertyFilePref
 
     /** Call from the star prompt's "Star on GitHub" / "Already starred ✓" handlers only. */
     fun markStarredPositively() = safePutBoolean("star.starred_positively", true)
+
+    /**
+     * Call when neutral/unhappy feedback reaches [StarPromptState.PERMANENTLY_DONE] without
+     * starring, so [hasStarredPositively] doesn't mistake it for a positive star.
+     */
+    fun markFeedbackCompletedWithoutStarring() = safePutBoolean("star.starred_positively", false)
 
     // ── Share prompt state machine (independent of the star prompt) ──────────
     //
