@@ -78,11 +78,13 @@ fun composeTopMenuBar(
     onClearPreferences: () -> Unit,
     onClearAccountPreferences: (() -> Unit)? = null,
     onTogglePlans: (() -> Unit)?,
-    onToggleSkills: (() -> Unit)?,
+    onToggleAgents: (() -> Unit)?,
     onToggleProjects: (() -> Unit)?,
+    onToggleResourceCollections: (() -> Unit)?,
     isPlansVisible: Boolean,
-    isSkillsVisible: Boolean,
+    isAgentsVisible: Boolean,
     isProjectsVisible: Boolean,
+    isResourceCollectionsVisible: Boolean,
     isFullScreen: Boolean,
     onShowSystemDiagnostics: () -> Unit,
     onNavigateToBookmarks: () -> Unit,
@@ -176,9 +178,9 @@ fun composeTopMenuBar(
                     }
                 }
                 if (FeatureFlags.skillsEnabled) {
-                    menuToggleAction("menu.view.skills", isSkillsVisible) {
+                    menuToggleAction("menu.view.agents", isAgentsVisible) {
                         expandedMenu = null
-                        onToggleSkills?.invoke()
+                        onToggleAgents?.invoke()
                     }
                 }
                 if (FeatureFlags.projectsEnabled) {
@@ -186,6 +188,10 @@ fun composeTopMenuBar(
                         expandedMenu = null
                         onToggleProjects?.invoke()
                     }
+                }
+                menuToggleAction("resourcecollections.title", isResourceCollectionsVisible) {
+                    expandedMenu = null
+                    onToggleResourceCollections?.invoke()
                 }
                 menuDivider()
                 menuAction(if (isSidebarExpanded) "menu.view.hide.sidebar" else "menu.view.show.sidebar") {

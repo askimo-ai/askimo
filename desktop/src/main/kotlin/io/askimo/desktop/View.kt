@@ -14,7 +14,7 @@ enum class View {
     PLANS,
     PLAN_DETAIL,
     PLAN_EDITOR,
-    SKILLS,
+    AGENTS,
     SETTINGS,
     BOOKMARKS,
     RESOURCE_COLLECTIONS,

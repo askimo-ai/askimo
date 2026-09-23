@@ -35,11 +35,11 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayCircle
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Token
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Workspaces
 import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -120,7 +120,7 @@ fun discoverView(
     onNavigateToProjects: () -> Unit,
     onNavigateToPlans: () -> Unit,
     onNavigateToSkills: () -> Unit,
-    onNavigateToMcpSettings: () -> Unit,
+    onNavigateToResourceCollections: (() -> Unit)? = null,
     showTokenUsageCard: Boolean,
     onToggleTokenUsageCard: (Boolean) -> Unit,
     onOpenSystemDiagnostics: () -> Unit,
@@ -151,14 +151,14 @@ fun discoverView(
                 statCardsSection(
                     totalChats = viewModel.totalChats,
                     totalProjects = viewModel.totalProjects,
-                    totalMcpServers = viewModel.totalMcpServers,
+                    totalResourceCollections = viewModel.totalResourceCollections,
                     totalPlans = viewModel.totalPlans,
-                    totalSkills = viewModel.totalSkills,
+                    totalJobRuns = viewModel.totalAgentRuns,
                     onNavigateToSessions = onNavigateToSessions,
                     onNavigateToProjects = onNavigateToProjects,
                     onNavigateToPlans = onNavigateToPlans,
-                    onNavigateToSkills = onNavigateToSkills,
-                    onNavigateToMcpSettings = onNavigateToMcpSettings,
+                    onNavigateToAgents = onNavigateToSkills,
+                    onNavigateToResourceCollections = onNavigateToResourceCollections,
                 )
 
                 exploreFeaturesSection()
@@ -275,14 +275,14 @@ private fun headerSection(
 private fun statCardsSection(
     totalChats: Int?,
     totalProjects: Int?,
-    totalMcpServers: Int,
+    totalResourceCollections: Int?,
     totalPlans: Int?,
-    totalSkills: Int?,
+    totalJobRuns: Int?,
     onNavigateToSessions: () -> Unit,
     onNavigateToProjects: () -> Unit,
     onNavigateToPlans: () -> Unit,
-    onNavigateToSkills: () -> Unit,
-    onNavigateToMcpSettings: () -> Unit,
+    onNavigateToAgents: () -> Unit,
+    onNavigateToResourceCollections: (() -> Unit)?,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -291,7 +291,7 @@ private fun statCardsSection(
         statCard(
             label = stringResource("discover.stat.chats"),
             value = totalChats?.let { LocalizationManager.formatNumber(it) } ?: "—",
-            icon = { Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            icon = { Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
             onClick = onNavigateToSessions,
             modifier = Modifier.weight(1f),
         )
@@ -300,18 +300,18 @@ private fun statCardsSection(
             statCard(
                 label = stringResource("discover.stat.projects"),
                 value = totalProjects?.let { LocalizationManager.formatNumber(it) } ?: "—",
-                icon = { Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                icon = { Icon(Icons.Default.Workspaces, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                 onClick = onNavigateToProjects,
                 modifier = Modifier.weight(1f),
             )
         }
 
-        if (FeatureFlags.mcpIntegrationEnabled) {
+        if (onNavigateToResourceCollections != null) {
             statCard(
-                label = stringResource("discover.stat.mcp"),
-                value = LocalizationManager.formatNumber(totalMcpServers),
-                icon = { Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                onClick = onNavigateToMcpSettings,
+                label = stringResource("discover.stat.resource_collections"),
+                value = totalResourceCollections?.let { LocalizationManager.formatNumber(it) } ?: "—",
+                icon = { Icon(Icons.AutoMirrored.Filled.LibraryBooks, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                onClick = onNavigateToResourceCollections,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -328,10 +328,10 @@ private fun statCardsSection(
 
         if (FeatureFlags.skillsEnabled) {
             statCard(
-                label = stringResource("discover.stat.skills"),
-                value = totalSkills?.let { LocalizationManager.formatNumber(it) } ?: "—",
+                label = stringResource("discover.stat.agents"),
+                value = totalJobRuns?.let { LocalizationManager.formatNumber(it) } ?: "—",
                 icon = { Icon(Icons.Default.Extension, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                onClick = onNavigateToSkills,
+                onClick = onNavigateToAgents,
                 modifier = Modifier.weight(1f),
             )
         }

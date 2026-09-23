@@ -122,6 +122,34 @@ class RagIndexer(
     }
 
     /**
+     * On fresh startup, [coordinators] is always empty — no indexing job can genuinely still be
+     * running. Any resource collection persisted as [IndexStatus.QUEUED] or [IndexStatus.INDEXING]
+     * from a previous run must therefore have been interrupted (app crash, force-quit, OS kill)
+     * rather than still in progress. Mark those as [IndexStatus.FAILED] so the collections list
+     * surfaces an actionable retry affordance instead of showing a permanently-spinning
+     * "Indexing…" row that will never complete on its own.
+     */
+    private fun recoverInterruptedIndexingStatuses() {
+        try {
+            resourceCollectionRepository.getAllCollections()
+                .filter { it.indexStatus == IndexStatus.QUEUED || it.indexStatus == IndexStatus.INDEXING }
+                .forEach { collection ->
+                    log.warn(
+                        "Resource collection ${collection.id} was left in ${collection.indexStatus} " +
+                            "from a previous run — marking as FAILED so it can be retried on demand",
+                    )
+                    resourceCollectionRepository.updateIndexStatus(
+                        collection.id,
+                        IndexStatus.FAILED,
+                        error = "Indexing was interrupted before it could finish (app was closed or crashed). Click reindex to retry.",
+                    )
+                }
+        } catch (e: Exception) {
+            log.warn("Failed to recover interrupted index statuses on startup", e)
+        }
+    }
+
+    /**
      * Re-broadcasts current progress for a container whose indexing request was deduped
      * because it's already fully indexed. Without this, a late/re-subscribed listener (e.g.
      * a ViewModel created after indexing finished, defaulting to NOT_STARTED) would never
@@ -230,6 +258,8 @@ class RagIndexer(
     private val pendingReIndexKeys = ConcurrentHashMap.newKeySet<ContainerKey>()
 
     init {
+        recoverInterruptedIndexingStatuses()
+
         scope.launch {
             EventBus.internalEvents
                 .filterIsInstance<ContainerDeletedEvent>()

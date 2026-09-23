@@ -40,6 +40,7 @@ object NativeMenuBar {
     private var updatePlansMenuItem: ((Boolean) -> Unit)? = null
     private var updateSkillsMenuItem: ((Boolean) -> Unit)? = null
     private var updateProjectsMenuItem: ((Boolean) -> Unit)? = null
+    private var updateResourceCollectionsMenuItem: ((Boolean) -> Unit)? = null
 
     fun updatePlansMenuLabel(isVisible: Boolean) {
         updatePlansMenuItem?.invoke(isVisible)
@@ -53,6 +54,10 @@ object NativeMenuBar {
         updateProjectsMenuItem?.invoke(isVisible)
     }
 
+    fun updateResourceCollectionsMenuLabel(isVisible: Boolean) {
+        updateResourceCollectionsMenuItem?.invoke(isVisible)
+    }
+
     fun setup(
         frameWindowScope: FrameWindowScope,
         onShowAbout: () -> Unit,
@@ -63,8 +68,6 @@ object NativeMenuBar {
         onShowEventLog: () -> Unit,
         onCheckForUpdates: () -> Unit,
         onToggleFullScreen: () -> Unit,
-        onNavigateToSessions: () -> Unit,
-        onNavigateToProjects: () -> Unit,
         onNavigateToDiscover: () -> Unit,
         onToggleSidebar: () -> Unit,
         onInvalidateCaches: () -> Unit,
@@ -75,11 +78,13 @@ object NativeMenuBar {
         onClearPreferences: () -> Unit = {},
         onClearAccountPreferences: () -> Unit = {},
         onTogglePlans: (() -> Unit)? = null,
-        onToggleSkills: (() -> Unit)? = null,
+        onToggleAgents: (() -> Unit)? = null,
         onToggleProjects: (() -> Unit)? = null,
+        onToggleResourceCollections: (() -> Unit)? = null,
         isPlansVisible: Boolean = true,
-        isSkillsVisible: Boolean = true,
+        isAgentsVisible: Boolean = true,
         isProjectsVisible: Boolean = true,
+        isResourceCollectionsVisible: Boolean = true,
         isFullScreen: Boolean = false,
         onShowSystemDiagnostics: () -> Unit = {},
         onNavigateToBookmarks: () -> Unit,
@@ -91,7 +96,7 @@ object NativeMenuBar {
 
         // Use native AWT menu bar only on macOS to avoid CJK glyph issues on some platforms.
         if (Platform.isMac) {
-            setupAWTMenuBar(window, onShowAbout, onNewChat, onNewProject, onSearchInSessions, onShowSettings, onShowEventLog, onCheckForUpdates, onToggleFullScreen, onNavigateToSessions, onNavigateToProjects, onNavigateToDiscover, onToggleSidebar, onInvalidateCaches, onExportBackup, onImportBackup, onShowGettingStarted, onOpenTerminal, onClearPreferences, onClearAccountPreferences, onTogglePlans, onToggleSkills, onToggleProjects, isPlansVisible, isSkillsVisible, isProjectsVisible, isFullScreen, onShowSystemDiagnostics, onNavigateToBookmarks, onSupportAskimo, onShareFeedback, onShowKeyboardShortcuts)
+            setupAWTMenuBar(window, onShowAbout, onNewChat, onNewProject, onSearchInSessions, onShowSettings, onShowEventLog, onCheckForUpdates, onToggleFullScreen, onNavigateToDiscover, onToggleSidebar, onInvalidateCaches, onExportBackup, onImportBackup, onShowGettingStarted, onOpenTerminal, onClearPreferences, onClearAccountPreferences, onTogglePlans, onToggleAgents, onToggleProjects, onToggleResourceCollections, isPlansVisible, isAgentsVisible, isProjectsVisible, isResourceCollectionsVisible, isFullScreen, onShowSystemDiagnostics, onNavigateToBookmarks, onSupportAskimo, onShareFeedback, onShowKeyboardShortcuts)
 
             // Register About handler in the macOS application menu.
             setupMacAboutHandler(onShowAbout)
@@ -122,8 +127,6 @@ object NativeMenuBar {
         onShowEventLog: () -> Unit,
         onCheckForUpdates: () -> Unit,
         onToggleFullScreen: () -> Unit,
-        onNavigateToSessions: () -> Unit,
-        onNavigateToProjects: () -> Unit,
         onNavigateToDiscover: () -> Unit,
         onToggleSidebar: () -> Unit,
         onInvalidateCaches: () -> Unit,
@@ -136,9 +139,11 @@ object NativeMenuBar {
         onTogglePlans: (() -> Unit)?,
         onToggleSkills: (() -> Unit)?,
         onToggleProjects: (() -> Unit)?,
+        onToggleResourceCollections: (() -> Unit)?,
         isPlansVisible: Boolean,
         isSkillsVisible: Boolean,
         isProjectsVisible: Boolean,
+        isResourceCollectionsVisible: Boolean,
         isFullScreen: Boolean,
         onShowSystemDiagnostics: () -> Unit,
         onNavigateToBookmarks: () -> Unit,
@@ -300,7 +305,7 @@ object NativeMenuBar {
                 val skillsToggleItem = MenuItem("")
                 val updateSkillsMenuItemFunc: (Boolean) -> Unit = { visible ->
                     skillsToggleItem.label = (if (visible) "✓ " else "  ") +
-                        menuLabel("menu.view.skills")
+                        menuLabel("menu.view.agents")
                 }
                 updateSkillsMenuItem = updateSkillsMenuItemFunc
                 updateSkillsMenuItemFunc(isSkillsVisible)
@@ -319,6 +324,16 @@ object NativeMenuBar {
                 projectsToggleItem.addActionListener { onToggleProjects?.invoke() }
                 viewMenu.add(projectsToggleItem)
             }
+
+            val resourceCollectionsToggleItem = MenuItem("")
+            val updateResourceCollectionsMenuItemFunc: (Boolean) -> Unit = { visible ->
+                resourceCollectionsToggleItem.label = (if (visible) "✓ " else "  ") +
+                    menuLabel("resourcecollections.title")
+            }
+            updateResourceCollectionsMenuItem = updateResourceCollectionsMenuItemFunc
+            updateResourceCollectionsMenuItemFunc(isResourceCollectionsVisible)
+            resourceCollectionsToggleItem.addActionListener { onToggleResourceCollections?.invoke() }
+            viewMenu.add(resourceCollectionsToggleItem)
 
             viewMenu.addSeparator()
 

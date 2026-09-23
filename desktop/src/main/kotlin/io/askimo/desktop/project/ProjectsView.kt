@@ -61,9 +61,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.components.linkButton
@@ -90,6 +92,7 @@ fun projectsView(
     modifier: Modifier = Modifier,
 ) {
     val scrollState = rememberScrollState()
+    val uriHandler = LocalUriHandler.current
     var sortColumn by remember { mutableStateOf(ProjectSortColumn.MODIFIED) }
     var sortDirection by remember { mutableStateOf(ProjectSortDirection.DESC) }
     var pageSize by remember { mutableStateOf(10) }
@@ -141,10 +144,17 @@ fun projectsView(
 
                 Text(
                     text = stringResource("projects.description"),
-
                     style = AppTextStyles.bodySecondary,
                     modifier = Modifier.padding(top = Spacing.extraSmall, bottom = Spacing.extraSmall),
                 )
+
+                linkButton(onClick = { uriHandler.openUri("https://$DOMAIN/docs/desktop/rag/") }) {
+                    Text(
+                        text = stringResource("rag.learn.more"),
+                        style = AppTextStyles.caption,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
 
                 if (!viewModel.embeddingModelConfigured && onNavigateToAiProviderSettings != null) {
                     Spacer(modifier = Modifier.height(Spacing.medium))

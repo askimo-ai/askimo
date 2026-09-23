@@ -134,7 +134,6 @@ val desktopModule = module {
             chatSessionRepository = get(),
             projectRepository = get(),
             planDefRepository = get(),
-            mcpInstanceService = get(),
         )
     }
 
