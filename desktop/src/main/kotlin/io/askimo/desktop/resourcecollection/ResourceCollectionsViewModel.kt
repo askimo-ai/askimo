@@ -12,10 +12,12 @@ import io.askimo.core.chat.domain.ResourceCollection
 import io.askimo.core.chat.repository.CollectionSortColumn
 import io.askimo.core.chat.repository.CollectionSortDirection
 import io.askimo.core.chat.service.ResourceCollectionService
+import io.askimo.core.context.AppContext
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.db.Pageable
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.ModelChangedEvent
+import io.askimo.core.event.internal.ProviderInstanceSavedEvent
 import io.askimo.core.event.internal.ReIndexEvent
 import io.askimo.core.event.user.IndexingCompletedEvent
 import io.askimo.core.event.user.IndexingFailedEvent
@@ -68,6 +70,22 @@ class ResourceCollectionsViewModel(
     var sortDirection by mutableStateOf(CollectionSortDirection.DESC)
         private set
 
+    /**
+     * True when the active provider has an embedding model configured, meaning RAG
+     * collection indexing can run. Kept in sync via [subscribeToEmbeddingModelEvents].
+     */
+    var embeddingModelConfigured by mutableStateOf(AppContext.getInstance().isEmbeddingModelConfigured())
+        private set
+
+    /**
+     * True when the active provider's factory supports embedding models at all
+     * (regardless of whether one is configured) — false for providers like
+     * Anthropic/xAI. Switches the "RAG disabled" banner's copy/action between
+     * "configure embedding model" and "switch provider".
+     */
+    var embeddingSupportedByProvider by mutableStateOf(AppContext.getInstance().activeProviderSupportsEmbedding())
+        private set
+
     private var searchDebounceJob: Job? = null
 
     private var collectionsPerPage = 10
@@ -81,6 +99,31 @@ class ResourceCollectionsViewModel(
         loadCollections()
         loadCollectionsPaged(1)
         subscribeToCollectionEvents()
+        subscribeToEmbeddingModelEvents()
+    }
+
+    /**
+     * Re-checks [embeddingModelConfigured] and [embeddingSupportedByProvider] against
+     * [AppContext]. Called on init and by [subscribeToEmbeddingModelEvents].
+     */
+    fun refreshEmbeddingModelStatus() {
+        embeddingModelConfigured = AppContext.getInstance().isEmbeddingModelConfigured()
+        embeddingSupportedByProvider = AppContext.getInstance().activeProviderSupportsEmbedding()
+    }
+
+    /**
+     * Refreshes embedding-model status on provider/model changes or provider instance
+     * saves (including inline model overrides).
+     */
+    private fun subscribeToEmbeddingModelEvents() {
+        scope.launch {
+            merge(
+                EventBus.internalEvents.filterIsInstance<ModelChangedEvent>(),
+                EventBus.internalEvents.filterIsInstance<ProviderInstanceSavedEvent>(),
+            ).collect {
+                refreshEmbeddingModelStatus()
+            }
+        }
     }
 
     /**
@@ -104,10 +147,9 @@ class ResourceCollectionsViewModel(
     }
 
     /**
-     * Load collections for a specific page, respecting any active [searchQuery] and
-     * [sortColumn]/[sortDirection]. Sorting is applied at the query level — the page
-     * boundaries themselves depend on the sort order, so it cannot be corrected
-     * client-side once there's more than one page.
+     * Loads collections for [page], respecting the active [searchQuery] and
+     * [sortColumn]/[sortDirection]. Sorting is applied at the query level, so page
+     * boundaries can't be corrected client-side once there's more than one page.
      */
     fun loadCollectionsPaged(page: Int = 1) {
         isLoading = true
@@ -136,8 +178,8 @@ class ResourceCollectionsViewModel(
     }
 
     /**
-     * Change the sort column/direction and reload page 1. Toggles direction if the same
-     * column is selected again, matching the table header click behavior.
+     * Changes sort column/direction and reloads page 1. Toggles direction if the same
+     * column is clicked again, matching the table header behavior.
      */
     fun setSort(column: CollectionSortColumn) {
         if (sortColumn == column) {
@@ -260,8 +302,8 @@ class ResourceCollectionsViewModel(
     }
 
     /**
-     * Request a re-index, mirroring Project's re-index action; RagIndexer clears
-     * and rebuilds the index.
+     * Requests a re-index, mirroring Project's re-index action; RagIndexer clears and
+     * rebuilds the index.
      */
     fun reindexCollection(collectionId: String) {
         EventBus.post(
@@ -274,13 +316,12 @@ class ResourceCollectionsViewModel(
     }
 
     /**
-     * Subscribe to internal events to keep collection list updated.
+     * Keeps the collection list updated on relevant events.
      *
-     * Indexing progress/status is persisted directly to the DB by
-     * [io.askimo.core.rag.RagIndexer] (see `persistCollectionIndexStatus`) without emitting
-     * [ModelChangedEvent] — so without the second subscription below, [ResourceCollection.indexStatus]
-     * in [collections]/[pagedCollections] would stay stale (typically NOT_STARTED) until some
-     * unrelated refresh happened to fire.
+     * [io.askimo.core.rag.RagIndexer] persists indexing status directly to the DB without
+     * emitting [ModelChangedEvent], so the second subscription below is needed —
+     * otherwise [ResourceCollection.indexStatus] would stay stale until an unrelated
+     * refresh happened to fire.
      */
     private fun subscribeToCollectionEvents() {
         scope.launch {

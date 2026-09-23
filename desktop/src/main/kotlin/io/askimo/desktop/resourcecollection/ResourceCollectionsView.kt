@@ -67,6 +67,7 @@ import io.askimo.core.chat.repository.CollectionSortColumn
 import io.askimo.core.chat.repository.CollectionSortDirection
 import io.askimo.core.rag.state.IndexStatus
 import io.askimo.core.util.TimeUtil
+import io.askimo.ui.common.components.embeddingModelNotConfiguredBanner
 import io.askimo.ui.common.components.indexStatusIcon
 import io.askimo.ui.common.components.indexStatusLabel
 import io.askimo.ui.common.components.linkButton
@@ -89,6 +90,7 @@ import io.askimo.ui.common.ui.themedTooltip
 fun resourceCollectionsView(
     viewModel: ResourceCollectionsViewModel,
     onSelectCollection: (String) -> Unit = {},
+    onNavigateToAiProviderSettings: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val scrollState = rememberScrollState()
@@ -152,6 +154,18 @@ fun resourceCollectionsView(
                         text = stringResource("rag.learn.more"),
                         style = AppTextStyles.caption,
                         fontWeight = FontWeight.SemiBold,
+                    )
+                }
+
+                if (!viewModel.embeddingModelConfigured && onNavigateToAiProviderSettings != null) {
+                    Spacer(modifier = Modifier.height(Spacing.medium))
+                    embeddingModelNotConfiguredBanner(
+                        providerSupportsEmbedding = viewModel.embeddingSupportedByProvider,
+                        onConfigureClick = onNavigateToAiProviderSettings,
+                        notConfiguredMessageKey = "resourcecollections.rag.embedding.not.configured",
+                        unsupportedProviderMessageKey = "resourcecollections.rag.embedding.unsupported.provider",
+                        configureActionKey = "resourcecollections.rag.embedding.configure",
+                        switchProviderActionKey = "resourcecollections.rag.embedding.switch.provider",
                     )
                 }
 

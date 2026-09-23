@@ -34,6 +34,7 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -78,6 +79,7 @@ import io.askimo.desktop.knowledgesource.knowledgeSourcesPanel
 import io.askimo.desktop.knowledgesource.mergeKnowledgeSourceConfigs
 import io.askimo.ui.chat.CreationMode
 import io.askimo.ui.chat.chatInputField
+import io.askimo.ui.common.components.embeddingModelNotConfiguredBanner
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
@@ -180,6 +182,7 @@ fun projectView(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(bottom = Spacing.small),
                     ) {
+                        val breadcrumbColor = AppTextStyles.secondaryContent
                         IconButton(
                             onClick = onBack,
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
@@ -187,27 +190,21 @@ fun projectView(
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = stringResource("action.back"),
-                                tint = AppTextStyles.secondaryContent,
+                                tint = breadcrumbColor,
                                 modifier = Modifier.size(20.dp),
                             )
                         }
                         TextButton(
                             onClick = onBack,
+                            colors = ButtonDefaults.textButtonColors(contentColor = breadcrumbColor),
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         ) {
                             Text(
                                 text = stringResource("projects.title"),
                                 style = AppTextStyles.caption,
+                                color = breadcrumbColor,
                             )
                         }
-                    }
-
-                    if (!viewModel.embeddingModelConfigured && onNavigateToAiProviderSettings != null) {
-                        embeddingModelNotConfiguredBanner(
-                            providerSupportsEmbedding = viewModel.embeddingSupportedByProvider,
-                            onConfigureClick = onNavigateToAiProviderSettings,
-                        )
-                        Spacer(modifier = Modifier.height(Spacing.large))
                     }
 
                     // ── Project hero card ───────────────────────────────────
@@ -309,12 +306,21 @@ fun projectView(
                         }
                     }
 
+                    if (!viewModel.embeddingModelConfigured && onNavigateToAiProviderSettings != null) {
+                        embeddingModelNotConfiguredBanner(
+                            providerSupportsEmbedding = viewModel.embeddingSupportedByProvider,
+                            onConfigureClick = onNavigateToAiProviderSettings,
+                        )
+                        Spacer(modifier = Modifier.height(Spacing.large))
+                    }
+
                     // Shared collapsible component (see knowledgesource.knowledgeSourcesPanel),
                     // also used by the Resource Collection detail view.
                     knowledgeSourcesPanel(
                         key = currentProject.id,
                         knowledgeSources = currentProject.knowledgeSources,
                         indexProgress = indexProgress,
+                        embeddingModelConfigured = viewModel.embeddingModelConfigured,
                         onShowAddDialog = { showAddReferenceMaterialDialog = true },
                         modifier = Modifier.padding(bottom = Spacing.extraLarge),
                     ) { source ->

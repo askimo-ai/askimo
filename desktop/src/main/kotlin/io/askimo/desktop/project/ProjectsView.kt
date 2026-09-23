@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -34,7 +33,6 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
@@ -42,7 +40,6 @@ import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Workspaces
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -68,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.util.TimeUtil
+import io.askimo.ui.common.components.embeddingModelNotConfiguredBanner
 import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.tablePageSizeSelector
 import io.askimo.ui.common.components.tablePagination
@@ -309,77 +307,8 @@ fun projectsView(
 }
 
 /**
- * Banner shown when RAG project indexing is unavailable due to the active AI provider's
- * embedding configuration. Two distinct states are handled with different copy/action:
- *  - [providerSupportsEmbedding] true: the provider supports embeddings but none is configured
- *    yet — links to the AI Provider settings model-config card to pick one.
- *  - [providerSupportsEmbedding] false: the active provider (e.g. Anthropic, xAI) never
- *    supports embeddings and has no embedding-model field to configure at all — links to the
- *    same settings screen, but with "switch provider" copy/action instead, since "configure
- *    embedding model" would be a dead end for the user.
- *
- * Reused by both [projectsView] (project list) and `projectView` (single project detail)
- * since they live in the same package.
- *
- * @param onConfigureClick Navigates the user to the AI Provider settings section, where they
- *   can either configure an embedding model override or change the active provider.
+ * Composables that render the projects table (list, headers, and rows).
  */
-@Composable
-internal fun embeddingModelNotConfiguredBanner(
-    providerSupportsEmbedding: Boolean,
-    onConfigureClick: () -> Unit,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(Spacing.medium),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    Icons.Default.Info,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = AppTextStyles.primaryContent,
-                )
-                SelectionContainer {
-                    Text(
-                        text = stringResource(
-                            if (providerSupportsEmbedding) {
-                                "projects.rag.embedding.not.configured"
-                            } else {
-                                "projects.rag.embedding.unsupported.provider"
-                            },
-                        ),
-                        style = AppTextStyles.caption.copy(color = AppTextStyles.secondaryContent),
-                    )
-                }
-            }
-            linkButton(onClick = onConfigureClick) {
-                Text(
-                    text = stringResource(
-                        if (providerSupportsEmbedding) {
-                            "projects.rag.embedding.configure"
-                        } else {
-                            "projects.rag.embedding.switch.provider"
-                        },
-                    ),
-                    style = AppTextStyles.caption,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-        }
-    }
-}
 
 // ── Table ─────────────────────────────────────────────────────────────────────
 
