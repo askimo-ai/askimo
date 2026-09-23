@@ -258,7 +258,7 @@ object ChatRequestTransformers {
             val text = message.text() ?: ""
             if (message.hasToolExecutionRequests()) {
                 "$text::" + message.toolExecutionRequests().joinToString(",") { req ->
-                    (req.id() as String?) ?: "${req.name()}(${req.arguments()})"
+                    req.id() ?: "${req.name()}(${req.arguments()})"
                 }
             } else {
                 text
