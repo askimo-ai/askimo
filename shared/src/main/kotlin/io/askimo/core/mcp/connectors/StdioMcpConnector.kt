@@ -65,8 +65,12 @@ class StdioMcpConnector(
         if (config.command.isNotEmpty()) {
             val executable = config.command[0]
             val execFile = File(executable)
-            if (execFile.isAbsolute && !execFile.exists()) {
-                errors.add("Executable not found: $executable")
+            if (execFile.isAbsolute) {
+                if (!execFile.exists()) {
+                    errors.add("Executable not found: $executable")
+                }
+            } else if (ProcessBuilderExt.which(executable) == null) {
+                errors.add(missingExecutableMessage(executable))
             }
         }
 
@@ -74,5 +78,27 @@ class StdioMcpConnector(
             isValid = errors.isEmpty(),
             errors = errors,
         )
+    }
+
+    companion object {
+        /** Known install instructions for the runtimes most built-in MCP templates rely on. */
+        private val KNOWN_INSTALL_HINTS: Map<String, String> = mapOf(
+            "uvx" to "Install uv (provides 'uvx'): curl -LsSf https://astral.sh/uv/install.sh | sh " +
+                "(macOS/Linux) or see https://docs.astral.sh/uv/getting-started/installation/",
+            "uv" to "Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh " +
+                "(macOS/Linux) or see https://docs.astral.sh/uv/getting-started/installation/",
+            "npx" to "Install Node.js (provides 'npx'): https://nodejs.org/en/download " +
+                "or via a version manager, e.g. 'brew install node' / 'nvm install --lts'",
+        )
+
+        private fun missingExecutableMessage(executable: String): String {
+            val hint = KNOWN_INSTALL_HINTS[executable]
+            return if (hint != null) {
+                "'$executable' was not found on your PATH. $hint"
+            } else {
+                "'$executable' was not found on your PATH. Please install it and ensure it's accessible " +
+                    "from a terminal, then try again."
+            }
+        }
     }
 }
