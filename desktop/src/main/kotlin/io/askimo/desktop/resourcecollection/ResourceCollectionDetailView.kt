@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
@@ -64,6 +66,7 @@ import io.askimo.desktop.knowledgesource.buildKnowledgeSourceConfigs
 import io.askimo.desktop.knowledgesource.knowledgeSourcesPanel
 import io.askimo.desktop.knowledgesource.ragSourcesTreeWithPreview
 import io.askimo.desktop.project.reIndexConfirmDialog
+import io.askimo.ui.common.components.embeddingModelNotConfiguredBanner
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
@@ -81,6 +84,7 @@ private val log = currentFileLogger()
 fun resourceCollectionView(
     collectionId: String,
     onBack: () -> Unit,
+    onNavigateToAiProviderSettings: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -131,6 +135,10 @@ fun resourceCollectionView(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(bottom = Spacing.small),
                     ) {
+                        // Captured once so the icon and label resolve to the exact same
+                        // neutral tint — TextButton's default contentColor is `primary`,
+                        // which would otherwise clash with the icon's neutral gray.
+                        val breadcrumbColor = AppTextStyles.secondaryContent
                         IconButton(
                             onClick = onBack,
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
@@ -138,17 +146,19 @@ fun resourceCollectionView(
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = stringResource("action.back"),
-                                tint = AppTextStyles.secondaryContent,
+                                tint = breadcrumbColor,
                                 modifier = Modifier.size(20.dp),
                             )
                         }
                         TextButton(
                             onClick = onBack,
+                            colors = ButtonDefaults.textButtonColors(contentColor = breadcrumbColor),
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         ) {
                             Text(
                                 text = stringResource("resourcecollections.title"),
                                 style = AppTextStyles.caption,
+                                color = breadcrumbColor,
                             )
                         }
                     }
@@ -178,6 +188,18 @@ fun resourceCollectionView(
                             },
                         )
 
+                        if (!viewModel.embeddingModelConfigured && onNavigateToAiProviderSettings != null) {
+                            embeddingModelNotConfiguredBanner(
+                                providerSupportsEmbedding = viewModel.embeddingSupportedByProvider,
+                                onConfigureClick = onNavigateToAiProviderSettings,
+                                notConfiguredMessageKey = "resourcecollections.rag.embedding.not.configured",
+                                unsupportedProviderMessageKey = "resourcecollections.rag.embedding.unsupported.provider",
+                                configureActionKey = "resourcecollections.rag.embedding.configure",
+                                switchProviderActionKey = "resourcecollections.rag.embedding.switch.provider",
+                            )
+                            Spacer(modifier = Modifier.height(Spacing.medium))
+                        }
+
                         // Knowledge Sources Panel — shared collapsible component (see
                         // io.askimo.desktop.knowledgesource.knowledgeSourcesPanel), also used by
                         // the Project view.
@@ -185,6 +207,7 @@ fun resourceCollectionView(
                             key = currentCollection.id,
                             knowledgeSources = currentCollection.knowledgeSources,
                             indexProgress = viewModel.indexProgress,
+                            embeddingModelConfigured = viewModel.embeddingModelConfigured,
                             onShowAddDialog = { showAddReferenceMaterialDialog = true },
                             modifier = Modifier.padding(bottom = Spacing.medium),
                         ) { source ->

@@ -66,9 +66,9 @@ import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Collapsible "Knowledge Sources" panel shared between Project and Resource Collection
- * detail views: a header (source count, "ready" badge, RAG docs link, optional "Add"
- * button), an indexing progress indicator, a skipped-files warning, and — when
- * expanded — the list of knowledge sources grouped by type.
+ * detail views: header (source count, "ready" badge, RAG docs link, optional "Add"
+ * button), indexing progress indicator, skipped-files warning, and — when expanded —
+ * the list of knowledge sources grouped by type.
  *
  * Row rendering is delegated to [renderItem] so each caller keeps its own per-item
  * actions (e.g. Project supports rescan + watch-for-changes, Resource Collection only
@@ -76,6 +76,8 @@ import kotlin.time.Duration.Companion.milliseconds
  *
  * @param key Stable identity (e.g. project or collection id) used to reset the
  *   expanded/collapsed state via `remember` when switching between containers.
+ * @param embeddingModelConfigured False suppresses the progress indicator entirely,
+ *   since indexing can never start without an embedding model.
  */
 @Composable
 fun knowledgeSourcesPanel(
@@ -83,6 +85,7 @@ fun knowledgeSourcesPanel(
     knowledgeSources: List<KnowledgeSourceConfig>,
     indexProgress: IndexProgress,
     modifier: Modifier = Modifier,
+    embeddingModelConfigured: Boolean = true,
     onShowAddDialog: (() -> Unit)? = null,
     renderItem: @Composable (KnowledgeSourceConfig) -> Unit,
 ) {
@@ -107,10 +110,11 @@ fun knowledgeSourcesPanel(
                 onShowAddDialog = onShowAddDialog,
             )
 
-            // ── Index progress indicator ───────────────────────────────────
+            // ── Progress indicator ─────────────────────────────────────────
             knowledgeSourcesIndexProgressIndicator(
                 indexProgress = indexProgress,
                 hasKnowledgeSources = knowledgeSources.isNotEmpty(),
+                embeddingModelConfigured = embeddingModelConfigured,
             )
 
             // ── Skipped files warning ──────────────────────────────────────
@@ -198,7 +202,7 @@ private fun knowledgeSourcesPanelHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Left side - clickable expansion area (only if sources exist)
+        // Left side — expandable area, only when sources exist
         if (knowledgeSources.isNotEmpty()) {
             Row(
                 modifier = Modifier
@@ -290,7 +294,7 @@ private fun knowledgeSourcesPanelHeader(
             }
         }
 
-        // Right side - Guide link + optional Add button (always visible)
+        // Right side — guide link + optional Add button, always visible
         Row(
             horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
             verticalAlignment = Alignment.CenterVertically,
@@ -335,16 +339,18 @@ private fun knowledgeSourcesPanelHeader(
 }
 
 /**
- * Collapsible "Knowledge Sources" panel showing a tree-structured view of the
- * reference materials (folders/files/URLs) with per-file indexed status icons.
- * Shares the header chrome with [knowledgeSourcesPanel] but renders a
- * [ragSourcesTree] instead of a flat grouped list.
+ * Collapsible "Knowledge Sources" panel showing a tree view of the reference
+ * materials (folders/files/URLs) with per-file indexed status icons. Shares the
+ * header chrome with [knowledgeSourcesPanel] but renders a [ragSourcesTree] instead
+ * of a flat grouped list.
  *
  * Neutral, shared component both Project and Resource Collection detail views
  * depend on — neither package depends on the other.
  *
  * @param key Stable identity (e.g. project or collection id) used to reset the
  *   expanded/collapsed state via `remember` when switching between containers.
+ * @param embeddingModelConfigured False suppresses the progress indicator entirely,
+ *   since indexing can never start without an embedding model.
  */
 @Composable
 fun knowledgeSourcesTreePanel(
@@ -353,6 +359,7 @@ fun knowledgeSourcesTreePanel(
     indexProgress: IndexProgress,
     indexedPaths: Set<String>,
     modifier: Modifier = Modifier,
+    embeddingModelConfigured: Boolean = true,
     onShowAddDialog: (() -> Unit)? = null,
     onRemove: (KnowledgeSourceConfig) -> Unit = {},
     onWatchToggle: ((LocalFoldersKnowledgeSourceConfig, Boolean) -> Unit)? = null,
@@ -379,6 +386,7 @@ fun knowledgeSourcesTreePanel(
             knowledgeSourcesIndexProgressIndicator(
                 indexProgress = indexProgress,
                 hasKnowledgeSources = knowledgeSources.isNotEmpty(),
+                embeddingModelConfigured = embeddingModelConfigured,
             )
             skippedFilesWarning(skippedFileNames = indexProgress.skippedFileNames)
 
@@ -411,15 +419,18 @@ fun knowledgeSourcesTreePanel(
 
 /**
  * Indexing progress indicator shared between Project and Resource Collection
- * knowledge-source panels. Renders nothing when [hasKnowledgeSources] is false
- * or when indexing is [IndexStatus.READY]/[IndexStatus.WATCHING]/not started.
+ * knowledge-source panels. Renders nothing when [hasKnowledgeSources] or
+ * [embeddingModelConfigured] is false (no embedding model means indexing can't
+ * start — the caller's `embeddingModelNotConfiguredBanner` explains why), or when
+ * status is [IndexStatus.READY]/[IndexStatus.WATCHING]/not started.
  */
 @Composable
 fun knowledgeSourcesIndexProgressIndicator(
     indexProgress: IndexProgress,
     hasKnowledgeSources: Boolean,
+    embeddingModelConfigured: Boolean = true,
 ) {
-    if (!hasKnowledgeSources) return
+    if (!hasKnowledgeSources || !embeddingModelConfigured) return
 
     when (indexProgress.status) {
         IndexStatus.NOT_STARTED, IndexStatus.QUEUED -> {
@@ -483,16 +494,16 @@ fun knowledgeSourcesIndexProgressIndicator(
                 indexProgress.currentFile?.let { file ->
                     val backendElapsedMs = indexProgress.currentFileElapsedMs
 
-                    // Baseline resets whenever a new file starts being processed.
+                    // Baseline resets per new file.
                     val baseWallClock = remember(indexProgress.currentFile) { mutableStateOf(System.currentTimeMillis()) }
                     val baseElapsed = remember(indexProgress.currentFile) { mutableStateOf(0L) }
                     var liveElapsedMs by remember(indexProgress.currentFile) { mutableStateOf(0L) }
 
-                    // Skip that first fire and start the timer from zero for each new file.
+                    // Skip the first backend update so each file's timer starts at zero.
                     val seenFirstBackendUpdate = remember(indexProgress.currentFile) { mutableStateOf(false) }
 
-                    // When the backend reports a higher value (a batch just completed),
-                    // advance the baseline so the display never goes backwards.
+                    // Advance the baseline on each new (higher) backend value so the
+                    // displayed elapsed time never goes backwards.
                     LaunchedEffect(backendElapsedMs) {
                         if (!seenFirstBackendUpdate.value) {
                             seenFirstBackendUpdate.value = true
@@ -505,7 +516,7 @@ fun knowledgeSourcesIndexProgressIndicator(
                         }
                     }
 
-                    // Tick every 500 ms to interpolate smoothly between backend events.
+                    // Tick every 500 ms to smoothly interpolate between backend updates.
                     LaunchedEffect(indexProgress.currentFile) {
                         while (true) {
                             delay(500.milliseconds)
@@ -556,9 +567,8 @@ fun knowledgeSourcesIndexProgressIndicator(
 }
 
 /**
- * Collapsible warning shown in the knowledge sources panel when one or more files
- * could not be indexed (e.g. image-only PDFs with no extractable text). Shared
- * between the Project and Resource Collection knowledge-source panels.
+ * Collapsible warning for files that couldn't be indexed (e.g. image-only PDFs with
+ * no extractable text). Shared between Project and Resource Collection panels.
  */
 @Composable
 fun skippedFilesWarning(skippedFileNames: List<String>) {

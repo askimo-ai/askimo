@@ -2481,6 +2481,7 @@ fun mainContent(
                     resourceCollectionsView(
                         viewModel = resourceCollectionsViewModel,
                         onSelectCollection = onSelectCollection,
+                        onNavigateToAiProviderSettings = onNavigateToAiProviderSettings,
                         modifier = Modifier.fillMaxSize(),
                     )
                 } else {
@@ -2502,6 +2503,7 @@ fun mainContent(
                     resourceCollectionView(
                         collectionId = selectedCollectionId,
                         onBack = onNavigateBackFromCollection,
+                        onNavigateToAiProviderSettings = onNavigateToAiProviderSettings,
                         modifier = Modifier.fillMaxSize(),
                     )
                 } else {
