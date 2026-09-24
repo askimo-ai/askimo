@@ -109,8 +109,9 @@ object McpServerTemplateRegistry {
             description = "Query the current time and convert between timezones. No configuration required.",
             transportType = TransportType.STDIO,
             stdioConfig = StdioConfig(
-                commandTemplate = listOf("uvx", "mcp-server-time"),
+                commandTemplate = listOf("uvx", "--system-certs", "mcp-server-time"),
             ),
+
             parameters = emptyList(),
             tags = listOf("popular", "utilities"),
             author = "Anthropic",
@@ -122,7 +123,7 @@ object McpServerTemplateRegistry {
             description = "Fetch any URL and convert the response to Markdown for easy reading.",
             transportType = TransportType.STDIO,
             stdioConfig = StdioConfig(
-                commandTemplate = listOf("uvx", "mcp-server-fetch"),
+                commandTemplate = listOf("uvx", "--system-certs", "mcp-server-fetch"),
             ),
             parameters = emptyList(),
             tags = listOf("popular", "utilities"),
