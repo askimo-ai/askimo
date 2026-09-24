@@ -260,7 +260,12 @@ fun resourceCollectionsView(
                             onUpdateCollection = { id, name, description, knowledgeSources ->
                                 viewModel.updateCollection(id, name, description, knowledgeSources)
                             },
-                            onReindexCollection = { viewModel.reindexCollection(it) },
+                            onReindexCollection = {
+                                if (viewModel.embeddingModelConfigured) {
+                                    viewModel.reindexCollection(it)
+                                }
+                            },
+                            embeddingModelConfigured = viewModel.embeddingModelConfigured,
                             sortColumn = viewModel.sortColumn,
                             sortDirection = viewModel.sortDirection,
                             onSortChange = { col -> viewModel.setSort(col) },
@@ -327,6 +332,7 @@ private fun collectionTable(
     onDeleteCollection: (String) -> Unit,
     onUpdateCollection: suspend (String, String, String?, List<KnowledgeSourceConfig>) -> Boolean,
     onReindexCollection: (String) -> Unit,
+    embeddingModelConfigured: Boolean,
     sortColumn: CollectionSortColumn,
     sortDirection: CollectionSortDirection,
     onSortChange: (CollectionSortColumn) -> Unit,
@@ -402,6 +408,7 @@ private fun collectionTable(
                     onDeleteCollection = onDeleteCollection,
                     onUpdateCollection = onUpdateCollection,
                     onReindexCollection = onReindexCollection,
+                    embeddingModelConfigured = embeddingModelConfigured,
                 )
                 if (index < collections.lastIndex) {
                     HorizontalDivider(color = AppColors.codeBlockBorderColor())
@@ -452,6 +459,7 @@ private fun collectionRow(
     onDeleteCollection: (String) -> Unit,
     onUpdateCollection: suspend (String, String, String?, List<KnowledgeSourceConfig>) -> Boolean,
     onReindexCollection: (String) -> Unit,
+    embeddingModelConfigured: Boolean,
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -563,13 +571,18 @@ private fun collectionRow(
                 themedTooltip(text = stringResource("resourcecollection.reindex")) {
                     IconButton(
                         onClick = { onReindexCollection(collection.id) },
+                        enabled = embeddingModelConfigured,
                         modifier = Modifier.size(20.dp).pointerHoverIcon(PointerIcon.Hand),
                     ) {
                         Icon(
                             Icons.Default.Refresh,
                             contentDescription = stringResource("resourcecollection.reindex"),
                             modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = if (embeddingModelConfigured) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                AppColors.disabledContentColor()
+                            },
                         )
                     }
                 }
@@ -600,6 +613,7 @@ private fun collectionRow(
                         showMenu = false
                         onReindexCollection(collection.id)
                     },
+                    enabled = embeddingModelConfigured,
                     leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) },
                     modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                 )

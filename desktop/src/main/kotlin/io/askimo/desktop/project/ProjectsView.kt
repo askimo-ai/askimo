@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
@@ -253,6 +254,12 @@ fun projectsView(
                             onEditProject = onEditProject,
                             onDeleteProject = { viewModel.deleteProject(it) },
                             onStarProject = { id, starred -> viewModel.starProject(id, starred) },
+                            onReindexProject = {
+                                if (viewModel.embeddingModelConfigured) {
+                                    viewModel.reindexProject(it)
+                                }
+                            },
+                            embeddingModelConfigured = viewModel.embeddingModelConfigured,
                             sortColumn = sortColumn,
                             sortDirection = sortDirection,
                             onSortChange = { col ->
@@ -319,6 +326,8 @@ private fun projectTable(
     onEditProject: (String) -> Unit,
     onDeleteProject: (String) -> Unit,
     onStarProject: (String, Boolean) -> Unit,
+    onReindexProject: (String) -> Unit,
+    embeddingModelConfigured: Boolean,
     sortColumn: ProjectSortColumn,
     sortDirection: ProjectSortDirection,
     onSortChange: (ProjectSortColumn) -> Unit,
@@ -395,6 +404,8 @@ private fun projectTable(
                     onEditProject = onEditProject,
                     onDeleteProject = onDeleteProject,
                     onStarProject = onStarProject,
+                    onReindexProject = onReindexProject,
+                    embeddingModelConfigured = embeddingModelConfigured,
                 )
                 if (index < sortedProjects.lastIndex) {
                     HorizontalDivider(color = AppColors.codeBlockBorderColor())
@@ -445,6 +456,8 @@ private fun projectRow(
     onEditProject: (String) -> Unit,
     onDeleteProject: (String) -> Unit,
     onStarProject: (String, Boolean) -> Unit,
+    onReindexProject: (String) -> Unit,
+    embeddingModelConfigured: Boolean,
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -568,6 +581,26 @@ private fun projectRow(
                         onEditProject(project.id)
                     },
                     leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface) },
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource("project.reindex")) },
+                    onClick = {
+                        showMenu = false
+                        onReindexProject(project.id)
+                    },
+                    enabled = embeddingModelConfigured,
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = null,
+                            tint = if (embeddingModelConfigured) {
+                                MaterialTheme.colorScheme.onSurface
+                            } else {
+                                AppColors.disabledContentColor()
+                            },
+                        )
+                    },
                     modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                 )
                 DropdownMenuItem(

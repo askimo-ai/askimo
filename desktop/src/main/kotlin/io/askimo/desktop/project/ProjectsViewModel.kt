@@ -18,8 +18,10 @@ import io.askimo.core.event.internal.ModelChangedEvent
 import io.askimo.core.event.internal.ProjectRefreshEvent
 import io.askimo.core.event.internal.ProjectsRefreshEvent
 import io.askimo.core.event.internal.ProviderInstanceSavedEvent
+import io.askimo.core.event.internal.ReIndexEvent
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
+import io.askimo.core.rag.container.IndexingContainerType
 import io.askimo.ui.shell.ProjectsSidebarState
 import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
@@ -332,5 +334,20 @@ class ProjectsViewModel(
                 )
             }
         }
+    }
+
+    /**
+     * Requests a re-index, mirroring Resource Collection's re-index action; RagIndexer
+     * clears and rebuilds the index. Callers should guard on [embeddingModelConfigured]
+     * before calling this — RagIndexer silently drops the request otherwise.
+     */
+    fun reindexProject(projectId: String) {
+        EventBus.post(
+            ReIndexEvent(
+                containerId = projectId,
+                containerType = IndexingContainerType.PROJECT,
+                reason = "Manual re-index requested from projects list",
+            ),
+        )
     }
 }
