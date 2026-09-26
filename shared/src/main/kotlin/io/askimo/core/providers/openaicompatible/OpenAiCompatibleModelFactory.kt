@@ -66,7 +66,7 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
             ?.let { name -> OpenAiCompatibleTemplate.entries.find { it.name == name } }
         // For templates that don't require an API key (Ollama, LM Studio, etc.) we can
         // fetch models without one. For unknown / cloud templates an API key is required.
-        val apiKeyNeeded = template?.apiKeyRequired ?: true
+        val apiKeyNeeded = template?.apiKeyRequired ?: false
         return !apiKeyNeeded || settings.apiKey.isNotBlank()
     }
 

@@ -49,6 +49,7 @@ object ChatMessageMapper {
         size = this.size,
         createdAt = this.createdAt,
         content = this.content,
+        storagePath = this.storagePath,
     )
 
     /**
@@ -69,6 +70,7 @@ object ChatMessageMapper {
         mimeType = this.mimeType,
         size = this.size,
         createdAt = this.createdAt,
+        storagePath = this.storagePath,
         content = this.content,
     )
 

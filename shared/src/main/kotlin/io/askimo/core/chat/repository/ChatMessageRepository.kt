@@ -104,6 +104,7 @@ private fun ResultRow.toFileAttachment(): FileAttachment = FileAttachment(
     mimeType = this[ChatMessageAttachmentsTable.mimeType],
     size = this[ChatMessageAttachmentsTable.size],
     createdAt = this[ChatMessageAttachmentsTable.createdAt],
+    storagePath = this[ChatMessageAttachmentsTable.storagePath],
     content = null, // Content is not stored in DB
 )
 

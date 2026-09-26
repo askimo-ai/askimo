@@ -205,13 +205,24 @@ data class MemoryMessage(
 }
 
 /**
- * Extension function to extract text content from ChatMessage
+ * Extension function to extract text content from ChatMessage.
+ * For UserMessage with multimodal content (text + images), extracts and concatenates only TextContent parts.
+ * This preserves images in the message while allowing text-only processing for persistence/deduplication.
  */
 fun ChatMessage.getTextContent(): String = when (this) {
-    is UserMessage -> this.singleText() ?: ""
+    is UserMessage -> {
+        this.contents()
+            .filterIsInstance<TextContent>()
+            .joinToString("\n") { it.text() }
+            .takeIf { it.isNotBlank() } ?: ""
+    }
+
     is AiMessage -> this.text() ?: ""
+
     is SystemMessage -> this.text() ?: ""
+
     is ToolExecutionResultMessage -> this.text() ?: ""
+
     else -> ""
 }
 

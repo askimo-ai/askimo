@@ -302,30 +302,4 @@ object AppTextStyles {
         @Composable get() = MaterialTheme.typography.labelSmall.copy(
             fontFamily = LocalCodeFontFamily.current,
         )
-
-    /**
-     * Code-block editor text. Use for multi-line text editors displaying source code,
-     * prompts, or raw file content (skill editor, file editor, etc.).
-     *
-     * Fixed at 13 sp / 21 sp line-height for a comfortable mono reading experience,
-     * independent of the user's UI font-size preference.
-     */
-    val codeBlock: TextStyle
-        @Composable get() = TextStyle(
-            fontFamily = LocalCodeFontFamily.current,
-            fontSize = 13.sp,
-            lineHeight = 21.sp,
-        )
-
-    /**
-     * Code-block placeholder text, shown inside an empty [codeBlock] editor. Same metrics as
-     * [codeBlock] but muted via [secondaryContent].
-     */
-    val codeBlockPlaceholder: TextStyle
-        @Composable get() = TextStyle(
-            fontFamily = LocalCodeFontFamily.current,
-            fontSize = 13.sp,
-            lineHeight = 21.sp,
-            color = secondaryContent,
-        )
 }

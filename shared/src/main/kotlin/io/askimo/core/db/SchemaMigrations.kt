@@ -549,6 +549,10 @@ object SchemaMigrations {
             addColumnIfMissing(conn, "resource_collections", "last_indexed_at", "TEXT")
             addColumnIfMissing(conn, "resource_collections", "index_error", "TEXT")
         },
+        // 60: chat_message_attachments.storage_path
+        Migration { conn ->
+            addColumnIfMissing(conn, "chat_message_attachments", "storage_path", "VARCHAR(1024)")
+        },
 
         // --- Add new migrations below this line. Never edit the entries above. ---
     )

@@ -14,6 +14,7 @@ import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.domain.SESSION_TITLE_MAX_LENGTH
 import io.askimo.core.chat.dto.ChatMessageDTO
+import io.askimo.core.chat.dto.FileAttachmentDTO
 import io.askimo.core.chat.dto.TurnTimelineEntry
 import io.askimo.core.chat.mapper.ChatMessageMapper.toDTO
 import io.askimo.core.chat.mapper.ChatMessageMapper.toDTOs
@@ -24,6 +25,7 @@ import io.askimo.core.chat.repository.PaginationDirection
 import io.askimo.core.chat.repository.ProjectRepository
 import io.askimo.core.chat.repository.ResourceCollectionRepository
 import io.askimo.core.chat.repository.SessionMemoryRepository
+import io.askimo.core.chat.util.AttachmentStorageManager
 import io.askimo.core.chat.util.FileContentExtractor
 import io.askimo.core.chat.util.FileSizeExceededException
 import io.askimo.core.config.AppConfig
@@ -535,6 +537,9 @@ class ChatSessionService(
         messageRepository.deleteMessagesBySession(sessionId)
         sessionMemoryRepository.deleteBySessionId(sessionId)
 
+        // Delete attachment files from storage
+        AttachmentStorageManager.deleteAttachmentFiles(sessionId)
+
         val deleted = sessionRepository.deleteSession(sessionId)
         if (deleted) {
             EventBus.post(SessionDeletedEvent(sessionId = sessionId))
@@ -878,6 +883,14 @@ class ChatSessionService(
         willSaveUserMessage: Boolean,
     ): List<Content> {
         if (willSaveUserMessage) {
+            // Save all attachments to persistent storage via AttachmentStorageManager
+            val attachmentsWithStorage = try {
+                AttachmentStorageManager.saveAttachments(sessionId, userMessage.attachments)
+            } catch (e: FileSizeExceededException) {
+                log.error("Attachment file too large: ${e.message}")
+                throw e // Re-throw to be handled by the UI
+            }
+
             // Pre-mark synced at insert time when the active provider persists messages
             // server-side — single DB call, no separate UPDATE needed.
             val preSyncedAt = if (appContext.getActiveProvider() == ModelProvider.ASKIMO_PRO) {
@@ -891,7 +904,7 @@ class ChatSessionService(
                     sessionId = sessionId,
                     role = MessageRole.USER,
                     content = userMessage.content,
-                    attachments = userMessage.attachments.toDomain(sessionId),
+                    attachments = attachmentsWithStorage.toDomain(sessionId),
                 ),
                 syncedAt = preSyncedAt,
             )
@@ -960,38 +973,54 @@ class ChatSessionService(
             .map { (session, messages) -> BookmarkGroup(session, messages.map { it.toDTO() }) }
     }
 
+    /**
+     * Extract content from an attachment file, trying storagePath first (persisted),
+     * then falling back to filePath (temporary). Handles all error cases.
+     *
+     * @param attachment The attachment to extract content from
+     * @return The extracted file content, or null if not available/readable
+     * @throws FileSizeExceededException if the file exceeds the maximum allowed size
+     */
+    private fun extractAttachmentContent(attachment: FileAttachmentDTO): String? {
+        // Try storagePath first (for re-running saved messages)
+        val filePath = attachment.storagePath ?: attachment.filePath
+
+        if (filePath == null) {
+            log.error("Attachment has neither storagePath nor filePath: ${attachment.fileName}")
+            return null
+        }
+
+        return try {
+            val file = File(filePath)
+            when {
+                !file.exists() -> {
+                    log.error("File not found: $filePath")
+                    null
+                }
+
+                !FileContentExtractor.isSupported(file) -> {
+                    log.warn("Unsupported file type: ${attachment.fileName}")
+                    null
+                }
+
+                else -> FileContentExtractor.extractContent(file)
+            }
+        } catch (e: FileSizeExceededException) {
+            log.error("File too large: ${attachment.fileName} (${e.fileSize} bytes, max: ${e.maxAllowedSize} bytes)")
+            throw e // Re-throw to be handled by the UI
+        } catch (e: Exception) {
+            log.error("Failed to extract content from ${attachment.fileName}: ${e.message}", e)
+            null
+        }
+    }
+
     private fun constructMessageWithAttachmentsAndUrls(
         userMessage: ChatMessageDTO,
     ): String = buildString {
         userMessage.attachments.forEach { attachment ->
             val content = when {
                 attachment.content != null -> attachment.content
-
-                attachment.filePath != null -> {
-                    try {
-                        val file = File(attachment.filePath)
-                        if (!file.exists()) {
-                            log.error("File not found: ${attachment.filePath}")
-                            null
-                        } else if (!FileContentExtractor.isSupported(file)) {
-                            log.warn("Unsupported file type: ${attachment.fileName}")
-                            null
-                        } else {
-                            FileContentExtractor.extractContent(file)
-                        }
-                    } catch (e: FileSizeExceededException) {
-                        log.error("File too large: ${attachment.fileName} (${e.fileSize} bytes, max: ${e.maxAllowedSize} bytes)")
-                        throw e // Re-throw to be handled by the UI
-                    } catch (e: Exception) {
-                        log.error("Failed to extract content from ${attachment.fileName}: ${e.message}", e)
-                        null
-                    }
-                }
-
-                else -> {
-                    log.error("Attachment has neither content nor filePath: ${attachment.fileName}")
-                    null
-                }
+                else -> extractAttachmentContent(attachment)
             }
 
             // Only add file metadata and content if content is actually extractable

@@ -19,6 +19,7 @@ import java.time.Instant
  * @property mimeType MIME type/file extension
  * @property size File size in bytes
  * @property createdAt Timestamp when the attachment was created
+ * @property storagePath Path to the persistent file storage (null if not yet persisted)
  * @property content File content (lazy-loaded, null when loaded from DB)
  */
 data class FileAttachment(
@@ -29,6 +30,7 @@ data class FileAttachment(
     val mimeType: String,
     val size: Long,
     val createdAt: Instant = Instant.now(),
+    val storagePath: String? = null,
     val content: String? = null,
 )
 
@@ -43,6 +45,7 @@ object ChatMessageAttachmentsTable : Table("chat_message_attachments") {
     val mimeType = varchar("mime_type", 100)
     val size = long("size")
     val createdAt = sqliteInstant("created_at")
+    val storagePath = varchar("storage_path", 1024).nullable()
 
     override val primaryKey = PrimaryKey(id)
 }

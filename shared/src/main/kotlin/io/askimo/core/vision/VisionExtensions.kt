@@ -10,9 +10,12 @@ import dev.langchain4j.data.message.TextContent
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
 import io.askimo.core.chat.util.FileTypeSupport
+import io.askimo.core.logging.currentFileLogger
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.util.Base64
+
+private val log = currentFileLogger()
 
 /**
  * Check if a file attachment is an image based on MIME type or file extension.
@@ -70,21 +73,23 @@ fun ChatMessageDTO.toUserMessage(): List<Content> {
                 contents.add(ImageContent(base64Content, processed.mimeType))
             }
 
-            // If attachment has file path, read and encode it
-            attachment.filePath != null -> {
-                val fileBytes = Files.readAllBytes(
-                    Paths.get(attachment.filePath),
-                )
-
-                // Process image to reduce token usage
-                val processed = ImageProcessor.process(fileBytes, attachment.mimeType)
-                val base64 = Base64.getEncoder().encodeToString(processed.bytes)
-                contents.add(ImageContent(base64, processed.mimeType))
-            }
-
+            // If attachment has file path (storagePath for saved, filePath for composing), read and encode it
             else -> {
-                // Skip attachments without content or path
-                // Could log a warning here
+                // Try storagePath first (saved messages), fallback to filePath (composing)
+                val filePath = attachment.storagePath ?: attachment.filePath
+
+                if (filePath != null) {
+                    try {
+                        val fileBytes = Files.readAllBytes(Paths.get(filePath))
+
+                        // Process image to reduce token usage
+                        val processed = ImageProcessor.process(fileBytes, attachment.mimeType)
+                        val base64 = Base64.getEncoder().encodeToString(processed.bytes)
+                        contents.add(ImageContent(base64, processed.mimeType))
+                    } catch (e: Exception) {
+                        log.warn("failed to process file $filePath", e)
+                    }
+                }
             }
         }
     }
