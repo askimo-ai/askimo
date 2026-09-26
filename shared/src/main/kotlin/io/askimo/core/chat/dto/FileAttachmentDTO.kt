@@ -19,5 +19,6 @@ data class FileAttachmentDTO(
     val size: Long,
     val createdAt: Instant,
     val content: String? = null, // Lazy-loaded content, read just before sending to AI
-    val filePath: String? = null, // File path for lazy loading
+    val filePath: String? = null, // Temporary file path during composition
+    val storagePath: String? = null, // Persistent storage path after message is saved
 )

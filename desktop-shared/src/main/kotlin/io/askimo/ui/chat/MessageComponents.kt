@@ -1849,18 +1849,9 @@ private fun fileAttachmentChip(
     themedTooltip(
         text = if (onDownload != null) stringResource("attachment.download") else "",
     ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(
-                    if (onDownload != null) {
-                        Modifier
-                            .clickable { onDownload(attachment) }
-                            .pointerHoverIcon(PointerIcon.Hand)
-                    } else {
-                        Modifier
-                    },
-                ),
+        AppComponents.clickableCard(
+            onClick = onDownload?.let { { it(attachment) } },
+            modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant,

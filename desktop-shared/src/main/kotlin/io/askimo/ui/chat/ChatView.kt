@@ -996,7 +996,9 @@ fun chatView(
                             extension = ext,
                             title = saveDialogTitle,
                         ) ?: return@launch
-                        attachment.filePath?.let { filePath ->
+                        val resolvedPath = attachment.filePath?.takeIf { it.isNotBlank() }
+                            ?: attachment.storagePath?.takeIf { it.isNotBlank() }
+                        resolvedPath?.let { filePath ->
                             val sourceFile = File(filePath)
                             if (sourceFile.exists()) {
                                 try {

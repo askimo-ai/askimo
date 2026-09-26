@@ -237,11 +237,11 @@ fun planEditorView(
                         value = viewModel.editorYaml,
                         onValueChange = { viewModel.updateEditorYaml(it) },
                         modifier = Modifier.weight(1f).fillMaxWidth(),
-                        textStyle = AppTextStyles.codeBlock,
+                        textStyle = AppTextStyles.code,
                         placeholder = {
                             Text(
                                 text = if (isNewPlan) YAML_HINT else stringResource("plans.editor.placeholder"),
-                                style = AppTextStyles.codeBlockPlaceholder,
+                                style = AppTextStyles.code,
                                 color = AppColors.tertiaryIconColor(),
                             )
                         },
