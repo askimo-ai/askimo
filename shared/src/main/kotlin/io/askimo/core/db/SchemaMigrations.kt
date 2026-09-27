@@ -564,8 +564,7 @@ object SchemaMigrations {
                         mime_type TEXT NOT NULL,
                         size BIGINT NOT NULL,
                         created_at TEXT NOT NULL,
-                        storage_path VARCHAR(1024),
-                        reference_count INTEGER NOT NULL DEFAULT 1
+                        storage_path VARCHAR(1024)
                     )
                     """.trimIndent(),
                 )

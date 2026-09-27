@@ -566,7 +566,6 @@ class ChatMessageRepository internal constructor(
                         size = row[FileAttachmentsTable.size],
                         createdAt = row[FileAttachmentsTable.createdAt],
                         storagePath = row[FileAttachmentsTable.storagePath],
-                        referenceCount = row[FileAttachmentsTable.referenceCount],
                         content = null,
                     )
                     attachmentsMap.getOrPut(messageId) { mutableListOf() }.add(attachment)

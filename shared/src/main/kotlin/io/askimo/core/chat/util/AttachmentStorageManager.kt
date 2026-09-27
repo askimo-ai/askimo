@@ -10,6 +10,7 @@ import io.askimo.core.logging.logger
 import io.askimo.core.util.AskimoHome
 import java.io.File
 import java.nio.file.Files
+import java.util.UUID
 import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteRecursively
 import kotlin.io.path.exists
@@ -84,33 +85,44 @@ object AttachmentStorageManager {
 
     /**
      * Save all attachments for a message to persistent storage.
-     * Processes multiple attachments and returns them with storagePath populated.
+     * Generates IDs for attachments with empty IDs BEFORE saving files to avoid
+     * file location mismatches between storage and database.
+     * Processes multiple attachments and returns them with storagePath and ID populated.
      * Only attachments with filePath are saved; others are returned unchanged.
      *
-     * @param attachments List of attachments to save (may have temporary filePath)
-     * @return List of attachments with storagePath populated for saved files
+     * @param attachments List of attachments to save (may have temporary filePath and empty ID)
+     * @return List of attachments with ID and storagePath populated for saved files
      * @throws FileSizeExceededException if any file exceeds the maximum allowed size
      */
     fun saveAttachments(attachments: List<FileAttachmentDTO>): List<FileAttachmentDTO> = attachments.map { attachment ->
-        if (attachment.filePath != null) {
+        // Generate ID FIRST if empty (before saving file) to avoid mismatch
+        // between storage path (attachments/{id}/{filename}) and database key
+        val attachmentWithId = if (attachment.id.isEmpty()) {
+            attachment.copy(id = UUID.randomUUID().toString())
+        } else {
+            attachment
+        }
+
+        if (attachmentWithId.filePath != null) {
             try {
-                val sourceFile = File(attachment.filePath)
+                val sourceFile = File(attachmentWithId.filePath)
                 if (!sourceFile.exists()) {
-                    log.warn("Attachment file not found: ${attachment.filePath}")
-                    attachment
+                    log.warn("Attachment file not found: ${attachmentWithId.filePath}")
+                    attachmentWithId
                 } else {
-                    val storagePath = saveAttachmentFile(attachment.id, sourceFile)
-                    attachment.copy(storagePath = storagePath)
+                    // Now save using the generated/existing ID
+                    val storagePath = saveAttachmentFile(attachmentWithId.id, sourceFile)
+                    attachmentWithId.copy(storagePath = storagePath)
                 }
             } catch (e: FileSizeExceededException) {
-                log.error("Attachment file too large: ${attachment.fileName}")
+                log.error("Attachment file too large: ${attachmentWithId.fileName}")
                 throw e // Re-throw to be handled by the UI
             } catch (e: Exception) {
                 log.error("Failed to save attachment to storage: ${e.message}", e)
-                attachment
+                attachmentWithId
             }
         } else {
-            attachment
+            attachmentWithId
         }
     }
 

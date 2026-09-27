@@ -19,7 +19,6 @@ import java.time.Instant
  * @property size File size in bytes
  * @property createdAt Timestamp when the attachment was created
  * @property storagePath Path to the persistent file storage (null if not yet persisted)
- * @property referenceCount How many messages currently reference this attachment (for safe deletion)
  * @property content File content (lazy-loaded, null when loaded from DB)
  */
 data class FileAttachment(
@@ -29,7 +28,6 @@ data class FileAttachment(
     val size: Long,
     val createdAt: Instant = Instant.now(),
     val storagePath: String? = null,
-    val referenceCount: Int = 1,
     val content: String? = null,
 )
 
@@ -59,7 +57,6 @@ object FileAttachmentsTable : Table("file_attachments") {
     val size = long("size")
     val createdAt = sqliteInstant("created_at")
     val storagePath = varchar("storage_path", 1024).nullable()
-    val referenceCount = integer("reference_count").default(1)
 
     override val primaryKey = PrimaryKey(id)
 }
