@@ -96,8 +96,11 @@ object AttachmentStorageManager {
      * Save all attachments for a message to persistent storage.
      * Generates IDs for attachments with empty IDs BEFORE saving files to avoid
      * file location mismatches between storage and database.
-     * Fails atomically: if any attachment fails to save, throws exception and the message
-     * must not be persisted. This prevents orphaned metadata-only attachments with no file.
+     *
+     * Processes attachments sequentially. If any attachment fails to save, throws exception
+     * immediately. Earlier attachments already copied to disk will remain orphaned (unreferenced)
+     * since the message is not persisted. This is acceptable for local development (rare
+     * failures, negligible disk waste) but not suitable for production without a cleanup mechanism.
      *
      * @param attachments List of attachments to save (may have temporary filePath and empty ID)
      * @return List of attachments with ID and storagePath populated for all saved files
