@@ -44,9 +44,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +56,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.RoundRect
@@ -553,9 +554,9 @@ private fun collapsedNavigationSidebar(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────
 // Nav item row (expanded sidebar)
-// ──────────────��──────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun sidebarNavItemRow(item: SidebarNavItem) {
@@ -597,29 +598,30 @@ private fun sidebarItem(
     val containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
     val contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
 
-    Surface(
-        selected = selected,
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        shape = shape,
-        color = containerColor,
-        contentColor = contentColor,
-    ) {
-        Row(
-            modifier = Modifier
+    CompositionLocalProvider(LocalContentColor provides contentColor) {
+        Box(
+            modifier = modifier
                 .fillMaxWidth()
-                .padding(Spacing.large),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
-            verticalAlignment = Alignment.CenterVertically,
+                .clip(shape)
+                .background(color = containerColor, shape = shape)
+                .clickable(onClick = onClick)
+                .padding(horizontal = Spacing.small, vertical = Spacing.medium),
         ) {
-            if (icon != null) {
-                icon()
-            }
-            Box(modifier = Modifier.weight(1f)) {
-                label()
-            }
-            if (badge != null) {
-                badge()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (icon != null) {
+                    icon()
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    label()
+                }
+                if (badge != null) {
+                    badge()
+                }
             }
         }
     }
@@ -658,7 +660,7 @@ private fun sidebarPanelToggleIcon(
         },
     ) {
         val strokeWidth = size.minDimension * 0.09f
-        val cornerRadius = CornerRadius(size.minDimension * 0.16f)
+        val cornerRadius = CornerRadius(size.minDimension * 00.16f)
         val inset = strokeWidth / 2f
         val frameSize = Size(size.width - strokeWidth, size.height - strokeWidth)
         val frameTopLeft = Offset(inset, inset)
@@ -709,7 +711,7 @@ private fun sidebarPanelToggleIcon(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // Logo helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -818,7 +820,10 @@ private fun pinnedSection(
         )
 
         if (isExpanded) {
-            Column(modifier = Modifier.padding(start = Spacing.small)) {
+            Column(
+                modifier = Modifier.padding(start = Spacing.small),
+                verticalArrangement = Arrangement.spacedBy(0.dp),
+            ) {
                 starredProjects.forEach { project ->
                     pinnedProjectItem(
                         project = project,
@@ -862,7 +867,6 @@ private fun pinnedProjectItem(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = Spacing.micro)
             .hoverable(interactionSource),
     ) {
         themedTooltip(text = project.name) {
@@ -878,7 +882,6 @@ private fun pinnedProjectItem(
                 selected = false,
                 onClick = { onSelectProject(project.id) },
                 modifier = Modifier
-                    .padding(vertical = Spacing.micro)
                     .pointerHoverIcon(PointerIcon.Hand),
             )
         }
@@ -958,7 +961,6 @@ private fun pinnedSessionItem(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = Spacing.micro)
             .hoverable(interactionSource),
     ) {
         sessionDrawerItemContent(
@@ -1018,7 +1020,7 @@ private fun pinnedSessionItem(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────
 // Sessions list
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1039,19 +1041,20 @@ private fun sessionsList(
 ) {
     Column(
         modifier = Modifier.padding(
-            start = Spacing.medium,
-            end = Spacing.small,
+            start = Spacing.extraSmall,
+            end = Spacing.extraSmall,
             top = Spacing.extraSmall,
             bottom = Spacing.extraSmall,
         ),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
         if (sessionsViewModel.recentSessions.isEmpty()) {
             Text(
                 text = "No sessions yet",
                 style = AppTextStyles.caption,
                 modifier = Modifier.padding(
-                    horizontal = Spacing.small,
-                    vertical = Spacing.small,
+                    horizontal = Spacing.extraSmall,
+                    vertical = Spacing.extraSmall,
                 ),
             )
         } else {
@@ -1086,7 +1089,7 @@ private fun sessionsList(
                     selected = false,
                     onClick = onNavigateToSessions,
                     modifier = Modifier
-                        .padding(vertical = Spacing.micro)
+                        .padding(vertical = Spacing.extraSmall)
                         .pointerHoverIcon(PointerIcon.Hand),
                 )
             }
@@ -1133,7 +1136,6 @@ private fun sessionItemWithMenu(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = Spacing.micro)
             .hoverable(interactionSource),
     ) {
         sessionDrawerItemContent(
@@ -1236,7 +1238,9 @@ private fun navigationItemLabelWithMenu(
     val fontScale = LocalFontScale.current
     val textColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = Spacing.extraSmall),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
