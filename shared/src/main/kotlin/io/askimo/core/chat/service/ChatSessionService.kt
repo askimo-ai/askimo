@@ -25,6 +25,7 @@ import io.askimo.core.chat.repository.PaginationDirection
 import io.askimo.core.chat.repository.ProjectRepository
 import io.askimo.core.chat.repository.ResourceCollectionRepository
 import io.askimo.core.chat.repository.SessionMemoryRepository
+import io.askimo.core.chat.util.AttachmentStorageException
 import io.askimo.core.chat.util.AttachmentStorageManager
 import io.askimo.core.chat.util.FileContentExtractor
 import io.askimo.core.chat.util.FileSizeExceededException
@@ -883,12 +884,16 @@ class ChatSessionService(
         willSaveUserMessage: Boolean,
     ): List<Content> {
         if (willSaveUserMessage) {
-            // Save all attachments to persistent storage via AttachmentStorageManager
+            // Save all attachments to persistent storage. If any attachment fails to save,
+            // throw an exception to prevent persisting an orphaned message metadata.
             val attachmentsWithStorage = try {
                 AttachmentStorageManager.saveAttachments(userMessage.attachments)
             } catch (e: FileSizeExceededException) {
                 log.error("Attachment file too large: ${e.message}")
-                throw e // Re-throw to be handled by the UI
+                throw e // Re-throw to prevent message persist
+            } catch (e: AttachmentStorageException) {
+                log.error("Attachment storage failed: ${e.message}")
+                throw e // Re-throw to prevent message persist
             }
 
             // Pre-mark synced at insert time when the active provider persists messages

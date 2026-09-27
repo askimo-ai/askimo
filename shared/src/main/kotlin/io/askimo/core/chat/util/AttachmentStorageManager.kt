@@ -28,10 +28,16 @@ object AttachmentStorageManager {
 
     /**
      * Directory for a specific attachment (shared across all messages/sessions that reference it).
+     * Validates that the resolved path stays within the attachments directory to prevent path traversal.
      * @param attachmentId The attachment ID
      * @return The attachment directory
      */
-    private fun getAttachmentDir(attachmentId: String): File = File(AskimoHome.attachmentsDir().toFile(), attachmentId)
+    private fun getAttachmentDir(attachmentId: String): File {
+        val baseDir = AskimoHome.attachmentsDir().toAbsolutePath()
+        val attachmentDir = baseDir.resolve(attachmentId).normalize()
+        require(attachmentDir.startsWith(baseDir)) { "Invalid attachment ID: path traversal detected" }
+        return attachmentDir.toFile()
+    }
 
     /**
      * Save an attachment file to persistent storage.
@@ -40,10 +46,11 @@ object AttachmentStorageManager {
      *
      * @param attachmentId The attachment ID
      * @param sourceFile The source file to copy
-     * @return The path to the stored file, or null if storage failed
+     * @return The path to the stored file
      * @throws FileSizeExceededException if the file exceeds the maximum allowed size
+     * @throws AttachmentStorageException if storage fails (file not found, I/O error, etc.)
      */
-    fun saveAttachmentFile(attachmentId: String, sourceFile: File): String? {
+    fun saveAttachmentFile(attachmentId: String, sourceFile: File): String {
         try {
             // Validate file size
             val fileSize = sourceFile.length()
@@ -52,8 +59,7 @@ object AttachmentStorageManager {
             }
 
             if (!sourceFile.exists()) {
-                log.error("Source file does not exist: ${sourceFile.absolutePath}")
-                return null
+                throw AttachmentStorageException("Source file does not exist: ${sourceFile.absolutePath}")
             }
 
             // Create attachment directory
@@ -77,9 +83,12 @@ object AttachmentStorageManager {
         } catch (e: FileSizeExceededException) {
             log.error("File too large: ${sourceFile.name} (${e.fileSize} bytes, max: ${e.maxAllowedSize} bytes)")
             throw e
+        } catch (e: AttachmentStorageException) {
+            log.error("Failed to save attachment file: ${e.message}")
+            throw e
         } catch (e: Exception) {
             log.error("Failed to save attachment file: ${e.message}", e)
-            return null
+            throw AttachmentStorageException("Failed to save attachment file: ${e.message}", e)
         }
     }
 
@@ -87,12 +96,13 @@ object AttachmentStorageManager {
      * Save all attachments for a message to persistent storage.
      * Generates IDs for attachments with empty IDs BEFORE saving files to avoid
      * file location mismatches between storage and database.
-     * Processes multiple attachments and returns them with storagePath and ID populated.
-     * Only attachments with filePath are saved; others are returned unchanged.
+     * Fails atomically: if any attachment fails to save, throws exception and the message
+     * must not be persisted. This prevents orphaned metadata-only attachments with no file.
      *
      * @param attachments List of attachments to save (may have temporary filePath and empty ID)
-     * @return List of attachments with ID and storagePath populated for saved files
+     * @return List of attachments with ID and storagePath populated for all saved files
      * @throws FileSizeExceededException if any file exceeds the maximum allowed size
+     * @throws AttachmentStorageException if any attachment fails to save (file not found, I/O error, etc.)
      */
     fun saveAttachments(attachments: List<FileAttachmentDTO>): List<FileAttachmentDTO> = attachments.map { attachment ->
         // Generate ID FIRST if empty (before saving file) to avoid mismatch
@@ -104,23 +114,10 @@ object AttachmentStorageManager {
         }
 
         if (attachmentWithId.filePath != null) {
-            try {
-                val sourceFile = File(attachmentWithId.filePath)
-                if (!sourceFile.exists()) {
-                    log.warn("Attachment file not found: ${attachmentWithId.filePath}")
-                    attachmentWithId
-                } else {
-                    // Now save using the generated/existing ID
-                    val storagePath = saveAttachmentFile(attachmentWithId.id, sourceFile)
-                    attachmentWithId.copy(storagePath = storagePath)
-                }
-            } catch (e: FileSizeExceededException) {
-                log.error("Attachment file too large: ${attachmentWithId.fileName}")
-                throw e // Re-throw to be handled by the UI
-            } catch (e: Exception) {
-                log.error("Failed to save attachment to storage: ${e.message}", e)
-                attachmentWithId
-            }
+            val sourceFile = File(attachmentWithId.filePath)
+            // Save using the generated/existing ID. Throws if file not found or I/O fails.
+            val storagePath = saveAttachmentFile(attachmentWithId.id, sourceFile)
+            attachmentWithId.copy(storagePath = storagePath)
         } else {
             attachmentWithId
         }
@@ -176,3 +173,10 @@ object AttachmentStorageManager {
         }
     }
 }
+
+/**
+ * Exception thrown when attachment storage fails.
+ * Indicates that an attachment file could not be saved to persistent storage.
+ * When this is thrown, the message must NOT be persisted to avoid orphaned metadata.
+ */
+class AttachmentStorageException(message: String, cause: Throwable? = null) : Exception(message, cause)
