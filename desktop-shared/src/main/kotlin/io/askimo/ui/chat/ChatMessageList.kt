@@ -161,7 +161,7 @@ fun chatMessageList(
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(Spacing.extraLarge),
+        verticalArrangement = Arrangement.spacedBy(Spacing.small),
     ) {
         // Show loading indicator when loading previous messages
         if (isLoadingPrevious) {

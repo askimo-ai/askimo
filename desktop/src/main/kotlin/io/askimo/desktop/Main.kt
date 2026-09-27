@@ -1161,6 +1161,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                             showNewProjectDialog = true
                                                         },
                                                         onSelectProject = { projectId ->
+                                                            sessionManager.clearActiveSession()
                                                             selectedProjectId = projectId
                                                             currentView = View.PROJECT_DETAIL
                                                         },
@@ -1292,6 +1293,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                             currentView = View.SESSIONS
                                                         },
                                                         onSelectProject = { projectId ->
+                                                            sessionManager.clearActiveSession()
                                                             selectedProjectId = projectId
                                                             currentView = View.PROJECT_DETAIL
                                                         },

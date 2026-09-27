@@ -163,6 +163,7 @@ fun navigationSidebar(
         pinnedState = sessionsViewModel,
         sessionsViewModel = sessionsViewModel,
         currentSessionId = currentSessionId,
+        currentProjectId = currentProjectId,
         onToggleExpand = onToggleExpand,
         onNewChat = onNewChat,
         onToggleSessions = onToggleSessions,

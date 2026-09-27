@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Workspaces
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -151,6 +152,7 @@ fun navigationSidebar(
     pinnedState: PinnedSidebarState,
     sessionsViewModel: SessionsViewModel,
     currentSessionId: String?,
+    currentProjectId: String? = null,
     // Actions
     onToggleExpand: () -> Unit,
     onNewChat: () -> Unit,
@@ -210,6 +212,7 @@ fun navigationSidebar(
             pinnedState = pinnedState,
             sessionsViewModel = sessionsViewModel,
             currentSessionId = effectiveSessionId,
+            currentProjectId = currentProjectId,
             onToggleExpand = onToggleExpand,
             onNewChat = onNewChat,
             onToggleSessions = onToggleSessions,
@@ -254,6 +257,7 @@ private fun expandedNavigationSidebar(
     pinnedState: PinnedSidebarState,
     sessionsViewModel: SessionsViewModel,
     currentSessionId: String?,
+    currentProjectId: String? = null,
     onToggleExpand: () -> Unit,
     onNewChat: () -> Unit,
     onToggleSessions: () -> Unit,
@@ -346,6 +350,7 @@ private fun expandedNavigationSidebar(
                 starredProjects = projectsState.starredProjects,
                 starredSessions = pinnedState.starredSessions,
                 currentSessionId = currentSessionId,
+                currentProjectId = currentProjectId,
                 inProgressSessionIds = inProgressSessionIds,
                 bookmarkCountsBySession = sessionsViewModel.bookmarkCountsBySession,
                 onSelectProject = onSelectProject,
@@ -765,6 +770,7 @@ private fun pinnedSection(
     starredProjects: List<Project>,
     starredSessions: List<ChatSession>,
     currentSessionId: String?,
+    currentProjectId: String? = null,
     inProgressSessionIds: Set<String>,
     bookmarkCountsBySession: Map<String, Int> = emptyMap(),
     onSelectProject: (String) -> Unit,
@@ -821,12 +827,13 @@ private fun pinnedSection(
 
         if (isExpanded) {
             Column(
-                modifier = Modifier.padding(start = Spacing.small),
+                modifier = Modifier.padding(start = Spacing.extraLarge),
                 verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
                 starredProjects.forEach { project ->
                     pinnedProjectItem(
                         project = project,
+                        isSelected = project.id == currentProjectId,
                         onSelectProject = onSelectProject,
                         onUnpin = { onStarProject(project.id, false) },
                         onEdit = { onEditProject(project.id) },
@@ -854,6 +861,7 @@ private fun pinnedSection(
 @Composable
 private fun pinnedProjectItem(
     project: Project,
+    isSelected: Boolean,
     onSelectProject: (String) -> Unit,
     onUnpin: () -> Unit,
     onEdit: () -> Unit = {},
@@ -871,15 +879,16 @@ private fun pinnedProjectItem(
     ) {
         themedTooltip(text = project.name) {
             sidebarItem(
-                icon = { Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size((16 * fontScale).dp)) },
+                icon = { Icon(Icons.Default.Workspaces, contentDescription = null, modifier = Modifier.size((16 * fontScale).dp)) },
                 label = {
                     navigationItemLabelWithMenu(
                         text = project.name,
                         onMenuClick = { showMenu = true },
                         isHovered = isHovered || showMenu,
+                        isSelected = isSelected,
                     )
                 },
-                selected = false,
+                selected = isSelected,
                 onClick = { onSelectProject(project.id) },
                 modifier = Modifier
                     .pointerHoverIcon(PointerIcon.Hand),
@@ -1041,7 +1050,7 @@ private fun sessionsList(
 ) {
     Column(
         modifier = Modifier.padding(
-            start = Spacing.extraSmall,
+            start = Spacing.extraLarge,
             end = Spacing.extraSmall,
             top = Spacing.extraSmall,
             bottom = Spacing.extraSmall,
