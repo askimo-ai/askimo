@@ -412,8 +412,6 @@ class ChatMessageRepositoryIT {
     fun `should add message with attachments and retrieve them`() {
         val attachment1 = FileAttachment(
             id = "",
-            messageId = "",
-            sessionId = testSession.id,
             fileName = "document.pdf",
             mimeType = "pdf",
             size = 1024L,
@@ -422,8 +420,6 @@ class ChatMessageRepositoryIT {
         )
         val attachment2 = FileAttachment(
             id = "",
-            messageId = "",
-            sessionId = testSession.id,
             fileName = "image.png",
             mimeType = "png",
             size = 2048L,
@@ -431,7 +427,7 @@ class ChatMessageRepositoryIT {
             content = "PNG content here",
         )
 
-        val message = messageRepository.addMessage(
+        messageRepository.addMessage(
             ChatMessage(
                 id = "",
                 sessionId = testSession.id,
@@ -447,8 +443,6 @@ class ChatMessageRepositoryIT {
         assertEquals(2, messages[0].attachments.size)
         assertEquals("document.pdf", messages[0].attachments[0].fileName)
         assertEquals("image.png", messages[0].attachments[1].fileName)
-        assertEquals(message.id, messages[0].attachments[0].messageId)
-        assertEquals(message.id, messages[0].attachments[1].messageId)
     }
 
     @Test
@@ -479,8 +473,6 @@ class ChatMessageRepositoryIT {
                 attachments = listOf(
                     FileAttachment(
                         id = "",
-                        messageId = "",
-                        sessionId = testSession.id,
                         fileName = "file1.txt",
                         mimeType = "txt",
                         size = 100L,
@@ -509,8 +501,6 @@ class ChatMessageRepositoryIT {
                 attachments = listOf(
                     FileAttachment(
                         id = "",
-                        messageId = "",
-                        sessionId = testSession.id,
                         fileName = "file2.txt",
                         mimeType = "txt",
                         size = 200L,
@@ -519,8 +509,6 @@ class ChatMessageRepositoryIT {
                     ),
                     FileAttachment(
                         id = "",
-                        messageId = "",
-                        sessionId = testSession.id,
                         fileName = "file3.txt",
                         mimeType = "txt",
                         size = 300L,
@@ -540,8 +528,8 @@ class ChatMessageRepositoryIT {
     }
 
     @Test
-    fun `should automatically delete attachments when message is deleted via CASCADE`() {
-        val message = messageRepository.addMessage(
+    fun `should automatically delete attachment references when message is deleted via CASCADE`() {
+        messageRepository.addMessage(
             ChatMessage(
                 id = "",
                 sessionId = testSession.id,
@@ -550,8 +538,6 @@ class ChatMessageRepositoryIT {
                 attachments = listOf(
                     FileAttachment(
                         id = "",
-                        messageId = "",
-                        sessionId = testSession.id,
                         fileName = "file.txt",
                         mimeType = "txt",
                         size = 100L,
@@ -566,16 +552,12 @@ class ChatMessageRepositoryIT {
         val messagesBeforeDelete = messageRepository.getMessages(testSession.id)
         assertEquals(1, messagesBeforeDelete[0].attachments.size)
 
-        // Delete session (which will CASCADE delete messages and attachments)
+        // Delete messages (which will CASCADE delete attachment references)
         messageRepository.deleteMessagesBySession(testSession.id)
 
         // Verify no messages remain
         val messagesAfterDelete = messageRepository.getMessages(testSession.id)
         assertTrue(messagesAfterDelete.isEmpty())
-
-        // Verify attachments are also deleted (via CASCADE)
-        val attachments = attachmentRepository.getAttachmentsBySessionId(testSession.id)
-        assertTrue(attachments.isEmpty())
     }
 
     @Test
@@ -592,8 +574,6 @@ class ChatMessageRepositoryIT {
                     attachments = listOf(
                         FileAttachment(
                             id = "",
-                            messageId = "",
-                            sessionId = testSession.id,
                             fileName = "file$i.txt",
                             mimeType = "txt",
                             size = (i * 100).toLong(),
@@ -641,8 +621,6 @@ class ChatMessageRepositoryIT {
                 attachments = listOf(
                     FileAttachment(
                         id = "",
-                        messageId = "",
-                        sessionId = testSession.id,
                         fileName = "important.pdf",
                         mimeType = "pdf",
                         size = 1024L,
@@ -671,8 +649,6 @@ class ChatMessageRepositoryIT {
                 attachments = listOf(
                     FileAttachment(
                         id = "",
-                        messageId = "",
-                        sessionId = testSession.id,
                         fileName = "note.txt",
                         mimeType = "txt",
                         size = 512L,
@@ -696,8 +672,6 @@ class ChatMessageRepositoryIT {
     fun `should preserve attachment metadata without content field`() {
         val attachment = FileAttachment(
             id = "",
-            messageId = "",
-            sessionId = testSession.id,
             fileName = "test.txt",
             mimeType = "txt",
             size = 1024L,
@@ -705,7 +679,7 @@ class ChatMessageRepositoryIT {
             content = "This content should be stored",
         )
 
-        val message = messageRepository.addMessage(
+        messageRepository.addMessage(
             ChatMessage(
                 id = "",
                 sessionId = testSession.id,
@@ -722,8 +696,6 @@ class ChatMessageRepositoryIT {
         assertEquals("txt", retrievedAttachment.mimeType)
         assertEquals(1024L, retrievedAttachment.size)
         assertNotNull(retrievedAttachment.id)
-        assertEquals(message.id, retrievedAttachment.messageId)
-        assertEquals(testSession.id, retrievedAttachment.sessionId)
         // Content is NOT stored in database, should be null
         assertEquals(null, retrievedAttachment.content)
     }
@@ -733,8 +705,6 @@ class ChatMessageRepositoryIT {
         val attachments = (1..10).map { i ->
             FileAttachment(
                 id = "",
-                messageId = "",
-                sessionId = testSession.id,
                 fileName = "file$i.txt",
                 mimeType = "txt",
                 size = (i * 100).toLong(),
@@ -743,7 +713,7 @@ class ChatMessageRepositoryIT {
             )
         }
 
-        val message = messageRepository.addMessage(
+        messageRepository.addMessage(
             ChatMessage(
                 id = "",
                 sessionId = testSession.id,

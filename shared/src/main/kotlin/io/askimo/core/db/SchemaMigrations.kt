@@ -40,7 +40,6 @@ object SchemaMigrations {
      * system; one that skipped several ad-hoc migrations before upgrading is an
      * unhandled edge case.
      */
-    const val BASELINE_VERSION = 58
 
     val all: List<Migration> = listOf(
         // 1: user_profiles
@@ -552,6 +551,56 @@ object SchemaMigrations {
         // 60: chat_message_attachments.storage_path
         Migration { conn ->
             addColumnIfMissing(conn, "chat_message_attachments", "storage_path", "VARCHAR(1024)")
+        },
+
+        // 61: file_attachments table (shared storage, reference-counted)
+        Migration { conn ->
+            conn.createStatement().use { stmt ->
+                stmt.executeUpdate(
+                    """
+                    CREATE TABLE IF NOT EXISTS file_attachments (
+                        id TEXT PRIMARY KEY,
+                        file_name TEXT NOT NULL,
+                        mime_type TEXT NOT NULL,
+                        size BIGINT NOT NULL,
+                        created_at TEXT NOT NULL,
+                        storage_path VARCHAR(1024),
+                        reference_count INTEGER NOT NULL DEFAULT 1
+                    )
+                    """.trimIndent(),
+                )
+            }
+        },
+
+        // 62: attachment_references table (N:M join for message->attachment)
+        Migration { conn ->
+            conn.createStatement().use { stmt ->
+                stmt.executeUpdate(
+                    """
+                    CREATE TABLE IF NOT EXISTS attachment_references (
+                        attachment_id TEXT NOT NULL,
+                        message_id TEXT NOT NULL,
+                        session_id TEXT NOT NULL,
+                        PRIMARY KEY (attachment_id, message_id),
+                        FOREIGN KEY (attachment_id) REFERENCES file_attachments(id) ON DELETE CASCADE,
+                        FOREIGN KEY (message_id) REFERENCES chat_messages(id) ON DELETE CASCADE,
+                        FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
+                    )
+                    """.trimIndent(),
+                )
+            }
+            // Create indexes for efficient querying
+            conn.createStatement().use { stmt ->
+                stmt.executeUpdate(
+                    "CREATE INDEX IF NOT EXISTS idx_attachment_refs_message_id ON attachment_references (message_id)",
+                )
+                stmt.executeUpdate(
+                    "CREATE INDEX IF NOT EXISTS idx_attachment_refs_attachment_id ON attachment_references (attachment_id)",
+                )
+                stmt.executeUpdate(
+                    "CREATE INDEX IF NOT EXISTS idx_attachment_refs_session_id ON attachment_references (session_id)",
+                )
+            }
         },
 
         // --- Add new migrations below this line. Never edit the entries above. ---

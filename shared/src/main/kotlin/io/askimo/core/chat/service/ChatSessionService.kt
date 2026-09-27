@@ -537,8 +537,8 @@ class ChatSessionService(
         messageRepository.deleteMessagesBySession(sessionId)
         sessionMemoryRepository.deleteBySessionId(sessionId)
 
-        // Delete attachment files from storage
-        AttachmentStorageManager.deleteAttachmentFiles(sessionId)
+        // Attachment files are cleaned up via reference counting in the repository layer
+        // (deleteMessagesBySession calls deleteAttachmentsByMessageId for each message)
 
         val deleted = sessionRepository.deleteSession(sessionId)
         if (deleted) {
@@ -885,7 +885,7 @@ class ChatSessionService(
         if (willSaveUserMessage) {
             // Save all attachments to persistent storage via AttachmentStorageManager
             val attachmentsWithStorage = try {
-                AttachmentStorageManager.saveAttachments(sessionId, userMessage.attachments)
+                AttachmentStorageManager.saveAttachments(userMessage.attachments)
             } catch (e: FileSizeExceededException) {
                 log.error("Attachment file too large: ${e.message}")
                 throw e // Re-throw to be handled by the UI

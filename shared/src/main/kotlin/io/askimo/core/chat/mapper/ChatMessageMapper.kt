@@ -39,11 +39,11 @@ object ChatMessageMapper {
 
     /**
      * Convert a FileAttachment domain object to DTO.
+     * Note: messageId and sessionId are not part of the shared storage model,
+     * so they are set to null in the DTO.
      */
     fun FileAttachment.toDTO(): FileAttachmentDTO = FileAttachmentDTO(
         id = this.id,
-        messageId = this.messageId,
-        sessionId = this.sessionId,
         fileName = this.fileName,
         mimeType = this.mimeType,
         size = this.size,
@@ -59,13 +59,13 @@ object ChatMessageMapper {
 
     /**
      * Convert a FileAttachmentDTO to domain object.
+     * Note: messageId and sessionId are managed separately via the repository layer
+     * (not stored in the FileAttachment domain object in the new reference-counted model).
      *
-     * @param sessionId The session ID to associate with the attachment
+     * @param sessionId The session ID (not stored in domain, used by caller for context)
      */
     fun FileAttachmentDTO.toDomain(sessionId: String): FileAttachment = FileAttachment(
         id = this.id.takeIf { it.isNotEmpty() } ?: "", // Will be auto-generated
-        messageId = this.messageId,
-        sessionId = sessionId,
         fileName = this.fileName,
         mimeType = this.mimeType,
         size = this.size,

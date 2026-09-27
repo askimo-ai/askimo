@@ -100,8 +100,8 @@ object ChatRequestTransformers {
         // ToolExecutionResultMessage includes tool id in dedup key to allow parallel tool calls with identical results.
         val deduplicatedNonSystem = nonSystemMessages.fold(mutableListOf<ChatMessage>()) { acc, msg ->
             val lastSameType = acc.lastOrNull { it.type() == msg.type() }
-            if (lastSameType != null && getMessageText(lastSameType) == getMessageText(msg)) {
-                log.debug("Dropping consecutive duplicate {} message: {}", msg.type(), getMessageText(msg).take(100))
+            if (lastSameType != null && getMessageDeduplicationKey(lastSameType) == getMessageDeduplicationKey(msg)) {
+                log.debug("Dropping consecutive duplicate {} message: {}", msg.type(), getMessageDeduplicationKey(msg).take(100))
                 acc
             } else {
                 acc.also { it.add(msg) }
@@ -133,7 +133,7 @@ object ChatRequestTransformers {
         val nonSystemMessages = messages.filterNot { it is SystemMessage }
 
         systemMessages.forEach { msg ->
-            val tokens = estimateTokens(getMessageText(msg))
+            val tokens = estimateTokens(getMessageTextForTokens(msg))
             totalTokens += tokens
             keptMessages.add(msg)
         }
@@ -158,13 +158,13 @@ object ChatRequestTransformers {
 
         // Always add the most recent message group, even if it exceeds budget (prevents empty user input)
         val firstGroup = recentGroups.first()
-        val firstGroupTokens = firstGroup.sumOf { estimateTokens(getMessageText(it)) }
+        val firstGroupTokens = firstGroup.sumOf { estimateTokens(getMessageTextForTokens(it)) }
         keptMessages.addAll(systemMessagesEndIndex, firstGroup)
         totalTokens += firstGroupTokens
 
         // Add older message groups if they fit
         for (group in recentGroups.drop(1)) {
-            val groupTokens = group.sumOf { estimateTokens(getMessageText(it)) }
+            val groupTokens = group.sumOf { estimateTokens(getMessageTextForTokens(it)) }
 
             if (totalTokens + groupTokens > availableForMessages) {
                 log.debug(
@@ -209,13 +209,12 @@ object ChatRequestTransformers {
     }
 
     /**
-     * Extracts text content for deduplication and token counting.
-     * For multimodal UserMessages, extracts only TextContent parts; images remain in the message.
-     * For AiMessage with tool calls, includes tool-call ids in the key.
+     * Extracts text content for token counting only (images have separate token estimation).
+     * For multimodal UserMessages, extracts only TextContent parts.
      */
-    private fun getMessageText(message: ChatMessage): String = when (message) {
+    private fun getMessageTextForTokens(message: ChatMessage): String = when (message) {
         is UserMessage -> {
-            // Extract only TextContent parts; images preserved in the original message
+            // Extract only TextContent parts for token counting
             message.contents()
                 .filterIsInstance<TextContent>()
                 .joinToString("\n") { it.text() }
@@ -239,6 +238,62 @@ object ChatRequestTransformers {
 
         else -> ""
     }
+
+    /**
+     * Extracts deduplication key including image identity.
+     * For multimodal UserMessages, includes image content hash to prevent dropping
+     * distinct messages with same text but different images or image-only messages.
+     * This prevents the bug where:
+     * - UserMessage("Hello", image1) and UserMessage("Hello", image2) would incorrectly compare equal
+     * - Image-only messages with different images would all compare as empty
+     */
+    private fun getMessageDeduplicationKey(message: ChatMessage): String = when (message) {
+        is UserMessage -> {
+            val textPart = message.contents()
+                .filterIsInstance<TextContent>()
+                .joinToString("\n") { it.text() }
+
+            // Include image identity: count + content hashes (sorted for stability)
+            val imageParts = message.contents()
+                .filterNot { it is TextContent }
+                .map { it.hashCode().toString() }
+                .sorted()
+
+            if (imageParts.isNotEmpty()) {
+                "$textPart::images[${imageParts.joinToString(",")}]"
+            } else {
+                textPart
+            }
+        }
+
+        is AiMessage -> {
+            val text = message.text() ?: ""
+            if (message.hasToolExecutionRequests()) {
+                "$text::" + message.toolExecutionRequests().joinToString(",") { req ->
+                    req.id() ?: "${req.name()}(${req.arguments()})"
+                }
+            } else {
+                text
+            }
+        }
+
+        is SystemMessage -> message.text()
+
+        is ToolExecutionResultMessage -> "${message.id() ?: message.toolName()}::${message.text() ?: ""}"
+
+        else -> ""
+    }
+
+    /**
+     * Extracts text content for deduplication and token counting.
+     * For multimodal UserMessages, extracts only TextContent parts; images remain in the message.
+     * For AiMessage with tool calls, includes tool-call ids in the key.
+     *
+     * @deprecated Use [getMessageTextForTokens] for token counting or [getMessageDeduplicationKey] for deduplication instead.
+     * This method conflates two separate concerns and should be replaced with the specialized methods.
+     */
+    @Deprecated("Use getMessageTextForTokens() or getMessageDeduplicationKey() instead")
+    private fun getMessageText(message: ChatMessage): String = getMessageTextForTokens(message)
 
     /**
      * Groups messages into truncation units: ToolExecutionResultMessage always stays with preceding message.

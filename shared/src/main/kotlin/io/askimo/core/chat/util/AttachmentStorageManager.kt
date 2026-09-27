@@ -16,7 +16,8 @@ import kotlin.io.path.exists
 
 /**
  * Manages persistent storage of chat message attachments.
- * Files are stored under ${user.home}/.askimo/attachments/{sessionId}/{attachmentId}/{filename}
+ * Files are stored under ${user.home}/.askimo/attachments/{attachmentId}/{filename}
+ * Multiple messages can share the same attachment file via reference counting.
  * This allows users to download or rerun requests with original attachments.
  */
 object AttachmentStorageManager {
@@ -25,31 +26,23 @@ object AttachmentStorageManager {
     private val maxFileSizeBytes: Long = AppConfig.indexing.maxFileBytes
 
     /**
-     * Directory for a specific session's attachments.
-     * @param sessionId The session ID
-     * @return The session attachments directory
-     */
-    private fun getSessionAttachmentsDir(sessionId: String): File = File(AskimoHome.attachmentsDir().toFile(), sessionId)
-
-    /**
-     * Directory for a specific attachment within a session.
-     * @param sessionId The session ID
+     * Directory for a specific attachment (shared across all messages/sessions that reference it).
      * @param attachmentId The attachment ID
      * @return The attachment directory
      */
-    private fun getAttachmentDir(sessionId: String, attachmentId: String): File = File(getSessionAttachmentsDir(sessionId), attachmentId)
+    private fun getAttachmentDir(attachmentId: String): File = File(AskimoHome.attachmentsDir().toFile(), attachmentId)
 
     /**
      * Save an attachment file to persistent storage.
      * Copies the file from the source location to the permanent storage directory.
+     * If the attachment file already exists, it's not re-saved (assumed to be the same).
      *
-     * @param sessionId The session ID
      * @param attachmentId The attachment ID
      * @param sourceFile The source file to copy
      * @return The path to the stored file, or null if storage failed
      * @throws FileSizeExceededException if the file exceeds the maximum allowed size
      */
-    fun saveAttachmentFile(sessionId: String, attachmentId: String, sourceFile: File): String? {
+    fun saveAttachmentFile(attachmentId: String, sourceFile: File): String? {
         try {
             // Validate file size
             val fileSize = sourceFile.length()
@@ -63,16 +56,22 @@ object AttachmentStorageManager {
             }
 
             // Create attachment directory
-            val attachmentDir = getAttachmentDir(sessionId, attachmentId)
+            val attachmentDir = getAttachmentDir(attachmentId)
             attachmentDir.toPath().createDirectories()
 
             // Store file with original name in the attachment directory
             val storagePath = File(attachmentDir, sourceFile.name)
 
+            // Skip if file already exists (assume it's the same, shared storage model)
+            if (storagePath.exists()) {
+                log.debug("Attachment file already exists (shared): attachmentId=$attachmentId, path=${storagePath.absolutePath}")
+                return storagePath.absolutePath
+            }
+
             // Copy file
             Files.copy(sourceFile.toPath(), storagePath.toPath())
 
-            log.debug("Attachment stored: sessionId=$sessionId, attachmentId=$attachmentId, path=${storagePath.absolutePath}")
+            log.debug("Attachment stored: attachmentId=$attachmentId, path=${storagePath.absolutePath}")
             return storagePath.absolutePath
         } catch (e: FileSizeExceededException) {
             log.error("File too large: ${sourceFile.name} (${e.fileSize} bytes, max: ${e.maxAllowedSize} bytes)")
@@ -88,12 +87,11 @@ object AttachmentStorageManager {
      * Processes multiple attachments and returns them with storagePath populated.
      * Only attachments with filePath are saved; others are returned unchanged.
      *
-     * @param sessionId The session ID
      * @param attachments List of attachments to save (may have temporary filePath)
      * @return List of attachments with storagePath populated for saved files
      * @throws FileSizeExceededException if any file exceeds the maximum allowed size
      */
-    fun saveAttachments(sessionId: String, attachments: List<FileAttachmentDTO>): List<FileAttachmentDTO> = attachments.map { attachment ->
+    fun saveAttachments(attachments: List<FileAttachmentDTO>): List<FileAttachmentDTO> = attachments.map { attachment ->
         if (attachment.filePath != null) {
             try {
                 val sourceFile = File(attachment.filePath)
@@ -101,7 +99,7 @@ object AttachmentStorageManager {
                     log.warn("Attachment file not found: ${attachment.filePath}")
                     attachment
                 } else {
-                    val storagePath = saveAttachmentFile(sessionId, attachment.id, sourceFile)
+                    val storagePath = saveAttachmentFile(attachment.id, sourceFile)
                     attachment.copy(storagePath = storagePath)
                 }
             } catch (e: FileSizeExceededException) {
@@ -119,13 +117,12 @@ object AttachmentStorageManager {
     /**
      * Retrieve a stored attachment file.
      *
-     * @param sessionId The session ID
      * @param attachmentId The attachment ID
      * @return The attachment file, or null if not found
      */
-    fun getAttachmentFile(sessionId: String, attachmentId: String): File? {
+    fun getAttachmentFile(attachmentId: String): File? {
         try {
-            val attachmentDir = getAttachmentDir(sessionId, attachmentId)
+            val attachmentDir = getAttachmentDir(attachmentId)
             if (!attachmentDir.exists()) {
                 log.debug("Attachment directory not found: ${attachmentDir.absolutePath}")
                 return null
@@ -147,40 +144,20 @@ object AttachmentStorageManager {
     }
 
     /**
-     * Delete all attachments for a session.
-     * This is called when a session is deleted.
+     * Delete an attachment file from storage.
+     * This is called when an attachment's reference count reaches 0.
+     * Only deletes if no other messages reference this attachment (via reference counting).
      *
-     * @param sessionId The session ID
-     */
-    @OptIn(kotlin.io.path.ExperimentalPathApi::class)
-    fun deleteAttachmentFiles(sessionId: String) {
-        try {
-            val sessionDir = getSessionAttachmentsDir(sessionId)
-            val path = sessionDir.toPath()
-            if (path.exists()) {
-                path.deleteRecursively()
-                log.debug("Deleted attachment directory for session: $sessionId")
-            }
-        } catch (e: Exception) {
-            log.error("Failed to delete attachment directory for session $sessionId: ${e.message}", e)
-        }
-    }
-
-    /**
-     * Delete a single attachment file.
-     * This is called when a message with attachments is deleted.
-     *
-     * @param sessionId The session ID
      * @param attachmentId The attachment ID
      */
     @OptIn(kotlin.io.path.ExperimentalPathApi::class)
-    fun deleteAttachmentFile(sessionId: String, attachmentId: String) {
+    fun deleteAttachmentFile(attachmentId: String) {
         try {
-            val attachmentDir = getAttachmentDir(sessionId, attachmentId)
+            val attachmentDir = getAttachmentDir(attachmentId)
             val path = attachmentDir.toPath()
             if (path.exists()) {
                 path.deleteRecursively()
-                log.debug("Deleted attachment: sessionId=$sessionId, attachmentId=$attachmentId")
+                log.debug("Deleted attachment: attachmentId=$attachmentId")
             }
         } catch (e: Exception) {
             log.error("Failed to delete attachment file: ${e.message}", e)

@@ -4,12 +4,13 @@
  */
 package io.askimo.core.chat.repository
 
+import io.askimo.core.chat.domain.AttachmentReferencesTable
 import io.askimo.core.chat.domain.ChatMessage
-import io.askimo.core.chat.domain.ChatMessageAttachmentsTable
 import io.askimo.core.chat.domain.ChatMessagesTable
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.domain.ChatSessionsTable
 import io.askimo.core.chat.domain.FileAttachment
+import io.askimo.core.chat.domain.FileAttachmentsTable
 import io.askimo.core.chat.dto.TurnTimelineEntry
 import io.askimo.core.chat.dto.truncatedForStorage
 import io.askimo.core.context.MessageRole
@@ -93,21 +94,6 @@ private fun ResultRow.toChatMessage(): ChatMessage = ChatMessage(
     contentBlocks = decodeChatContentBlocks(this[ChatMessagesTable.contentJson]),
 )
 
-/**
- * Extension function to map an Exposed ResultRow to a FileAttachment object (from JOIN).
- */
-private fun ResultRow.toFileAttachment(): FileAttachment = FileAttachment(
-    id = this[ChatMessageAttachmentsTable.id],
-    messageId = this[ChatMessageAttachmentsTable.messageId],
-    sessionId = this[ChatMessageAttachmentsTable.sessionId],
-    fileName = this[ChatMessageAttachmentsTable.fileName],
-    mimeType = this[ChatMessageAttachmentsTable.mimeType],
-    size = this[ChatMessageAttachmentsTable.size],
-    createdAt = this[ChatMessageAttachmentsTable.createdAt],
-    storagePath = this[ChatMessageAttachmentsTable.storagePath],
-    content = null, // Content is not stored in DB
-)
-
 class ChatMessageRepository internal constructor(
     databaseManager: DatabaseManager = DatabaseManager.getInstance(),
     private val attachmentRepository: ChatMessageAttachmentRepository = ChatMessageAttachmentRepository(databaseManager),
@@ -149,15 +135,13 @@ class ChatMessageRepository internal constructor(
                 if (syncedAt != null) it[ChatMessagesTable.syncedAt] = syncedAt.toString()
             }
 
-            // Save attachments if any
+            // Save attachments if any (with reference counting for shared storage)
             if (messageWithInjectedFields.attachments.isNotEmpty()) {
-                val attachmentsWithMessageId = messageWithInjectedFields.attachments.map { attachment ->
-                    attachment.copy(
-                        messageId = messageWithInjectedFields.id,
-                        sessionId = messageWithInjectedFields.sessionId,
-                    )
-                }
-                attachmentRepository.addAttachments(attachmentsWithMessageId)
+                attachmentRepository.addAttachments(
+                    messageWithInjectedFields.id,
+                    messageWithInjectedFields.sessionId,
+                    messageWithInjectedFields.attachments,
+                )
             }
         }
 
@@ -201,11 +185,11 @@ class ChatMessageRepository internal constructor(
 
                 if (msg.attachments.isNotEmpty()) {
                     attachmentRepository.addAttachments(
+                        msg.id,
+                        msg.sessionId,
                         msg.attachments.map { attachment ->
                             attachment.copy(
                                 id = attachment.id.ifEmpty { UUID.randomUUID().toString() },
-                                messageId = msg.id,
-                                sessionId = msg.sessionId,
                             )
                         },
                     )
@@ -515,14 +499,28 @@ class ChatMessageRepository internal constructor(
 
     /**
      * Delete all messages for a session.
-     * Attachments are automatically deleted via CASCADE foreign key constraint.
+     * Attachments are cleaned up via reference counting - physical files only deleted if ref count reaches 0.
      */
     fun deleteMessagesBySession(sessionId: String): Int = transaction(database) {
+        // Get all message IDs for this session first
+        val messageIds = ChatMessagesTable
+            .selectAll()
+            .where { ChatMessagesTable.sessionId eq sessionId }
+            .map { it[ChatMessagesTable.id] }
+
+        // Clean up attachments (decrements ref count, deletes file if needed)
+        // Use internal method to avoid nested transactions
+        messageIds.forEach { messageId ->
+            attachmentRepository.deleteAttachmentsByMessageIdInternal(messageId)
+        }
+
+        // Then delete messages
         ChatMessagesTable.deleteWhere { ChatMessagesTable.sessionId eq sessionId }
     }
 
     /**
      * Permanently delete individual messages by their IDs.
+     * Attachments are cleaned up via reference counting - physical files only deleted if ref count reaches 0.
      *
      * @param messageIds IDs of the messages to delete.
      * @return Number of rows deleted.
@@ -530,13 +528,20 @@ class ChatMessageRepository internal constructor(
     fun bulkDelete(messageIds: List<String>): Int {
         if (messageIds.isEmpty()) return 0
         return transaction(database) {
+            // Clean up attachments first (decrements ref count, deletes file if needed)
+            // Use internal method to avoid nested transactions
+            messageIds.forEach { messageId ->
+                attachmentRepository.deleteAttachmentsByMessageIdInternal(messageId)
+            }
+
+            // Then delete messages
             ChatMessagesTable.deleteWhere { ChatMessagesTable.id inList messageIds }
         }
     }
 
     /**
      * Helper method to load attachments for messages using LEFT JOIN.
-     * This performs a single database query to efficiently load all attachments.
+     * This performs a single database query to efficiently load all attachments via reference table.
      *
      * @param messageIds List of message IDs to load attachments for
      * @return Map of message ID to list of attachments
@@ -544,22 +549,27 @@ class ChatMessageRepository internal constructor(
     private fun loadAttachmentsForMessageIds(messageIds: List<String>): Map<String, List<FileAttachment>> {
         if (messageIds.isEmpty()) return emptyMap()
 
-        val messagesMap = mutableMapOf<String, ChatMessage>()
         val attachmentsMap = mutableMapOf<String, MutableList<FileAttachment>>()
 
-        (ChatMessagesTable leftJoin ChatMessageAttachmentsTable)
+        (AttachmentReferencesTable leftJoin FileAttachmentsTable)
             .selectAll()
-            .where { ChatMessagesTable.id inList messageIds }
+            .where { AttachmentReferencesTable.messageId inList messageIds }
             .forEach { row ->
-                val messageId = row[ChatMessagesTable.id]
+                val messageId = row[AttachmentReferencesTable.messageId]
 
-                if (!messagesMap.containsKey(messageId)) {
-                    messagesMap[messageId] = row.toChatMessage()
-                }
-
-                row.getOrNull(ChatMessageAttachmentsTable.id)?.let {
-                    attachmentsMap.getOrPut(messageId) { mutableListOf() }
-                        .add(row.toFileAttachment())
+                row.getOrNull(FileAttachmentsTable.id)?.let {
+                    // Create FileAttachment from FileAttachmentsTable row
+                    val attachment = FileAttachment(
+                        id = row[FileAttachmentsTable.id],
+                        fileName = row[FileAttachmentsTable.fileName],
+                        mimeType = row[FileAttachmentsTable.mimeType],
+                        size = row[FileAttachmentsTable.size],
+                        createdAt = row[FileAttachmentsTable.createdAt],
+                        storagePath = row[FileAttachmentsTable.storagePath],
+                        referenceCount = row[FileAttachmentsTable.referenceCount],
+                        content = null,
+                    )
+                    attachmentsMap.getOrPut(messageId) { mutableListOf() }.add(attachment)
                 }
             }
 

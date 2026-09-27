@@ -536,8 +536,6 @@ fun chatInputField(
                         val newAttachments = files.map { file ->
                             FileAttachmentDTO(
                                 id = UUID.randomUUID().toString(),
-                                messageId = "",
-                                sessionId = sessionId ?: "",
                                 fileName = file.name,
                                 mimeType = file.extension,
                                 size = file.length(),

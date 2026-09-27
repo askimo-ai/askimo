@@ -9,11 +9,13 @@ import java.time.Instant
 /**
  * Data Transfer Object for file attachments.
  * Used to transfer attachment data between layers (service -> UI).
+ *
+ * Note: messageId and sessionId are not part of the domain model (FileAttachment)
+ * in the reference-counted shared storage model. They are provided here for compatibility
+ * with UI layer that may need this context, but should be managed at the repository layer.
  */
 data class FileAttachmentDTO(
     val id: String,
-    val messageId: String,
-    val sessionId: String,
     val fileName: String,
     val mimeType: String,
     val size: Long,
