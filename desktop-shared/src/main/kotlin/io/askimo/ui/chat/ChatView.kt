@@ -58,6 +58,7 @@ import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -1042,14 +1043,29 @@ fun chatView(
 
                 val inputField = remember {
                     movableContentOf { fieldModifier: Modifier ->
+                        val latestIsLoading by rememberUpdatedState(isLoading)
+                        val latestIsThinking by rememberUpdatedState(isThinking)
+                        val latestErrorMessage by rememberUpdatedState(errorMessage)
+                        val latestSessionId by rememberUpdatedState(sessionId)
+                        val latestProject by rememberUpdatedState(project)
+                        val latestSelectedDirective by rememberUpdatedState(selectedDirective)
+                        val latestActiveResourceCollectionIds by rememberUpdatedState(activeResourceCollectionIds)
+                        val latestMemoryPressureLevel by rememberUpdatedState(memoryPressureLevel)
+                        val latestMemoryUtilization by rememberUpdatedState(memoryUtilization)
+                        val latestMemoryUsedTokens by rememberUpdatedState(memoryUsedTokens)
+                        val latestMemoryBudgetTokens by rememberUpdatedState(memoryBudgetTokens)
+                        val latestIsCompressing by rememberUpdatedState(isCompressing)
+                        val latestIsContextSizeLearned by rememberUpdatedState(isContextSizeLearned)
+                        val latestActions by rememberUpdatedState(actions)
+
                         chatInputField(
                             inputText = inputText,
                             onInputTextChange = { inputText = it },
                             attachments = attachments,
                             onAttachmentsChange = { attachments = it },
                             onSendMessage = { mode ->
-                                if (inputText.text.isNotBlank() && !isLoading && !isThinking) {
-                                    actions.sendOrEditMessage(
+                                if (inputText.text.isNotBlank() && !latestIsLoading && !latestIsThinking) {
+                                    latestActions.sendOrEditMessage(
                                         mode,
                                         inputText.text,
                                         attachments,
@@ -1061,35 +1077,35 @@ fun chatView(
                                     editingMessage = null
                                 }
                             },
-                            isLoading = isLoading,
-                            isThinking = isThinking,
-                            onStopResponse = actions::cancelResponse,
-                            errorMessage = errorMessage,
+                            isLoading = latestIsLoading,
+                            isThinking = latestIsThinking,
+                            onStopResponse = { latestActions.cancelResponse() },
+                            errorMessage = latestErrorMessage,
                             editingMessage = editingMessage,
                             onCancelEdit = {
                                 editingMessage = null
                                 inputText = TextFieldValue("")
                                 attachments = emptyList()
                             },
-                            sessionId = sessionId,
+                            sessionId = latestSessionId,
                             onEnabledServerIdsChange = { currentEnabledServerIds = it },
                             onNavigateToMcpSettings = onNavigateToMcpSettings,
                             // Directives chip — selection controlled here; CRUD managed inside chatInputField
-                            selectedDirective = selectedDirective,
-                            onToggleDirective = { id -> actions.setDirective(id) },
-                            isProjectSession = project != null,
-                            onWebSearchInRagChange = { enabled -> actions.setWebSearchInRag(enabled) },
+                            selectedDirective = latestSelectedDirective,
+                            onToggleDirective = { id -> latestActions.setDirective(id) },
+                            isProjectSession = latestProject != null,
+                            onWebSearchInRagChange = { enabled -> latestActions.setWebSearchInRag(enabled) },
                             // Resource Collections chip — persistent chip selection (see ChatState.activeResourceCollectionIds)
-                            activeResourceCollectionIds = activeResourceCollectionIds,
-                            onActiveResourceCollectionsChange = { ids -> actions.setActiveResourceCollections(ids) },
+                            activeResourceCollectionIds = latestActiveResourceCollectionIds,
+                            onActiveResourceCollectionsChange = { ids -> latestActions.setActiveResourceCollections(ids) },
                             onNavigateToResourceCollections = onNavigateToResourceCollections,
-                            memoryPressureLevel = memoryPressureLevel,
-                            memoryUtilization = memoryUtilization,
-                            memoryUsedTokens = memoryUsedTokens,
-                            memoryBudgetTokens = memoryBudgetTokens,
-                            isCompressing = isCompressing,
-                            isContextSizeLearned = isContextSizeLearned,
-                            onCompressMemory = { actions.compressMemory() },
+                            memoryPressureLevel = latestMemoryPressureLevel,
+                            memoryUtilization = latestMemoryUtilization,
+                            memoryUsedTokens = latestMemoryUsedTokens,
+                            memoryBudgetTokens = latestMemoryBudgetTokens,
+                            isCompressing = latestIsCompressing,
+                            isContextSizeLearned = latestIsContextSizeLearned,
+                            onCompressMemory = { latestActions.compressMemory() },
                             modifier = fieldModifier,
                         )
                     }

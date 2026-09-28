@@ -1144,7 +1144,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                         isSessionsExpanded = isSessionsExpanded,
                                                         projectsViewModel = projectsViewModel,
                                                         sessionsViewModel = sessionsViewModel,
-                                                        currentSessionId = activeSessionId,
+                                                        currentSessionId = if (currentView == View.CHAT) activeSessionId else null,
                                                         currentProjectId = if (currentView == View.PROJECT_DETAIL) selectedProjectId else null,
                                                         userProfile = userProfile,
                                                         showPlansInSidebar = showPlansInSidebar,
@@ -1161,7 +1161,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                             showNewProjectDialog = true
                                                         },
                                                         onSelectProject = { projectId ->
-                                                            sessionManager.clearActiveSession()
                                                             selectedProjectId = projectId
                                                             currentView = View.PROJECT_DETAIL
                                                         },
@@ -1293,7 +1292,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                             currentView = View.SESSIONS
                                                         },
                                                         onSelectProject = { projectId ->
-                                                            sessionManager.clearActiveSession()
                                                             selectedProjectId = projectId
                                                             currentView = View.PROJECT_DETAIL
                                                         },
@@ -2134,7 +2132,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                             onNavigateToProject = { projectId ->
                                 showNewProjectDialog = false
                                 projectsViewModel.refresh()
-                                sessionManager.clearActiveSession()
                                 selectedProjectId = projectId
                                 currentView = View.PROJECT_DETAIL
                             },
