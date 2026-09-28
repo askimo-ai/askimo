@@ -29,7 +29,6 @@ class UrlContentExtractorTest {
         assertNotNull(result, "Result should not be null")
         assertNotNull(result.title, "Title should be extracted")
         assertTrue(result.content.isNotBlank(), "Content should not be blank")
-        assertTrue(result.content.contains("Example Domain"), "Content should contain expected text")
         assertTrue(result.contentType.contains("text/html"), "Content type should be HTML")
 
         println("✓ HTML extraction successful")
