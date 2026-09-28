@@ -54,6 +54,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -1017,57 +1018,81 @@ fun chatView(
                 }
 
                 var warningBannerDismissed by remember(sessionId) { mutableStateOf(false) }
-                val inputField: @Composable (Modifier) -> Unit = { fieldModifier ->
-                    chatInputField(
-                        inputText = inputText,
-                        onInputTextChange = { inputText = it },
-                        attachments = attachments,
-                        onAttachmentsChange = { attachments = it },
-                        onSendMessage = { mode ->
-                            if (inputText.text.isNotBlank() && !isLoading && !isThinking) {
-                                actions.sendOrEditMessage(
-                                    mode,
-                                    inputText.text,
-                                    attachments,
-                                    editingMessage,
-                                    currentEnabledServerIds,
-                                )
+
+                val memoryBanners: @Composable () -> Unit = {
+                    if (memoryPressureLevel == MemoryPressureLevel.WARNING && !warningBannerDismissed) {
+                        memoryPressureBanner(
+                            message = stringResource("memory.pressure.warning.message"),
+                            isCritical = false,
+                            isCompressing = isCompressing,
+                            onDismiss = { warningBannerDismissed = true },
+                            onCompress = { actions.compressMemory() },
+                        )
+                    }
+                    if (memoryPressureLevel == MemoryPressureLevel.CRITICAL) {
+                        memoryPressureBanner(
+                            message = stringResource("memory.pressure.critical.message"),
+                            isCritical = true,
+                            isCompressing = isCompressing,
+                            onDismiss = null,
+                            onCompress = { actions.compressMemory() },
+                        )
+                    }
+                }
+
+                val inputField = remember {
+                    movableContentOf { fieldModifier: Modifier ->
+                        chatInputField(
+                            inputText = inputText,
+                            onInputTextChange = { inputText = it },
+                            attachments = attachments,
+                            onAttachmentsChange = { attachments = it },
+                            onSendMessage = { mode ->
+                                if (inputText.text.isNotBlank() && !isLoading && !isThinking) {
+                                    actions.sendOrEditMessage(
+                                        mode,
+                                        inputText.text,
+                                        attachments,
+                                        editingMessage,
+                                        currentEnabledServerIds,
+                                    )
+                                    inputText = TextFieldValue("")
+                                    attachments = emptyList()
+                                    editingMessage = null
+                                }
+                            },
+                            isLoading = isLoading,
+                            isThinking = isThinking,
+                            onStopResponse = actions::cancelResponse,
+                            errorMessage = errorMessage,
+                            editingMessage = editingMessage,
+                            onCancelEdit = {
+                                editingMessage = null
                                 inputText = TextFieldValue("")
                                 attachments = emptyList()
-                                editingMessage = null
-                            }
-                        },
-                        isLoading = isLoading,
-                        isThinking = isThinking,
-                        onStopResponse = actions::cancelResponse,
-                        errorMessage = errorMessage,
-                        editingMessage = editingMessage,
-                        onCancelEdit = {
-                            editingMessage = null
-                            inputText = TextFieldValue("")
-                            attachments = emptyList()
-                        },
-                        sessionId = sessionId,
-                        onEnabledServerIdsChange = { currentEnabledServerIds = it },
-                        onNavigateToMcpSettings = onNavigateToMcpSettings,
-                        // Directives chip — selection controlled here; CRUD managed inside chatInputField
-                        selectedDirective = selectedDirective,
-                        onToggleDirective = { id -> actions.setDirective(id) },
-                        isProjectSession = project != null,
-                        onWebSearchInRagChange = { enabled -> actions.setWebSearchInRag(enabled) },
-                        // Resource Collections chip — persistent chip selection (see ChatState.activeResourceCollectionIds)
-                        activeResourceCollectionIds = activeResourceCollectionIds,
-                        onActiveResourceCollectionsChange = { ids -> actions.setActiveResourceCollections(ids) },
-                        onNavigateToResourceCollections = onNavigateToResourceCollections,
-                        memoryPressureLevel = memoryPressureLevel,
-                        memoryUtilization = memoryUtilization,
-                        memoryUsedTokens = memoryUsedTokens,
-                        memoryBudgetTokens = memoryBudgetTokens,
-                        isCompressing = isCompressing,
-                        isContextSizeLearned = isContextSizeLearned,
-                        onCompressMemory = { actions.compressMemory() },
-                        modifier = fieldModifier,
-                    )
+                            },
+                            sessionId = sessionId,
+                            onEnabledServerIdsChange = { currentEnabledServerIds = it },
+                            onNavigateToMcpSettings = onNavigateToMcpSettings,
+                            // Directives chip — selection controlled here; CRUD managed inside chatInputField
+                            selectedDirective = selectedDirective,
+                            onToggleDirective = { id -> actions.setDirective(id) },
+                            isProjectSession = project != null,
+                            onWebSearchInRagChange = { enabled -> actions.setWebSearchInRag(enabled) },
+                            // Resource Collections chip — persistent chip selection (see ChatState.activeResourceCollectionIds)
+                            activeResourceCollectionIds = activeResourceCollectionIds,
+                            onActiveResourceCollectionsChange = { ids -> actions.setActiveResourceCollections(ids) },
+                            onNavigateToResourceCollections = onNavigateToResourceCollections,
+                            memoryPressureLevel = memoryPressureLevel,
+                            memoryUtilization = memoryUtilization,
+                            memoryUsedTokens = memoryUsedTokens,
+                            memoryBudgetTokens = memoryBudgetTokens,
+                            isCompressing = isCompressing,
+                            isContextSizeLearned = isContextSizeLearned,
+                            onCompressMemory = { actions.compressMemory() },
+                            modifier = fieldModifier,
+                        )
+                    }
                 }
 
                 // ── Auto-scroll logic ────────────────────────────────────────────
@@ -1176,6 +1201,7 @@ fun chatView(
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurface,
                                 )
+                                memoryBanners()
                                 inputField(Modifier.fillMaxWidth())
                             }
                         }
@@ -1319,24 +1345,7 @@ fun chatView(
                 // Input area
 
                 if (!isEmptyState) {
-                    if (memoryPressureLevel == MemoryPressureLevel.WARNING && !warningBannerDismissed) {
-                        memoryPressureBanner(
-                            message = stringResource("memory.pressure.warning.message"),
-                            isCritical = false,
-                            isCompressing = isCompressing,
-                            onDismiss = { warningBannerDismissed = true },
-                            onCompress = { actions.compressMemory() },
-                        )
-                    }
-                    if (memoryPressureLevel == MemoryPressureLevel.CRITICAL) {
-                        memoryPressureBanner(
-                            message = stringResource("memory.pressure.critical.message"),
-                            isCritical = true,
-                            isCompressing = isCompressing,
-                            onDismiss = null,
-                            onCompress = { actions.compressMemory() },
-                        )
-                    }
+                    memoryBanners()
 
                     Box(
                         modifier = Modifier.fillMaxWidth(),
