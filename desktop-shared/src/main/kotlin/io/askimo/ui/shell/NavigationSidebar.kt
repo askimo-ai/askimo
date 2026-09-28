@@ -25,10 +25,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FolderOpen
@@ -330,7 +330,7 @@ private fun expandedNavigationSidebar(
             // New Chat
             themedTooltip(text = stringResource("chat.new.tooltip", Platform.modifierKey)) {
                 sidebarItem(
-                    icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                    icon = { Icon(Icons.Default.EditNote, contentDescription = null) },
                     label = { Text(stringResource("chat.new"), style = AppTextStyles.groupTitle) },
                     selected = false,
                     onClick = onNewChat,
@@ -520,7 +520,7 @@ private fun collapsedNavigationSidebar(
         ) {
             themedTooltip(text = stringResource("chat.new.tooltip", Platform.modifierKey)) {
                 NavigationRailItem(
-                    icon = { Icon(Icons.Default.Add, contentDescription = stringResource("chat.new")) },
+                    icon = { Icon(Icons.Default.EditNote, contentDescription = stringResource("chat.new")) },
                     label = null,
                     selected = false,
                     onClick = onNewChat,

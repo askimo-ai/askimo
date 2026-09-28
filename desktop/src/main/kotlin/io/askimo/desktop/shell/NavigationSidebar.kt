@@ -110,19 +110,21 @@ fun navigationSidebar(
             isVisible = showProjectsInSidebar,
             onClick = onToggleProjects,
             badge = { isHovered ->
-                if (isHovered) {
-                    val bfs = LocalFontScale.current
-                    themedTooltip(text = stringResource("project.new.dialog.title")) {
-                        IconButton(
-                            onClick = onNewProject,
-                            modifier = Modifier.size((24 * bfs).dp).pointerHoverIcon(PointerIcon.Hand),
-                        ) {
-                            Icon(
-                                Icons.Default.Add,
-                                contentDescription = stringResource("project.new.dialog.title"),
-                                tint = if (isProjectsSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppTextStyles.secondaryContent,
-                                modifier = Modifier.size((18 * bfs).dp),
-                            )
+                val bfs = LocalFontScale.current
+                Box(modifier = Modifier.size((24 * bfs).dp)) {
+                    if (isHovered) {
+                        themedTooltip(text = stringResource("project.new.dialog.title")) {
+                            IconButton(
+                                onClick = onNewProject,
+                                modifier = Modifier.size((24 * bfs).dp).pointerHoverIcon(PointerIcon.Hand),
+                            ) {
+                                Icon(
+                                    Icons.Default.Add,
+                                    contentDescription = stringResource("project.new.dialog.title"),
+                                    tint = if (isProjectsSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppTextStyles.secondaryContent,
+                                    modifier = Modifier.size((18 * bfs).dp),
+                                )
+                            }
                         }
                     }
                 }

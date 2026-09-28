@@ -413,7 +413,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     // Store chat state per session for restoration when switching
     val sessionChatStates = remember { mutableStateMapOf<String, ChatViewState>() }
     val eventLogEvents = remember { mutableStateListOf<Event>() }
-    var eventTrimmed by remember { mutableStateOf<Boolean>(false) }
+    var eventTrimmed by remember { mutableStateOf(false) }
     // Load user profile on startup and detect first run
     LaunchedEffect(Unit) {
         val profileRepo = DatabaseManager.getInstance().getUserProfileRepository()
@@ -1145,7 +1145,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                                         projectsViewModel = projectsViewModel,
                                                         sessionsViewModel = sessionsViewModel,
                                                         currentSessionId = activeSessionId,
-                                                        currentProjectId = selectedProjectId,
+                                                        currentProjectId = if (currentView == View.PROJECT_DETAIL) selectedProjectId else null,
                                                         userProfile = userProfile,
                                                         showPlansInSidebar = showPlansInSidebar,
                                                         showSkillsInSidebar = showSkillsInSidebar,
@@ -2134,6 +2134,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                             onNavigateToProject = { projectId ->
                                 showNewProjectDialog = false
                                 projectsViewModel.refresh()
+                                sessionManager.clearActiveSession()
                                 selectedProjectId = projectId
                                 currentView = View.PROJECT_DETAIL
                             },
@@ -2314,7 +2315,9 @@ fun mainContent(
                     onStarSession = { sessionId, isStarred ->
                         sessionsViewModel.updateSessionStarred(sessionId, isStarred)
                     },
-                    onNavigateToProject = onSelectProject,
+                    onNavigateToProject = { projectId ->
+                        onSelectProject(projectId)
+                    },
                     onNavigateToMcpSettings = onNavigateToMcpSettings,
                     onNavigateToResourceCollections = onNavigateToResourceCollections,
                     onMoveSessionToNewProject = { _ -> onNewProject() },
