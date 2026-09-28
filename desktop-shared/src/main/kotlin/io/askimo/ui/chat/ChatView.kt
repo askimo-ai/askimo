@@ -1157,7 +1157,10 @@ fun chatView(
                 ) {
                     if (isEmptyState) {
                         Box(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .focusRequester(messageListFocusRequester)
+                                .focusable(),
                             contentAlignment = Alignment.Center,
                         ) {
                             Column(
