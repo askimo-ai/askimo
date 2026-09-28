@@ -156,6 +156,19 @@ class ChatViewModel(
     var isContextSizeLearned by mutableStateOf(false)
         private set
 
+    // The user message currently being edited, or null. Session-scoped (one ChatViewModel per
+    // session, cached in SessionManager)
+    var editingMessage by mutableStateOf<ChatMessageDTO?>(null)
+        private set
+
+    override fun startEditingMessage(message: ChatMessageDTO) {
+        editingMessage = message
+    }
+
+    override fun cancelEditingMessage() {
+        editingMessage = null
+    }
+
     val state: ChatState
         get() = ChatState(
             messages = messages,
@@ -187,6 +200,7 @@ class ChatViewModel(
             memoryBudgetTokens = memoryBudgetTokens,
             isCompressing = isCompressing,
             isContextSizeLearned = isContextSizeLearned,
+            editingMessage = editingMessage,
         )
 
     /**
@@ -550,6 +564,7 @@ class ChatViewModel(
                 editMessage(originalMessageId, message, attachments)
                 sendMessage(projectId = project?.id, creationMode, message, attachments, enabledServerIds)
             }
+            this.editingMessage = null
         } else {
             sendMessage(projectId = project?.id, creationMode, message, attachments, enabledServerIds)
         }
@@ -911,6 +926,8 @@ class ChatViewModel(
      */
     fun resumeSession(sessionId: String): Boolean {
         currentSessionId.value = sessionId
+
+        editingMessage = null
 
         viewModelScope.launch {
             try {
@@ -1308,6 +1325,11 @@ class ChatViewModel(
 
         // Clear search state
         clearSearch()
+
+        // "New Chat" doesn't change activeSessionId until the first message creates a real
+        // session, so edit mode must be reset here directly rather than relying on sessionId
+        // change (see editingMessage doc comment above).
+        editingMessage = null
 
         // Reset directive to the global default (no project context here).
         selectedDirective = chatDirectiveService.resolveDefaultDirectiveId(projectId = null)

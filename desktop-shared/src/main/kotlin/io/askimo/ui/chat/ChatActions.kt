@@ -30,6 +30,20 @@ interface ChatActions {
     fun clearPendingScroll()
 
     /**
+     * Enter edit mode for [message] (must be a user message). Session-scoped: lives on the
+     * ChatViewModel — which is already cached per session in SessionManager — so it survives
+     * view navigation and is correctly reset by clearChat() / a genuine session switch without
+     * relying on Compose-local UI state or sessionId timing.
+     */
+    fun startEditingMessage(message: ChatMessageDTO)
+
+    /**
+     * Exit edit mode (e.g. user pressed cancel, or the edit was submitted). See
+     * [startEditingMessage].
+     */
+    fun cancelEditingMessage()
+
+    /**
      * Fork the current session from the given AI message, creating a new independent
      * session pre-populated with all active messages up to and including [messageId],
      * then navigate to the new session immediately.

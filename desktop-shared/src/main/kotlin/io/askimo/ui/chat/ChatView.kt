@@ -54,11 +54,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -200,9 +198,12 @@ fun chatView(
 
     // Internal state management for ChatView
     val scope = rememberCoroutineScope()
-    var inputText by remember(sessionId, initialInputText) { mutableStateOf(initialInputText) }
-    var attachments by remember(sessionId, initialAttachments) { mutableStateOf(initialAttachments) }
-    var editingMessage by remember(sessionId, initialEditingMessage) { mutableStateOf(initialEditingMessage) }
+    var inputText by remember(sessionId) { mutableStateOf(TextFieldValue("")) }
+    var attachments by remember(sessionId) { mutableStateOf(emptyList<FileAttachmentDTO>()) }
+    // Session-scoped on ChatViewModel (see ChatState.editingMessage) rather than local Compose
+    // state — survives view navigation and is reliably reset by clearChat()/session switches,
+    // instead of relying on sessionId change timing (which lags behind "New Chat").
+    val editingMessage = state.editingMessage
     var editingAIMessage by remember(sessionId) { mutableStateOf<ChatMessageDTO?>(null) }
     // Always-current disabled server IDs from ChatInputField
     var currentEnabledServerIds by remember(sessionId) { mutableStateOf(emptySet<String>()) }
@@ -1041,74 +1042,67 @@ fun chatView(
                     }
                 }
 
-                val latestIsLoading by rememberUpdatedState(isLoading)
-                val latestIsThinking by rememberUpdatedState(isThinking)
-                val latestErrorMessage by rememberUpdatedState(errorMessage)
-                val latestSessionId by rememberUpdatedState(sessionId)
-                val latestProject by rememberUpdatedState(project)
-                val latestSelectedDirective by rememberUpdatedState(selectedDirective)
-                val latestActiveResourceCollectionIds by rememberUpdatedState(activeResourceCollectionIds)
-                val latestMemoryPressureLevel by rememberUpdatedState(memoryPressureLevel)
-                val latestMemoryUtilization by rememberUpdatedState(memoryUtilization)
-                val latestMemoryUsedTokens by rememberUpdatedState(memoryUsedTokens)
-                val latestMemoryBudgetTokens by rememberUpdatedState(memoryBudgetTokens)
-                val latestIsCompressing by rememberUpdatedState(isCompressing)
-                val latestIsContextSizeLearned by rememberUpdatedState(isContextSizeLearned)
-                val latestActions by rememberUpdatedState(actions)
-
-                val inputField = remember {
-                    movableContentOf { fieldModifier: Modifier ->
-                        chatInputField(
-                            inputText = inputText,
-                            onInputTextChange = { inputText = it },
-                            attachments = attachments,
-                            onAttachmentsChange = { attachments = it },
-                            onSendMessage = { mode ->
-                                if (inputText.text.isNotBlank() && !latestIsLoading && !latestIsThinking) {
-                                    latestActions.sendOrEditMessage(
-                                        mode,
-                                        inputText.text,
-                                        attachments,
-                                        editingMessage,
-                                        currentEnabledServerIds,
-                                    )
-                                    inputText = TextFieldValue("")
-                                    attachments = emptyList()
-                                    editingMessage = null
-                                }
-                            },
-                            isLoading = latestIsLoading,
-                            isThinking = latestIsThinking,
-                            onStopResponse = { latestActions.cancelResponse() },
-                            errorMessage = latestErrorMessage,
-                            editingMessage = editingMessage,
-                            onCancelEdit = {
-                                editingMessage = null
+                // Plain composable lambda — NOT cached via remember/movableContentOf. That
+                // optimization (meant to preserve text-field focus/scroll when this call site
+                // moves between the centered "empty state" position and the bottom input bar)
+                // repeatedly caused correctness bugs: it freezes whatever inputText/attachments/
+                // editingMessage state objects existed when the closure was first built, so
+                // later session switches / new-chat transitions / the isEmptyState relocation
+                // itself could silently read or write stale state. Rendering directly from live
+                // state each recomposition trades a minor one-time focus flicker (only on the
+                // very first message of a brand-new empty chat) for eliminating that whole class
+                // of bugs.
+                val inputField: @Composable (Modifier) -> Unit = { fieldModifier ->
+                    chatInputField(
+                        inputText = inputText,
+                        onInputTextChange = { inputText = it },
+                        attachments = attachments,
+                        onAttachmentsChange = { attachments = it },
+                        onSendMessage = { mode ->
+                            if (inputText.text.isNotBlank() && !isLoading && !isThinking) {
+                                actions.sendOrEditMessage(
+                                    mode,
+                                    inputText.text,
+                                    attachments,
+                                    editingMessage,
+                                    currentEnabledServerIds,
+                                )
                                 inputText = TextFieldValue("")
                                 attachments = emptyList()
-                            },
-                            sessionId = latestSessionId,
-                            onEnabledServerIdsChange = { currentEnabledServerIds = it },
-                            onNavigateToMcpSettings = onNavigateToMcpSettings,
-                            // Directives chip — selection controlled here; CRUD managed inside chatInputField
-                            selectedDirective = latestSelectedDirective,
-                            onToggleDirective = { id -> latestActions.setDirective(id) },
-                            isProjectSession = latestProject != null,
-                            onWebSearchInRagChange = { enabled -> latestActions.setWebSearchInRag(enabled) },
-                            // Resource Collections chip — persistent chip selection (see ChatState.activeResourceCollectionIds)
-                            activeResourceCollectionIds = latestActiveResourceCollectionIds,
-                            onActiveResourceCollectionsChange = { ids -> latestActions.setActiveResourceCollections(ids) },
-                            onNavigateToResourceCollections = onNavigateToResourceCollections,
-                            memoryPressureLevel = latestMemoryPressureLevel,
-                            memoryUtilization = latestMemoryUtilization,
-                            memoryUsedTokens = latestMemoryUsedTokens,
-                            memoryBudgetTokens = latestMemoryBudgetTokens,
-                            isCompressing = latestIsCompressing,
-                            isContextSizeLearned = latestIsContextSizeLearned,
-                            onCompressMemory = { latestActions.compressMemory() },
-                            modifier = fieldModifier,
-                        )
-                    }
+                                actions.cancelEditingMessage()
+                            }
+                        },
+                        isLoading = isLoading,
+                        isThinking = isThinking,
+                        onStopResponse = { actions.cancelResponse() },
+                        errorMessage = errorMessage,
+                        editingMessage = editingMessage,
+                        onCancelEdit = {
+                            actions.cancelEditingMessage()
+                            inputText = TextFieldValue("")
+                            attachments = emptyList()
+                        },
+                        sessionId = sessionId,
+                        onEnabledServerIdsChange = { currentEnabledServerIds = it },
+                        onNavigateToMcpSettings = onNavigateToMcpSettings,
+                        // Directives chip — selection controlled here; CRUD managed inside chatInputField
+                        selectedDirective = selectedDirective,
+                        onToggleDirective = { id -> actions.setDirective(id) },
+                        isProjectSession = project != null,
+                        onWebSearchInRagChange = { enabled -> actions.setWebSearchInRag(enabled) },
+                        // Resource Collections chip — persistent chip selection (see ChatState.activeResourceCollectionIds)
+                        activeResourceCollectionIds = activeResourceCollectionIds,
+                        onActiveResourceCollectionsChange = { ids -> actions.setActiveResourceCollections(ids) },
+                        onNavigateToResourceCollections = onNavigateToResourceCollections,
+                        memoryPressureLevel = memoryPressureLevel,
+                        memoryUtilization = memoryUtilization,
+                        memoryUsedTokens = memoryUsedTokens,
+                        memoryBudgetTokens = memoryBudgetTokens,
+                        isCompressing = isCompressing,
+                        isContextSizeLearned = isContextSizeLearned,
+                        onCompressMemory = { actions.compressMemory() },
+                        modifier = fieldModifier,
+                    )
                 }
 
                 // ── Auto-scroll logic ────────────────────────────────────────────
@@ -1259,7 +1253,7 @@ fun chatView(
                                             onMessageClick = onJumpToMessage,
                                             onEditMessage = { message ->
                                                 if (message.isUser) {
-                                                    editingMessage = message
+                                                    actions.startEditingMessage(message)
                                                     inputText = TextFieldValue(text = message.content, selection = TextRange(0))
                                                     attachments = message.attachments
                                                 } else {
@@ -1285,7 +1279,7 @@ fun chatView(
                                             isLoadingPrevious = isLoadingPrevious,
                                             onEditMessage = { message ->
                                                 if (message.isUser) {
-                                                    editingMessage = message
+                                                    actions.startEditingMessage(message)
                                                     inputText = TextFieldValue(text = message.content, selection = TextRange(0))
                                                     attachments = message.attachments
                                                 } else {

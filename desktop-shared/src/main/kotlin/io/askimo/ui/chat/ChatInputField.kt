@@ -603,7 +603,7 @@ fun chatInputField(
                         Icon(
                             Icons.Default.Edit,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface,
+                            tint = AppColors.contentColorFor(AppColors.Elevation.ACCENT),
                         )
                         Text(
                             text = editingMessage.timestamp?.let { timestamp ->
@@ -611,7 +611,7 @@ fun chatInputField(
                                 stringResource("message.editing.banner.from", formattedTime)
                             } ?: stringResource("message.editing.banner"),
                             style = AppTextStyles.body,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            color = AppColors.contentColorFor(AppColors.Elevation.ACCENT),
                         )
                     }
                     IconButton(
@@ -2504,7 +2504,7 @@ private fun memoryUsageChip(
 ) {
     val fillColor = when (pressureLevel) {
         MemoryPressureLevel.NORMAL -> MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-        MemoryPressureLevel.WARNING -> androidx.compose.ui.graphics.Color(0xFFF59E0B)
+        MemoryPressureLevel.WARNING -> Color(0xFFF59E0B)
         MemoryPressureLevel.CRITICAL -> MaterialTheme.colorScheme.error
     }
     val trackColor = MaterialTheme.colorScheme.surfaceVariant
@@ -2587,11 +2587,11 @@ private fun memoryUsageChip(
                         style = stroke,
                     )
                 }
-                androidx.compose.material3.Text(
+                Text(
                     text = "?",
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontSize = 8.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppColors.contentColorFor(AppColors.Elevation.ACCENT),
                     ),
                 )
             } else {

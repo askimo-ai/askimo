@@ -89,4 +89,9 @@ data class ChatState(
     // cache or a context-reduction cycle). When false, the chip shows "?" instead of a
     // potentially misleading percentage.
     val isContextSizeLearned: Boolean = false,
+
+    // The user message currently being edited (banner + pre-filled input), or null. Owned by
+    // ChatViewModel (session-scoped). See startEditingMessage /
+    // cancelEditingMessage in ChatActions.
+    val editingMessage: ChatMessageDTO? = null,
 )
