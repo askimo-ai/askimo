@@ -1041,23 +1041,23 @@ fun chatView(
                     }
                 }
 
+                val latestIsLoading by rememberUpdatedState(isLoading)
+                val latestIsThinking by rememberUpdatedState(isThinking)
+                val latestErrorMessage by rememberUpdatedState(errorMessage)
+                val latestSessionId by rememberUpdatedState(sessionId)
+                val latestProject by rememberUpdatedState(project)
+                val latestSelectedDirective by rememberUpdatedState(selectedDirective)
+                val latestActiveResourceCollectionIds by rememberUpdatedState(activeResourceCollectionIds)
+                val latestMemoryPressureLevel by rememberUpdatedState(memoryPressureLevel)
+                val latestMemoryUtilization by rememberUpdatedState(memoryUtilization)
+                val latestMemoryUsedTokens by rememberUpdatedState(memoryUsedTokens)
+                val latestMemoryBudgetTokens by rememberUpdatedState(memoryBudgetTokens)
+                val latestIsCompressing by rememberUpdatedState(isCompressing)
+                val latestIsContextSizeLearned by rememberUpdatedState(isContextSizeLearned)
+                val latestActions by rememberUpdatedState(actions)
+
                 val inputField = remember {
                     movableContentOf { fieldModifier: Modifier ->
-                        val latestIsLoading by rememberUpdatedState(isLoading)
-                        val latestIsThinking by rememberUpdatedState(isThinking)
-                        val latestErrorMessage by rememberUpdatedState(errorMessage)
-                        val latestSessionId by rememberUpdatedState(sessionId)
-                        val latestProject by rememberUpdatedState(project)
-                        val latestSelectedDirective by rememberUpdatedState(selectedDirective)
-                        val latestActiveResourceCollectionIds by rememberUpdatedState(activeResourceCollectionIds)
-                        val latestMemoryPressureLevel by rememberUpdatedState(memoryPressureLevel)
-                        val latestMemoryUtilization by rememberUpdatedState(memoryUtilization)
-                        val latestMemoryUsedTokens by rememberUpdatedState(memoryUsedTokens)
-                        val latestMemoryBudgetTokens by rememberUpdatedState(memoryBudgetTokens)
-                        val latestIsCompressing by rememberUpdatedState(isCompressing)
-                        val latestIsContextSizeLearned by rememberUpdatedState(isContextSizeLearned)
-                        val latestActions by rememberUpdatedState(actions)
-
                         chatInputField(
                             inputText = inputText,
                             onInputTextChange = { inputText = it },
