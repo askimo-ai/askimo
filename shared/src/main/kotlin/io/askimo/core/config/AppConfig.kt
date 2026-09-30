@@ -8,15 +8,16 @@ import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.core.JsonToken
 import com.fasterxml.jackson.databind.DeserializationContext
 import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.PropertyNamingStrategies
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer
+import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import com.fasterxml.jackson.module.kotlin.KotlinFeature
 import com.fasterxml.jackson.module.kotlin.KotlinModule
-import com.fasterxml.jackson.module.kotlin.readValue
 import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.context.AppContextParams
 import io.askimo.core.event.EventBus
@@ -920,41 +921,21 @@ object AppConfig {
         val path = resolveOrCreateConfigPath()
         return if (path != null && path.isRegularFile()) {
             val raw = Files.readString(path)
-            // ── One-time migration for removed local provider enums ──────────────────────────
-            // 1) If a legacy provider instance still has template_name: null, set the matching
-            //    OpenAI-compatible template so the UI keeps the right preset.
-            // 2) Always migrate legacy provider_type values to OPENAI_COMPATIBLE.
-            val legacyWithNullTemplatePattern = Regex(
-                """(?ms)(-\s+id:.*?provider_type\s*:\s*"?)(DOCKER_AI|DOCKER|LMSTUDIO|OLLAMA|LOCALAI)("?.*?template_name\s*:\s*)(null|~|""|'')(\s*(?:\n|$))""",
-            )
-            val withTemplateNames = legacyWithNullTemplatePattern.replace(raw) { m ->
-                val legacyType = m.groupValues[2]
-                val templateName = when (legacyType) {
-                    "DOCKER", "DOCKER_AI" -> "DOCKER_AI"
-                    "LMSTUDIO" -> "LMSTUDIO"
-                    "OLLAMA" -> "OLLAMA"
-                    "LOCALAI" -> "LOCALAI"
-                    else -> ""
-                }
-                "${m.groupValues[1]}$legacyType${m.groupValues[3]}$templateName${m.groupValues[5]}"
-            }
-
-            val legacyTypePattern = Regex("""(provider_type\s*:\s*"?)(DOCKER_AI|DOCKER|LMSTUDIO|OLLAMA|LOCALAI)("?)""")
-            val migrated = legacyTypePattern.replace(withTemplateNames) { m ->
-                "${m.groupValues[1]}OPENAI_COMPATIBLE${m.groupValues[3]}"
-            }
-
-            if (migrated != raw) {
-                log.info("Migrated legacy provider instances (provider_type and template_name)")
-                try {
-                    Files.writeString(path, migrated)
-                } catch (e: Exception) {
-                    log.displayError("Failed to write migrated config", e)
-                }
-            }
             try {
-                val loaded = mapper.readValue<AppConfigData>(migrated)
-                loaded.copy(memory = normalizeMemoryConfig(loaded.memory))
+                val config = mapper.readTree(raw)
+                val migrated = migrateLegacyProviders(config)
+                val loaded = mapper.treeToValue(config, AppConfigData::class.java)
+                val normalized = loaded.copy(memory = normalizeMemoryConfig(loaded.memory))
+
+                if (migrated) {
+                    log.info("Migrated legacy provider instances (provider_type and template_name)")
+                    try {
+                        Files.writeString(path, mapper.writerWithDefaultPrettyPrinter().writeValueAsString(config))
+                    } catch (e: Exception) {
+                        log.displayError("Failed to write migrated config", e)
+                    }
+                }
+                normalized
             } catch (e: Exception) {
                 log.displayError("Config parse failed at $path ", e)
                 AppConfigData()
@@ -962,6 +943,30 @@ object AppConfig {
         } else {
             AppConfigData()
         }
+    }
+
+    private fun migrateLegacyProviders(config: JsonNode): Boolean {
+        val instances = config.path("context").path("provider_instances")
+        if (!instances.isArray) return false
+
+        var migrated = false
+        for (node in instances) {
+            val instance = node as? ObjectNode ?: continue
+            val templateName = when (instance.path("provider_type").asText()) {
+                "DOCKER", "DOCKER_AI" -> "DOCKER_AI"
+                "LMSTUDIO" -> "LMSTUDIO"
+                "OLLAMA" -> "OLLAMA"
+                "LOCALAI" -> "LOCALAI"
+                else -> continue
+            }
+            val settings = instance.get("settings") as? ObjectNode
+            if (settings != null && settings.path("template_name").asText("").isBlank()) {
+                settings.put("template_name", templateName)
+            }
+            instance.put("provider_type", ModelProvider.OPENAI_COMPATIBLE.name)
+            migrated = true
+        }
+        return migrated
     }
 
     /**
