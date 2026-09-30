@@ -19,6 +19,8 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import java.nio.file.Files
 
 /**
@@ -45,6 +47,65 @@ class AppConfigTest {
     fun `YAML round-trip preserves timeout values after updateField`() {
         AppConfig.updateField("models.timeouts.utilityModelTimeoutSeconds", "120")
         assertEquals(120L, AppConfig.models.timeouts.utilityModelTimeoutSeconds)
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "DOCKER, null, DOCKER_AI",
+        "DOCKER_AI, null, DOCKER_AI",
+        "DOCKER, LOCALAI, LOCALAI",
+        "DOCKER_AI, LOCALAI, LOCALAI",
+    )
+    fun `legacy Docker provider settings migrate without losing configuration`(
+        providerType: String,
+        templateName: String,
+        expectedTemplateName: String,
+    ) {
+        val configFile = AskimoHome.base().resolve("askimo.yml")
+        Files.writeString(
+            configFile,
+            """
+            models:
+              max_tool_calling_round_trips: 25
+            context:
+              current_instance_id: docker-local
+              provider_instances:
+                - id: docker-local
+                  display_name: Local Docker
+                  provider_type: "$providerType"
+                  settings:
+                    type: docker
+                    base_url: http://localhost:12434/v1
+                    default_model: ai/llama3.2:latest
+                    utility_model: ai/qwen3:latest
+                    embedding_model: ai/mxbai-embed-large:latest
+                    template_name: $templateName
+            """.trimIndent(),
+        )
+        AppConfig.reset()
+
+        val context = AppConfig.context
+        assertEquals("docker-local", context.currentInstanceId)
+        assertEquals(1, context.providerInstances.size)
+        val instance = context.providerInstances.single()
+        assertEquals("docker-local", instance.id)
+        assertEquals("Local Docker", instance.displayName)
+        assertEquals(ModelProvider.OPENAI_COMPATIBLE, instance.providerType)
+        val settings = instance.settings as OpenAiCompatibleSettings
+        assertEquals(expectedTemplateName, settings.templateName)
+        assertEquals("http://localhost:12434/v1", settings.baseUrl)
+        assertEquals("ai/llama3.2:latest", settings.defaultModel)
+        assertEquals("ai/qwen3:latest", settings.utilityModel)
+        assertEquals("ai/mxbai-embed-large:latest", settings.embeddingModel)
+        assertEquals(25, AppConfig.models.maxToolCallingRoundTrips)
+
+        val migratedYaml = Files.readString(configFile)
+        assertTrue(migratedYaml.contains("provider_type: \"OPENAI_COMPATIBLE\""))
+        assertTrue(migratedYaml.contains("template_name: $expectedTemplateName"))
+
+        AppConfig.reset()
+        assertEquals(context, AppConfig.context)
+        assertEquals(migratedYaml, Files.readString(configFile))
     }
 
     @Test

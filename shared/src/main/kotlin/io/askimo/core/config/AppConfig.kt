@@ -925,12 +925,12 @@ object AppConfig {
             //    OpenAI-compatible template so the UI keeps the right preset.
             // 2) Always migrate legacy provider_type values to OPENAI_COMPATIBLE.
             val legacyWithNullTemplatePattern = Regex(
-                """(?ms)(-\s+id:.*?provider_type\s*:\s*"?)(DOCKER|LMSTUDIO|OLLAMA|LOCALAI)("?.*?template_name\s*:\s*)(null|~|""|'')(\s*(?:\n|$))""",
+                """(?ms)(-\s+id:.*?provider_type\s*:\s*"?)(DOCKER_AI|DOCKER|LMSTUDIO|OLLAMA|LOCALAI)("?.*?template_name\s*:\s*)(null|~|""|'')(\s*(?:\n|$))""",
             )
             val withTemplateNames = legacyWithNullTemplatePattern.replace(raw) { m ->
                 val legacyType = m.groupValues[2]
                 val templateName = when (legacyType) {
-                    "DOCKER_AI" -> "DOCKER_AI"
+                    "DOCKER", "DOCKER_AI" -> "DOCKER_AI"
                     "LMSTUDIO" -> "LMSTUDIO"
                     "OLLAMA" -> "OLLAMA"
                     "LOCALAI" -> "LOCALAI"
@@ -939,7 +939,7 @@ object AppConfig {
                 "${m.groupValues[1]}$legacyType${m.groupValues[3]}$templateName${m.groupValues[5]}"
             }
 
-            val legacyTypePattern = Regex("""(provider_type\s*:\s*"?)(DOCKER_AI|LMSTUDIO|OLLAMA|LOCALAI)("?)""")
+            val legacyTypePattern = Regex("""(provider_type\s*:\s*"?)(DOCKER_AI|DOCKER|LMSTUDIO|OLLAMA|LOCALAI)("?)""")
             val migrated = legacyTypePattern.replace(withTemplateNames) { m ->
                 "${m.groupValues[1]}OPENAI_COMPATIBLE${m.groupValues[3]}"
             }
