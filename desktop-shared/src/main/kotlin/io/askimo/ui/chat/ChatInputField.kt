@@ -114,16 +114,16 @@ import io.askimo.core.context.AppContext
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.error.AppErrorEvent
 import io.askimo.core.event.internal.ImageCapabilityDetectedEvent
+import io.askimo.core.event.internal.McpInstancesChangedEvent
 import io.askimo.core.event.internal.ReIndexEvent
 import io.askimo.core.event.internal.ReasoningEffortChangedEvent
 import io.askimo.core.event.internal.ThinkingSupportDetectedEvent
 import io.askimo.core.event.internal.ToolSupportDetectedEvent
-import io.askimo.core.event.system.ShellErrorEvent
 import io.askimo.core.i18n.LocalizationManager
-import io.askimo.core.intent.ToolConfig
 import io.askimo.core.intent.ToolRegistry
 import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.mcp.McpInstanceService
+import io.askimo.core.mcp.McpServerInfo
 import io.askimo.core.memory.MemoryPressureLevel
 import io.askimo.core.providers.ModelCapabilitiesCache
 import io.askimo.core.providers.ModelProvider
@@ -1198,19 +1198,14 @@ private fun toolsIndicatorButton(
             null
         }
     }
-    // Load MCP servers eagerly once attached, and cache for this composable's lifetime —
-    // re-opening the popup is instant with no loading spinner shown again.
-    LaunchedEffect(Unit) {
-        // Skip if already loaded for this projectId
-        if (mcpServers.isNotEmpty()) return@LaunchedEffect
 
+    // Load MCP servers eagerly once attached. Backed by McpInstanceService.listActiveMcpServers,
+    // which caches the server/tool list across all chat sessions
+    suspend fun loadMcpServers() {
         isLoadingServers = true
-        val servers = mutableListOf<McpServerInfo>()
-
-        // Add built-in Askimo tools first
         val builtInTools = ToolRegistry.getIntentBased()
-        if (builtInTools.isNotEmpty()) {
-            servers.add(
+        val builtInServer = if (builtInTools.isNotEmpty()) {
+            listOf(
                 McpServerInfo(
                     name = "Askimo Built-in Tools",
                     id = ToolRegistry.BUILTIN_SERVER_ID,
@@ -1219,32 +1214,33 @@ private fun toolsIndicatorButton(
                     tools = builtInTools,
                 ),
             )
+        } else {
+            emptyList()
         }
 
-        mcpServers = withContext(Dispatchers.IO) {
-            // Load global MCP servers with their tools
-            globalMcpService?.getInstances()?.filter { it.enabled }?.forEach { instance ->
-                val tools = globalMcpService.listActiveTools(instance.id)
-                    .getOrElse { e ->
-                        log.error("Error loading tools for global server ${instance.name}", e)
-                        EventBus.emit(
-                            ShellErrorEvent(
-                                title = "MCP Tool Error",
-                                errorMessage = LocalizationManager.getString(
-                                    "error.app.message",
-                                    e.message ?: instance.name,
-                                ),
-                                cause = e,
-                            ),
-                        )
-                        emptyList()
-                    }
-                servers.add(McpServerInfo(instance.name, instance.id, isGlobal = true, tools = tools))
-            }
-
-            servers
+        val globalServers = withContext(Dispatchers.IO) {
+            globalMcpService?.listActiveMcpServers()?.getOrElse { e ->
+                log.error("Error loading active MCP servers", e)
+                emptyList()
+            } ?: emptyList()
         }
+
+        mcpServers = builtInServer + globalServers
         isLoadingServers = false
+    }
+
+    LaunchedEffect(Unit) {
+        loadMcpServers()
+    }
+
+    // Refresh when MCP instances or tool configs change elsewhere (e.g. the MCP settings
+    // screen, or a tool toggle in another session's tools popup).
+    LaunchedEffect(Unit) {
+        EventBus.internalEvents.collect { event ->
+            if (event is McpInstancesChangedEvent) {
+                loadMcpServers()
+            }
+        }
     }
 
     val totalServers = mcpServers.size
@@ -1451,19 +1447,6 @@ private fun toolsIndicatorButton(
         }
     }
 }
-
-/**
- * Data class representing MCP server or built-in tools information.
- */
-private data class McpServerInfo(
-    val name: String,
-    val id: String,
-    val isGlobal: Boolean,
-    val isBuiltIn: Boolean = false,
-    val tools: List<ToolConfig> = emptyList(),
-    val isLoadingTools: Boolean = false,
-    val toolsError: String? = null,
-)
 
 /**
  * Single MCP server row with a toggle checkbox and a submenu popup listing its tools.
