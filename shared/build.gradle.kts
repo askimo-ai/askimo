@@ -57,7 +57,7 @@ dependencies {
 
     api(libs.bundles.koin)
 
-    implementation(libs.caffeine)
+    implementation(libs.cache4k)
 
     api(libs.bundles.logging)
 

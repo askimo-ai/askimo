@@ -10,8 +10,6 @@ import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.KotlinModule
-import com.github.benmanes.caffeine.cache.Cache
-import com.github.benmanes.caffeine.cache.Caffeine
 import dev.langchain4j.agent.tool.ToolSpecification
 import dev.langchain4j.mcp.client.DefaultMcpClient
 import io.askimo.core.intent.ToolApprovalPolicy
@@ -24,13 +22,14 @@ import io.askimo.core.logging.logger
 import io.askimo.core.mcp.config.McpInstancesConfig
 import io.askimo.core.mcp.config.McpServersConfig
 import io.askimo.core.util.AskimoHome
+import io.github.reactivecircus.cache4k.Cache
+import io.github.reactivecircus.cache4k.CacheEvent
 import java.nio.file.Files
 import java.time.LocalDateTime
 import java.util.UUID
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.toJavaDuration
 
 private val log = logger<McpInstanceService>()
 
@@ -114,24 +113,30 @@ class McpInstanceService(
     @Volatile
     private var ephemeralInstances: List<McpInstance> = emptyList()
 
-    private val globalToolsCache: Cache<String, List<ToolConfig>> = Caffeine.newBuilder()
-        .maximumSize(200)
-        .expireAfterWrite(30.minutes.toJavaDuration())
-        .removalListener<String, List<ToolConfig>> { key, tools, cause ->
-            if (tools != null && key != null) {
-                log.debug("Evicting global tools cache (cause: {}, {} tools)", cause, tools.size)
+    private val globalToolsCache: Cache<String, List<ToolConfig>> = Cache.Builder<String, List<ToolConfig>>()
+        .maximumCacheSize(200)
+        .expireAfterWrite(30.minutes)
+        .eventListener { event ->
+            val tools = when (event) {
+                is CacheEvent.Removed -> event.value
+                is CacheEvent.Expired -> event.value
+                is CacheEvent.Evicted -> event.value
+                else -> null
+            }
+            if (tools != null) {
+                log.debug("Evicting global tools cache (event: {}, {} tools)", event::class.simpleName, tools.size)
             }
         }
         .build()
 
-    private val toolVectorIndexCache: Cache<String, ToolVectorIndex> = Caffeine.newBuilder()
-        .maximumSize(10)
-        .expireAfterWrite(30.minutes.toJavaDuration())
+    private val toolVectorIndexCache: Cache<String, ToolVectorIndex> = Cache.Builder<String, ToolVectorIndex>()
+        .maximumCacheSize(10)
+        .expireAfterWrite(30.minutes)
         .build()
 
-    private val mcpClientsByToolCache: Cache<String, DefaultMcpClient> = Caffeine.newBuilder()
-        .maximumSize(200)
-        .expireAfterWrite(30.minutes.toJavaDuration())
+    private val mcpClientsByToolCache: Cache<String, DefaultMcpClient> = Cache.Builder<String, DefaultMcpClient>()
+        .maximumCacheSize(200)
+        .expireAfterWrite(30.minutes)
         .build()
 
     // ── Instance management ──────────────────────────────────────────────────
@@ -327,7 +332,7 @@ class McpInstanceService(
     }
 
     suspend fun getGlobalTools(): Result<List<ToolConfig>> = runCatching {
-        val cached = globalToolsCache.getIfPresent(GLOBAL_MCP_SCOPE_ID)
+        val cached = globalToolsCache.get(GLOBAL_MCP_SCOPE_ID)
         if (cached != null) {
             log.debug("Returning cached global tools ({} tools)", cached.size)
             return@runCatching cached
@@ -463,7 +468,7 @@ class McpInstanceService(
         invalidateCache()
     }
 
-    fun getMcpClientForTool(toolName: String): DefaultMcpClient? = mcpClientsByToolCache.getIfPresent(toolName)
+    fun getMcpClientForTool(toolName: String): DefaultMcpClient? = mcpClientsByToolCache.get(toolName)
 
     fun invalidateCache() {
         globalToolsCache.invalidate(GLOBAL_MCP_SCOPE_ID)

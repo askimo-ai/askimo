@@ -1553,7 +1553,7 @@ class ChatViewModel(
         pressureSubscriptionJob?.cancel()
         pressureSubscriptionJob = viewModelScope.launch {
             // resumeSessionPaginated eagerly creates the memory synchronously, so this is
-            // always a Caffeine cache hit — no polling needed.
+            // always a cache hit — no polling needed.
             val memory = withContext(Dispatchers.IO) {
                 chatSessionService.getOrCreateMemoryForSession(sessionId)
             }

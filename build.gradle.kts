@@ -70,6 +70,8 @@ subprojects {
 
         configure<com.diffplug.gradle.spotless.SpotlessExtension> {
             kotlin {
+                target("src/**/*.kt")
+                targetExclude("**/build/**")
                 ktlint().editorConfigOverride(
                     mapOf(
                         "ktlint_standard_no-unused-imports" to "enabled",

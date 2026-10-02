@@ -14,7 +14,7 @@ testcontainers = "1.21.3"
 mockitoKotlin = "6.3.0"
 kotlin = "2.3.21"
 jackson = "2.19.2"
-spotless = "8.4.0"
+spotless = "8.10.3"
 detekt = "2.0.0-alpha.5"
 graalvmSvm = "25.0.3"
 sqlite = "3.53.2.0"
@@ -26,7 +26,7 @@ coil = "3.5.0"
 koin = "4.2.2"
 tika = "3.3.0"
 lucene = "10.5.0"
-caffeine = "3.2.3"
+cache4k = "0.14.0"
 jsoup = "1.22.2"
 konform = "0.11.1"
 pty4j = "0.13.12"
@@ -87,8 +87,8 @@ kotlinx-serialization-json-jvm = { module = "org.jetbrains.kotlinx:kotlinx-seria
 # Kotlinx Coroutines
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 
-# Caffeine Cache
-caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
+
+cache4k = { module = "io.github.reactivecircus.cache4k:cache4k", version.ref = "cache4k" }
 
 # HTML Parser
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
