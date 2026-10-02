@@ -17,6 +17,7 @@ import io.askimo.core.chat.repository.SessionMemoryRepository
 import io.askimo.core.context.AppContext
 import io.askimo.core.context.AppContextParams
 import io.askimo.core.db.DatabaseManager
+import io.askimo.core.memory.TokenAwareSummarizingMemory
 import io.askimo.core.providers.ChatClient
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.util.AskimoHome
@@ -61,6 +62,15 @@ class ChatSessionServiceTest {
     private lateinit var mockParams: AppContextParams
     private lateinit var service: ChatSessionService
 
+    /**
+     * Every [TokenAwareSummarizingMemory] obtained via [trackedMemory] in the current test —
+     * including evicted/filler ones. [tearDown] closes each one (draining pending
+     * summarization + its DB persistence, and shutting down its executor) before deleting
+     * fixture sessions, so a background write can't race `deleteAll()` or the class-level
+     * `databaseManager.close()`.
+     */
+    private val createdMemories = mutableListOf<TokenAwareSummarizingMemory>()
+
     @BeforeEach
     fun setUp() {
         mockAppContext = mock()
@@ -91,6 +101,8 @@ class ChatSessionServiceTest {
 
     @AfterEach
     fun tearDown() {
+        createdMemories.forEach { it.close() }
+        createdMemories.clear()
         sessionRepository.deleteAll()
     }
 
@@ -132,7 +144,7 @@ class ChatSessionServiceTest {
     @Test
     fun `deleteSession explicitly invalidates memory cache and triggers summarization when memory has new messages`() {
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Explicit removal - dirty"))
-        val memory = service.getOrCreateMemoryForSession(session.id)
+        val memory = trackedMemory(session.id)
         // More than AppConfig.memory.protectedRecentTurns (default 6) non-protected messages,
         // otherwise summarizeAndPruneWithParams() has nothing eligible to summarize and
         // returns early without ever calling the model.
@@ -147,7 +159,7 @@ class ChatSessionServiceTest {
     @Test
     fun `deleteSession explicitly invalidates memory cache but skips summarization when memory is unchanged`() {
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Explicit removal - clean"))
-        val memory = service.getOrCreateMemoryForSession(session.id)
+        val memory = trackedMemory(session.id)
         assertFalse(memory.hasNewMessagesSinceLastSummary())
 
         service.deleteSession(session.id)
@@ -160,14 +172,14 @@ class ChatSessionServiceTest {
     @Test
     fun `size-based memory cache eviction triggers summarization for the evicted session`() {
         val evictedSession = sessionRepository.createSession(ChatSession(id = "", title = "Evicted by LRU - dirty"))
-        val evictedMemory = service.getOrCreateMemoryForSession(evictedSession.id)
+        val evictedMemory = trackedMemory(evictedSession.id)
         addDirtyMessages(evictedMemory)
 
         // memoryCache.maximumCacheSize == 10 — creating 10 more distinct sessions' shared
         // memories pushes the least-recently-accessed entry (evictedSession's) out.
         repeat(10) { i ->
             val filler = sessionRepository.createSession(ChatSession(id = "", title = "Filler $i"))
-            service.getOrCreateMemoryForSession(filler.id)
+            trackedMemory(filler.id)
         }
 
         verify(mockSecondaryModel, timeout(5_000)).chat(any<ChatRequest>())
@@ -176,15 +188,21 @@ class ChatSessionServiceTest {
     @Test
     fun `size-based memory cache eviction skips summarization when evicted session is unchanged`() {
         val evictedSession = sessionRepository.createSession(ChatSession(id = "", title = "Evicted by LRU - clean"))
-        service.getOrCreateMemoryForSession(evictedSession.id)
+        trackedMemory(evictedSession.id)
 
         repeat(10) { i ->
             val filler = sessionRepository.createSession(ChatSession(id = "", title = "Filler clean $i"))
-            service.getOrCreateMemoryForSession(filler.id)
+            trackedMemory(filler.id)
         }
 
         verify(mockSecondaryModel, after(1_000).never()).chat(any<ChatRequest>())
     }
+
+    /**
+     * [ChatSessionService.getOrCreateMemoryForSession] that also tracks the returned memory
+     * in [createdMemories] so [tearDown] can close it before fixture cleanup.
+     */
+    private fun trackedMemory(sessionId: String): TokenAwareSummarizingMemory = service.getOrCreateMemoryForSession(sessionId).also { createdMemories.add(it) }
 
     /**
      * Adds enough non-protected messages so a triggered summarization cycle has candidates
@@ -192,7 +210,7 @@ class ChatSessionServiceTest {
      * at or below that is fully "protected" and `summarizeAndPruneWithParams()` returns early
      * without calling the model).
      */
-    private fun addDirtyMessages(memory: io.askimo.core.memory.TokenAwareSummarizingMemory) {
+    private fun addDirtyMessages(memory: TokenAwareSummarizingMemory) {
         repeat(8) { i -> memory.add(UserMessage.from("Message $i that should eventually be summarized")) }
     }
 }
