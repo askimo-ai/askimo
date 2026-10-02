@@ -17,7 +17,6 @@ jackson = "2.19.2"
 spotless = "8.10.3"
 detekt = "2.0.0-alpha.5"
 graalvmSvm = "25.0.3"
-sqlite = "3.53.2.0"
 sqldelight = "2.4.0"
 compose = "1.11.1"
 compose-material3 = "1.9.0"
@@ -87,7 +86,6 @@ kotlinx-serialization-json-jvm = { module = "org.jetbrains.kotlinx:kotlinx-seria
 # Kotlinx Coroutines
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 
-
 cache4k = { module = "io.github.reactivecircus.cache4k:cache4k", version.ref = "cache4k" }
 
 # HTML Parser
@@ -120,9 +118,6 @@ tika-parser-microsoft = { module = "org.apache.tika:tika-parser-microsoft-module
 lucene-core = { module = "org.apache.lucene:lucene-core", version.ref = "lucene" }
 lucene-queryparser = { module = "org.apache.lucene:lucene-queryparser", version.ref = "lucene" }
 lucene-backward-codecs = { module = "org.apache.lucene:lucene-backward-codecs", version.ref = "lucene" }
-
-# Database
-sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite" }
 
 # SQLDelight
 sqldelight-runtime = { module = "app.cash.sqldelight:runtime", version.ref = "sqldelight" }

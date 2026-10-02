@@ -7,6 +7,7 @@ package io.askimo.core.chat.service
 import dev.langchain4j.data.message.Content
 import dev.langchain4j.rag.content.retriever.ContentRetriever
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever
+import io.askimo.core.cache.SynchronizedCache
 import io.askimo.core.chat.domain.ChatMessage
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.domain.Project
@@ -133,40 +134,46 @@ class ChatSessionService(
     /**
      * Cache of session contexts (ChatClient + memory). Each session can have two
      * contexts (regular + vision), keyed as "sessionId" / "sessionId_vision".
+     * See [SynchronizedCache] for why this isn't a raw cache4k `Cache`.
      */
-    private val sessionContextCache: Cache<String, SessionChatContext> = Cache.Builder<String, SessionChatContext>()
-        .maximumCacheSize(20) // regular + vision clients
-        .expireAfterAccess(30.minutes)
-        .eventListener { event ->
-            val context = event.evictedValueOrNull()
-            if (context != null) {
-                log.debug("Evicting session context for session {} (event: {})", event.key, event::class.simpleName)
+    private val sessionContextCache = SynchronizedCache(
+        Cache.Builder<String, SessionChatContext>()
+            .maximumCacheSize(20) // regular + vision clients
+            .expireAfterAccess(30.minutes)
+            .eventListener { event ->
+                val context = event.evictedValueOrNull()
+                if (context != null) {
+                    log.debug("Evicting session context for session {} (event: {})", event.key, event::class.simpleName)
+                }
             }
-        }
-        .build()
+            .build(),
+    )
 
     /**
      * Shared memory instances — regular and vision clients use the same memory
-     * to keep conversation continuity.
+     * to keep conversation continuity. See [SynchronizedCache] for why this isn't
+     * a raw cache4k `Cache`.
      */
-    private val memoryCache: Cache<String, TokenAwareSummarizingMemory> = Cache.Builder<String, TokenAwareSummarizingMemory>()
-        .maximumCacheSize(10)
-        .expireAfterAccess(30.minutes)
-        .eventListener { event ->
-            val memory = event.evictedValueOrNull()
-            val sessionId = event.key
-            // Skip summarization if nothing changed since the last cycle (avoids a
-            // wasteful AI call, e.g. user opened a session and left without sending).
-            if (memory != null) {
-                if (memory.hasNewMessagesSinceLastSummary()) {
-                    log.debug("Memory evicted for session {}, triggering background summarization", sessionId)
-                    memory.triggerAsyncSummarization()
-                } else {
-                    log.debug("Memory evicted for session {}, no new messages since last summary — skipping", sessionId)
+    private val memoryCache = SynchronizedCache(
+        Cache.Builder<String, TokenAwareSummarizingMemory>()
+            .maximumCacheSize(10)
+            .expireAfterAccess(30.minutes)
+            .eventListener { event ->
+                val memory = event.evictedValueOrNull()
+                val sessionId = event.key
+                // Skip summarization if nothing changed since the last cycle (avoids a
+                // wasteful AI call, e.g. user opened a session and left without sending).
+                if (memory != null) {
+                    if (memory.hasNewMessagesSinceLastSummary()) {
+                        log.debug("Memory evicted for session {}, triggering background summarization", sessionId)
+                        memory.triggerAsyncSummarization()
+                    } else {
+                        log.debug("Memory evicted for session {}, no new messages since last summary — skipping", sessionId)
+                    }
                 }
             }
-        }
-        .build()
+            .build(),
+    )
 
     /**
      * Returns the value carried by this event if it represents an actual eviction
@@ -178,16 +185,6 @@ class ChatSessionService(
         is CacheEvent.Expired -> value
         is CacheEvent.Evicted -> value
         else -> null
-    }
-
-    /**
-     * Returns the cached value for [key] if present, otherwise synchronously creates it via
-     * [loader], caches it, and returns it. Equivalent to Caffeine's `Cache.get(key, loader)`
-     * but implemented on top of cache4k's suspend-only loader API — a coarse per-cache lock
-     * is acceptable here since session/memory creation is infrequent.
-     */
-    private fun <K : Any, V : Any> Cache<K, V>.getOrPut(key: K, loader: () -> V): V = get(key) ?: synchronized(this) {
-        get(key) ?: loader().also { put(key, it) }
     }
 
     /**

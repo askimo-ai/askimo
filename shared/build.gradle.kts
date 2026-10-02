@@ -50,8 +50,6 @@ dependencies {
 
     api(libs.bundles.jackson)
 
-    api(libs.sqlite.jdbc)
-
     api(libs.sqldelight.runtime)
     api(libs.sqldelight.sqlite.driver)
 
