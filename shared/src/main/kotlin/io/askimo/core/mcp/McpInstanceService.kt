@@ -25,13 +25,12 @@ import io.askimo.core.logging.logger
 import io.askimo.core.mcp.config.McpInstancesConfig
 import io.askimo.core.mcp.config.McpServersConfig
 import io.askimo.core.util.AskimoHome
-import io.github.reactivecircus.cache4k.Cache
 import java.nio.file.Files
 import java.time.LocalDateTime
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
-import kotlin.time.Duration.Companion.minutes
 
 private val log = logger<McpInstanceService>()
 
@@ -127,10 +126,13 @@ class McpInstanceService(
     @Volatile
     private var activeServersCache: List<McpServerInfo>? = null
 
-    private val mcpClientsByToolCache: Cache<String, DefaultMcpClient> = Cache.Builder<String, DefaultMcpClient>()
-        .maximumCacheSize(200)
-        .expireAfterWrite(30.minutes)
-        .build()
+    /**
+     * Maps tool name → the MCP client that serves it. A plain map suffices since the total
+     * number of MCP tools is always small. Its lifetime must stay aligned with
+     * [globalToolsCache] / [activeServersCache]: all three are only ever cleared together via
+     * [invalidateCache], so a tool's client never disappears while it's still advertised.
+     */
+    private val mcpClientsByToolCache: MutableMap<String, DefaultMcpClient> = ConcurrentHashMap()
 
     // ── Instance management ──────────────────────────────────────────────────
 
@@ -268,7 +270,7 @@ class McpInstanceService(
         val toolSpecs = mcpClient.listTools()
 
         toolSpecs.forEach { toolSpec ->
-            mcpClientsByToolCache.put(toolSpec.name(), mcpClient)
+            mcpClientsByToolCache[toolSpec.name()] = mcpClient
         }
 
         log.debug("Fetched ${toolSpecs.size} tools from global instance '${instance.name}'")
@@ -500,12 +502,12 @@ class McpInstanceService(
         invalidateCache()
     }
 
-    fun getMcpClientForTool(toolName: String): DefaultMcpClient? = mcpClientsByToolCache.get(toolName)
+    fun getMcpClientForTool(toolName: String): DefaultMcpClient? = mcpClientsByToolCache[toolName]
 
     fun invalidateCache() {
         globalToolsCache = null
         activeServersCache = null
-        mcpClientsByToolCache.invalidateAll()
+        mcpClientsByToolCache.clear()
         log.debug("Invalidated global MCP tools, vector index, active servers, and client caches")
         EventBus.post(McpInstancesChangedEvent())
     }
