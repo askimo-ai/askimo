@@ -207,7 +207,7 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
             .httpClientBuilder(createJdkHttpClientBuilder())
             .apiKey(safeApiKey(settings.apiKey))
             .modelName(settings.defaultModel)
-            .timeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
+            .timeout(Duration.ofSeconds(AppConfig.models.requestTimeoutInSeconds))
             .listeners(listOf(TelemetryChatModelListener(telemetry, GEMINI.name.lowercase())))
             .apply {
                 if (supportsThinking && reasoningLevel.isEnabled) {
@@ -237,14 +237,14 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
             settings.utilityModel
                 .ifBlank { settings.defaultModel },
         )
-        .timeout(Duration.ofSeconds(AppConfig.models.timeouts.utilityModelTimeoutSeconds))
+        .timeout(Duration.ofSeconds(AppConfig.models.requestTimeoutInSeconds))
         .build()
 
     override fun createModel(settings: GeminiSettings): ChatModel = GoogleAiGeminiChatModel.builder()
         .httpClientBuilder(createJdkHttpClientBuilder())
         .apiKey(safeApiKey(settings.apiKey))
         .modelName(settings.defaultModel)
-        .timeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
+        .timeout(Duration.ofSeconds(AppConfig.models.requestTimeoutInSeconds))
         .build()
 
     override fun createUtilityClient(

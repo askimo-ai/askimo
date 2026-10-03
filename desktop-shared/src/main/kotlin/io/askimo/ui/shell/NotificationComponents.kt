@@ -677,7 +677,7 @@ fun notificationEventCard(
                 SelectionContainer {
                     Text(
                         text = if (isIndexingCompleted) {
-                            stringResource("event.indexing.files_indexed", (event as IndexingCompletedEvent).filesIndexed)
+                            stringResource("event.indexing.files_indexed", event.filesIndexed)
                         } else {
                             event.getDetails()
                         },

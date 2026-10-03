@@ -51,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.analytics.Analytics
 import io.askimo.core.config.AppConfig
+import io.askimo.core.config.MIN_MODEL_TIMEOUT_SECONDS
 import io.askimo.core.config.MemoryMode
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.LogLevel
@@ -463,7 +464,7 @@ private fun ragConfigurationSection() {
             )
 
             // Vector Search Max Results
-            ragIntField(
+            settingsIntField(
                 label = stringResource("settings.rag.vector.max.results"),
                 hint = stringResource("settings.rag.vector.max.results.hint"),
                 value = AppConfig.rag.vectorSearchMaxResults,
@@ -473,7 +474,7 @@ private fun ragConfigurationSection() {
             )
 
             // Vector Search Min Score
-            ragDoubleField(
+            settingsDoubleField(
                 label = stringResource("settings.rag.vector.min.score"),
                 hint = stringResource("settings.rag.vector.min.score.hint"),
                 value = AppConfig.rag.vectorSearchMinScore,
@@ -483,7 +484,7 @@ private fun ragConfigurationSection() {
             )
 
             // Hybrid Max Results
-            ragIntField(
+            settingsIntField(
                 label = stringResource("settings.rag.hybrid.max.results"),
                 hint = stringResource("settings.rag.hybrid.max.results.hint"),
                 value = AppConfig.rag.hybridMaxResults,
@@ -493,7 +494,7 @@ private fun ragConfigurationSection() {
             )
 
             // Rank Fusion Constant
-            ragIntField(
+            settingsIntField(
                 label = stringResource("settings.rag.rank.fusion.constant"),
                 hint = stringResource("settings.rag.rank.fusion.constant.hint"),
                 value = AppConfig.rag.rankFusionConstant,
@@ -503,7 +504,7 @@ private fun ragConfigurationSection() {
             )
 
             // Use Absolute Paths in Citations
-            ragBooleanField(
+            settingsBooleanField(
                 label = stringResource("settings.rag.use.absolute.paths"),
                 hint = stringResource("settings.rag.use.absolute.paths.hint"),
                 value = AppConfig.rag.useAbsolutePathInCitations,
@@ -529,7 +530,7 @@ private fun ragConfigurationSection() {
             )
 
             // Max Characters Per Chunk
-            ragIntField(
+            settingsIntField(
                 label = stringResource("settings.rag.embedding.max.chars.per.chunk"),
                 hint = stringResource("settings.rag.embedding.max.chars.per.chunk.hint"),
                 value = AppConfig.embedding.maxCharsPerChunk,
@@ -539,7 +540,7 @@ private fun ragConfigurationSection() {
             )
 
             // Chunk Overlap
-            ragIntField(
+            settingsIntField(
                 label = stringResource("settings.rag.embedding.chunk.overlap"),
                 hint = stringResource("settings.rag.embedding.chunk.overlap.hint"),
                 value = AppConfig.embedding.chunkOverlap,
@@ -565,7 +566,7 @@ private fun ragConfigurationSection() {
             )
 
             // Max File Bytes
-            ragLongField(
+            settingsLongField(
                 label = stringResource("settings.rag.indexing.max.file.bytes"),
                 hint = stringResource("settings.rag.indexing.max.file.bytes.hint"),
                 value = AppConfig.indexing.maxFileBytes,
@@ -575,7 +576,7 @@ private fun ragConfigurationSection() {
             )
 
             // Supported Extensions
-            ragStringSetField(
+            settingsStringSetField(
                 label = stringResource("settings.rag.indexing.supported.extensions"),
                 hint = stringResource("settings.rag.indexing.supported.extensions.hint"),
                 value = AppConfig.indexing.supportedExtensions,
@@ -585,7 +586,7 @@ private fun ragConfigurationSection() {
             )
 
             // Excluded File Names
-            ragStringSetField(
+            settingsStringSetField(
                 label = stringResource("settings.rag.indexing.exclude.file.names"),
                 hint = stringResource("settings.rag.indexing.exclude.file.names.hint"),
                 value = AppConfig.indexing.excludeFileNames,
@@ -595,7 +596,7 @@ private fun ragConfigurationSection() {
             )
 
             // Binary Extensions
-            ragStringSetField(
+            settingsStringSetField(
                 label = stringResource("settings.rag.indexing.binary.extensions"),
                 hint = stringResource("settings.rag.indexing.binary.extensions.hint"),
                 value = AppConfig.indexing.binaryExtensions,
@@ -605,7 +606,7 @@ private fun ragConfigurationSection() {
             )
 
             // Embedding Batch Size
-            ragLongField(
+            settingsLongField(
                 label = stringResource("settings.rag.indexing.embedding.batch.size"),
                 hint = stringResource("settings.rag.indexing.embedding.batch.size.hint"),
                 value = AppConfig.indexing.embeddingBatchSize.toLong(),
@@ -639,12 +640,25 @@ private fun modelsConfigurationSection() {
                 style = AppTextStyles.caption,
             )
 
-            ragIntField(
+            settingsIntField(
                 label = stringResource("settings.models.max.tool.calling.round.trips"),
                 hint = stringResource("settings.models.max.tool.calling.round.trips.hint"),
                 value = AppConfig.models.maxToolCallingRoundTrips,
                 onValueChange = { newValue ->
                     AppConfig.updateField("models.maxToolCallingRoundTrips", newValue)
+                },
+            )
+
+            // Unified request timeout — applied to both the utility and default/primary
+            // models so slower local models (e.g. Ollama on modest hardware) don't hit
+            // HttpTimeoutException before they finish responding.
+            settingsLongField(
+                label = stringResource("settings.models.timeout.seconds"),
+                hint = stringResource("settings.models.timeout.seconds.hint"),
+                value = AppConfig.models.requestTimeoutInSeconds,
+                minValue = MIN_MODEL_TIMEOUT_SECONDS,
+                onValueChange = { newValue ->
+                    AppConfig.setGlobalModelTimeoutSeconds(newValue)
                 },
             )
         }
@@ -754,7 +768,7 @@ private fun memoryConfigurationSection() {
 }
 
 @Composable
-private fun ragBooleanField(
+private fun settingsBooleanField(
     label: String,
     hint: String,
     value: Boolean,
@@ -790,7 +804,7 @@ private fun ragBooleanField(
 }
 
 @Composable
-private fun ragIntField(
+private fun settingsIntField(
     label: String,
     hint: String,
     value: Int,
@@ -863,7 +877,7 @@ private fun ragIntField(
 }
 
 @Composable
-private fun ragDoubleField(
+private fun settingsDoubleField(
     label: String,
     hint: String,
     value: Double,
@@ -926,7 +940,7 @@ private fun ragDoubleField(
 }
 
 @Composable
-private fun ragOptionalIntField(
+private fun settingsOptionalIntField(
     label: String,
     hint: String,
     value: Int?,
@@ -1006,11 +1020,12 @@ private fun ragOptionalIntField(
 }
 
 @Composable
-private fun ragLongField(
+private fun settingsLongField(
     label: String,
     hint: String,
     value: Long,
     onValueChange: (Long) -> Unit,
+    minValue: Long? = null,
 ) {
     var lastValidValue by remember { mutableStateOf(value) }
     var textValue by remember { mutableStateOf(LocalizationManager.formatNumber(value)) }
@@ -1044,7 +1059,8 @@ private fun ragLongField(
                         textValue = lastValidValue.toString()
                     } else {
                         isEditing = false
-                        textValue.toLongOrNull()?.let { validLong ->
+                        textValue.toLongOrNull()?.let { parsedLong ->
+                            val validLong = if (minValue != null) parsedLong.coerceAtLeast(minValue) else parsedLong
                             if (validLong != lastValidValue) {
                                 lastValidValue = validLong
                                 onValueChange(validLong)
@@ -1056,7 +1072,7 @@ private fun ragLongField(
                 },
             textStyle = AppTextStyles.body,
             singleLine = true,
-            isError = isEditing && textValue.toLongOrNull() == null,
+            isError = isEditing && (textValue.toLongOrNull() == null || (minValue != null && (textValue.toLongOrNull() ?: minValue) < minValue)),
             trailingIcon = {
                 AnimatedVisibility(visible = showSavedIndicator, enter = fadeIn(), exit = fadeOut()) {
                     Icon(Icons.Default.Check, contentDescription = "Saved", tint = AppTextStyles.primaryContent, modifier = Modifier.size(20.dp))
@@ -1073,7 +1089,7 @@ private fun ragLongField(
  * Displays items joined by ", " and parses on focus-lost by splitting on commas.
  */
 @Composable
-private fun ragStringSetField(
+private fun settingsStringSetField(
     label: String,
     hint: String,
     value: Set<String>,

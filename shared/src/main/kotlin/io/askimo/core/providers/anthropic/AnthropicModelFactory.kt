@@ -182,8 +182,7 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
             .supportedCapabilities(Capability.RESPONSE_FORMAT_JSON_SCHEMA)
             .modelName(settings.defaultModel)
             .baseUrl(settings.baseUrl)
-            .timeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
-            .cacheSystemMessages(true)
+            .timeout(Duration.ofSeconds(AppConfig.models.requestTimeoutInSeconds))
             .cacheTools(true)
             .logger(log)
             .logRequests(log.isDebugEnabled)
@@ -223,7 +222,7 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
                 .ifBlank { settings.defaultModel },
         )
         .baseUrl(settings.baseUrl)
-        .timeout(Duration.ofSeconds(AppConfig.models.timeouts.utilityModelTimeoutSeconds))
+        .timeout(Duration.ofSeconds(AppConfig.models.requestTimeoutInSeconds))
         .build()
 
     override fun createModel(settings: AnthropicSettings): ChatModel = AnthropicChatModel.builder()
@@ -231,7 +230,7 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
         .apiKey(safeApiKey(settings.apiKey))
         .modelName(settings.defaultModel)
         .baseUrl(settings.baseUrl)
-        .timeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
+        .timeout(Duration.ofSeconds(AppConfig.models.requestTimeoutInSeconds))
         .build()
 
     override fun createUtilityClient(

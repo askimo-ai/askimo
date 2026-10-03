@@ -36,15 +36,28 @@ class AppConfigTest {
 
         assertEquals(10, models.maxToolCallingRoundTrips)
 
-        // Global timeouts
-        assertEquals(45L, models.timeouts.utilityModelTimeoutSeconds)
-        assertEquals(300L, models.timeouts.defaultModelTimeoutSeconds)
+
+        assertEquals(600L, models.requestTimeoutInSeconds)
     }
 
     @Test
     fun `YAML round-trip preserves timeout values after updateField`() {
-        AppConfig.updateField("models.timeouts.utilityModelTimeoutSeconds", "120")
-        assertEquals(120L, AppConfig.models.timeouts.utilityModelTimeoutSeconds)
+        AppConfig.updateField("models.requestTimeoutInSeconds", "120")
+        assertEquals(120L, AppConfig.models.requestTimeoutInSeconds)
+    }
+
+    @Test
+    fun `setGlobalModelTimeoutSeconds updates the request timeout`() {
+        AppConfig.setGlobalModelTimeoutSeconds(90L)
+
+        assertEquals(90L, AppConfig.models.requestTimeoutInSeconds)
+    }
+
+    @Test
+    fun `setGlobalModelTimeoutSeconds clamps values below the minimum`() {
+        AppConfig.setGlobalModelTimeoutSeconds(1L)
+
+        assertEquals(MIN_MODEL_TIMEOUT_SECONDS, AppConfig.models.requestTimeoutInSeconds)
     }
 
     @Test

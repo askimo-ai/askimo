@@ -6,6 +6,7 @@ package io.askimo.core.exception
 
 import dev.langchain4j.exception.InternalServerException
 import dev.langchain4j.exception.ModelNotFoundException
+import io.askimo.core.config.AppConfig
 import io.askimo.core.logging.logger
 import io.askimo.core.providers.isContextLengthMessage
 import java.net.ConnectException
@@ -107,7 +108,7 @@ object ExceptionMapper {
         // Timeout exceptions
         is SocketTimeoutException,
         is java.util.concurrent.TimeoutException,
-        -> TimeoutException(timeoutSeconds = 30, cause = exception)
+        -> TimeoutException(timeoutSeconds = AppConfig.models.requestTimeoutInSeconds.toInt(), cause = exception)
 
         is ModelNotFoundException -> ModelNotFoundChatException(
             model = exception.message?.substringAfterLast(" ") ?: "unknown",
@@ -208,7 +209,7 @@ object ExceptionMapper {
             // Timeout
             combinedMessage.contains("timeout", ignoreCase = true) ||
                 combinedMessage.contains("timed out", ignoreCase = true) ->
-                TimeoutException(timeoutSeconds = 30, cause = rootCause)
+                TimeoutException(timeoutSeconds = AppConfig.models.requestTimeoutInSeconds.toInt(), cause = rootCause)
 
             // Insufficient credits
             combinedMessage.contains("credit balance is too low", ignoreCase = true) ||

@@ -3992,9 +3992,6 @@
     }, {
       "name": "getSummarizationThreshold",
       "parameterTypes": [ ]
-    }, {
-      "name": "getSummarizationTimeoutSeconds",
-      "parameterTypes": [ ]
     } ]
   }, {
     "type": "io.askimo.core.config.CommaSeparatedSetDeserializer",
@@ -4136,22 +4133,6 @@
     "type": "io.askimo.core.config.MemoryConfig$Companion"
   }, {
     "type": "io.askimo.core.config.MemoryMode"
-  }, {
-    "type": "io.askimo.core.config.ModelTimeoutsConfig",
-    "allDeclaredFields": true,
-    "methods": [ {
-      "name": "<init>",
-      "parameterTypes": [ "long", "long" ]
-    }, {
-      "name": "<init>",
-      "parameterTypes": [ "long", "long", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
-    }, {
-      "name": "getDefaultModelTimeoutSeconds",
-      "parameterTypes": [ ]
-    }, {
-      "name": "getUtilityModelTimeoutSeconds",
-      "parameterTypes": [ ]
-    } ]
   }, {
     "type": "io.askimo.core.config.ModelsConfig",
     "allDeclaredFields": true,

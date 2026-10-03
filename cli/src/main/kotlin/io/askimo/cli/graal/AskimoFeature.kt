@@ -18,7 +18,6 @@ import io.askimo.core.config.FilterConfig
 import io.askimo.core.config.IndexingConfig
 import io.askimo.core.config.MemoryConfig
 import io.askimo.core.config.MemoryMode
-import io.askimo.core.config.ModelTimeoutsConfig
 import io.askimo.core.config.ModelsConfig
 import io.askimo.core.config.NotificationsConfig
 import io.askimo.core.config.ProjectType
@@ -80,7 +79,6 @@ class AskimoFeature : Feature {
             ChatConfig::class.java,
             MemoryConfig::class.java,
             RagConfig::class.java,
-            ModelTimeoutsConfig::class.java,
             ModelsConfig::class.java,
             AnalyticsConfig::class.java,
             WebSearchConfig::class.java,

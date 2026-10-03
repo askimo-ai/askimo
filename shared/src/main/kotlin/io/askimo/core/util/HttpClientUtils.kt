@@ -38,8 +38,8 @@ fun createJdkHttpClientBuilder(
     val finalBuilder = builderTransform?.invoke(httpClientBuilder) ?: httpClientBuilder
     return JdkHttpClient.builder()
         .httpClientBuilder(finalBuilder)
-        .readTimeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
-        .connectTimeout(Duration.ofSeconds(AppConfig.models.timeouts.defaultModelTimeoutSeconds))
+        .readTimeout(Duration.ofSeconds(AppConfig.models.requestTimeoutInSeconds))
+        .connectTimeout(Duration.ofSeconds(AppConfig.models.requestTimeoutInSeconds))
 }
 
 /**
