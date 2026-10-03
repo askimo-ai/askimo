@@ -4,6 +4,7 @@
  */
 package io.askimo.core.vision
 
+import io.askimo.core.config.AppConfig
 import io.askimo.core.logging.logger
 import java.awt.Color
 import java.awt.RenderingHints
@@ -110,7 +111,7 @@ object ImageProcessor {
             )
 
             // Save to temp file for debugging if debug logging is enabled
-            if (log.isDebugEnabled) {
+            if (AppConfig.developer.active) {
                 try {
                     val tempDir = File(System.getProperty("java.io.tmpdir"), "askimo-images")
                     tempDir.mkdirs()

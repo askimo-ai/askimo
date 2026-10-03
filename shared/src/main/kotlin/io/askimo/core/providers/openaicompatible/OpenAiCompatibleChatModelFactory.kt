@@ -17,6 +17,7 @@ import dev.langchain4j.service.tool.ToolProvider
 import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
 import io.askimo.core.context.ExecutionMode
+import io.askimo.core.logging.logger
 import io.askimo.core.providers.AiServiceBuilder
 import io.askimo.core.providers.ChatClient
 import io.askimo.core.providers.ChatModelFactory
@@ -32,8 +33,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 
 /**
  * Abstract base factory for all OpenAI-compatible API providers.
@@ -58,7 +57,7 @@ abstract class OpenAiCompatibleChatModelFactory<T>(
      * Logger named after the concrete subclass so log output identifies the right factory.
      * Resolved at construction time using the runtime class.
      */
-    protected val log: Logger = LoggerFactory.getLogger(this::class.java)
+    protected val log = logger<OpenAiCompatibleChatModelFactory<*>>()
 
     // ── Template-method hooks ──────────────────────────────────────────────────
 

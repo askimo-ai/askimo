@@ -9,9 +9,9 @@ import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.StreamingChatModel
 import dev.langchain4j.model.openai.OpenAiChatModel
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel
+import io.askimo.core.logging.Logger
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.telemetry.TelemetryChatModelListener
-import org.slf4j.Logger
 
 /**
  * Builds models using the standard `/v1/chat/completions` endpoint.

@@ -7,9 +7,9 @@ package io.askimo.core.providers.openaicompatible
 import dev.langchain4j.http.client.jdk.JdkHttpClientBuilder
 import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.StreamingChatModel
+import io.askimo.core.logging.Logger
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.telemetry.TelemetryChatModelListener
-import org.slf4j.Logger
 
 /**
  * Strategy interface that encapsulates which OpenAI API surface a provider targets

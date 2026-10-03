@@ -460,9 +460,7 @@ object ModelCapabilitiesCache {
             val data = CacheData(capabilities = cache.toMap())
             val json = prettyJson.encodeToString(data)
             Files.writeString(cacheFile, json)
-            if (log.isDebugEnabled) {
-                log.debug("Saved ${cache.size} model capabilities to $cacheFile")
-            }
+            log.debug("Saved ${cache.size} model capabilities to $cacheFile")
         } catch (e: Exception) {
             log.warn("Failed to save model capabilities cache to $cacheFile", e)
         }

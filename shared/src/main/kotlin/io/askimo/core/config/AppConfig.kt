@@ -22,7 +22,6 @@ import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.context.AppContextParams
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.LanguageDirectiveChangedEvent
-import io.askimo.core.logging.displayError
 import io.askimo.core.logging.logger
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.security.SecureKeyManager
@@ -927,12 +926,12 @@ object AppConfig {
                     try {
                         Files.writeString(path, mapper.writerWithDefaultPrettyPrinter().writeValueAsString(config))
                     } catch (e: Exception) {
-                        log.displayError("Failed to write migrated config", e)
+                        log.error("Failed to write migrated config", e)
                     }
                 }
                 normalized
             } catch (e: Exception) {
-                log.displayError("Config parse failed at $path ", e)
+                log.error("Config parse failed at $path ", e)
                 AppConfigData()
             }
         } else {
@@ -1006,7 +1005,7 @@ object AppConfig {
             Files.writeString(target, DEFAULT_YAML)
             log.info("📝 Created default config at $target")
         } catch (e: Exception) {
-            log.displayError("Failed to create default config at $target ", e)
+            log.error("Failed to create default config at $target ", e)
         }
     }
 
@@ -1040,7 +1039,7 @@ object AppConfig {
                     Files.writeString(configPath, updatedYaml)
                     log.info("Saved context to $configPath")
                 } catch (e: Exception) {
-                    log.displayError("Failed to persist context to config file", e)
+                    log.error("Failed to persist context to config file", e)
                 }
             }
         }
@@ -1068,7 +1067,7 @@ object AppConfig {
                         Files.writeString(configPath, updatedYaml)
                         log.debug("Updated currentLocale=$tag in $configPath")
                     } catch (e: Exception) {
-                        log.displayError("Failed to persist currentLocale to config file", e)
+                        log.error("Failed to persist currentLocale to config file", e)
                     }
                 }
                 return
@@ -1077,7 +1076,7 @@ object AppConfig {
             val parts = path.split(".")
 
             if (parts.size !in 2..3) {
-                log.displayError("Invalid config path: $path. Must be in format 'section.field' or 'models.provider.field'", null)
+                log.error("Invalid config path: $path. Must be in format 'section.field' or 'models.provider.field'", null)
                 return
             }
 
@@ -1116,7 +1115,7 @@ object AppConfig {
                 "notifications" -> current.copy(notifications = updateNotificationsField(current.notifications, field, value))
 
                 else -> {
-                    log.displayError("Unknown config section: $section", null)
+                    log.error("Unknown config section: $section", null)
                     return
                 }
             }
@@ -1129,7 +1128,7 @@ object AppConfig {
 
                     log.debug("Updated {}={} in {}", path, value, configPath)
                 } catch (e: Exception) {
-                    log.displayError("Failed to persist $path to config file", e)
+                    log.error("Failed to persist $path to config file", e)
                 }
             }
         }
@@ -1261,6 +1260,7 @@ object AppConfig {
             )
         }
 
+
         if (field == "requestTimeoutInSeconds") {
             val stringValue = value as? String ?: value.toString()
             return config.copy(
@@ -1268,9 +1268,34 @@ object AppConfig {
                     ?.coerceAtLeast(MIN_MODEL_TIMEOUT_SECONDS)
                     ?: config.requestTimeoutInSeconds,
             )
+
+        val parts = field.split(".")
+        if (parts.size != 2) {
+            log.error("Models config requires nested path format: provider.field or timeouts.field", null)
+            return config
         }
 
-        log.displayError("Unknown models config path '$field'. Per-provider model fields are now configured per-instance in Settings > AI Provider.", null)
+        val providerKey = parts[0]
+        val modelField = parts[1]
+        val stringValue = value as? String ?: value.toString()
+
+        // Handle global timeouts: models.timeouts.utilityModelTimeoutSeconds / defaultModelTimeoutSeconds
+        if (providerKey == "timeouts") {
+            val current = config.timeouts
+            val updated = when (modelField) {
+                "utilityModelTimeoutSeconds" -> current.copy(utilityModelTimeoutSeconds = stringValue.toLongOrNull() ?: current.utilityModelTimeoutSeconds)
+
+                "defaultModelTimeoutSeconds" -> current.copy(defaultModelTimeoutSeconds = stringValue.toLongOrNull() ?: current.defaultModelTimeoutSeconds)
+
+                else -> {
+                    log.error("Unknown timeouts field '$modelField'", null)
+                    return config
+                }
+            }
+            return config.copy(timeouts = updated)
+        }
+
+        log.error("Unknown models config path '$field'. Per-provider model fields are now configured per-instance in Settings > AI Provider.", null)
         return config
     }
 
@@ -1317,7 +1342,7 @@ object AppConfig {
         }
 
         else -> {
-            log.displayError("Unknown proxy field: $field", null)
+            log.error("Unknown proxy field: $field", null)
             config
         }
     }
@@ -1427,7 +1452,7 @@ object AppConfig {
         }
 
         else -> {
-            log.displayError("Unknown webSearch field: $field", null)
+            log.error("Unknown webSearch field: $field", null)
             config
         }
     }
@@ -1515,7 +1540,7 @@ object AppConfig {
         }
 
         else -> {
-            log.displayError("Unknown voice field: $field", null)
+            log.error("Unknown voice field: $field", null)
             config
         }
     }
@@ -1528,7 +1553,7 @@ object AppConfig {
         "showDetails" -> config.copy(showDetails = value as Boolean)
 
         else -> {
-            log.displayError("Unknown notifications field: $field", null)
+            log.error("Unknown notifications field: $field", null)
             config
         }
     }

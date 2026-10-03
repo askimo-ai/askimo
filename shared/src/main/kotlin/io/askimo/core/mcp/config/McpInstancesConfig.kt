@@ -38,7 +38,7 @@ object McpInstancesConfig {
             val wrapper = mcpObjectMapper.readValue(content, InstancesWrapper::class.java)
             wrapper.instances.map { it.toDomain() }
         } catch (e: Exception) {
-            log.displayError("Failed to load global MCP instances", e)
+            displayError("Failed to load global MCP instances", e)
             emptyList()
         }
     }
@@ -59,7 +59,7 @@ object McpInstancesConfig {
             Files.writeString(path, yaml)
             log.debug("Saved ${instances.size} global MCP instances")
         } catch (e: Exception) {
-            log.displayError("Failed to save global MCP instances", e)
+            displayError("Failed to save global MCP instances", e)
         }
     }
 
@@ -87,7 +87,7 @@ object McpInstancesConfig {
                         SecureKeyManager.removeSecretKey(McpInstanceData.secretKeyId(instanceId, key))
                     }
             } catch (e: Exception) {
-                log.displayError("Failed to clean up secrets for global instance $instanceId", e)
+                displayError("Failed to clean up secrets for global instance $instanceId", e)
             }
         }
 

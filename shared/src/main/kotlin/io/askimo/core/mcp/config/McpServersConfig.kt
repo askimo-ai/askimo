@@ -208,7 +208,7 @@ object McpServersConfig {
                     log.debug("Loaded {} MCP server definitions from {}", wrapper.servers.size, path)
                     wrapper.servers
                 } catch (e: Exception) {
-                    log.displayError("Failed to load MCP servers config, returning empty list", e)
+                    displayError("Failed to load MCP servers config, returning empty list", e)
                     cached = emptyList()
                     emptyList()
                 }
@@ -230,7 +230,7 @@ object McpServersConfig {
             Files.writeString(path, yaml)
             log.debug("Persisted {} MCP server definitions to {}", definitions.size, path)
         } catch (e: Exception) {
-            log.displayError("Failed to persist MCP servers config", e)
+            displayError("Failed to persist MCP servers config", e)
         }
     }
 

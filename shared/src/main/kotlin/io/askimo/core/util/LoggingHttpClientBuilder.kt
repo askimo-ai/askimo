@@ -4,6 +4,7 @@
  */
 package io.askimo.core.util
 
+import io.askimo.core.config.AppConfig
 import io.askimo.core.logging.currentFileLogger
 import java.io.ByteArrayOutputStream
 import java.net.Authenticator
@@ -37,7 +38,7 @@ private const val MAX_RESPONSE_LOG_BYTES = 8_192
  * Wraps this builder in a [LoggingHttpClientBuilder] only when DEBUG logging is enabled.
  * When DEBUG is off the original builder is returned unchanged — zero overhead, no wrapper allocated.
  */
-fun HttpClient.Builder.withLoggingIfDebug(): HttpClient.Builder = if (log.isDebugEnabled) LoggingHttpClientBuilder(this) else this
+fun HttpClient.Builder.withLoggingIfDebug(): HttpClient.Builder = if (AppConfig.developer.active) LoggingHttpClientBuilder(this) else this
 
 /**
  * A [HttpClient.Builder] decorator that wraps the built [HttpClient] in a [LoggingHttpClient].

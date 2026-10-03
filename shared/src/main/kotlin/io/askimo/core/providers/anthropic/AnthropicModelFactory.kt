@@ -108,9 +108,8 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
         // Probe the real context-window size once — run async so it never blocks the caller.
         val modelKey = ModelCapabilitiesCache.modelKey(ANTHROPIC, settings.defaultModel)
         if (!ModelCapabilitiesCache.isContextSizeLearned(modelKey)) {
-            val capturedSettings = settings
             CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
-                probeContextSize(capturedSettings)?.let { size ->
+                probeContextSize(settings)?.let { size ->
                     ModelCapabilitiesCache.setContextSize(modelKey, size)
                 }
             }
@@ -184,9 +183,6 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
             .baseUrl(settings.baseUrl)
             .timeout(Duration.ofSeconds(AppConfig.models.requestTimeoutInSeconds))
             .cacheTools(true)
-            .logger(log)
-            .logRequests(log.isDebugEnabled)
-            .logResponses(log.isDebugEnabled)
             .listeners(listOf(TelemetryChatModelListener(telemetry, ANTHROPIC.name.lowercase())))
             .apply {
                 if (supportsThinking) {
@@ -257,7 +253,7 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
             .distinct()
             .sorted()
     } catch (e: Exception) {
-        log.displayError("⚠️ Failed to fetch models from Anthropic: ${e.message}", e)
+        displayError("⚠️ Failed to fetch models from Anthropic: ${e.message}", e)
         emptyList()
     }
 }
