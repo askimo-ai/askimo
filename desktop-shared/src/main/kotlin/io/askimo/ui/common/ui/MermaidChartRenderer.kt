@@ -88,7 +88,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import org.slf4j.Logger
 import java.awt.Desktop
 import java.io.File
 import java.net.URI
@@ -761,7 +760,7 @@ private fun mermaidSetupInstructions(
 /**
  * Shows a file chooser dialog and saves the image data as PNG.
  */
-private fun downloadDiagramAsPng(imageData: ByteArray, log: Logger) {
+private fun downloadDiagramAsPng(imageData: ByteArray) {
     runBlocking {
         val file = FileDialogUtils.pickSavePath(
             suggestedName = "mermaid-diagram",
@@ -882,7 +881,7 @@ private fun diagramViewer(
                 placement = TooltipPlacement.LEFT,
             ) {
                 IconButton(
-                    onClick = { downloadDiagramAsPng(imageData, log) },
+                    onClick = { downloadDiagramAsPng(imageData) },
                     modifier = Modifier
                         .size(if (onFullScreen != null) 32.dp else 48.dp)
                         .pointerHoverIcon(PointerIcon.Hand),

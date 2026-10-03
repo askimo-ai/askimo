@@ -11,13 +11,13 @@ import dev.langchain4j.model.chat.StreamingChatModel
 import dev.langchain4j.model.openai.OpenAiResponsesChatModel
 import dev.langchain4j.model.openai.OpenAiResponsesStreamingChatModel
 import dev.langchain4j.service.AiServices
+import io.askimo.core.logging.Logger
 import io.askimo.core.providers.ChatClient
 import io.askimo.core.providers.ModelCapabilitiesCache
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ReasoningEffort
 import io.askimo.core.providers.sendStreamingMessageWithCallback
 import io.askimo.core.telemetry.TelemetryChatModelListener
-import org.slf4j.Logger
 
 /**
  * Builds models using the OpenAI Responses API (`/v1/responses`) with typed `input[]`
@@ -120,7 +120,7 @@ class ResponsesApiDelegate : OpenAiApiDelegate {
         log.info("Model '$modelName' supports thinking — thinking enabled")
         true
     } catch (e: Exception) {
-        log.info("Model '$modelName' does not support thinking: ${e.message} — thinking disabled", e)
+        log.info("Model '$modelName' does not support thinking: ${e.message} — thinking disabled", throwable = e)
         false
     }
 }

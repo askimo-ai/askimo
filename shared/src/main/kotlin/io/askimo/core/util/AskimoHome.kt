@@ -60,6 +60,7 @@ object AskimoHome {
     fun skillsWorkspaceDir(): Path = base().resolve("skills-workspace")
     fun projectsDir(): Path = base().resolve("projects")
     fun attachmentsDir(): Path = base().resolve("attachments")
+    fun logsDir(): Path = base().resolve("logs")
     fun encryptionKeyFile(): Path = base().resolve(".key")
 
     fun userHome(): Path = Paths.get(System.getProperty("user.home")).toAbsolutePath().normalize()

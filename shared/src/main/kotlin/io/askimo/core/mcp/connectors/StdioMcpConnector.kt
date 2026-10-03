@@ -46,8 +46,6 @@ class StdioMcpConnector(
         log.debug("[MCP '${config.name}']   PATH    : {}", env["PATH"])
 
         val builder = StdioMcpTransport.builder()
-            .logger(log)
-            .logEvents(log.isTraceEnabled)
             .command(command)
             .environment(env)
 

@@ -10,10 +10,10 @@ import io.askimo.core.chat.dto.truncatedForStorage
 import io.askimo.core.db.AbstractRepository
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.db.sqldelight.Agent_run_history
+import io.askimo.core.logging.Logger
 import io.askimo.core.logging.logger
 import io.askimo.core.util.TimeUtil
 import kotlinx.serialization.json.Json
-import org.slf4j.Logger
 
 /**
  * Maps a generated [Agent_run_history] row to the shared [AgentRunRecord] domain object.

@@ -5,8 +5,8 @@
 package io.askimo.core.agent
 
 import io.askimo.core.agent.domain.SkillDefinition
+import io.askimo.core.logging.Logger
 import io.askimo.core.util.ProcessBuilderExt
-import org.slf4j.Logger
 import java.io.BufferedWriter
 import java.io.File
 import java.io.IOException
@@ -143,6 +143,7 @@ abstract class ExternalAgentTemplate : ExternalAgent {
      * @param onToken   Callback to emit response text tokens.
      * @param onToolCall Callback to emit a discrete tool invocation (name + optional detail).
      * @param onStatus  Callback to emit non-tool status messages (e.g. session init, run summary).
+     * @param onThinking Callback to emit thinking messages (e.g. "thinking...").
      * @param output    StringBuilder accumulating all processed output (append final result).
      */
     protected abstract fun parseStdoutLine(

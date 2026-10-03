@@ -15,8 +15,9 @@ import dev.langchain4j.rag.content.retriever.ContentRetriever
 import dev.langchain4j.service.AiServices
 import dev.langchain4j.service.tool.ToolProvider
 import io.askimo.core.context.ExecutionMode
+import io.askimo.core.logging.Logger
+import io.askimo.core.logging.logger
 import io.askimo.tools.fs.LocalFsTools
-import org.slf4j.LoggerFactory
 import java.util.Base64
 
 /**
@@ -26,6 +27,9 @@ import java.util.Base64
  * @param T The specific ProviderSettings type for this factory
  */
 interface ChatModelFactory<T : ProviderSettings> {
+    private val log: Logger
+        get() = logger<ChatModelFactory<*>>()
+
     /**
      * Returns a list of available models for this provider.
      *
@@ -172,50 +176,47 @@ interface ChatModelFactory<T : ProviderSettings> {
         modelName: String,
         streamingChatModel: StreamingChatModel,
         executionMode: ExecutionMode,
-    ): Boolean {
-        val log = LoggerFactory.getLogger(this::class.java)
-        return try {
-            val testClientBuilder = AiServices.builder(ChatClient::class.java)
-                .streamingChatModel(streamingChatModel)
+    ): Boolean = try {
+        val testClientBuilder = AiServices.builder(ChatClient::class.java)
+            .streamingChatModel(streamingChatModel)
 
-            if (executionMode.isToolEnabled()) {
-                testClientBuilder.tools(LocalFsTools)
-            }
-
-            val testClient = testClientBuilder.maxToolCallingRoundTrips(1).build()
-            testClient.sendStreamingMessageWithCallback(null, listOf(TextContent("Capability tool probe — reply with 'ok'.")))
-            true
-        } catch (e: Exception) {
-            val errorMessage = e.message?.lowercase() ?: ""
-            val causeMessage = e.cause?.message?.lowercase() ?: ""
-
-            val isToolUnsupportedError =
-                errorMessage.contains("does not support tool") ||
-                    (
-                        errorMessage.contains("tool") && (
-                            errorMessage.contains("not supported") ||
-                                errorMessage.contains("unsupported") ||
-                                errorMessage.contains("not available") ||
-                                errorMessage.contains("unavailable")
-                            )
-                        ) ||
-                    causeMessage.contains("does not support tool") ||
-                    (
-                        causeMessage.contains("tool") && (
-                            causeMessage.contains("not supported") ||
-                                causeMessage.contains("unsupported")
-                            )
-                        ) ||
-                    e is InvalidRequestException ||
-                    e.cause is InvalidRequestException
-
-            if (isToolUnsupportedError) {
-                log.warn("Model '$modelName' does not support tool calling: ${e.message}. Tools will be disabled")
-            } else {
-                log.warn("Error testing tool support for model '$modelName': ${e.message}. Assuming tools are NOT supported", e)
-            }
-            false
+        if (executionMode.isToolEnabled()) {
+            testClientBuilder.tools(LocalFsTools)
         }
+
+        val testClient = testClientBuilder.maxToolCallingRoundTrips(1).build()
+        testClient.sendStreamingMessageWithCallback(null, listOf(TextContent("Capability tool probe — reply with 'ok'.")))
+        true
+    } catch (e: Exception) {
+        val errorMessage = e.message?.lowercase() ?: ""
+        val causeMessage = e.cause?.message?.lowercase() ?: ""
+
+        val isToolUnsupportedError =
+            errorMessage.contains("does not support tool") ||
+                (
+                    errorMessage.contains("tool") && (
+                        errorMessage.contains("not supported") ||
+                            errorMessage.contains("unsupported") ||
+                            errorMessage.contains("not available") ||
+                            errorMessage.contains("unavailable")
+                        )
+                    ) ||
+                causeMessage.contains("does not support tool") ||
+                (
+                    causeMessage.contains("tool") && (
+                        causeMessage.contains("not supported") ||
+                            causeMessage.contains("unsupported")
+                        )
+                    ) ||
+                e is InvalidRequestException ||
+                e.cause is InvalidRequestException
+
+        if (isToolUnsupportedError) {
+            log.warn("Model '$modelName' does not support tool calling: ${e.message}. Tools will be disabled")
+        } else {
+            log.warn("Error testing tool support for model '$modelName': ${e.message}. Assuming tools are NOT supported", e)
+        }
+        false
     }
 
     /**
@@ -235,7 +236,6 @@ interface ChatModelFactory<T : ProviderSettings> {
         modelName: String,
         streamingChatModel: StreamingChatModel,
     ): Boolean {
-        val log = LoggerFactory.getLogger(this::class.java)
         return try {
             val testClient = AiServices.builder(ChatClient::class.java)
                 .streamingChatModel(streamingChatModel)
