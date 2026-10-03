@@ -1,0 +1,4 @@
+-- projects.space_id / projects.space_name dropped (Spaces feature removed) — guarded
+-- ALTER TABLE DROP COLUMN via SqlDelightSchemaMigrations.callbacks() AfterVersion(61)
+
+

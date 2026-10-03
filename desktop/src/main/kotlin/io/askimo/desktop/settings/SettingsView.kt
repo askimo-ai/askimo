@@ -61,6 +61,7 @@ import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.settings.agentsSettingsSection
 import io.askimo.ui.settings.appearanceSettingsSection
+import io.askimo.ui.settings.networkSettingsSection
 import io.askimo.ui.settings.shortcutsSettingsSection
 import org.jetbrains.skia.Image
 import java.awt.Cursor

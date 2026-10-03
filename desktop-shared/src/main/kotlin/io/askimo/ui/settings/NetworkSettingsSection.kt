@@ -2,7 +2,7 @@
  *
  * Copyright (c) 2026 Askimo
  */
-package io.askimo.desktop.settings
+package io.askimo.ui.settings
 
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.layout.Arrangement
@@ -24,7 +24,6 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -185,9 +184,7 @@ private fun proxyConfigurationCard() {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickableCard { proxyTypeDropdownExpanded = true },
-                            colors = androidx.compose.material3.CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surface,
-                            ),
+                            colors = AppColors.cardColors(AppColors.Elevation.EMPHASIS),
                         ) {
                             Row(
                                 modifier = Modifier
@@ -206,7 +203,7 @@ private fun proxyConfigurationCard() {
                                 Icon(
                                     Icons.Default.Edit,
                                     contentDescription = "Change proxy type",
-                                    tint = AppTextStyles.primaryContent,
+                                    tint = AppTextStyles.secondaryContent,
                                 )
                             }
                         }

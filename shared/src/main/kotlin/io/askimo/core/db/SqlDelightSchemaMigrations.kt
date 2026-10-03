@@ -89,6 +89,11 @@ object SqlDelightSchemaMigrations {
             addColumnIfMissing(d, "resource_collections", "index_error", "TEXT")
         },
         AfterVersion(58) { d -> addColumnIfMissing(d, "chat_message_attachments", "storage_path", "VARCHAR(1024)") },
+
+        AfterVersion(61) { d ->
+            dropColumnIfExists(d, "projects", "space_id")
+            dropColumnIfExists(d, "projects", "space_name")
+        },
     )
 
     /**

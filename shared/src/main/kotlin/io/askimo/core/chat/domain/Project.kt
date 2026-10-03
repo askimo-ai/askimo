@@ -24,13 +24,6 @@ data class Project(
     val updatedAt: Instant = Instant.now(),
     val isStarred: Boolean = false,
     /**
-     * Non-null when this project belongs to a team Space (team edition only).
-     * Null for personal projects.
-     */
-    val spaceId: String? = null,
-    /** Display name of the Space, denormalised for offline access. Null for personal projects. */
-    val spaceName: String? = null,
-    /**
      * Id of the directive automatically applied to new chats started within this project.
      * Takes precedence over the user's global default directive. Null means no project-level default.
      */

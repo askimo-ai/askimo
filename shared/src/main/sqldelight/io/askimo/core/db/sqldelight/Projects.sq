@@ -7,8 +7,6 @@ CREATE TABLE IF NOT EXISTS projects (
     updated_at TEXT NOT NULL,
     synced_at TEXT,
     is_starred INTEGER DEFAULT 0,
-    space_id TEXT,
-    space_name TEXT,
     default_directive_id TEXT
 );
 
@@ -65,8 +63,8 @@ selectExistingByIds:
 SELECT id, updated_at FROM projects WHERE id IN :ids;
 
 insertFromServer:
-INSERT INTO projects (id, name, description, indexed_paths, created_at, updated_at, synced_at, space_id, space_name, default_directive_id)
-VALUES (:id, :name, :description, :indexedPaths, :createdAt, :updatedAt, :syncedAt, :spaceId, :spaceName, :defaultDirectiveId);
+INSERT INTO projects (id, name, description, indexed_paths, created_at, updated_at, synced_at, default_directive_id)
+VALUES (:id, :name, :description, :indexedPaths, :createdAt, :updatedAt, :syncedAt, :defaultDirectiveId);
 
 updateFromServer:
 UPDATE projects SET
@@ -75,8 +73,6 @@ UPDATE projects SET
     indexed_paths = :indexedPaths,
     updated_at = :updatedAt,
     synced_at = :syncedAt,
-    space_id = :spaceId,
-    space_name = :spaceName,
     default_directive_id = :defaultDirectiveId
 WHERE id = :id;
 

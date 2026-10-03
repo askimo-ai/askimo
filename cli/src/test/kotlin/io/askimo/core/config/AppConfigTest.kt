@@ -36,7 +36,6 @@ class AppConfigTest {
 
         assertEquals(10, models.maxToolCallingRoundTrips)
 
-
         assertEquals(600L, models.requestTimeoutInSeconds)
     }
 

@@ -110,6 +110,7 @@ object Analytics {
     }
 
     fun sendInstallPingIfNeeded() {
+        if (runCatching { AppConfig.developer.active }.getOrDefault(false)) return
         val flagPath = AskimoHome.base().resolve(INSTALL_PING_FILE)
         val currentVersion = VersionInfo.version
         // Re-send if the flag file is absent OR contains a different (older) version

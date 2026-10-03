@@ -1260,7 +1260,6 @@ object AppConfig {
             )
         }
 
-
         if (field == "requestTimeoutInSeconds") {
             val stringValue = value as? String ?: value.toString()
             return config.copy(
@@ -1268,31 +1267,6 @@ object AppConfig {
                     ?.coerceAtLeast(MIN_MODEL_TIMEOUT_SECONDS)
                     ?: config.requestTimeoutInSeconds,
             )
-
-        val parts = field.split(".")
-        if (parts.size != 2) {
-            log.error("Models config requires nested path format: provider.field or timeouts.field", null)
-            return config
-        }
-
-        val providerKey = parts[0]
-        val modelField = parts[1]
-        val stringValue = value as? String ?: value.toString()
-
-        // Handle global timeouts: models.timeouts.utilityModelTimeoutSeconds / defaultModelTimeoutSeconds
-        if (providerKey == "timeouts") {
-            val current = config.timeouts
-            val updated = when (modelField) {
-                "utilityModelTimeoutSeconds" -> current.copy(utilityModelTimeoutSeconds = stringValue.toLongOrNull() ?: current.utilityModelTimeoutSeconds)
-
-                "defaultModelTimeoutSeconds" -> current.copy(defaultModelTimeoutSeconds = stringValue.toLongOrNull() ?: current.defaultModelTimeoutSeconds)
-
-                else -> {
-                    log.error("Unknown timeouts field '$modelField'", null)
-                    return config
-                }
-            }
-            return config.copy(timeouts = updated)
         }
 
         log.error("Unknown models config path '$field'. Per-provider model fields are now configured per-instance in Settings > AI Provider.", null)

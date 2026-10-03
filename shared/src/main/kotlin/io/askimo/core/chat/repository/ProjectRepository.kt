@@ -30,8 +30,6 @@ private fun Projects.toProject(): Project = Project(
     createdAt = TimeUtil.parseInstant(created_at),
     updatedAt = TimeUtil.parseInstant(updated_at),
     isStarred = is_starred == 1L,
-    spaceId = space_id,
-    spaceName = space_name,
     defaultDirectiveId = default_directive_id,
 )
 
@@ -258,8 +256,6 @@ class ProjectRepository internal constructor(
                         createdAt = project.createdAt.toString(),
                         updatedAt = project.updatedAt.toString(),
                         syncedAt = nowStr,
-                        spaceId = project.spaceId,
-                        spaceName = project.spaceName,
                         defaultDirectiveId = project.defaultDirectiveId,
                     )
                     log.debug("upsertFromServer: inserted project {}", project.id)
@@ -270,8 +266,6 @@ class ProjectRepository internal constructor(
                         indexedPaths = KnowledgeSourceSerializer.serialize(project.knowledgeSources),
                         updatedAt = project.updatedAt.toString(),
                         syncedAt = nowStr,
-                        spaceId = project.spaceId,
-                        spaceName = project.spaceName,
                         defaultDirectiveId = project.defaultDirectiveId,
                         id = project.id,
                     )
