@@ -108,7 +108,7 @@ object SqlDelightSchemaMigrations {
 
     private fun dropColumnIfExists(driver: SqlDriver, table: String, column: String) {
         if (column !in tableColumns(driver, table)) return
-        runCatching { driver.execute(null, "ALTER TABLE $table DROP COLUMN $column", 0) }
+        driver.execute(null, "ALTER TABLE $table DROP COLUMN $column", 0)
     }
 
     private fun tableColumns(driver: SqlDriver, table: String): Set<String> {
