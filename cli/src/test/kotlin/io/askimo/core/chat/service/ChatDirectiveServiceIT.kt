@@ -19,7 +19,7 @@ import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import java.time.Instant
+import kotlin.time.Clock
 
 /**
  * Tests for default-directive resolution: project default > global default > none,
@@ -83,8 +83,8 @@ class ChatDirectiveServiceIT {
                 name = name,
                 description = null,
                 knowledgeSources = emptyList(),
-                createdAt = Instant.now(),
-                updatedAt = Instant.now(),
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
                 defaultDirectiveId = defaultDirectiveId,
             ),
         )

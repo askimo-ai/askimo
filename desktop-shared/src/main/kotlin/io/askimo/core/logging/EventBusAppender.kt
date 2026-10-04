@@ -8,7 +8,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.AppenderBase
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.dev.LoggingEvent
-import java.time.Instant
+import kotlin.time.Instant
 
 /**
  * Custom Logback appender that forwards log events to EventBus.
@@ -21,7 +21,7 @@ class EventBusAppender : AppenderBase<ILoggingEvent>() {
                 level = eventObject.level.toString(),
                 logger = eventObject.loggerName,
                 message = eventObject.formattedMessage,
-                timestamp = Instant.ofEpochMilli(eventObject.timeStamp),
+                timestamp = Instant.fromEpochMilliseconds(eventObject.timeStamp),
             )
 
             EventBus.post(event)

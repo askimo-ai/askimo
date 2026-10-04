@@ -44,8 +44,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.time.Instant
 import java.util.UUID
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 
 private val log = currentFileLogger()
@@ -69,7 +69,7 @@ private fun List<AgentTurnMessageDTO>.finalizeStreamingAiMessage(
     val updated = this[idx].copy(
         id = messageId,
         content = finalContent,
-        timestamp = Instant.now(),
+        timestamp = Clock.System.now(),
         // A cancelled turn is never also "failed" — it's a deliberate user action, not an
         // error, and should render with a neutral "Cancelled" label instead of the retry icon.
         isFailed = isFailed && !isCancelled,
@@ -511,7 +511,7 @@ internal class AgentRunViewModel(
             id = "user-${System.nanoTime()}",
             content = input,
             isUser = true,
-            timestamp = Instant.now(),
+            timestamp = Clock.System.now(),
         )
         messages = messages + userMessage
         // Lock the agent picker the moment this conversation has a turn in it — switching

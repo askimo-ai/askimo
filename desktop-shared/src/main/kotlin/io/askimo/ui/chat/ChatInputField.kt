@@ -160,11 +160,11 @@ import kotlinx.coroutines.withContext
 import org.koin.java.KoinJavaComponent
 import java.awt.Cursor
 import java.io.File
-import java.time.Instant
 import java.util.UUID
 import kotlin.collections.minus
 import kotlin.collections.plus
 import kotlin.ranges.coerceIn
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 
 private val log = currentFileLogger()
@@ -539,7 +539,7 @@ fun chatInputField(
                                 fileName = file.name,
                                 mimeType = file.extension,
                                 size = file.length(),
-                                createdAt = Instant.now(),
+                                createdAt = Clock.System.now(),
                                 content = null,
                                 filePath = file.absolutePath,
                             )

@@ -68,6 +68,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.time.toJavaInstant
 
 /**
  * Global Search Dialog for searching across all chat sessions
@@ -415,6 +416,7 @@ private fun searchResultItem(
     val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm") }
     val formattedDate = remember(result.messageTimestamp) {
         result.messageTimestamp
+            .toJavaInstant()
             .atZone(ZoneId.systemDefault())
             .format(dateFormatter)
     }

@@ -50,9 +50,9 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Clock
 
 /**
  * Manages ChatViewModel instances and streaming infrastructure together:
@@ -272,8 +272,8 @@ class SessionManager(
                         ChatSession(
                             id = sessionId,
                             title = userMessage.content,
-                            createdAt = Instant.now(),
-                            updatedAt = Instant.now(),
+                            createdAt = Clock.System.now(),
+                            updatedAt = Clock.System.now(),
                         ),
                     )
                     createdSessions.add(sessionId)

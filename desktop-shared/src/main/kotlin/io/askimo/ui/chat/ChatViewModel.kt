@@ -43,10 +43,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.Instant
 import java.util.UUID
 import kotlin.collections.plus
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Instant
 
 /**
  * ViewModel for chat state and interactions: messages, sending to the AI, loading/error
@@ -750,7 +751,7 @@ class ChatViewModel(
             content = message,
             isUser = true,
             id = UUID.randomUUID().toString(),
-            timestamp = Instant.now(),
+            timestamp = Clock.System.now(),
             attachments = attachments,
         )
 

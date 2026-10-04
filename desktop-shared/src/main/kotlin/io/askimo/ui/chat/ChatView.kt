@@ -123,8 +123,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.context.GlobalContext
 import java.io.File
-import java.time.Instant
 import java.util.UUID.randomUUID
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 private val log = currentFileLogger()
 
@@ -238,7 +239,7 @@ fun chatView(
                             fileName = file.name,
                             mimeType = file.extension,
                             size = file.length(),
-                            createdAt = Instant.now(),
+                            createdAt = Clock.System.now(),
                             content = null,
                             filePath = file.absolutePath,
                         )
@@ -1388,7 +1389,7 @@ fun chatView(
                                 fileName = file.name,
                                 mimeType = file.extension,
                                 size = file.length(),
-                                createdAt = Instant.now(),
+                                createdAt = Clock.System.now(),
                                 content = null,
                                 filePath = file.absolutePath,
                             )

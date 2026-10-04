@@ -37,13 +37,15 @@ dependencies {
     implementation(libs.bundles.jline)
     implementation(libs.bundles.commonmark)
     implementation(kotlin("stdlib"))
-    implementation(project(":shared"))
+    implementation(project(":shared-jvm"))
+    implementation(libs.slf4j.api)
+    implementation(libs.logback.classic)
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockito.kotlin)
     testImplementation(libs.kotlin.test)
     testImplementation(libs.bundles.testcontainers)
-    testImplementation(testFixtures(project(":shared")))
+    testImplementation(testFixtures(project(":shared-jvm")))
 }
 
 tasks.test {
@@ -73,6 +75,7 @@ kotlin {
     jvmToolchain((property("jvmVersion") as String).toInt())
     compilerOptions {
         javaParameters.set(true)
+        optIn.add("kotlin.time.ExperimentalTime")
     }
 }
 

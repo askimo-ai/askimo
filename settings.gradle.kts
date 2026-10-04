@@ -2,6 +2,7 @@ rootProject.name = "askimo"
 
 include("cli")
 include("shared")
+include("shared-jvm")
 include("desktop")
 include("desktop-shared")
 include("detekt-rules")

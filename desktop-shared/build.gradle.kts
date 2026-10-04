@@ -30,7 +30,7 @@ dependencies {
     api(compose.desktop.currentOs)
     api(libs.compose.material3)
     api(libs.compose.material.icons.extended)
-    api(project(":shared"))
+    api(project(":shared-jvm"))
     implementation(libs.konform)
     implementation(libs.bundles.commonmark)
     implementation(libs.commonmark.ext.autolink)
@@ -56,6 +56,9 @@ dependencies {
 
 kotlin {
     jvmToolchain((property("jvmVersion") as String).toInt())
+    compilerOptions {
+        optIn.add("kotlin.time.ExperimentalTime")
+    }
 }
 
 tasks.test {
