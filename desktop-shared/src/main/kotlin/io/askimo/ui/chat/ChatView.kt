@@ -550,8 +550,9 @@ fun chatView(
                     .weight(1f)
                     .fillMaxHeight(),
             ) {
-                // Session header with title and directive selector
-                if (provider != null && model != null) {
+                // Session header with title and directive selector — hidden on the empty
+                // "new chat" state since there's no session title/actions to show yet.
+                if (provider != null && model != null && !isEmptyState) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()

@@ -19,10 +19,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
@@ -1260,13 +1262,20 @@ private fun navigationItemLabelWithMenu(
             color = textColor,
             modifier = Modifier.weight(1f),
         )
-        if (isHovered) {
-            Box(modifier = Modifier.padding(start = Spacing.extraSmall)) {
-                IconButton(
-                    onClick = onMenuClick,
+        Box(
+            modifier = Modifier
+                .padding(start = Spacing.extraSmall)
+                .heightIn(min = (24 * fontScale).dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (isHovered) {
+                Box(
                     modifier = Modifier
                         .size((24 * fontScale).dp)
+                        .clip(CircleShape)
+                        .clickable(onClick = onMenuClick)
                         .pointerHoverIcon(PointerIcon.Hand),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         Icons.Default.MoreVert,
@@ -1275,25 +1284,24 @@ private fun navigationItemLabelWithMenu(
                         modifier = Modifier.size((18 * fontScale).dp),
                     )
                 }
-            }
-        } else if (bookmarkCount > 0) {
-            val bookmarkColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppColors.countBadgeAccentColor()
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(Spacing.micro),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(start = Spacing.extraSmall),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Bookmark,
-                    contentDescription = null,
-                    modifier = Modifier.size((10 * fontScale).dp),
-                    tint = bookmarkColor,
-                )
-                Text(
-                    text = "$bookmarkCount",
-                    style = AppTextStyles.hint,
-                    color = bookmarkColor,
-                )
+            } else if (bookmarkCount > 0) {
+                val bookmarkColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppColors.countBadgeAccentColor()
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.micro),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Bookmark,
+                        contentDescription = null,
+                        modifier = Modifier.size((10 * fontScale).dp),
+                        tint = bookmarkColor,
+                    )
+                    Text(
+                        text = "$bookmarkCount",
+                        style = AppTextStyles.hint,
+                        color = bookmarkColor,
+                    )
+                }
             }
         }
     }
