@@ -1,30 +1,54 @@
 plugins {
-    alias(libs.plugins.kotlin.jvm)
+    id("org.jetbrains.kotlin.multiplatform")
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.sqldelight)
-    `java-test-fixtures`
     `maven-publish`
-}
-
-sqldelight {
-    databases {
-        create("AskimoDatabase") {
-            packageName.set("io.askimo.core.db.sqldelight.generated")
-            srcDirs.setFrom("src/main/sqldelight")
-            // AfterVersion callbacks (see SqlDelightSchemaMigrations) perform work that
-            // isn't reflected in the static .sqm SQL, so skip strict post-migrate diffing.
-            verifyMigrations.set(false)
-        }
-    }
 }
 
 group = rootProject.group
 version = rootProject.version
 
+// Kotlin Multiplatform auto-names the jvm target's jar "<project.name>-jvm" (i.e. "shared-jvm"),
+// which collides with the separate, actual ":shared-jvm" module's own jar of the same name —
+// breaking the cli distribution task (duplicate archive entry) and the Maven publication
+// artifactId. Rename this project's archives to disambiguate.
+base {
+    archivesName.set("shared-common")
+}
+
+kotlin {
+    jvmToolchain((property("jvmVersion") as String).toInt())
+
+    jvm()
+    // Future targets, enable when mobile app work starts:
+    // androidTarget()
+    // iosX64()
+    // iosArm64()
+    // iosSimulatorArm64()
+
+    sourceSets {
+        all {
+            languageSettings.optIn("kotlin.time.ExperimentalTime")
+        }
+        commonMain.dependencies {
+            api(libs.kotlinx.serialization.json)
+            api(libs.kotlinx.coroutines.core)
+            api(libs.kotlinx.datetime)
+            api(libs.koin.core)
+            api(libs.bundles.logging)
+        }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
+    }
+}
+
 publishing {
     publications {
-        create<MavenPublication>("maven") {
-            from(components["java"])
+        withType<MavenPublication> {
+            // Multiplatform plugin auto-creates per-target publications (e.g. "jvm", "kotlinMultiplatform")
+            // with artifactId = "<project.name>-<targetName>" by default (e.g. "shared-jvm"), which collides
+            // with the separate ":shared-jvm" module's published artifactId. Disambiguate explicitly.
+            artifactId = artifactId.replaceFirst("shared", "shared-common")
         }
     }
     repositories {
@@ -39,56 +63,3 @@ publishing {
     }
 }
 
-dependencies {
-    api(libs.bundles.langchain4j)
-
-    api(libs.kotlinx.serialization.json.jvm)
-    api(libs.kotlinx.coroutines.core)
-    api(kotlin("stdlib"))
-
-    api(libs.bundles.lucene)
-
-    api(libs.bundles.jackson)
-
-    api(libs.sqldelight.runtime)
-    api(libs.sqldelight.sqlite.driver)
-
-    api(libs.bundles.koin)
-
-    implementation(libs.cache4k)
-
-    api(libs.bundles.logging)
-
-    implementation(libs.bundles.tika) {
-        exclude(group = "org.eclipse.angus", module = "angus-activation")
-    }
-
-    implementation(libs.jsoup)
-
-    implementation(libs.bundles.commonmark)
-
-    // Testing
-    testImplementation(libs.mockito.kotlin)
-    testImplementation(libs.kotlin.test)
-    testImplementation(libs.bundles.testcontainers)
-    testImplementation(libs.bundles.koin.test)
-
-    // Test fixtures - shared test utilities
-    testFixturesApi(platform(libs.junit.bom))
-    testFixturesApi(libs.junit.jupiter)
-}
-
-tasks.test {
-    useJUnitPlatform()
-
-    // Enable Vector API for better JVector performance
-    jvmArgs("--add-modules", "jdk.incubator.vector")
-}
-kotlin {
-    jvmToolchain((property("jvmVersion") as String).toInt())
-    compilerOptions {
-        // Preserve parameter names in bytecode so LangChain4j @Tool/@P reflection works correctly.
-        // Without this, tool method parameters appear as arg0, arg1 in the LLM's tool schema.
-        javaParameters = true
-    }
-}

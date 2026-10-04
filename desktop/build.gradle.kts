@@ -49,14 +49,14 @@ version = rootProject.version
 val distPackageVersion = project.version.toString().substringBefore("-")
 
 dependencies {
-    implementation(project(":shared"))
+    implementation(project(":shared-jvm"))
     implementation(project(":desktop-shared"))
 
     implementation(libs.konform)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.bundles.koin.test)
-    testImplementation(testFixtures(project(":shared")))
+    testImplementation(testFixtures(project(":shared-jvm")))
 }
 
 tasks.withType<JavaCompile> {
@@ -520,7 +520,7 @@ tasks.register("detectUnusedLocalizations") {
         val i18nDir = file("../desktop-shared/src/main/resources/i18n")
         val desktopSrcDir = file("src/main/kotlin")
         val desktopSharedSrcDir = file("../desktop-shared/src/main/kotlin")
-        val sharedSrcDir = file("../shared/src/main/kotlin")
+        val sharedSrcDir = file("../shared-jvm/src/main/kotlin")
         val reportFile = file("${layout.buildDirectory.get()}/reports/unused-localizations.txt")
 
         // Check if delete mode is enabled
@@ -637,7 +637,7 @@ tasks.register("detectUnusedLocalizations") {
         // Scan both modules
         scanDirectory(desktopSrcDir, "desktop")
         scanDirectory(desktopSharedSrcDir, "desktop-shared")
-        scanDirectory(sharedSrcDir, "shared")
+        scanDirectory(sharedSrcDir, "shared-jvm")
 
         println("✅ Found ${usedKeys.size} used keys across both modules")
 
@@ -758,7 +758,7 @@ tasks.register("detectMissingLocalizations") {
         val i18nDir = file("../desktop-shared/src/main/resources/i18n")
         val desktopSrcDir = file("src/main/kotlin")
         val desktopSharedSrcDir = file("../desktop-shared/src/main/kotlin")
-        val sharedSrcDir = file("../shared/src/main/kotlin")
+        val sharedSrcDir = file("../shared-jvm/src/main/kotlin")
         val cliSrcDir = file("../cli/src/main/kotlin")
         val reportFile = file("${layout.buildDirectory.get()}/reports/missing-localizations.txt")
 
@@ -835,7 +835,7 @@ tasks.register("detectMissingLocalizations") {
 
         scanDirectory(desktopSrcDir, "desktop")
         scanDirectory(desktopSharedSrcDir, "desktop-shared")
-        scanDirectory(sharedSrcDir, "shared")
+        scanDirectory(sharedSrcDir, "shared-jvm")
         scanDirectory(cliSrcDir, "cli")
 
         println("✅ Found ${referencedKeys.size} distinct key references in source code")

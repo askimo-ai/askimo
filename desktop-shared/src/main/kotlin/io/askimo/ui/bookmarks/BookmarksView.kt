@@ -272,7 +272,7 @@ private fun bookmarkGroupCard(
 @Composable
 private fun bookmarkMessageRow(
     content: String,
-    timestamp: java.time.Instant?,
+    timestamp: kotlin.time.Instant?,
     isUser: Boolean,
     onJumpToSession: () -> Unit,
     onRemove: () -> Unit,

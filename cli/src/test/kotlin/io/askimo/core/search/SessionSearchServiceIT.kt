@@ -24,9 +24,13 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import java.time.Duration
-import java.time.Instant
-import java.time.temporal.ChronoUnit
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Instant
+
+/** Truncates to whole-hour precision, mirroring java.time's `truncatedTo(ChronoUnit.HOURS)`. */
+private fun Instant.truncatedToHours(): Instant = Instant.fromEpochSeconds((epochSeconds / 3600) * 3600)
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SessionSearchServiceIT {
@@ -58,8 +62,8 @@ class SessionSearchServiceIT {
                 name = "Test Project",
                 description = "Test project for search",
                 knowledgeSources = emptyList(),
-                createdAt = Instant.now(),
-                updatedAt = Instant.now(),
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
             ),
         )
     }
@@ -212,9 +216,9 @@ class SessionSearchServiceIT {
     @Test
     fun `should filter by date range`() = runBlocking {
         // Given: Messages from different time periods
-        val now = Instant.now()
-        val recent = now.minus(Duration.ofHours(2)) // Within any reasonable date filter
-        val old = now.minus(Duration.ofDays(30)) // Outside most date filters
+        val now = Clock.System.now()
+        val recent = now.minus(2.hours) // Within any reasonable date filter
+        val old = now.minus(30.days) // Outside most date filters
 
         messageRepository.addMessage(
             ChatMessage(
@@ -301,9 +305,9 @@ class SessionSearchServiceIT {
 
     @Test
     fun `should sort by DATE_DESC - newest first`() = runBlocking {
-        val now = Instant.now().truncatedTo(ChronoUnit.HOURS)
-        val older = now.minus(Duration.ofHours(2))
-        val newer = now.minus(Duration.ofHours(1))
+        val now = Clock.System.now().truncatedToHours()
+        val older = now.minus(2.hours)
+        val newer = now.minus(1.hours)
 
         messageRepository.addMessage(
             ChatMessage(
@@ -340,9 +344,9 @@ class SessionSearchServiceIT {
     fun `should sort by DATE_ASC - oldest first`() = runBlocking {
         // Given: Messages at different times
         // Use larger time differences to avoid timing precision issues
-        val now = Instant.now().truncatedTo(ChronoUnit.HOURS)
-        val older = now.minus(Duration.ofHours(2))
-        val newer = now.minus(Duration.ofHours(1))
+        val now = Clock.System.now().truncatedToHours()
+        val older = now.minus(2.hours)
+        val newer = now.minus(1.hours)
 
         messageRepository.addMessage(
             ChatMessage(
@@ -555,9 +559,9 @@ class SessionSearchServiceIT {
         )
 
         try {
-            val now = Instant.now()
-            val recent = now.minus(Duration.ofHours(2)) // Definitely within last 7 days
-            val old = now.minus(Duration.ofDays(10)) // Definitely outside last 7 days
+            val now = Clock.System.now()
+            val recent = now.minus(2.hours) // Definitely within last 7 days
+            val old = now.minus(10.days) // Definitely outside last 7 days
 
             messageRepository.addMessage(
                 ChatMessage(

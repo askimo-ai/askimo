@@ -84,7 +84,6 @@ import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import java.awt.Desktop
 import java.net.URI
-
 /**
  * Wrapper to give each notification event a stable unique key for [LazyColumn].
  *
@@ -141,7 +140,7 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
     // User-facing events (UpdateAvailableEvent, ShellErrorEvent, …)
     LaunchedEffect(Unit) {
         EventBus.userEvents.collect { event ->
-            val uniqueId = "${eventCounter++}_${event.timestamp.toEpochMilli()}"
+            val uniqueId = "${eventCounter++}_${event.timestamp.toEpochMilliseconds()}"
             events.add(0, NotificationEventItem(uniqueId, event))
             unreadCount++
             trimEvents()
@@ -208,7 +207,7 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
                     events.add(
                         0,
                         NotificationEventItem(
-                            id = "${eventCounter++}_${event.timestamp.toEpochMilli()}",
+                            id = "${eventCounter++}_${event.timestamp.toEpochMilliseconds()}",
                             event = event,
                         ),
                     )

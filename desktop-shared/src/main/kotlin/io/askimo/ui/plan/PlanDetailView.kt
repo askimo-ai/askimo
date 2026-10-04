@@ -669,7 +669,7 @@ private fun agenticStepRow(
     var elapsedSeconds by remember { mutableLongStateOf(0L) }
     LaunchedEffect(event) {
         if (event is PlanStepEvent.Started) {
-            val startMs = event.timestamp.toEpochMilli()
+            val startMs = event.timestamp.toEpochMilliseconds()
             while (true) {
                 delay(500.milliseconds)
                 dotCount = if (dotCount >= 3) 1 else dotCount + 1

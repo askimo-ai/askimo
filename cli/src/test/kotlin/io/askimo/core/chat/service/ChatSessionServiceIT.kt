@@ -28,7 +28,8 @@ import org.junit.jupiter.api.assertNotNull
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import java.time.Instant
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 
 class ChatSessionServiceIT {
 
@@ -98,7 +99,7 @@ class ChatSessionServiceIT {
         )
 
         val updated = sessionRepository.getSession(session.id)
-        assertTrue(updated!!.updatedAt.isAfter(originalUpdatedAt))
+        assertTrue(updated!!.updatedAt > originalUpdatedAt)
     }
 
     @Test
@@ -154,7 +155,7 @@ class ChatSessionServiceIT {
     fun `resumeSession should return all messages for a session`() {
         // Given
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Test Session"))
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
 
         service.addMessage(
             ChatMessage(
@@ -171,7 +172,7 @@ class ChatSessionServiceIT {
                 sessionId = session.id,
                 role = MessageRole.ASSISTANT,
                 content = "Second message",
-                createdAt = baseTime.plusSeconds(1),
+                createdAt = baseTime.plus(1.seconds),
             ),
         )
         service.addMessage(
@@ -180,7 +181,7 @@ class ChatSessionServiceIT {
                 sessionId = session.id,
                 role = MessageRole.USER,
                 content = "Third message",
-                createdAt = baseTime.plusSeconds(2),
+                createdAt = baseTime.plus(2.seconds),
             ),
         )
 
@@ -216,7 +217,7 @@ class ChatSessionServiceIT {
     fun `resumeSession should preserve message order`() {
         // Given
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Ordered Session"))
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
 
         service.addMessage(
             ChatMessage(
@@ -234,7 +235,7 @@ class ChatSessionServiceIT {
                 sessionId = session.id,
                 role = MessageRole.ASSISTANT,
                 content = "Message 2",
-                createdAt = baseTime.plusSeconds(1),
+                createdAt = baseTime.plus(1.seconds),
             ),
         )
         Thread.sleep(10)
@@ -244,7 +245,7 @@ class ChatSessionServiceIT {
                 sessionId = session.id,
                 role = MessageRole.USER,
                 content = "Message 3",
-                createdAt = baseTime.plusSeconds(2),
+                createdAt = baseTime.plus(2.seconds),
             ),
         )
 
@@ -270,7 +271,7 @@ class ChatSessionServiceIT {
                     sessionId = session.id,
                     role = MessageRole.USER,
                     content = "Message $i",
-                    createdAt = Instant.now().plusSeconds(i.toLong()),
+                    createdAt = Clock.System.now().plus(i.toLong().seconds),
                 ),
             )
         }
@@ -291,7 +292,7 @@ class ChatSessionServiceIT {
     fun `resumeSessionPaginated should return most recent messages first`() {
         // Given
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Recent First"))
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
 
         repeat(15) { i ->
             service.addMessage(
@@ -300,7 +301,7 @@ class ChatSessionServiceIT {
                     sessionId = session.id,
                     role = MessageRole.USER,
                     content = "Message $i",
-                    createdAt = baseTime.plusSeconds(i.toLong()),
+                    createdAt = baseTime.plus(i.toLong().seconds),
                 ),
             )
         }
@@ -339,7 +340,7 @@ class ChatSessionServiceIT {
     fun `resumeSessionPaginated should handle session with fewer messages than limit`() {
         // Given
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Few Messages"))
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
 
         repeat(3) { i ->
             service.addMessage(
@@ -348,7 +349,7 @@ class ChatSessionServiceIT {
                     sessionId = session.id,
                     role = MessageRole.USER,
                     content = "Message $i",
-                    createdAt = baseTime.plusSeconds(i.toLong()),
+                    createdAt = baseTime.plus(i.toLong().seconds),
                 ),
             )
         }
@@ -397,7 +398,7 @@ class ChatSessionServiceIT {
                 directiveId = directive.id,
             ),
         )
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
 
         service.addMessage(
             ChatMessage(
@@ -429,7 +430,7 @@ class ChatSessionServiceIT {
                     sessionId = session.id,
                     role = MessageRole.USER,
                     content = "Message $i",
-                    createdAt = Instant.now().plusSeconds(i.toLong()),
+                    createdAt = Clock.System.now().plus(i.toLong().seconds),
                 ),
             )
         }
@@ -447,7 +448,7 @@ class ChatSessionServiceIT {
     fun `resumeSessionPaginated should handle large limit`() {
         // Given
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Large Limit"))
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
 
         repeat(10) { i ->
             service.addMessage(
@@ -456,7 +457,7 @@ class ChatSessionServiceIT {
                     sessionId = session.id,
                     role = MessageRole.USER,
                     content = "Message $i",
-                    createdAt = baseTime.plusSeconds(i.toLong()),
+                    createdAt = baseTime.plus(i.toLong().seconds),
                 ),
             )
         }
@@ -474,7 +475,7 @@ class ChatSessionServiceIT {
     fun `resumeSession should handle session with attachments`() {
         // Given
         val session = sessionRepository.createSession(ChatSession(id = "", title = "With Attachments"))
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
 
         service.addMessage(
             ChatMessage(
@@ -507,7 +508,7 @@ class ChatSessionServiceIT {
                     sessionId = session.id,
                     role = MessageRole.USER,
                     content = "Message $i",
-                    createdAt = Instant.now().plusSeconds(i.toLong()),
+                    createdAt = Clock.System.now().plus(i.toLong().seconds),
                 ),
             )
         }
@@ -573,10 +574,10 @@ class ChatSessionServiceIT {
     fun `getAllBookmarkGroups should exclude non-bookmarked messages from the group`() {
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Mixed"))
         val bookmarked = service.addMessage(
-            ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Bookmarked", createdAt = Instant.now()),
+            ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Bookmarked", createdAt = Clock.System.now()),
         )
         service.addMessage(
-            ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "Not bookmarked", createdAt = Instant.now().plusSeconds(1)),
+            ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "Not bookmarked", createdAt = Clock.System.now().plus(1.seconds)),
         )
         service.toggleBookmark(bookmarked.id)
 
@@ -589,17 +590,17 @@ class ChatSessionServiceIT {
 
     @Test
     fun `getAllBookmarkGroups should order messages within a group by createdAt ascending`() {
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Message Order"))
 
         val first = service.addMessage(
             ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "First", createdAt = baseTime),
         )
         val second = service.addMessage(
-            ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "Second", createdAt = baseTime.plusSeconds(1)),
+            ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "Second", createdAt = baseTime.plus(1.seconds)),
         )
         val third = service.addMessage(
-            ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Third", createdAt = baseTime.plusSeconds(2)),
+            ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Third", createdAt = baseTime.plus(2.seconds)),
         )
         service.toggleBookmark(first.id)
         service.toggleBookmark(second.id)
@@ -614,7 +615,7 @@ class ChatSessionServiceIT {
 
     @Test
     fun `getAllBookmarkGroups should return multiple sessions ordered by updatedAt descending`() {
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
 
         val olderSession = sessionRepository.createSession(ChatSession(id = "", title = "Older Session"))
         val msg1 = service.addMessage(
@@ -626,7 +627,7 @@ class ChatSessionServiceIT {
 
         val newerSession = sessionRepository.createSession(ChatSession(id = "", title = "Newer Session"))
         val msg2 = service.addMessage(
-            ChatMessage(id = "", sessionId = newerSession.id, role = MessageRole.USER, content = "Newer bookmark", createdAt = baseTime.plusSeconds(1)),
+            ChatMessage(id = "", sessionId = newerSession.id, role = MessageRole.USER, content = "Newer bookmark", createdAt = baseTime.plus(1.seconds)),
         )
         service.toggleBookmark(msg2.id)
 
@@ -683,9 +684,9 @@ class ChatSessionServiceIT {
     @Test
     fun `forkSession should create a new session with 'Fork of' prefix in title`() {
         val session = sessionRepository.createSession(ChatSession(id = "", title = "My Conversation"))
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
         service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Hello", createdAt = baseTime))
-        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "World", createdAt = baseTime.plusSeconds(1)))
+        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "World", createdAt = baseTime.plus(1.seconds)))
 
         val forked = service.forkSession(session.id, aiMsg.id)
 
@@ -696,9 +697,9 @@ class ChatSessionServiceIT {
     fun `forkSession should inherit directiveId and projectId from source session`() {
         val directive = directiveRepository.save(ChatDirective(id = "", name = "Directive", content = "Instructions"))
         val session = sessionRepository.createSession(ChatSession(id = "", title = "With Meta", directiveId = directive.id))
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
         service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q", createdAt = baseTime))
-        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A", createdAt = baseTime.plusSeconds(1)))
+        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A", createdAt = baseTime.plus(1.seconds)))
 
         val forked = service.forkSession(session.id, aiMsg.id)
 
@@ -708,12 +709,12 @@ class ChatSessionServiceIT {
 
     @Test
     fun `forkSession should copy all active messages up to and including the target AI message`() {
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Copy Test"))
         service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q1", createdAt = baseTime))
-        val aiMsg1 = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A1", createdAt = baseTime.plusSeconds(1)))
-        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q2", createdAt = baseTime.plusSeconds(2)))
-        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A2", createdAt = baseTime.plusSeconds(3)))
+        val aiMsg1 = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A1", createdAt = baseTime.plus(1.seconds)))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q2", createdAt = baseTime.plus(2.seconds)))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A2", createdAt = baseTime.plus(3.seconds)))
 
         val forked = service.forkSession(session.id, aiMsg1.id)
         val forkedMessages = service.getMessages(forked.id)
@@ -725,12 +726,12 @@ class ChatSessionServiceIT {
 
     @Test
     fun `forkSession on the last AI message copies all messages in the session`() {
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Full Fork"))
         service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q1", createdAt = baseTime))
-        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A1", createdAt = baseTime.plusSeconds(1)))
-        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q2", createdAt = baseTime.plusSeconds(2)))
-        val lastAiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A2", createdAt = baseTime.plusSeconds(3)))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A1", createdAt = baseTime.plus(1.seconds)))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q2", createdAt = baseTime.plus(2.seconds)))
+        val lastAiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A2", createdAt = baseTime.plus(3.seconds)))
 
         val forked = service.forkSession(session.id, lastAiMsg.id)
         val forkedMessages = service.getMessages(forked.id)
@@ -741,12 +742,12 @@ class ChatSessionServiceIT {
 
     @Test
     fun `forkSession on the first AI message copies only first two messages`() {
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Shallow Fork"))
         service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q1", createdAt = baseTime))
-        val firstAiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A1", createdAt = baseTime.plusSeconds(1)))
-        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q2", createdAt = baseTime.plusSeconds(2)))
-        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A2", createdAt = baseTime.plusSeconds(3)))
+        val firstAiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A1", createdAt = baseTime.plus(1.seconds)))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q2", createdAt = baseTime.plus(2.seconds)))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A2", createdAt = baseTime.plus(3.seconds)))
 
         val forked = service.forkSession(session.id, firstAiMsg.id)
         val forkedMessages = service.getMessages(forked.id)
@@ -758,18 +759,18 @@ class ChatSessionServiceIT {
 
     @Test
     fun `forkSession should not copy outdated messages`() {
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Outdated Test"))
         // Simulate a user edit: Q1 is sent, AI replies "Old answer", user edits Q1 which
         // marks Q1 and everything after it (including "Old answer") as outdated via greaterEq.
         val q1 = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q1", createdAt = baseTime))
-        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "Old answer", createdAt = baseTime.plusSeconds(1)))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "Old answer", createdAt = baseTime.plus(1.seconds)))
         // Mark the outdated branch: calling with q1.id marks Q1 (createdAt = baseTime) AND
         // "Old answer" (createdAt > baseTime) as outdated — matching the real edit flow.
         service.markMessagesAsOutdatedAfter(session.id, q1.id)
         // New active branch after the edit
-        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q2", createdAt = baseTime.plusSeconds(2)))
-        val activeAi = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "New answer", createdAt = baseTime.plusSeconds(3)))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q2", createdAt = baseTime.plus(2.seconds)))
+        val activeAi = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "New answer", createdAt = baseTime.plus(3.seconds)))
 
         val forked = service.forkSession(session.id, activeAi.id)
         val forkedMessages = service.getMessages(forked.id)
@@ -784,10 +785,10 @@ class ChatSessionServiceIT {
 
     @Test
     fun `forkSession should assign new unique IDs to all copied messages`() {
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
         val session = sessionRepository.createSession(ChatSession(id = "", title = "ID Test"))
         val userMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q", createdAt = baseTime))
-        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A", createdAt = baseTime.plusSeconds(1)))
+        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A", createdAt = baseTime.plus(1.seconds)))
 
         val forked = service.forkSession(session.id, aiMsg.id)
         val forkedMessages = service.getMessages(forked.id)
@@ -801,10 +802,10 @@ class ChatSessionServiceIT {
 
     @Test
     fun `forkSession should not transfer bookmarks to forked messages`() {
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Bookmark Test"))
         val userMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q", createdAt = baseTime))
-        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A", createdAt = baseTime.plusSeconds(1)))
+        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A", createdAt = baseTime.plus(1.seconds)))
         service.toggleBookmark(userMsg.id)
         service.toggleBookmark(aiMsg.id)
 
@@ -818,7 +819,7 @@ class ChatSessionServiceIT {
 
     @Test
     fun `forkSession should not transfer editParentId to forked messages`() {
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
         val session = sessionRepository.createSession(ChatSession(id = "", title = "EditParent Test"))
         val parentMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Original Q", createdAt = baseTime))
         val aiMsg = service.addMessage(
@@ -827,7 +828,7 @@ class ChatSessionServiceIT {
                 sessionId = session.id,
                 role = MessageRole.ASSISTANT,
                 content = "A",
-                createdAt = baseTime.plusSeconds(1),
+                createdAt = baseTime.plus(1.seconds),
                 editParentId = parentMsg.id,
             ),
         )
@@ -842,10 +843,10 @@ class ChatSessionServiceIT {
 
     @Test
     fun `forkSession should preserve message content and roles`() {
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Content Test"))
         service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "User question", createdAt = baseTime))
-        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "AI answer", createdAt = baseTime.plusSeconds(1)))
+        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "AI answer", createdAt = baseTime.plus(1.seconds)))
 
         val forked = service.forkSession(session.id, aiMsg.id)
         val forkedMessages = service.getMessages(forked.id)
@@ -859,12 +860,12 @@ class ChatSessionServiceIT {
 
     @Test
     fun `forkSession should leave the source session completely untouched`() {
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Source Untouched"))
         service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q1", createdAt = baseTime))
-        val aiMsg1 = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A1", createdAt = baseTime.plusSeconds(1)))
-        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q2", createdAt = baseTime.plusSeconds(2)))
-        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A2", createdAt = baseTime.plusSeconds(3)))
+        val aiMsg1 = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A1", createdAt = baseTime.plus(1.seconds)))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q2", createdAt = baseTime.plus(2.seconds)))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A2", createdAt = baseTime.plus(3.seconds)))
 
         service.forkSession(session.id, aiMsg1.id)
 
@@ -875,17 +876,17 @@ class ChatSessionServiceIT {
 
     @Test
     fun `forkSession should produce a new session independent from the source`() {
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Independence"))
         service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q", createdAt = baseTime))
-        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A", createdAt = baseTime.plusSeconds(1)))
+        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A", createdAt = baseTime.plus(1.seconds)))
 
         val forked = service.forkSession(session.id, aiMsg.id)
 
         assertNotEquals(session.id, forked.id)
 
         // Adding a message to the fork must not appear in the source
-        service.addMessage(ChatMessage(id = "", sessionId = forked.id, role = MessageRole.USER, content = "Fork follow-up", createdAt = baseTime.plusSeconds(2)))
+        service.addMessage(ChatMessage(id = "", sessionId = forked.id, role = MessageRole.USER, content = "Fork follow-up", createdAt = baseTime.plus(2.seconds)))
 
         val sourceMessages = service.getMessages(session.id)
         assertFalse(sourceMessages.any { it.content == "Fork follow-up" })
@@ -904,9 +905,9 @@ class ChatSessionServiceIT {
     @Test
     fun `forkSession throws IllegalArgumentException when message ID is not in active messages`() {
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Bad Message ID"))
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
         service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q", createdAt = baseTime))
-        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A", createdAt = baseTime.plusSeconds(1)))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A", createdAt = baseTime.plus(1.seconds)))
 
         assertThrows<IllegalArgumentException> {
             service.forkSession(session.id, "message-id-that-does-not-exist")
@@ -915,10 +916,10 @@ class ChatSessionServiceIT {
 
     @Test
     fun `forkSession throws IllegalArgumentException when target message ID belongs to an outdated message`() {
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Outdated Target"))
         service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q", createdAt = baseTime))
-        val outdatedAi = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "Old A", createdAt = baseTime.plusSeconds(1)))
+        val outdatedAi = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "Old A", createdAt = baseTime.plus(1.seconds)))
         // Mark the AI message itself as outdated
         messageRepository.markMessageAsOutdated(outdatedAi.id)
 
@@ -930,10 +931,10 @@ class ChatSessionServiceIT {
 
     @Test
     fun `forkSession forked messages all belong to the new session`() {
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Session Ownership"))
         service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Q1", createdAt = baseTime))
-        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A1", createdAt = baseTime.plusSeconds(1)))
+        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "A1", createdAt = baseTime.plus(1.seconds)))
 
         val forked = service.forkSession(session.id, aiMsg.id)
         // Use the domain-level repository to access sessionId on the raw ChatMessage
@@ -946,10 +947,10 @@ class ChatSessionServiceIT {
 
     @Test
     fun `forkSession forked session is retrievable via resumeSession`() {
-        val baseTime = Instant.now()
+        val baseTime = Clock.System.now()
         val session = sessionRepository.createSession(ChatSession(id = "", title = "Resumable Fork"))
         service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Hello", createdAt = baseTime))
-        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "Hi there", createdAt = baseTime.plusSeconds(1)))
+        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "Hi there", createdAt = baseTime.plus(1.seconds)))
 
         val forked = service.forkSession(session.id, aiMsg.id)
         val result = service.resumeSession(forked.id)
