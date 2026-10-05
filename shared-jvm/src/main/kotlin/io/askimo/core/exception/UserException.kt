@@ -92,7 +92,7 @@ class InvalidRequestException(
 
     override fun getMessageKey() = "error.invalid_request"
 
-    override fun getMessageArgs() = mapOf("details" to details)
+    override fun getMessageArgs() = mapOf("details" to details.take(200))
 }
 
 /**
