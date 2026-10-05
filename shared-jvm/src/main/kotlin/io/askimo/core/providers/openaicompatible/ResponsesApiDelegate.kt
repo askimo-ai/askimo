@@ -47,7 +47,7 @@ class ResponsesApiDelegate : OpenAiApiDelegate {
                 val reasoningLevel = ModelCapabilitiesCache.getReasoningLevel(provider, modelName)
                 if (supportsThinking && reasoningLevel.isEnabled) {
                     reasoningEffort(reasoningLevel.value)
-                    reasoningSummary("detailed")
+                    reasoningSummary("auto")
                 }
             }
             .strictTools(true)

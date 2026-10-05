@@ -29,7 +29,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -68,7 +67,6 @@ import io.askimo.core.context.ExecutionMode
 import io.askimo.core.context.MessageRole
 import io.askimo.core.context.getConfigInfo
 import io.askimo.core.db.DatabaseManager
-import io.askimo.core.event.Event
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.ChatCompletedEvent
 import io.askimo.core.event.internal.LanguageDirectiveChangedEvent
@@ -76,7 +74,7 @@ import io.askimo.core.event.internal.NavigateToProviderSettingsEvent
 import io.askimo.core.event.internal.RunCodeEvent
 import io.askimo.core.event.system.InvalidateCacheEvent
 import io.askimo.core.i18n.LocalizationManager
-import io.askimo.core.logging.LogbackConfigurator
+import io.askimo.core.logging.LoggingService
 import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.mcp.McpInstanceService
 import io.askimo.core.providers.ModelProvider
@@ -159,11 +157,8 @@ import io.askimo.ui.session.sessionMemoryDialog
 import io.askimo.ui.session.sessionsView
 import io.askimo.ui.shell.ChatViewState
 import io.askimo.ui.shell.ErrorDialogState
-import io.askimo.ui.shell.EventLogDockPosition
 import io.askimo.ui.shell.NativeMenuBar
 import io.askimo.ui.shell.UpdateViewModel
-import io.askimo.ui.shell.eventLogPanel
-import io.askimo.ui.shell.eventLogWindow
 import io.askimo.ui.shell.feedbackPromptDialog
 import io.askimo.ui.shell.globalErrorHandler
 import io.askimo.ui.shell.globalSearchDialog
@@ -210,12 +205,7 @@ private val log = currentFileLogger()
 
 fun main(args: Array<String>) {
     AskimoHome.register(PersonalAskimoHome)
-
-    // Reconfigure the FILE log appender to use the resolved Askimo home path.
-    // logback.xml cannot reliably resolve ASKIMO_HOME at parse time (before JVM startup),
-    // so we redirect the appender programmatically here, after AskimoHome is registered.
-    LogbackConfigurator.configureLogDirectory(AskimoHome.base().resolve("logs"))
-
+    LoggingService.initialize()
     // UI scale is user-controlled via preferences.
     // Explicit JVM flags (-Dsun.java2d.uiScale, -Dskiko.uiScale) take precedence; otherwise fall
     // back to the saved user preference, then the Linux HiDPI auto-detector.
@@ -280,12 +270,6 @@ fun main(args: Array<String>) {
 
     startKoin {
         modules(allDesktopModules)
-    }
-
-    if (AppConfig.developer.enabled &&
-        AppConfig.developer.active
-    ) {
-        LogbackConfigurator.registerEventBusAppender()
     }
 
     application {
@@ -372,11 +356,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     var showClearPreferencesDialog by remember { mutableStateOf(false) }
     var showPreferencesClearedDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
-    var showEventLogWindow by remember { mutableStateOf(false) }
-    var showEventLogPanel by remember { mutableStateOf(false) }
     var showSystemDiagnosticsDialog by remember { mutableStateOf(false) }
-    var eventLogDockPosition by remember { mutableStateOf(EventLogDockPosition.BOTTOM) }
-    var eventLogPanelSize by remember { mutableStateOf(300.dp) } // Default size
     var showTerminalPanel by remember { mutableStateOf(false) }
     var terminalPanelSize by remember { mutableStateOf(300.dp) } // Default size
     var pendingTerminalCommand by remember { mutableStateOf<PendingTerminalCommand?>(null) }
@@ -412,8 +392,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
 
     // Store chat state per session for restoration when switching
     val sessionChatStates = remember { mutableStateMapOf<String, ChatViewState>() }
-    val eventLogEvents = remember { mutableStateListOf<Event>() }
-    var eventTrimmed by remember { mutableStateOf(false) }
     // Load user profile on startup and detect first run
     LaunchedEffect(Unit) {
         val profileRepo = DatabaseManager.getInstance().getUserProfileRepository()
@@ -434,16 +412,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
             profileRepo.getPersonalizationContext()
         }
         AppContext.getInstance().setUserProfileDirective(personalizationContext)
-    }
-
-    LaunchedEffect(Unit) {
-        EventBus.developerEvents.collect { event ->
-            eventLogEvents.add(0, event)
-            if (eventLogEvents.size > 100) {
-                eventLogEvents.removeAt(100)
-                eventTrimmed = true
-            }
-        }
     }
 
     LaunchedEffect(Unit) {
@@ -733,14 +701,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     val onShowAboutMenuAction = {
         showAboutDialog = true
     }
-    val onShowEventLogMenuAction = {
-        // Toggle between attached panel and detached window.
-        if (!showEventLogPanel && !showEventLogWindow) {
-            showEventLogPanel = true
-        } else if (showEventLogPanel) {
-            showEventLogPanel = false
-        }
-    }
     val onNewChatMenuAction = {
         sessionManager.activeSessionId
             ?.let { sessionManager.getOrCreateChatViewModel(it) }
@@ -842,7 +802,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
             NativeMenuBar.setup(
                 frameWindowScope = scope,
                 onShowAbout = onShowAboutMenuAction,
-                onShowEventLog = onShowEventLogMenuAction,
                 onNewChat = onNewChatMenuAction,
                 onNewProject = onNewProjectMenuAction,
                 onSearchInSessions = onSearchInSessionsMenuAction,
@@ -951,7 +910,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                     onNewProject = onNewProjectMenuAction,
                                     onSearchInSessions = onSearchInSessionsMenuAction,
                                     onShowSettings = onShowSettingsMenuAction,
-                                    onShowEventLog = onShowEventLogMenuAction,
                                     onCheckForUpdates = onCheckForUpdatesMenuAction,
                                     onToggleFullScreen = onToggleFullScreenMenuAction,
                                     onNavigateToDiscover = onNavigateToDiscoverMenuAction,
@@ -1001,32 +959,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                     )
                                 } else {
                                     // Main View - With sidebar and content
-                                    // Main content area - supports event log docking at left/right/bottom
-                                    // Event Log Panel - LEFT position
-                                    if (showEventLogPanel && eventLogDockPosition == EventLogDockPosition.LEFT) {
-                                        eventLogPanel(
-                                            events = eventLogEvents,
-                                            eventTrimmed = eventTrimmed,
-                                            onDetach = {
-                                                showEventLogPanel = false
-                                                showEventLogWindow = true
-                                            },
-                                            onClose = {
-                                                showEventLogPanel = false
-                                            },
-                                            onClearEvents = {
-                                                eventLogEvents.clear()
-                                                eventTrimmed = false
-                                            },
-                                            onDockPositionChange = { newPosition ->
-                                                eventLogDockPosition = newPosition
-                                            },
-                                            currentDockPosition = eventLogDockPosition,
-                                            size = eventLogPanelSize,
-                                            onSizeChange = { newSize -> eventLogPanelSize = newSize },
-                                            modifier = Modifier.fillMaxHeight(),
-                                        )
-                                    }
 
                                     Column(
                                         modifier = Modifier
@@ -1386,32 +1318,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                             } // End Row (sidebar + divider + content)
                                         }
                                     } // End of main content column (chat/sessions)
-
-                                    // Event Log Panel - RIGHT position
-                                    if (showEventLogPanel && eventLogDockPosition == EventLogDockPosition.RIGHT) {
-                                        eventLogPanel(
-                                            events = eventLogEvents,
-                                            eventTrimmed = eventTrimmed,
-                                            onDetach = {
-                                                showEventLogPanel = false
-                                                showEventLogWindow = true
-                                            },
-                                            onClose = {
-                                                showEventLogPanel = false
-                                            },
-                                            onClearEvents = {
-                                                eventLogEvents.clear()
-                                                eventTrimmed = false
-                                            },
-                                            onDockPositionChange = { newPosition ->
-                                                eventLogDockPosition = newPosition
-                                            },
-                                            currentDockPosition = eventLogDockPosition,
-                                            size = eventLogPanelSize,
-                                            onSizeChange = { newSize -> eventLogPanelSize = newSize },
-                                            modifier = Modifier.fillMaxHeight(),
-                                        )
-                                    }
                                 } // End of if-else (Settings OR Chat/Sessions)
                             } // End of Row (Stack body)
 
@@ -1424,32 +1330,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                     settingsViewModel.openAddProviderWizard()
                                 },
                             )
-
-                            // Event Log Panel - BOTTOM position
-                            if (showEventLogPanel && eventLogDockPosition == EventLogDockPosition.BOTTOM) {
-                                eventLogPanel(
-                                    events = eventLogEvents,
-                                    eventTrimmed = eventTrimmed,
-                                    onDetach = {
-                                        showEventLogPanel = false
-                                        showEventLogWindow = true
-                                    },
-                                    onClose = {
-                                        showEventLogPanel = false
-                                    },
-                                    onClearEvents = {
-                                        eventLogEvents.clear()
-                                        eventTrimmed = false
-                                    },
-                                    onDockPositionChange = { newPosition ->
-                                        eventLogDockPosition = newPosition
-                                    },
-                                    currentDockPosition = eventLogDockPosition,
-                                    size = eventLogPanelSize,
-                                    onSizeChange = { newSize -> eventLogPanelSize = newSize },
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                            }
 
                             // Terminal Panel - BOTTOM position
                             if (showTerminalPanel) {
@@ -2192,19 +2072,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                         log.warn("Message not found or has no timestamp after loading: messageId='$messageId'")
                                     }
                                 }
-                            },
-                        )
-                    }
-
-                    // Event Log Window (Developer Mode - Detached)
-                    if (showEventLogWindow) {
-                        eventLogWindow(
-                            events = eventLogEvents,
-                            eventTrimmed = eventTrimmed,
-                            onCloseRequest = { showEventLogWindow = false },
-                            onReattach = {
-                                showEventLogWindow = false
-                                showEventLogPanel = true
                             },
                         )
                     }

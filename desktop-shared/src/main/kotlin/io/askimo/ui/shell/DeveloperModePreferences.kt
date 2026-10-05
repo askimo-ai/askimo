@@ -5,7 +5,6 @@
 package io.askimo.ui.shell
 
 import io.askimo.core.config.AppConfig
-import io.askimo.core.logging.LogbackConfigurator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,7 +30,6 @@ object DeveloperModePreferences {
 
     /**
      * Set developer mode active state and persist to config file.
-     * Also dynamically registers/unregisters EventBusAppender.
      */
     fun setActive(active: Boolean) {
         if (!isEnabled()) {
@@ -42,12 +40,5 @@ object DeveloperModePreferences {
 
         // Persist to config file using generic updateField method
         AppConfig.updateField("developer.active", active)
-
-        // Dynamically register/unregister EventBusAppender
-        if (active) {
-            LogbackConfigurator.registerEventBusAppender()
-        } else {
-            LogbackConfigurator.unregisterEventBusAppender()
-        }
     }
 }

@@ -4,13 +4,14 @@
  */
 package io.askimo.core.logging
 
-import ch.qos.logback.classic.Level
-import ch.qos.logback.classic.LoggerContext
 import co.touchlab.kermit.Severity
+import co.touchlab.kermit.io.RollingFileLogWriter
+import co.touchlab.kermit.io.RollingFileLogWriterConfig
+import co.touchlab.kermit.platformLogWriter
 import io.askimo.core.util.AskimoHome
-import org.slf4j.LoggerFactory
 import java.nio.file.Path
 import co.touchlab.kermit.Logger as KermitLogger
+import kotlinx.io.files.Path as KxPath
 
 /**
  * Desktop-specific LoggingService that integrates Kermit with Logback.
@@ -20,7 +21,7 @@ import co.touchlab.kermit.Logger as KermitLogger
  * File logging is configured via logback.xml and can be reconfigured dynamically.
  */
 object LoggingService {
-    private val log = io.askimo.core.logging.Logger("LoggingService")
+    private val log = Logger("LoggingService")
     private var currentLogLevel: LogLevel = LogLevel.INFO
     private var logDirectory: Path? = null
 
@@ -35,6 +36,18 @@ object LoggingService {
         val resolvedLogsDir = logsDir ?: AskimoHome.logsDir()
         logDirectory = resolvedLogsDir
         resolvedLogsDir.toFile().mkdirs()
+
+        val fileConfig = RollingFileLogWriterConfig(
+            logFileName = "askimo-desktop",
+            logFilePath = KxPath(resolvedLogsDir.toString()),
+        )
+
+        val fileWriter = RollingFileLogWriter(config = fileConfig)
+
+        KermitLogger.setLogWriters(
+            platformLogWriter(), // Keeps Logcat (Android) / OSLog (iOS) / Console (JS) active
+            fileWriter,
+        )
 
         log.info("Logging service initialized. Log directory: $resolvedLogsDir")
     }
@@ -57,46 +70,10 @@ object LoggingService {
             LogLevel.ERROR -> Severity.Error
         }
 
-        try {
-            KermitLogger.setMinSeverity(kermitSeverity)
-        } catch (_: Exception) {
-            // Kermit 2.2.0 might not have setMinSeverity
-            System.err.println("Note: Could not set Kermit severity")
-        }
-
-        // Update Logback's log level as well (more reliable for JVM)
-        updateLogbackLevel(level)
+        KermitLogger.setMinSeverity(kermitSeverity)
 
         log.info("Log level updated to: ${level.name}")
     }
-
-    /**
-     * Updates the logback logger level dynamically.
-     */
-    private fun updateLogbackLevel(level: LogLevel) {
-        val logbackLevel = when (level) {
-            LogLevel.TRACE -> Level.TRACE
-            LogLevel.DEBUG -> Level.DEBUG
-            LogLevel.INFO -> Level.INFO
-            LogLevel.WARN -> Level.WARN
-            LogLevel.ERROR -> Level.ERROR
-        }
-
-        try {
-            val loggerContext = LoggerFactory.getILoggerFactory() as? LoggerContext ?: return
-            val askimoLogger = loggerContext.getLogger("io.askimo")
-            askimoLogger.level = logbackLevel
-        } catch (_: Exception) {
-            System.err.println("Failed to update logback level")
-        }
-    }
-
-    /**
-     * Gets the current log level.
-     *
-     * @return The current log level
-     */
-    fun getCurrentLogLevel(): LogLevel = currentLogLevel
 
     /**
      * Gets the path to the current log file.
