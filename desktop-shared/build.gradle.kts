@@ -42,9 +42,8 @@ dependencies {
     // Terminal support
     implementation(libs.bundles.jediterm)
     // JVM-specific logging (Kermit backend + SLF4J bridge + Logback)
+    implementation(libs.kermit.io)
     implementation(libs.kermit.jvm)
-    implementation(libs.slf4j.api)
-    implementation(libs.logback.classic)
     // PDF export (OpenPDF / LibrePDF)
     implementation(libs.openpdf)
     // Word export

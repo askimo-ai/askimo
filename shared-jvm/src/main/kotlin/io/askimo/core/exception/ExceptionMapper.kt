@@ -54,7 +54,7 @@ object ExceptionMapper {
         }
 
         // Try to match by message pattern (checking all messages in chain)
-        val allMessages = exceptionChain.mapNotNull { it.message }
+        val allMessages = exceptionChain.mapNotNull { it.message }.toSet()
         return matchByMessage(allMessages, rootCause)
     }
 
@@ -138,7 +138,7 @@ object ExceptionMapper {
      * @param rootCause The root cause exception to use in the created AskimoException
      * @return An AskimoException based on message pattern matching
      */
-    private fun matchByMessage(messages: List<String>, rootCause: Throwable): AskimoException {
+    private fun matchByMessage(messages: Set<String>, rootCause: Throwable): AskimoException {
         val combinedMessage = messages.joinToString(" | ")
 
         return when {
@@ -255,7 +255,7 @@ object ExceptionMapper {
                 combinedMessage.contains("invalid request", ignoreCase = true) ||
                 combinedMessage.contains("malformed", ignoreCase = true) ->
                 InvalidRequestException(
-                    details = combinedMessage.take(200),
+                    details = combinedMessage,
                     cause = rootCause,
                 )
 

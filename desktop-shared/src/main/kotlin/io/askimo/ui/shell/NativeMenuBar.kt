@@ -65,7 +65,6 @@ object NativeMenuBar {
         onNewProject: () -> Unit,
         onSearchInSessions: () -> Unit,
         onShowSettings: () -> Unit,
-        onShowEventLog: () -> Unit,
         onCheckForUpdates: () -> Unit,
         onToggleFullScreen: () -> Unit,
         onNavigateToDiscover: () -> Unit,
@@ -96,7 +95,7 @@ object NativeMenuBar {
 
         // Use native AWT menu bar only on macOS to avoid CJK glyph issues on some platforms.
         if (Platform.isMac) {
-            setupAWTMenuBar(window, onShowAbout, onNewChat, onNewProject, onSearchInSessions, onShowSettings, onShowEventLog, onCheckForUpdates, onToggleFullScreen, onNavigateToDiscover, onToggleSidebar, onInvalidateCaches, onExportBackup, onImportBackup, onShowGettingStarted, onOpenTerminal, onClearPreferences, onClearAccountPreferences, onTogglePlans, onToggleAgents, onToggleProjects, onToggleResourceCollections, isPlansVisible, isAgentsVisible, isProjectsVisible, isResourceCollectionsVisible, isFullScreen, onShowSystemDiagnostics, onNavigateToBookmarks, onSupportAskimo, onShareFeedback, onShowKeyboardShortcuts)
+            setupAWTMenuBar(window, onShowAbout, onNewChat, onNewProject, onSearchInSessions, onShowSettings, onCheckForUpdates, onToggleFullScreen, onNavigateToDiscover, onToggleSidebar, onInvalidateCaches, onExportBackup, onImportBackup, onShowGettingStarted, onOpenTerminal, onClearPreferences, onClearAccountPreferences, onTogglePlans, onToggleAgents, onToggleProjects, onToggleResourceCollections, isPlansVisible, isAgentsVisible, isProjectsVisible, isResourceCollectionsVisible, isFullScreen, onShowSystemDiagnostics, onNavigateToBookmarks, onSupportAskimo, onShareFeedback, onShowKeyboardShortcuts)
 
             // Register About handler in the macOS application menu.
             setupMacAboutHandler(onShowAbout)
@@ -124,7 +123,6 @@ object NativeMenuBar {
         onNewProject: () -> Unit,
         onSearchInSessions: () -> Unit,
         onShowSettings: () -> Unit,
-        onShowEventLog: () -> Unit,
         onCheckForUpdates: () -> Unit,
         onToggleFullScreen: () -> Unit,
         onNavigateToDiscover: () -> Unit,
@@ -455,13 +453,6 @@ object NativeMenuBar {
                 onCheckForUpdates()
             }
             helpMenu.add(checkUpdatesItem)
-
-            // Event Log (Developer Tools)
-            val eventLogItem = MenuItem(menuLabel("menu.eventlog"))
-            eventLogItem.addActionListener {
-                onShowEventLog()
-            }
-            helpMenu.add(eventLogItem)
 
             // Open Model Capabilities File
             val modelCapabilitiesItem = MenuItem(menuLabel("menu.help.model.capabilities"))

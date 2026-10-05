@@ -38,8 +38,6 @@ dependencies {
     implementation(libs.bundles.commonmark)
     implementation(kotlin("stdlib"))
     implementation(project(":shared-jvm"))
-    implementation(libs.slf4j.api)
-    implementation(libs.logback.classic)
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockito.kotlin)

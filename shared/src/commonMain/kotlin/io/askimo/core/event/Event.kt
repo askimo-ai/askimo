@@ -22,11 +22,6 @@ enum class EventType {
     INTERNAL,
 
     /**
-     * Events for debugging and development tools (shown only in dev mode)
-     */
-    DEVELOPER,
-
-    /**
      * Error events that need user attention (shown as error dialogs/notifications)
      */
     ERROR,
@@ -51,12 +46,6 @@ interface Event {
     fun getDetails(): String
 }
 
-/**
- * Base interface for developer events (debugging and diagnostics)
- */
-interface DeveloperEvent : Event {
-    override val type: EventType get() = EventType.DEVELOPER
-}
 
 /**
  * Event sources/categories for organization and filtering

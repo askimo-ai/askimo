@@ -65,7 +65,6 @@ fun composeTopMenuBar(
     onNewProject: () -> Unit,
     onSearchInSessions: () -> Unit,
     onShowSettings: () -> Unit,
-    onShowEventLog: () -> Unit,
     onCheckForUpdates: () -> Unit,
     onToggleFullScreen: () -> Unit,
     onNavigateToDiscover: () -> Unit,
@@ -256,10 +255,6 @@ fun composeTopMenuBar(
                 menuAction("menu.help.check.updates") {
                     expandedMenu = null
                     onCheckForUpdates()
-                }
-                menuAction("menu.eventlog") {
-                    expandedMenu = null
-                    onShowEventLog()
                 }
                 menuAction("menu.help.model.capabilities") {
                     expandedMenu = null

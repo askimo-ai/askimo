@@ -19,12 +19,6 @@ import kotlinx.coroutines.launch
 object EventBus {
     private val eventScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    // Developer events only (shown in developer dialog when enabled)
-    private val _developerEvents = MutableSharedFlow<Event>(
-        replay = 100, // Keep history for developer view
-        extraBufferCapacity = 500,
-    )
-
     // User events only (shown to end users)
     private val _userEvents = MutableSharedFlow<Event>(
         replay = 0,
@@ -42,12 +36,6 @@ object EventBus {
         replay = 0,
         extraBufferCapacity = 100,
     )
-
-    /**
-     * Developer-only events (requires developer mode enabled)
-     * Subscribe to this for debugging/development tools
-     */
-    val developerEvents: SharedFlow<Event> = _developerEvents.asSharedFlow()
 
     /**
      * User-facing events (shown to end users)
@@ -73,7 +61,6 @@ object EventBus {
      */
     suspend fun emit(event: Event) {
         when (event.type) {
-            EventType.DEVELOPER -> _developerEvents.emit(event)
             EventType.INTERNAL -> _internalEvents.emit(event)
             EventType.USER -> _userEvents.emit(event)
             EventType.ERROR -> _errorEvents.emit(event)

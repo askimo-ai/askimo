@@ -9,8 +9,6 @@ kotlinxSerializationJson = "1.11.0"
 kotlinxCoroutines = "1.11.0"
 kotlinxDatetime = "0.8.0"
 kermit = "2.2.0"
-slf4j = "2.0.17"
-logback = "1.5.21"
 junitBom = "5.14.0"
 testcontainers = "1.21.3"
 mockitoKotlin = "6.3.0"
@@ -113,11 +111,8 @@ mp3spi = { module = "com.googlecode.soundlibs:mp3spi", version.ref = "mp3spi" }
 
 # Kermit Logging (Kotlin Multiplatform)
 kermit = { module = "co.touchlab:kermit", version.ref = "kermit" }
+kermit-io = { module = "co.touchlab:kermit-io", version.ref = "kermit" }
 kermit-jvm = { module = "co.touchlab:kermit-jvm", version.ref = "kermit" }
-
-# Logging
-slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
-logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 
 # Apache Tika (File type detection and content extraction)
 tika-core = { module = "org.apache.tika:tika-core", version.ref = "tika" }
