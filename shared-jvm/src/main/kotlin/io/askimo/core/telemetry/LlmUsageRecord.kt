@@ -4,7 +4,8 @@
  */
 package io.askimo.core.telemetry
 
-import java.time.Instant
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * Persisted record of a single LLM call (success or error).
@@ -22,7 +23,7 @@ import java.time.Instant
  */
 data class LlmUsageRecord(
     val id: Long = 0,
-    val timestamp: Instant = Instant.now(),
+    val timestamp: Instant = Clock.System.now(),
     val provider: String,
     val model: String,
     val instanceId: String? = null,

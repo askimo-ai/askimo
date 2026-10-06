@@ -44,4 +44,3 @@ data class AttachmentReference(
     val messageId: String,
     val sessionId: String,
 )
-

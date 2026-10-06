@@ -23,4 +23,3 @@ data class ChatSession(
 )
 
 const val SESSION_TITLE_MAX_LENGTH = 256
-

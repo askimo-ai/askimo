@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS user_interests (
     id TEXT PRIMARY KEY,
     profile_id TEXT NOT NULL,
     interest TEXT NOT NULL,
-    created_at TEXT NOT NULL,
+    created_at TEXT AS kotlin.time.Instant NOT NULL,
     FOREIGN KEY (profile_id) REFERENCES user_profiles(id) ON DELETE CASCADE
 );
 

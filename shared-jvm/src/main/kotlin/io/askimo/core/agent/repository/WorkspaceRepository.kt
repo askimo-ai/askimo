@@ -9,7 +9,6 @@ import io.askimo.core.db.AbstractRepository
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.db.sqldelight.Workspaces
 import io.askimo.core.logging.logger
-import io.askimo.core.util.TimeUtil
 import java.io.File
 import kotlin.time.Clock
 
@@ -17,8 +16,8 @@ private fun Workspaces.toWorkspace(): Workspace = Workspace(
     id = id,
     name = name,
     path = path,
-    createdAt = TimeUtil.parseInstant(created_at),
-    lastUsedAt = TimeUtil.parseInstant(last_used_at),
+    createdAt = created_at,
+    lastUsedAt = last_used_at,
     pinned = pinned == 1L,
 )
 
@@ -56,7 +55,7 @@ class WorkspaceRepository internal constructor(
 
         val existing = queries.selectWorkspaceByPath(path).executeAsOneOrNull()?.toWorkspace()
         if (existing != null) {
-            queries.updateWorkspaceLastUsedAt(lastUsedAt = now.toString(), id = existing.id)
+            queries.updateWorkspaceLastUsedAt(lastUsedAt = now, id = existing.id)
             return existing.copy(lastUsedAt = now)
         }
 
@@ -70,8 +69,8 @@ class WorkspaceRepository internal constructor(
             id = workspace.id,
             name = workspace.name,
             path = workspace.path,
-            createdAt = workspace.createdAt.toString(),
-            lastUsedAt = workspace.lastUsedAt.toString(),
+            createdAt = workspace.createdAt,
+            lastUsedAt = workspace.lastUsedAt,
             pinned = if (workspace.pinned) 1L else 0L,
         )
         log.debug("Registered new workspace '{}' at '{}'", workspace.name, workspace.path)
@@ -80,7 +79,7 @@ class WorkspaceRepository internal constructor(
 
     /** Bumps [Workspace.lastUsedAt] to now, without changing anything else. */
     fun touch(id: String) {
-        queries.updateWorkspaceLastUsedAt(lastUsedAt = Clock.System.now().toString(), id = id)
+        queries.updateWorkspaceLastUsedAt(lastUsedAt = Clock.System.now(), id = id)
     }
 
     /** Renames a workspace's display name. Does not affect its filesystem path. */

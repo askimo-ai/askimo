@@ -8,25 +8,13 @@ import io.askimo.core.db.AbstractRepository
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.db.sqldelight.User_profiles
 import io.askimo.core.user.domain.UserProfile
-import io.askimo.core.util.TimeUtil
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import java.util.UUID
 import kotlin.time.Clock
-
-/** Current wall-clock time as a [kotlinx.datetime.LocalDateTime], matching [UserProfile]'s time fields. */
-private fun nowLocalDateTime() = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
 
 /**
  * Maps a generated [User_profiles] row to the shared [UserProfile] domain object.
  * Interests/preferences are loaded separately and merged in by the caller (mirrors the
  * original Exposed repository's [getProfile] composition).
- *
- * `created_at`/`updated_at` are parsed via [TimeUtil.parseLocalDateTime], which tolerates both
- * the canonical ISO-8601 format written by this repository and the legacy space-separated
- * format written by the old Exposed `javatime.datetime()` column type (e.g.
- * `2026-09-09 12:46:12.696`) — no data migration needed, rows written under any historical
- * schema remain readable.
  */
 private fun User_profiles.toUserProfile(): UserProfile = UserProfile(
     id = id,
@@ -37,8 +25,8 @@ private fun User_profiles.toUserProfile(): UserProfile = UserProfile(
     location = location,
     timezone = timezone,
     bio = bio,
-    createdAt = TimeUtil.parseLocalDateTime(created_at),
-    updatedAt = TimeUtil.parseLocalDateTime(updated_at),
+    createdAt = created_at,
+    updatedAt = updated_at,
 )
 
 /**
@@ -69,8 +57,8 @@ class UserProfileRepository internal constructor(
         if (profileRow == null) {
             val defaultProfile = UserProfile(
                 id = DEFAULT_PROFILE_ID,
-                createdAt = nowLocalDateTime(),
-                updatedAt = nowLocalDateTime(),
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
             )
             saveProfile(defaultProfile)
             return defaultProfile
@@ -98,7 +86,7 @@ class UserProfileRepository internal constructor(
     fun saveProfile(profile: UserProfile): UserProfile {
         val profileToSave = profile.copy(
             id = DEFAULT_PROFILE_ID,
-            updatedAt = nowLocalDateTime(),
+            updatedAt = Clock.System.now(),
         )
 
         db.transaction {
@@ -113,7 +101,7 @@ class UserProfileRepository internal constructor(
                     location = profileToSave.location,
                     timezone = profileToSave.timezone,
                     bio = profileToSave.bio,
-                    updatedAt = profileToSave.updatedAt.toString(),
+                    updatedAt = profileToSave.updatedAt,
                     id = DEFAULT_PROFILE_ID,
                 )
             } else {
@@ -126,8 +114,8 @@ class UserProfileRepository internal constructor(
                     location = profileToSave.location,
                     timezone = profileToSave.timezone,
                     bio = profileToSave.bio,
-                    createdAt = profileToSave.createdAt.toString(),
-                    updatedAt = profileToSave.updatedAt.toString(),
+                    createdAt = profileToSave.createdAt,
+                    updatedAt = profileToSave.updatedAt,
                 )
             }
 
@@ -206,7 +194,7 @@ class UserProfileRepository internal constructor(
      */
     private fun saveInterests(profileId: String, interests: List<String>) {
         db.userInterestsQueries.deleteByProfileId(profileId)
-        val now = nowLocalDateTime().toString()
+        val now = Clock.System.now()
         interests.forEach { interest ->
             db.userInterestsQueries.insertInterest(
                 id = UUID.randomUUID().toString(),
@@ -222,7 +210,7 @@ class UserProfileRepository internal constructor(
      */
     private fun savePreferences(profileId: String, preferences: Map<String, String>) {
         db.userPreferencesQueries.deleteByProfileId(profileId)
-        val now = nowLocalDateTime().toString()
+        val now = Clock.System.now()
         preferences.forEach { (key, value) ->
             db.userPreferencesQueries.insertPreference(
                 id = UUID.randomUUID().toString(),
@@ -252,7 +240,7 @@ class UserProfileRepository internal constructor(
     fun setPreference(key: String, value: String) {
         db.transaction {
             val exists = db.userPreferencesQueries.selectValue(DEFAULT_PROFILE_ID, key).executeAsOneOrNull() != null
-            val now = nowLocalDateTime().toString()
+            val now = Clock.System.now()
 
             if (exists) {
                 db.userPreferencesQueries.updatePreference(

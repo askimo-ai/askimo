@@ -18,7 +18,7 @@ class TurnTimelineEntryAppendDedupedTest {
     private fun status(text: String) = TurnTimelineEntry.Status(text)
     private fun thinking(text: String) = TurnTimelineEntry.Thinking(text)
     private fun token(text: String) = TurnTimelineEntry.Token(text)
-    private fun tool(name: String) = TurnTimelineEntry.Tool(ToolCallInfo(toolName = name, status = ToolCallStatus.RUNNING))
+    private fun tool(name: String) = TurnTimelineEntry.Tool(ToolCallInfo(toolName = name, status = ToolCallStatus.RUNNING, startedAtMillis = 0L))
 
     @Test
     fun `identical consecutive Status entries collapse into one`() {

@@ -24,4 +24,3 @@ data class FileAttachmentDTO(
     val filePath: String? = null, // Temporary file path during composition
     val storagePath: String? = null, // Persistent storage path after message is saved
 )
-

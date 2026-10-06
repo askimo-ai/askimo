@@ -38,7 +38,7 @@ class ResourceSegmentRepository internal constructor(
         if (segmentIds.isEmpty()) return
 
         val normalizedId = resourceId.replace('\\', '/')
-        val nowStr = Clock.System.now().toString()
+        val now = Clock.System.now()
 
         db.transaction {
             segmentIds.forEach { (segmentId, chunkIndex) ->
@@ -47,7 +47,7 @@ class ResourceSegmentRepository internal constructor(
                     filePath = normalizedId,
                     segmentId = segmentId,
                     chunkIndex = chunkIndex.toLong(),
-                    createdAt = nowStr,
+                    createdAt = now,
                 )
             }
         }

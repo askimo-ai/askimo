@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS user_memory (
     id TEXT PRIMARY KEY DEFAULT 'default',
     memory_json TEXT NOT NULL,
-    last_updated TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    last_updated TEXT AS kotlin.time.Instant NOT NULL,
+    created_at TEXT AS kotlin.time.Instant NOT NULL
 );
 
 selectById:

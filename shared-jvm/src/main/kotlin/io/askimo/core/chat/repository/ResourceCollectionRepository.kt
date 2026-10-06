@@ -16,7 +16,6 @@ import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.PushDataToServerEvent
 import io.askimo.core.logging.logger
 import io.askimo.core.rag.state.IndexStatus
-import io.askimo.core.util.TimeUtil
 import java.util.UUID
 import kotlin.time.Clock
 
@@ -28,11 +27,11 @@ private fun Resource_collections.toResourceCollection(): ResourceCollection = Re
     name = name,
     description = description,
     knowledgeSources = KnowledgeSourceSerializer.deserialize(knowledge_sources_config),
-    createdAt = TimeUtil.parseInstant(created_at),
-    updatedAt = TimeUtil.parseInstant(updated_at),
+    createdAt = created_at,
+    updatedAt = updated_at,
     isSystemCollection = is_system_collection == 1L,
     indexStatus = runCatching { IndexStatus.valueOf(index_status) }.getOrDefault(IndexStatus.NOT_STARTED),
-    lastIndexedAt = last_indexed_at?.let { TimeUtil.parseInstant(it) },
+    lastIndexedAt = last_indexed_at,
     indexError = index_error,
 )
 
@@ -69,11 +68,11 @@ class ResourceCollectionRepository internal constructor(
             name = collectionWithId.name,
             description = collectionWithId.description,
             knowledgeSourcesConfig = KnowledgeSourceSerializer.serialize(collectionWithId.knowledgeSources),
-            createdAt = collectionWithId.createdAt.toString(),
-            updatedAt = collectionWithId.updatedAt.toString(),
+            createdAt = collectionWithId.createdAt,
+            updatedAt = collectionWithId.updatedAt,
             isSystemCollection = if (collectionWithId.isSystemCollection) 1L else 0L,
             indexStatus = collectionWithId.indexStatus.name,
-            lastIndexedAt = collectionWithId.lastIndexedAt?.toString(),
+            lastIndexedAt = collectionWithId.lastIndexedAt,
             indexError = collectionWithId.indexError,
         )
 
@@ -206,14 +205,14 @@ class ResourceCollectionRepository internal constructor(
         // status that no longer matches the actual vectors.
         val previousConfig = queries.selectKnowledgeSourcesConfigById(collectionId).executeAsOneOrNull()
         val sourcesChanged = previousConfig != null && previousConfig != newConfig
-        val nowStr = Clock.System.now().toString()
+        val now = Clock.System.now()
 
         val updated = if (sourcesChanged) {
             queries.updateCollectionResetIndex(
                 name = name,
                 description = description,
                 knowledgeSourcesConfig = newConfig,
-                updatedAt = nowStr,
+                updatedAt = now,
                 indexStatus = IndexStatus.NOT_STARTED.name,
                 id = collectionId,
             ).value > 0
@@ -222,7 +221,7 @@ class ResourceCollectionRepository internal constructor(
                 name = name,
                 description = description,
                 knowledgeSourcesConfig = newConfig,
-                updatedAt = nowStr,
+                updatedAt = now,
                 id = collectionId,
             ).value > 0
         }
@@ -249,7 +248,7 @@ class ResourceCollectionRepository internal constructor(
         status: IndexStatus,
         error: String? = null,
     ): Boolean = when (status) {
-        IndexStatus.READY -> queries.updateIndexStatusReady(status.name, Clock.System.now().toString(), collectionId)
+        IndexStatus.READY -> queries.updateIndexStatusReady(status.name, Clock.System.now(), collectionId)
         IndexStatus.FAILED -> queries.updateIndexStatusFailed(status.name, error, collectionId)
         else -> queries.updateIndexStatusOther(status.name, collectionId)
     }.value > 0
@@ -312,7 +311,7 @@ class ResourceCollectionRepository internal constructor(
      * @param collectionId The collection id
      * @return true if updated successfully
      */
-    fun markSynced(collectionId: String): Boolean = queries.markSynced(Clock.System.now().toString(), collectionId).value > 0
+    fun markSynced(collectionId: String): Boolean = queries.markSynced(Clock.System.now(), collectionId).value > 0
 
     /**
      * Upsert collections from server (for sync).
@@ -322,11 +321,11 @@ class ResourceCollectionRepository internal constructor(
         if (collections.isEmpty()) return
 
         db.transaction {
-            val nowStr = Clock.System.now().toString()
+            val now = Clock.System.now()
             val ids = collections.map { it.id }
 
             val existingById = queries.selectExistingByIds(ids).executeAsList()
-                .associate { it.id to TimeUtil.parseInstant(it.updated_at) }
+                .associate { it.id to it.updated_at }
 
             for (collection in collections) {
                 val storedUpdatedAt = existingById[collection.id]
@@ -336,10 +335,10 @@ class ResourceCollectionRepository internal constructor(
                         name = collection.name,
                         description = collection.description,
                         knowledgeSourcesConfig = KnowledgeSourceSerializer.serialize(collection.knowledgeSources),
-                        createdAt = collection.createdAt.toString(),
-                        updatedAt = collection.updatedAt.toString(),
+                        createdAt = collection.createdAt,
+                        updatedAt = collection.updatedAt,
                         isSystemCollection = if (collection.isSystemCollection) 1L else 0L,
-                        syncedAt = nowStr,
+                        syncedAt = now,
                     )
                     log.debug("upsertFromServer: inserted collection ${collection.id}")
                 } else if (collection.updatedAt > storedUpdatedAt) {
@@ -347,8 +346,8 @@ class ResourceCollectionRepository internal constructor(
                         name = collection.name,
                         description = collection.description,
                         knowledgeSourcesConfig = KnowledgeSourceSerializer.serialize(collection.knowledgeSources),
-                        updatedAt = collection.updatedAt.toString(),
-                        syncedAt = nowStr,
+                        updatedAt = collection.updatedAt,
+                        syncedAt = now,
                         isSystemCollection = if (collection.isSystemCollection) 1L else 0L,
                         id = collection.id,
                     )

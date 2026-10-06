@@ -5,9 +5,7 @@
 package io.askimo.core.user.domain
 
 import kotlin.time.Clock
-import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Instant
 
 /**
  * User profile data class representing the user's personal information
@@ -24,7 +22,6 @@ data class UserProfile(
     val bio: String? = null,
     val interests: List<String> = emptyList(),
     val preferences: Map<String, String> = emptyMap(),
-    val createdAt: LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()),
-    val updatedAt: LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()),
+    val createdAt: Instant = Clock.System.now(),
+    val updatedAt: Instant = Clock.System.now(),
 )
-

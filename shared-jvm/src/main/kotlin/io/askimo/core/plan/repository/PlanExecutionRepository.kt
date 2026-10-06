@@ -12,7 +12,6 @@ import io.askimo.core.plan.domain.PlanExecution
 import io.askimo.core.plan.domain.PlanExecutionStatus
 import io.askimo.core.plan.domain.PlanStepOutput
 import io.askimo.core.util.JsonUtils.json
-import io.askimo.core.util.TimeUtil
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -41,8 +40,8 @@ private fun Plan_executions.toPlanExecution() = PlanExecution(
     totalTokens = total_tokens?.toInt(),
     totalDurationMs = total_duration_ms,
     errorMessage = error_message,
-    createdAt = TimeUtil.parseInstant(created_at),
-    updatedAt = TimeUtil.parseInstant(updated_at),
+    createdAt = created_at,
+    updatedAt = updated_at,
 )
 
 private fun encodeInputs(inputs: Map<String, String>): String = inputs.entries.joinToString("\n") { (k, v) -> "$k=${v.replace("\n", "\\n")}" }
@@ -145,8 +144,8 @@ class PlanExecutionRepository internal constructor(
             totalTokens = record.totalTokens?.toLong(),
             totalDurationMs = record.totalDurationMs,
             errorMessage = record.errorMessage,
-            createdAt = record.createdAt.toString(),
-            updatedAt = record.updatedAt.toString(),
+            createdAt = record.createdAt,
+            updatedAt = record.updatedAt,
         )
 
         log.debug("Created plan execution '{}' for plan '{}'", record.id, record.planId)
@@ -171,7 +170,7 @@ class PlanExecutionRepository internal constructor(
             totalDurationMs = record.totalDurationMs,
             errorMessage = record.errorMessage,
             runCount = record.runCount.toLong(),
-            updatedAt = record.updatedAt.toString(),
+            updatedAt = record.updatedAt,
             id = record.id,
         )
 
@@ -189,7 +188,7 @@ class PlanExecutionRepository internal constructor(
         queries.updateStatus(
             status = status.name,
             errorMessage = errorMessage,
-            updatedAt = Clock.System.now().toString(),
+            updatedAt = Clock.System.now(),
             id = id,
         )
     }

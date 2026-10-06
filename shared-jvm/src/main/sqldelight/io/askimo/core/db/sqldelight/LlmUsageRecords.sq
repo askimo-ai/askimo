@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS llm_usage_records (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp     TEXT    NOT NULL,
+    timestamp     TEXT AS kotlin.time.Instant NOT NULL,
     provider      TEXT    NOT NULL,
     model         TEXT    NOT NULL,
     instance_id   TEXT,

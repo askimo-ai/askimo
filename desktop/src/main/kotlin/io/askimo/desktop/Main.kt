@@ -193,7 +193,6 @@ import java.awt.event.WindowFocusListener
 import java.net.URI
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.time.Instant
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -291,7 +290,7 @@ fun main(args: Array<String>) {
             onCloseRequest = {
                 val messageCount = runCatching {
                     val t = AppContext.getInstance().telemetry
-                    t.usageRepository.countByPeriod(t.sessionStart, Instant.now())
+                    t.usageRepository.countByPeriod(t.sessionStart, kotlin.time.Clock.System.now())
                 }.getOrDefault(0)
                 Analytics.trackSessionEnd(messageCount)
                 Analytics.shutdown()

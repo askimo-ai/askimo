@@ -31,4 +31,3 @@ data class ResourceCollection(
     /** Error from the last failed indexing attempt, or null if it succeeded (or never ran). */
     val indexError: String? = null,
 )
-

@@ -15,7 +15,6 @@ import io.askimo.core.db.sqldelight.Projects
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.PushDataToServerEvent
 import io.askimo.core.logging.logger
-import io.askimo.core.util.TimeUtil
 import java.util.UUID
 import kotlin.time.Clock
 
@@ -27,8 +26,8 @@ private fun Projects.toProject(): Project = Project(
     name = name,
     description = description,
     knowledgeSources = KnowledgeSourceSerializer.deserialize(indexed_paths),
-    createdAt = TimeUtil.parseInstant(created_at),
-    updatedAt = TimeUtil.parseInstant(updated_at),
+    createdAt = created_at,
+    updatedAt = updated_at,
     isStarred = is_starred == 1L,
     defaultDirectiveId = default_directive_id,
 )
@@ -58,8 +57,8 @@ class ProjectRepository internal constructor(
             name = projectWithInjectedFields.name,
             description = projectWithInjectedFields.description,
             indexedPaths = KnowledgeSourceSerializer.serialize(projectWithInjectedFields.knowledgeSources),
-            createdAt = projectWithInjectedFields.createdAt.toString(),
-            updatedAt = projectWithInjectedFields.updatedAt.toString(),
+            createdAt = projectWithInjectedFields.createdAt,
+            updatedAt = projectWithInjectedFields.updatedAt,
             defaultDirectiveId = projectWithInjectedFields.defaultDirectiveId,
         )
 
@@ -120,7 +119,7 @@ class ProjectRepository internal constructor(
             name = name,
             description = description,
             indexedPaths = KnowledgeSourceSerializer.serialize(knowledgeSources),
-            updatedAt = Clock.System.now().toString(),
+            updatedAt = Clock.System.now(),
             id = projectId,
         ).value > 0
 
@@ -142,7 +141,7 @@ class ProjectRepository internal constructor(
     fun setDefaultDirective(projectId: String, directiveId: String?): Boolean {
         val updated = queries.setDefaultDirective(
             defaultDirectiveId = directiveId,
-            updatedAt = Clock.System.now().toString(),
+            updatedAt = Clock.System.now(),
             id = projectId,
         ).value > 0
 
@@ -231,14 +230,14 @@ class ProjectRepository internal constructor(
         .take(limit)
 
     /** Mark a project as successfully synced to the server. */
-    fun markSynced(projectId: String): Boolean = queries.markSynced(Clock.System.now().toString(), projectId).value > 0
+    fun markSynced(projectId: String): Boolean = queries.markSynced(Clock.System.now(), projectId).value > 0
 
     /** Upsert projects */
     fun upsertFromServer(projects: List<Project>) {
         if (projects.isEmpty()) return
 
         db.transaction {
-            val nowStr = Clock.System.now().toString()
+            val now = Clock.System.now()
             val ids = projects.map { it.id }
 
             val existingById = queries.selectExistingByIds(ids).executeAsList()
@@ -253,19 +252,19 @@ class ProjectRepository internal constructor(
                         name = project.name,
                         description = project.description,
                         indexedPaths = KnowledgeSourceSerializer.serialize(project.knowledgeSources),
-                        createdAt = project.createdAt.toString(),
-                        updatedAt = project.updatedAt.toString(),
-                        syncedAt = nowStr,
+                        createdAt = project.createdAt,
+                        updatedAt = project.updatedAt,
+                        syncedAt = now,
                         defaultDirectiveId = project.defaultDirectiveId,
                     )
                     log.debug("upsertFromServer: inserted project {}", project.id)
-                } else if (project.updatedAt > TimeUtil.parseInstant(storedUpdatedAt)) {
+                } else if (project.updatedAt > storedUpdatedAt) {
                     queries.updateFromServer(
                         name = project.name,
                         description = project.description,
                         indexedPaths = KnowledgeSourceSerializer.serialize(project.knowledgeSources),
-                        updatedAt = project.updatedAt.toString(),
-                        syncedAt = nowStr,
+                        updatedAt = project.updatedAt,
+                        syncedAt = now,
                         defaultDirectiveId = project.defaultDirectiveId,
                         id = project.id,
                     )

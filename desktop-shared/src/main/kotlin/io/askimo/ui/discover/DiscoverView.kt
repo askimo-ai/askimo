@@ -91,11 +91,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.awt.Desktop
 import java.net.URI
-import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Instant
+import kotlin.time.toJavaInstant
 
 /**
  * Abbreviates a token count to a compact, locale-aware string.
@@ -380,11 +383,11 @@ private sealed class TokenUsagePeriod {
 
     /** Returns the [from, to) instant pair for this period. */
     fun toTimeRange(): Pair<Instant, Instant> {
-        val now = Instant.now()
+        val now = Clock.System.now()
         return when (this) {
-            is Past24Hours -> now.minus(24, ChronoUnit.HOURS) to now
-            is PastWeek -> now.minus(7, ChronoUnit.DAYS) to now
-            is PastMonth -> now.minus(30, ChronoUnit.DAYS) to now
+            is Past24Hours -> now - 24.hours to now
+            is PastWeek -> now - 7.days to now
+            is PastMonth -> now - 30.days to now
             is Custom -> from to to
         }
     }
@@ -475,10 +478,10 @@ private fun tokenUsageCustomDateDialog(
 ) {
     var step by remember { mutableStateOf(1) }
     val fromState = rememberDatePickerState(
-        initialSelectedDateMillis = Instant.now().minus(30, ChronoUnit.DAYS).toEpochMilli(),
+        initialSelectedDateMillis = (Clock.System.now() - 30.days).toEpochMilliseconds(),
     )
     val toState = rememberDatePickerState(
-        initialSelectedDateMillis = Instant.now().toEpochMilli(),
+        initialSelectedDateMillis = Clock.System.now().toEpochMilliseconds(),
     )
 
     if (step == 1) {
@@ -525,9 +528,9 @@ private fun tokenUsageCustomDateDialog(
                         val toMillis = toState.selectedDateMillis
                         if (fromMillis != null && toMillis != null) {
                             onConfirm(
-                                Instant.ofEpochMilli(fromMillis),
+                                Instant.fromEpochMilliseconds(fromMillis),
                                 // advance by one day so the full "to" day is included in the query
-                                Instant.ofEpochMilli(toMillis).plus(1, ChronoUnit.DAYS),
+                                Instant.fromEpochMilliseconds(toMillis) + 1.days,
                             )
                         }
                     },
@@ -577,9 +580,9 @@ private fun tokenUsageSectionHeader(
     val shortFmt = DateTimeFormatter.ofPattern("MMM d")
     val periodLabel = when (selectedPeriod) {
         is TokenUsagePeriod.Custom -> {
-            val fromStr = selectedPeriod.from.atZone(zone).format(shortFmt)
+            val fromStr = selectedPeriod.from.toJavaInstant().atZone(zone).format(shortFmt)
             // "to" was advanced by +1 day for inclusive querying — display the original selected day
-            val toStr = selectedPeriod.to.minus(1, ChronoUnit.DAYS).atZone(zone).format(shortFmt)
+            val toStr = (selectedPeriod.to - 1.days).toJavaInstant().atZone(zone).format(shortFmt)
             "$fromStr – $toStr"
         }
 

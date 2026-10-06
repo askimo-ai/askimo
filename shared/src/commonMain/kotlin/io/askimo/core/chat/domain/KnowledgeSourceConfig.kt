@@ -83,4 +83,3 @@ data class IndexedPathsData(
     val version: Int = 1,
     val sources: List<KnowledgeSourceConfig> = emptyList(),
 )
-

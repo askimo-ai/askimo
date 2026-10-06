@@ -8,7 +8,6 @@ import io.askimo.core.chat.domain.ModelClassification
 import io.askimo.core.db.AbstractRepository
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.db.sqldelight.Model_classifications
-import io.askimo.core.util.TimeUtil
 import java.util.UUID
 import kotlin.time.Clock
 
@@ -27,8 +26,8 @@ private fun Model_classifications.toModelClassification(): ModelClassification =
     supportsSampling = supports_sampling == 1L,
     supportsStreaming = supports_streaming == 1L,
     description = description,
-    createdAt = TimeUtil.parseInstant(created_at),
-    updatedAt = TimeUtil.parseInstant(updated_at),
+    createdAt = created_at,
+    updatedAt = updated_at,
 )
 
 /**
@@ -70,8 +69,8 @@ class ModelClassificationRepository internal constructor(
                     supportsSampling = if (classificationWithId.supportsSampling) 1L else 0L,
                     supportsStreaming = if (classificationWithId.supportsStreaming) 1L else 0L,
                     description = classificationWithId.description,
-                    createdAt = classificationWithId.createdAt.toString(),
-                    updatedAt = classificationWithId.updatedAt.toString(),
+                    createdAt = classificationWithId.createdAt,
+                    updatedAt = classificationWithId.updatedAt,
                 )
             } else {
                 queries.updateClassification(
@@ -85,7 +84,7 @@ class ModelClassificationRepository internal constructor(
                     supportsSampling = if (classificationWithId.supportsSampling) 1L else 0L,
                     supportsStreaming = if (classificationWithId.supportsStreaming) 1L else 0L,
                     description = classificationWithId.description,
-                    updatedAt = classificationWithId.updatedAt.toString(),
+                    updatedAt = classificationWithId.updatedAt,
                     id = classificationWithId.id,
                 )
             }

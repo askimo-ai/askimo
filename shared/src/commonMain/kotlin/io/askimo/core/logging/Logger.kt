@@ -130,4 +130,3 @@ fun displayError(message: String, throwable: Throwable? = null) {
     println(message)
     Logger("displayError").error(message, throwable)
 }
-

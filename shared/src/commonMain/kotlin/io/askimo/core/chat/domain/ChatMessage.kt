@@ -29,4 +29,3 @@ data class ChatMessage(
     // ChatMessageDTO.contentBlocks for rationale.
     val contentBlocks: List<TurnTimelineEntry> = emptyList(),
 )
-

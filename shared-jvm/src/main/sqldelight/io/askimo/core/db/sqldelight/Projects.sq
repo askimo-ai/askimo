@@ -3,9 +3,9 @@ CREATE TABLE IF NOT EXISTS projects (
     name TEXT NOT NULL,
     description TEXT,
     indexed_paths TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    synced_at TEXT,
+    created_at TEXT AS kotlin.time.Instant NOT NULL,
+    updated_at TEXT AS kotlin.time.Instant NOT NULL,
+    synced_at TEXT AS kotlin.time.Instant,
     is_starred INTEGER DEFAULT 0,
     default_directive_id TEXT
 );

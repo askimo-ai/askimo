@@ -227,4 +227,3 @@ fun List<TurnTimelineEntry>.grouped(): List<TurnTimelineGroup> {
     }
     return groups
 }
-

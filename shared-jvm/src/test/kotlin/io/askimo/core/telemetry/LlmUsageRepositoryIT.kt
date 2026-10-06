@@ -12,10 +12,12 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import java.time.Instant
-import java.time.temporal.ChronoUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 /**
  * ## LlmUsageRepository Spec (SQLDelight)
@@ -60,7 +62,7 @@ class LlmUsageRepositoryIT {
         totalTokens: Int = 100,
         durationMs: Long = 500,
         isError: Boolean = false,
-        timestamp: Instant = Instant.now(),
+        timestamp: Instant = Clock.System.now(),
     ) = LlmUsageRecord(
         provider = provider,
         model = model,
@@ -72,10 +74,10 @@ class LlmUsageRepositoryIT {
     )
 
     /** Inclusive lower bound that captures all records. */
-    private val allTime: Instant = Instant.EPOCH
+    private val allTime: Instant = Instant.DISTANT_PAST
 
     /** Upper bound well beyond any test record. */
-    private val farFuture: Instant = Instant.now().plusSeconds(3_600)
+    private val farFuture: Instant = Clock.System.now() + 3_600.seconds
 
     // ── Insert ────────────────────────────────────────────────────────────────
 
@@ -97,7 +99,7 @@ class LlmUsageRepositoryIT {
             val t = Instant.parse("2026-02-01T00:00:00Z")
             repo.insert(record(timestamp = t, totalTokens = 200, provider = "insert-test"))
 
-            val stats = repo.queryGroupedByInstance(t, t.plusSeconds(1))
+            val stats = repo.queryGroupedByInstance(t, t + 1.seconds)
             assertEquals(1, stats.size)
             assertEquals(200L, stats[0].tokens)
         }
@@ -147,8 +149,8 @@ class LlmUsageRepositoryIT {
 
         @Test
         fun `records before the from boundary are excluded`() {
-            val tooEarly = Instant.now().minus(2, ChronoUnit.HOURS)
-            val from = Instant.now().minus(1, ChronoUnit.HOURS)
+            val tooEarly = Clock.System.now() - 2.hours
+            val from = Clock.System.now() - 1.hours
             repo.insert(record(timestamp = tooEarly, totalTokens = 999, provider = "boundary-test"))
 
             val stats = repo.queryGroupedByInstance(from, farFuture)
@@ -160,7 +162,7 @@ class LlmUsageRepositoryIT {
             val t = Instant.parse("2026-04-01T00:00:00Z")
             repo.insert(record(timestamp = t, totalTokens = 50, provider = "inside-window-test"))
 
-            val stats = repo.queryGroupedByInstance(t, t.plusSeconds(1))
+            val stats = repo.queryGroupedByInstance(t, t + 1.seconds)
             assertEquals(1, stats.size)
         }
 
@@ -187,7 +189,7 @@ class LlmUsageRepositoryIT {
             repo.insert(record(provider = "merge-test", model = "gpt-4o", totalTokens = 100, timestamp = t))
             repo.insert(record(provider = "merge-test", model = "gpt-4o", totalTokens = 200, timestamp = t))
 
-            val stats = repo.queryGroupedByInstance(t, t.plusSeconds(1))
+            val stats = repo.queryGroupedByInstance(t, t + 1.seconds)
             assertEquals(1, stats.size)
             assertEquals(300L, stats[0].tokens)
             assertEquals(2, stats[0].calls)
@@ -199,7 +201,7 @@ class LlmUsageRepositoryIT {
             repo.insert(record(provider = "separate-group-test", model = "gpt-4o", totalTokens = 100, timestamp = t))
             repo.insert(record(provider = "separate-group-test", model = "gpt-3.5-turbo", totalTokens = 50, timestamp = t))
 
-            val stats = repo.queryGroupedByInstance(t, t.plusSeconds(1))
+            val stats = repo.queryGroupedByInstance(t, t + 1.seconds)
             assertEquals(2, stats.size)
         }
 
@@ -210,7 +212,7 @@ class LlmUsageRepositoryIT {
             repo.insert(record(provider = "precedence-test", instanceId = "instance-a", model = "gpt-4o", totalTokens = 150, timestamp = t))
             repo.insert(record(provider = "precedence-test-2", instanceId = "instance-b", model = "claude-3", totalTokens = 80, timestamp = t))
 
-            val stats = repo.queryGroupedByInstance(t, t.plusSeconds(1))
+            val stats = repo.queryGroupedByInstance(t, t + 1.seconds)
             assertEquals(250L, stats.single { it.instanceKey == "instance-a" }.tokens)
             assertEquals(80L, stats.single { it.instanceKey == "instance-b" }.tokens)
         }
@@ -222,7 +224,7 @@ class LlmUsageRepositoryIT {
             val t = Instant.parse("2026-05-04T00:00:00Z")
             repo.insert(record(provider = "instance-key-null-test", instanceId = null, timestamp = t))
 
-            val stats = repo.queryGroupedByInstance(t, t.plusSeconds(1))
+            val stats = repo.queryGroupedByInstance(t, t + 1.seconds)
             assertEquals("instance-key-null-test", stats[0].instanceKey)
         }
 
@@ -231,7 +233,7 @@ class LlmUsageRepositoryIT {
             val t = Instant.parse("2026-05-05T00:00:00Z")
             repo.insert(record(provider = "openai", instanceId = "my-custom-instance", timestamp = t))
 
-            val stats = repo.queryGroupedByInstance(t, t.plusSeconds(1))
+            val stats = repo.queryGroupedByInstance(t, t + 1.seconds)
             assertEquals("my-custom-instance", stats[0].instanceKey)
         }
 
@@ -242,7 +244,7 @@ class LlmUsageRepositoryIT {
             val t = Instant.parse("2026-05-06T00:00:00Z")
             repeat(5) { repo.insert(record(totalTokens = 100, provider = "sum-test", timestamp = t)) }
 
-            val stats = repo.queryGroupedByInstance(t, t.plusSeconds(1))
+            val stats = repo.queryGroupedByInstance(t, t + 1.seconds)
             assertEquals(500L, stats[0].tokens)
         }
 
@@ -252,7 +254,7 @@ class LlmUsageRepositoryIT {
             repo.insert(record(durationMs = 200, provider = "avg-test", timestamp = t))
             repo.insert(record(durationMs = 400, provider = "avg-test", timestamp = t))
 
-            val stats = repo.queryGroupedByInstance(t, t.plusSeconds(1))
+            val stats = repo.queryGroupedByInstance(t, t + 1.seconds)
             assertEquals(300L, stats[0].avgDurationMs)
         }
 
@@ -263,7 +265,7 @@ class LlmUsageRepositoryIT {
             repo.insert(record(isError = false, provider = "errors-test", timestamp = t))
             repo.insert(record(isError = true, totalTokens = 0, provider = "errors-test", timestamp = t))
 
-            val stats = repo.queryGroupedByInstance(t, t.plusSeconds(1))
+            val stats = repo.queryGroupedByInstance(t, t + 1.seconds)
             assertEquals(3, stats[0].calls)
             assertEquals(1, stats[0].errors)
         }
@@ -274,7 +276,7 @@ class LlmUsageRepositoryIT {
             repo.insert(record(isError = false, provider = "no-errors-test", timestamp = t))
             repo.insert(record(isError = false, provider = "no-errors-test", timestamp = t))
 
-            val stats = repo.queryGroupedByInstance(t, t.plusSeconds(1))
+            val stats = repo.queryGroupedByInstance(t, t + 1.seconds)
             assertEquals(0, stats[0].errors)
         }
 
@@ -287,7 +289,7 @@ class LlmUsageRepositoryIT {
             repo.insert(record(provider = "ordering-expensive", model = "expensive", totalTokens = 9_000, timestamp = t))
             repo.insert(record(provider = "ordering-medium", model = "medium", totalTokens = 500, timestamp = t))
 
-            val stats = repo.queryGroupedByInstance(t, t.plusSeconds(1))
+            val stats = repo.queryGroupedByInstance(t, t + 1.seconds)
             assertEquals(3, stats.size)
             assertEquals(9_000L, stats[0].tokens)
             assertEquals(500L, stats[1].tokens)
@@ -301,7 +303,7 @@ class LlmUsageRepositoryIT {
             val t = Instant.parse("2026-05-11T00:00:00Z")
             repo.insert(record(provider = "anthropic", model = "claude-3-sonnet", timestamp = t))
 
-            val stats = repo.queryGroupedByInstance(t, t.plusSeconds(1))
+            val stats = repo.queryGroupedByInstance(t, t + 1.seconds)
             assertEquals("anthropic", stats[0].provider)
             assertEquals("claude-3-sonnet", stats[0].model)
         }

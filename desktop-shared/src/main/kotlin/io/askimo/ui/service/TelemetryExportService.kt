@@ -8,15 +8,14 @@ import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
 import io.askimo.core.telemetry.LlmInstanceStats
 import io.askimo.core.telemetry.TelemetryCollector
+import io.askimo.ui.util.formatUtcTimestamp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.StringWriter
-import java.time.Instant
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlin.time.Clock
 
 /**
  * Exports LLM usage metrics for the current session to a ZIP file containing two CSVs:
@@ -30,8 +29,6 @@ import java.util.zip.ZipOutputStream
 object TelemetryExportService {
 
     private val log = logger<TelemetryExportService>()
-    private val timestampFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
-        .withZone(ZoneOffset.UTC)
 
     /**
      * Exports session metrics to [targetZipFile] as a ZIP with two CSV entries.
@@ -43,8 +40,9 @@ object TelemetryExportService {
     suspend fun export(telemetry: TelemetryCollector, targetZipFile: File): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             targetZipFile.parentFile?.mkdirs()
-            val capturedAt = timestampFormatter.format(Instant.now())
-            val stats = telemetry.usageRepository.queryGroupedByInstance(telemetry.sessionStart, Instant.now())
+            val now = Clock.System.now()
+            val capturedAt = formatUtcTimestamp(now)
+            val stats = telemetry.usageRepository.queryGroupedByInstance(telemetry.sessionStart, now)
 
             ZipOutputStream(targetZipFile.outputStream().buffered()).use { zos ->
                 // ── session-metrics.csv ──────────────────────────────────

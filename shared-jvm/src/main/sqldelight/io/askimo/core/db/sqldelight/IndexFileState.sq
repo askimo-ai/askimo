@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS index_file_state (
     file_path TEXT NOT NULL,
     file_hash TEXT NOT NULL,
     source_type TEXT NOT NULL,
-    indexed_at TEXT NOT NULL,
+    indexed_at TEXT AS kotlin.time.Instant NOT NULL,
     PRIMARY KEY (container_id, resource_id, file_path)
 );
 

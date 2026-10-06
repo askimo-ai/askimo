@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS file_segments (
     file_path TEXT NOT NULL,
     segment_id TEXT NOT NULL,
     chunk_index INTEGER NOT NULL,
-    created_at TEXT NOT NULL,
+    created_at TEXT AS kotlin.time.Instant NOT NULL,
     PRIMARY KEY (container_id, file_path, segment_id)
 );
 

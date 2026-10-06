@@ -7,8 +7,8 @@ package io.askimo.core.rag.state
 import io.askimo.core.db.AbstractRepository
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.logging.logger
-import java.time.Instant
 import kotlin.collections.iterator
+import kotlin.time.Clock
 
 /**
  * All operations are scoped to (containerId, resourceId) so that multiple
@@ -125,7 +125,7 @@ class IndexStateRepository internal constructor(
         fileHashes: Map<String, String>,
     ) {
         if (fileHashes.isEmpty()) return
-        val now = Instant.now().toString()
+        val now = Clock.System.now()
         for ((filePath, hash) in fileHashes) {
             queries.insertFileState(
                 containerId = containerId,

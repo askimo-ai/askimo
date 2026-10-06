@@ -12,7 +12,6 @@ import io.askimo.core.db.DatabaseManager
 import io.askimo.core.db.sqldelight.Agent_run_history
 import io.askimo.core.logging.Logger
 import io.askimo.core.logging.logger
-import io.askimo.core.util.TimeUtil
 import kotlinx.serialization.json.Json
 
 /**
@@ -35,7 +34,7 @@ private fun Agent_run_history.toAgentRunRecord(json: Json, log: Logger): AgentRu
     outputTokens = output_tokens?.toInt(),
     totalTokens = total_tokens?.toInt(),
     durationMs = duration_ms,
-    createdAt = TimeUtil.parseInstant(created_at),
+    createdAt = created_at,
 )
 
 private fun encodeLog(entries: List<String>): String = entries.joinToString("\n") { it.replace("\n", "\\n") }
@@ -92,7 +91,7 @@ class AgentRunHistoryRepository internal constructor(
             outputTokens = record.outputTokens?.toLong(),
             totalTokens = record.totalTokens?.toLong(),
             durationMs = record.durationMs,
-            createdAt = record.createdAt.toString(),
+            createdAt = record.createdAt,
         )
         log.debug("Saved skill run record '{}' for workspace '{}'", record.id, record.workspaceId)
     }

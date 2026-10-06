@@ -16,7 +16,6 @@ import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.PushDataToServerEvent
 import io.askimo.core.logging.logger
 import io.askimo.core.util.JsonUtils.json
-import io.askimo.core.util.TimeUtil
 import java.util.UUID
 import kotlin.time.Clock
 
@@ -26,8 +25,8 @@ import kotlin.time.Clock
 private fun Chat_sessions.toChatSession(): ChatSession = ChatSession(
     id = id,
     title = title,
-    createdAt = TimeUtil.parseInstant(created_at),
-    updatedAt = TimeUtil.parseInstant(updated_at),
+    createdAt = created_at,
+    updatedAt = updated_at,
     projectId = project_id,
     directiveId = directive_id,
     isStarred = is_starred == 1L,
@@ -69,8 +68,8 @@ class ChatSessionRepository internal constructor(
         queries.insertSession(
             id = sessionWithInjectedFields.id,
             title = sessionWithInjectedFields.title,
-            created_at = sessionWithInjectedFields.createdAt.toString(),
-            updated_at = sessionWithInjectedFields.updatedAt.toString(),
+            created_at = sessionWithInjectedFields.createdAt,
+            updated_at = sessionWithInjectedFields.updatedAt,
             directive_id = sessionWithInjectedFields.directiveId,
             is_starred = if (sessionWithInjectedFields.isStarred) 1L else 0L,
             project_id = sessionWithInjectedFields.projectId,
@@ -131,7 +130,7 @@ class ChatSessionRepository internal constructor(
 
     /** Update the updatedAt timestamp of a session — typically called when a message is added. */
     fun touchSession(sessionId: String): Boolean {
-        val updated = queries.touchSession(Clock.System.now().toString(), sessionId).value > 0
+        val updated = queries.touchSession(Clock.System.now(), sessionId).value > 0
         if (updated) EventBus.post(PushDataToServerEvent(reason = "session touched"))
         return updated
     }
@@ -140,14 +139,14 @@ class ChatSessionRepository internal constructor(
 
     fun generateAndUpdateTitle(sessionId: String, firstMessage: String): String {
         val title = generateTitle(firstMessage)
-        queries.updateTitle(title, Clock.System.now().toString(), sessionId)
+        queries.updateTitle(title, Clock.System.now(), sessionId)
         EventBus.post(PushDataToServerEvent(reason = "session title generated"))
         return title
     }
 
     /** Update the directive for a chat session (null clears it). */
     fun updateSessionDirective(sessionId: String, directiveId: String?): Boolean {
-        val updated = queries.updateDirective(directiveId, Clock.System.now().toString(), sessionId).value > 0
+        val updated = queries.updateDirective(directiveId, Clock.System.now(), sessionId).value > 0
         if (updated) EventBus.post(PushDataToServerEvent(reason = "session directive changed"))
         return updated
     }
@@ -159,7 +158,7 @@ class ChatSessionRepository internal constructor(
     fun updateSessionActiveResourceCollections(sessionId: String, collectionIds: List<String>): Boolean {
         val updated = queries.updateActiveResourceCollectionIds(
             encodeResourceCollectionIds(collectionIds),
-            Clock.System.now().toString(),
+            Clock.System.now(),
             sessionId,
         ).value > 0
         if (updated) EventBus.post(PushDataToServerEvent(reason = "session active resource collections changed"))
@@ -183,7 +182,7 @@ class ChatSessionRepository internal constructor(
 
     /** Update the starred status of a session. */
     fun updateSessionStarred(sessionId: String, isStarred: Boolean): Boolean {
-        val updated = queries.updateStarred(if (isStarred) 1L else 0L, Clock.System.now().toString(), sessionId).value > 0
+        val updated = queries.updateStarred(if (isStarred) 1L else 0L, Clock.System.now(), sessionId).value > 0
         if (updated) EventBus.post(PushDataToServerEvent(reason = "session starred"))
         return updated
     }
@@ -193,7 +192,7 @@ class ChatSessionRepository internal constructor(
         val trimmedTitle = title.trim().take(SESSION_TITLE_MAX_LENGTH)
         if (trimmedTitle.isEmpty()) return false
 
-        val updated = queries.updateTitle(trimmedTitle, Clock.System.now().toString(), sessionId).value > 0
+        val updated = queries.updateTitle(trimmedTitle, Clock.System.now(), sessionId).value > 0
         if (updated) EventBus.post(PushDataToServerEvent(reason = "session title updated"))
         return updated
     }
@@ -250,7 +249,7 @@ class ChatSessionRepository internal constructor(
 
     /** Update the project of a session. */
     fun updateSessionProject(sessionId: String, projectId: String?): Boolean {
-        val updated = queries.updateProject(projectId, Clock.System.now().toString(), sessionId).value > 0
+        val updated = queries.updateProject(projectId, Clock.System.now(), sessionId).value > 0
         if (updated) EventBus.post(PushDataToServerEvent(reason = "session project changed"))
         return updated
     }
@@ -268,11 +267,11 @@ class ChatSessionRepository internal constructor(
         if (sessions.isEmpty()) return
 
         db.transaction {
-            val nowStr = Clock.System.now().toString()
+            val now = Clock.System.now()
             val ids = sessions.map { it.id }
 
             val existingById = queries.selectExistingByIds(ids).executeAsList()
-                .associate { it.id to TimeUtil.parseInstant(it.updated_at) }
+                .associate { it.id to it.updated_at }
 
             for (session in sessions) {
                 val storedUpdatedAt = existingById[session.id]
@@ -283,25 +282,25 @@ class ChatSessionRepository internal constructor(
                         queries.insertFromServer(
                             id = session.id,
                             title = session.title.take(SESSION_TITLE_MAX_LENGTH),
-                            created_at = session.createdAt.toString(),
-                            updated_at = session.updatedAt.toString(),
+                            created_at = session.createdAt,
+                            updated_at = session.updatedAt,
                             project_id = session.projectId,
                             directive_id = session.directiveId,
                             is_starred = if (session.isStarred) 1L else 0L,
                             active_resource_collection_ids = encodeResourceCollectionIds(session.activeResourceCollectionIds),
-                            synced_at = nowStr,
+                            synced_at = now,
                         )
                         log.debug("upsertFromServer: inserted session {}", session.id)
                     } else if (session.updatedAt > storedUpdatedAt) {
                         // Server version is newer — overwrite
                         queries.updateFromServer(
                             title = session.title.take(SESSION_TITLE_MAX_LENGTH),
-                            updatedAt = session.updatedAt.toString(),
+                            updatedAt = session.updatedAt,
                             projectId = session.projectId,
                             directiveId = session.directiveId,
                             isStarred = if (session.isStarred) 1L else 0L,
                             activeIds = encodeResourceCollectionIds(session.activeResourceCollectionIds),
-                            syncedAt = nowStr,
+                            syncedAt = now,
                             id = session.id,
                         )
                         log.debug("upsertFromServer: updated session {} (server newer)", session.id)
@@ -331,15 +330,15 @@ class ChatSessionRepository internal constructor(
      * Mark a session as successfully synced to the server by setting `synced_at`
      * to the current timestamp.
      */
-    fun markSynced(sessionId: String): Boolean = queries.markSynced(Clock.System.now().toString(), sessionId).value > 0
+    fun markSynced(sessionId: String): Boolean = queries.markSynced(Clock.System.now(), sessionId).value > 0
 
     /**
      * @param limit Maximum rows to return in one batch.
      */
     fun getUnsyncedSessions(limit: Int = 50): List<ChatSession> = queries.selectAllOrderedByUpdatedAtAsc().executeAsList()
         .mapNotNull { row ->
-            val updatedAt = TimeUtil.parseInstant(row.updated_at)
-            val syncedAt = row.synced_at?.let { runCatching { TimeUtil.parseInstant(it) }.getOrNull() }
+            val updatedAt = row.updated_at
+            val syncedAt = row.synced_at
             if (syncedAt == null || updatedAt > syncedAt) row.toChatSession() else null
         }
         .take(limit)

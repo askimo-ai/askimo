@@ -4,6 +4,11 @@
  */
 package io.askimo.ui.util
 
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.number
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Instant
+
 /**
  * Formats milliseconds to a human-readable string with two consecutive time units.
  *
@@ -114,3 +119,24 @@ fun formatDurationDetailed(ms: Long): String {
 }
 
 private fun pluralize(value: Long, unit: String): String = if (value == 1L) "$value $unit" else "$value ${unit}s"
+
+/**
+ * Formats [instant] as `yyyy-MM-dd'T'HH:mm:ss'Z'` in UTC — pure Kotlin,
+ */
+fun formatUtcTimestamp(instant: Instant): String {
+    val dt = instant.toLocalDateTime(TimeZone.UTC)
+    return buildString {
+        append(dt.year.toString().padStart(4, '0'))
+        append('-')
+        append(dt.month.number.toString().padStart(2, '0'))
+        append('-')
+        append(dt.day.toString().padStart(2, '0'))
+        append('T')
+        append(dt.hour.toString().padStart(2, '0'))
+        append(':')
+        append(dt.minute.toString().padStart(2, '0'))
+        append(':')
+        append(dt.second.toString().padStart(2, '0'))
+        append('Z')
+    }
+}

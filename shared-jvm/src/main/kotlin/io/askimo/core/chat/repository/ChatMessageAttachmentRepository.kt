@@ -40,7 +40,7 @@ class ChatMessageAttachmentRepository internal constructor(
                 fileName = attachmentWithId.fileName,
                 mimeType = attachmentWithId.mimeType,
                 size = attachmentWithId.size,
-                createdAt = attachmentWithId.createdAt.toString(),
+                createdAt = attachmentWithId.createdAt,
                 storagePath = attachmentWithId.storagePath,
             )
             log.debug("Saved new attachment: ${attachmentWithId.id}")

@@ -30,4 +30,3 @@ data class UserMemory(
         const val DEFAULT_ID = "default"
     }
 }
-

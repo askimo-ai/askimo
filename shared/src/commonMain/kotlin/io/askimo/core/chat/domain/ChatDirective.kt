@@ -38,5 +38,3 @@ data class ChatDirective(
 
 const val DIRECTIVE_NAME_MAX_LENGTH = 128
 const val DIRECTIVE_CONTENT_MAX_LENGTH = 32768
-
-
