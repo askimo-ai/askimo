@@ -24,4 +24,3 @@ data class SessionMemory(
     val lastUpdated: Instant = Clock.System.now(),
     val createdAt: Instant = Clock.System.now(),
 )
-

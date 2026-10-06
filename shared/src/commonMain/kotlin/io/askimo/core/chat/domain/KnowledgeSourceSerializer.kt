@@ -95,4 +95,3 @@ object KnowledgeSourceSerializer {
         LocalFoldersKnowledgeSourceConfig(resourceIdentifier = path),
     )
 }
-

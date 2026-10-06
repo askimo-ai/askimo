@@ -18,6 +18,24 @@ import io.askimo.core.chat.repository.ResourceCollectionRepository
 import io.askimo.core.chat.repository.ResourceSegmentRepository
 import io.askimo.core.chat.repository.SessionMemoryRepository
 import io.askimo.core.chat.repository.UserMemoryRepository
+import io.askimo.core.db.sqldelight.Agent_run_history
+import io.askimo.core.db.sqldelight.Chat_directives
+import io.askimo.core.db.sqldelight.Chat_messages
+import io.askimo.core.db.sqldelight.Chat_sessions
+import io.askimo.core.db.sqldelight.File_attachments
+import io.askimo.core.db.sqldelight.File_segments
+import io.askimo.core.db.sqldelight.Index_file_state
+import io.askimo.core.db.sqldelight.Llm_usage_records
+import io.askimo.core.db.sqldelight.Model_classifications
+import io.askimo.core.db.sqldelight.Plan_executions
+import io.askimo.core.db.sqldelight.Projects
+import io.askimo.core.db.sqldelight.Resource_collections
+import io.askimo.core.db.sqldelight.Session_memory
+import io.askimo.core.db.sqldelight.User_interests
+import io.askimo.core.db.sqldelight.User_memory
+import io.askimo.core.db.sqldelight.User_preferences
+import io.askimo.core.db.sqldelight.User_profiles
+import io.askimo.core.db.sqldelight.Workspaces
 import io.askimo.core.db.sqldelight.generated.AskimoDatabase
 import io.askimo.core.plan.repository.PlanExecutionRepository
 import io.askimo.core.rag.state.IndexStateRepository
@@ -37,7 +55,81 @@ class DatabaseManager private constructor(
     /** Underlying SQLDelight JDBC driver — a single pooled connection is sufficient for SQLite. */
     val driver: JdbcSqliteDriver = createDriver(databaseFileName, useInMemory)
 
-    val db: AskimoDatabase = AskimoDatabase(driver)
+    val db: AskimoDatabase = AskimoDatabase(
+        driver = driver,
+        agent_run_historyAdapter = Agent_run_history.Adapter(
+            created_atAdapter = InstantColumnAdapter,
+        ),
+        chat_directivesAdapter = Chat_directives.Adapter(
+            created_atAdapter = InstantColumnAdapter,
+            updated_atAdapter = InstantColumnAdapter,
+            deleted_atAdapter = InstantColumnAdapter,
+            synced_atAdapter = InstantColumnAdapter,
+        ),
+        chat_messagesAdapter = Chat_messages.Adapter(
+            created_atAdapter = InstantColumnAdapter,
+            synced_atAdapter = InstantColumnAdapter,
+        ),
+        chat_sessionsAdapter = Chat_sessions.Adapter(
+            created_atAdapter = InstantColumnAdapter,
+            updated_atAdapter = InstantColumnAdapter,
+            synced_atAdapter = InstantColumnAdapter,
+        ),
+        file_attachmentsAdapter = File_attachments.Adapter(
+            created_atAdapter = InstantColumnAdapter,
+        ),
+        file_segmentsAdapter = File_segments.Adapter(
+            created_atAdapter = InstantColumnAdapter,
+        ),
+        index_file_stateAdapter = Index_file_state.Adapter(
+            indexed_atAdapter = InstantColumnAdapter,
+        ),
+        llm_usage_recordsAdapter = Llm_usage_records.Adapter(
+            timestampAdapter = InstantColumnAdapter,
+        ),
+        model_classificationsAdapter = Model_classifications.Adapter(
+            created_atAdapter = InstantColumnAdapter,
+            updated_atAdapter = InstantColumnAdapter,
+        ),
+        plan_executionsAdapter = Plan_executions.Adapter(
+            created_atAdapter = InstantColumnAdapter,
+            updated_atAdapter = InstantColumnAdapter,
+        ),
+        projectsAdapter = Projects.Adapter(
+            created_atAdapter = InstantColumnAdapter,
+            updated_atAdapter = InstantColumnAdapter,
+            synced_atAdapter = InstantColumnAdapter,
+        ),
+        resource_collectionsAdapter = Resource_collections.Adapter(
+            created_atAdapter = InstantColumnAdapter,
+            updated_atAdapter = InstantColumnAdapter,
+            synced_atAdapter = InstantColumnAdapter,
+            last_indexed_atAdapter = InstantColumnAdapter,
+        ),
+        session_memoryAdapter = Session_memory.Adapter(
+            last_updatedAdapter = InstantColumnAdapter,
+            created_atAdapter = InstantColumnAdapter,
+        ),
+        user_interestsAdapter = User_interests.Adapter(
+            created_atAdapter = InstantColumnAdapter,
+        ),
+        user_memoryAdapter = User_memory.Adapter(
+            last_updatedAdapter = InstantColumnAdapter,
+            created_atAdapter = InstantColumnAdapter,
+        ),
+        user_preferencesAdapter = User_preferences.Adapter(
+            created_atAdapter = InstantColumnAdapter,
+            updated_atAdapter = InstantColumnAdapter,
+        ),
+        user_profilesAdapter = User_profiles.Adapter(
+            created_atAdapter = InstantColumnAdapter,
+            updated_atAdapter = InstantColumnAdapter,
+        ),
+        workspacesAdapter = Workspaces.Adapter(
+            created_atAdapter = InstantColumnAdapter,
+            last_used_atAdapter = InstantColumnAdapter,
+        ),
+    )
 
     private fun createDriver(databaseFileName: String, useInMemory: Boolean): JdbcSqliteDriver {
         val jdbcUrl = if (useInMemory) {

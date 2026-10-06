@@ -37,6 +37,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.agent.domain.AgentRunRecord
+import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppTextStyles
@@ -44,15 +45,12 @@ import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.clickableRounded
 import io.askimo.ui.common.ui.TooltipPlacement
 import io.askimo.ui.common.ui.themedTooltip
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import kotlin.time.toJavaInstant
 
 /** Number of most-recent history records shown before the "Show all" button appears. */
 private const val COLLAPSED_HISTORY_LIMIT = 5
 
-internal val RUN_TIME_FMT: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("MMM d, HH:mm:ss").withZone(ZoneId.systemDefault())
+/** Display pattern for run timestamps, e.g. "Oct 5, 14:30:12" — rendered in the user's local timezone. */
+private const val RUN_TIME_PATTERN = "MMM d, HH:mm:ss"
 
 @Composable
 private fun skillRunHistoryPanelRow(
@@ -62,7 +60,7 @@ private fun skillRunHistoryPanelRow(
     onDelete: () -> Unit,
 ) {
     val isError = record.error != null
-    val timeLabel = RUN_TIME_FMT.format(record.createdAt.toJavaInstant())
+    val timeLabel = TimeUtil.format(record.createdAt, RUN_TIME_PATTERN)
     val tooltipText = remember(record, agentName) {
         buildString {
             append(timeLabel)

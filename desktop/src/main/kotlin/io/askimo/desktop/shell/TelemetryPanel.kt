@@ -59,8 +59,8 @@ import io.askimo.ui.util.formatDurationDetailed
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.koin.java.KoinJavaComponent.get
-import java.time.Instant
 import java.util.Locale.getDefault
+import kotlin.time.Clock
 
 /**
  * Telemetry panel showing RAG and LLM metrics.
@@ -75,7 +75,7 @@ internal fun telemetryPanel(maxHeight: Dp) {
 
     LaunchedEffect(refreshSignal) {
         stats = withContext(Dispatchers.IO) {
-            telemetry.usageRepository.queryGroupedByInstance(telemetry.sessionStart, Instant.now())
+            telemetry.usageRepository.queryGroupedByInstance(telemetry.sessionStart, Clock.System.now())
         }
     }
 

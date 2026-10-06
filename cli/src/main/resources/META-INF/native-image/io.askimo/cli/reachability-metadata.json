@@ -1,5 +1,7 @@
 {
   "reflection": [ {
+    "type": "android.os.Build$VERSION"
+  }, {
     "type": "apple.security.AppleProvider",
     "methods": [ {
       "name": "<init>",
@@ -1282,8 +1284,38 @@
     "type": "com.github.dockerjava.api.model.PropagationMode",
     "allDeclaredFields": true
   }, {
+    "type": "com.github.dockerjava.api.model.PullResponseItem",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    } ]
+  }, {
     "type": "com.github.dockerjava.api.model.ResourceVersion",
     "allDeclaredFields": true
+  }, {
+    "type": "com.github.dockerjava.api.model.ResponseItem",
+    "fields": [ {
+      "name": "id"
+    }, {
+      "name": "progressDetail"
+    }, {
+      "name": "status"
+    } ]
+  }, {
+    "type": "com.github.dockerjava.api.model.ResponseItem$AuxDetail"
+  }, {
+    "type": "com.github.dockerjava.api.model.ResponseItem$ErrorDetail"
+  }, {
+    "type": "com.github.dockerjava.api.model.ResponseItem$ProgressDetail",
+    "fields": [ {
+      "name": "current"
+    }, {
+      "name": "total"
+    } ],
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    } ]
   }, {
     "type": "com.github.dockerjava.api.model.RestartPolicy",
     "allDeclaredFields": true,
@@ -1566,86 +1598,7 @@
     "type": "com.sun.tools.attach.VirtualMachine"
   }, {
     "type": "com.zaxxer.hikari.HikariConfig",
-    "allDeclaredFields": true,
-    "fields": [ {
-      "name": "catalog"
-    }, {
-      "name": "connectionInitSql"
-    }, {
-      "name": "connectionTestQuery"
-    }, {
-      "name": "connectionTimeout"
-    }, {
-      "name": "credentials"
-    }, {
-      "name": "credentialsProvider"
-    }, {
-      "name": "credentialsProviderClassName"
-    }, {
-      "name": "dataSource"
-    }, {
-      "name": "dataSourceClassName"
-    }, {
-      "name": "dataSourceJndiName"
-    }, {
-      "name": "dataSourceProperties"
-    }, {
-      "name": "driverClassName"
-    }, {
-      "name": "exceptionOverride"
-    }, {
-      "name": "exceptionOverrideClassName"
-    }, {
-      "name": "healthCheckProperties"
-    }, {
-      "name": "healthCheckRegistry"
-    }, {
-      "name": "idleTimeout"
-    }, {
-      "name": "initializationFailTimeout"
-    }, {
-      "name": "isAllowPoolSuspension"
-    }, {
-      "name": "isAutoCommit"
-    }, {
-      "name": "isIsolateInternalQueries"
-    }, {
-      "name": "isReadOnly"
-    }, {
-      "name": "isRegisterMbeans"
-    }, {
-      "name": "jdbcUrl"
-    }, {
-      "name": "keepaliveTime"
-    }, {
-      "name": "leakDetectionThreshold"
-    }, {
-      "name": "maxLifetime"
-    }, {
-      "name": "maxPoolSize"
-    }, {
-      "name": "metricRegistry"
-    }, {
-      "name": "metricsTrackerFactory"
-    }, {
-      "name": "minIdle"
-    }, {
-      "name": "poolName"
-    }, {
-      "name": "scheduledExecutor"
-    }, {
-      "name": "schema"
-    }, {
-      "name": "sealed"
-    }, {
-      "name": "threadFactory"
-    }, {
-      "name": "transactionIsolationName"
-    }, {
-      "name": "unitTest"
-    }, {
-      "name": "validationTimeout"
-    } ]
+    "allDeclaredFields": true
   }, {
     "type": "com.zaxxer.hikari.pool.PoolBase",
     "fields": [ {
@@ -1782,6 +1735,8 @@
     "type": "dev.langchain4j.model.anthropic.internal.api.AnthropicResponseMessage",
     "fields": [ {
       "name": "content"
+    }, {
+      "name": "diagnostics"
     }, {
       "name": "id"
     }, {
@@ -3663,6 +3618,38 @@
   }, {
     "type": "io.askimo.core.chat.service.ChatSessionServiceIT$Companion"
   }, {
+    "type": "io.askimo.core.chat.service.ChatSessionServiceTest",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    }, {
+      "name": "deleteSession explicitly invalidates memory cache and triggers summarization when memory has new messages",
+      "parameterTypes": [ ]
+    }, {
+      "name": "deleteSession explicitly invalidates memory cache but skips summarization when memory is unchanged",
+      "parameterTypes": [ ]
+    }, {
+      "name": "setUp",
+      "parameterTypes": [ ]
+    }, {
+      "name": "setUpClass",
+      "parameterTypes": [ "java.nio.file.Path" ]
+    }, {
+      "name": "size-based memory cache eviction skips summarization when evicted session is unchanged",
+      "parameterTypes": [ ]
+    }, {
+      "name": "size-based memory cache eviction triggers summarization for the evicted session",
+      "parameterTypes": [ ]
+    }, {
+      "name": "tearDown",
+      "parameterTypes": [ ]
+    }, {
+      "name": "tearDownClass",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "io.askimo.core.chat.service.ChatSessionServiceTest$Companion"
+  }, {
     "type": "io.askimo.core.chat.service.UrlExtractionIntentTest",
     "allDeclaredFields": true,
     "methods": [ {
@@ -3860,6 +3847,27 @@
       "parameterTypes": [ ]
     } ]
   }, {
+    "type": "io.askimo.core.config.AppConfigMigrationTest",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    }, {
+      "name": "config without legacy providers is not rewritten",
+      "parameterTypes": [ ]
+    }, {
+      "name": "invalid legacy config is not rewritten",
+      "parameterTypes": [ ]
+    }, {
+      "name": "legacy provider migration does not change neighboring providers or unrelated fields",
+      "parameterTypes": [ "java.lang.String", "java.lang.String", "java.lang.String" ]
+    }, {
+      "name": "legacy provider migration handles YAML quoting field order and empty templates",
+      "parameterTypes": [ "java.lang.String" ]
+    }, {
+      "name": "legacy provider settings migrate without losing configuration",
+      "parameterTypes": [ "java.lang.String", "java.lang.String", "java.lang.String" ]
+    } ]
+  }, {
     "type": "io.askimo.core.config.AppConfigTest",
     "allDeclaredFields": true,
     "methods": [ {
@@ -3909,6 +3917,12 @@
       "parameterTypes": [ ]
     }, {
       "name": "saveContext with no-op params stores UNKNOWN provider",
+      "parameterTypes": [ ]
+    }, {
+      "name": "setGlobalModelTimeoutSeconds clamps values below the minimum",
+      "parameterTypes": [ ]
+    }, {
+      "name": "setGlobalModelTimeoutSeconds updates the request timeout",
       "parameterTypes": [ ]
     }, {
       "name": "updateChatField should handle all fields",
@@ -3980,6 +3994,9 @@
     }, {
       "name": "<init>",
       "parameterTypes": [ "int", "long", "java.lang.String", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
+    }, {
+      "name": "<init>",
+      "parameterTypes": [ "int", "java.lang.String", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
     }, {
       "name": "getDefaultResponseAILocale",
       "parameterTypes": [ ]
@@ -4138,6 +4155,12 @@
     "allDeclaredFields": true,
     "methods": [ {
       "name": "<init>",
+      "parameterTypes": [ "int", "long" ]
+    }, {
+      "name": "<init>",
+      "parameterTypes": [ "int", "long", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
+    }, {
+      "name": "<init>",
       "parameterTypes": [ "int", "io.askimo.core.config.ModelTimeoutsConfig" ]
     }, {
       "name": "<init>",
@@ -4180,6 +4203,9 @@
       "parameterTypes": [ ]
     }, {
       "name": "getOpenai_compatible",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getRequestTimeoutInSeconds",
       "parameterTypes": [ ]
     }, {
       "name": "getTimeouts",
@@ -4488,6 +4514,8 @@
     } ]
   }, {
     "type": "io.askimo.core.context.AppContextParams$Companion"
+  }, {
+    "type": "io.askimo.core.db.AbstractRepository"
   }, {
     "type": "io.askimo.core.db.AbstractSQLiteRepository",
     "allDeclaredFields": true
@@ -4921,6 +4949,8 @@
       "name": "semanticQueryMatchesToolViaVector",
       "parameterTypes": [ ]
     } ]
+  }, {
+    "type": "io.askimo.core.logging.Logger"
   }, {
     "type": "io.askimo.core.mcp.HttpConfig",
     "allDeclaredFields": true,
@@ -6304,6 +6334,9 @@
   }, {
     "type": "io.askimo.core.providers.openaicompatible.OpenAiCompatibleSettings",
     "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "io.askimo.core.providers.openaicompatible.OpenAiApiMode", "io.askimo.core.providers.HttpVersion", "boolean", "java.lang.String", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
+    }, {
       "name": "getApiKey",
       "parameterTypes": [ ]
     }, {
@@ -6601,6 +6634,8 @@
     } ]
   }, {
     "type": "io.askimo.core.search.SessionSearchServiceIT$Companion"
+  }, {
+    "type": "io.askimo.core.search.SessionSearchServiceITKt"
   }, {
     "type": "io.askimo.core.security.EncryptionManagerTest",
     "allDeclaredFields": true,
@@ -8665,6 +8700,8 @@
   }, {
     "type": "kotlin.test.junit5.JUnit5Contributor"
   }, {
+    "type": "kotlinx.atomicfu.AtomicRef"
+  }, {
     "type": "kotlinx.coroutines.CancellableContinuationImpl",
     "fields": [ {
       "name": "_decisionAndIndex$volatile"
@@ -8764,6 +8801,8 @@
     "type": "kotlinx.serialization.encoding.CompositeEncoder"
   }, {
     "type": "kotlinx.serialization.internal.GeneratedSerializer"
+  }, {
+    "type": "kotlinx.serialization.internal.SerializationConstructorMarker"
   }, {
     "type": "net.bytebuddy.agent.Installer",
     "methods": [ {
@@ -10432,6 +10471,8 @@
     "glob": "org/mockito/internal/creation/bytebuddy/MockMethodAdvice.class"
   }, {
     "glob": "org/mockito/internal/creation/bytebuddy/inject-MockMethodDispatcher.raw"
+  }, {
+    "glob": "org/slf4j/impl/StaticLoggerBinder.class"
   }, {
     "glob": "org/sqlite/native/Mac/aarch64/libsqlitejdbc.dylib"
   }, {

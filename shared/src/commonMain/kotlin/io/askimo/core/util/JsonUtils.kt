@@ -38,4 +38,3 @@ object JsonUtils {
         isLenient = true
     }
 }
-

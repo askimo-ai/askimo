@@ -36,4 +36,3 @@ data class ChatMessageDTO(
     // Cleared (empty) whenever the message is edited — see ChatMessageRepository.updateMessageContent.
     val contentBlocks: List<TurnTimelineEntry> = emptyList(),
 )
-

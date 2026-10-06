@@ -8,7 +8,6 @@ import io.askimo.core.chat.domain.UserMemory
 import io.askimo.core.db.AbstractRepository
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.db.sqldelight.User_memory
-import io.askimo.core.util.TimeUtil
 import kotlin.time.Clock
 
 /**
@@ -17,8 +16,8 @@ import kotlin.time.Clock
 private fun User_memory.toUserMemory(): UserMemory = UserMemory(
     id = id,
     memoryJson = memory_json,
-    lastUpdated = TimeUtil.parseInstant(last_updated),
-    createdAt = TimeUtil.parseInstant(created_at),
+    lastUpdated = last_updated,
+    createdAt = created_at,
 )
 
 /**
@@ -48,16 +47,16 @@ class UserMemoryRepository internal constructor(
             if (existing != null) {
                 queries.updateMemory(
                     memoryJson = memoryJson,
-                    lastUpdated = now.toString(),
+                    lastUpdated = now,
                     id = UserMemory.DEFAULT_ID,
                 )
-                UserMemory(memoryJson = memoryJson, lastUpdated = now, createdAt = TimeUtil.parseInstant(existing.created_at))
+                UserMemory(memoryJson = memoryJson, lastUpdated = now, createdAt = existing.created_at)
             } else {
                 queries.insertMemory(
                     id = UserMemory.DEFAULT_ID,
                     memoryJson = memoryJson,
-                    lastUpdated = now.toString(),
-                    createdAt = now.toString(),
+                    lastUpdated = now,
+                    createdAt = now,
                 )
                 UserMemory(memoryJson = memoryJson, lastUpdated = now, createdAt = now)
             }

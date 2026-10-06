@@ -45,7 +45,10 @@ spotless {
 subprojects {
     plugins.apply("com.diffplug.spotless")
 
-    plugins.withId("org.jetbrains.kotlin.jvm") {
+    // Applies detekt + Kotlin-aware spotless (ktlint, license header, etc.) to this subproject.
+    // Shared across both the Kotlin/JVM and Kotlin Multiplatform plugin hooks below so that
+    // multiplatform modules (e.g. :shared) get the same unused-import cleanup as JVM modules.
+    val configureKotlinQualityTools: () -> Unit = {
         plugins.apply("dev.detekt")
 
         configure<dev.detekt.gradle.extensions.DetektExtension> {
@@ -93,6 +96,9 @@ subprojects {
             }
         }
     }
+
+    plugins.withId("org.jetbrains.kotlin.jvm") { configureKotlinQualityTools() }
+    plugins.withId("org.jetbrains.kotlin.multiplatform") { configureKotlinQualityTools() }
 }
 
 // ── Detekt aggregated reports ─────────────────────────────────────────────

@@ -16,4 +16,3 @@ enum class MessageRole(val value: String) {
 
     override fun toString(): String = value
 }
-

@@ -18,7 +18,6 @@ import io.askimo.core.db.sqldelight.Chat_messages
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.PushDataToServerEvent
 import io.askimo.core.logging.logger
-import io.askimo.core.util.TimeUtil
 import kotlinx.serialization.json.Json
 import java.util.UUID
 import kotlin.time.Clock
@@ -46,7 +45,7 @@ private fun Chat_messages.toChatMessage(): ChatMessage = ChatMessage(
     sessionId = session_id,
     role = MessageRole.entries.find { it.value == role } ?: MessageRole.USER,
     content = content,
-    createdAt = TimeUtil.parseInstant(created_at),
+    createdAt = created_at,
     isOutdated = is_outdated == 1L,
     editParentId = edit_parent_id,
     isEdited = is_edited == 1L,
@@ -85,7 +84,7 @@ class ChatMessageRepository internal constructor(
                 sessionId = messageWithInjectedFields.sessionId,
                 role = messageWithInjectedFields.role.value,
                 content = messageWithInjectedFields.content,
-                createdAt = messageWithInjectedFields.createdAt.toString(),
+                createdAt = messageWithInjectedFields.createdAt,
                 isOutdated = if (messageWithInjectedFields.isOutdated) 1L else 0L,
                 editParentId = messageWithInjectedFields.editParentId,
                 isEdited = if (messageWithInjectedFields.isEdited) 1L else 0L,
@@ -95,7 +94,7 @@ class ChatMessageRepository internal constructor(
                 totalTokens = messageWithInjectedFields.totalTokens?.toLong(),
                 durationMs = messageWithInjectedFields.durationMs,
                 contentJson = encodeChatContentBlocks(messageWithInjectedFields.contentBlocks),
-                syncedAt = syncedAt?.toString(),
+                syncedAt = syncedAt,
             )
 
             // Save attachments if any (with reference counting for shared storage)
@@ -134,7 +133,7 @@ class ChatMessageRepository internal constructor(
                     sessionId = msg.sessionId,
                     role = msg.role.value,
                     content = msg.content,
-                    createdAt = msg.createdAt.toString(),
+                    createdAt = msg.createdAt,
                     isOutdated = if (msg.isOutdated) 1L else 0L,
                     editParentId = msg.editParentId,
                     isEdited = if (msg.isEdited) 1L else 0L,
@@ -204,10 +203,10 @@ class ChatMessageRepository internal constructor(
                 queries.selectBySessionDescFromEnd(sessionId, fetchLimit).executeAsList()
 
             direction == PaginationDirection.FORWARD ->
-                queries.selectBySessionAfterCursorAsc(sessionId, cursor!!.toString(), fetchLimit).executeAsList()
+                queries.selectBySessionAfterCursorAsc(sessionId, cursor!!, fetchLimit).executeAsList()
 
             else ->
-                queries.selectBySessionBeforeCursorDesc(sessionId, cursor!!.toString(), fetchLimit).executeAsList()
+                queries.selectBySessionBeforeCursorDesc(sessionId, cursor!!, fetchLimit).executeAsList()
         }.map { it.toChatMessage() }
 
         // Check if there are more messages
@@ -268,8 +267,8 @@ class ChatMessageRepository internal constructor(
         val results = when (sortBy) {
             SearchSortBy.DATE_ASC -> queries.searchGlobalAsc(
                 pattern = pattern,
-                startTime = startTime?.toString(),
-                endTime = endTime?.toString(),
+                startTime = startTime,
+                endTime = endTime,
                 projectId = projectId,
                 limit = limit.toLong(),
             )
@@ -277,8 +276,8 @@ class ChatMessageRepository internal constructor(
             // RELEVANCE falls back to DATE_DESC for now.
             SearchSortBy.DATE_DESC, SearchSortBy.RELEVANCE -> queries.searchGlobalDesc(
                 pattern = pattern,
-                startTime = startTime?.toString(),
-                endTime = endTime?.toString(),
+                startTime = startTime,
+                endTime = endTime,
                 projectId = projectId,
                 limit = limit.toLong(),
             )
@@ -430,7 +429,7 @@ class ChatMessageRepository internal constructor(
                     fileName = row.file_name!!,
                     mimeType = row.mime_type!!,
                     size = row.size!!,
-                    createdAt = TimeUtil.parseInstant(row.created_at!!),
+                    createdAt = row.created_at!!,
                     storagePath = row.storage_path,
                     content = null,
                 )
@@ -473,7 +472,7 @@ class ChatMessageRepository internal constructor(
                 val isEdited = if (message.isEdited) 1L else 0L
                 val isFailed = if (message.isFailed) 1L else 0L
                 val contentJson = encodeChatContentBlocks(message.contentBlocks)
-                val syncedAt = message.createdAt.toString()
+                val syncedAt = message.createdAt
 
                 if (existing == null) {
                     queries.insertMessage(
@@ -481,7 +480,7 @@ class ChatMessageRepository internal constructor(
                         sessionId = message.sessionId,
                         role = message.role.value,
                         content = message.content,
-                        createdAt = message.createdAt.toString(),
+                        createdAt = message.createdAt,
                         isOutdated = isOutdated,
                         editParentId = message.editParentId,
                         isEdited = isEdited,
@@ -498,7 +497,7 @@ class ChatMessageRepository internal constructor(
                         sessionId = message.sessionId,
                         role = message.role.value,
                         content = message.content,
-                        createdAt = message.createdAt.toString(),
+                        createdAt = message.createdAt,
                         isOutdated = isOutdated,
                         editParentId = message.editParentId,
                         isEdited = isEdited,
@@ -520,7 +519,7 @@ class ChatMessageRepository internal constructor(
      *
      * @param messageId The message to mark as synced.
      */
-    fun markSynced(messageId: String): Boolean = queries.markSyncedMessage(Clock.System.now().toString(), messageId).value > 0
+    fun markSynced(messageId: String): Boolean = queries.markSyncedMessage(Clock.System.now(), messageId).value > 0
 
     /**
      * @param limit Maximum rows to return in one batch.
@@ -571,7 +570,7 @@ class ChatMessageRepository internal constructor(
             sessionId = row.msg_session_id,
             role = MessageRole.entries.find { it.value == row.msg_role } ?: MessageRole.USER,
             content = row.msg_content,
-            createdAt = TimeUtil.parseInstant(row.msg_created_at),
+            createdAt = row.msg_created_at,
             isOutdated = row.msg_is_outdated == 1L,
             editParentId = row.msg_edit_parent_id,
             isEdited = row.msg_is_edited == 1L,
@@ -586,8 +585,8 @@ class ChatMessageRepository internal constructor(
         val session = ChatSession(
             id = row.session_id,
             title = row.session_title,
-            createdAt = TimeUtil.parseInstant(row.session_created_at),
-            updatedAt = TimeUtil.parseInstant(row.session_updated_at),
+            createdAt = row.session_created_at,
+            updatedAt = row.session_updated_at,
             projectId = row.session_project_id,
             directiveId = row.session_directive_id,
             isStarred = row.session_is_starred == 1L,

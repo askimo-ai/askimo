@@ -46,11 +46,9 @@ interface Event {
     fun getDetails(): String
 }
 
-
 /**
  * Event sources/categories for organization and filtering
  */
 enum class EventSource {
     SYSTEM,
 }
-

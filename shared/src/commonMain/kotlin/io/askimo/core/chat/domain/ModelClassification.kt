@@ -36,4 +36,3 @@ data class ModelClassification(
     val createdAt: Instant = Clock.System.now(),
     val updatedAt: Instant = Clock.System.now(),
 )
-

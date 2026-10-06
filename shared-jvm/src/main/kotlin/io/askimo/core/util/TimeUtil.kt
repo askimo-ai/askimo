@@ -6,8 +6,6 @@ package io.askimo.core.util
 
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.format.char
-import kotlinx.datetime.format.optional
 import kotlinx.datetime.toInstant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -18,25 +16,6 @@ import kotlin.time.toJavaInstant
 
 object TimeUtil {
     private val instantDisplayFmt = DateTimeFormatter.ofPattern("MMM dd, HH:mm:ss")
-
-    /** Tolerates 0-9 fractional second digits, same as `ISO_LOCAL_DATE_TIME`'s default behavior. */
-    private val LEGACY_SPACE_SEPARATED_FORMAT = LocalDateTime.Format {
-        year()
-        char('-')
-        monthNumber()
-        char('-')
-        day()
-        char(' ')
-        hour()
-        char(':')
-        minute()
-        char(':')
-        second()
-        optional {
-            char('.')
-            secondFraction(1, 9)
-        }
-    }
 
     /**
      * Parses a stored `Instant` column value, tolerating every format this codebase has ever
@@ -61,18 +40,6 @@ object TimeUtil {
         }.getOrElse {
             LocalDateTime.parse(raw.trim().replace(' ', 'T')).toInstant(TimeZone.UTC)
         }
-    }
-
-    /**
-     * Parses a stored `LocalDateTime` column value (used by `user_profiles`/`user_interests`/
-     * `user_preferences`), tolerating both the canonical ISO-8601 format (`LocalDateTime.toString()`)
-     * written by this repository layer and the legacy space-separated format written by the old
-     * Exposed `javatime.datetime()` column type or a SQLite column `DEFAULT (datetime('now'))`.
-     */
-    fun parseLocalDateTime(raw: String): LocalDateTime = runCatching {
-        LocalDateTime.parse(raw.trim())
-    }.getOrElse {
-        LocalDateTime.parse(raw.trim(), LEGACY_SPACE_SEPARATED_FORMAT)
     }
 
     /**

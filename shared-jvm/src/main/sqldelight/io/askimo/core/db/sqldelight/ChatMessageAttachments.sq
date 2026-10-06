@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS chat_message_attachments (
     file_name TEXT NOT NULL,
     mime_type TEXT NOT NULL,
     size INTEGER NOT NULL,
-    created_at TEXT NOT NULL,
+    created_at TEXT AS kotlin.time.Instant NOT NULL,
     storage_path TEXT,
     FOREIGN KEY (message_id) REFERENCES chat_messages (id) ON DELETE CASCADE,
     FOREIGN KEY (session_id) REFERENCES chat_sessions (id) ON DELETE CASCADE

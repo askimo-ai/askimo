@@ -9,7 +9,8 @@ import io.askimo.core.logging.logger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.time.Instant
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * Tracks LLM usage across the application lifetime.
@@ -31,7 +32,7 @@ class TelemetryCollector(
     private val log = logger<TelemetryCollector>()
 
     @Volatile
-    private var _sessionStart: Instant = Instant.EPOCH
+    private var _sessionStart: Instant = Instant.DISTANT_PAST
 
     /** Start of the current session window (updated by [reset]). */
     val sessionStart: Instant get() = _sessionStart
@@ -101,7 +102,7 @@ class TelemetryCollector(
      * historical data. [refreshSignal] is reset to 0.
      */
     fun reset() {
-        _sessionStart = Instant.now()
+        _sessionStart = Clock.System.now()
         _refreshSignal.value = 0L
         log.info("Telemetry session reset — new sessionStart=$_sessionStart")
     }

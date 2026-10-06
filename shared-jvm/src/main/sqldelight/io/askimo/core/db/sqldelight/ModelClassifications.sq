@@ -10,8 +10,8 @@ CREATE TABLE IF NOT EXISTS model_classifications (
     supports_sampling INTEGER DEFAULT 1,
     supports_streaming INTEGER DEFAULT 1,
     description TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    created_at TEXT AS kotlin.time.Instant NOT NULL,
+    updated_at TEXT AS kotlin.time.Instant NOT NULL
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_model_classifications_provider_model ON model_classifications (provider, model_name);

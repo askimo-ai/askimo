@@ -15,4 +15,3 @@ enum class IndexStatus {
     WATCHING,
     FAILED,
 }
-

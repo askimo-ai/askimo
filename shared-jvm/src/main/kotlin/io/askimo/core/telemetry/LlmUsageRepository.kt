@@ -9,12 +9,13 @@ import io.askimo.core.db.DatabaseManager
 import io.askimo.core.logging.logger
 import io.askimo.core.telemetry.LlmInstanceStats
 import io.askimo.core.telemetry.LlmUsageRecord
-import java.time.Instant
+import kotlin.time.Instant
 
 /**
  *
- * All timestamp comparisons are performed in UTC. Timestamps are stored as ISO-8601 TEXT,
- * which is lexicographically ordered — string `>=` / `<` gives correct temporal order.
+ * All timestamp comparisons are performed in UTC. Timestamps are stored natively as
+ * [kotlin.time.Instant] via [io.askimo.core.db.InstantColumnAdapter] — the `java.time.Instant`
+ * values on this repository's public API are converted at the boundary.
  */
 class LlmUsageRepository internal constructor(
     databaseManager: DatabaseManager = DatabaseManager.getInstance(),
@@ -25,7 +26,7 @@ class LlmUsageRepository internal constructor(
 
     fun insert(record: LlmUsageRecord) {
         queries.insertLlmUsageRecord(
-            timestamp = record.timestamp.toString(),
+            timestamp = record.timestamp,
             provider = record.provider,
             model = record.model,
             instanceId = record.instanceId,
@@ -47,7 +48,7 @@ class LlmUsageRepository internal constructor(
     /**
      * Counts the number of calls (including errors) within [[from], [to]).
      */
-    fun countByPeriod(from: Instant, to: Instant): Int = queries.countLlmUsageByPeriod(from.toString(), to.toString()).executeAsOne().toInt()
+    fun countByPeriod(from: Instant, to: Instant): Int = queries.countLlmUsageByPeriod(from, to).executeAsOne().toInt()
 
     /**
      * Returns per-instance aggregated stats within [[from], [to]).
@@ -55,7 +56,7 @@ class LlmUsageRepository internal constructor(
      * Groups by `COALESCE(instance_id, provider), model` and orders by total tokens descending,
      * so the highest-usage model appears first. One [LlmInstanceStats] row per unique combination.
      */
-    fun queryGroupedByInstance(from: Instant, to: Instant): List<LlmInstanceStats> = queries.queryLlmUsageGroupedByInstance(from.toString(), to.toString())
+    fun queryGroupedByInstance(from: Instant, to: Instant): List<LlmInstanceStats> = queries.queryLlmUsageGroupedByInstance(from, to)
         .executeAsList()
         .map { row ->
             LlmInstanceStats(

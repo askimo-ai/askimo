@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS conversation_summaries (
     main_topics TEXT NOT NULL,
     recent_context TEXT NOT NULL,
     last_summarized_message_id TEXT NOT NULL,
-    created_at TEXT NOT NULL,
+    created_at TEXT AS kotlin.time.Instant NOT NULL,
     FOREIGN KEY (session_id) REFERENCES chat_sessions (id) ON DELETE CASCADE
 );
 

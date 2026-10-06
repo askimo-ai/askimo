@@ -8,7 +8,6 @@ import io.askimo.core.chat.domain.SessionMemory
 import io.askimo.core.db.AbstractRepository
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.db.sqldelight.Session_memory
-import io.askimo.core.util.TimeUtil
 import kotlin.time.Instant
 
 /**
@@ -18,8 +17,8 @@ private fun Session_memory.toSessionMemory(): SessionMemory = SessionMemory(
     sessionId = session_id,
     memorySummary = memory_summary,
     memoryMessages = memory_messages,
-    lastUpdated = TimeUtil.parseInstant(last_updated),
-    createdAt = TimeUtil.parseInstant(created_at),
+    lastUpdated = last_updated,
+    createdAt = created_at,
 )
 
 /**
@@ -47,7 +46,7 @@ class SessionMemoryRepository internal constructor(
                 queries.updateMemory(
                     memorySummary = sessionMemory.memorySummary,
                     memoryMessages = sessionMemory.memoryMessages,
-                    lastUpdated = sessionMemory.lastUpdated.toString(),
+                    lastUpdated = sessionMemory.lastUpdated,
                     sessionId = sessionMemory.sessionId,
                 )
             } else {
@@ -55,8 +54,8 @@ class SessionMemoryRepository internal constructor(
                     sessionId = sessionMemory.sessionId,
                     memorySummary = sessionMemory.memorySummary,
                     memoryMessages = sessionMemory.memoryMessages,
-                    lastUpdated = sessionMemory.lastUpdated.toString(),
-                    createdAt = sessionMemory.createdAt.toString(),
+                    lastUpdated = sessionMemory.lastUpdated,
+                    createdAt = sessionMemory.createdAt,
                 )
             }
         }
@@ -87,5 +86,5 @@ class SessionMemoryRepository internal constructor(
      * @param olderThan Timestamp threshold - memories last updated before this will be deleted
      * @return Number of records deleted
      */
-    fun cleanupOldMemories(olderThan: Instant): Int = queries.deleteOlderThan(olderThan.toString()).value.toInt()
+    fun cleanupOldMemories(olderThan: Instant): Int = queries.deleteOlderThan(olderThan).value.toInt()
 }

@@ -86,4 +86,3 @@ data class ToolCallInfo(
         private fun String.truncateField(): String = if (length > MAX_FIELD_LENGTH) take(MAX_FIELD_LENGTH) + "…" else this
     }
 }
-

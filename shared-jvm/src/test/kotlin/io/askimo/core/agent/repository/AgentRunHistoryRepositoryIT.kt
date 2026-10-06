@@ -72,7 +72,7 @@ class AgentRunHistoryRepositoryIT {
          */
         private fun createWorkspace(): String {
             val id = UUID.randomUUID().toString()
-            val now = Clock.System.now().toString()
+            val now = Clock.System.now()
             databaseManager.db.workspacesQueries.insertWorkspace(
                 id = id,
                 name = "ws-$id",

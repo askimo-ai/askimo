@@ -30,4 +30,3 @@ data class Project(
      */
     val defaultDirectiveId: String? = null,
 )
-

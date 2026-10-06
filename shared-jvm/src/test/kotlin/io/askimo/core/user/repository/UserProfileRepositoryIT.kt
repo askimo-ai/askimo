@@ -200,24 +200,31 @@ class UserProfileRepositoryIT {
 
     @Test
     fun `should read legacy Exposed space-separated timestamp format`() {
-        // Simulates a profile row created by the old Exposed repository, whose `datetime()`
-        // column type writes SQLite's native space-separated format (no 'T', no 'Z') instead
-        // of the ISO-8601 format this SQLDelight repository writes going forward. Tolerated by
-        // `TimeUtil.parseLocalDateTime` — no data migration needed.
-        databaseManager.db.userProfilesQueries.insertProfile(
-            id = "default",
-            name = "Legacy User",
-            email = null,
-            preferredTitle = null,
-            occupation = null,
-            location = null,
-            timezone = null,
-            bio = null,
-            createdAt = "2026-09-09 12:46:12.696",
-            updatedAt = "2026-09-09 12:46:12.696",
-        )
+        databaseManager.driver.execute(
+            identifier = null,
+            sql = """
+                |INSERT INTO user_profiles (id, name, email, preferred_title, occupation, location, timezone, bio, created_at, updated_at)
+                |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """.trimMargin(),
+            parameters = 10,
+        ) {
+            bindString(0, "default")
+            bindString(1, "Legacy User")
+            bindString(2, null)
+            bindString(3, null)
+            bindString(4, null)
+            bindString(5, null)
+            bindString(6, null)
+            bindString(7, null)
+            bindString(8, "2026-09-09 12:46:12.696")
+            bindString(9, "2026-09-09 12:46:12.696")
+        }
 
         val profile = repository.getProfile()
         assertEquals("Legacy User", profile.name)
+        assertEquals(
+            kotlin.time.Instant.parse("2026-09-09T12:46:12.696Z"),
+            profile.createdAt,
+        )
     }
 }

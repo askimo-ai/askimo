@@ -16,7 +16,6 @@ import io.askimo.core.db.AbstractRepository
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.db.sqldelight.Chat_directives
 import io.askimo.core.logging.logger
-import io.askimo.core.util.TimeUtil
 import io.askimo.core.util.walkResourceDirectory
 import java.nio.file.Files
 import java.util.UUID
@@ -38,9 +37,9 @@ private fun Chat_directives.toChatDirective(): ChatDirective = ChatDirective(
     content = content,
     scope = runCatching { DirectiveScope.valueOf(scope) }.getOrDefault(DirectiveScope.PERSONAL),
     createdBy = created_by,
-    createdAt = TimeUtil.parseInstant(created_at),
-    updatedAt = TimeUtil.parseInstant(updated_at),
-    deletedAt = deleted_at?.let { TimeUtil.parseInstant(it) },
+    createdAt = created_at,
+    updatedAt = updated_at,
+    deletedAt = deleted_at,
 )
 
 private fun validateDirectiveLengths(directive: ChatDirective) {
@@ -75,8 +74,8 @@ class ChatDirectiveRepository internal constructor(
                     content = directive.content,
                     scope = directive.scope.name,
                     createdBy = directive.createdBy,
-                    createdAt = directive.createdAt.toString(),
-                    updatedAt = directive.updatedAt.toString(),
+                    createdAt = directive.createdAt,
+                    updatedAt = directive.updatedAt,
                 )
             } else {
                 queries.upsertUpdate(
@@ -84,7 +83,7 @@ class ChatDirectiveRepository internal constructor(
                     content = directive.content,
                     scope = directive.scope.name,
                     createdBy = directive.createdBy,
-                    createdAt = directive.createdAt.toString(),
+                    createdAt = directive.createdAt,
                     id = directive.id,
                 )
             }
@@ -109,7 +108,7 @@ class ChatDirectiveRepository internal constructor(
         return queries.updateDirective(
             name = directive.name,
             content = directive.content,
-            updatedAt = Clock.System.now().toString(),
+            updatedAt = Clock.System.now(),
             id = directive.id,
         ).value > 0
     }
@@ -159,7 +158,7 @@ class ChatDirectiveRepository internal constructor(
         .take(limit)
 
     /** Stamps [syncedAt] with the current timestamp to record a successful push. */
-    fun markSynced(directiveId: String): Boolean = queries.markSynced(Clock.System.now().toString(), directiveId).value > 0
+    fun markSynced(directiveId: String): Boolean = queries.markSynced(Clock.System.now(), directiveId).value > 0
 
     /**
      * Merges directives received from the server into the local database.
@@ -170,11 +169,11 @@ class ChatDirectiveRepository internal constructor(
         if (directives.isEmpty()) return
 
         db.transaction {
-            val nowStr = Clock.System.now().toString()
+            val now = Clock.System.now()
             val ids = directives.map { it.id }
 
             val existingById = queries.selectExistingByIds(ids).executeAsList()
-                .associate { it.id to TimeUtil.parseInstant(it.updated_at) }
+                .associate { it.id to it.updated_at }
 
             for (directive in directives) {
                 validateDirectiveLengths(directive)
@@ -187,10 +186,10 @@ class ChatDirectiveRepository internal constructor(
                         content = directive.content,
                         scope = directive.scope.name,
                         createdBy = directive.createdBy,
-                        createdAt = directive.createdAt.toString(),
-                        updatedAt = directive.updatedAt.toString(),
-                        deletedAt = directive.deletedAt?.toString(),
-                        syncedAt = nowStr,
+                        createdAt = directive.createdAt,
+                        updatedAt = directive.updatedAt,
+                        deletedAt = directive.deletedAt,
+                        syncedAt = now,
                     )
                 } else if (directive.updatedAt > storedUpdatedAt) {
                     queries.updateFromServer(
@@ -198,9 +197,9 @@ class ChatDirectiveRepository internal constructor(
                         content = directive.content,
                         scope = directive.scope.name,
                         createdBy = directive.createdBy,
-                        updatedAt = directive.updatedAt.toString(),
-                        deletedAt = directive.deletedAt?.toString(),
-                        syncedAt = nowStr,
+                        updatedAt = directive.updatedAt,
+                        deletedAt = directive.deletedAt,
+                        syncedAt = now,
                         id = directive.id,
                     )
                 }

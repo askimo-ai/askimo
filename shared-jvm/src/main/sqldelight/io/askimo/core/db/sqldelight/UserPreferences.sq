@@ -3,8 +3,8 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     profile_id TEXT NOT NULL,
     key TEXT NOT NULL,
     value TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
+    created_at TEXT AS kotlin.time.Instant NOT NULL,
+    updated_at TEXT AS kotlin.time.Instant NOT NULL,
     FOREIGN KEY (profile_id) REFERENCES user_profiles(id) ON DELETE CASCADE,
     UNIQUE(profile_id, key)
 );
