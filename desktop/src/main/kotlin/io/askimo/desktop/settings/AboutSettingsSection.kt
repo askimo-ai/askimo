@@ -241,6 +241,12 @@ fun aboutSettingsSection() {
                         )
 
                         linkButton(
+                            onClick = { openUrl("https://$DOMAIN/forum/") },
+                        ) {
+                            Text("Forum & Community")
+                        }
+
+                        linkButton(
                             onClick = { openUrl("https://github.com/askimo-ai/askimo") },
                         ) {
                             Text("GitHub Repository")

@@ -247,6 +247,10 @@ fun composeTopMenuBar(
                     expandedMenu = null
                     runCatching { if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI("https://discord.gg/eXSBR4fNmm")) }
                 }
+                menuAction("menu.help.forum") {
+                    expandedMenu = null
+                    runCatching { if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI("https://$DOMAIN/forum/section/?s=help")) }
+                }
                 menuAction("menu.help.support.askimo") {
                     expandedMenu = null
                     onSupportAskimo()
