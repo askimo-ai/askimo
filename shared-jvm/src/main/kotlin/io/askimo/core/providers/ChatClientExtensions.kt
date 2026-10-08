@@ -4,6 +4,7 @@
  */
 package io.askimo.core.providers
 
+import dev.langchain4j.agent.tool.ToolExecutionRequest
 import dev.langchain4j.data.message.Content
 import dev.langchain4j.data.message.ToolExecutionResultMessage
 import dev.langchain4j.data.message.UserMessage
@@ -220,6 +221,14 @@ fun ChatClient.sendStreamingMessageWithCallback(
                     var capturedError: Throwable? = null
                     val streamStartTime = System.currentTimeMillis()
 
+                    // Tool-call ids requested by the current AiMessage that don't have a
+                    // ToolExecutionResultMessage yet. Populated in onCompleteResponse (fires
+                    // before beforeToolExecution/onToolExecuted for the requested tools) and
+                    // drained in onToolExecuted. If an approval denial/timeout aborts the loop,
+                    // whatever remains here still needs a synthetic result — otherwise sibling
+                    // tool_use ids from the same parallel-tool-call turn are left dangling.
+                    val pendingToolRequests = mutableMapOf<String, ToolExecutionRequest>()
+
                     sendMessageStreaming(userContents)
                         .onPartialResponse { chunk ->
                             sb.append(chunk)
@@ -233,6 +242,12 @@ fun ChatClient.sendStreamingMessageWithCallback(
                         .onCompleteResponse { response ->
                             val aiMessage = response.aiMessage()
                             val tokenUsage = response.tokenUsage()
+
+                            if (aiMessage.hasToolExecutionRequests()) {
+                                aiMessage.toolExecutionRequests().forEach { req ->
+                                    pendingToolRequests[req.id()] = req
+                                }
+                            }
 
                             // Fire per-message token usage callback before counting down
                             if (onTokenUsage != null && tokenUsage != null) {
@@ -287,17 +302,24 @@ fun ChatClient.sendStreamingMessageWithCallback(
                                     )
                                     if (!latch.await(120, TimeUnit.SECONDS)) {
                                         val msg = LocalizationManager.getString("chat.tool.approval.timed_out", toolName)
-                                        chatMemory?.add(ToolExecutionResultMessage.from(before.request(), msg))
+                                        pendingToolRequests.values.forEach { req ->
+                                            chatMemory?.add(ToolExecutionResultMessage.from(req, msg))
+                                        }
+                                        pendingToolRequests.clear()
                                         throw ToolExecutionException(toolName = toolName, errorDetails = msg)
                                     }
                                     if (!approved) {
                                         val msg = LocalizationManager.getString("chat.tool.approval.denied", toolName)
-                                        chatMemory?.add(ToolExecutionResultMessage.from(before.request(), msg))
+                                        pendingToolRequests.values.forEach { req ->
+                                            chatMemory?.add(ToolExecutionResultMessage.from(req, msg))
+                                        }
+                                        pendingToolRequests.clear()
                                         throw ToolExecutionException(toolName = toolName, errorDetails = msg)
                                     }
                                 }
                             }
                         }.onToolExecuted { tool ->
+                            pendingToolRequests.remove(tool.request().id())
                             val toolName = tool.request().name()
                             val arguments = tool.request().arguments()
                             val result = tool.result()

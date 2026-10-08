@@ -175,9 +175,9 @@ class ChatSessionServiceTest {
         val evictedMemory = trackedMemory(evictedSession.id)
         addDirtyMessages(evictedMemory)
 
-        // memoryCache.maximumCacheSize == 10 — creating 10 more distinct sessions' shared
+        // memoryCache.maximumCacheSize == 20 — creating 20 more distinct sessions' shared
         // memories pushes the least-recently-accessed entry (evictedSession's) out.
-        repeat(10) { i ->
+        repeat(20) { i ->
             val filler = sessionRepository.createSession(ChatSession(id = "", title = "Filler $i"))
             trackedMemory(filler.id)
         }
@@ -190,7 +190,7 @@ class ChatSessionServiceTest {
         val evictedSession = sessionRepository.createSession(ChatSession(id = "", title = "Evicted by LRU - clean"))
         trackedMemory(evictedSession.id)
 
-        repeat(10) { i ->
+        repeat(20) { i ->
             val filler = sessionRepository.createSession(ChatSession(id = "", title = "Filler clean $i"))
             trackedMemory(filler.id)
         }
