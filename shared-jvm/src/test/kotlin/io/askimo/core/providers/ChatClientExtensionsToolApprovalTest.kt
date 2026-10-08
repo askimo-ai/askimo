@@ -134,12 +134,12 @@ class ChatClientExtensionsToolApprovalTest {
 
         val chatClient = object : ChatClient {
             override fun sendMessageStreaming(userContents: List<Content>): TokenStream = FakeTokenStream {
-                // Model responds with both parallel tool calls in one AiMessage.
-                completeResponseHandler?.accept(
-                    ChatResponse.builder()
-                        .aiMessage(AiMessage.from(listOf(requestA, requestB)))
-                        .build(),
-                )
+                // Simulates LangChain4j's real behavior: the AiMessage requesting both parallel
+                // tool calls is persisted to chatMemory *before* beforeToolExecution fires for
+                // any of its requests — `onCompleteResponse` is the terminal callback and would
+                // only fire *after* all tool rounds complete, so it must NOT be invoked here;
+                // denial aborts the turn before a final response is ever produced.
+                chatMemory.add(AiMessage.from(listOf(requestA, requestB)))
                 // Framework invokes beforeToolExecution for the first request; denial aborts
                 // the loop before toolB's beforeToolExecution ever fires.
                 beforeToolExecutionHandler?.accept(beforeToolExecution(requestA))
@@ -170,11 +170,9 @@ class ChatClientExtensionsToolApprovalTest {
 
         val chatClient = object : ChatClient {
             override fun sendMessageStreaming(userContents: List<Content>): TokenStream = FakeTokenStream {
-                completeResponseHandler?.accept(
-                    ChatResponse.builder()
-                        .aiMessage(AiMessage.from(listOf(request)))
-                        .build(),
-                )
+                // Simulates LangChain4j persisting the tool-calling AiMessage to chatMemory
+                // before beforeToolExecution fires — see comment in the test above.
+                chatMemory.add(AiMessage.from(listOf(request)))
                 beforeToolExecutionHandler?.accept(beforeToolExecution(request))
             }
 
@@ -192,5 +190,41 @@ class ChatClientExtensionsToolApprovalTest {
 
         val resultIds = chatMemory.added.filterIsInstance<ToolExecutionResultMessage>().map { it.id() }
         assertTrue(resultIds == listOf(request.id()), "Expected exactly one tool_result for ${request.id()}, got: $resultIds")
+    }
+
+    @Test
+    fun `approval timeout appends synthetic results for all pending requests`() {
+        val chatMemory = FakeChatMemory()
+        val requestA = toolRequest("call_A", "toolA")
+        val requestB = toolRequest("call_B", "toolB")
+
+        val chatClient = object : ChatClient {
+            override fun sendMessageStreaming(userContents: List<Content>): TokenStream = FakeTokenStream {
+                // Simulates LangChain4j persisting the tool-calling AiMessage before
+                // beforeToolExecution fires — see comment in the denial test above.
+                chatMemory.add(AiMessage.from(listOf(requestA, requestB)))
+                beforeToolExecutionHandler?.accept(beforeToolExecution(requestA))
+            }
+
+            override fun sendMessage(prompt: String): String = error("not used")
+        }
+
+        assertFailsWith<ToolExecutionException> {
+            chatClient.sendStreamingMessageWithCallback(
+                userContents = listOf(),
+                resolvedTools = listOf(requireApprovalConfig("toolA"), requireApprovalConfig("toolB")),
+                // Never invokes approve/deny — forces the timeout branch, independent from
+                // the denial branch exercised by the tests above.
+                onToolApprovalRequired = { _, _, _, _ -> },
+                // Tiny timeout so this test doesn't actually wait out the real 120s default.
+                toolApprovalTimeoutMs = 50L,
+                chatMemory = chatMemory,
+            )
+        }
+
+        // Both sibling tool_use ids must have a matching tool_result — not just requestA's.
+        val resultIds = chatMemory.added.filterIsInstance<ToolExecutionResultMessage>().map { it.id() }
+        assertTrue(requestA.id() in resultIds, "Expected a tool_result for requestA (${requestA.id()}), got: $resultIds")
+        assertTrue(requestB.id() in resultIds, "Expected a tool_result for requestB (${requestB.id()}), got: $resultIds")
     }
 }

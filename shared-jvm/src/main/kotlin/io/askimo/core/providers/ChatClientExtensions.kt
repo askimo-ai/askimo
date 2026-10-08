@@ -5,6 +5,7 @@
 package io.askimo.core.providers
 
 import dev.langchain4j.agent.tool.ToolExecutionRequest
+import dev.langchain4j.data.message.AiMessage
 import dev.langchain4j.data.message.Content
 import dev.langchain4j.data.message.ToolExecutionResultMessage
 import dev.langchain4j.data.message.UserMessage
@@ -18,6 +19,7 @@ import dev.langchain4j.model.chat.request.json.JsonObjectSchema
 import dev.langchain4j.model.chat.request.json.JsonSchema
 import dev.langchain4j.model.chat.request.json.JsonStringSchema
 import dev.langchain4j.model.googleai.GeneratedImageHelper
+import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
 import io.askimo.core.context.ChatContext
 import io.askimo.core.exception.AskimoException
@@ -175,12 +177,19 @@ fun ChatClient.sendStreamingMessageWithCallback(
      * [io.askimo.core.intent.ToolCategory.defaultApprovalPolicy]).
      *
      * The callback **must** eventually invoke either `approve` or `deny` — failing to do so
-     * will stall the streaming thread until the 120-second timeout fires.
+     * will stall the streaming thread until [toolApprovalTimeoutMs] elapses.
      *
      * - Invoke `approve` to let the tool proceed.
      * - Invoke `deny` to cancel the tool call (surfaces as a [ToolExecutionException]).
      */
     onToolApprovalRequired: ((toolName: String, arguments: String?, approve: () -> Unit, deny: () -> Unit) -> Unit)? = null,
+    /**
+     * How long to wait for [onToolApprovalRequired] to invoke `approve`/`deny` before treating
+     * the request as timed out. Defaults to [io.askimo.core.config.ModelsConfig.toolApprovalTimeoutMs];
+     * overridable here mainly so tests can inject a much smaller value instead of waiting out
+     * the real (120s) default.
+     */
+    toolApprovalTimeoutMs: Long = AppConfig.models.toolApprovalTimeoutMs,
     /**
      * Session [ChatMemory]. On tool-approval denial/timeout, used to append a synthetic
      * [ToolExecutionResultMessage] before throwing — otherwise the already-persisted `tool_use`
@@ -222,11 +231,17 @@ fun ChatClient.sendStreamingMessageWithCallback(
                     val streamStartTime = System.currentTimeMillis()
 
                     // Tool-call ids requested by the current AiMessage that don't have a
-                    // ToolExecutionResultMessage yet. Populated in onCompleteResponse (fires
-                    // before beforeToolExecution/onToolExecuted for the requested tools) and
-                    // drained in onToolExecuted. If an approval denial/timeout aborts the loop,
-                    // whatever remains here still needs a synthetic result — otherwise sibling
-                    // tool_use ids from the same parallel-tool-call turn are left dangling.
+                    // ToolExecutionResultMessage yet. `onCompleteResponse` is the *terminal*
+                    // AiServices callback — LangChain4j only invokes it once, with the final
+                    // answer, *after* all tool rounds (beforeToolExecution → tool run →
+                    // onToolExecuted) have already completed. So it fires too late to seed this
+                    // map before an approval check. Instead it's lazily populated inside
+                    // `beforeToolExecution` (see below) from the latest tool-calling AiMessage
+                    // already persisted to [chatMemory] — LangChain4j appends that AiMessage
+                    // before invoking beforeToolExecution for its requests. Drained in
+                    // onToolExecuted. If an approval denial/timeout aborts the loop, whatever
+                    // remains here still needs a synthetic result — otherwise sibling tool_use
+                    // ids from the same parallel-tool-call turn are left dangling.
                     val pendingToolRequests = mutableMapOf<String, ToolExecutionRequest>()
 
                     sendMessageStreaming(userContents)
@@ -242,12 +257,6 @@ fun ChatClient.sendStreamingMessageWithCallback(
                         .onCompleteResponse { response ->
                             val aiMessage = response.aiMessage()
                             val tokenUsage = response.tokenUsage()
-
-                            if (aiMessage.hasToolExecutionRequests()) {
-                                aiMessage.toolExecutionRequests().forEach { req ->
-                                    pendingToolRequests[req.id()] = req
-                                }
-                            }
 
                             // Fire per-message token usage callback before counting down
                             if (onTokenUsage != null && tokenUsage != null) {
@@ -278,6 +287,24 @@ fun ChatClient.sendStreamingMessageWithCallback(
                             val arguments = before.request().arguments()
                             onToolStarted?.invoke(toolName, arguments)
 
+                            // Lazily seed `pendingToolRequests` from the latest tool-calling
+                            // AiMessage already persisted to chatMemory — LangChain4j appends
+                            // that AiMessage before invoking beforeToolExecution for any of its
+                            // requests, so it's guaranteed to be present by the time we get here
+                            // (unlike onCompleteResponse, which fires only after all tool rounds
+                            // finish). Only runs once per turn: subsequent beforeToolExecution
+                            // calls for sibling requests in the same parallel-tool-call batch
+                            // find the map already populated.
+                            if (pendingToolRequests.isEmpty()) {
+                                chatMemory
+                                    ?.messages()
+                                    ?.asReversed()
+                                    ?.filterIsInstance<AiMessage>()
+                                    ?.firstOrNull { it.hasToolExecutionRequests() }
+                                    ?.toolExecutionRequests()
+                                    ?.forEach { req -> pendingToolRequests[req.id()] = req }
+                            }
+
                             // ── Approval guardrail ─────────────────────────────────────────────
                             if (onToolApprovalRequired != null) {
                                 val toolConfig = resolvedTools.find { it.specification.name() == toolName }
@@ -300,7 +327,7 @@ fun ChatClient.sendStreamingMessageWithCallback(
                                         },
                                         { latch.countDown() },
                                     )
-                                    if (!latch.await(120, TimeUnit.SECONDS)) {
+                                    if (!latch.await(toolApprovalTimeoutMs, TimeUnit.MILLISECONDS)) {
                                         val msg = LocalizationManager.getString("chat.tool.approval.timed_out", toolName)
                                         pendingToolRequests.values.forEach { req ->
                                             chatMemory?.add(ToolExecutionResultMessage.from(req, msg))
