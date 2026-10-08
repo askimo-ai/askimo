@@ -58,6 +58,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -82,6 +83,7 @@ import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
+import io.askimo.ui.common.theme.linkifyUrls
 import java.awt.Desktop
 import java.net.URI
 /**
@@ -676,9 +678,9 @@ fun notificationEventCard(
                 SelectionContainer {
                     Text(
                         text = if (isIndexingCompleted) {
-                            stringResource("event.indexing.files_indexed", event.filesIndexed)
+                            AnnotatedString(stringResource("event.indexing.files_indexed", event.filesIndexed))
                         } else {
-                            event.getDetails()
+                            linkifyUrls(event.getDetails(), contentColor)
                         },
                         style = AppTextStyles.caption,
                         color = contentColor,

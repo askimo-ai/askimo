@@ -4,6 +4,7 @@
  */
 package io.askimo.core.exception
 
+import io.askimo.core.AppConstants
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
 
@@ -64,6 +65,12 @@ object ExceptionHandler {
         } else {
             log.error("${logPrefix}System error: ${askimoException.message}", askimoException)
         }
+
+        val hint = LocalizationManager.getString(
+            "error.report_bug_hint",
+            "https://${AppConstants.DOMAIN}/forum/section/?s=help",
+        )
+        result = "$result\n\n$hint"
 
         return result
     }

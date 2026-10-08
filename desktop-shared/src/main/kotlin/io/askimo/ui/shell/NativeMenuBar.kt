@@ -440,6 +440,17 @@ object NativeMenuBar {
             }
             helpMenu.add(discordItem)
 
+            // Forum & Help — community Q&A and help section
+            val forumItem = MenuItem(menuLabel("menu.help.forum"))
+            forumItem.addActionListener {
+                runCatching {
+                    if (Desktop.isDesktopSupported()) {
+                        Desktop.getDesktop().browse(URI("https://$DOMAIN/forum/section/?s=help"))
+                    }
+                }
+            }
+            helpMenu.add(forumItem)
+
             // Support Askimo — opens the star/share prompt (star + share in one place)
             val supportAskimoItem = MenuItem(menuLabel("menu.help.support.askimo"))
             supportAskimoItem.addActionListener { onSupportAskimo() }

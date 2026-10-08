@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.DisableSelection
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -46,6 +48,7 @@ import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
+import io.askimo.ui.common.theme.linkifyUrls
 
 @Composable
 fun errorDialog(
@@ -96,106 +99,114 @@ fun errorDialog(
             }
         },
         text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(Spacing.small),
-                modifier = Modifier.padding(vertical = Spacing.small),
-            ) {
-                if (linkText != null && linkUrl != null) {
-                    val annotatedString = buildAnnotatedString {
-                        append(message)
-                        append("\n\n")
+            SelectionContainer {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(Spacing.small),
+                    modifier = Modifier.padding(vertical = Spacing.small),
+                ) {
+                    if (linkText != null && linkUrl != null) {
+                        val annotatedString = buildAnnotatedString {
+                            append(message)
+                            append("\n\n")
 
-                        withLink(
-                            LinkAnnotation.Url(
-                                url = linkUrl,
-                                styles = TextLinkStyles(
-                                    style = SpanStyle(
-                                        color = linkColor,
-                                        textDecoration = TextDecoration.Underline,
+                            withLink(
+                                LinkAnnotation.Url(
+                                    url = linkUrl,
+                                    styles = TextLinkStyles(
+                                        style = SpanStyle(
+                                            color = linkColor,
+                                            textDecoration = TextDecoration.Underline,
+                                        ),
                                     ),
                                 ),
-                            ),
-                        ) {
-                            append(linkText)
+                            ) {
+                                append(linkText)
+                            }
+                        }
+
+                        Text(
+                            text = annotatedString,
+                            style = AppTextStyles.body,
+                            maxLines = if (messageExpanded || !isMessageLong) Int.MAX_VALUE else messageCollapsedMaxLines,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .then(
+                                    if (messageExpanded) {
+                                        Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())
+                                    } else {
+                                        Modifier
+                                    },
+                                )
+                                .pointerHoverIcon(PointerIcon.Hand),
+                        )
+                    } else {
+                        Text(
+                            text = linkifyUrls(message, linkColor),
+                            style = AppTextStyles.body,
+                            maxLines = if (messageExpanded || !isMessageLong) Int.MAX_VALUE else messageCollapsedMaxLines,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .then(
+                                    if (messageExpanded) {
+                                        Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())
+                                    } else {
+                                        Modifier
+                                    },
+                                )
+                                .pointerHoverIcon(PointerIcon.Hand),
+                        )
+                    }
+
+                    // Show more / Show less toggle for long messages
+                    if (isMessageLong) {
+                        DisableSelection {
+                            Text(
+                                text = if (messageExpanded) stringResource("action.show.less") else stringResource("action.show.more"),
+                                style = AppTextStyles.fieldLabel,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .clickable { messageExpanded = !messageExpanded }
+                                    .pointerHoverIcon(PointerIcon.Hand)
+                                    .padding(top = Spacing.extraSmall),
+                            )
                         }
                     }
 
-                    Text(
-                        text = annotatedString,
-                        style = AppTextStyles.body,
-                        maxLines = if (messageExpanded || !isMessageLong) Int.MAX_VALUE else messageCollapsedMaxLines,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .then(
-                                if (messageExpanded) {
-                                    Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())
-                                } else {
-                                    Modifier
-                                },
+                    // Collapsible details section showing the cause message
+                    if (details != null) {
+                        DisableSelection {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { showDetails = !showDetails }
+                                    .pointerHoverIcon(PointerIcon.Hand)
+                                    .padding(top = Spacing.extraSmall),
+                            ) {
+                                Icon(
+                                    imageVector = if (showDetails) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                    contentDescription = null,
+                                    tint = AppTextStyles.secondaryContent,
+                                )
+                                Text(
+                                    text = if (showDetails) "Hide details" else "Show details",
+                                    style = AppTextStyles.fieldLabel,
+                                )
+                            }
+                        }
+                        if (showDetails) {
+                            Text(
+                                text = details,
+                                style = AppTextStyles.codeSecondary,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 200.dp)
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(Spacing.small),
                             )
-                            .pointerHoverIcon(PointerIcon.Hand),
-                    )
-                } else {
-                    Text(
-                        text = message,
-                        style = AppTextStyles.body,
-                        maxLines = if (messageExpanded || !isMessageLong) Int.MAX_VALUE else messageCollapsedMaxLines,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .then(
-                                if (messageExpanded) {
-                                    Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())
-                                } else {
-                                    Modifier
-                                },
-                            ),
-                    )
-                }
-
-                // Show more / Show less toggle for long messages
-                if (isMessageLong) {
-                    Text(
-                        text = if (messageExpanded) stringResource("action.show.less") else stringResource("action.show.more"),
-                        style = AppTextStyles.fieldLabel,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .clickable { messageExpanded = !messageExpanded }
-                            .pointerHoverIcon(PointerIcon.Hand)
-                            .padding(top = Spacing.extraSmall),
-                    )
-                }
-
-                // Collapsible details section showing the cause message
-                if (details != null) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showDetails = !showDetails }
-                            .padding(top = Spacing.extraSmall),
-                    ) {
-                        Icon(
-                            imageVector = if (showDetails) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                            contentDescription = null,
-                            tint = AppTextStyles.secondaryContent,
-                        )
-                        Text(
-                            text = if (showDetails) "Hide details" else "Show details",
-                            style = AppTextStyles.fieldLabel,
-                        )
-                    }
-                    if (showDetails) {
-                        Text(
-                            text = details,
-                            style = AppTextStyles.codeSecondary,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 200.dp)
-                                .verticalScroll(rememberScrollState())
-                                .padding(Spacing.small),
-                        )
+                        }
                     }
                 }
             }

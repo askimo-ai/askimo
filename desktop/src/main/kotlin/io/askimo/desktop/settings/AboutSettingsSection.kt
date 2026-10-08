@@ -210,14 +210,14 @@ fun aboutSettingsSection() {
 
                         infoRow(
                             icon = Icons.Default.Update,
-                            label = "Runtime VM",
+                            label = stringResource("about.runtime.vm"),
                             value = VersionInfo.runtimeVm,
                             useMonospace = true,
                         )
 
                         infoRow(
                             icon = Icons.Default.Code,
-                            label = "Runtime Version",
+                            label = stringResource("about.runtime.version"),
                             value = VersionInfo.runtimeVersion,
                             useMonospace = true,
                         )
@@ -241,21 +241,27 @@ fun aboutSettingsSection() {
                         )
 
                         linkButton(
+                            onClick = { openUrl("https://$DOMAIN/forum/") },
+                        ) {
+                            Text(stringResource("about.links.forum"))
+                        }
+
+                        linkButton(
                             onClick = { openUrl("https://github.com/askimo-ai/askimo") },
                         ) {
-                            Text("GitHub Repository")
+                            Text(stringResource("about.links.github"))
                         }
 
                         linkButton(
                             onClick = { openUrl("https://github.com/askimo-ai/askimo/issues") },
                         ) {
-                            Text("Report Issues")
+                            Text(stringResource("about.links.issues"))
                         }
 
                         linkButton(
                             onClick = { openUrl("https://github.com/askimo-ai/askimo/blob/main/LICENSE") },
                         ) {
-                            Text("View License")
+                            Text(stringResource("about.links.license"))
                         }
                     }
                 }

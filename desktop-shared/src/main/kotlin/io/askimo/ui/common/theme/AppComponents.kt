@@ -76,10 +76,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -89,6 +96,41 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import io.askimo.ui.common.i18n.stringResource
+
+private val urlRegex = Regex("""https?://[^\s)]+""")
+
+/**
+ * Builds an [AnnotatedString] where any bare URL found in [text] is turned into a
+ * clickable, underlined [LinkAnnotation.Url], while the rest of the text is kept as-is.
+ *
+ * Use this anywhere plain error/notification text may contain a URL (e.g. the forum hint
+ * appended by `ExceptionHandler`) that should still be clickable, instead of leaving it as
+ * inert text — shared by [io.askimo.ui.common.dialog.errorDialog] and the notification cards.
+ */
+fun linkifyUrls(
+    text: String,
+    linkColor: Color,
+): AnnotatedString = buildAnnotatedString {
+    var lastIndex = 0
+    for (match in urlRegex.findAll(text)) {
+        append(text.substring(lastIndex, match.range.first))
+        withLink(
+            LinkAnnotation.Url(
+                url = match.value,
+                styles = TextLinkStyles(
+                    style = SpanStyle(
+                        color = linkColor,
+                        textDecoration = TextDecoration.Underline,
+                    ),
+                ),
+            ),
+        ) {
+            append(match.value)
+        }
+        lastIndex = match.range.last + 1
+    }
+    append(text.substring(lastIndex))
+}
 
 /**
  * Like [Modifier.clickable], but also [clip]s this element to [shape] *first* — fixes a
