@@ -406,6 +406,12 @@ data class ModelsConfig(
      * thinking. Clamped to a minimum of [MIN_MODEL_TIMEOUT_SECONDS].
      */
     val requestTimeoutInSeconds: Long = 600,
+    /**
+     * How long (in milliseconds) [io.askimo.core.providers.sendStreamingMessageWithCallback]
+     * waits for a tool-approval decision (`onToolApprovalRequired`'s `approve`/`deny`) before
+     * treating the request as timed out and denying it automatically.
+     */
+    val toolApprovalTimeoutMs: Long = 120_000,
 )
 
 /**
@@ -849,6 +855,7 @@ object AppConfig {
         models:
           max_tool_calling_round_trips: 10
           request_timeout_in_seconds: 600
+          tool_approval_timeout_ms: 120000
 
         proxy:
           type: NONE

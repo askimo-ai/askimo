@@ -158,7 +158,7 @@ class ChatSessionService(
      */
     private val memoryCache = SynchronizedCache(
         Cache.Builder<String, TokenAwareSummarizingMemory>()
-            .maximumCacheSize(10)
+            .maximumCacheSize(20) // matches sessionContextCache's size
             .expireAfterAccess(30.minutes)
             .eventListener { event ->
                 val memory = event.evictedValueOrNull()
@@ -265,8 +265,13 @@ class ChatSessionService(
     /**
      * Get or create a chat context (client + memory) for a session. Regular and
      * vision clients share the same memory for conversation continuity.
+     *
+     * Public so callers needing both the client and its exact memory (e.g. to append a
+     * synthetic tool-result on approval denial/timeout) read both from this one cache entry
+     * instead of a separate [getMemoryForSession] lookup, which could still return a
+     * different/evicted instance despite the matching cache size.
      */
-    private fun getOrCreateContextForSession(
+    fun getOrCreateContextForSession(
         sessionId: String,
     ): SessionChatContext = sessionContextCache.getOrPut(sessionId) {
         val project = projectRepository.findProjectBySessionId(sessionId)

@@ -286,12 +286,13 @@ enum class AnalyticsEvent(
     // ── Retention ────────────────────────────────────────────────────────────
 
     /**
-     * Fired on the 2nd, 7th, and 30th app launch to measure retention.
-     * Properties: `launch_count_bucket=2|7|30`.
+     * Fired on the 2nd, 7th, 30th, 60th, 90th, and 180th app launch, then every 365
+     * launches thereafter, to measure retention.
+     * Properties: `launch_count_bucket=2|7|30|60|90|180|365+`.
      */
     RETURNING_USER(
         "returning_user",
-        "User returned. Properties: launch_count_bucket=2|7|30.",
+        "User returned. Properties: launch_count_bucket=2|7|30|60|90|180|365+.",
     ),
 
     // ── Star prompt ──────────────────────────────────────────────────────────
