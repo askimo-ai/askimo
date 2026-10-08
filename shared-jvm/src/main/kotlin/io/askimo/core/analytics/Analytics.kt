@@ -91,15 +91,20 @@ object Analytics {
 
     /**
      * Fires [AnalyticsEvent.RETURNING_USER] when [launchCount] hits a retention milestone
-     * (2nd, 7th, or 30th launch). No-op for other counts.
+     * (2nd, 7th, 30th, 60th, 90th, or 180th launch, then every 365 launches thereafter).
+     * No-op for other counts.
      *
      * @param launchCount The current launch count returned by `ApplicationPreferences.incrementLaunchCount()`.
      */
     fun trackRetentionMilestone(launchCount: Int) {
-        val bucket = when (launchCount) {
-            2 -> "2"
-            7 -> "7"
-            30 -> "30"
+        val bucket = when {
+            launchCount == 2 -> "2"
+            launchCount == 7 -> "7"
+            launchCount == 30 -> "30"
+            launchCount == 60 -> "60"
+            launchCount == 90 -> "90"
+            launchCount == 180 -> "180"
+            launchCount >= 365 && launchCount % 365 == 0 -> "365+"
             else -> return
         }
         if (enabled && initialized) {

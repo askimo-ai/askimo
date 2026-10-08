@@ -431,6 +431,7 @@ class SessionManager(
                                         )
                                     }
                                 },
+                                chatMemory = chatSessionService.getMemoryForSession(sessionId),
                             )
                     } finally {
                         // Always clear the ThreadLocal — prevents leaking context into

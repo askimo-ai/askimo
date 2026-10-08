@@ -198,6 +198,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
 import kotlin.system.exitProcess
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 
 private val log = currentFileLogger()
@@ -290,7 +291,7 @@ fun main(args: Array<String>) {
             onCloseRequest = {
                 val messageCount = runCatching {
                     val t = AppContext.getInstance().telemetry
-                    t.usageRepository.countByPeriod(t.sessionStart, kotlin.time.Clock.System.now())
+                    t.usageRepository.countByPeriod(t.sessionStart, Clock.System.now())
                 }.getOrDefault(0)
                 Analytics.trackSessionEnd(messageCount)
                 Analytics.shutdown()
@@ -1830,12 +1831,14 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                     if (showStarPromptDialog) {
                         starPromptDialog(
                             onDismiss = {
+                                starPromptOpenedFromMenu = false
+                                showStarPromptDialog = false
+                            },
+                            onMaybeLater = {
                                 Analytics.track(AnalyticsEvent.STAR_PROMPT_DISMISSED)
                                 if (!starPromptOpenedFromMenu) {
                                     AccountPreferences.device().snoozeStarPrompt()
                                 }
-                                starPromptOpenedFromMenu = false
-                                showStarPromptDialog = false
                             },
                             onStar = {
                                 Analytics.track(AnalyticsEvent.STAR_PROMPT_ACCEPTED)
@@ -1864,9 +1867,11 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                     if (showSharePromptDialog) {
                         sharePromptDialog(
                             onDismiss = {
+                                showSharePromptDialog = false
+                            },
+                            onMaybeLater = {
                                 Analytics.track(AnalyticsEvent.SHARE_PROMPT_DISMISSED)
                                 AccountPreferences.device().snoozeSharePrompt()
-                                showSharePromptDialog = false
                             },
                             onShared = {
                                 Analytics.track(AnalyticsEvent.SHARE_PROMPT_ACCEPTED)

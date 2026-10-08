@@ -471,15 +471,23 @@ private fun feedbackReasonChip(
  * Dialog prompting users to support the project.
  * Fetches the current star count from the public API and shows social proof when loaded.
  *
- * @param onDismiss       User clicked "Maybe later"
+ * @param onDismiss       User clicked "Got it" on the maybe-later reminder screen — caller
+ *                        closes the dialog. Snoozing/analytics for the *skip itself* belong in
+ *                        [onMaybeLater], since this may never fire if the user never returns
+ *                        to the reminder screen (e.g. quits the app right after skipping).
  * @param onStar          User clicked "Star on GitHub"
  * @param onAlreadyStarred User clicked "Already starred ✓"
+ * @param onMaybeLater    Fires immediately when the user clicks "Maybe later" on the default
+ *                        screen — before the optional reminder screen is shown. Track the skip
+ *                        and persist any snooze state here so it isn't lost if the user never
+ *                        clicks through the reminder's "Got it" button.
  */
 @Composable
 fun starPromptDialog(
     onDismiss: () -> Unit,
     onStar: () -> Unit,
     onAlreadyStarred: () -> Unit,
+    onMaybeLater: () -> Unit = {},
     showReminderOnMaybeLater: Boolean = true,
 ) {
     var starCount by remember { mutableStateOf<Int?>(null) }
@@ -603,7 +611,10 @@ fun starPromptDialog(
                         )
                     }
                     TextButton(
-                        onClick = { if (showReminderOnMaybeLater) showReminder = true else onDismiss() },
+                        onClick = {
+                            onMaybeLater()
+                            if (showReminderOnMaybeLater) showReminder = true else onDismiss()
+                        },
                         modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                     ) {
                         Text(
@@ -625,18 +636,25 @@ fun starPromptDialog(
  * gated on a much higher message-count threshold so it specifically reaches heavy users
  * rather than firing back-to-back with the initial ask.
  *
- * @param onDismiss User clicked "Maybe later" — snoozes the prompt for future re-asking.
+ * @param onDismiss User clicked "Got it" on the maybe-later reminder screen — caller closes
+ *                  the dialog. Snoozing/analytics for the *skip itself* belong in [onMaybeLater],
+ *                  since this may never fire if the user never returns to the reminder screen.
  * @param onShared  User picked a share target from the dropdown — fires once; caller should
  *                  track the acceptance analytics event and mark the prompt permanently done.
  * @param onClose   User clicked "Done" on the post-share thank-you screen — just closes the
  *                  dialog. Kept separate from [onShared] so the accepted analytics event and
  *                  permanent-dismiss state aren't recorded a second time.
+ * @param onMaybeLater Fires immediately when the user clicks "Maybe later" on the default
+ *                  screen — before the optional reminder screen is shown. Track the skip and
+ *                  persist any snooze state here so it isn't lost if the user never clicks
+ *                  through the reminder's "Got it" button.
  */
 @Composable
 fun sharePromptDialog(
     onDismiss: () -> Unit,
     onShared: () -> Unit,
     onClose: () -> Unit,
+    onMaybeLater: () -> Unit = {},
     showReminderOnMaybeLater: Boolean = true,
 ) {
     var thanked by remember { mutableStateOf(false) }
@@ -730,7 +748,10 @@ fun sharePromptDialog(
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                         TextButton(
-                            onClick = { if (showReminderOnMaybeLater) showReminder = true else onDismiss() },
+                            onClick = {
+                                onMaybeLater()
+                                if (showReminderOnMaybeLater) showReminder = true else onDismiss()
+                            },
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         ) {
                             Text(

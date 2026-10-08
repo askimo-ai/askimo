@@ -5,7 +5,9 @@
 package io.askimo.core.providers
 
 import dev.langchain4j.data.message.Content
+import dev.langchain4j.data.message.ToolExecutionResultMessage
 import dev.langchain4j.data.message.UserMessage
+import dev.langchain4j.memory.ChatMemory
 import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.request.ChatRequest
 import dev.langchain4j.model.chat.request.ResponseFormat
@@ -167,17 +169,23 @@ fun ChatClient.sendStreamingMessageWithCallback(
      */
     resolvedTools: List<ToolConfig> = emptyList(),
     /**
-     * Called in [beforeToolExecution] when the resolved approval policy for a tool is
+     * Called in `beforeToolExecution` when the resolved approval policy for a tool is
      * [ToolApprovalPolicy.REQUIRE_APPROVAL] (either explicitly set or implied by the tool's
      * [io.askimo.core.intent.ToolCategory.defaultApprovalPolicy]).
      *
-     * The callback **must** eventually invoke either [approve] or [deny] — failing to do so
+     * The callback **must** eventually invoke either `approve` or `deny` — failing to do so
      * will stall the streaming thread until the 120-second timeout fires.
      *
-     * - Invoke [approve] to let the tool proceed.
-     * - Invoke [deny] to cancel the tool call (surfaces as a [ToolExecutionException]).
+     * - Invoke `approve` to let the tool proceed.
+     * - Invoke `deny` to cancel the tool call (surfaces as a [ToolExecutionException]).
      */
     onToolApprovalRequired: ((toolName: String, arguments: String?, approve: () -> Unit, deny: () -> Unit) -> Unit)? = null,
+    /**
+     * Session [ChatMemory]. On tool-approval denial/timeout, used to append a synthetic
+     * [ToolExecutionResultMessage] before throwing — otherwise the already-persisted `tool_use`
+     * is left without a matching `tool_result`, which Anthropic's API rejects on the next turn.
+     */
+    chatMemory: ChatMemory? = null,
 ): String {
     val log = logger<ChatClient>()
 
@@ -278,10 +286,14 @@ fun ChatClient.sendStreamingMessageWithCallback(
                                         { latch.countDown() },
                                     )
                                     if (!latch.await(120, TimeUnit.SECONDS)) {
-                                        throw ToolExecutionException(toolName = toolName, errorDetails = LocalizationManager.getString("chat.tool.approval.timed_out", toolName))
+                                        val msg = LocalizationManager.getString("chat.tool.approval.timed_out", toolName)
+                                        chatMemory?.add(ToolExecutionResultMessage.from(before.request(), msg))
+                                        throw ToolExecutionException(toolName = toolName, errorDetails = msg)
                                     }
                                     if (!approved) {
-                                        throw ToolExecutionException(toolName = toolName, errorDetails = LocalizationManager.getString("chat.tool.approval.denied", toolName))
+                                        val msg = LocalizationManager.getString("chat.tool.approval.denied", toolName)
+                                        chatMemory?.add(ToolExecutionResultMessage.from(before.request(), msg))
+                                        throw ToolExecutionException(toolName = toolName, errorDetails = msg)
                                     }
                                 }
                             }
