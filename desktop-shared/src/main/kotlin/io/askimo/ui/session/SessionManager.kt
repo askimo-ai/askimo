@@ -368,8 +368,8 @@ class SessionManager(
                     }
 
                     val fullResponse = try {
-                        chatSessionService
-                            .getOrCreateClientForSession(sessionId)
+                        val sessionContext = chatSessionService.getOrCreateContextForSession(sessionId)
+                        sessionContext.chatClient
                             .sendStreamingMessageWithCallback(
                                 projectId = projectId,
                                 userContents = promptWithContext,
@@ -431,7 +431,7 @@ class SessionManager(
                                         )
                                     }
                                 },
-                                chatMemory = chatSessionService.getMemoryForSession(sessionId),
+                                chatMemory = sessionContext.memory,
                             )
                     } finally {
                         // Always clear the ThreadLocal — prevents leaking context into
