@@ -30,7 +30,12 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.function.Consumer
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
@@ -226,5 +231,234 @@ class ChatClientExtensionsToolApprovalTest {
         val resultIds = chatMemory.added.filterIsInstance<ToolExecutionResultMessage>().map { it.id() }
         assertTrue(requestA.id() in resultIds, "Expected a tool_result for requestA (${requestA.id()}), got: $resultIds")
         assertTrue(requestB.id() in resultIds, "Expected a tool_result for requestB (${requestB.id()}), got: $resultIds")
+    }
+
+    /**
+     * Companion to the test above: a sibling whose `beforeToolExecution` already fired
+     * `onToolStarted` (creating a RUNNING timeline entry) must also get an `onToolFinished`
+     * notification on timeout/denial — not just a synthetic `chatMemory` result — otherwise its
+     * RUNNING entry is never flipped to DONE/failed in the persisted timeline.
+     */
+    @Test
+    fun `approval timeout notifies onToolFinished for every pending sibling request`() {
+        val chatMemory = FakeChatMemory()
+        val requestA = toolRequest("call_A", "toolA")
+        val requestB = toolRequest("call_B", "toolB")
+        val finishedIds = mutableListOf<String>()
+
+        val chatClient = object : ChatClient {
+            override fun sendMessageStreaming(userContents: List<Content>): TokenStream = FakeTokenStream {
+                chatMemory.add(AiMessage.from(listOf(requestA, requestB)))
+                // Simulates both siblings already having started (e.g. the model requested
+                // both in parallel and the framework invoked beforeToolExecution for each
+                // before either finished) — only requestB then blocks on approval and times out.
+                beforeToolExecutionHandler?.accept(beforeToolExecution(requestA))
+            }
+
+            override fun sendMessage(prompt: String): String = error("not used")
+        }
+
+        assertFailsWith<ToolExecutionException> {
+            chatClient.sendStreamingMessageWithCallback(
+                userContents = listOf(),
+                resolvedTools = listOf(requireApprovalConfig("toolA"), requireApprovalConfig("toolB")),
+                onToolApprovalRequired = { _, _, _, _ -> },
+                onToolFinished = { id, _, _, _, _ -> finishedIds += id },
+                toolApprovalTimeoutMs = 50L,
+                chatMemory = chatMemory,
+            )
+        }
+
+        assertEquals(
+            setOf(requestA.id(), requestB.id()),
+            finishedIds.toSet(),
+            "Expected onToolFinished for every pending sibling request, got: $finishedIds",
+        )
+    }
+
+    /**
+     * `onToolApprovalTimedOut` must fire immediately on timeout — before awaiting
+     * `onToolFinishedAwaitable`'s completion future, which can itself block for up to
+     * `toolApprovalTimeoutMs`. Otherwise a caller clearing UI state in `onToolApprovalTimedOut`
+     * would see it stay visible for up to twice the configured timeout.
+     *
+     * Runs the call under test on a separate executor and coordinates via a latch/a
+     * test-controlled [CompletableFuture] — not elapsed-time margins — so this can't flake
+     * under a loaded CI worker: `future` only completes when *this test* completes it, so an
+     * implementation that actually awaits it is guaranteed to still be blocked (task not done)
+     * right after `onToolFinishedAwaitable` fires, while one that ignores the returned future
+     * completes almost immediately regardless of scheduling delays.
+     */
+    @Test
+    fun `approval timeout invokes onToolApprovalTimedOut before awaiting onToolFinishedAwaitable, both exactly once`() {
+        val chatMemory = FakeChatMemory()
+        val request = toolRequest("call_solo", "toolTimeout")
+        val invocationOrder = mutableListOf<String>()
+        var toolFinishedCalls = 0
+        var timedOutCalls = 0
+        var toolFinishedHasFailed: Boolean? = null
+
+        val awaitableInvoked = CountDownLatch(1)
+        val future = CompletableFuture<Unit>()
+
+        val chatClient = object : ChatClient {
+            override fun sendMessageStreaming(userContents: List<Content>): TokenStream = FakeTokenStream {
+                chatMemory.add(AiMessage.from(listOf(request)))
+                beforeToolExecutionHandler?.accept(beforeToolExecution(request))
+            }
+
+            override fun sendMessage(prompt: String): String = error("not used")
+        }
+
+        val executor = Executors.newSingleThreadExecutor()
+        try {
+            val callTask = executor.submit {
+                assertFailsWith<ToolExecutionException> {
+                    chatClient.sendStreamingMessageWithCallback(
+                        userContents = listOf(),
+                        resolvedTools = listOf(requireApprovalConfig("toolTimeout")),
+                        // Never invokes approve/deny — forces the timeout branch.
+                        onToolApprovalRequired = { _, _, _, _ -> },
+                        onToolFinishedAwaitable = { _, _, _, _, hasFailed ->
+                            toolFinishedCalls++
+                            toolFinishedHasFailed = hasFailed
+                            invocationOrder += "onToolFinishedAwaitable"
+                            awaitableInvoked.countDown()
+                            future
+                        },
+                        onToolApprovalTimedOut = {
+                            timedOutCalls++
+                            invocationOrder += "onToolApprovalTimedOut"
+                        },
+                        // Large relative to the latch/executor coordination below: the completion
+                        // await inside the implementation must not self-timeout before this test
+                        // explicitly completes `future` — see the isDone check further down.
+                        toolApprovalTimeoutMs = 1000L,
+                        chatMemory = chatMemory,
+                    )
+                }
+            }
+
+            assertTrue(
+                awaitableInvoked.await(5, TimeUnit.SECONDS),
+                "Timed out waiting for onToolFinishedAwaitable to be invoked",
+            )
+
+            // `future` is still incomplete at this point (we only complete it below), so a caller
+            // that actually awaits it must still be blocked — not yet done — no matter how slow
+            // this check runs under CI load.
+            assertTrue(
+                !callTask.isDone,
+                "Expected the call to still be blocked awaiting onToolFinishedAwaitable's future, " +
+                    "but it already completed — meaning the future was never actually awaited",
+            )
+
+            future.complete(Unit)
+            callTask.get(5, TimeUnit.SECONDS)
+        } finally {
+            executor.shutdownNow()
+        }
+
+        assertEquals(1, toolFinishedCalls, "Expected onToolFinishedAwaitable to be invoked exactly once, got $toolFinishedCalls")
+        assertEquals(1, timedOutCalls, "Expected onToolApprovalTimedOut to be invoked exactly once, got $timedOutCalls")
+        assertEquals(true, toolFinishedHasFailed, "Expected onToolFinishedAwaitable's hasFailed to be true on timeout")
+        assertEquals(
+            listOf("onToolApprovalTimedOut", "onToolFinishedAwaitable"),
+            invocationOrder,
+            "Expected onToolApprovalTimedOut to fire immediately on timeout, before awaiting onToolFinishedAwaitable's completion future",
+        )
+    }
+
+    /**
+     * `id` ([ToolExecutionRequest.id]) must correlate `onToolStarted`/`onToolFinished` pairs, not
+     * `(toolName, arguments)` — the model can issue the exact same tool with identical arguments
+     * twice in one parallel batch, which `(toolName, arguments)` can't disambiguate but each
+     * call's unique id can.
+     */
+    @Test
+    fun `onToolStarted and onToolFinished correlate by id, not toolName plus arguments`() {
+        val chatMemory = FakeChatMemory()
+        // Same tool name AND same arguments — only the id differs between the two calls.
+        val requestA = toolRequest("call_1", "duplicateTool")
+        val requestB = toolRequest("call_2", "duplicateTool")
+
+        val startedIds = mutableListOf<String>()
+        val finishedIds = mutableListOf<String>()
+
+        val chatClient = object : ChatClient {
+            override fun sendMessageStreaming(userContents: List<Content>): TokenStream = FakeTokenStream {
+                chatMemory.add(AiMessage.from(listOf(requestA, requestB)))
+                beforeToolExecutionHandler?.accept(beforeToolExecution(requestA))
+                beforeToolExecutionHandler?.accept(beforeToolExecution(requestB))
+                toolExecutedHandler?.accept(
+                    ToolExecution.builder().request(requestB).result("result-B")
+                        .invocationContext(InvocationContext.builder().build()).build(),
+                )
+                toolExecutedHandler?.accept(
+                    ToolExecution.builder().request(requestA).result("result-A")
+                        .invocationContext(InvocationContext.builder().build()).build(),
+                )
+                completeResponseHandler?.accept(
+                    ChatResponse.builder().aiMessage(AiMessage.from("done")).build(),
+                )
+            }
+
+            override fun sendMessage(prompt: String): String = error("not used")
+        }
+
+        chatClient.sendStreamingMessageWithCallback(
+            userContents = listOf(),
+            onToolStarted = { id, _, _ -> startedIds += id },
+            onToolFinished = { id, _, _, _, _ -> finishedIds += id },
+            chatMemory = chatMemory,
+        )
+
+        assertEquals(listOf("call_1", "call_2"), startedIds, "Expected both distinct call ids to be reported as started")
+        assertEquals(listOf("call_2", "call_1"), finishedIds, "Expected both distinct call ids to be reported as finished, in completion order")
+    }
+
+    /**
+     * Companion to the timeout test above: denial must still notify `onToolFinishedAwaitable` (so UI
+     * state like a RUNNING tool entry gets flipped to DONE/failed) but must NOT invoke
+     * `onToolApprovalTimedOut` — that callback exists solely to clear pending-approval UI state
+     * left behind by a timeout, which never applies on an explicit deny.
+     */
+    @Test
+    fun `approval denial invokes onToolFinishedAwaitable but never onToolApprovalTimedOut`() {
+        val chatMemory = FakeChatMemory()
+        val request = toolRequest("call_deny", "toolDeny")
+        var toolFinishedCalls = 0
+        var timedOutCalls = 0
+        var toolFinishedHasFailed: Boolean? = null
+
+        val chatClient = object : ChatClient {
+            override fun sendMessageStreaming(userContents: List<Content>): TokenStream = FakeTokenStream {
+                chatMemory.add(AiMessage.from(listOf(request)))
+                beforeToolExecutionHandler?.accept(beforeToolExecution(request))
+            }
+
+            override fun sendMessage(prompt: String): String = error("not used")
+        }
+
+        assertFailsWith<ToolExecutionException> {
+            chatClient.sendStreamingMessageWithCallback(
+                userContents = listOf(),
+                resolvedTools = listOf(requireApprovalConfig("toolDeny")),
+                onToolApprovalRequired = { _, _, _, deny -> deny() },
+                onToolFinishedAwaitable = { _, _, _, _, hasFailed ->
+                    toolFinishedCalls++
+                    toolFinishedHasFailed = hasFailed
+                    CompletableFuture.completedFuture(Unit)
+                },
+                onToolApprovalTimedOut = {
+                    timedOutCalls++
+                },
+                chatMemory = chatMemory,
+            )
+        }
+
+        assertEquals(1, toolFinishedCalls, "Expected onToolFinishedAwaitable to be invoked exactly once on denial, got $toolFinishedCalls")
+        assertEquals(true, toolFinishedHasFailed, "Expected onToolFinishedAwaitable's hasFailed to be true on denial")
+        assertEquals(0, timedOutCalls, "onToolApprovalTimedOut must never fire on explicit denial, got $timedOutCalls calls")
     }
 }

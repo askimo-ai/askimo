@@ -1338,7 +1338,6 @@ fun chatView(
                                 Text(
                                     text = stringResource("chat.tool.approval.prompt", pendingToolApproval.toolName),
                                     style = AppTextStyles.caption,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.weight(1f),
                                 )
                                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {

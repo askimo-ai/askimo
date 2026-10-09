@@ -37,6 +37,7 @@ import io.askimo.core.intent.ToolApprovalPolicy
 import io.askimo.core.intent.ToolConfig
 import io.askimo.core.intent.ToolRegistry
 import io.askimo.core.intent.defaultApprovalPolicy
+import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.logging.logger
 import io.askimo.core.memory.SessionConversationSummary
 import io.askimo.core.memory.UserMemorySummary
@@ -49,8 +50,11 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+
+private val log = currentFileLogger()
 
 /**
  * Checks whether any message in this exception's cause chain contains [needle]
@@ -84,6 +88,45 @@ internal sealed class StreamingErrorResult {
 
     /** Stop retrying — show [message] in the chat and mark the response as failed. */
     data class Terminal(val message: String) : StreamingErrorResult()
+}
+
+/**
+ * Notifies tool completion on the approval-timeout/denial paths, awaiting it when possible
+ * before the caller propagates its exception.
+ *
+ * Prefers [onToolFinishedAwaitable] when non-null, awaiting its [CompletableFuture] (bounded by
+ * [timeoutMs]) so e.g. `SessionManager.markToolDone` applies before a later `catch` block reads
+ * stale (still-RUNNING) state. Falls back to firing [onToolFinished] without waiting — preserving
+ * its original behavior for callers that don't supply the awaitable variant.
+ *
+ * @param onToolFinished Legacy, non-awaitable callback — invoked without waiting if [onToolFinishedAwaitable] is null.
+ * @param onToolFinishedAwaitable Optional awaitable variant — when present, takes precedence and is awaited.
+ * @param id [ToolExecutionRequest.id] of the invocation this update belongs to
+ * @param toolName Name of the tool
+ * @param arguments Tool arguments
+ * @param result Tool result
+ * @param hasFailed Whether the tool failed
+ * @param timeoutMs Timeout for waiting on the completion future
+ */
+private fun notifyToolFinishedAndAwaitIfPossible(
+    onToolFinished: ((String, String, String?, String?, Boolean) -> Unit)?,
+    onToolFinishedAwaitable: ((String, String, String?, String?, Boolean) -> CompletableFuture<Unit>?)?,
+    id: String,
+    toolName: String,
+    arguments: String?,
+    result: String?,
+    hasFailed: Boolean,
+    timeoutMs: Long,
+) {
+    try {
+        if (onToolFinishedAwaitable != null) {
+            onToolFinishedAwaitable.invoke(id, toolName, arguments, result, hasFailed)?.get(timeoutMs, TimeUnit.MILLISECONDS)
+        } else {
+            onToolFinished?.invoke(id, toolName, arguments, result, hasFailed)
+        }
+    } catch (e: Exception) {
+        log.warn("Tool completion callback failed or timed out for $toolName", e)
+    }
 }
 
 /**
@@ -153,6 +196,10 @@ internal fun classifyStreamingError(
  * @param userContents the contents sent by user
  * @param onToken Optional callback function that is invoked for each token received from the model
  * @param onFollowUpSuggestion Optional callback for follow-up suggestions based on AI response
+ * @param onToolFinishedAwaitable Awaitable variant of [onToolFinished], used instead of it on the
+ * approval-timeout/denial paths: its [CompletableFuture] is awaited (bounded by [toolApprovalTimeoutMs])
+ * before throwing, so callers like `SessionManager` can finish state updates (e.g. `markToolDone`)
+ * before the tool is read as still RUNNING elsewhere.
  * @return The complete response from the language model as a string
  */
 fun ChatClient.sendStreamingMessageWithCallback(
@@ -162,8 +209,13 @@ fun ChatClient.sendStreamingMessageWithCallback(
     onToken: (String) -> Unit = {},
     onFollowUpSuggestion: ((FollowUpSuggestion) -> Unit)? = null,
     onTokenUsage: ((inputTokens: Int, outputTokens: Int, totalTokens: Int, durationMs: Long) -> Unit)? = null,
-    onToolStarted: ((toolName: String, arguments: String?) -> Unit)? = null,
-    onToolFinished: ((toolName: String, arguments: String?, result: String?, hasFailed: Boolean) -> Unit)? = null,
+    /**
+     * `id` is [ToolExecutionRequest.id] — the model's unique id for this specific invocation, not
+     * just `toolName`. Needed because the model can call the same tool twice with identical
+     * arguments in one parallel batch, which `toolName`+arguments alone can't disambiguate.
+     */
+    onToolStarted: ((id: String, toolName: String, arguments: String?) -> Unit)? = null,
+    onToolFinished: ((id: String, toolName: String, arguments: String?, result: String?, hasFailed: Boolean) -> Unit)? = null,
     onThinkingToken: ((String) -> Unit)? = null,
     /**
      * Resolved [ToolConfig] list for the current session.
@@ -184,6 +236,13 @@ fun ChatClient.sendStreamingMessageWithCallback(
      */
     onToolApprovalRequired: ((toolName: String, arguments: String?, approve: () -> Unit, deny: () -> Unit) -> Unit)? = null,
     /**
+     * Called when the approval wait in [onToolApprovalRequired] times out (neither `approve`
+     * nor `deny` was invoked). Lets the caller clear pending-approval UI state that its own
+     * `approve`/`deny` closures never got to run — e.g. `SessionManager.StreamingThread.clearApproval()`
+     * — otherwise an approval banner stays visible forever.
+     */
+    onToolApprovalTimedOut: (() -> Unit)? = null,
+    /**
      * How long to wait for [onToolApprovalRequired] to invoke `approve`/`deny` before treating
      * the request as timed out. Defaults to [io.askimo.core.config.ModelsConfig.toolApprovalTimeoutMs];
      * overridable here mainly so tests can inject a much smaller value instead of waiting out
@@ -196,6 +255,7 @@ fun ChatClient.sendStreamingMessageWithCallback(
      * is left without a matching `tool_result`, which Anthropic's API rejects on the next turn.
      */
     chatMemory: ChatMemory? = null,
+    onToolFinishedAwaitable: ((id: String, toolName: String, arguments: String?, result: String?, hasFailed: Boolean) -> CompletableFuture<Unit>?)? = null,
 ): String {
     val log = logger<ChatClient>()
 
@@ -247,11 +307,19 @@ fun ChatClient.sendStreamingMessageWithCallback(
                     sendMessageStreaming(userContents)
                         .onPartialResponse { chunk ->
                             sb.append(chunk)
-                            onToken(chunk)
+                            try {
+                                onToken(chunk)
+                            } catch (e: Exception) {
+                                log.warn("onToken callback threw", e)
+                            }
                         }.onPartialThinking { thinking ->
                             val text = thinking.text()
                             if (!text.isNullOrEmpty()) {
-                                onThinkingToken?.invoke(text)
+                                try {
+                                    onThinkingToken?.invoke(text)
+                                } catch (e: Exception) {
+                                    log.warn("onThinkingToken callback threw", e)
+                                }
                             }
                         }
                         .onCompleteResponse { response ->
@@ -261,12 +329,16 @@ fun ChatClient.sendStreamingMessageWithCallback(
                             // Fire per-message token usage callback before counting down
                             if (onTokenUsage != null && tokenUsage != null) {
                                 val duration = System.currentTimeMillis() - streamStartTime
-                                onTokenUsage(
-                                    tokenUsage.inputTokenCount() ?: 0,
-                                    tokenUsage.outputTokenCount() ?: 0,
-                                    tokenUsage.totalTokenCount() ?: 0,
-                                    duration,
-                                )
+                                try {
+                                    onTokenUsage(
+                                        tokenUsage.inputTokenCount() ?: 0,
+                                        tokenUsage.outputTokenCount() ?: 0,
+                                        tokenUsage.totalTokenCount() ?: 0,
+                                        duration,
+                                    )
+                                } catch (e: Exception) {
+                                    log.warn("onTokenUsage callback threw", e)
+                                }
                             }
 
                             if (GeneratedImageHelper.hasGeneratedImages(aiMessage)) {
@@ -277,15 +349,24 @@ fun ChatClient.sendStreamingMessageWithCallback(
                                         val mimeType = image.mimeType() ?: "image/png"
                                         val markdownImage = "\n![Generated Image](data:$mimeType;base64,$base64Data)\n"
                                         sb.append(markdownImage)
-                                        onToken(markdownImage)
+                                        try {
+                                            onToken(markdownImage)
+                                        } catch (e: Exception) {
+                                            log.warn("onToken callback threw", e)
+                                        }
                                     }
                                 }
                             }
                             done.countDown()
                         }.beforeToolExecution { before ->
+                            val id = before.request().id()
                             val toolName = before.request().name()
                             val arguments = before.request().arguments()
-                            onToolStarted?.invoke(toolName, arguments)
+                            try {
+                                onToolStarted?.invoke(id, toolName, arguments)
+                            } catch (e: Exception) {
+                                log.warn("onToolStarted callback threw for $toolName", e)
+                            }
 
                             // Lazily seed `pendingToolRequests` from the latest tool-calling
                             // AiMessage already persisted to chatMemory — LangChain4j appends
@@ -318,29 +399,58 @@ fun ChatClient.sendStreamingMessageWithCallback(
                                 if (effectivePolicy == ToolApprovalPolicy.REQUIRE_APPROVAL) {
                                     val latch = CountDownLatch(1)
                                     var approved = false
-                                    onToolApprovalRequired.invoke(
-                                        toolName,
-                                        arguments,
-                                        {
-                                            approved = true
-                                            latch.countDown()
-                                        },
-                                        { latch.countDown() },
-                                    )
+                                    try {
+                                        onToolApprovalRequired.invoke(
+                                            toolName,
+                                            arguments,
+                                            {
+                                                approved = true
+                                                latch.countDown()
+                                            },
+                                            { latch.countDown() },
+                                        )
+                                    } catch (e: Exception) {
+                                        // Treat a throwing callback as an implicit deny (fail-safe)
+                                        // rather than hanging for the full approval timeout.
+                                        log.warn("onToolApprovalRequired callback threw for $toolName — treating as denied", e)
+                                        latch.countDown()
+                                    }
                                     if (!latch.await(toolApprovalTimeoutMs, TimeUnit.MILLISECONDS)) {
                                         val msg = LocalizationManager.getString("chat.tool.approval.timed_out", toolName)
-                                        pendingToolRequests.values.forEach { req ->
+                                        // Snapshot before clearing — every pending sibling needs its own
+                                        // completion notification, not just the current tool. Unioned with
+                                        // the current request in case chatMemory is null (unseeded map).
+                                        val terminatedRequests = (pendingToolRequests.values + before.request()).distinctBy { it.id() }
+                                        terminatedRequests.forEach { req ->
                                             chatMemory?.add(ToolExecutionResultMessage.from(req, msg))
                                         }
                                         pendingToolRequests.clear()
+                                        // Neither approve() nor deny() fired, so the caller's pending-approval
+                                        // UI state was never cleared by either closure above. Fire this
+                                        // immediately — not after awaiting onToolFinishedAwaitable below,
+                                        // which can itself block for up to toolApprovalTimeoutMs and would
+                                        // otherwise leave the approval banner visible for twice as long.
+                                        try {
+                                            onToolApprovalTimedOut?.invoke()
+                                        } catch (e: Exception) {
+                                            log.warn("onToolApprovalTimedOut callback threw", e)
+                                        }
+                                        terminatedRequests.forEach { req ->
+                                            notifyToolFinishedAndAwaitIfPossible(onToolFinished, onToolFinishedAwaitable, req.id(), req.name(), req.arguments(), msg, true, toolApprovalTimeoutMs)
+                                        }
                                         throw ToolExecutionException(toolName = toolName, errorDetails = msg)
                                     }
                                     if (!approved) {
                                         val msg = LocalizationManager.getString("chat.tool.approval.denied", toolName)
-                                        pendingToolRequests.values.forEach { req ->
+                                        // Same reasoning as the timeout branch above.
+                                        val terminatedRequests = (pendingToolRequests.values + before.request()).distinctBy { it.id() }
+                                        terminatedRequests.forEach { req ->
                                             chatMemory?.add(ToolExecutionResultMessage.from(req, msg))
                                         }
                                         pendingToolRequests.clear()
+                                        terminatedRequests.forEach { req ->
+                                            notifyToolFinishedAndAwaitIfPossible(onToolFinished, onToolFinishedAwaitable, req.id(), req.name(), req.arguments(), msg, true, toolApprovalTimeoutMs)
+                                        }
                                         throw ToolExecutionException(toolName = toolName, errorDetails = msg)
                                     }
                                 }
@@ -351,7 +461,11 @@ fun ChatClient.sendStreamingMessageWithCallback(
                             val arguments = tool.request().arguments()
                             val result = tool.result()
                             val hasFailed = tool.hasFailed()
-                            onToolFinished?.invoke(toolName, arguments, result, hasFailed)
+                            try {
+                                onToolFinished?.invoke(tool.request().id(), toolName, arguments, result, hasFailed)
+                            } catch (e: Exception) {
+                                log.warn("onToolFinished callback threw for $toolName", e)
+                            }
                         }
                         .onError { e ->
                             errorOccurred = true
@@ -402,7 +516,11 @@ fun ChatClient.sendStreamingMessageWithCallback(
                                 }
                                 terminalErrorMessage = message
                                 sb.append(message)
-                                onToken(message)
+                                try {
+                                    onToken(message)
+                                } catch (e2: Exception) {
+                                    log.warn("onToken callback threw", e2)
+                                }
                                 done.countDown()
                             }
                         }.start()
@@ -429,7 +547,11 @@ fun ChatClient.sendStreamingMessageWithCallback(
 
                         if (followUpSuggestion != null) {
                             log.debug("Detected follow-up opportunity (Stage 2): ${followUpSuggestion.question}")
-                            onFollowUpSuggestion(followUpSuggestion)
+                            try {
+                                onFollowUpSuggestion(followUpSuggestion)
+                            } catch (e: Exception) {
+                                log.warn("onFollowUpSuggestion callback threw", e)
+                            }
                         }
                     }
 
