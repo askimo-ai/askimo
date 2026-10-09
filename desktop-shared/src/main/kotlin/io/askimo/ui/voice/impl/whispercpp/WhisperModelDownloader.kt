@@ -17,6 +17,7 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -109,7 +110,11 @@ object WhisperModelDownloader {
             throw VoiceServiceException("Download of ${tier.fileName} failed or was cancelled: ${e.message}", e)
         }
 
-        Files.move(partPath, finalPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        try {
+            Files.move(partPath, finalPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        } catch (_: AtomicMoveNotSupportedException) {
+            Files.move(partPath, finalPath, StandardCopyOption.REPLACE_EXISTING)
+        }
         log.info("Downloaded whisper model {} ({} bytes) to {}", tier.fileName, downloadedBytes, finalPath)
         finalPath
     }

@@ -110,7 +110,6 @@ import io.askimo.core.chat.service.ChatDirectiveService
 import io.askimo.core.chat.service.ResourceCollectionService
 import io.askimo.core.chat.util.FileContentExtractor
 import io.askimo.core.config.AppConfig
-import io.askimo.core.config.VoiceProvider
 import io.askimo.core.context.AppContext
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.error.AppErrorEvent
@@ -350,11 +349,13 @@ fun chatInputField(
 
     // ── Voice input (🎤) ─────────────────────────────────────────────────────
     // Cache off the UI thread like webSearchEnabled above — AppConfig.voice also hits the
-    // keychain. Hidden entirely when disabled (default), so no UI impact for existing users.
+    // keychain. Hidden entirely when disabled (default). isSttAvailable() (vs. just
+    // enabled + sttProvider != NONE) also keeps the mic hidden for the default
+    // LOCAL_WHISPER_FFM provider until a model file is downloaded.
     var voiceInputEnabled by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         val voice = withContext(Dispatchers.IO) { AppConfig.voice }
-        voiceInputEnabled = voice.enabled && voice.sttProvider != VoiceProvider.NONE
+        voiceInputEnabled = voice.isSttAvailable()
     }
 
     // Notify caller whenever the user changes the enabled server selection.

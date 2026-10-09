@@ -77,7 +77,6 @@ import io.askimo.core.agent.domain.SkillDefinition
 import io.askimo.core.agent.domain.Workspace
 import io.askimo.core.chat.dto.grouped
 import io.askimo.core.config.AppConfig
-import io.askimo.core.config.VoiceProvider
 import io.askimo.core.user.repository.UserProfileRepository
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.keymap.KeyMapManager
@@ -172,14 +171,15 @@ internal fun agenticRunArea(
     }
 
     // ── Voice input (🎤) ─────────────────────────────────────────────────────
-    // Cache both flags off the UI thread — AppConfig.voice resolves a key from the OS
-    // keychain, so this mirrors chatInputField's voiceInputEnabled/webSearchEnabled caching.
-    // Hidden entirely when disabled (default) — zero UI impact for existing users.
+    // Cache both flags off the UI thread — AppConfig.voice hits the OS keychain, mirroring
+    // chatInputField's caching. Hidden entirely when disabled (default). isSttAvailable()
+    // (vs. just enabled + sttProvider != NONE) also keeps the mic hidden for the default
+    // LOCAL_WHISPER_FFM provider until a model file is downloaded.
     var voiceInputEnabled by remember { mutableStateOf(false) }
     var voiceAutoSendTranscript by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         val voice = withContext(Dispatchers.IO) { AppConfig.voice }
-        voiceInputEnabled = voice.enabled && voice.sttProvider != VoiceProvider.NONE
+        voiceInputEnabled = voice.isSttAvailable()
         voiceAutoSendTranscript = voice.autoSendTranscript
     }
 

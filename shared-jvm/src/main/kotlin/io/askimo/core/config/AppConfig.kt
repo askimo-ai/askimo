@@ -606,6 +606,22 @@ data class VoiceConfig(
     /** Max total bytes of synthesized audio kept across all cached messages. See [ttsCacheMaxMessages]. */
     val ttsCacheMaxBytes: Long = 4L * 1024 * 1024,
 ) {
+    /**
+     * Whether STT (microphone/dictation) is actually usable, not just "configured".
+     *
+     * [VoiceProvider.LOCAL_WHISPER_FFM] (the default [sttProvider]) also needs a downloaded
+     * `ggml-*.bin` model file ([localWhisperModelPath]) — without this check the mic would be
+     * enabled out of the box and only fail after recording.
+     */
+    fun isSttAvailable(): Boolean {
+        if (!enabled || sttProvider == VoiceProvider.NONE) return false
+        if (sttProvider == VoiceProvider.LOCAL_WHISPER_FFM) {
+            return localWhisperModelPath.isNotBlank() &&
+                runCatching { Files.exists(Path.of(localWhisperModelPath)) }.getOrDefault(false)
+        }
+        return true
+    }
+
     companion object {
         fun isKeyPlaceholder(value: String): Boolean = value == VOICE_KEY_PLACEHOLDER
         fun isActualKey(value: String): Boolean = value.isNotBlank() && !isKeyPlaceholder(value)

@@ -61,9 +61,23 @@ class WhisperCppFfmSpeechToTextService(private val config: VoiceConfig) :
     private var context: MemorySegment? = null
     private var loadedModelPath: String? = null
 
+    /**
+     * Guarded by [mutex]. Set once [close] has run, and checked at the top of [transcribe] so a
+     * caller racing a registry eviction can't resurrect a freed instance — [ensureContextLoaded]
+     * can't tell "never initialized" from "closed" by [context] alone, and would otherwise
+     * silently reload a native context the registry no longer tracks and will never [close].
+     */
+    private var closed = false
+
     override suspend fun transcribe(audio: ByteArray, format: VoiceAudioFormat): String = withContext(Dispatchers.IO) {
         mutex.withLock {
             try {
+                if (closed) {
+                    throw VoiceServiceException(
+                        "This speech-to-text service instance has already been closed (likely because " +
+                            "the voice provider/config changed). Retry — a fresh instance will be resolved.",
+                    )
+                }
                 val ctx = ensureContextLoaded()
                 val samples = decodeToMono16kFloat(audio)
 
@@ -104,19 +118,26 @@ class WhisperCppFfmSpeechToTextService(private val config: VoiceConfig) :
     }
 
     /**
-     * Releases the native whisper.cpp context. Safe to call even if never initialized.
+     * Releases the native whisper.cpp context. Safe to call even if never initialized, and
+     * idempotent (second call is a no-op).
      *
-     * Blocks the calling thread (briefly, via [runBlocking]) until it can acquire [mutex] —
-     * the same lock [transcribe] holds for the entire duration of a native `whisper_full` call.
-     * `AutoCloseable.close` isn't a suspend fun, so this is the only way to guarantee this
-     * doesn't free the context out from under an in-flight, non-cancellable [transcribe] call
-     * on this exact instance — e.g. [io.askimo.ui.voice.VoiceServiceRegistry] calling this when
-     * evicting this instance after a config/provider change. Without this, that race is a native
-     * use-after-free (crash), since `whisper_full` isn't reentrant-safe against a concurrent
-     * `whisper_free` on the same context.
+     * Blocks briefly (via [runBlocking]) until it can acquire [mutex] — the same lock
+     * [transcribe] holds for the whole native `whisper_full` call — so this can't free the
+     * context out from under an in-flight, non-cancellable [transcribe] on this instance (e.g.
+     * [io.askimo.ui.voice.VoiceServiceRegistry] evicting it on a config change). Otherwise that
+     * race is a native use-after-free, since `whisper_full` isn't reentrant-safe against a
+     * concurrent `whisper_free`.
+     *
+     * Also sets [closed] under the same lock, so any [transcribe] call blocked on [mutex] when
+     * this runs — or arriving after — fails fast instead of leaking a new context. See [closed].
      */
     override fun close() {
-        runBlocking { mutex.withLock { freeContextLocked() } }
+        runBlocking {
+            mutex.withLock {
+                closed = true
+                freeContextLocked()
+            }
+        }
     }
 
     /** Must only be called while already holding [mutex] (see [close] and [ensureContextLoaded]). */
