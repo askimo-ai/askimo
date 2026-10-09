@@ -118,15 +118,14 @@ private fun notifyToolFinishedAndAwaitIfPossible(
     hasFailed: Boolean,
     timeoutMs: Long,
 ) {
-    if (onToolFinishedAwaitable != null) {
-        val completion = onToolFinishedAwaitable.invoke(id, toolName, arguments, result, hasFailed)
-        try {
-            completion?.get(timeoutMs, TimeUnit.MILLISECONDS)
-        } catch (e: Exception) {
-            log.warn("Tool completion callback timed out for $toolName", e)
+    try {
+        if (onToolFinishedAwaitable != null) {
+            onToolFinishedAwaitable.invoke(id, toolName, arguments, result, hasFailed)?.get(timeoutMs, TimeUnit.MILLISECONDS)
+        } else {
+            onToolFinished?.invoke(id, toolName, arguments, result, hasFailed)
         }
-    } else {
-        onToolFinished?.invoke(id, toolName, arguments, result, hasFailed)
+    } catch (e: Exception) {
+        log.warn("Tool completion callback failed or timed out for $toolName", e)
     }
 }
 
@@ -308,11 +307,19 @@ fun ChatClient.sendStreamingMessageWithCallback(
                     sendMessageStreaming(userContents)
                         .onPartialResponse { chunk ->
                             sb.append(chunk)
-                            onToken(chunk)
+                            try {
+                                onToken(chunk)
+                            } catch (e: Exception) {
+                                log.warn("onToken callback threw", e)
+                            }
                         }.onPartialThinking { thinking ->
                             val text = thinking.text()
                             if (!text.isNullOrEmpty()) {
-                                onThinkingToken?.invoke(text)
+                                try {
+                                    onThinkingToken?.invoke(text)
+                                } catch (e: Exception) {
+                                    log.warn("onThinkingToken callback threw", e)
+                                }
                             }
                         }
                         .onCompleteResponse { response ->
@@ -322,12 +329,16 @@ fun ChatClient.sendStreamingMessageWithCallback(
                             // Fire per-message token usage callback before counting down
                             if (onTokenUsage != null && tokenUsage != null) {
                                 val duration = System.currentTimeMillis() - streamStartTime
-                                onTokenUsage(
-                                    tokenUsage.inputTokenCount() ?: 0,
-                                    tokenUsage.outputTokenCount() ?: 0,
-                                    tokenUsage.totalTokenCount() ?: 0,
-                                    duration,
-                                )
+                                try {
+                                    onTokenUsage(
+                                        tokenUsage.inputTokenCount() ?: 0,
+                                        tokenUsage.outputTokenCount() ?: 0,
+                                        tokenUsage.totalTokenCount() ?: 0,
+                                        duration,
+                                    )
+                                } catch (e: Exception) {
+                                    log.warn("onTokenUsage callback threw", e)
+                                }
                             }
 
                             if (GeneratedImageHelper.hasGeneratedImages(aiMessage)) {
@@ -338,7 +349,11 @@ fun ChatClient.sendStreamingMessageWithCallback(
                                         val mimeType = image.mimeType() ?: "image/png"
                                         val markdownImage = "\n![Generated Image](data:$mimeType;base64,$base64Data)\n"
                                         sb.append(markdownImage)
-                                        onToken(markdownImage)
+                                        try {
+                                            onToken(markdownImage)
+                                        } catch (e: Exception) {
+                                            log.warn("onToken callback threw", e)
+                                        }
                                     }
                                 }
                             }
@@ -347,7 +362,11 @@ fun ChatClient.sendStreamingMessageWithCallback(
                             val id = before.request().id()
                             val toolName = before.request().name()
                             val arguments = before.request().arguments()
-                            onToolStarted?.invoke(id, toolName, arguments)
+                            try {
+                                onToolStarted?.invoke(id, toolName, arguments)
+                            } catch (e: Exception) {
+                                log.warn("onToolStarted callback threw for $toolName", e)
+                            }
 
                             // Lazily seed `pendingToolRequests` from the latest tool-calling
                             // AiMessage already persisted to chatMemory — LangChain4j appends
@@ -380,15 +399,22 @@ fun ChatClient.sendStreamingMessageWithCallback(
                                 if (effectivePolicy == ToolApprovalPolicy.REQUIRE_APPROVAL) {
                                     val latch = CountDownLatch(1)
                                     var approved = false
-                                    onToolApprovalRequired.invoke(
-                                        toolName,
-                                        arguments,
-                                        {
-                                            approved = true
-                                            latch.countDown()
-                                        },
-                                        { latch.countDown() },
-                                    )
+                                    try {
+                                        onToolApprovalRequired.invoke(
+                                            toolName,
+                                            arguments,
+                                            {
+                                                approved = true
+                                                latch.countDown()
+                                            },
+                                            { latch.countDown() },
+                                        )
+                                    } catch (e: Exception) {
+                                        // Treat a throwing callback as an implicit deny (fail-safe)
+                                        // rather than hanging for the full approval timeout.
+                                        log.warn("onToolApprovalRequired callback threw for $toolName — treating as denied", e)
+                                        latch.countDown()
+                                    }
                                     if (!latch.await(toolApprovalTimeoutMs, TimeUnit.MILLISECONDS)) {
                                         val msg = LocalizationManager.getString("chat.tool.approval.timed_out", toolName)
                                         // Snapshot before clearing — every pending sibling needs its own
@@ -404,7 +430,11 @@ fun ChatClient.sendStreamingMessageWithCallback(
                                         // immediately — not after awaiting onToolFinishedAwaitable below,
                                         // which can itself block for up to toolApprovalTimeoutMs and would
                                         // otherwise leave the approval banner visible for twice as long.
-                                        onToolApprovalTimedOut?.invoke()
+                                        try {
+                                            onToolApprovalTimedOut?.invoke()
+                                        } catch (e: Exception) {
+                                            log.warn("onToolApprovalTimedOut callback threw", e)
+                                        }
                                         terminatedRequests.forEach { req ->
                                             notifyToolFinishedAndAwaitIfPossible(onToolFinished, onToolFinishedAwaitable, req.id(), req.name(), req.arguments(), msg, true, toolApprovalTimeoutMs)
                                         }
@@ -431,7 +461,11 @@ fun ChatClient.sendStreamingMessageWithCallback(
                             val arguments = tool.request().arguments()
                             val result = tool.result()
                             val hasFailed = tool.hasFailed()
-                            onToolFinished?.invoke(tool.request().id(), toolName, arguments, result, hasFailed)
+                            try {
+                                onToolFinished?.invoke(tool.request().id(), toolName, arguments, result, hasFailed)
+                            } catch (e: Exception) {
+                                log.warn("onToolFinished callback threw for $toolName", e)
+                            }
                         }
                         .onError { e ->
                             errorOccurred = true
@@ -482,7 +516,11 @@ fun ChatClient.sendStreamingMessageWithCallback(
                                 }
                                 terminalErrorMessage = message
                                 sb.append(message)
-                                onToken(message)
+                                try {
+                                    onToken(message)
+                                } catch (e2: Exception) {
+                                    log.warn("onToken callback threw", e2)
+                                }
                                 done.countDown()
                             }
                         }.start()
@@ -509,7 +547,11 @@ fun ChatClient.sendStreamingMessageWithCallback(
 
                         if (followUpSuggestion != null) {
                             log.debug("Detected follow-up opportunity (Stage 2): ${followUpSuggestion.question}")
-                            onFollowUpSuggestion(followUpSuggestion)
+                            try {
+                                onFollowUpSuggestion(followUpSuggestion)
+                            } catch (e: Exception) {
+                                log.warn("onFollowUpSuggestion callback threw", e)
+                            }
                         }
                     }
 
