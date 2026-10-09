@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
+import dev.langchain4j.data.message.Content
 import io.askimo.core.chat.domain.ChatMessage
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.domain.Project
@@ -38,6 +39,7 @@ import io.askimo.core.vision.ImageProcessor
 import io.askimo.ui.chat.ChatViewModel
 import io.askimo.ui.chat.CreationMode
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -308,47 +310,31 @@ class SessionManager(
             }
         }
 
-        // Check if this session already has an active (not yet complete) stream
-        val existingThread = activeThreads[sessionId]
-        if (existingThread != null && !existingThread.isComplete.value) {
-            log.warn("Session $sessionId already has an active stream")
-            return null
-        }
-        // If the thread is complete but not yet cleaned up by the ViewModel, remove it now
-        // so a new stream can start (e.g. user retries before the completion handler fires)
-        if (existingThread != null) {
-            activeThreads.remove(sessionId)
-            log.debug("Removed stale completed thread for session $sessionId before starting new stream")
-        }
-
-        // Check global stream limit
+        // Soft cap — approximate, not atomic with the reservation below.
         if (activeThreads.size >= MAX_CONCURRENT_STREAMS) {
             log.warn("Max concurrent streams ($MAX_CONCURRENT_STREAMS) reached")
             return null
         }
 
         val threadId = "${sessionId}_${System.currentTimeMillis()}"
-
         val thread = StreamingThread(
             threadId = threadId,
             sessionId = sessionId,
-            job = Job(),
+            job = Job(), // placeholder, replaced below before reservation
             _timeline = MutableStateFlow(emptyList()),
             _isComplete = MutableStateFlow(false),
             _hasFailed = MutableStateFlow(false),
         )
 
-        // Prepare context and save user message to DB
-        val promptWithContext = chatSessionService.prepareContextAndGetPromptForChat(sessionId, userMessage, willSaveUserMessage)
-        log.debug("Saved prompt for session $sessionId, starting streaming")
+        // Assigned after reservation succeeds — the LAZY coroutine below only reads this once started.
+        lateinit var promptWithContext: List<Content>
 
-        thread.job = streamingScope.launch {
-            // Tracks every fire-and-forget timeline-mutating coroutine (onToken,
-            // onThinkingToken, onToolStarted, onToolFinished) launched while
-            // sendStreamingMessageWithCallback is in-flight below. Joined — both on success
-            // and on any exception — before reading thread.timeline/getCurrentContent(), so
-            // persistence never observes a timeline missing the last chunk(s)/tool update(s)
-            // still mid-flight the instant the call returns or throws.
+        // LAZY: gives a real, stable, cancellable Job before the coroutine body runs — without
+        // passing an external Job into launch()'s context, which breaks structured concurrency.
+        thread.job = streamingScope.launch(start = CoroutineStart.LAZY) {
+            // Tracks fire-and-forget timeline-mutating jobs (onToken, onThinkingToken,
+            // onToolStarted, onToolFinished); joined before any thread.timeline read below so
+            // persistence never misses an update still in flight.
             val pendingUpdateJobs = ConcurrentLinkedQueue<Job>()
             try {
                 if (mode is CreationMode.Chat) {
@@ -384,17 +370,10 @@ class SessionManager(
 
                     val fullResponse = try {
                         val sessionContext = chatSessionService.getOrCreateContextForSession(sessionId)
-                        // Tracks each tool call's in-flight markToolRunning job, keyed by
-                        // (toolName, arguments) rather than toolName alone — otherwise two
-                        // parallel invocations of the SAME tool (same name, different
-                        // arguments) would collide: the second's markToolRunning would be
-                        // deduped as "already running" and markToolDone could join/flip the
-                        // wrong call's entry. markToolDone joins this first — onToolStarted/
-                        // onToolFinished each launch their update on streamingScope
-                        // independently, and without this, a delayed RUNNING-append coroutine
-                        // can land *after* a faster DONE-append one, leaving the timeline's
-                        // last entry for that tool RUNNING (collapsedEffectiveTools treats it
-                        // as effective) even though the tool already finished.
+                        // Keyed by (toolName, arguments), not toolName alone, so two parallel
+                        // calls to the same tool don't collide. markToolDone joins the matching
+                        // start job first so a delayed RUNNING-append can't land after a faster
+                        // DONE-append and leave the tool stuck RUNNING.
                         val pendingToolStartJobs = ConcurrentHashMap<Pair<String, String?>, Job>()
                         sessionContext.chatClient
                             .sendStreamingMessageWithCallback(
@@ -487,9 +466,7 @@ class SessionManager(
                         if (needsMessageCorrelation) ProxyChatContext.clear()
                     }
 
-                    // Ensure every timeline mutation triggered during the call above has
-                    // actually landed before persisting/reading the timeline below — see
-                    // pendingUpdateJobs' declaration comment.
+                    // Wait for in-flight timeline updates before reading it below.
                     pendingUpdateJobs.joinAll()
 
                     val savedMessage = chatSessionService.saveAiResponse(
@@ -552,9 +529,7 @@ class SessionManager(
                 log.error("Error while sending message to chat session $sessionId", e)
                 thread.markFailed()
 
-                // Same join as the success path above — the exception can propagate while
-                // onToken/onToolStarted/onToolFinished/onThinkingToken updates are still
-                // in-flight on streamingScope.
+                // Same reason as the success path — updates may still be in flight.
                 pendingUpdateJobs.joinAll()
 
                 val partialResponse = thread.getCurrentContent()
@@ -604,12 +579,38 @@ class SessionManager(
             }
         }
 
-        // Registered only now that thread.job holds the real coroutine handle (not the
-        // placeholder Job() from construction above) — otherwise a stopStream() call landing
-        // in the gap between registration and this assignment would cancel the inert
-        // placeholder instead of the actual stream.
-        activeThreads[sessionId] = thread
-        log.debug("Streaming thread $threadId for session $sessionId started. Active streams: ${activeThreads.size}")
+        // Atomically reserve this session's slot: reject if a stream is already active,
+        // otherwise overwrite a stale/completed entry with `thread`. Keeps the check-then-insert
+        // from being a TOCTOU race where two concurrent sendMessage() calls both succeed.
+        var reserved = true
+        activeThreads.compute(sessionId) { _, existing ->
+            if (existing != null && !existing.isComplete.value) {
+                reserved = false
+                existing
+            } else {
+                thread
+            }
+        }
+        if (!reserved) {
+            log.warn("Session $sessionId already has an active stream")
+            thread.job.cancel()
+            return null
+        }
+        log.debug("Streaming thread $threadId for session $sessionId reserved. Active streams: ${activeThreads.size}")
+
+        // Release the reservation if setup fails, so a retry isn't blocked by a dead thread.
+        try {
+            promptWithContext = chatSessionService.prepareContextAndGetPromptForChat(sessionId, userMessage, willSaveUserMessage)
+        } catch (e: Exception) {
+            activeThreads.remove(sessionId, thread)
+            thread.job.cancel()
+            throw e
+        }
+        log.debug("Saved prompt for session $sessionId, starting streaming")
+
+        // Starts the coroutine only now — cancelling it earlier (e.g. via a racing stopStream())
+        // would have made this a no-op instead.
+        thread.job.start()
 
         return threadId
     }
