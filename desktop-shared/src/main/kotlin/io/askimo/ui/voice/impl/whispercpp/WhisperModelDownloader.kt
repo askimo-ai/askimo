@@ -36,19 +36,33 @@ import java.time.Duration
 object WhisperModelDownloader {
     private val log = logger<WhisperModelDownloader>()
 
-    /** `true` if [tier]'s model file is already present under [io.askimo.core.util.AskimoHome.whisperModelsDir]. */
-    fun isDownloaded(tier: WhisperModelCatalog): Boolean = modelPath(tier).let { Files.exists(it) && Files.size(it) > 0 }
+    /**
+     * `true` if [tier]'s model file is present **and** passes [isPlausibleSize] — a non-empty
+     * file alone isn't proof of a complete, valid model (e.g. a mirror's 200 HTML error page,
+     * or a file truncated by a prior crash/disk-full).
+     */
+    fun isDownloaded(tier: WhisperModelCatalog): Boolean = modelPath(tier).let { Files.exists(it) && isPlausibleSize(tier, Files.size(it)) }
 
     fun modelPath(tier: WhisperModelCatalog): Path = AskimoHome.whisperModelsDir().resolve(tier.fileName)
 
     /**
-     * Downloads [tier] if not already present, reporting progress via [onProgress] as
+     * Rejects sizes under half of [WhisperModelCatalog.approxSizeBytes]. Deliberately generous
+     * (catalog sizes are documented as approximate) — catches gross corruption/error pages, not
+     * a full integrity check (no exact size/SHA-256 is published to validate against).
+     */
+    private fun isPlausibleSize(tier: WhisperModelCatalog, sizeBytes: Long): Boolean = sizeBytes >= tier.approxSizeBytes / 2
+
+    /**
+     * Downloads [tier] if not already present ([isPlausibleSize]; a failing pre-existing file is
+     * deleted and re-downloaded), reporting progress via [onProgress] as
      * `(bytesDownloaded, totalBytes)` — `totalBytes` is `-1` if the server didn't report
-     * `Content-Length`. Downloads to a sibling `.part` file first, then atomically moves it into
-     * place on success — a cancelled/failed download never leaves a corrupt file at the final path.
+     * `Content-Length`. Downloads to a sibling `.part` file, then atomically moves it into place.
+     * The result is checked against `Content-Length` (when present) and [isPlausibleSize] before
+     * being kept, so a mirror's 200 HTML/error body can't be moved in and treated as valid.
      *
      * @param baseUrl Source host/path for [tier]'s file, e.g. [VoiceConfig.whisperModelBaseUrl].
-     * @throws VoiceServiceException on network failure or non-2xx response.
+     * @throws VoiceServiceException on network failure, non-2xx response, or a downloaded file
+     *   that fails the size checks above.
      */
     suspend fun download(
         tier: WhisperModelCatalog,
@@ -56,8 +70,17 @@ object WhisperModelDownloader {
         onProgress: (bytesDownloaded: Long, totalBytes: Long) -> Unit = { _, _ -> },
     ): Path = withContext(Dispatchers.IO) {
         val finalPath = modelPath(tier)
-        if (Files.exists(finalPath) && Files.size(finalPath) > 0) {
-            return@withContext finalPath
+        if (Files.exists(finalPath)) {
+            if (isPlausibleSize(tier, Files.size(finalPath))) {
+                return@withContext finalPath
+            }
+            log.warn(
+                "Existing whisper model file {} is smaller than expected ({} bytes) — treating as " +
+                    "corrupt/incomplete and re-downloading.",
+                finalPath,
+                Files.size(finalPath),
+            )
+            Files.deleteIfExists(finalPath)
         }
 
         Files.createDirectories(AskimoHome.whisperModelsDir())
@@ -115,6 +138,24 @@ object WhisperModelDownloader {
         } catch (_: AtomicMoveNotSupportedException) {
             Files.move(partPath, finalPath, StandardCopyOption.REPLACE_EXISTING)
         }
+
+        // A mirror's 200 HTML/error body, or a size/Content-Length mismatch, must not be trusted
+        // as a valid model — isDownloaded would otherwise short-circuit on it forever.
+        if (totalBytes != -1L && downloadedBytes != totalBytes) {
+            Files.deleteIfExists(finalPath)
+            throw VoiceServiceException(
+                "Downloaded ${tier.fileName} size ($downloadedBytes bytes) does not match the " +
+                    "server-reported size ($totalBytes bytes) — the file was deleted; please retry.",
+            )
+        }
+        if (!isPlausibleSize(tier, downloadedBytes)) {
+            Files.deleteIfExists(finalPath)
+            throw VoiceServiceException(
+                "Downloaded ${tier.fileName} is implausibly small ($downloadedBytes bytes) — likely an " +
+                    "error page from the mirror rather than the model file. The file was deleted; please retry.",
+            )
+        }
+
         log.info("Downloaded whisper model {} ({} bytes) to {}", tier.fileName, downloadedBytes, finalPath)
         finalPath
     }
