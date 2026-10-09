@@ -46,7 +46,7 @@ class LocalWhisperSpeechToTextService(private val config: VoiceConfig) : SpeechT
 
             model.transcribeToText(Audio.builder().binaryData(audio).build())
         } catch (e: Exception) {
-            log.warn("Local whisper transcription request failed", e)
+            log.warn("Local whisper.cpp transcription request failed", e)
             throw VoiceServiceException(
                 e.toFriendlyVoiceErrorMessage("Could not reach local whisper.cpp server at $baseUrl"),
                 e,

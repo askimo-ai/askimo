@@ -63,6 +63,15 @@ object AskimoHome {
     fun logsDir(): Path = base().resolve("logs")
     fun encryptionKeyFile(): Path = base().resolve(".key")
 
+    /**
+     * Directory for downloaded ML model weights (e.g. whisper.cpp `ggml-*.bin` files used by
+     * `VoiceProvider.LOCAL_WHISPER_FFM`). Lives under the profile home so a multi-GB download
+     * survives app updates/reinstalls and isn't duplicated inside the (immutable,
+     * update-replaced) app bundle.
+     */
+    fun modelsDir(): Path = base().resolve("models")
+    fun whisperModelsDir(): Path = modelsDir().resolve("whisper")
+
     fun userHome(): Path = Paths.get(System.getProperty("user.home")).toAbsolutePath().normalize()
 
     fun expandTilde(raw: String): Path = get().expandTilde(raw)

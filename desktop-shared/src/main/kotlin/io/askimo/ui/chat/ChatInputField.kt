@@ -349,10 +349,13 @@ fun chatInputField(
 
     // ── Voice input (🎤) ─────────────────────────────────────────────────────
     // Cache off the UI thread like webSearchEnabled above — AppConfig.voice also hits the
-    // keychain. Hidden entirely when disabled (default), so no UI impact for existing users.
+    // keychain. Hidden entirely when disabled (default). isSttAvailable() (vs. just
+    // enabled + sttProvider != NONE) also keeps the mic hidden for the default
+    // LOCAL_WHISPER_FFM provider until a model file is downloaded.
     var voiceInputEnabled by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        voiceInputEnabled = withContext(Dispatchers.IO) { AppConfig.voice.enabled }
+        val voice = withContext(Dispatchers.IO) { AppConfig.voice }
+        voiceInputEnabled = voice.isSttAvailable()
     }
 
     // Notify caller whenever the user changes the enabled server selection.

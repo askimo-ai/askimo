@@ -171,14 +171,16 @@ internal fun agenticRunArea(
     }
 
     // ── Voice input (🎤) ─────────────────────────────────────────────────────
-    // Cache both flags off the UI thread — AppConfig.voice resolves a key from the OS
-    // keychain, so this mirrors chatInputField's voiceInputEnabled/webSearchEnabled caching.
-    // Hidden entirely when disabled (default) — zero UI impact for existing users.
+    // Cache both flags off the UI thread — AppConfig.voice hits the OS keychain, mirroring
+    // chatInputField's caching. Hidden entirely when disabled (default). isSttAvailable()
+    // (vs. just enabled + sttProvider != NONE) also keeps the mic hidden for the default
+    // LOCAL_WHISPER_FFM provider until a model file is downloaded.
     var voiceInputEnabled by remember { mutableStateOf(false) }
     var voiceAutoSendTranscript by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        voiceInputEnabled = withContext(Dispatchers.IO) { AppConfig.voice.enabled }
-        voiceAutoSendTranscript = withContext(Dispatchers.IO) { AppConfig.voice.autoSendTranscript }
+        val voice = withContext(Dispatchers.IO) { AppConfig.voice }
+        voiceInputEnabled = voice.isSttAvailable()
+        voiceAutoSendTranscript = voice.autoSendTranscript
     }
 
     // Shared voice-recording lifecycle (mic capture, waveform, auto-stop timer, STT)

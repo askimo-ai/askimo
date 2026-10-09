@@ -1,0 +1,6 @@
+ggml-base.dll
+ggml-cpu.dll
+ggml.dll
+libomp140.aarch64.dll
+whisper.dll
+
