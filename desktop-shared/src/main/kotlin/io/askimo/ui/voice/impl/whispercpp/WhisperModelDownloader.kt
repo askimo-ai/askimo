@@ -4,6 +4,7 @@
  */
 package io.askimo.ui.voice.impl.whispercpp
 
+import io.askimo.core.config.VoiceConfig
 import io.askimo.core.logging.logger
 import io.askimo.core.util.AskimoHome
 import io.askimo.core.util.ProxyUtil
@@ -45,10 +46,12 @@ object WhisperModelDownloader {
      * `Content-Length`. Downloads to a sibling `.part` file first, then atomically moves it into
      * place on success — a cancelled/failed download never leaves a corrupt file at the final path.
      *
+     * @param baseUrl Source host/path for [tier]'s file, e.g. [VoiceConfig.whisperModelBaseUrl].
      * @throws VoiceServiceException on network failure or non-2xx response.
      */
     suspend fun download(
         tier: WhisperModelCatalog,
+        baseUrl: String = VoiceConfig().whisperModelBaseUrl,
         onProgress: (bytesDownloaded: Long, totalBytes: Long) -> Unit = { _, _ -> },
     ): Path = withContext(Dispatchers.IO) {
         val finalPath = modelPath(tier)
@@ -58,18 +61,19 @@ object WhisperModelDownloader {
 
         Files.createDirectories(AskimoHome.whisperModelsDir())
         val partPath = finalPath.resolveSibling("${tier.fileName}.part")
+        val downloadUrl = tier.downloadUrl(baseUrl)
 
-        val client = ProxyUtil.configureProxy(HttpClient.newBuilder(), tier.downloadUrl)
+        val client = ProxyUtil.configureProxy(HttpClient.newBuilder(), downloadUrl)
             .connectTimeout(Duration.ofSeconds(30))
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build()
         val request = HttpRequest.newBuilder()
-            .uri(URI(tier.downloadUrl))
+            .uri(URI(downloadUrl))
             .timeout(Duration.ofHours(2))
             .GET()
             .build()
 
-        log.info("Downloading whisper model {} from {}", tier.fileName, tier.downloadUrl)
+        log.info("Downloading whisper model {} from {}", tier.fileName, downloadUrl)
         val response = try {
             client.send(request, HttpResponse.BodyHandlers.ofInputStream())
         } catch (e: Exception) {

@@ -34,28 +34,21 @@ object VoiceServiceRegistry {
     )
 
     // Caches the last [SpeechToTextService] built for [cachedConfig] so repeated calls with an
-    // unchanged config (the overwhelmingly common case — one dictation after another with the
-    // same settings) reuse the same instance instead of constructing a new one every time.
-    // This matters most for [io.askimo.ui.voice.impl.whispercpp.WhisperCppFfmSpeechToTextService],
-    // whose context holds a multi-GB model in *native* (off-heap) memory that the JVM GC cannot
-    // reclaim — without this cache, every single dictation would load a fresh copy of the model
-    // and leak the previous one, since nothing else ever calls its `close()`.
+    // unchanged config (the common case — one dictation after another with the same settings)
+    // reuse the same instance instead of rebuilding one every time. Matters most for
+    // [io.askimo.ui.voice.impl.whispercpp.WhisperCppFfmSpeechToTextService], whose context holds
+    // a multi-GB model in native (off-heap) memory the JVM GC can't reclaim — without this cache,
+    // every dictation would load a fresh model copy and leak the previous one.
+    //
+    // No JVM shutdown hook cleans this up (unlike SessionManager/AgentRunManager): that service's
+    // close() blocks on its mutex for the full, non-cancellable whisper_full call, and the JVM
+    // waits for shutdown hooks to finish — quitting mid-dictation would hang the app for no
+    // benefit, since the OS reclaims all process memory (native included) on exit regardless.
     @Volatile
     private var cachedConfig: VoiceConfig? = null
 
     @Volatile
     private var cachedService: SpeechToTextService? = null
-
-    init {
-        // Best-effort cleanup on JVM exit — frees any native resources (e.g. a loaded whisper.cpp
-        // model) held by the cached service. Mirrors the shutdown-hook pattern used by
-        // io.askimo.ui.session.SessionManager / io.askimo.ui.agent.AgentRunManager.
-        Runtime.getRuntime().addShutdownHook(
-            Thread {
-                synchronized(this) { closeCachedServiceLocked() }
-            },
-        )
-    }
 
     /**
      * Resolves the configured [VoiceConfig.sttProvider] to a ready-to-use [SpeechToTextService],
@@ -79,7 +72,7 @@ object VoiceServiceRegistry {
         }
     }
 
-    /** Must be called while holding the monitor on `this` (see [speechToText] / shutdown hook). */
+    /** Must be called while holding the monitor on `this` (see [speechToText]). */
     private fun closeCachedServiceLocked() {
         (cachedService as? AutoCloseable)?.let {
             try {

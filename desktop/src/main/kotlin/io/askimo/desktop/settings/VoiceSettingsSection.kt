@@ -926,7 +926,10 @@ private fun whisperModelDownloadSection(
                         totalBytes = -1L
                         scope.launch {
                             try {
-                                val path = WhisperModelDownloader.download(selectedTier) { done, total ->
+                                val path = WhisperModelDownloader.download(
+                                    tier = selectedTier,
+                                    baseUrl = AppConfig.rawVoice.whisperModelBaseUrl,
+                                ) { done, total ->
                                     downloadedBytes = done
                                     totalBytes = total
                                 }

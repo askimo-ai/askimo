@@ -26,10 +26,10 @@ enum class WhisperModelCatalog(
     BEST("ggml-large-v3.bin", 3_095L * 1024 * 1024, "settings.voice.whisper_model.tier.best"),
     ;
 
-    val downloadUrl: String get() = "$HF_BASE_URL/$fileName"
+    /** Full download URL for this tier under [baseUrl] (see [io.askimo.core.config.VoiceConfig.whisperModelBaseUrl]). */
+    fun downloadUrl(baseUrl: String): String = "${baseUrl.trimEnd('/')}/$fileName"
 
     companion object {
-        private const val HF_BASE_URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main"
 
         fun fromFileName(fileName: String): WhisperModelCatalog? = entries.find { it.fileName == fileName }
     }

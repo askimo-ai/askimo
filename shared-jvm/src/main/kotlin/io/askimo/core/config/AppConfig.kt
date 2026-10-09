@@ -563,6 +563,13 @@ data class VoiceConfig(
      * `io.askimo.core.util.AskimoHome.whisperModelsDir()` so they survive app updates/reinstalls.
      */
     val localWhisperModelPath: String = "",
+    /**
+     * Base URL (no trailing slash) the Settings UI downloads [io.askimo.ui.voice.impl.whispercpp.WhisperModelCatalog]
+     * `ggml-*.bin` files from. Defaults to the official `ggerganov/whisper.cpp` Hugging Face repo;
+     * configurable so users behind a mirror/proxy or in a region where huggingface.co is blocked
+     * can point this at an alternate host serving the same filenames.
+     */
+    val whisperModelBaseUrl: String = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main",
     /** Base URL of a user-hosted Piper HTTP server. */
     val localTtsEndpoint: String = "http://localhost:5000",
     /**
@@ -1482,6 +1489,8 @@ object AppConfig {
         "localSttEndpoint" -> config.copy(localSttEndpoint = value as String)
 
         "localWhisperModelPath" -> config.copy(localWhisperModelPath = value as String)
+
+        "whisperModelBaseUrl" -> config.copy(whisperModelBaseUrl = (value as String).trimEnd('/').ifBlank { config.whisperModelBaseUrl })
 
         "localTtsEndpoint" -> config.copy(localTtsEndpoint = value as String)
 
