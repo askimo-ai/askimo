@@ -51,6 +51,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.UUID
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
 
@@ -429,6 +430,23 @@ class SessionManager(
                                                 },
                                             ),
                                         )
+                                    }
+                                },
+                                onToolApprovalTimedOut = {
+                                    streamingScope.launch { thread.clearApproval() }
+                                },
+                                // Awaitable companion to onToolFinished: used only on approval
+                                // timeout/denial so markToolDone() applies before the exception
+                                // propagates — otherwise the tool could be persisted as RUNNING.
+                                onToolFinishedAwaitable = { toolName, arguments, result, hasFailed ->
+                                    CompletableFuture<Unit>().apply {
+                                        streamingScope.launch {
+                                            try {
+                                                thread.markToolDone(toolName, arguments, result, hasFailed)
+                                            } finally {
+                                                complete(Unit)
+                                            }
+                                        }
                                     }
                                 },
                                 chatMemory = sessionContext.memory,

@@ -37,6 +37,7 @@ import io.askimo.core.intent.ToolApprovalPolicy
 import io.askimo.core.intent.ToolConfig
 import io.askimo.core.intent.ToolRegistry
 import io.askimo.core.intent.defaultApprovalPolicy
+import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.logging.logger
 import io.askimo.core.memory.SessionConversationSummary
 import io.askimo.core.memory.UserMemorySummary
@@ -49,8 +50,11 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+
+private val log = currentFileLogger()
 
 /**
  * Checks whether any message in this exception's cause chain contains [needle]
@@ -84,6 +88,44 @@ internal sealed class StreamingErrorResult {
 
     /** Stop retrying — show [message] in the chat and mark the response as failed. */
     data class Terminal(val message: String) : StreamingErrorResult()
+}
+
+/**
+ * Notifies tool completion on the approval-timeout/denial paths, awaiting it when possible
+ * before the caller propagates its exception.
+ *
+ * Prefers [onToolFinishedAwaitable] when non-null, awaiting its [CompletableFuture] (bounded by
+ * [timeoutMs]) so e.g. `SessionManager.markToolDone` applies before a later `catch` block reads
+ * stale (still-RUNNING) state. Falls back to firing [onToolFinished] without waiting — preserving
+ * its original behavior for callers that don't supply the awaitable variant.
+ *
+ * @param onToolFinished Legacy, non-awaitable callback — invoked without waiting if [onToolFinishedAwaitable] is null.
+ * @param onToolFinishedAwaitable Optional awaitable variant — when present, takes precedence and is awaited.
+ * @param toolName Name of the tool
+ * @param arguments Tool arguments
+ * @param result Tool result
+ * @param hasFailed Whether the tool failed
+ * @param timeoutMs Timeout for waiting on the completion future
+ */
+private fun notifyToolFinishedAndAwaitIfPossible(
+    onToolFinished: ((String, String?, String?, Boolean) -> Unit)?,
+    onToolFinishedAwaitable: ((String, String?, String?, Boolean) -> CompletableFuture<Unit>?)?,
+    toolName: String,
+    arguments: String?,
+    result: String?,
+    hasFailed: Boolean,
+    timeoutMs: Long,
+) {
+    if (onToolFinishedAwaitable != null) {
+        val completion = onToolFinishedAwaitable.invoke(toolName, arguments, result, hasFailed)
+        try {
+            completion?.get(timeoutMs, TimeUnit.MILLISECONDS)
+        } catch (e: Exception) {
+            log.warn("Tool completion callback timed out for $toolName", e)
+        }
+    } else {
+        onToolFinished?.invoke(toolName, arguments, result, hasFailed)
+    }
 }
 
 /**
@@ -153,6 +195,10 @@ internal fun classifyStreamingError(
  * @param userContents the contents sent by user
  * @param onToken Optional callback function that is invoked for each token received from the model
  * @param onFollowUpSuggestion Optional callback for follow-up suggestions based on AI response
+ * @param onToolFinishedAwaitable Awaitable variant of [onToolFinished], used instead of it on the
+ * approval-timeout/denial paths: its [CompletableFuture] is awaited (bounded by [toolApprovalTimeoutMs])
+ * before throwing, so callers like `SessionManager` can finish state updates (e.g. `markToolDone`)
+ * before the tool is read as still RUNNING elsewhere.
  * @return The complete response from the language model as a string
  */
 fun ChatClient.sendStreamingMessageWithCallback(
@@ -184,6 +230,13 @@ fun ChatClient.sendStreamingMessageWithCallback(
      */
     onToolApprovalRequired: ((toolName: String, arguments: String?, approve: () -> Unit, deny: () -> Unit) -> Unit)? = null,
     /**
+     * Called when the approval wait in [onToolApprovalRequired] times out (neither `approve`
+     * nor `deny` was invoked). Lets the caller clear pending-approval UI state that its own
+     * `approve`/`deny` closures never got to run — e.g. `SessionManager.StreamingThread.clearApproval()`
+     * — otherwise an approval banner stays visible forever.
+     */
+    onToolApprovalTimedOut: (() -> Unit)? = null,
+    /**
      * How long to wait for [onToolApprovalRequired] to invoke `approve`/`deny` before treating
      * the request as timed out. Defaults to [io.askimo.core.config.ModelsConfig.toolApprovalTimeoutMs];
      * overridable here mainly so tests can inject a much smaller value instead of waiting out
@@ -196,6 +249,7 @@ fun ChatClient.sendStreamingMessageWithCallback(
      * is left without a matching `tool_result`, which Anthropic's API rejects on the next turn.
      */
     chatMemory: ChatMemory? = null,
+    onToolFinishedAwaitable: ((toolName: String, arguments: String?, result: String?, hasFailed: Boolean) -> CompletableFuture<Unit>?)? = null,
 ): String {
     val log = logger<ChatClient>()
 
@@ -333,6 +387,10 @@ fun ChatClient.sendStreamingMessageWithCallback(
                                             chatMemory?.add(ToolExecutionResultMessage.from(req, msg))
                                         }
                                         pendingToolRequests.clear()
+                                        notifyToolFinishedAndAwaitIfPossible(onToolFinished, onToolFinishedAwaitable, toolName, arguments, msg, true, toolApprovalTimeoutMs)
+                                        // Neither approve() nor deny() fired, so the caller's pending-approval
+                                        // UI state was never cleared by either closure above.
+                                        onToolApprovalTimedOut?.invoke()
                                         throw ToolExecutionException(toolName = toolName, errorDetails = msg)
                                     }
                                     if (!approved) {
@@ -341,6 +399,7 @@ fun ChatClient.sendStreamingMessageWithCallback(
                                             chatMemory?.add(ToolExecutionResultMessage.from(req, msg))
                                         }
                                         pendingToolRequests.clear()
+                                        notifyToolFinishedAndAwaitIfPossible(onToolFinished, onToolFinishedAwaitable, toolName, arguments, msg, true, toolApprovalTimeoutMs)
                                         throw ToolExecutionException(toolName = toolName, errorDetails = msg)
                                     }
                                 }
