@@ -8,7 +8,7 @@ package io.askimo.ui.voice
  * Converts recorded audio into plain text.
  *
  * Implementations may call a cloud API (OpenAI Whisper) or a locally-hosted server
- * (libwhisper.dylib.cpp / faster-libwhisper.dylib) — the concrete implementation is selected via
+ * (whisper.cpp / faster-whisper) — the concrete implementation is selected via
  * [VoiceConfig.sttProvider] through [VoiceServiceRegistry], fully independent of the
  * active chat [io.askimo.core.providers.ModelProvider].
  */

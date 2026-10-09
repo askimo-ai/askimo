@@ -43,8 +43,16 @@ import javax.sound.sampled.AudioSystem
  * lifetime of this instance — re-creating it per call would reload the (potentially multi-GB)
  * model every time. `whisper_h.whisper_full` is not reentrant on the same context, so calls are
  * serialized via [mutex].
+ *
+ * Implements [AutoCloseable] so [close] can explicitly free the native context — it's off-heap
+ * memory the JVM GC cannot reclaim on its own. [io.askimo.ui.voice.VoiceServiceRegistry] is the
+ * sole owner of instances of this class: it caches one per resolved [VoiceConfig] and closes the
+ * previous instance whenever the provider/config changes, so callers should never construct
+ * this directly and don't need to call [close] themselves.
  */
-class WhisperCppFfmSpeechToTextService(private val config: VoiceConfig) : SpeechToTextService {
+class WhisperCppFfmSpeechToTextService(private val config: VoiceConfig) :
+    SpeechToTextService,
+    AutoCloseable {
     private val log = logger<WhisperCppFfmSpeechToTextService>()
     private val mutex = Mutex()
 
@@ -54,32 +62,48 @@ class WhisperCppFfmSpeechToTextService(private val config: VoiceConfig) : Speech
 
     override suspend fun transcribe(audio: ByteArray, format: VoiceAudioFormat): String = withContext(Dispatchers.IO) {
         mutex.withLock {
-            val ctx = ensureContextLoaded()
-            val samples = decodeToMono16kFloat(audio)
+            try {
+                val ctx = ensureContextLoaded()
+                val samples = decodeToMono16kFloat(audio)
 
-            Arena.ofConfined().use { arena ->
-                val params = buildFullParams(arena)
-                val samplesSegment = arena.allocate(ValueLayout.JAVA_FLOAT.byteSize() * samples.size)
-                MemorySegment.copy(samples, 0, samplesSegment, ValueLayout.JAVA_FLOAT, 0, samples.size)
+                Arena.ofConfined().use { arena ->
+                    val params = buildFullParams(arena)
+                    val samplesSegment = arena.allocate(ValueLayout.JAVA_FLOAT.byteSize() * samples.size)
+                    MemorySegment.copy(samples, 0, samplesSegment, ValueLayout.JAVA_FLOAT, 0, samples.size)
 
-                val result = whisper_h.whisper_full(ctx, params, samplesSegment, samples.size)
-                if (result != 0) {
-                    throw VoiceServiceException("whisper.cpp transcription failed (whisper_full returned $result)")
-                }
-
-                val segmentCount = whisper_h.whisper_full_n_segments(ctx)
-                buildString {
-                    for (i in 0 until segmentCount) {
-                        val textPtr = whisper_h.whisper_full_get_segment_text(ctx, i)
-                        append(textPtr.reinterpret(Long.MAX_VALUE).getString(0))
+                    val result = whisper_h.whisper_full(ctx, params, samplesSegment, samples.size)
+                    if (result != 0) {
+                        throw VoiceServiceException("whisper.cpp transcription failed (whisper_full returned $result)")
                     }
-                }.trim()
+
+                    val segmentCount = whisper_h.whisper_full_n_segments(ctx)
+                    buildString {
+                        for (i in 0 until segmentCount) {
+                            val textPtr = whisper_h.whisper_full_get_segment_text(ctx, i)
+                            append(textPtr.reinterpret(Long.MAX_VALUE).getString(0))
+                        }
+                    }.trim()
+                }
+            } catch (e: LinkageError) {
+                // System.load (NativeLibraryLoader.ensureLoaded) and FFM symbol resolution (first
+                // touch of any whisper_h.* downcall handle) throw UnsatisfiedLinkError/other
+                // LinkageError subtypes, NOT Exception — e.g. when the bundled native library is
+                // missing, corrupted, or built for the wrong OS/arch. VoiceRecordingController's
+                // catch block only handles Exception, so without this it would escape the voice
+                // error path entirely instead of surfacing a recoverable settings error.
+                throw VoiceServiceException(
+                    "Failed to load or call the bundled whisper.cpp native library " +
+                        "(${e.javaClass.simpleName}: ${e.message}). The library may be missing, " +
+                        "corrupted, or incompatible with your platform. Try reinstalling Askimo, " +
+                        "or switch to a different voice provider in Settings > Voice.",
+                    e,
+                )
             }
         }
     }
 
     /** Releases the native whisper.cpp context. Safe to call even if never initialized. */
-    fun close() {
+    override fun close() {
         context?.let { whisper_h.whisper_free(it) }
         context = null
         loadedModelPath = null

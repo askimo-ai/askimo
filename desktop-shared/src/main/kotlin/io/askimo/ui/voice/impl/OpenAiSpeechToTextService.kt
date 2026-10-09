@@ -42,7 +42,7 @@ class OpenAiSpeechToTextService(private val config: VoiceConfig) : SpeechToTextS
             val model = OpenAiAudioTranscriptionModel.builder()
                 .httpClientProvider(createJdkHttpClientBuilder())
                 .apiKey(apiKey)
-                .modelName(config.sttModel.ifBlank { "libwhisper.dylib-1" })
+                .modelName(config.sttModel.ifBlank { "whisper-1" })
                 .build()
             model.transcribe(
                 AudioTranscriptionRequest.builder().audio(

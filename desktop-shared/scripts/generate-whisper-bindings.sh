@@ -39,32 +39,44 @@ HEADERS_DIR="${MODULE_DIR}/native-headers/whisper"
 OUTPUT_DIR="${MODULE_DIR}/src/main/java"
 TARGET_PACKAGE="io.askimo.ui.voice.whispercpp"
 
-# --- 1. Detect platform, resolve download URL ---------------------------
-case "$(uname -s)" in
-  Darwin) OS="macos" ;;
-  Linux)  OS="linux" ;;
-  *)
-    echo "error: unsupported OS $(uname -s) for jextract auto-download" >&2
-    echo "Download jextract manually from https://jdk.java.net/jextract/ and" >&2
-    echo "set JEXTRACT_BIN env var to its 'bin/jextract' path, then re-run." >&2
+# --- 1. Resolve jextract binary: honor an explicit override, else auto-download ---------
+# If the caller already points JEXTRACT_BIN at a working jextract (e.g. a manual install on
+# an OS/arch we don't auto-download for — currently anything but macOS/Linux x64/aarch64),
+# skip platform detection and the download step entirely; that path is used as-is below.
+if [[ -n "${JEXTRACT_BIN:-}" ]]; then
+  if [[ ! -x "${JEXTRACT_BIN}" ]]; then
+    echo "error: JEXTRACT_BIN='${JEXTRACT_BIN}' is not an executable file." >&2
     exit 1
-    ;;
-esac
+  fi
+  echo "Using explicitly provided jextract at ${JEXTRACT_BIN}"
+else
+  case "$(uname -s)" in
+    Darwin) OS="macos" ;;
+    Linux)  OS="linux" ;;
+    *)
+      echo "error: no jextract auto-download available for OS $(uname -s)." >&2
+      echo "Download jextract manually from https://jdk.java.net/jextract/ and" >&2
+      echo "re-run with JEXTRACT_BIN=/path/to/jextract/bin/jextract set." >&2
+      exit 1
+      ;;
+  esac
 
-case "$(uname -m)" in
-  arm64|aarch64) ARCH="aarch64" ;;
-  x86_64)        ARCH="x64" ;;
-  *)
-    echo "error: unsupported arch $(uname -m) for jextract auto-download" >&2
-    exit 1
-    ;;
-esac
+  case "$(uname -m)" in
+    arm64|aarch64) ARCH="aarch64" ;;
+    x86_64)        ARCH="x64" ;;
+    *)
+      echo "error: no jextract auto-download available for arch $(uname -m)." >&2
+      echo "Download jextract manually from https://jdk.java.net/jextract/ and" >&2
+      echo "re-run with JEXTRACT_BIN=/path/to/jextract/bin/jextract set." >&2
+      exit 1
+      ;;
+  esac
 
-JEXTRACT_URL="https://download.java.net/java/early_access/jextract/${JEXTRACT_VERSION}/${JEXTRACT_BUILD}/openjdk-${JEXTRACT_VERSION}-jextract+${JEXTRACT_BUILD}-${JEXTRACT_FILENAME_SUFFIX}_${OS}-${ARCH}_bin.tar.gz"
+  JEXTRACT_URL="https://download.java.net/java/early_access/jextract/${JEXTRACT_VERSION}/${JEXTRACT_BUILD}/openjdk-${JEXTRACT_VERSION}-jextract+${JEXTRACT_BUILD}-${JEXTRACT_FILENAME_SUFFIX}_${OS}-${ARCH}_bin.tar.gz"
+  JEXTRACT_BIN="${JEXTRACT_CACHE_DIR}/bin/jextract"
+fi
 
-JEXTRACT_BIN="${JEXTRACT_BIN:-${JEXTRACT_CACHE_DIR}/bin/jextract}"
-
-# --- 2. Download + cache jextract (skip if already cached) --------------
+# --- 2. Download + cache jextract (skip if already cached or explicitly provided) -------
 if [[ ! -x "${JEXTRACT_BIN}" ]]; then
   echo "jextract ${JEXTRACT_VERSION} not found in cache, downloading..."
   echo "  URL: ${JEXTRACT_URL}"
@@ -85,7 +97,7 @@ if [[ ! -x "${JEXTRACT_BIN}" ]]; then
   # macOS quarantines downloaded executables not installed via Homebrew/App
   # Store; strip the quarantine attribute so it runs without a Gatekeeper
   # prompt. No-op (and harmless) on Linux.
-  if [[ "${OS}" == "macos" ]]; then
+  if [[ "${OS:-}" == "macos" ]]; then
     xattr -dr com.apple.quarantine "${JEXTRACT_CACHE_DIR}" 2>/dev/null || true
   fi
 
