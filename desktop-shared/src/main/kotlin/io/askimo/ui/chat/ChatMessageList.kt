@@ -36,6 +36,7 @@ import io.askimo.core.chat.dto.TurnTimelineEntry
 import io.askimo.core.chat.dto.TurnTimelineGroup
 import io.askimo.core.chat.dto.grouped
 import io.askimo.core.config.AppConfig
+import io.askimo.core.config.VoiceProvider
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.error.AppErrorEvent
 import io.askimo.core.i18n.LocalizationManager
@@ -96,7 +97,8 @@ fun chatMessageList(
     // for existing users.
     var voiceOutputEnabled by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        voiceOutputEnabled = withContext(Dispatchers.IO) { AppConfig.voice.enabled }
+        val voice = withContext(Dispatchers.IO) { AppConfig.voice }
+        voiceOutputEnabled = voice.enabled && voice.ttsProvider != VoiceProvider.NONE
     }
 
     // ── Auto-play AI responses (🔊) — opt-in "conversation mode" ──────────────────────

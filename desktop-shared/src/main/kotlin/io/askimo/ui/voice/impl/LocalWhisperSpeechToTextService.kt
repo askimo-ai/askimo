@@ -19,9 +19,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Speech-to-text via a user-hosted whisper.cpp / faster-whisper server exposing an
- * OpenAI-compatible `/v1/audio/transcriptions` endpoint (e.g. `whisper-server`,
- * `faster-whisper-server`). Free, no API key required, runs fully offline.
+ * Speech-to-text via a user-hosted libwhisper.dylib.cpp / faster-libwhisper.dylib server exposing an
+ * OpenAI-compatible `/v1/audio/transcriptions` endpoint (e.g. `libwhisper.dylib-server`,
+ * `faster-libwhisper.dylib-server`). Free, no API key required, runs fully offline.
  *
  * Uses langchain4j's [OpenAiAudioTranscriptionModel] pointed at a custom [VoiceConfig.localSttEndpoint]
  * base URL (default `http://localhost:8081`) — the same "OpenAI-compatible" pattern used by
@@ -33,7 +33,7 @@ class LocalWhisperSpeechToTextService(private val config: VoiceConfig) : SpeechT
     override suspend fun transcribe(audio: ByteArray, format: VoiceAudioFormat): String = withContext(Dispatchers.IO) {
         val baseUrl = config.localSttEndpoint.trimEnd('/')
         if (baseUrl.isBlank()) {
-            throw VoiceServiceException("Local whisper.cpp endpoint is not configured. Set it in Settings > Voice.")
+            throw VoiceServiceException("Local libwhisper.dylib.cpp endpoint is not configured. Set it in Settings > Voice.")
         }
 
         try {
@@ -41,14 +41,14 @@ class LocalWhisperSpeechToTextService(private val config: VoiceConfig) : SpeechT
                 .httpClientProvider(createJdkHttpClientBuilder(baseUrl))
                 .baseUrl(baseUrl)
                 .apiKey(config.openAiApiKey.ifBlank { "not-needed" })
-                .modelName(config.sttModel.ifBlank { "whisper-1" })
+                .modelName(config.sttModel.ifBlank { "libwhisper.dylib-1" })
                 .build()
 
             model.transcribeToText(Audio.builder().binaryData(audio).build())
         } catch (e: Exception) {
-            log.warn("Local whisper transcription request failed", e)
+            log.warn("Local libwhisper.dylib transcription request failed", e)
             throw VoiceServiceException(
-                e.toFriendlyVoiceErrorMessage("Could not reach local whisper.cpp server at $baseUrl"),
+                e.toFriendlyVoiceErrorMessage("Could not reach local libwhisper.dylib.cpp server at $baseUrl"),
                 e,
             )
         }

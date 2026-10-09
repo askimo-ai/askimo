@@ -496,14 +496,23 @@ data class WebSearchConfig(
  * e.g. a user can chat with Gemini while using OpenAI Whisper for transcription,
  * or a fully local/free STT+TTS stack.
  *
+ * - [NONE]: Explicitly disables this direction only — e.g. dictation (STT) with no
+ *   auto-played responses, or auto-play (TTS) without a microphone. Distinct from
+ *   [VoiceConfig.enabled] = false, which turns off voice entirely (both directions, no UI).
  * - [OPENAI]: Cloud API (Whisper for STT, OpenAI TTS for TTS). Requires an API key.
  * - [LOCAL_WHISPER_CPP]: STT-only. Talks to a user-hosted whisper.cpp/faster-whisper
  *   server exposing an OpenAI-compatible `/v1/audio/transcriptions` endpoint. Free, offline-capable.
+ * - [LOCAL_WHISPER_FFM]: STT-only. Runs whisper.cpp **in-process** via the Java Foreign Function
+ *   & Memory API (no separate server process) — see `io.askimo.ui.voice.impl.whispercpp` in
+ *   `desktop-shared`. Requires a downloaded `ggml-*.bin` model file ([VoiceConfig.localWhisperModelPath]).
+ *   Free, fully offline, lowest latency of the local options (no HTTP hop).
  * - [LOCAL_PIPER]: TTS-only. Talks to a user-hosted Piper HTTP server. Free, offline-capable.
  */
 enum class VoiceProvider {
+    NONE,
     OPENAI,
     LOCAL_WHISPER_CPP,
+    LOCAL_WHISPER_FFM,
     LOCAL_PIPER,
 }
 
@@ -525,7 +534,7 @@ private const val VOICE_KEY_PLACEHOLDER = "***keychain***"
  */
 data class VoiceConfig(
     val enabled: Boolean = false,
-    val sttProvider: VoiceProvider = VoiceProvider.OPENAI,
+    val sttProvider: VoiceProvider = VoiceProvider.LOCAL_WHISPER_FFM,
     val ttsProvider: VoiceProvider = VoiceProvider.OPENAI,
     val sttModel: String = "whisper-1",
     val ttsModel: String = "tts-1",
@@ -546,6 +555,14 @@ data class VoiceConfig(
     val openAiApiKey: String = "",
     /** Base URL of a user-hosted whisper.cpp/faster-whisper server (OpenAI-compatible API). */
     val localSttEndpoint: String = "http://localhost:8081",
+    /**
+     * Absolute path to a downloaded `ggml-*.bin` whisper.cpp model file, used only when
+     * [sttProvider] is [VoiceProvider.LOCAL_WHISPER_FFM]. Blank means no model has been
+     * downloaded yet — the Settings UI shows a "Download model" prompt in that case instead
+     * of allowing the provider to be used. Downloaded models live under
+     * `io.askimo.core.util.AskimoHome.whisperModelsDir()` so they survive app updates/reinstalls.
+     */
+    val localWhisperModelPath: String = "",
     /** Base URL of a user-hosted Piper HTTP server. */
     val localTtsEndpoint: String = "http://localhost:5000",
     /**
@@ -1463,6 +1480,8 @@ object AppConfig {
         "useProviderKeyForVoice" -> config.copy(useProviderKeyForVoice = value as Boolean)
 
         "localSttEndpoint" -> config.copy(localSttEndpoint = value as String)
+
+        "localWhisperModelPath" -> config.copy(localWhisperModelPath = value as String)
 
         "localTtsEndpoint" -> config.copy(localTtsEndpoint = value as String)
 

@@ -110,6 +110,7 @@ import io.askimo.core.chat.service.ChatDirectiveService
 import io.askimo.core.chat.service.ResourceCollectionService
 import io.askimo.core.chat.util.FileContentExtractor
 import io.askimo.core.config.AppConfig
+import io.askimo.core.config.VoiceProvider
 import io.askimo.core.context.AppContext
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.error.AppErrorEvent
@@ -352,7 +353,8 @@ fun chatInputField(
     // keychain. Hidden entirely when disabled (default), so no UI impact for existing users.
     var voiceInputEnabled by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        voiceInputEnabled = withContext(Dispatchers.IO) { AppConfig.voice.enabled }
+        val voice = withContext(Dispatchers.IO) { AppConfig.voice }
+        voiceInputEnabled = voice.enabled && voice.sttProvider != VoiceProvider.NONE
     }
 
     // Notify caller whenever the user changes the enabled server selection.

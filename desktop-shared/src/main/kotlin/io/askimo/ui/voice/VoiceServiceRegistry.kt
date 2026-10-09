@@ -9,6 +9,7 @@ import io.askimo.ui.voice.impl.LocalWhisperSpeechToTextFactory
 import io.askimo.ui.voice.impl.OpenAiSpeechToTextFactory
 import io.askimo.ui.voice.impl.OpenAiTextToSpeechFactory
 import io.askimo.ui.voice.impl.PiperTextToSpeechFactory
+import io.askimo.ui.voice.impl.whispercpp.WhisperCppFfmSpeechToTextFactory
 
 /**
  * Resolves the active [SpeechToTextService]/[TextToSpeechService] from [VoiceConfig].
@@ -21,6 +22,7 @@ object VoiceServiceRegistry {
     private val sttFactories: List<SpeechToTextFactory> = listOf(
         OpenAiSpeechToTextFactory,
         LocalWhisperSpeechToTextFactory,
+        WhisperCppFfmSpeechToTextFactory,
     )
 
     private val ttsFactories: List<TextToSpeechFactory> = listOf(

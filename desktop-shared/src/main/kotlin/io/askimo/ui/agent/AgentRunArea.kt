@@ -77,6 +77,7 @@ import io.askimo.core.agent.domain.SkillDefinition
 import io.askimo.core.agent.domain.Workspace
 import io.askimo.core.chat.dto.grouped
 import io.askimo.core.config.AppConfig
+import io.askimo.core.config.VoiceProvider
 import io.askimo.core.user.repository.UserProfileRepository
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.keymap.KeyMapManager
@@ -177,8 +178,9 @@ internal fun agenticRunArea(
     var voiceInputEnabled by remember { mutableStateOf(false) }
     var voiceAutoSendTranscript by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        voiceInputEnabled = withContext(Dispatchers.IO) { AppConfig.voice.enabled }
-        voiceAutoSendTranscript = withContext(Dispatchers.IO) { AppConfig.voice.autoSendTranscript }
+        val voice = withContext(Dispatchers.IO) { AppConfig.voice }
+        voiceInputEnabled = voice.enabled && voice.sttProvider != VoiceProvider.NONE
+        voiceAutoSendTranscript = voice.autoSendTranscript
     }
 
     // Shared voice-recording lifecycle (mic capture, waveform, auto-stop timer, STT)

@@ -1,0 +1,13 @@
+ggml-base.dll
+ggml-cpu-alderlake.dll
+ggml-cpu-cannonlake.dll
+ggml-cpu-cascadelake.dll
+ggml-cpu-haswell.dll
+ggml-cpu-icelake.dll
+ggml-cpu-sandybridge.dll
+ggml-cpu-skylakex.dll
+ggml-cpu-sse42.dll
+ggml-cpu-x64.dll
+ggml.dll
+whisper.dll
+

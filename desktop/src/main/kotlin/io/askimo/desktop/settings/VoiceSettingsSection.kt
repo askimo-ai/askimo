@@ -23,13 +23,16 @@ import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -40,6 +43,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,16 +69,21 @@ import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.clickableCard
 import io.askimo.ui.common.ui.themedTooltip
+import io.askimo.ui.voice.impl.whispercpp.WhisperModelCatalog
+import io.askimo.ui.voice.impl.whispercpp.WhisperModelDownloader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 
-/** [VoiceProvider] entries valid for speech-to-text (LOCAL_PIPER is TTS-only). */
-private val sttProviders = listOf(VoiceProvider.OPENAI, VoiceProvider.LOCAL_WHISPER_CPP)
+/** [VoiceProvider] entries valid for speech-to-text (LOCAL_PIPER is TTS-only). [VoiceProvider.NONE]
+ *  lets the user disable dictation only, while keeping TTS enabled. */
+private val sttProviders = listOf(VoiceProvider.NONE, VoiceProvider.OPENAI, VoiceProvider.LOCAL_WHISPER_CPP, VoiceProvider.LOCAL_WHISPER_FFM)
 
-/** [VoiceProvider] entries valid for text-to-speech (LOCAL_WHISPER_CPP is STT-only). */
-private val ttsProviders = listOf(VoiceProvider.OPENAI, VoiceProvider.LOCAL_PIPER)
+/** [VoiceProvider] entries valid for text-to-speech (LOCAL_WHISPER_CPP is STT-only). [VoiceProvider.NONE]
+ *  lets the user disable auto-play/playback only, while keeping dictation enabled. */
+private val ttsProviders = listOf(VoiceProvider.NONE, VoiceProvider.OPENAI, VoiceProvider.LOCAL_PIPER)
 
 @Composable
 fun voiceSettingsSection() {
@@ -130,6 +139,7 @@ private fun voiceConfigCard() {
     var ttsVoice by remember { mutableStateOf(AppConfig.rawVoice.ttsVoice) }
     var ttsSpeed by remember { mutableStateOf(AppConfig.rawVoice.ttsSpeed) }
     var localSttEndpoint by remember { mutableStateOf(AppConfig.rawVoice.localSttEndpoint) }
+    var localWhisperModelPath by remember { mutableStateOf(AppConfig.rawVoice.localWhisperModelPath) }
     var localTtsEndpoint by remember { mutableStateOf(AppConfig.rawVoice.localTtsEndpoint) }
     var autoSendTranscript by remember { mutableStateOf(AppConfig.rawVoice.autoSendTranscript) }
     var autoPlayResponses by remember { mutableStateOf(AppConfig.rawVoice.autoPlayResponses) }
@@ -151,8 +161,6 @@ private fun voiceConfigCard() {
     var ttsProviderDropdownExpanded by remember { mutableStateOf(false) }
     var ttsVoiceDropdownExpanded by remember { mutableStateOf(false) }
     var reuseKeyStatus by remember { mutableStateOf<String?>(null) }
-
-    val showApiKeyField = sttProvider == VoiceProvider.OPENAI || ttsProvider == VoiceProvider.OPENAI
 
     LaunchedEffect(Unit) {
         val resolved = withContext(Dispatchers.IO) { AppConfig.voice }
@@ -191,307 +199,404 @@ private fun voiceConfigCard() {
         withContext(Dispatchers.IO) { AppConfig.updateField("voice.localTtsEndpoint", localTtsEndpoint) }
     }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(Spacing.large),
-            verticalArrangement = Arrangement.spacedBy(Spacing.medium),
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.large)) {
+        // ── General: title + enabled toggle ───────────────────────────────────
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = AppColors.cardColors(AppColors.Elevation.RAISED),
         ) {
-            // ── Header row: title + enabled toggle ───────────────────────────────
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(Spacing.large),
+                verticalArrangement = Arrangement.spacedBy(Spacing.small),
             ) {
-                Text(
-                    text = stringResource("settings.voice.title"),
-                    style = AppTextStyles.sectionTitle,
-                    modifier = Modifier.weight(1f),
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                ) {
-                    Text(
-                        text = stringResource("settings.voice.enabled"),
-                        style = AppTextStyles.caption,
-                    )
-                    Switch(
-                        checked = enabled,
-                        onCheckedChange = { newValue ->
-                            enabled = newValue
-                            AppConfig.updateField("voice.enabled", newValue)
-                        },
-                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                    )
-                }
-            }
-
-            Text(
-                text = stringResource("settings.voice.description"),
-                style = AppTextStyles.caption,
-            )
-
-            if (!enabled) return@Column
-
-            HorizontalDivider()
-
-            // ── Speech-to-Text section ────────────────────────────────────────────
-            Text(
-                text = stringResource("settings.voice.section.stt"),
-                style = AppTextStyles.groupTitle,
-            )
-
-            voiceProviderSelector(
-                label = stringResource("settings.voice.stt_provider"),
-                providers = sttProviders,
-                selected = sttProvider,
-                expanded = sttProviderDropdownExpanded,
-                onExpandedChange = { sttProviderDropdownExpanded = it },
-                onSelect = { newValue ->
-                    sttProvider = newValue
-                    AppConfig.updateField("voice.sttProvider", newValue)
-                    sttProviderDropdownExpanded = false
-                },
-            )
-
-            when (sttProvider) {
-                VoiceProvider.LOCAL_WHISPER_CPP -> endpointField(
-                    label = stringResource("settings.voice.local_stt_endpoint"),
-                    value = localSttEndpoint,
-                    onValueChange = { localSttEndpoint = it },
-                )
-
-                else -> {}
-            }
-
-            OutlinedTextField(
-                value = sttModel,
-                onValueChange = { sttModel = it },
-                label = { Text(stringResource("settings.voice.stt_model")) },
-                placeholder = { Text(stringResource("settings.voice.stt_model.placeholder")) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                colors = AppColors.outlinedTextFieldColors(),
-            )
-
-            // Auto-send belongs to dictation (STT) — it decides what happens with the
-            // transcribed text once it's ready.
-            voiceToggleRow(
-                label = stringResource("settings.voice.auto_send"),
-                description = stringResource("settings.voice.auto_send.description"),
-                checked = autoSendTranscript,
-                onCheckedChange = { newValue ->
-                    autoSendTranscript = newValue
-                    AppConfig.updateField("voice.autoSendTranscript", newValue)
-                },
-            )
-
-            HorizontalDivider()
-
-            // ── Text-to-Speech section ────────────────────────────────────────────
-            Text(
-                text = stringResource("settings.voice.section.tts"),
-                style = AppTextStyles.groupTitle,
-            )
-
-            voiceProviderSelector(
-                label = stringResource("settings.voice.tts_provider"),
-                providers = ttsProviders,
-                selected = ttsProvider,
-                expanded = ttsProviderDropdownExpanded,
-                onExpandedChange = { ttsProviderDropdownExpanded = it },
-                onSelect = { newValue ->
-                    ttsProvider = newValue
-                    AppConfig.updateField("voice.ttsProvider", newValue)
-                    ttsProviderDropdownExpanded = false
-                    // Normalize the stored voice when switching into OpenAI — a Piper voice id
-                    // (e.g. "en_US-lessac-medium") is not a valid OpenAI voice name.
-                    if (newValue == VoiceProvider.OPENAI && ttsVoice !in openAiTtsVoices) {
-                        ttsVoice = "alloy"
-                        AppConfig.updateField("voice.ttsVoice", "alloy")
-                    }
-                },
-            )
-
-            when (ttsProvider) {
-                VoiceProvider.LOCAL_PIPER -> endpointField(
-                    label = stringResource("settings.voice.local_tts_endpoint"),
-                    value = localTtsEndpoint,
-                    onValueChange = { localTtsEndpoint = it },
-                )
-
-                else -> {}
-            }
-
-            OutlinedTextField(
-                value = ttsModel,
-                onValueChange = { ttsModel = it },
-                label = { Text(stringResource("settings.voice.tts_model")) },
-                placeholder = { Text(stringResource("settings.voice.tts_model.placeholder")) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                colors = AppColors.outlinedTextFieldColors(),
-            )
-
-            // OpenAI's voice names are a fixed enum — offer a dropdown so users can't type an
-            // invalid value. Piper voice ids are arbitrary local model names the user installs
-            // themselves, so that case stays free text with a hint of the expected format.
-            when (ttsProvider) {
-                VoiceProvider.OPENAI -> voiceOptionSelector(
-                    label = stringResource("settings.voice.tts_voice"),
-                    options = openAiTtsVoices,
-                    selected = ttsVoice.ifBlank { "alloy" },
-                    expanded = ttsVoiceDropdownExpanded,
-                    onExpandedChange = { ttsVoiceDropdownExpanded = it },
-                    onSelect = { newValue ->
-                        ttsVoice = newValue
-                        AppConfig.updateField("voice.ttsVoice", newValue)
-                        ttsVoiceDropdownExpanded = false
-                    },
-                )
-
-                else -> Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
-                    OutlinedTextField(
-                        value = ttsVoice,
-                        onValueChange = { ttsVoice = it },
-                        label = { Text(stringResource("settings.voice.tts_voice")) },
-                        placeholder = { Text(stringResource("settings.voice.tts_voice.placeholder_piper")) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        colors = AppColors.outlinedTextFieldColors(),
-                    )
-                    Text(
-                        text = stringResource("settings.voice.tts_voice.piper_hint"),
-                        style = AppTextStyles.caption,
-                    )
-                }
-            }
-
-            // Playback speed (0.25x–4.0x, OpenAI's supported range) — applies to both OpenAI
-            // and Piper TTS providers since both accept the same `speed` field.
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(text = stringResource("settings.voice.tts_speed"), style = AppTextStyles.fieldLabel)
                     Text(
-                        text = String.format(java.util.Locale.ROOT, "%.2fx", ttsSpeed),
+                        text = stringResource("settings.voice.title"),
+                        style = AppTextStyles.sectionTitle,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                    ) {
+                        Text(
+                            text = stringResource("settings.voice.enabled"),
+                            style = AppTextStyles.caption,
+                        )
+                        Switch(
+                            checked = enabled,
+                            onCheckedChange = { newValue ->
+                                enabled = newValue
+                                AppConfig.updateField("voice.enabled", newValue)
+                            },
+                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                        )
+                    }
+                }
+
+                Text(
+                    text = stringResource("settings.voice.description"),
+                    style = AppTextStyles.caption,
+                )
+            }
+        }
+
+        if (!enabled) return@Column
+
+        // ── Speech-to-Text card ────────────────────────────────────────────────
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = AppColors.cardColors(AppColors.Elevation.RAISED),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(Spacing.large),
+                verticalArrangement = Arrangement.spacedBy(Spacing.medium),
+            ) {
+                Text(
+                    text = stringResource("settings.voice.section.stt"),
+                    style = AppTextStyles.sectionTitle,
+                )
+
+                voiceProviderSelector(
+                    label = stringResource("settings.voice.stt_provider"),
+                    providers = sttProviders,
+                    selected = sttProvider,
+                    expanded = sttProviderDropdownExpanded,
+                    onExpandedChange = { sttProviderDropdownExpanded = it },
+                    onSelect = { newValue ->
+                        sttProvider = newValue
+                        AppConfig.updateField("voice.sttProvider", newValue)
+                        sttProviderDropdownExpanded = false
+                    },
+                )
+
+                when (sttProvider) {
+                    VoiceProvider.LOCAL_WHISPER_CPP -> endpointField(
+                        label = stringResource("settings.voice.local_stt_endpoint"),
+                        value = localSttEndpoint,
+                        onValueChange = { localSttEndpoint = it },
+                    )
+
+                    VoiceProvider.LOCAL_WHISPER_FFM -> whisperModelDownloadSection(
+                        modelPath = localWhisperModelPath,
+                        onModelPathChange = { newPath ->
+                            localWhisperModelPath = newPath
+                            AppConfig.updateField("voice.localWhisperModelPath", newPath)
+                        },
+                    )
+
+                    else -> {}
+                }
+
+                // Everything below only applies when dictation is actually enabled — when the
+                // user picks NONE, there's no model/endpoint/key to configure and auto-send is
+                // meaningless (nothing will ever be transcribed).
+                if (sttProvider != VoiceProvider.NONE) {
+                    if (sttProvider != VoiceProvider.LOCAL_WHISPER_FFM) {
+                        OutlinedTextField(
+                            value = sttModel,
+                            onValueChange = { sttModel = it },
+                            label = { Text(stringResource("settings.voice.stt_model")) },
+                            placeholder = { Text(stringResource("settings.voice.stt_model.placeholder")) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            colors = AppColors.outlinedTextFieldColors(),
+                        )
+                    }
+
+                    // OpenAI API key — only relevant here when STT is actually using OpenAI, so it
+                    // sits right next to the model field it configures instead of a separate card.
+                    // (If TTS is also OpenAI, this is the only place the key field is shown — see
+                    // the matching condition in the TTS card below — to avoid duplicating it.)
+                    if (sttProvider == VoiceProvider.OPENAI) {
+                        openAiApiKeyField(
+                            apiKey = openAiApiKey,
+                            onApiKeyChange = { newValue ->
+                                openAiApiKey = newValue
+                                reuseKeyStatus = null
+                            },
+                            reuseKeyStatus = reuseKeyStatus,
+                            onReuseKeyClick = {
+                                val existingKey = findExistingOpenAiProviderKey()
+                                if (existingKey != null) {
+                                    openAiApiKey = existingKey
+                                    reuseKeyStatus = "success"
+                                } else {
+                                    reuseKeyStatus = "none_found"
+                                }
+                            },
+                        )
+                    }
+
+                    // Auto-send belongs to dictation (STT) — it decides what happens with the
+                    // transcribed text once it's ready.
+                    voiceToggleRow(
+                        label = stringResource("settings.voice.auto_send"),
+                        description = stringResource("settings.voice.auto_send.description"),
+                        checked = autoSendTranscript,
+                        onCheckedChange = { newValue ->
+                            autoSendTranscript = newValue
+                            AppConfig.updateField("voice.autoSendTranscript", newValue)
+                        },
+                    )
+                }
+            }
+        }
+
+        // ── Text-to-Speech card ────────────────────────────────────────────────
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = AppColors.cardColors(AppColors.Elevation.RAISED),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(Spacing.large),
+                verticalArrangement = Arrangement.spacedBy(Spacing.medium),
+            ) {
+                Text(
+                    text = stringResource("settings.voice.section.tts"),
+                    style = AppTextStyles.sectionTitle,
+                )
+
+                voiceProviderSelector(
+                    label = stringResource("settings.voice.tts_provider"),
+                    providers = ttsProviders,
+                    selected = ttsProvider,
+                    expanded = ttsProviderDropdownExpanded,
+                    onExpandedChange = { ttsProviderDropdownExpanded = it },
+                    onSelect = { newValue ->
+                        ttsProvider = newValue
+                        AppConfig.updateField("voice.ttsProvider", newValue)
+                        ttsProviderDropdownExpanded = false
+                        // Normalize the stored voice when switching into OpenAI — a Piper voice id
+                        // (e.g. "en_US-lessac-medium") is not a valid OpenAI voice name.
+                        if (newValue == VoiceProvider.OPENAI && ttsVoice !in openAiTtsVoices) {
+                            ttsVoice = "alloy"
+                            AppConfig.updateField("voice.ttsVoice", "alloy")
+                        }
+                    },
+                )
+
+                when (ttsProvider) {
+                    VoiceProvider.LOCAL_PIPER -> endpointField(
+                        label = stringResource("settings.voice.local_tts_endpoint"),
+                        value = localTtsEndpoint,
+                        onValueChange = { localTtsEndpoint = it },
+                    )
+
+                    else -> {}
+                }
+
+                // Everything below only applies when playback is actually enabled — when the
+                // user picks NONE, there's no model/voice/speed/key to configure and auto-play
+                // is meaningless (nothing will ever be synthesized).
+                if (ttsProvider != VoiceProvider.NONE) {
+                    OutlinedTextField(
+                        value = ttsModel,
+                        onValueChange = { ttsModel = it },
+                        label = { Text(stringResource("settings.voice.tts_model")) },
+                        placeholder = { Text(stringResource("settings.voice.tts_model.placeholder")) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = AppColors.outlinedTextFieldColors(),
+                    )
+
+                    // OpenAI's voice names are a fixed enum — offer a dropdown so users can't type an
+                    // invalid value. Piper voice ids are arbitrary local model names the user installs
+                    // themselves, so that case stays free text with a hint of the expected format.
+                    when (ttsProvider) {
+                        VoiceProvider.OPENAI -> voiceOptionSelector(
+                            label = stringResource("settings.voice.tts_voice"),
+                            options = openAiTtsVoices,
+                            selected = ttsVoice.ifBlank { "alloy" },
+                            expanded = ttsVoiceDropdownExpanded,
+                            onExpandedChange = { ttsVoiceDropdownExpanded = it },
+                            onSelect = { newValue ->
+                                ttsVoice = newValue
+                                AppConfig.updateField("voice.ttsVoice", newValue)
+                                ttsVoiceDropdownExpanded = false
+                            },
+                        )
+
+                        else -> Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+                            OutlinedTextField(
+                                value = ttsVoice,
+                                onValueChange = { ttsVoice = it },
+                                label = { Text(stringResource("settings.voice.tts_voice")) },
+                                placeholder = { Text(stringResource("settings.voice.tts_voice.placeholder_piper")) },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                colors = AppColors.outlinedTextFieldColors(),
+                            )
+                            Text(
+                                text = stringResource("settings.voice.tts_voice.piper_hint"),
+                                style = AppTextStyles.caption,
+                            )
+                        }
+                    }
+
+                    // Playback speed (0.25x–4.0x, OpenAI's supported range) — applies to both OpenAI
+                    // and Piper TTS providers since both accept the same `speed` field.
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(text = stringResource("settings.voice.tts_speed"), style = AppTextStyles.fieldLabel)
+                            Text(
+                                text = String.format(java.util.Locale.ROOT, "%.2fx", ttsSpeed),
+                                style = AppTextStyles.caption,
+                                color = AppTextStyles.secondaryContent,
+                            )
+                        }
+                        Slider(
+                            value = ttsSpeed.toFloat(),
+                            onValueChange = { ttsSpeed = it.toDouble() },
+                            valueRange = 0.25f..4.0f,
+                            modifier = Modifier.fillMaxWidth().pointerHoverIcon(PointerIcon.Hand),
+                        )
+                        Text(text = stringResource("settings.voice.tts_speed.hint"), style = AppTextStyles.caption)
+                    }
+
+                    // Auto-play belongs to voice output (TTS) — it decides what happens once an
+                    // AI response is ready to be read aloud.
+                    voiceToggleRow(
+                        label = stringResource("settings.voice.auto_play"),
+                        description = stringResource("settings.voice.auto_play.description"),
+                        checked = autoPlayResponses,
+                        onCheckedChange = { newValue ->
+                            autoPlayResponses = newValue
+                            AppConfig.updateField("voice.autoPlayResponses", newValue)
+                        },
+                    )
+
+                    // OpenAI API key — shown here only when TTS uses OpenAI and STT doesn't also
+                    // use it (the STT card already shows it in that case), so it never duplicates.
+                    if (ttsProvider == VoiceProvider.OPENAI && sttProvider != VoiceProvider.OPENAI) {
+                        openAiApiKeyField(
+                            apiKey = openAiApiKey,
+                            onApiKeyChange = { newValue ->
+                                openAiApiKey = newValue
+                                reuseKeyStatus = null
+                            },
+                            reuseKeyStatus = reuseKeyStatus,
+                            onReuseKeyClick = {
+                                val existingKey = findExistingOpenAiProviderKey()
+                                if (existingKey != null) {
+                                    openAiApiKey = existingKey
+                                    reuseKeyStatus = "success"
+                                } else {
+                                    reuseKeyStatus = "none_found"
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+        }
+
+        // ── Playback cache card — bounds the in-memory TTS audio cache used by the "replay
+        // last response" shortcut / repeated 🔊 clicks, so replays skip a fresh synthesis call.
+        // Hidden entirely when TTS is disabled — there would be nothing to cache. ──
+        if (ttsProvider != VoiceProvider.NONE) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = AppColors.cardColors(AppColors.Elevation.RAISED),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(Spacing.large),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.small),
+                ) {
+                    Text(
+                        text = stringResource("settings.voice.cache.title"),
+                        style = AppTextStyles.sectionTitle,
+                    )
+                    Text(
+                        text = stringResource("settings.voice.cache.description"),
                         style = AppTextStyles.caption,
                         color = AppTextStyles.secondaryContent,
                     )
+                    voiceIntField(
+                        label = stringResource("settings.voice.cache.max_messages"),
+                        hint = stringResource("settings.voice.cache.max_messages.hint"),
+                        value = ttsCacheMaxMessages,
+                        minValue = 1,
+                        onValueChange = { newValue ->
+                            ttsCacheMaxMessages = newValue
+                            AppConfig.updateField("voice.ttsCacheMaxMessages", newValue)
+                        },
+                    )
+                    voiceIntField(
+                        label = stringResource("settings.voice.cache.max_mb"),
+                        hint = stringResource("settings.voice.cache.max_mb.hint"),
+                        value = ttsCacheMaxMb,
+                        minValue = 1,
+                        onValueChange = { newValue ->
+                            ttsCacheMaxMb = newValue
+                            AppConfig.updateField("voice.ttsCacheMaxBytes", newValue.toLong() * 1024 * 1024)
+                        },
+                    )
                 }
-                Slider(
-                    value = ttsSpeed.toFloat(),
-                    onValueChange = { ttsSpeed = it.toDouble() },
-                    valueRange = 0.25f..4.0f,
-                    modifier = Modifier.fillMaxWidth().pointerHoverIcon(PointerIcon.Hand),
-                )
-                Text(text = stringResource("settings.voice.tts_speed.hint"), style = AppTextStyles.caption)
             }
+        }
+    }
+}
 
-            // Auto-play belongs to voice output (TTS) — it decides what happens once an
-            // AI response is ready to be read aloud.
-            voiceToggleRow(
-                label = stringResource("settings.voice.auto_play"),
-                description = stringResource("settings.voice.auto_play.description"),
-                checked = autoPlayResponses,
-                onCheckedChange = { newValue ->
-                    autoPlayResponses = newValue
-                    AppConfig.updateField("voice.autoPlayResponses", newValue)
+/**
+ * Compact OpenAI API key input + "reuse existing provider key" link — reused by both the STT
+ * and TTS cards so it appears right next to whichever model config is actually using OpenAI,
+ * instead of in a separate always-visible card. Only shown once even when both STT and TTS use
+ * OpenAI (see the mutually-exclusive conditions at each call site).
+ */
+@Composable
+private fun openAiApiKeyField(
+    apiKey: String,
+    onApiKeyChange: (String) -> Unit,
+    reuseKeyStatus: String?,
+    onReuseKeyClick: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+        AppComponents.appSecretTextField(
+            value = apiKey,
+            onValueChange = onApiKeyChange,
+            label = { Text(stringResource("settings.voice.api_key")) },
+            placeholder = { Text(stringResource("settings.voice.api_key.placeholder")) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        linkButton(onClick = onReuseKeyClick) {
+            Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(14.dp))
+            Text(
+                text = stringResource("settings.voice.reuse_provider_key"),
+                style = AppTextStyles.caption,
+                modifier = Modifier.padding(start = Spacing.extraSmall),
+            )
+        }
+        reuseKeyStatus?.let { status ->
+            Text(
+                text = if (status == "success") {
+                    stringResource("settings.voice.reuse_provider_key.success")
+                } else {
+                    stringResource("settings.voice.reuse_provider_key.none_found")
+                },
+                style = AppTextStyles.caption,
+                color = if (status == "success") {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.error
                 },
             )
-
-            // ── Playback cache — bounds the in-memory TTS audio cache used by the "replay last
-            // response" shortcut / repeated 🔊 clicks, so replays skip a fresh synthesis call. ──
-            HorizontalDivider()
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
-                Text(
-                    text = stringResource("settings.voice.cache.title"),
-                    style = AppTextStyles.body,
-                )
-                Text(
-                    text = stringResource("settings.voice.cache.description"),
-                    style = AppTextStyles.caption,
-                    color = AppTextStyles.secondaryContent,
-                )
-                voiceIntField(
-                    label = stringResource("settings.voice.cache.max_messages"),
-                    hint = stringResource("settings.voice.cache.max_messages.hint"),
-                    value = ttsCacheMaxMessages,
-                    minValue = 1,
-                    onValueChange = { newValue ->
-                        ttsCacheMaxMessages = newValue
-                        AppConfig.updateField("voice.ttsCacheMaxMessages", newValue)
-                    },
-                )
-                voiceIntField(
-                    label = stringResource("settings.voice.cache.max_mb"),
-                    hint = stringResource("settings.voice.cache.max_mb.hint"),
-                    value = ttsCacheMaxMb,
-                    minValue = 1,
-                    onValueChange = { newValue ->
-                        ttsCacheMaxMb = newValue
-                        AppConfig.updateField("voice.ttsCacheMaxBytes", newValue.toLong() * 1024 * 1024)
-                    },
-                )
-            }
-
-            // ── OpenAI API key (separate from any OPENAI chat provider instance key) ──
-            if (showApiKeyField) {
-                HorizontalDivider()
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
-                    AppComponents.appSecretTextField(
-                        value = openAiApiKey,
-                        onValueChange = { newValue ->
-                            openAiApiKey = newValue
-                            reuseKeyStatus = null
-                        },
-                        label = { Text(stringResource("settings.voice.api_key")) },
-                        placeholder = { Text(stringResource("settings.voice.api_key.placeholder")) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    linkButton(
-                        onClick = {
-                            val existingKey = findExistingOpenAiProviderKey()
-                            if (existingKey != null) {
-                                openAiApiKey = existingKey
-                                reuseKeyStatus = "success"
-                            } else {
-                                reuseKeyStatus = "none_found"
-                            }
-                        },
-                    ) {
-                        Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Text(
-                            text = stringResource("settings.voice.reuse_provider_key"),
-                            style = AppTextStyles.caption,
-                            modifier = Modifier.padding(start = Spacing.extraSmall),
-                        )
-                    }
-                    reuseKeyStatus?.let { status ->
-                        Text(
-                            text = if (status == "success") {
-                                stringResource("settings.voice.reuse_provider_key.success")
-                            } else {
-                                stringResource("settings.voice.reuse_provider_key.none_found")
-                            },
-                            style = AppTextStyles.caption,
-                            color = if (status == "success") {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.error
-                            },
-                        )
-                    }
-                }
-            }
         }
     }
 }
@@ -692,6 +797,161 @@ private fun endpointField(
         singleLine = true,
         colors = colors,
     )
+}
+
+/**
+ * Model-tier picker + explicit "Download" button for [VoiceProvider.LOCAL_WHISPER_FFM] — the
+ * download runs only when the user clicks it (never lazily on first transcription), per the
+ * explicit-in-Settings decision: the provider shouldn't silently kick off a multi-GB download
+ * the first time a user tries to use voice input.
+ *
+ * [modelPath] is the currently persisted [VoiceConfig.localWhisperModelPath]; [onModelPathChange]
+ * is called with the downloaded file's absolute path once a download completes (or with "" after
+ * a delete), so the caller can persist it via `AppConfig.updateField`.
+ */
+@Composable
+private fun whisperModelDownloadSection(
+    modelPath: String,
+    onModelPathChange: (String) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val currentTier = WhisperModelCatalog.entries.find { WhisperModelDownloader.modelPath(it).toString() == modelPath }
+    var selectedTier by remember { mutableStateOf(currentTier ?: WhisperModelCatalog.BALANCED) }
+    var downloading by remember { mutableStateOf(false) }
+    var downloadedBytes by remember { mutableStateOf(0L) }
+    var totalBytes by remember { mutableStateOf(-1L) }
+    var downloadError by remember { mutableStateOf<String?>(null) }
+
+    val isDownloaded = modelPath.isNotBlank() && WhisperModelDownloader.isDownloaded(selectedTier) &&
+        WhisperModelDownloader.modelPath(selectedTier).toString() == modelPath
+
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+        Text(text = stringResource("settings.voice.whisper_model.title"), style = AppTextStyles.fieldLabel)
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+        ) {
+            WhisperModelCatalog.entries.forEach { tier ->
+                val isSelected = tier == selectedTier
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickableCard {
+                            if (!downloading) {
+                                selectedTier = tier
+                                downloadError = null
+                            }
+                        },
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isSelected) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surface
+                        },
+                    ),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(Spacing.small),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(text = stringResource(tier.labelKey), style = AppTextStyles.body)
+                        Text(
+                            text = "${tier.approxSizeBytes / (1024 * 1024)} MB",
+                            style = AppTextStyles.caption,
+                            color = AppTextStyles.secondaryContent,
+                        )
+                    }
+                }
+            }
+        }
+
+        when {
+            downloading -> {
+                val progress = if (totalBytes > 0) (downloadedBytes.toFloat() / totalBytes.toFloat()) else 0f
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                val percent = (progress * 100).toInt()
+                val downloadedMb = downloadedBytes / (1024 * 1024)
+                val totalMb = if (totalBytes > 0) totalBytes / (1024 * 1024) else selectedTier.approxSizeBytes / (1024 * 1024)
+                Text(
+                    text = LocalizationManager.getString(
+                        "settings.voice.whisper_model.downloading",
+                        percent,
+                        downloadedMb,
+                        totalMb,
+                    ),
+                    style = AppTextStyles.caption,
+                )
+            }
+
+            isDownloaded -> Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource("settings.voice.whisper_model.downloaded"),
+                    style = AppTextStyles.caption,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                OutlinedButton(
+                    onClick = {
+                        WhisperModelDownloader.delete(selectedTier)
+                        onModelPathChange("")
+                    },
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Text(
+                        text = stringResource("settings.voice.whisper_model.delete"),
+                        modifier = Modifier.padding(start = Spacing.extraSmall),
+                    )
+                }
+            }
+
+            else -> Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+                Text(
+                    text = stringResource("settings.voice.whisper_model.not_downloaded"),
+                    style = AppTextStyles.caption,
+                    color = AppTextStyles.secondaryContent,
+                )
+                Button(
+                    onClick = {
+                        downloading = true
+                        downloadError = null
+                        downloadedBytes = 0L
+                        totalBytes = -1L
+                        scope.launch {
+                            try {
+                                val path = WhisperModelDownloader.download(selectedTier) { done, total ->
+                                    downloadedBytes = done
+                                    totalBytes = total
+                                }
+                                onModelPathChange(path.toString())
+                            } catch (e: Exception) {
+                                downloadError = e.message
+                            } finally {
+                                downloading = false
+                            }
+                        }
+                    },
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                ) {
+                    Text(stringResource("settings.voice.whisper_model.download"))
+                }
+                downloadError?.let { error ->
+                    Text(
+                        text = LocalizationManager.getString("settings.voice.whisper_model.download_failed", error),
+                        style = AppTextStyles.caption,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
