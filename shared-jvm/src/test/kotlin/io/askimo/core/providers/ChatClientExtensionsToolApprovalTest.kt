@@ -31,7 +31,9 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.function.Consumer
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -237,8 +239,12 @@ class ChatClientExtensionsToolApprovalTest {
      * `toolApprovalTimeoutMs`. Otherwise a caller clearing UI state in `onToolApprovalTimedOut`
      * would see it stay visible for up to twice the configured timeout.
      *
-     * Returns a future completed after a delay (not [CompletableFuture.completedFuture]) so an
-     * implementation that ignores it instead of calling `future.get()` returns too early to pass.
+     * Runs the call under test on a separate executor and coordinates via a latch/a
+     * test-controlled [CompletableFuture] — not elapsed-time margins — so this can't flake
+     * under a loaded CI worker: `future` only completes when *this test* completes it, so an
+     * implementation that actually awaits it is guaranteed to still be blocked (task not done)
+     * right after `onToolFinishedAwaitable` fires, while one that ignores the returned future
+     * completes almost immediately regardless of scheduling delays.
      */
     @Test
     fun `approval timeout invokes onToolApprovalTimedOut before awaiting onToolFinishedAwaitable, both exactly once`() {
@@ -248,7 +254,9 @@ class ChatClientExtensionsToolApprovalTest {
         var toolFinishedCalls = 0
         var timedOutCalls = 0
         var toolFinishedHasFailed: Boolean? = null
-        val futureCompleted = AtomicBoolean(false)
+
+        val awaitableInvoked = CountDownLatch(1)
+        val future = CompletableFuture<Unit>()
 
         val chatClient = object : ChatClient {
             override fun sendMessageStreaming(userContents: List<Content>): TokenStream = FakeTokenStream {
@@ -259,36 +267,53 @@ class ChatClientExtensionsToolApprovalTest {
             override fun sendMessage(prompt: String): String = error("not used")
         }
 
-        assertFailsWith<ToolExecutionException> {
-            chatClient.sendStreamingMessageWithCallback(
-                userContents = listOf(),
-                resolvedTools = listOf(requireApprovalConfig("toolTimeout")),
-                // Never invokes approve/deny — forces the timeout branch.
-                onToolApprovalRequired = { _, _, _, _ -> },
-                onToolFinishedAwaitable = { _, _, _, hasFailed ->
-                    toolFinishedCalls++
-                    toolFinishedHasFailed = hasFailed
-                    invocationOrder += "onToolFinishedAwaitable"
-                    val future = CompletableFuture<Unit>()
-                    // Completed only after a delay, from a background thread — forces a caller
-                    // that actually awaits this future to block until then; one that ignores it
-                    // (the bug this test guards against) returns well before futureCompleted flips.
-                    Thread {
-                        Thread.sleep(150)
-                        futureCompleted.set(true)
-                        future.complete(Unit)
-                    }.start()
-                    future
-                },
-                onToolApprovalTimedOut = {
-                    timedOutCalls++
-                    invocationOrder += "onToolApprovalTimedOut"
-                },
-                // Large enough that the 150ms delayed completion above always wins the race
-                // against this timeout inside notifyToolFinishedAndAwaitIfPossible's get() call.
-                toolApprovalTimeoutMs = 300L,
-                chatMemory = chatMemory,
+        val executor = Executors.newSingleThreadExecutor()
+        try {
+            val callTask = executor.submit {
+                assertFailsWith<ToolExecutionException> {
+                    chatClient.sendStreamingMessageWithCallback(
+                        userContents = listOf(),
+                        resolvedTools = listOf(requireApprovalConfig("toolTimeout")),
+                        // Never invokes approve/deny — forces the timeout branch.
+                        onToolApprovalRequired = { _, _, _, _ -> },
+                        onToolFinishedAwaitable = { _, _, _, hasFailed ->
+                            toolFinishedCalls++
+                            toolFinishedHasFailed = hasFailed
+                            invocationOrder += "onToolFinishedAwaitable"
+                            awaitableInvoked.countDown()
+                            future
+                        },
+                        onToolApprovalTimedOut = {
+                            timedOutCalls++
+                            invocationOrder += "onToolApprovalTimedOut"
+                        },
+                        // Large relative to the latch/executor coordination below: the completion
+                        // await inside the implementation must not self-timeout before this test
+                        // explicitly completes `future` — see the isDone check further down.
+                        toolApprovalTimeoutMs = 1000L,
+                        chatMemory = chatMemory,
+                    )
+                }
+            }
+
+            assertTrue(
+                awaitableInvoked.await(5, TimeUnit.SECONDS),
+                "Timed out waiting for onToolFinishedAwaitable to be invoked",
             )
+
+            // `future` is still incomplete at this point (we only complete it below), so a caller
+            // that actually awaits it must still be blocked — not yet done — no matter how slow
+            // this check runs under CI load.
+            assertTrue(
+                !callTask.isDone,
+                "Expected the call to still be blocked awaiting onToolFinishedAwaitable's future, " +
+                    "but it already completed — meaning the future was never actually awaited",
+            )
+
+            future.complete(Unit)
+            callTask.get(5, TimeUnit.SECONDS)
+        } finally {
+            executor.shutdownNow()
         }
 
         assertEquals(1, toolFinishedCalls, "Expected onToolFinishedAwaitable to be invoked exactly once, got $toolFinishedCalls")
@@ -298,11 +323,6 @@ class ChatClientExtensionsToolApprovalTest {
             listOf("onToolApprovalTimedOut", "onToolFinishedAwaitable"),
             invocationOrder,
             "Expected onToolApprovalTimedOut to fire immediately on timeout, before awaiting onToolFinishedAwaitable's completion future",
-        )
-        assertTrue(
-            futureCompleted.get(),
-            "Expected the call to block until onToolFinishedAwaitable's future completed — " +
-                "it returned before the delayed completion ran, meaning the future was never actually awaited",
         )
     }
 

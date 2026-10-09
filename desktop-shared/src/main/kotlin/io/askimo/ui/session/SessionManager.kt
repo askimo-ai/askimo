@@ -45,6 +45,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -53,6 +54,7 @@ import kotlinx.coroutines.withContext
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.time.Clock
 
 /**
@@ -206,7 +208,10 @@ class SessionManager(
         suspend fun markToolRunning(toolName: String, arguments: String?) {
             mutex.withLock {
                 val alreadyRunning = _timeline.value.any {
-                    it is TurnTimelineEntry.Tool && it.toolCall.toolName == toolName && it.toolCall.status == ToolCallStatus.RUNNING
+                    it is TurnTimelineEntry.Tool &&
+                        it.toolCall.toolName == toolName &&
+                        it.toolCall.arguments == arguments &&
+                        it.toolCall.status == ToolCallStatus.RUNNING
                 }
                 if (!alreadyRunning) {
                     _timeline.value += TurnTimelineEntry.Tool(
@@ -222,8 +227,15 @@ class SessionManager(
         suspend fun markToolDone(toolName: String, arguments: String?, result: String?, hasFailed: Boolean) {
             mutex.withLock {
                 val list = _timeline.value
+                // Matched on (toolName, arguments) rather than toolName alone — otherwise two
+                // parallel invocations of the SAME tool (same name, different arguments) would
+                // collide: the second markToolRunning would be deduped as "already running" and
+                // this lookup would flip the wrong call's entry to DONE.
                 val idx = list.indexOfLast {
-                    it is TurnTimelineEntry.Tool && it.toolCall.toolName == toolName && it.toolCall.status == ToolCallStatus.RUNNING
+                    it is TurnTimelineEntry.Tool &&
+                        it.toolCall.toolName == toolName &&
+                        it.toolCall.arguments == arguments &&
+                        it.toolCall.status == ToolCallStatus.RUNNING
                 }
                 // Preserve the RUNNING entry's original start time (instead of "now") so a
                 // future "took Ns" label stays possible even after the live timer stops.
@@ -326,16 +338,18 @@ class SessionManager(
             _hasFailed = MutableStateFlow(false),
         )
 
-        // Register this thread
-        activeThreads[sessionId] = thread
-
-        log.debug("Streaming thread $threadId for session $sessionId started. Active streams: ${activeThreads.size}")
-
         // Prepare context and save user message to DB
         val promptWithContext = chatSessionService.prepareContextAndGetPromptForChat(sessionId, userMessage, willSaveUserMessage)
         log.debug("Saved prompt for session $sessionId, starting streaming")
 
         thread.job = streamingScope.launch {
+            // Tracks every fire-and-forget timeline-mutating coroutine (onToken,
+            // onThinkingToken, onToolStarted, onToolFinished) launched while
+            // sendStreamingMessageWithCallback is in-flight below. Joined — both on success
+            // and on any exception — before reading thread.timeline/getCurrentContent(), so
+            // persistence never observes a timeline missing the last chunk(s)/tool update(s)
+            // still mid-flight the instant the call returns or throws.
+            val pendingUpdateJobs = ConcurrentLinkedQueue<Job>()
             try {
                 if (mode is CreationMode.Chat) {
                     var capturedInputTokens: Int? = null
@@ -370,13 +384,25 @@ class SessionManager(
 
                     val fullResponse = try {
                         val sessionContext = chatSessionService.getOrCreateContextForSession(sessionId)
+                        // Tracks each tool call's in-flight markToolRunning job, keyed by
+                        // (toolName, arguments) rather than toolName alone — otherwise two
+                        // parallel invocations of the SAME tool (same name, different
+                        // arguments) would collide: the second's markToolRunning would be
+                        // deduped as "already running" and markToolDone could join/flip the
+                        // wrong call's entry. markToolDone joins this first — onToolStarted/
+                        // onToolFinished each launch their update on streamingScope
+                        // independently, and without this, a delayed RUNNING-append coroutine
+                        // can land *after* a faster DONE-append one, leaving the timeline's
+                        // last entry for that tool RUNNING (collapsedEffectiveTools treats it
+                        // as effective) even though the tool already finished.
+                        val pendingToolStartJobs = ConcurrentHashMap<Pair<String, String?>, Job>()
                         sessionContext.chatClient
                             .sendStreamingMessageWithCallback(
                                 projectId = projectId,
                                 userContents = promptWithContext,
                                 enabledServerIds = enabledServerIds,
                                 onToken = { token ->
-                                    streamingScope.launch {
+                                    pendingUpdateJobs += streamingScope.launch {
                                         thread.appendChunk(token)
                                     }
                                 },
@@ -391,17 +417,20 @@ class SessionManager(
                                     log.debug("Token usage for session $sessionId: input=$input, output=$output, total=$total, duration=${durationMs}ms")
                                 },
                                 onToolStarted = { toolName, arguments ->
-                                    streamingScope.launch {
+                                    val job = streamingScope.launch {
                                         thread.markToolRunning(toolName, arguments)
                                     }
+                                    pendingToolStartJobs[toolName to arguments] = job
+                                    pendingUpdateJobs += job
                                 },
                                 onToolFinished = { toolName, arguments, result, hasFailed ->
-                                    streamingScope.launch {
+                                    pendingUpdateJobs += streamingScope.launch {
+                                        pendingToolStartJobs.remove(toolName to arguments)?.join()
                                         thread.markToolDone(toolName, arguments, result, hasFailed)
                                     }
                                 },
                                 onThinkingToken = { token ->
-                                    streamingScope.launch {
+                                    pendingUpdateJobs += streamingScope.launch {
                                         thread.appendThinkingChunk(token)
                                     }
                                 },
@@ -442,6 +471,7 @@ class SessionManager(
                                     CompletableFuture<Unit>().apply {
                                         streamingScope.launch {
                                             try {
+                                                pendingToolStartJobs.remove(toolName to arguments)?.join()
                                                 thread.markToolDone(toolName, arguments, result, hasFailed)
                                             } finally {
                                                 complete(Unit)
@@ -456,6 +486,11 @@ class SessionManager(
                         // subsequent pooled-thread requests.
                         if (needsMessageCorrelation) ProxyChatContext.clear()
                     }
+
+                    // Ensure every timeline mutation triggered during the call above has
+                    // actually landed before persisting/reading the timeline below — see
+                    // pendingUpdateJobs' declaration comment.
+                    pendingUpdateJobs.joinAll()
 
                     val savedMessage = chatSessionService.saveAiResponse(
                         sessionId = sessionId,
@@ -517,6 +552,11 @@ class SessionManager(
                 log.error("Error while sending message to chat session $sessionId", e)
                 thread.markFailed()
 
+                // Same join as the success path above — the exception can propagate while
+                // onToken/onToolStarted/onToolFinished/onThinkingToken updates are still
+                // in-flight on streamingScope.
+                pendingUpdateJobs.joinAll()
+
                 val partialResponse = thread.getCurrentContent()
                 val failedResponse = if (e is ConfigurationErrorException) {
                     e.displayMessage
@@ -563,6 +603,13 @@ class SessionManager(
                 log.debug("Thread $threadId completed. Active streams: ${activeThreads.size}")
             }
         }
+
+        // Registered only now that thread.job holds the real coroutine handle (not the
+        // placeholder Job() from construction above) — otherwise a stopStream() call landing
+        // in the gap between registration and this assignment would cancel the inert
+        // placeholder instead of the actual stream.
+        activeThreads[sessionId] = thread
+        log.debug("Streaming thread $threadId for session $sessionId started. Active streams: ${activeThreads.size}")
 
         return threadId
     }
