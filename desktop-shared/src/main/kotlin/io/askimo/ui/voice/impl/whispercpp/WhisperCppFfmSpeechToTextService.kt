@@ -15,6 +15,7 @@ import io.askimo.ui.voice.VoiceServiceException
 import io.askimo.ui.voice.whispercpp.whisper_full_params
 import io.askimo.ui.voice.whispercpp.whisper_h
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -102,8 +103,24 @@ class WhisperCppFfmSpeechToTextService(private val config: VoiceConfig) :
         }
     }
 
-    /** Releases the native whisper.cpp context. Safe to call even if never initialized. */
+    /**
+     * Releases the native whisper.cpp context. Safe to call even if never initialized.
+     *
+     * Blocks the calling thread (briefly, via [runBlocking]) until it can acquire [mutex] —
+     * the same lock [transcribe] holds for the entire duration of a native `whisper_full` call.
+     * `AutoCloseable.close` isn't a suspend fun, so this is the only way to guarantee this
+     * doesn't free the context out from under an in-flight, non-cancellable [transcribe] call
+     * on this exact instance — e.g. [io.askimo.ui.voice.VoiceServiceRegistry] calling this when
+     * evicting this instance after a config/provider change. Without this, that race is a native
+     * use-after-free (crash), since `whisper_full` isn't reentrant-safe against a concurrent
+     * `whisper_free` on the same context.
+     */
     override fun close() {
+        runBlocking { mutex.withLock { freeContextLocked() } }
+    }
+
+    /** Must only be called while already holding [mutex] (see [close] and [ensureContextLoaded]). */
+    private fun freeContextLocked() {
         context?.let { whisper_h.whisper_free(it) }
         context = null
         loadedModelPath = null
@@ -119,9 +136,11 @@ class WhisperCppFfmSpeechToTextService(private val config: VoiceConfig) :
             )
         }
 
-        // Reload if the user switched model files since the last transcribe() call.
+        // Reload if the user switched model files since the last transcribe() call. Free directly
+        // (not via close()) — this runs inside transcribe()'s mutex.withLock already, and close()
+        // acquiring the same non-reentrant mutex here would deadlock.
         if (context != null && loadedModelPath != modelPath) {
-            close()
+            freeContextLocked()
         }
 
         context?.let { return it }
