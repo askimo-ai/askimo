@@ -34,7 +34,7 @@ enum class ToolCallStatus {
  * [MAX_FIELD_LENGTH] (see [truncated]) is applied only once, right before persisting a turn
  * (via [io.askimo.core.chat.dto.truncatedForStorage]) — some tools can otherwise produce
  * megabytes of raw text, bloating the persisted `content_json` column and any sync payload.
- * Unlike [io.askimo.core.agent.ExternalAgent]'s `onToolCall` `detail` (a short display label,
+ * Unlike `ExternalAgent`'s `onToolCall` `detail` (a short display label,
  * never truncated), these fields retain enough raw content to stay useful for debugging/audit
  * once truncated — just not unbounded.
  *
@@ -47,6 +47,11 @@ enum class ToolCallStatus {
  *   elapsed timer while [status] is [ToolCallStatus.RUNNING] — without it, a long-running tool
  *   gives no feedback that the AI is still working. Marked [Transient] — session-only, never
  *   persisted, since it's meaningless for historical tool calls loaded back from `content_json`.
+ * @param requestId       `ToolExecutionRequest.id`, the model's unique id for this specific
+ *   invocation. Used only to match a RUNNING entry to its DONE update when the same tool is
+ *   called more than once with identical arguments in one parallel batch — `(toolName,
+ *   arguments)` alone can't distinguish those. Marked [Transient]: meaningless once reloaded
+ *   from persisted `content_json`, and not every tool-calling model provider supplies one.
  */
 @Serializable
 data class ToolCallInfo(
@@ -56,6 +61,7 @@ data class ToolCallInfo(
     val result: String? = null,
     val hasFailed: Boolean = false,
     @Transient val startedAtMillis: Long = Clock.System.now().toEpochMilliseconds(),
+    @Transient val requestId: String? = null,
 ) {
     companion object {
         /** Max length of [arguments]/[result] before truncation — see [truncated]. */

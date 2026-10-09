@@ -206,37 +206,34 @@ class SessionManager(
             }
         }
 
-        /** Appends a RUNNING tool entry at its true chronological position. Deduplicates: no-op if already tracked as RUNNING. */
-        suspend fun markToolRunning(toolName: String, arguments: String?) {
+        /** Appends a RUNNING tool entry at its true chronological position. Deduplicates: no-op if already tracked as RUNNING under [id]. */
+        suspend fun markToolRunning(id: String, toolName: String, arguments: String?) {
             mutex.withLock {
                 val alreadyRunning = _timeline.value.any {
                     it is TurnTimelineEntry.Tool &&
-                        it.toolCall.toolName == toolName &&
-                        it.toolCall.arguments == arguments &&
+                        it.toolCall.requestId == id &&
                         it.toolCall.status == ToolCallStatus.RUNNING
                 }
                 if (!alreadyRunning) {
                     _timeline.value += TurnTimelineEntry.Tool(
                         // Full, untruncated arguments — only the persisted copy is capped
                         // (see truncatedForStorage()).
-                        ToolCallInfo(toolName = toolName, status = ToolCallStatus.RUNNING, arguments = arguments),
+                        ToolCallInfo(toolName = toolName, status = ToolCallStatus.RUNNING, arguments = arguments, requestId = id),
                     )
                 }
             }
         }
 
         /** Flips the matching RUNNING tool entry to DONE in-place, preserving its original chronological position. */
-        suspend fun markToolDone(toolName: String, arguments: String?, result: String?, hasFailed: Boolean) {
+        suspend fun markToolDone(id: String, toolName: String, arguments: String?, result: String?, hasFailed: Boolean) {
             mutex.withLock {
                 val list = _timeline.value
-                // Matched on (toolName, arguments) rather than toolName alone — otherwise two
-                // parallel invocations of the SAME tool (same name, different arguments) would
-                // collide: the second markToolRunning would be deduped as "already running" and
-                // this lookup would flip the wrong call's entry to DONE.
+                // Matched on the request id — the model's unique id for this specific
+                // invocation — rather than (toolName, arguments), which collides when the
+                // model calls the same tool twice with identical arguments in one parallel batch.
                 val idx = list.indexOfLast {
                     it is TurnTimelineEntry.Tool &&
-                        it.toolCall.toolName == toolName &&
-                        it.toolCall.arguments == arguments &&
+                        it.toolCall.requestId == id &&
                         it.toolCall.status == ToolCallStatus.RUNNING
                 }
                 // Preserve the RUNNING entry's original start time (instead of "now") so a
@@ -252,6 +249,7 @@ class SessionManager(
                         result = result,
                         hasFailed = hasFailed,
                         startedAtMillis = startedAtMillis,
+                        requestId = id,
                     ),
                 )
                 _timeline.value = if (idx >= 0) {
@@ -370,11 +368,12 @@ class SessionManager(
 
                     val fullResponse = try {
                         val sessionContext = chatSessionService.getOrCreateContextForSession(sessionId)
-                        // Keyed by (toolName, arguments), not toolName alone, so two parallel
-                        // calls to the same tool don't collide. markToolDone joins the matching
-                        // start job first so a delayed RUNNING-append can't land after a faster
-                        // DONE-append and leave the tool stuck RUNNING.
-                        val pendingToolStartJobs = ConcurrentHashMap<Pair<String, String?>, Job>()
+                        // Keyed by the tool request id (not toolName/arguments) so two parallel
+                        // calls to the same tool with identical arguments don't collide.
+                        // markToolDone joins the matching start job first so a delayed
+                        // RUNNING-append can't land after a faster DONE-append and leave the
+                        // tool stuck RUNNING.
+                        val pendingToolStartJobs = ConcurrentHashMap<String, Job>()
                         sessionContext.chatClient
                             .sendStreamingMessageWithCallback(
                                 projectId = projectId,
@@ -395,17 +394,17 @@ class SessionManager(
                                     capturedDurationMs = durationMs
                                     log.debug("Token usage for session $sessionId: input=$input, output=$output, total=$total, duration=${durationMs}ms")
                                 },
-                                onToolStarted = { toolName, arguments ->
+                                onToolStarted = { id, toolName, arguments ->
                                     val job = streamingScope.launch {
-                                        thread.markToolRunning(toolName, arguments)
+                                        thread.markToolRunning(id, toolName, arguments)
                                     }
-                                    pendingToolStartJobs[toolName to arguments] = job
+                                    pendingToolStartJobs[id] = job
                                     pendingUpdateJobs += job
                                 },
-                                onToolFinished = { toolName, arguments, result, hasFailed ->
+                                onToolFinished = { id, toolName, arguments, result, hasFailed ->
                                     pendingUpdateJobs += streamingScope.launch {
-                                        pendingToolStartJobs.remove(toolName to arguments)?.join()
-                                        thread.markToolDone(toolName, arguments, result, hasFailed)
+                                        pendingToolStartJobs.remove(id)?.join()
+                                        thread.markToolDone(id, toolName, arguments, result, hasFailed)
                                     }
                                 },
                                 onThinkingToken = { token ->
@@ -446,12 +445,12 @@ class SessionManager(
                                 // Awaitable companion to onToolFinished: used only on approval
                                 // timeout/denial so markToolDone() applies before the exception
                                 // propagates — otherwise the tool could be persisted as RUNNING.
-                                onToolFinishedAwaitable = { toolName, arguments, result, hasFailed ->
+                                onToolFinishedAwaitable = { id, toolName, arguments, result, hasFailed ->
                                     CompletableFuture<Unit>().apply {
                                         streamingScope.launch {
                                             try {
-                                                pendingToolStartJobs.remove(toolName to arguments)?.join()
-                                                thread.markToolDone(toolName, arguments, result, hasFailed)
+                                                pendingToolStartJobs.remove(id)?.join()
+                                                thread.markToolDone(id, toolName, arguments, result, hasFailed)
                                             } finally {
                                                 complete(Unit)
                                             }
