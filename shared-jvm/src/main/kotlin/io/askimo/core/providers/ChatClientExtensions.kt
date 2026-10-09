@@ -387,10 +387,13 @@ fun ChatClient.sendStreamingMessageWithCallback(
                                             chatMemory?.add(ToolExecutionResultMessage.from(req, msg))
                                         }
                                         pendingToolRequests.clear()
-                                        notifyToolFinishedAndAwaitIfPossible(onToolFinished, onToolFinishedAwaitable, toolName, arguments, msg, true, toolApprovalTimeoutMs)
                                         // Neither approve() nor deny() fired, so the caller's pending-approval
-                                        // UI state was never cleared by either closure above.
+                                        // UI state was never cleared by either closure above. Fire this
+                                        // immediately — not after awaiting onToolFinishedAwaitable below,
+                                        // which can itself block for up to toolApprovalTimeoutMs and would
+                                        // otherwise leave the approval banner visible for twice as long.
                                         onToolApprovalTimedOut?.invoke()
+                                        notifyToolFinishedAndAwaitIfPossible(onToolFinished, onToolFinishedAwaitable, toolName, arguments, msg, true, toolApprovalTimeoutMs)
                                         throw ToolExecutionException(toolName = toolName, errorDetails = msg)
                                     }
                                     if (!approved) {

@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.function.Consumer
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -231,21 +232,23 @@ class ChatClientExtensionsToolApprovalTest {
     }
 
     /**
-     * Regression test for the async/sync race documented on `notifyToolFinishedAndAwaitIfPossible`:
-     * the timeout branch must synchronously await the caller's `onToolFinishedAwaitable` completion
-     * future *before* invoking `onToolApprovalTimedOut`/throwing — otherwise a caller like
-     * `SessionManager` that persists UI state inside `onToolApprovalTimedOut` would observe the
-     * tool still marked RUNNING. Asserting the exact invocation order (not just "both eventually
-     * ran") is what actually catches a regression back to the fire-and-forget launch.
+     * `onToolApprovalTimedOut` must fire immediately on timeout — before awaiting
+     * `onToolFinishedAwaitable`'s completion future, which can itself block for up to
+     * `toolApprovalTimeoutMs`. Otherwise a caller clearing UI state in `onToolApprovalTimedOut`
+     * would see it stay visible for up to twice the configured timeout.
+     *
+     * Returns a future completed after a delay (not [CompletableFuture.completedFuture]) so an
+     * implementation that ignores it instead of calling `future.get()` returns too early to pass.
      */
     @Test
-    fun `approval timeout invokes onToolFinishedAwaitable before onToolApprovalTimedOut, both exactly once`() {
+    fun `approval timeout invokes onToolApprovalTimedOut before awaiting onToolFinishedAwaitable, both exactly once`() {
         val chatMemory = FakeChatMemory()
         val request = toolRequest("call_solo", "toolTimeout")
         val invocationOrder = mutableListOf<String>()
         var toolFinishedCalls = 0
         var timedOutCalls = 0
         var toolFinishedHasFailed: Boolean? = null
+        val futureCompleted = AtomicBoolean(false)
 
         val chatClient = object : ChatClient {
             override fun sendMessageStreaming(userContents: List<Content>): TokenStream = FakeTokenStream {
@@ -266,13 +269,24 @@ class ChatClientExtensionsToolApprovalTest {
                     toolFinishedCalls++
                     toolFinishedHasFailed = hasFailed
                     invocationOrder += "onToolFinishedAwaitable"
-                    CompletableFuture.completedFuture(Unit)
+                    val future = CompletableFuture<Unit>()
+                    // Completed only after a delay, from a background thread — forces a caller
+                    // that actually awaits this future to block until then; one that ignores it
+                    // (the bug this test guards against) returns well before futureCompleted flips.
+                    Thread {
+                        Thread.sleep(150)
+                        futureCompleted.set(true)
+                        future.complete(Unit)
+                    }.start()
+                    future
                 },
                 onToolApprovalTimedOut = {
                     timedOutCalls++
                     invocationOrder += "onToolApprovalTimedOut"
                 },
-                toolApprovalTimeoutMs = 50L,
+                // Large enough that the 150ms delayed completion above always wins the race
+                // against this timeout inside notifyToolFinishedAndAwaitIfPossible's get() call.
+                toolApprovalTimeoutMs = 300L,
                 chatMemory = chatMemory,
             )
         }
@@ -281,9 +295,14 @@ class ChatClientExtensionsToolApprovalTest {
         assertEquals(1, timedOutCalls, "Expected onToolApprovalTimedOut to be invoked exactly once, got $timedOutCalls")
         assertEquals(true, toolFinishedHasFailed, "Expected onToolFinishedAwaitable's hasFailed to be true on timeout")
         assertEquals(
-            listOf("onToolFinishedAwaitable", "onToolApprovalTimedOut"),
+            listOf("onToolApprovalTimedOut", "onToolFinishedAwaitable"),
             invocationOrder,
-            "Expected onToolFinishedAwaitable's completion future to be awaited before onToolApprovalTimedOut fires",
+            "Expected onToolApprovalTimedOut to fire immediately on timeout, before awaiting onToolFinishedAwaitable's completion future",
+        )
+        assertTrue(
+            futureCompleted.get(),
+            "Expected the call to block until onToolFinishedAwaitable's future completed — " +
+                "it returned before the delayed completion ran, meaning the future was never actually awaited",
         )
     }
 
