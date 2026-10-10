@@ -73,6 +73,9 @@ import io.askimo.core.event.user.IndexingCompletedEvent
 import io.askimo.core.event.user.IndexingFailedEvent
 import io.askimo.core.event.user.IndexingQueuedEvent
 import io.askimo.core.event.user.IndexingStartedEvent
+import io.askimo.core.event.user.WhisperModelDownloadCompletedEvent
+import io.askimo.core.event.user.WhisperModelDownloadFailedEvent
+import io.askimo.core.event.user.WhisperModelDownloadStartedEvent
 import io.askimo.core.rag.container.IndexingContainerType
 import io.askimo.core.util.TimeUtil.formatInstantDisplay
 import io.askimo.ui.common.components.linkButton
@@ -102,6 +105,9 @@ data class NotificationEventItem(
 /** Stable dedup key for indexing lifecycle events belonging to the same container. */
 private fun indexingNotificationId(containerId: String, containerType: IndexingContainerType): String = "indexing_${containerType}_$containerId"
 
+/** Stable dedup key for a Whisper model download's started/completed/failed lifecycle. */
+private fun whisperDownloadNotificationId(tierName: String): String = "whisper_download_$tierName"
+
 /**
  * Notification bell icon displayed in the footer bar.
  *
@@ -125,9 +131,10 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
         while (events.size > 100) events.removeAt(events.lastIndex)
     }
 
-    // Upserts a terminal indexing card (completed / failed) and bumps the unread badge
-    // only when a new card is added — not when replacing an existing in-progress card.
-    fun upsertIndexingEvent(item: NotificationEventItem) {
+    // Upserts a terminal card (indexing completed/failed, whisper download completed/failed, …)
+    // and bumps the unread badge only when a new card is added — not when replacing an existing
+    // in-progress card.
+    fun upsertTerminalEvent(item: NotificationEventItem) {
         val existingIdx = events.indexOfFirst { it.id == item.id }
         if (existingIdx >= 0) {
             events[existingIdx] = item
@@ -185,7 +192,7 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
                 }
 
                 is IndexingCompletedEvent -> {
-                    upsertIndexingEvent(
+                    upsertTerminalEvent(
                         NotificationEventItem(
                             id = indexingNotificationId(event.containerId, event.containerType),
                             event = event,
@@ -195,7 +202,7 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
                 }
 
                 is IndexingFailedEvent -> {
-                    upsertIndexingEvent(
+                    upsertTerminalEvent(
                         NotificationEventItem(
                             id = indexingNotificationId(event.containerId, event.containerType),
                             event = event,
@@ -215,6 +222,39 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
                     )
                     unreadCount++
                     trimEvents()
+                }
+
+                is WhisperModelDownloadStartedEvent -> {
+                    val notificationId = whisperDownloadNotificationId(event.tierName)
+                    val existingIdx = events.indexOfFirst { it.id == notificationId }
+                    val item = NotificationEventItem(id = notificationId, event = event)
+                    if (existingIdx >= 0) {
+                        events[existingIdx] = item
+                    } else {
+                        events.add(0, item)
+                        unreadCount++
+                        trimEvents()
+                    }
+                }
+
+                is WhisperModelDownloadCompletedEvent -> {
+                    upsertTerminalEvent(
+                        NotificationEventItem(
+                            id = whisperDownloadNotificationId(event.tierName),
+                            event = event,
+                        ),
+                    )
+                    // Badge-only — don't force-open popup
+                }
+
+                is WhisperModelDownloadFailedEvent -> {
+                    upsertTerminalEvent(
+                        NotificationEventItem(
+                            id = whisperDownloadNotificationId(event.tierName),
+                            event = event,
+                        ),
+                    )
+                    showEventPopup = true // User must see failures
                 }
             }
         }
@@ -475,8 +515,10 @@ private fun expandErrorButton(expanded: Boolean, onToggle: () -> Unit) {
 /**
  * A single notification card inside [notificationPopup].
  *
- * Handles [UpdateAvailableEvent], [ShellErrorEvent], and all four indexing events
- * ([IndexingQueuedEvent], [IndexingStartedEvent], [IndexingCompletedEvent], [IndexingFailedEvent]).
+ * Handles [UpdateAvailableEvent], [ShellErrorEvent], all four indexing events
+ * ([IndexingQueuedEvent], [IndexingStartedEvent], [IndexingCompletedEvent], [IndexingFailedEvent]),
+ * and the Whisper model download lifecycle ([WhisperModelDownloadStartedEvent],
+ * [WhisperModelDownloadCompletedEvent], [WhisperModelDownloadFailedEvent]).
  */
 @Composable
 fun notificationEventCard(
@@ -493,6 +535,9 @@ fun notificationEventCard(
     val isIndexingFailed = event is IndexingFailedEvent
     val isFileRemoved = event is FileRemovedFromIndexEvent
     val isIndexingEvent = isIndexingQueued || isIndexingStarted || isIndexingCompleted || isIndexingFailed || isFileRemoved
+    val isWhisperDownloadStarted = event is WhisperModelDownloadStartedEvent
+    val isWhisperDownloadCompleted = event is WhisperModelDownloadCompletedEvent
+    val isWhisperDownloadFailed = event is WhisperModelDownloadFailedEvent
 
     val eventName = when (event) {
         is UpdateAvailableEvent -> stringResource("event.update.available")
@@ -502,6 +547,9 @@ fun notificationEventCard(
         is IndexingCompletedEvent -> stringResource("event.indexing.completed")
         is IndexingFailedEvent -> stringResource("event.indexing.failed")
         is FileRemovedFromIndexEvent -> stringResource("event.file.removed")
+        is WhisperModelDownloadStartedEvent -> stringResource("event.whisper_download.started")
+        is WhisperModelDownloadCompletedEvent -> stringResource("event.whisper_download.completed")
+        is WhisperModelDownloadFailedEvent -> stringResource("event.whisper_download.failed")
         else -> event::class.simpleName ?: "Unknown"
     }
 
@@ -511,7 +559,7 @@ fun notificationEventCard(
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
         )
 
-        isIndexingCompleted -> CardDefaults.cardColors(
+        isIndexingCompleted || isWhisperDownloadCompleted -> CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.tertiaryContainer,
             contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
         )
@@ -521,7 +569,7 @@ fun notificationEventCard(
 
     val contentColor = when {
         isUpdateEvent -> MaterialTheme.colorScheme.onSecondaryContainer
-        isIndexingCompleted -> MaterialTheme.colorScheme.onTertiaryContainer
+        isIndexingCompleted || isWhisperDownloadCompleted -> MaterialTheme.colorScheme.onTertiaryContainer
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
@@ -559,7 +607,7 @@ fun notificationEventCard(
                     modifier = Modifier.weight(1f),
                 ) {
                     when {
-                        isShellError || isIndexingFailed -> Icon(
+                        isShellError || isIndexingFailed || isWhisperDownloadFailed -> Icon(
                             imageVector = Icons.Outlined.ErrorOutline,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.error,
@@ -580,7 +628,7 @@ fun notificationEventCard(
                             modifier = Modifier.size(16.dp),
                         )
 
-                        isIndexingStarted -> Icon(
+                        isIndexingStarted || isWhisperDownloadStarted -> Icon(
                             imageVector = Icons.Outlined.Sync,
                             contentDescription = null,
                             tint = contentColor,
@@ -589,7 +637,7 @@ fun notificationEventCard(
                                 .rotate(rotationAngle),
                         )
 
-                        isIndexingCompleted -> Icon(
+                        isIndexingCompleted || isWhisperDownloadCompleted -> Icon(
                             imageVector = Icons.Outlined.CheckCircleOutline,
                             contentDescription = null,
                             tint = contentColor,
@@ -647,7 +695,7 @@ fun notificationEventCard(
                 Spacer(Modifier.height(Spacing.micro))
             }
 
-            // ── Container name (indexing events) ────────────────────────────────────
+            // ── Container name (indexing events) / tier label (whisper download events) ────
             if (isIndexingEvent) {
                 val containerName = when (event) {
                     is IndexingQueuedEvent -> event.containerName
@@ -660,6 +708,21 @@ fun notificationEventCard(
                 if (containerName != null) {
                     Text(
                         text = containerName,
+                        style = AppTextStyles.fieldLabel,
+                        color = contentColor,
+                    )
+                }
+            }
+            if (isWhisperDownloadStarted || isWhisperDownloadCompleted || isWhisperDownloadFailed) {
+                val tierLabel = when (event) {
+                    is WhisperModelDownloadStartedEvent -> event.tierLabel
+                    is WhisperModelDownloadCompletedEvent -> event.tierLabel
+                    is WhisperModelDownloadFailedEvent -> event.tierLabel
+                    else -> null
+                }
+                if (tierLabel != null) {
+                    Text(
+                        text = tierLabel,
                         style = AppTextStyles.fieldLabel,
                         color = contentColor,
                     )
