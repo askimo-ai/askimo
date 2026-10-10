@@ -136,10 +136,25 @@ val generateAbout =
         }
     }
 
+// Embeds the root-level merged THIRD-PARTY-NOTICES.txt into META-INF/ so every
+// distributed artifact (jar, uber jar, native image) carries attribution for
+// bundled dependencies — required by Apache-2.0's NOTICE clause, MIT/BSD
+// copyright-retention terms, and LGPL's license-text-accompanies-binary term.
+// See build.gradle.kts (root) for how this file is generated/kept up to date.
+val noticesDir = layout.buildDirectory.dir("generated-resources/notices")
+val copyThirdPartyNotices =
+    tasks.register<Copy>("copyThirdPartyNotices") {
+        description = "Copies the root THIRD-PARTY-NOTICES.txt into META-INF/ so it ships inside the jar/native image."
+        dependsOn(rootProject.tasks.named("collectThirdPartyNotices"))
+        from(rootProject.file("THIRD-PARTY-NOTICES.txt"))
+        into(noticesDir.map { it.dir("META-INF") })
+    }
+
 tasks.named<ProcessResources>("processResources") {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    dependsOn(generateAbout)
+    dependsOn(generateAbout, copyThirdPartyNotices)
     from(aboutDir)
+    from(noticesDir)
 }
 
 graalvmNative {
@@ -191,7 +206,7 @@ graalvmNative {
                     "-Dorg.apache.lucene.store.MMapDirectory.enableMemorySegments=false",
                     "--initialize-at-build-time=kotlin.DeprecationLevel,kotlin.jvm.internal.Intrinsics,kotlin.enums.EnumEntries, com.github.benmanes.caffeine",
                     "--initialize-at-run-time=kotlinx.coroutines,kotlin.coroutines,io.askimo.core.project.ProjectFileWatcher",
-                    "-H:IncludeResources=logback.xml|logback-.*\\.xml",
+                    "-H:IncludeResources=logback.xml|logback-.*\\.xml|META-INF/THIRD-PARTY-NOTICES\\.txt",
                     "--allow-incomplete-classpath",
                     "-H:+ReportExceptionStackTraces",
                 ),

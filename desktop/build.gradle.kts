@@ -98,9 +98,24 @@ val generateAbout =
         }
     }
 
+// Embeds the root-level merged THIRD-PARTY-NOTICES.txt into META-INF/ so the
+// packaged app (jar, uber jar, DMG/MSI/DEB payload) carries attribution for
+// bundled dependencies — required by Apache-2.0's NOTICE clause, MIT/BSD
+// copyright-retention terms, and LGPL's license-text-accompanies-binary term.
+// See build.gradle.kts (root) for how this file is generated/kept up to date.
+val noticesDir = layout.buildDirectory.dir("generated-resources/notices")
+val copyThirdPartyNotices =
+    tasks.register<Copy>("copyThirdPartyNotices") {
+        description = "Copies the root THIRD-PARTY-NOTICES.txt into META-INF/ so it ships inside the app bundle."
+        dependsOn(rootProject.tasks.named("collectThirdPartyNotices"))
+        from(rootProject.file("THIRD-PARTY-NOTICES.txt"))
+        into(noticesDir.map { it.dir("META-INF") })
+    }
+
 tasks.named<ProcessResources>("processResources") {
-    dependsOn(generateAbout)
+    dependsOn(generateAbout, copyThirdPartyNotices)
     from(aboutDir)
+    from(noticesDir)
     filteringCharset = "UTF-8"
 }
 
