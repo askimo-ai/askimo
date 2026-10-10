@@ -1,5 +1,5 @@
 Askimo — Third-Party Software Notices
-Generated: 2026-10-10T11:15:10.851263
+Generated: 2026-10-10T11:25:42.505837
 This file lists every third-party dependency bundled in Askimo's distributed artifacts (CLI, desktop app) across all modules, deduplicated, along with its license.
 ================================================================================
 

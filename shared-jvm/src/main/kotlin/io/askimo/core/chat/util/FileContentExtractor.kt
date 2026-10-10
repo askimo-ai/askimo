@@ -130,11 +130,13 @@ object FileContentExtractor {
      */
     private fun extractUsingTika(file: File): String = try {
         FileInputStream(file).use { stream ->
-            val handler = BodyContentHandler(-1) // -1 = no character limit
-            val metadata = Metadata()
-            metadata.set("resourceName", file.name)
-            parser.parse(TikaInputStream.get(stream), handler, metadata)
-            handler.toString().trim()
+            TikaInputStream.get(stream).use { tikaStream ->
+                val handler = BodyContentHandler(-1) // -1 = no character limit
+                val metadata = Metadata()
+                metadata.set("resourceName", file.name)
+                parser.parse(tikaStream, handler, metadata)
+                handler.toString().trim()
+            }
         }
     } catch (e: TikaException) {
         throw FileParseException(file.path, e)

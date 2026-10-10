@@ -160,23 +160,25 @@ object UrlContentExtractor {
     private fun extractUsingTika(url: String, bytes: ByteArray, contentType: String): ExtractedUrlContent {
         try {
             ByteArrayInputStream(bytes).use { stream ->
-                val handler = BodyContentHandler(-1) // -1 = no character limit
-                val metadata = Metadata()
-                metadata.set("resourceName", url)
-                metadata.set("Content-Type", contentType)
+                TikaInputStream.get(stream).use { tikaStream ->
+                    val handler = BodyContentHandler(-1) // -1 = no character limit
+                    val metadata = Metadata()
+                    metadata.set("resourceName", url)
+                    metadata.set("Content-Type", contentType)
 
-                parser.parse(TikaInputStream.get(stream), handler, metadata)
+                    parser.parse(tikaStream, handler, metadata)
 
-                val extractedText = handler.toString().trim()
-                val title = metadata.get("title")?.takeIf { it.isNotBlank() }
-                    ?: extractTitleFromUrl(url)
+                    val extractedText = handler.toString().trim()
+                    val title = metadata.get("title")?.takeIf { it.isNotBlank() }
+                        ?: extractTitleFromUrl(url)
 
-                return ExtractedUrlContent(
-                    url = url,
-                    title = title,
-                    content = ContentSanitizer.sanitizeTemplateVariables(extractedText),
-                    contentType = contentType,
-                )
+                    return ExtractedUrlContent(
+                        url = url,
+                        title = title,
+                        content = ContentSanitizer.sanitizeTemplateVariables(extractedText),
+                        contentType = contentType,
+                    )
+                }
             }
         } catch (e: Exception) {
             throw IOException("Failed to parse content from URL: $url", e)
