@@ -9,6 +9,7 @@ import io.askimo.core.logging.logger
 import io.askimo.core.util.formatFileSize
 import org.apache.tika.Tika
 import org.apache.tika.exception.TikaException
+import org.apache.tika.io.TikaInputStream
 import org.apache.tika.metadata.Metadata
 import org.apache.tika.parser.AutoDetectParser
 import org.apache.tika.sax.BodyContentHandler
@@ -132,7 +133,7 @@ object FileContentExtractor {
             val handler = BodyContentHandler(-1) // -1 = no character limit
             val metadata = Metadata()
             metadata.set("resourceName", file.name)
-            parser.parse(stream, handler, metadata)
+            parser.parse(TikaInputStream.get(stream), handler, metadata)
             handler.toString().trim()
         }
     } catch (e: TikaException) {

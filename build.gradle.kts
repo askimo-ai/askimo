@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.graalvm.native) apply false
     alias(libs.plugins.detekt) apply false
+    alias(libs.plugins.license.report) apply false
 }
 
 group = property("projectGroup") as String
@@ -39,6 +40,107 @@ spotless {
         targetExclude("**/build/**")
         trimTrailingWhitespace()
         endWithNewline()
+    }
+}
+
+// ── Third-party dependency license report ─────────────────────────────────
+// The jk1 plugin is applied per-subproject (rather than aggregated at the
+// root via `licenseReport.projects`) because resolving other projects'
+// dependency configurations from a root-level task is flagged as "unsafe
+// configuration resolution" when `org.gradle.parallel=true` (see
+// gradle.properties). Each subproject therefore generates its own report
+// under `<subproject>/build/reports/dependency-license/`, and the root tasks
+// below aggregate them.
+//
+// Usage:
+//   ./gradlew generateLicenseReport          — regenerate every subproject's report
+//   ./gradlew checkThirdPartyLicenses        — fail if any subproject uses a
+//                                               license not in gradle/allowed-licenses.json
+//   ./gradlew collectThirdPartyNotices        — merge all reports into
+//                                               THIRD-PARTY-NOTICES.txt at the repo root
+
+subprojects {
+    plugins.apply("com.github.jk1.dependency-license-report")
+
+    configure<com.github.jk1.license.LicenseReportExtension> {
+        renderers = arrayOf(
+            com.github.jk1.license.render.InventoryHtmlReportRenderer("licenses.html", "Askimo Third-Party Licenses"),
+            com.github.jk1.license.render.TextReportRenderer("THIRD-PARTY-NOTICES.txt"),
+        )
+        // Normalizes differently-worded but equivalent license names (e.g. "Apache 2.0"
+        // vs "The Apache Software License, Version 2.0") so the allow-list stays small.
+        filters = arrayOf(com.github.jk1.license.filter.LicenseBundleNormalizer())
+        allowedLicensesFile = rootProject.file("gradle/allowed-licenses.json")
+    }
+}
+
+tasks.register("checkThirdPartyLicenses") {
+    group = "verification"
+    description = "Runs checkLicense on every subproject; fails if a dependency uses a disallowed license."
+    dependsOn(subprojects.mapNotNull { it.tasks.findByName("checkLicense") })
+}
+
+tasks.register("collectThirdPartyNotices") {
+    group = "documentation"
+    description = "Merges every subproject's resolved dependency licenses into one deduplicated " +
+        "THIRD-PARTY-NOTICES.txt at the repo root."
+    dependsOn(subprojects.mapNotNull { it.tasks.findByName("generateLicenseReport") })
+    outputs.upToDateWhen { false }
+
+    doLast {
+        data class Dep(val name: String, val version: String, val licenses: Set<String>, val urls: List<String>)
+
+        val merged = sortedMapOf<String, Dep>()
+
+        subprojects.forEach { sub ->
+            val jsonFile = sub.layout.buildDirectory
+                .file("reports/dependency-license/project-licenses-for-check-license-task.json")
+                .get().asFile
+            if (!jsonFile.exists()) return@forEach
+
+            @Suppress("UNCHECKED_CAST")
+            val data = groovy.json.JsonSlurper().parse(jsonFile) as Map<String, Any>
+            val deps = data["dependencies"] as? List<Map<String, Any>> ?: emptyList()
+
+            deps.forEach { d ->
+                val name = d["moduleName"] as? String ?: return@forEach
+                val version = d["moduleVersion"] as? String ?: ""
+                val urls = (d["moduleUrls"] as? List<String>) ?: emptyList()
+                val licenses = ((d["moduleLicenses"] as? List<Map<String, Any>>) ?: emptyList())
+                    .mapNotNull { it["moduleLicense"] as? String }
+                    .toSet()
+
+                val key = "$name:$version"
+                val existing = merged[key]
+                merged[key] = if (existing == null) {
+                    Dep(name, version, licenses, urls)
+                } else {
+                    existing.copy(licenses = existing.licenses + licenses, urls = (existing.urls + urls).distinct())
+                }
+            }
+        }
+
+        val out = StringBuilder()
+        out.appendLine("Askimo — Third-Party Software Notices")
+        out.appendLine("Generated: ${java.time.LocalDateTime.now()}")
+        out.appendLine(
+            "This file lists every third-party dependency bundled in Askimo's distributed " +
+                "artifacts (CLI, desktop app) across all modules, deduplicated, along with its license.",
+        )
+        out.appendLine("=".repeat(80))
+        out.appendLine()
+        out.appendLine("Total unique dependencies: ${merged.size}")
+        out.appendLine()
+
+        merged.values.forEach { dep ->
+            out.appendLine("* ${dep.name}:${dep.version}")
+            if (dep.urls.isNotEmpty()) out.appendLine("  URL: ${dep.urls.joinToString(", ")}")
+            out.appendLine("  License(s): ${dep.licenses.sorted().joinToString(" OR ")}")
+            out.appendLine()
+        }
+
+        rootDir.resolve("THIRD-PARTY-NOTICES.txt").writeText(out.toString())
+        println("Wrote ${rootDir.resolve("THIRD-PARTY-NOTICES.txt")} (${merged.size} unique dependencies)")
     }
 }
 

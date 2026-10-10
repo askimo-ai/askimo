@@ -7,6 +7,7 @@ package io.askimo.core.chat.util
 import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.util.ProxyUtil
+import org.apache.tika.io.TikaInputStream
 import org.apache.tika.metadata.Metadata
 import org.apache.tika.parser.AutoDetectParser
 import org.apache.tika.sax.BodyContentHandler
@@ -164,7 +165,7 @@ object UrlContentExtractor {
                 metadata.set("resourceName", url)
                 metadata.set("Content-Type", contentType)
 
-                parser.parse(stream, handler, metadata)
+                parser.parse(TikaInputStream.get(stream), handler, metadata)
 
                 val extractedText = handler.toString().trim()
                 val title = metadata.get("title")?.takeIf { it.isNotBlank() }

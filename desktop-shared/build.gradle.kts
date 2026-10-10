@@ -38,7 +38,9 @@ dependencies {
     implementation(libs.coil.network.okhttp)
     implementation(libs.material.kolor)
     // MP3 decoding for OpenAI TTS playback (javax.sound.sampled SPI) — see AudioPlayer.kt
-    implementation(libs.mp3spi)
+    implementation(libs.mp3spi) {
+        exclude(group = "junit", module = "junit")
+    }
     // Terminal support
     implementation(libs.bundles.jediterm)
     // JVM-specific logging (Kermit backend + SLF4J bridge + Logback)

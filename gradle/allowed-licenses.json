@@ -1,0 +1,65 @@
+{
+  "allowedLicenses": [ {
+    "moduleLicense": "Apache License, Version 2.0"
+  }, {
+    "moduleLicense": "The Apache Software License, Version 2.0"
+  }, {
+    "moduleLicense": "Apache-2.0"
+  }, {
+    "moduleLicense": "MIT License"
+  }, {
+    "moduleLicense": "MIT"
+  }, {
+    "moduleLicense": "BSD License"
+  }, {
+    "moduleLicense": "BSD-2-Clause"
+  }, {
+    "moduleLicense": "BSD-3-Clause"
+  }, {
+    "moduleLicense": "The BSD License"
+  }, {
+    "moduleLicense": "The 2-Clause BSD License"
+  }, {
+    "moduleLicense": "The 3-Clause BSD License"
+  }, {
+    "moduleLicense": "BSD Zero Clause License"
+  }, {
+    "moduleLicense": "Eclipse Public License v2.0"
+  }, {
+    "moduleLicense": "Eclipse Public License - v 2.0"
+  }, {
+    "moduleLicense": "Eclipse Distribution License - v 1.0"
+  }, {
+    "moduleLicense": "Public Domain"
+  }, {
+    "moduleLicense": "CC0"
+  }, {
+    "moduleLicense": "Creative Commons CC0"
+  }, {
+    "moduleLicense": "ISC"
+  }, {
+    "moduleLicense": "Go License"
+  }, {
+    "moduleLicense": "GNU LESSER GENERAL PUBLIC LICENSE, Version 2.1"
+  }, {
+    "moduleLicense": "LGPL 2.1 license"
+  }, {
+    "moduleLicense": "GNU LESSER GENERAL PUBLIC LICENSE, Version 3"
+  }, {
+    "moduleLicense": "LGPL-3.0"
+  }, {
+    "moduleLicense": "Mozilla Public License, Version 2.0"
+  }, {
+    "moduleLicense": "MPL-2.0"
+  }, {
+    "moduleLicense": "Eclipse Public License 1.0"
+  }, {
+    "moduleLicense": "Eclipse Public License - v 1.0"
+  }, {
+    "moduleLicense": "Common Public License - v 1.0"
+  }, {
+    "moduleName": "com.github.albfernandez:juniversalchardet",
+    "moduleLicense": "Mozilla Public License Version 1.1"
+  } ],
+  "dependenciesWithoutAllowedLicenses": [ ]
+}

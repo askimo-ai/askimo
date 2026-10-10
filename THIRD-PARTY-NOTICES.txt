@@ -1,0 +1,1133 @@
+Askimo — Third-Party Software Notices
+Generated: 2026-10-10T11:15:10.851263
+This file lists every third-party dependency bundled in Askimo's distributed artifacts (CLI, desktop app) across all modules, deduplicated, along with its license.
+================================================================================
+
+Total unique dependencies: 287
+
+* androidx.annotation:annotation-jvm:1.10.0
+  URL: https://developer.android.com/jetpack/androidx/releases/annotation#1.10.0
+  License(s): Apache License, Version 2.0
+
+* androidx.annotation:annotation:1.10.0
+  URL: https://developer.android.com/jetpack/androidx/releases/annotation#1.10.0
+  License(s): Apache License, Version 2.0
+
+* androidx.arch.core:core-common:2.2.0
+  URL: https://developer.android.com/jetpack/androidx/releases/arch-core#2.2.0
+  License(s): Apache License, Version 2.0
+
+* androidx.collection:collection-jvm:1.5.0
+  URL: https://developer.android.com/jetpack/androidx/releases/collection#1.5.0
+  License(s): Apache License, Version 2.0
+
+* androidx.collection:collection:1.5.0
+  URL: https://developer.android.com/jetpack/androidx/releases/collection#1.5.0
+  License(s): Apache License, Version 2.0
+
+* androidx.compose.runtime:runtime-annotation-jvm:1.12.1
+  URL: https://developer.android.com/jetpack/androidx/releases/compose-runtime#1.12.1
+  License(s): Apache License, Version 2.0
+
+* androidx.compose.runtime:runtime-annotation:1.12.1
+  URL: https://developer.android.com/jetpack/androidx/releases/compose-runtime#1.12.1
+  License(s): Apache License, Version 2.0
+
+* androidx.compose.runtime:runtime-desktop:1.12.1
+  URL: https://developer.android.com/jetpack/androidx/releases/compose-runtime#1.12.1
+  License(s): Apache License, Version 2.0
+
+* androidx.compose.runtime:runtime-retain-desktop:1.12.1
+  URL: https://developer.android.com/jetpack/androidx/releases/compose-runtime#1.12.1
+  License(s): Apache License, Version 2.0
+
+* androidx.compose.runtime:runtime-retain:1.12.1
+  URL: https://developer.android.com/jetpack/androidx/releases/compose-runtime#1.12.1
+  License(s): Apache License, Version 2.0
+
+* androidx.compose.runtime:runtime-saveable-desktop:1.12.1
+  URL: https://developer.android.com/jetpack/androidx/releases/compose-runtime#1.12.1
+  License(s): Apache License, Version 2.0
+
+* androidx.compose.runtime:runtime-saveable:1.12.1
+  URL: https://developer.android.com/jetpack/androidx/releases/compose-runtime#1.12.1
+  License(s): Apache License, Version 2.0
+
+* androidx.compose.runtime:runtime:1.12.1
+  URL: https://developer.android.com/jetpack/androidx/releases/compose-runtime#1.12.1
+  License(s): Apache License, Version 2.0
+
+* androidx.graphics:graphics-shapes-desktop:1.1.0
+  URL: https://developer.android.com/jetpack/androidx/releases/graphics#1.1.0
+  License(s): Apache License, Version 2.0
+
+* androidx.graphics:graphics-shapes:1.1.0
+  URL: https://developer.android.com/jetpack/androidx/releases/graphics#1.1.0
+  License(s): Apache License, Version 2.0
+
+* androidx.lifecycle:lifecycle-common-jvm:2.11.0
+  URL: https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0
+  License(s): Apache License, Version 2.0
+
+* androidx.lifecycle:lifecycle-common:2.11.0
+  URL: https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0
+  License(s): Apache License, Version 2.0
+
+* androidx.lifecycle:lifecycle-runtime-compose-desktop:2.11.0
+  URL: https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0
+  License(s): Apache License, Version 2.0
+
+* androidx.lifecycle:lifecycle-runtime-compose:2.11.0
+  URL: https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0
+  License(s): Apache License, Version 2.0
+
+* androidx.lifecycle:lifecycle-runtime-desktop:2.11.0
+  URL: https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0
+  License(s): Apache License, Version 2.0
+
+* androidx.lifecycle:lifecycle-runtime:2.11.0
+  URL: https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0
+  License(s): Apache License, Version 2.0
+
+* androidx.lifecycle:lifecycle-viewmodel-compose-desktop:2.11.0
+  URL: https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0
+  License(s): Apache License, Version 2.0
+
+* androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0
+  URL: https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0
+  License(s): Apache License, Version 2.0
+
+* androidx.lifecycle:lifecycle-viewmodel-desktop:2.11.0
+  URL: https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0
+  License(s): Apache License, Version 2.0
+
+* androidx.lifecycle:lifecycle-viewmodel-savedstate-desktop:2.11.0
+  URL: https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0
+  License(s): Apache License, Version 2.0
+
+* androidx.lifecycle:lifecycle-viewmodel-savedstate:2.11.0
+  URL: https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0
+  License(s): Apache License, Version 2.0
+
+* androidx.lifecycle:lifecycle-viewmodel:2.11.0
+  URL: https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0
+  License(s): Apache License, Version 2.0
+
+* androidx.navigationevent:navigationevent-compose-desktop:1.1.1
+  URL: https://developer.android.com/jetpack/androidx/releases/navigationevent#1.1.1
+  License(s): Apache License, Version 2.0
+
+* androidx.navigationevent:navigationevent-compose:1.1.1
+  URL: https://developer.android.com/jetpack/androidx/releases/navigationevent#1.1.1
+  License(s): Apache License, Version 2.0
+
+* androidx.navigationevent:navigationevent-desktop:1.1.1
+  URL: https://developer.android.com/jetpack/androidx/releases/navigationevent#1.1.1
+  License(s): Apache License, Version 2.0
+
+* androidx.navigationevent:navigationevent:1.1.1
+  URL: https://developer.android.com/jetpack/androidx/releases/navigationevent#1.1.1
+  License(s): Apache License, Version 2.0
+
+* androidx.savedstate:savedstate-compose-desktop:1.4.0
+  URL: https://developer.android.com/jetpack/androidx/releases/savedstate#1.4.0
+  License(s): Apache License, Version 2.0
+
+* androidx.savedstate:savedstate-compose:1.4.0
+  URL: https://developer.android.com/jetpack/androidx/releases/savedstate#1.4.0
+  License(s): Apache License, Version 2.0
+
+* androidx.savedstate:savedstate-desktop:1.4.0
+  URL: https://developer.android.com/jetpack/androidx/releases/savedstate#1.4.0
+  License(s): Apache License, Version 2.0
+
+* androidx.savedstate:savedstate:1.4.0
+  URL: https://developer.android.com/jetpack/androidx/releases/savedstate#1.4.0
+  License(s): Apache License, Version 2.0
+
+* app.cash.sqldelight:jdbc-driver:2.4.1
+  URL: https://github.com/sqldelight/sqldelight/
+  License(s): Apache License, Version 2.0
+
+* app.cash.sqldelight:runtime-jvm:2.4.1
+  URL: https://github.com/sqldelight/sqldelight/
+  License(s): Apache License, Version 2.0
+
+* app.cash.sqldelight:runtime:2.4.1
+  URL: https://github.com/sqldelight/sqldelight/
+  License(s): Apache License, Version 2.0
+
+* app.cash.sqldelight:sqlite-driver:2.4.1
+  URL: https://github.com/sqldelight/sqldelight/
+  License(s): Apache License, Version 2.0
+
+* co.touchlab:kermit-core-jvm:2.2.0
+  URL: https://github.com/touchlab/Kermit
+  License(s): Apache License, Version 2.0
+
+* co.touchlab:kermit-core:2.2.0
+  URL: https://github.com/touchlab/Kermit
+  License(s): Apache License, Version 2.0
+
+* co.touchlab:kermit-io-jvm:2.2.0
+  URL: https://github.com/touchlab/Kermit
+  License(s): Apache License, Version 2.0
+
+* co.touchlab:kermit-io:2.2.0
+  URL: https://github.com/touchlab/Kermit
+  License(s): Apache License, Version 2.0
+
+* co.touchlab:kermit-jvm:2.2.0
+  URL: https://github.com/touchlab/Kermit
+  License(s): Apache License, Version 2.0
+
+* co.touchlab:kermit:2.2.0
+  URL: https://github.com/touchlab/Kermit
+  License(s): Apache License, Version 2.0
+
+* co.touchlab:stately-common-jvm:2.1.0
+  URL: https://github.com/touchlab/Stately
+  License(s): Apache License, Version 2.0
+
+* co.touchlab:stately-common:2.1.0
+  URL: https://github.com/touchlab/Stately
+  License(s): Apache License, Version 2.0
+
+* co.touchlab:stately-concurrency-jvm:2.1.0
+  URL: https://github.com/touchlab/Stately
+  License(s): Apache License, Version 2.0
+
+* co.touchlab:stately-concurrency:2.1.0
+  URL: https://github.com/touchlab/Stately
+  License(s): Apache License, Version 2.0
+
+* co.touchlab:stately-concurrent-collections-jvm:2.1.0
+  URL: https://github.com/touchlab/Stately
+  License(s): Apache License, Version 2.0
+
+* co.touchlab:stately-concurrent-collections:2.1.0
+  URL: https://github.com/touchlab/Stately
+  License(s): Apache License, Version 2.0
+
+* co.touchlab:stately-iso-collections-jvm:2.1.0
+  URL: https://github.com/touchlab/Stately
+  License(s): Apache License, Version 2.0
+
+* co.touchlab:stately-iso-collections:2.1.0
+  URL: https://github.com/touchlab/Stately
+  License(s): Apache License, Version 2.0
+
+* co.touchlab:stately-isolate-jvm:2.1.0
+  URL: https://github.com/touchlab/Stately
+  License(s): Apache License, Version 2.0
+
+* co.touchlab:stately-isolate:2.1.0
+  URL: https://github.com/touchlab/Stately
+  License(s): Apache License, Version 2.0
+
+* co.touchlab:stately-strict-jvm:2.1.0
+  URL: https://github.com/touchlab/Stately
+  License(s): Apache License, Version 2.0
+
+* co.touchlab:stately-strict:2.1.0
+  URL: https://github.com/touchlab/Stately
+  License(s): Apache License, Version 2.0
+
+* com.aayushatharva.brotli4j:brotli4j:1.23.0
+  License(s): Apache License, Version 2.0
+
+* com.aayushatharva.brotli4j:service:1.23.0
+  License(s): Apache License, Version 2.0
+
+* com.fasterxml.jackson.core:jackson-annotations:2.22
+  URL: https://github.com/FasterXML/jackson
+  License(s): Apache License, Version 2.0
+
+* com.fasterxml.jackson.core:jackson-core:2.22.1
+  URL: https://github.com/FasterXML/jackson-core
+  License(s): Apache License, Version 2.0
+
+* com.fasterxml.jackson.core:jackson-databind:2.22.1
+  URL: https://github.com/FasterXML/jackson
+  License(s): Apache License, Version 2.0
+
+* com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.22.1
+  URL: https://github.com/FasterXML/jackson-dataformats-text
+  License(s): Apache License, Version 2.0
+
+* com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.22.1
+  URL: https://github.com/FasterXML/jackson-modules-java8/jackson-datatype-jsr310
+  License(s): Apache License, Version 2.0
+
+* com.fasterxml.jackson.module:jackson-module-kotlin:2.22.1
+  URL: https://github.com/FasterXML/jackson-module-kotlin
+  License(s): Apache License, Version 2.0
+
+* com.fasterxml.jackson:jackson-bom:2.22.1
+  URL: https://github.com/FasterXML/jackson-bom
+  License(s): Apache License, Version 2.0
+
+* com.github.ajalt.colormath:colormath-jvm:3.6.1
+  URL: https://github.com/ajalt/colormath/
+  License(s): MIT License
+
+* com.github.ajalt.colormath:colormath:3.6.1
+  URL: https://github.com/ajalt/colormath/
+  License(s): MIT License
+
+* com.github.docker-java:docker-java-api:3.5.3
+  URL: https://github.com/docker-java/docker-java
+  License(s): Apache License, Version 2.0
+
+* com.github.docker-java:docker-java-core:3.5.3
+  URL: https://github.com/docker-java/docker-java
+  License(s): Apache License, Version 2.0
+
+* com.github.docker-java:docker-java-transport-httpclient5:3.5.3
+  URL: https://github.com/docker-java/docker-java
+  License(s): Apache License, Version 2.0
+
+* com.github.docker-java:docker-java-transport:3.5.3
+  URL: https://github.com/docker-java/docker-java
+  License(s): Apache License, Version 2.0
+
+* com.github.docker-java:docker-java:3.5.3
+  URL: https://github.com/docker-java/docker-java
+  License(s): Apache License, Version 2.0
+
+* com.github.hypfvieh:dbus-java-core:5.2.0
+  License(s): MIT License
+
+* com.github.hypfvieh:dbus-java-transport-native-unixsocket:5.2.0
+  License(s): MIT License
+
+* com.github.librepdf:openpdf:3.0.5
+  License(s): GNU LESSER GENERAL PUBLIC LICENSE, Version 2.1 OR Mozilla Public License, Version 2.0
+
+* com.github.virtuald:curvesapi:1.08
+  URL: https://github.com/virtuald/curvesapi
+  License(s): BSD Zero Clause License OR The 3-Clause BSD License
+
+* com.google.errorprone:error_prone_annotations:2.36.0
+  URL: https://errorprone.info/error_prone_annotations
+  License(s): Apache License, Version 2.0
+
+* com.google.guava:failureaccess:1.0.3
+  URL: https://github.com/google/guava/
+  License(s): Apache License, Version 2.0
+
+* com.google.guava:guava:33.4.8-jre
+  URL: https://github.com/google/guava, https://github.com/google/guava/
+  License(s): Apache License, Version 2.0
+
+* com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava
+  License(s): Apache License, Version 2.0
+
+* com.google.j2objc:j2objc-annotations:3.0.0
+  URL: https://github.com/google/j2objc/
+  License(s): Apache License, Version 2.0
+
+* com.googlecode.soundlibs:jlayer:1.0.1.4
+  License(s): LGPL 2.1 license
+
+* com.googlecode.soundlibs:mp3spi:1.9.5.4
+  License(s): LGPL 2.1 license
+
+* com.googlecode.soundlibs:tritonus-share:0.3.7.4
+  License(s): LGPL 2.1 license
+
+* com.healthmarketscience.jackcess:jackcess-encrypt:5.0.0
+  URL: http://jackcessencrypt.sf.net, https://openhms.sourceforge.io/
+  License(s): Apache License, Version 2.0
+
+* com.healthmarketscience.jackcess:jackcess:5.0.0
+  URL: https://jackcess.sourceforge.io, https://openhms.sourceforge.io/
+  License(s): Apache License, Version 2.0
+
+* com.knuddels:jtokkit:1.1.0
+  URL: https://github.com/knuddelsgmbh/jtokkit
+  License(s): MIT License
+
+* com.materialkolor:material-color-utilities-jvm:5.0.1
+  URL: https://github.com/jordond/materialkolor
+  License(s): MIT License
+
+* com.materialkolor:material-color-utilities:5.0.1
+  URL: https://github.com/jordond/materialkolor
+  License(s): MIT License
+
+* com.materialkolor:material-kolor-jvm:5.0.1
+  URL: https://github.com/jordond/materialkolor
+  License(s): MIT License
+
+* com.materialkolor:material-kolor:5.0.1
+  URL: https://github.com/jordond/materialkolor
+  License(s): MIT License
+
+* com.pff:java-libpst:0.9.3
+  URL: https://github.com/rjohnsondev/java-libpst
+  License(s): Apache License, Version 2.0
+
+* com.squareup.okhttp3:okhttp:4.12.0
+  URL: https://square.github.io/okhttp/
+  License(s): Apache License, Version 2.0
+
+* com.squareup.okio:okio-jvm:3.18.1
+  URL: https://github.com/lysine-dev/okio/
+  License(s): Apache License, Version 2.0
+
+* com.squareup.okio:okio:3.18.1
+  URL: https://github.com/lysine-dev/okio/
+  License(s): Apache License, Version 2.0
+
+* com.zaxxer:SparseBitSet:1.3
+  URL: https://github.com/brettwooldridge/SparseBitSet
+  License(s): Apache License, Version 2.0
+
+* commons-codec:commons-codec:1.22.1
+  URL: https://commons.apache.org/proper/commons-codec/
+  License(s): Apache License, Version 2.0
+
+* commons-io:commons-io:2.22.0
+  URL: https://commons.apache.org/proper/commons-io/
+  License(s): Apache License, Version 2.0
+
+* commons-logging:commons-logging:1.4.0
+  URL: https://commons.apache.org/proper/commons-logging/
+  License(s): Apache License, Version 2.0
+
+* dev.drewhamilton.poko:poko-annotations-jvm:0.23.1
+  URL: https://github.com/drewhamilton/Poko
+  License(s): Apache License, Version 2.0
+
+* dev.drewhamilton.poko:poko-annotations:0.23.1
+  URL: https://github.com/drewhamilton/Poko
+  License(s): Apache License, Version 2.0
+
+* dev.langchain4j:langchain4j-agentic:1.22.0-beta32
+  URL: https://github.com/langchain4j/langchain4j/tree/main/langchain4j-agentic
+  License(s): Apache License, Version 2.0
+
+* dev.langchain4j:langchain4j-anthropic:1.22.0
+  URL: https://github.com/langchain4j/langchain4j/tree/main/langchain4j-anthropic
+  License(s): Apache License, Version 2.0
+
+* dev.langchain4j:langchain4j-community-jvector:1.21.0-beta31
+  URL: https://github.com/langchain4j/langchain4j-community/embedding-stores/langchain4j-community-jvector
+  License(s): Apache License, Version 2.0
+
+* dev.langchain4j:langchain4j-core:1.22.0
+  URL: https://github.com/langchain4j/langchain4j/tree/main/langchain4j-core
+  License(s): Apache License, Version 2.0
+
+* dev.langchain4j:langchain4j-google-ai-gemini:1.22.0
+  URL: https://github.com/langchain4j/langchain4j/tree/main/langchain4j-google-ai-gemini
+  License(s): Apache License, Version 2.0
+
+* dev.langchain4j:langchain4j-http-client-jdk:1.22.0
+  URL: https://github.com/langchain4j/langchain4j/tree/main/langchain4j-http-client-jdk
+  License(s): Apache License, Version 2.0
+
+* dev.langchain4j:langchain4j-http-client:1.22.0
+  URL: https://github.com/langchain4j/langchain4j/tree/main/langchain4j-http-client
+  License(s): Apache License, Version 2.0
+
+* dev.langchain4j:langchain4j-mcp-docker:1.22.0-beta32
+  URL: https://github.com/langchain4j/langchain4j/tree/main/langchain4j-mcp-docker
+  License(s): Apache License, Version 2.0
+
+* dev.langchain4j:langchain4j-mcp:1.22.0-beta32
+  URL: https://github.com/langchain4j/langchain4j/tree/main/langchain4j-mcp
+  License(s): Apache License, Version 2.0
+
+* dev.langchain4j:langchain4j-open-ai:1.22.0
+  URL: https://github.com/langchain4j/langchain4j/tree/main/langchain4j-open-ai
+  License(s): Apache License, Version 2.0
+
+* dev.langchain4j:langchain4j-reactive-streaming:1.22.0-beta32
+  URL: https://github.com/langchain4j/langchain4j/tree/main/langchain4j-reactive-streaming
+  License(s): Apache License, Version 2.0
+
+* dev.langchain4j:langchain4j:1.22.0
+  URL: https://github.com/langchain4j/langchain4j/tree/main/langchain4j
+  License(s): Apache License, Version 2.0
+
+* info.picocli:picocli:4.7.7
+  URL: https://picocli.info
+  License(s): Apache License, Version 2.0
+
+* io.coil-kt.coil3:coil-compose-core-jvm:3.6.3
+  URL: https://github.com/coil-kt/coil
+  License(s): Apache License, Version 2.0
+
+* io.coil-kt.coil3:coil-compose-core:3.6.3
+  URL: https://github.com/coil-kt/coil
+  License(s): Apache License, Version 2.0
+
+* io.coil-kt.coil3:coil-compose-jvm:3.6.3
+  URL: https://github.com/coil-kt/coil
+  License(s): Apache License, Version 2.0
+
+* io.coil-kt.coil3:coil-compose:3.6.3
+  URL: https://github.com/coil-kt/coil
+  License(s): Apache License, Version 2.0
+
+* io.coil-kt.coil3:coil-core-jvm:3.6.3
+  URL: https://github.com/coil-kt/coil
+  License(s): Apache License, Version 2.0
+
+* io.coil-kt.coil3:coil-core:3.6.3
+  URL: https://github.com/coil-kt/coil
+  License(s): Apache License, Version 2.0
+
+* io.coil-kt.coil3:coil-jvm:3.6.3
+  URL: https://github.com/coil-kt/coil
+  License(s): Apache License, Version 2.0
+
+* io.coil-kt.coil3:coil-network-core-jvm:3.6.3
+  URL: https://github.com/coil-kt/coil
+  License(s): Apache License, Version 2.0
+
+* io.coil-kt.coil3:coil-network-core:3.6.3
+  URL: https://github.com/coil-kt/coil
+  License(s): Apache License, Version 2.0
+
+* io.coil-kt.coil3:coil-network-okhttp-jvm:3.6.3
+  URL: https://github.com/coil-kt/coil
+  License(s): Apache License, Version 2.0
+
+* io.coil-kt.coil3:coil-network-okhttp:3.6.3
+  URL: https://github.com/coil-kt/coil
+  License(s): Apache License, Version 2.0
+
+* io.coil-kt.coil3:coil:3.6.3
+  URL: https://github.com/coil-kt/coil
+  License(s): Apache License, Version 2.0
+
+* io.github.jbellis:jvector:4.0.1
+  URL: https://github.com/jbellis/jvector
+  License(s): Apache License, Version 2.0
+
+* io.github.reactivecircus.cache4k:cache4k-jvm:0.14.0
+  URL: https://github.com/reactivecircus/cache4k
+  License(s): Apache License, Version 2.0
+
+* io.github.reactivecircus.cache4k:cache4k:0.14.0
+  URL: https://github.com/reactivecircus/cache4k
+  License(s): Apache License, Version 2.0
+
+* io.github.vinceglb:filekit-core-jvm:0.16.0
+  URL: https://github.com/vinceglb/FileKit
+  License(s): MIT License
+
+* io.github.vinceglb:filekit-core:0.16.0
+  URL: https://github.com/vinceglb/FileKit
+  License(s): MIT License
+
+* io.github.vinceglb:filekit-dialogs-compose-jvm:0.16.0
+  URL: https://github.com/vinceglb/FileKit
+  License(s): MIT License
+
+* io.github.vinceglb:filekit-dialogs-compose:0.16.0
+  URL: https://github.com/vinceglb/FileKit
+  License(s): MIT License
+
+* io.github.vinceglb:filekit-dialogs-jvm:0.16.0
+  URL: https://github.com/vinceglb/FileKit
+  License(s): MIT License
+
+* io.github.vinceglb:filekit-dialogs:0.16.0
+  URL: https://github.com/vinceglb/FileKit
+  License(s): MIT License
+
+* io.insert-koin:koin-core-jvm:4.2.2
+  URL: https://insert-koin.io/
+  License(s): Apache License, Version 2.0
+
+* io.insert-koin:koin-core:4.2.2
+  URL: https://insert-koin.io/
+  License(s): Apache License, Version 2.0
+
+* io.konform:konform-jvm:0.11.1
+  URL: https://github.com/konform-kt/konform
+  License(s): MIT License
+
+* io.konform:konform:0.11.1
+  URL: https://github.com/konform-kt/konform
+  License(s): MIT License
+
+* io.smallrye.reactive:mutiny-zero:1.3.1
+  License(s): Apache License, Version 2.0
+
+* net.java.dev.jna:jna-platform:5.19.1
+  URL: https://github.com/java-native-access/jna
+  License(s): Apache License, Version 2.0 OR GNU LESSER GENERAL PUBLIC LICENSE, Version 2.1
+
+* net.java.dev.jna:jna:5.17.0
+  URL: https://github.com/java-native-access/jna
+  License(s): Apache License, Version 2.0 OR GNU LESSER GENERAL PUBLIC LICENSE, Version 2.1
+
+* net.java.dev.jna:jna:5.19.1
+  URL: https://github.com/java-native-access/jna
+  License(s): Apache License, Version 2.0 OR GNU LESSER GENERAL PUBLIC LICENSE, Version 2.1
+
+* org.agrona:agrona:1.20.0
+  URL: https://github.com/real-logic/agrona
+  License(s): Apache License, Version 2.0
+
+* org.apache.commons:commons-collections4:4.5.0
+  URL: https://commons.apache.org/proper/commons-collections/
+  License(s): Apache License, Version 2.0
+
+* org.apache.commons:commons-compress:1.28.0
+  URL: https://commons.apache.org/proper/commons-compress/
+  License(s): Apache License, Version 2.0
+
+* org.apache.commons:commons-csv:1.14.1
+  URL: https://commons.apache.org/proper/commons-csv/
+  License(s): Apache License, Version 2.0
+
+* org.apache.commons:commons-lang3:3.20.0
+  URL: https://commons.apache.org/proper/commons-lang/
+  License(s): Apache License, Version 2.0
+
+* org.apache.commons:commons-math3:3.6.1
+  URL: http://commons.apache.org/proper/commons-math/
+  License(s): Apache License, Version 2.0
+
+* org.apache.httpcomponents.client5:httpclient5:5.5
+  License(s): Apache License, Version 2.0
+
+* org.apache.httpcomponents.core5:httpcore5-h2:5.3.4
+  License(s): Apache License, Version 2.0
+
+* org.apache.httpcomponents.core5:httpcore5:5.3.4
+  License(s): Apache License, Version 2.0
+
+* org.apache.james:apache-mime4j-core:0.8.15
+  URL: https://www.apache.org/
+  License(s): Apache License, Version 2.0
+
+* org.apache.james:apache-mime4j-dom:0.8.15
+  URL: https://www.apache.org/
+  License(s): Apache License, Version 2.0
+
+* org.apache.logging.log4j:log4j-api:2.24.3
+  License(s): Apache License, Version 2.0
+
+* org.apache.lucene:lucene-backward-codecs:10.5.2
+  URL: https://lucene.apache.org/
+  License(s): Apache License, Version 2.0
+
+* org.apache.lucene:lucene-core:10.5.2
+  URL: https://lucene.apache.org/
+  License(s): Apache License, Version 2.0
+
+* org.apache.lucene:lucene-facet:10.5.2
+  URL: https://lucene.apache.org/
+  License(s): Apache License, Version 2.0
+
+* org.apache.lucene:lucene-queries:10.5.2
+  URL: https://lucene.apache.org/
+  License(s): Apache License, Version 2.0
+
+* org.apache.lucene:lucene-queryparser:10.5.2
+  URL: https://lucene.apache.org/
+  License(s): Apache License, Version 2.0
+
+* org.apache.lucene:lucene-sandbox:10.5.2
+  URL: https://lucene.apache.org/
+  License(s): Apache License, Version 2.0
+
+* org.apache.opennlp:opennlp-tools:2.5.11
+  License(s): Apache License, Version 2.0
+
+* org.apache.pdfbox:fontbox:3.0.8
+  URL: http://pdfbox.apache.org/, https://pdfbox.apache.org
+  License(s): Apache License, Version 2.0
+
+* org.apache.pdfbox:pdfbox-io:3.0.8
+  URL: https://pdfbox.apache.org
+  License(s): Apache License, Version 2.0
+
+* org.apache.pdfbox:pdfbox-tools:3.0.8
+  License(s): Apache License, Version 2.0
+
+* org.apache.pdfbox:pdfbox:3.0.8
+  URL: https://pdfbox.apache.org
+  License(s): Apache License, Version 2.0 OR PUBLIC DOMAIN
+
+* org.apache.poi:poi-ooxml-lite:5.5.1
+  URL: https://poi.apache.org/
+  License(s): Apache License, Version 2.0
+
+* org.apache.poi:poi-ooxml:5.5.1
+  URL: https://poi.apache.org/
+  License(s): Apache License, Version 2.0
+
+* org.apache.poi:poi-scratchpad:5.5.1
+  URL: https://poi.apache.org/
+  License(s): Apache License, Version 2.0
+
+* org.apache.poi:poi:5.5.1
+  URL: https://poi.apache.org/
+  License(s): Apache License, Version 2.0
+
+* org.apache.tika:tika-core:4.1.0
+  URL: https://tika.apache.org/
+  License(s): Apache License, Version 2.0
+
+* org.apache.tika:tika-encoding-detector-mojibuster:4.1.0
+  License(s): Apache License, Version 2.0
+
+* org.apache.tika:tika-ml-core:4.1.0
+  License(s): Apache License, Version 2.0
+
+* org.apache.tika:tika-parser-datauri-commons:4.1.0
+  URL: https://tika.apache.org/tika-parser-datauri-commons/
+  License(s): Apache License, Version 2.0
+
+* org.apache.tika:tika-parser-html-module:4.1.0
+  URL: https://tika.apache.org/tika-parser-html-module/
+  License(s): Apache License, Version 2.0
+
+* org.apache.tika:tika-parser-mail-commons:4.1.0
+  URL: https://tika.apache.org/tika-parser-mail-commons/
+  License(s): Apache License, Version 2.0
+
+* org.apache.tika:tika-parser-microsoft-module:4.1.0
+  URL: https://tika.apache.org/tika-parser-microsoft-module/
+  License(s): Apache License, Version 2.0
+
+* org.apache.tika:tika-parser-pdf-module:4.1.0
+  URL: https://tika.apache.org/tika-parser-pdf-module/
+  License(s): Apache License, Version 2.0
+
+* org.apache.tika:tika-parser-text-module:4.1.0
+  URL: https://tika.apache.org/tika-parser-text-module/
+  License(s): Apache License, Version 2.0
+
+* org.apache.tika:tika-parser-xml-module:4.1.0
+  URL: https://tika.apache.org/tika-parser-xml-module/
+  License(s): Apache License, Version 2.0
+
+* org.apache.tika:tika-parser-xmp-commons:4.1.0
+  URL: https://tika.apache.org/tika-parser-xmp-commons/
+  License(s): Apache License, Version 2.0
+
+* org.apache.tika:tika-parser-zip-commons:4.1.0
+  URL: https://tika.apache.org/tika-parser-zip-commons/
+  License(s): Apache License, Version 2.0
+
+* org.apache.xmlbeans:xmlbeans:5.3.0
+  URL: https://xmlbeans.apache.org/
+  License(s): Apache License, Version 2.0
+
+* org.bouncycastle:bcjmail-jdk18on:1.86
+  URL: https://www.bouncycastle.org/download/bouncy-castle-java/
+  License(s): MIT License
+
+* org.bouncycastle:bcpkix-jdk18on:1.86
+  URL: https://www.bouncycastle.org/download/bouncy-castle-java/
+  License(s): MIT License
+
+* org.bouncycastle:bcprov-jdk18on:1.86
+  URL: https://www.bouncycastle.org/download/bouncy-castle-java/
+  License(s): MIT License
+
+* org.bouncycastle:bcutil-jdk18on:1.86
+  URL: https://www.bouncycastle.org/download/bouncy-castle-java/
+  License(s): MIT License
+
+* org.commonmark:commonmark-ext-autolink:0.30.1
+  License(s): The 2-Clause BSD License
+
+* org.commonmark:commonmark-ext-gfm-strikethrough:0.30.0
+  License(s): The 2-Clause BSD License
+
+* org.commonmark:commonmark-ext-gfm-tables:0.30.1
+  License(s): The 2-Clause BSD License
+
+* org.commonmark:commonmark:0.30.1
+  License(s): The 2-Clause BSD License
+
+* org.fusesource.jansi:jansi:2.4.2
+  URL: http://fusesource.com/, http://fusesource.github.io/jansi
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.androidx.lifecycle:lifecycle-common:2.9.6
+  URL: https://github.com/JetBrains/compose-jb
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose-desktop:2.9.6
+  URL: https://github.com/JetBrains/compose-jb
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose:2.9.6
+  URL: https://github.com/JetBrains/compose-jb
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.androidx.lifecycle:lifecycle-runtime:2.9.6
+  URL: https://github.com/JetBrains/compose-jb
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.androidx.navigationevent:navigationevent-compose-desktop:1.1.0
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.androidx.navigationevent:navigationevent-compose:1.1.0
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.androidx.savedstate:savedstate-compose-desktop:1.3.6
+  URL: https://github.com/JetBrains/compose-jb
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.androidx.savedstate:savedstate-compose:1.3.6
+  URL: https://github.com/JetBrains/compose-jb
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.androidx.savedstate:savedstate:1.3.6
+  URL: https://github.com/JetBrains/compose-jb
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.animation:animation-core-desktop:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.animation:animation-core:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.animation:animation-desktop:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.animation:animation:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.desktop:desktop-jvm-macos-arm64:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.desktop:desktop-jvm:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.desktop:desktop:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.foundation:foundation-desktop:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.foundation:foundation-layout-desktop:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.foundation:foundation-layout:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.foundation:foundation:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.material3:material3-desktop:1.12.0-alpha03
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.material3:material3:1.12.0-alpha03
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.material:material-desktop:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.material:material-icons-core-desktop:1.7.3
+  URL: https://github.com/JetBrains/compose-jb
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.material:material-icons-core:1.7.3
+  URL: https://github.com/JetBrains/compose-jb
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.material:material-icons-extended-desktop:1.7.3
+  URL: https://github.com/JetBrains/compose-jb
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.material:material-icons-extended:1.7.3
+  URL: https://github.com/JetBrains/compose-jb
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.material:material-ripple-desktop:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.material:material-ripple:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.material:material:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.runtime:runtime-desktop:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.runtime:runtime-saveable-desktop:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.runtime:runtime-saveable:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.runtime:runtime:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.ui:ui-backhandler-desktop:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.ui:ui-backhandler:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.ui:ui-desktop:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.ui:ui-geometry-desktop:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.ui:ui-geometry:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.ui:ui-graphics-desktop:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.ui:ui-graphics:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.ui:ui-text-desktop:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.ui:ui-text:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.ui:ui-tooling-preview-desktop:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.ui:ui-tooling-preview:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.ui:ui-unit-desktop:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.ui:ui-unit:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.ui:ui-util-desktop:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.ui:ui-util:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.compose.ui:ui:1.12.1
+  URL: https://github.com/JetBrains/compose-multiplatform
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.jediterm:jediterm-core:3.73
+  URL: https://github.com/JetBrains/jediterm
+  License(s): GNU LESSER GENERAL PUBLIC LICENSE, Version 3
+
+* org.jetbrains.jediterm:jediterm-ui:3.73
+  URL: https://github.com/JetBrains/jediterm
+  License(s): GNU LESSER GENERAL PUBLIC LICENSE, Version 3
+
+* org.jetbrains.kotlin:kotlin-reflect:2.1.21
+  URL: https://kotlinlang.org/
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlin:kotlin-stdlib-common:2.4.21
+  URL: https://kotlinlang.org/
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.21
+  URL: https://kotlinlang.org/
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.21
+  URL: https://kotlinlang.org/
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlin:kotlin-stdlib:2.4.21
+  URL: https://kotlinlang.org/
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlinx:atomicfu-jvm:0.27.0
+  URL: https://github.com/Kotlin/kotlinx.atomicfu
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlinx:atomicfu-jvm:0.28.0
+  URL: https://github.com/Kotlin/kotlinx.atomicfu
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlinx:atomicfu:0.27.0
+  URL: https://github.com/Kotlin/kotlinx.atomicfu
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlinx:atomicfu:0.28.0
+  URL: https://github.com/Kotlin/kotlinx.atomicfu
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlinx:kotlinx-coroutines-bom:1.11.0
+  URL: https://github.com/Kotlin/kotlinx.coroutines
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.11.0
+  URL: https://github.com/Kotlin/kotlinx.coroutines
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0
+  URL: https://github.com/Kotlin/kotlinx.coroutines
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlinx:kotlinx-datetime-jvm:0.8.0
+  URL: https://github.com/Kotlin/kotlinx-datetime
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlinx:kotlinx-datetime:0.8.0
+  URL: https://github.com/Kotlin/kotlinx-datetime
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlinx:kotlinx-io-bytestring-jvm:0.9.1
+  URL: https://github.com/Kotlin/kotlinx-io
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlinx:kotlinx-io-bytestring:0.9.1
+  URL: https://github.com/Kotlin/kotlinx-io
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlinx:kotlinx-io-core-jvm:0.9.1
+  URL: https://github.com/Kotlin/kotlinx-io
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlinx:kotlinx-io-core:0.9.1
+  URL: https://github.com/Kotlin/kotlinx-io
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlinx:kotlinx-serialization-bom:1.11.0
+  URL: https://github.com/Kotlin/kotlinx.serialization
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.11.0
+  URL: https://github.com/Kotlin/kotlinx.serialization
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlinx:kotlinx-serialization-core:1.11.0
+  URL: https://github.com/Kotlin/kotlinx.serialization
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0
+  URL: https://github.com/Kotlin/kotlinx.serialization
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0
+  URL: https://github.com/Kotlin/kotlinx.serialization
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.pty4j:pty4j:0.14.0
+  URL: https://github.com/JetBrains/pty4j
+  License(s): Eclipse Public License 1.0
+
+* org.jetbrains.runtime:jbr-api:1.9.0
+  URL: https://github.com/JetBrains/JetBrainsRuntimeApi
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.skiko:skiko-awt-runtime-macos-arm64:0.150.1
+  URL: https://www.github.com/JetBrains/skiko
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.skiko:skiko-awt:0.150.1
+  URL: https://www.github.com/JetBrains/skiko
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.skiko:skiko:0.150.1
+  URL: https://www.github.com/JetBrains/skiko
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains:annotations:13.0
+  URL: http://www.jetbrains.org
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains:annotations:23.0.0
+  URL: https://github.com/JetBrains/java-annotations
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains:annotations:26.1.0
+  URL: https://github.com/JetBrains/java-annotations
+  License(s): Apache License, Version 2.0
+
+* org.jline:jline-native:3.30.6
+  URL: https://github.com/jline/jline3/jline-native
+  License(s): The 3-Clause BSD License
+
+* org.jline:jline-terminal-jansi:3.30.6
+  URL: https://github.com/jline/jline3/jline-terminal-jansi
+  License(s): The 3-Clause BSD License
+
+* org.jline:jline-terminal:3.30.6
+  URL: https://github.com/jline/jline3/jline-terminal
+  License(s): The 3-Clause BSD License
+
+* org.jline:jline:3.30.6
+  URL: https://github.com/jline/jline3/jline
+  License(s): The 3-Clause BSD License
+
+* org.jsoup:jsoup:1.23.2
+  URL: https://jsoup.org/
+  License(s): MIT License
+
+* org.jspecify:jspecify:1.0.1
+  URL: https://jspecify.dev/, https://jspecify.dev/docs/start-here
+  License(s): Apache License, Version 2.0
+
+* org.nibor.autolink:autolink:0.12.0
+  URL: https://github.com/robinst/autolink-java
+  License(s): MIT License
+
+* org.slf4j:jcl-over-slf4j:1.7.30
+  URL: http://www.slf4j.org
+  License(s): Apache License, Version 2.0 OR MIT License
+
+* org.slf4j:slf4j-api:2.0.20
+  URL: http://www.slf4j.org
+  License(s): MIT License
+
+* org.xerial:sqlite-jdbc:3.53.4.0
+  URL: https://github.com/xerial/sqlite-jdbc
+  License(s): Apache License, Version 2.0
+
+* org.yaml:snakeyaml:2.5
+  URL: https://bitbucket.org/snakeyaml/snakeyaml
+  License(s): Apache License, Version 2.0
+
