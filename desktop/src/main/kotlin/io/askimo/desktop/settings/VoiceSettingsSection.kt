@@ -40,10 +40,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,6 +56,8 @@ import androidx.compose.ui.unit.dp
 import io.askimo.core.config.AppConfig
 import io.askimo.core.config.VoiceConfig
 import io.askimo.core.config.VoiceProvider
+import io.askimo.core.event.EventBus
+import io.askimo.core.event.internal.WhisperModelDownloadFileReadyEvent
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.providers.HasApiKey
 import io.askimo.core.providers.ModelProvider
@@ -70,10 +72,10 @@ import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.clickableCard
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.voice.impl.whispercpp.WhisperModelCatalog
+import io.askimo.ui.voice.impl.whispercpp.WhisperModelDownloadManager
 import io.askimo.ui.voice.impl.whispercpp.WhisperModelDownloader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -805,25 +807,49 @@ private fun endpointField(
  * explicit-in-Settings decision: the provider shouldn't silently kick off a multi-GB download
  * the first time a user tries to use voice input.
  *
+ * The actual download is delegated to [WhisperModelDownloadManager], which runs in an app-scoped
+ * coroutine (not tied to this composable) — so it keeps running, and its progress keeps being
+ * observable, even if the user navigates away from Settings > Voice and back. Completion/failure
+ * is also posted to [io.askimo.core.event.EventBus] so the notification bell reflects the
+ * outcome regardless of which screen the user is on when it happens.
+ *
  * [modelPath] is the currently persisted [VoiceConfig.localWhisperModelPath]; [onModelPathChange]
  * is called with the downloaded file's absolute path once a download completes (or with "" after
- * a delete), so the caller can persist it via `AppConfig.updateField`.
+ * a delete), so the caller can keep its own cached copy in sync (the path is already persisted to
+ * [AppConfig] directly by [WhisperModelDownloadManager] regardless of this callback).
  */
 @Composable
 private fun whisperModelDownloadSection(
     modelPath: String,
     onModelPathChange: (String) -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
     val currentTier = WhisperModelCatalog.entries.find { WhisperModelDownloader.modelPath(it).toString() == modelPath }
     var selectedTier by remember { mutableStateOf(currentTier ?: WhisperModelCatalog.BALANCED) }
-    var downloading by remember { mutableStateOf(false) }
-    var downloadedBytes by remember { mutableStateOf(0L) }
-    var totalBytes by remember { mutableStateOf(-1L) }
-    var downloadError by remember { mutableStateOf<String?>(null) }
 
-    val isDownloaded = modelPath.isNotBlank() && WhisperModelDownloader.isDownloaded(selectedTier) &&
-        WhisperModelDownloader.modelPath(selectedTier).toString() == modelPath
+    // State lives in WhisperModelDownloadManager (app-scoped), not in this composable — so the
+    // download keeps running (and this screen picks its progress back up) even if the user
+    // navigates away and returns. See WhisperModelDownloadManager's kdoc for details.
+    val downloadState by WhisperModelDownloadManager.state.collectAsState()
+    val downloading = downloadState?.tier == selectedTier && downloadState?.isActive == true
+    val downloadError = downloadState?.takeIf { it.tier == selectedTier }?.error
+    val downloadedBytes = downloadState?.takeIf { it.tier == selectedTier }?.downloadedBytes ?: 0L
+    val totalBytes = downloadState?.takeIf { it.tier == selectedTier }?.totalBytes ?: -1L
+
+    var localModelPath by remember(modelPath) { mutableStateOf(modelPath) }
+    val isDownloaded = localModelPath.isNotBlank() && WhisperModelDownloader.isDownloaded(selectedTier) &&
+        WhisperModelDownloader.modelPath(selectedTier).toString() == localModelPath
+
+    // Picks up a download that completed in the background (while this screen wasn't showing,
+    // or after switching away from selectedTier and back) — updates this screen's cached path
+    // immediately instead of waiting for the next time the Settings screen is recomposed fresh.
+    LaunchedEffect(Unit) {
+        EventBus.internalEvents.collect { event ->
+            if (event is WhisperModelDownloadFileReadyEvent && event.tierName == selectedTier.name) {
+                localModelPath = event.path
+                onModelPathChange(event.path)
+            }
+        }
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
         Text(text = stringResource("settings.voice.whisper_model.title"), style = AppTextStyles.fieldLabel)
@@ -840,7 +866,7 @@ private fun whisperModelDownloadSection(
                         .clickableCard {
                             if (!downloading) {
                                 selectedTier = tier
-                                downloadError = null
+                                WhisperModelDownloadManager.clearError()
                             }
                         },
                     colors = CardDefaults.cardColors(
@@ -900,6 +926,7 @@ private fun whisperModelDownloadSection(
                 OutlinedButton(
                     onClick = {
                         WhisperModelDownloader.delete(selectedTier)
+                        localModelPath = ""
                         onModelPathChange("")
                     },
                     modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
@@ -920,26 +947,10 @@ private fun whisperModelDownloadSection(
                 )
                 Button(
                     onClick = {
-                        downloading = true
-                        downloadError = null
-                        downloadedBytes = 0L
-                        totalBytes = -1L
-                        scope.launch {
-                            try {
-                                val path = WhisperModelDownloader.download(
-                                    tier = selectedTier,
-                                    baseUrl = AppConfig.rawVoice.whisperModelBaseUrl,
-                                ) { done, total ->
-                                    downloadedBytes = done
-                                    totalBytes = total
-                                }
-                                onModelPathChange(path.toString())
-                            } catch (e: Exception) {
-                                downloadError = e.message
-                            } finally {
-                                downloading = false
-                            }
-                        }
+                        WhisperModelDownloadManager.startDownload(
+                            tier = selectedTier,
+                            baseUrl = AppConfig.rawVoice.whisperModelBaseUrl,
+                        )
                     },
                     modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                 ) {
