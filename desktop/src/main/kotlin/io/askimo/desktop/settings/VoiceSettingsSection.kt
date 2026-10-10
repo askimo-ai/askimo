@@ -56,8 +56,6 @@ import androidx.compose.ui.unit.dp
 import io.askimo.core.config.AppConfig
 import io.askimo.core.config.VoiceConfig
 import io.askimo.core.config.VoiceProvider
-import io.askimo.core.event.EventBus
-import io.askimo.core.event.internal.WhisperModelDownloadFileReadyEvent
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.providers.HasApiKey
 import io.askimo.core.providers.ModelProvider
@@ -823,13 +821,18 @@ private fun whisperModelDownloadSection(
     modelPath: String,
     onModelPathChange: (String) -> Unit,
 ) {
-    val currentTier = WhisperModelCatalog.entries.find { WhisperModelDownloader.modelPath(it).toString() == modelPath }
-    var selectedTier by remember { mutableStateOf(currentTier ?: WhisperModelCatalog.BALANCED) }
-
     // State lives in WhisperModelDownloadManager (app-scoped), not in this composable — so the
     // download keeps running (and this screen picks its progress back up) even if the user
     // navigates away and returns. See WhisperModelDownloadManager's kdoc for details.
     val downloadState by WhisperModelDownloadManager.state.collectAsState()
+
+    val currentTier = WhisperModelCatalog.entries.find { WhisperModelDownloader.modelPath(it).toString() == modelPath }
+    // Prefer the manager's active tier over the persisted path — otherwise a recreated composable
+    // mid-download would select the stale tier, breaking the progress/error gating below (which
+    // keys off selectedTier == downloadState.tier) and leaving a dead Download button.
+    var selectedTier by remember {
+        mutableStateOf(downloadState?.takeIf { it.isActive }?.tier ?: currentTier ?: WhisperModelCatalog.BALANCED)
+    }
     val downloading = downloadState?.tier == selectedTier && downloadState?.isActive == true
     val downloadError = downloadState?.takeIf { it.tier == selectedTier }?.error
     val downloadedBytes = downloadState?.takeIf { it.tier == selectedTier }?.downloadedBytes ?: 0L
@@ -839,15 +842,26 @@ private fun whisperModelDownloadSection(
     val isDownloaded = localModelPath.isNotBlank() && WhisperModelDownloader.isDownloaded(selectedTier) &&
         WhisperModelDownloader.modelPath(selectedTier).toString() == localModelPath
 
-    // Picks up a download that completed in the background (while this screen wasn't showing,
-    // or after switching away from selectedTier and back) — updates this screen's cached path
-    // immediately instead of waiting for the next time the Settings screen is recomposed fresh.
-    LaunchedEffect(Unit) {
-        EventBus.internalEvents.collect { event ->
-            if (event is WhisperModelDownloadFileReadyEvent && event.tierName == selectedTier.name) {
-                localModelPath = event.path
-                onModelPathChange(event.path)
+    // Syncs localModelPath off downloadState (a StateFlow — always holds the latest value) rather
+    // than the one-shot WhisperModelDownloadFileReadyEvent, whose replay = 0 meant a completion
+    // emitted while this screen wasn't mounted was permanently missed, and whose tier filter broke
+    // if the user switched tiers mid-download. Detects success as an active→null transition
+    // (failure instead leaves state non-null with .error set) and re-reads the fresh path from
+    // AppConfig — the single source of truth already updated by WhisperModelDownloadManager.
+    var lastActiveTier by remember { mutableStateOf<WhisperModelCatalog?>(null) }
+    LaunchedEffect(downloadState) {
+        val state = downloadState
+        when {
+            state?.isActive == true -> lastActiveTier = state.tier
+
+            state == null && lastActiveTier != null -> {
+                val freshPath = AppConfig.rawVoice.localWhisperModelPath
+                localModelPath = freshPath
+                onModelPathChange(freshPath)
+                lastActiveTier = null
             }
+
+            else -> lastActiveTier = null
         }
     }
 
