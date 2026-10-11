@@ -780,7 +780,7 @@ private fun memoryConfigurationSection() {
 private fun typingSuggestionsSection() {
     val phraseHabitRefreshService = remember { GlobalContext.get().get<PhraseHabitRefreshService>() }
     val userProfileRepository = remember { GlobalContext.get().get<UserProfileRepository>() }
-    var enabled by remember { mutableStateOf(AppConfig.suggestions.enabled) }
+    var aiExtractionEnabled by remember { mutableStateOf(AppConfig.suggestions.aiExtractionEnabled) }
     var showConfirmDialog by remember { mutableStateOf(false) }
     var showResetSuccess by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
@@ -821,15 +821,15 @@ private fun typingSuggestionsSection() {
                     )
                 }
                 Switch(
-                    checked = enabled,
+                    checked = aiExtractionEnabled,
                     onCheckedChange = { checked ->
-                        enabled = checked
-                        AppConfig.updateField("suggestions.enabled", checked)
+                        aiExtractionEnabled = checked
+                        AppConfig.updateField("suggestions.aiExtractionEnabled", checked)
                     },
                 )
             }
 
-            if (enabled) {
+            if (aiExtractionEnabled) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                     verticalAlignment = Alignment.CenterVertically,

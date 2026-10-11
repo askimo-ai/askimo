@@ -43,7 +43,9 @@ import kotlin.time.Instant
  *
  * ### Gating (re-checked from the DB each attempt, so it survives restarts without drift)
  * A refresh calls the AI only when:
- *  - [io.askimo.core.config.SuggestionsConfig.enabled] is true, **and**
+ *  - [io.askimo.core.config.SuggestionsConfig.aiExtractionEnabled] is true (opt-in — off by
+ *    default, since this is the only path that sends chat content to the active AI provider),
+ *    **and**
  *  - at least [cooldown] has elapsed since the previous attempt, **and**
  *  - **either** [minMessagesBetweenRefresh] new user messages or [minRefreshInterval] of time
  *    has passed since the last successful refresh, **and**
@@ -157,7 +159,7 @@ class PhraseHabitRefreshService(
         // queuing up to re-run the same gate checks would be wasted work.
         if (!refreshMutex.tryLock()) return
         try {
-            if (!AppConfig.suggestions.enabled) return
+            if (!AppConfig.suggestions.aiExtractionEnabled) return
             lastAttemptAt = now
 
             if (!coldStartPassed) {

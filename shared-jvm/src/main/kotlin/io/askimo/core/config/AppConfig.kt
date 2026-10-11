@@ -662,14 +662,20 @@ data class NotificationsConfig(
 
 /**
  * Configuration for the inline chat-input autocomplete ("ghost text") feature.
- * Lives under the `suggestions:` key in askimo.yml. Enabled by default.
+ * Lives under the `suggestions:` key in askimo.yml.
  *
- * When [enabled] is false, [io.askimo.core.chat.service.CompositeSuggestionService] stops
- * returning suggestions on the typing path, and `PhraseHabitRefreshService` stops making
- * background AI calls to extract new typing-habit phrases.
+ * Session-history suggestions (see [io.askimo.core.chat.service.HistoryBackedSuggestionService])
+ * are always on — free, local-only, no AI call — so there's nothing to gate there.
+ *
+ * [aiExtractionEnabled] gates the opt-in, cross-session enhancement on top of that: when true,
+ * `PhraseHabitRefreshService` periodically sends a sample of recent messages (plus
+ * personalization context) to the active AI provider — which may be a cloud service — to learn
+ * generalized "typing habit" phrases, and [io.askimo.core.chat.service.PersistedPhraseSuggestionService]
+ * serves them across sessions. Off by default: this is the only part of the suggestions feature
+ * that sends chat content off-device, so it requires explicit opt-in.
  */
 data class SuggestionsConfig(
-    val enabled: Boolean = true,
+    val aiExtractionEnabled: Boolean = false,
 )
 
 data class AppConfigData(
@@ -964,7 +970,7 @@ object AppConfig {
             - verse
 
         suggestions:
-          enabled: true
+          aiExtractionEnabled: false
 
         context:
           current_instance_id: ""
@@ -1605,7 +1611,7 @@ object AppConfig {
     }
 
     private fun updateSuggestionsField(config: SuggestionsConfig, field: String, value: Any): SuggestionsConfig = when (field) {
-        "enabled" -> config.copy(enabled = value as Boolean)
+        "aiExtractionEnabled" -> config.copy(aiExtractionEnabled = value as Boolean)
 
         else -> {
             log.error("Unknown suggestions field: $field", null)

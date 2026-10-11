@@ -6,11 +6,16 @@ package io.askimo.core.chat.service
 
 import io.askimo.core.chat.repository.PhraseVariant
 import io.askimo.core.chat.repository.UserPhraseSuggestionRepository
+import io.askimo.core.config.AppConfig
 import io.askimo.core.logging.logger
 
 /**
  * [SuggestionService] backed by AI-derived "typing habit" phrases persisted via
  * [UserPhraseSuggestionRepository] — see [PhraseHabitRefreshService] for how they're produced.
+ *
+ * Gated on [io.askimo.core.config.SuggestionsConfig.aiExtractionEnabled]: when the user hasn't
+ * opted in to AI-based habit extraction, [suggest] returns null immediately — even if rows
+ * remain from a previous opt-in, they won't be surfaced until re-enabled.
  *
  * Zero AI/network calls on the typing path: the persisted set (at most
  * [UserPhraseSuggestionRepository.MAX_CATEGORIES] x [UserPhraseSuggestionRepository.MAX_VARIANTS_PER_CATEGORY]
@@ -54,6 +59,8 @@ class PersistedPhraseSuggestionService(
     }
 
     override fun suggest(input: String, sessionId: String?): String? {
+        if (!AppConfig.suggestions.aiExtractionEnabled) return null
+
         val profileId = profileIdProvider() ?: return null
         if (cachedProfileId != profileId) {
             refreshCache(profileId)
