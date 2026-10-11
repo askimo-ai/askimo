@@ -1122,10 +1122,11 @@ object AppConfig {
     /**
      * Generic method to update any config field and persist to YAML file.
      *
-     * Throws if the YAML write fails. [cached] is updated with the new value beforehand
-     * regardless, so callers that ignore the exception still see it in-memory for this session
-     * even though it won't survive a restart. Callers that need a persistence guarantee (e.g.
-     * before deleting a file the old value pointed to) should catch and treat it as a failure.
+     * [cached] is updated with the new value immediately (synchronous, in-memory). The YAML
+     * write to disk is best-effort: failures (e.g. disk full, permissions, a locked file) are
+     * caught and logged here rather than thrown, so callers never need to handle a persistence
+     * exception. In that case the new value remains active for the rest of this process but
+     * won't survive a restart — the previous value will be reloaded from disk instead.
      *
      * @param path Dot-separated path to the field (e.g., "developer.active", "chat.maxRecentMessages")
      * @param value The new value to set
@@ -1141,9 +1142,13 @@ object AppConfig {
                 cached = current.copy(currentLocale = tag)
                 val configPath = resolveOrCreateConfigPath()
                 if (configPath != null && configPath.exists()) {
-                    val updatedYaml = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(cached)
-                    Files.writeString(configPath, updatedYaml)
-                    log.debug("Updated currentLocale=$tag in $configPath")
+                    try {
+                        val updatedYaml = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(cached)
+                        Files.writeString(configPath, updatedYaml)
+                        log.debug("Updated currentLocale=$tag in $configPath")
+                    } catch (e: Exception) {
+                        log.error("Failed to persist currentLocale to config file", e)
+                    }
                 }
                 return
             }
@@ -1199,9 +1204,13 @@ object AppConfig {
 
             val configPath = resolveOrCreateConfigPath()
             if (configPath != null && configPath.exists()) {
-                val updatedYaml = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(cached)
-                Files.writeString(configPath, updatedYaml)
-                log.debug("Updated {}={} in {}", path, value, configPath)
+                try {
+                    val updatedYaml = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(cached)
+                    Files.writeString(configPath, updatedYaml)
+                    log.debug("Updated {}={} in {}", path, value, configPath)
+                } catch (e: Exception) {
+                    log.error("Failed to persist $path to config file", e)
+                }
             }
         }
     }
