@@ -1,0 +1,10 @@
+-- Independent of user_phrase_suggestions rows — tracks the last successful phrase-habit
+-- refresh attempt per profile (even one that legitimately found no habits), so
+-- PhraseHabitRefreshService's cooldown/message-count gate isn't bypassed when extraction
+-- returns an empty result. See UserPhraseSuggestions.sq.
+CREATE TABLE IF NOT EXISTS phrase_refresh_checkpoint (
+    profile_id TEXT PRIMARY KEY NOT NULL,
+    last_refreshed_at TEXT AS kotlin.time.Instant NOT NULL,
+    FOREIGN KEY (profile_id) REFERENCES user_profiles(id) ON DELETE CASCADE
+);
+

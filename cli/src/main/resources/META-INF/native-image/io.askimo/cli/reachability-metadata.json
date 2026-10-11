@@ -1620,6 +1620,9 @@
   }, {
     "type": "dev.langchain4j.model.anthropic.internal.api.AnthropicCacheControl",
     "methods": [ {
+      "name": "getTtl",
+      "parameterTypes": [ ]
+    }, {
       "name": "getType",
       "parameterTypes": [ ]
     } ]
@@ -1643,6 +1646,9 @@
   }, {
     "type": "dev.langchain4j.model.anthropic.internal.api.AnthropicCreateMessageRequest",
     "methods": [ {
+      "name": "getCacheControl",
+      "parameterTypes": [ ]
+    }, {
       "name": "getContainer",
       "parameterTypes": [ ]
     }, {
@@ -2012,15 +2018,23 @@
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ "java.lang.String", "java.lang.String", "java.util.List", "dev.langchain4j.model.googleai.GeminiGenerateContentResponse$GeminiUsageMetadata", "dev.langchain4j.model.googleai.GroundingMetadata" ]
+    }, {
+      "name": "<init>",
+      "parameterTypes": [ "java.lang.String", "java.lang.String", "java.util.List", "dev.langchain4j.model.googleai.GeminiGenerateContentResponse$GeminiUsageMetadata", "dev.langchain4j.model.googleai.GroundingMetadata", "dev.langchain4j.model.googleai.GeminiGenerateContentResponse$GeminiPromptFeedback" ]
     } ]
   }, {
     "type": "dev.langchain4j.model.googleai.GeminiGenerateContentResponse$GeminiCandidate",
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ "dev.langchain4j.model.googleai.GeminiContent", "dev.langchain4j.model.googleai.GeminiGenerateContentResponse$GeminiCandidate$GeminiFinishReason", "dev.langchain4j.model.googleai.GeminiGenerateContentResponse$GeminiUrlContextMetadata", "dev.langchain4j.model.googleai.GroundingMetadata" ]
+    }, {
+      "name": "<init>",
+      "parameterTypes": [ "dev.langchain4j.model.googleai.GeminiContent", "dev.langchain4j.model.googleai.GeminiGenerateContentResponse$GeminiCandidate$GeminiFinishReason", "dev.langchain4j.model.googleai.GeminiGenerateContentResponse$GeminiUrlContextMetadata", "dev.langchain4j.model.googleai.GroundingMetadata", "java.util.List" ]
     } ]
   }, {
     "type": "dev.langchain4j.model.googleai.GeminiGenerateContentResponse$GeminiCandidate$GeminiFinishReason"
+  }, {
+    "type": "dev.langchain4j.model.googleai.GeminiGenerateContentResponse$GeminiPromptFeedback"
   }, {
     "type": "dev.langchain4j.model.googleai.GeminiGenerateContentResponse$GeminiUrlContextMetadata"
   }, {
@@ -2099,6 +2113,8 @@
     "type": "dev.langchain4j.model.googleai.GeminiMediaResolution"
   }, {
     "type": "dev.langchain4j.model.googleai.GeminiMediaResolutionLevel"
+  }, {
+    "type": "dev.langchain4j.model.googleai.GeminiSafetyRating"
   }, {
     "type": "dev.langchain4j.model.googleai.GeminiSchema",
     "fields": [ {
@@ -2179,6 +2195,9 @@
     }, {
       "name": "build",
       "parameterTypes": [ ]
+    }, {
+      "name": "embedding",
+      "parameterTypes": [ "java.lang.Object" ]
     }, {
       "name": "embedding",
       "parameterTypes": [ "java.util.List" ]
@@ -3375,6 +3394,9 @@
       "name": "<init>",
       "parameterTypes": [ ]
     }, {
+      "name": "<init>",
+      "parameterTypes": [ "io.askimo.core.db.DatabaseManager" ]
+    }, {
       "name": "getBySessionId",
       "parameterTypes": [ "java.lang.String" ]
     }, {
@@ -3787,6 +3809,9 @@
     "allDeclaredFields": true,
     "methods": [ {
       "name": "<init>",
+      "parameterTypes": [ "io.askimo.core.config.EmbeddingConfig", "io.askimo.core.config.RetryConfig", "io.askimo.core.config.ThrottleConfig", "io.askimo.core.config.IndexingConfig", "io.askimo.core.config.DeveloperConfig", "io.askimo.core.config.ChatConfig", "io.askimo.core.config.MemoryConfig", "io.askimo.core.config.RagConfig", "io.askimo.core.config.ModelsConfig", "io.askimo.core.config.ProxyConfig", "io.askimo.core.config.AnalyticsConfig", "io.askimo.core.config.WebSearchConfig", "io.askimo.core.config.VoiceConfig", "io.askimo.core.config.NotificationsConfig", "io.askimo.core.config.SuggestionsConfig", "io.askimo.core.context.AppContextParams", "java.lang.String", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
+    }, {
+      "name": "<init>",
       "parameterTypes": [ "io.askimo.core.config.EmbeddingConfig", "io.askimo.core.config.RetryConfig", "io.askimo.core.config.ThrottleConfig", "io.askimo.core.config.IndexingConfig", "io.askimo.core.config.DeveloperConfig", "io.askimo.core.config.ChatConfig", "io.askimo.core.config.MemoryConfig", "io.askimo.core.config.RagConfig", "io.askimo.core.config.ModelsConfig", "io.askimo.core.config.ProxyConfig", "io.askimo.core.config.AnalyticsConfig", "io.askimo.core.config.WebSearchConfig", "io.askimo.core.config.VoiceConfig", "io.askimo.core.config.NotificationsConfig", "io.askimo.core.context.AppContextParams", "java.lang.String", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
     }, {
       "name": "<init>",
@@ -3835,6 +3860,9 @@
       "parameterTypes": [ ]
     }, {
       "name": "getRetry",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getSuggestions",
       "parameterTypes": [ ]
     }, {
       "name": "getThrottle",
@@ -4161,6 +4189,12 @@
       "parameterTypes": [ "int", "long", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
     }, {
       "name": "<init>",
+      "parameterTypes": [ "int", "long", "long" ]
+    }, {
+      "name": "<init>",
+      "parameterTypes": [ "int", "long", "long", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
+    }, {
+      "name": "<init>",
       "parameterTypes": [ "int", "io.askimo.core.config.ModelTimeoutsConfig" ]
     }, {
       "name": "<init>",
@@ -4209,6 +4243,9 @@
       "parameterTypes": [ ]
     }, {
       "name": "getTimeouts",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getToolApprovalTimeoutMs",
       "parameterTypes": [ ]
     }, {
       "name": "getXai",
@@ -4348,6 +4385,15 @@
       "parameterTypes": [ ]
     } ]
   }, {
+    "type": "io.askimo.core.config.SuggestionsConfig",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ "boolean" ]
+    }, {
+      "name": "getEnabled",
+      "parameterTypes": [ ]
+    } ]
+  }, {
     "type": "io.askimo.core.config.ThrottleConfig",
     "allDeclaredFields": true,
     "methods": [ {
@@ -4364,6 +4410,9 @@
     "type": "io.askimo.core.config.VoiceConfig",
     "methods": [ {
       "name": "<init>",
+      "parameterTypes": [ "boolean", "io.askimo.core.config.VoiceProvider", "io.askimo.core.config.VoiceProvider", "java.lang.String", "java.lang.String", "java.lang.String", "double", "boolean", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "boolean", "boolean", "java.util.List", "int", "long", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
+    }, {
+      "name": "<init>",
       "parameterTypes": [ "boolean", "io.askimo.core.config.VoiceProvider", "io.askimo.core.config.VoiceProvider", "java.lang.String", "java.lang.String", "java.lang.String", "double", "boolean", "java.lang.String", "java.lang.String", "java.lang.String", "boolean", "boolean", "java.util.List", "int", "long", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
     }, {
       "name": "getAutoPlayResponses",
@@ -4379,6 +4428,9 @@
       "parameterTypes": [ ]
     }, {
       "name": "getLocalTtsEndpoint",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getLocalWhisperModelPath",
       "parameterTypes": [ ]
     }, {
       "name": "getOpenAiApiKey",
@@ -4412,6 +4464,12 @@
       "parameterTypes": [ ]
     }, {
       "name": "getUseProviderKeyForVoice",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getWhisperModelBaseUrl",
+      "parameterTypes": [ ]
+    }, {
+      "name": "isSttAvailable",
       "parameterTypes": [ ]
     } ]
   }, {
@@ -8646,6 +8704,8 @@
   }, {
     "type": "kotlin.collections.Set"
   }, {
+    "type": "kotlin.coroutines.Continuation"
+  }, {
     "type": "kotlin.internal.PlatformDependent"
   }, {
     "type": "kotlin.io.Serializable"
@@ -8655,6 +8715,8 @@
     "type": "kotlin.jvm.internal.DefaultConstructorMarker"
   }, {
     "type": "kotlin.jvm.internal.markers.KMappedMarker"
+  }, {
+    "type": "kotlin.reflect.jvm.ReflectJvmMapping"
   }, {
     "type": "kotlin.reflect.jvm.internal.ReflectionFactoryImpl",
     "methods": [ {
@@ -8701,6 +8763,8 @@
     "type": "kotlin.test.junit5.JUnit5Contributor"
   }, {
     "type": "kotlinx.atomicfu.AtomicRef"
+  }, {
+    "type": "kotlinx.coroutines.BuildersKt"
   }, {
     "type": "kotlinx.coroutines.CancellableContinuationImpl",
     "fields": [ {
@@ -9085,6 +9149,18 @@
   }, {
     "type": "org.apache.logging.log4j.util.SystemPropertiesPropertySource"
   }, {
+    "type": "org.apache.tika.detect.BOMDetector",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "org.apache.tika.detect.MetadataCharsetDetector",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    } ]
+  }, {
     "type": "org.apache.tika.detect.microsoft.POIFSContainerDetector",
     "methods": [ {
       "name": "<init>",
@@ -9116,6 +9192,12 @@
     }, {
       "name": "<init>",
       "parameterTypes": [ "org.apache.tika.config.ServiceLoader" ]
+    } ]
+  }, {
+    "type": "org.apache.tika.detect.zip.GeoGebraDetector",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
     } ]
   }, {
     "type": "org.apache.tika.detect.zip.IPADetector",
@@ -9163,6 +9245,24 @@
       "parameterTypes": [ "org.apache.tika.config.ServiceLoader" ]
     } ]
   }, {
+    "type": "org.apache.tika.extractor.microsoft.MSEmbeddedStreamTranslator",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "org.apache.tika.extractor.microsoft.PSTEmailStreamTranslator",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "org.apache.tika.ml.chardetect.MojibusterEncodingDetector",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    } ]
+  }, {
     "type": "org.apache.tika.parser.csv.TextAndCSVParser",
     "methods": [ {
       "name": "<init>",
@@ -9188,6 +9288,12 @@
     }, {
       "name": "<init>",
       "parameterTypes": [ "org.apache.tika.config.ServiceLoader" ]
+    } ]
+  }, {
+    "type": "org.apache.tika.parser.markdown.MarkdownParser",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
     } ]
   }, {
     "type": "org.apache.tika.parser.microsoft.EMFParser",
@@ -9414,6 +9520,20 @@
       "name": "<init>",
       "parameterTypes": [ "org.apache.tika.config.ServiceLoader" ]
     } ]
+  }, {
+    "type": "org.apache.tika.renderer.microsoft.POIMetafileRenderer",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "org.apache.tika.renderer.pdf.pdfbox.PDFBoxRenderer",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "org.apache.tika.serialization.ConfigDeserializer"
   }, {
     "type": "org.jetbrains.exposed.v1.jdbc.ExposedConnectionImpl"
   }, {
@@ -10308,6 +10428,8 @@
   }, {
     "glob": "META-INF/services/dev.langchain4j.spi.json.JsonCodecFactory"
   }, {
+    "glob": "META-INF/services/dev.langchain4j.spi.json.ProviderJsonCodecFactory"
+  }, {
     "glob": "META-INF/services/dev.langchain4j.spi.observability.AiServiceListenerRegistrarFactory"
   }, {
     "glob": "META-INF/services/dev.langchain4j.spi.prompt.PromptTemplateFactory"
@@ -10315,6 +10437,10 @@
     "glob": "META-INF/services/dev.langchain4j.spi.services.AiServiceContextFactory"
   }, {
     "glob": "META-INF/services/dev.langchain4j.spi.services.AiServicesFactory"
+  }, {
+    "glob": "META-INF/services/dev.langchain4j.spi.services.CompletableFutureAdapter"
+  }, {
+    "glob": "META-INF/services/dev.langchain4j.spi.services.PublisherAdapter"
   }, {
     "glob": "META-INF/services/dev.langchain4j.spi.services.TokenStreamAdapter"
   }, {
@@ -10353,6 +10479,8 @@
     "glob": "META-INF/services/org.apache.tika.detect.EncodingDetector"
   }, {
     "glob": "META-INF/services/org.apache.tika.detect.zip.ZipContainerDetector"
+  }, {
+    "glob": "META-INF/services/org.apache.tika.extractor.EmbeddedStreamTranslator"
   }, {
     "glob": "META-INF/services/org.apache.tika.parser.Parser"
   }, {
@@ -10457,6 +10585,10 @@
     "glob": "org/apache/pdfbox/resources/text/BidiMirroring.txt"
   }, {
     "glob": "org/apache/tika/mime/tika-mimetypes.xml"
+  }, {
+    "glob": "org/apache/tika/ml/chardetect/nb-bigram.bin"
+  }, {
+    "glob": "org/apache/tika/ml/chardetect/utf16-specialist.bin"
   }, {
     "glob": "org/apache/tika/parser/html/StandardCharsets_unsupported_by_IANA.txt"
   }, {

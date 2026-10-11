@@ -660,6 +660,23 @@ data class NotificationsConfig(
     val showDetails: Boolean = false,
 )
 
+/**
+ * Configuration for the inline chat-input autocomplete ("ghost text") feature.
+ * Lives under the `suggestions:` key in askimo.yml.
+ *
+ * History-based suggestions ([io.askimo.core.chat.service.HistoryBackedSuggestionService])
+ * are always on — free, local-only, no AI call — so there's nothing to gate there.
+ *
+ * [aiExtractionEnabled] gates the opt-in AI enhancement: when true, `PhraseHabitRefreshService`
+ * periodically sends a sample of recent messages to the active AI provider — which may be a
+ * cloud service — to learn generalized "typing habit" phrases, served by
+ * [io.askimo.core.chat.service.PersistedPhraseSuggestionService]. Off by default — the only
+ * part of this feature that sends chat content off-device.
+ */
+data class SuggestionsConfig(
+    val aiExtractionEnabled: Boolean = false,
+)
+
 data class AppConfigData(
     val embedding: EmbeddingConfig = EmbeddingConfig(),
     val retry: RetryConfig = RetryConfig(),
@@ -675,6 +692,7 @@ data class AppConfigData(
     val webSearch: WebSearchConfig = WebSearchConfig(),
     val voice: VoiceConfig = VoiceConfig(),
     val notifications: NotificationsConfig = NotificationsConfig(),
+    val suggestions: SuggestionsConfig = SuggestionsConfig(),
     val context: AppContextParams = AppContextParams.noOp(),
     val currentLocale: String? = null,
 )
@@ -762,6 +780,12 @@ object AppConfig {
      * See [NotificationsConfig] for field semantics.
      */
     val notifications: NotificationsConfig get() = delegate.notifications
+
+    /**
+     * Configuration for the inline chat-input autocomplete ("ghost text") feature.
+     * See [SuggestionsConfig] for field semantics.
+     */
+    val suggestions: SuggestionsConfig get() = delegate.suggestions
 
     /**
      * Raw proxy configuration **without** keychain/secure-storage lookup.
@@ -943,6 +967,9 @@ object AppConfig {
             - sage
             - shimmer
             - verse
+
+        suggestions:
+          aiExtractionEnabled: false
 
         context:
           current_instance_id: ""
@@ -1161,6 +1188,8 @@ object AppConfig {
                 "voice" -> current.copy(voice = updateVoiceField(current.voice, field, value))
 
                 "notifications" -> current.copy(notifications = updateNotificationsField(current.notifications, field, value))
+
+                "suggestions" -> current.copy(suggestions = updateSuggestionsField(current.suggestions, field, value))
 
                 else -> {
                     log.error("Unknown config section: $section", null)
@@ -1576,6 +1605,15 @@ object AppConfig {
 
         else -> {
             log.error("Unknown notifications field: $field", null)
+            config
+        }
+    }
+
+    private fun updateSuggestionsField(config: SuggestionsConfig, field: String, value: Any): SuggestionsConfig = when (field) {
+        "aiExtractionEnabled" -> config.copy(aiExtractionEnabled = value as Boolean)
+
+        else -> {
+            log.error("Unknown suggestions field: $field", null)
             config
         }
     }

@@ -17,6 +17,7 @@ import io.askimo.core.db.SearchSortBy
 import io.askimo.core.db.sqldelight.Chat_messages
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.PushDataToServerEvent
+import io.askimo.core.event.internal.UserMessageAddedEvent
 import io.askimo.core.logging.logger
 import kotlinx.serialization.json.Json
 import java.util.UUID
@@ -108,6 +109,14 @@ class ChatMessageRepository internal constructor(
         }
 
         EventBus.post(PushDataToServerEvent(reason = "message written"))
+        if (messageWithInjectedFields.role == MessageRole.USER) {
+            EventBus.post(
+                UserMessageAddedEvent(
+                    sessionId = messageWithInjectedFields.sessionId,
+                    content = messageWithInjectedFields.content,
+                ),
+            )
+        }
         return messageWithInjectedFields
     }
 
@@ -178,6 +187,25 @@ class ChatMessageRepository internal constructor(
      * Counts messages with [role] across all sessions — e.g. total user prompts ever sent,
      */
     fun countByRole(role: MessageRole): Int = queries.countByRole(role.value).executeAsOne().toInt()
+
+    /**
+     * Counts active (non-outdated) user messages created strictly after [since]. Used by
+     * `PhraseHabitRefreshService` to decide whether enough new user input has accumulated
+     * since the last AI-driven "typing habit" refresh to justify another call.
+     */
+    fun countUserMessagesSince(since: Instant): Long = queries
+        .countByRoleSince(MessageRole.USER.value, since)
+        .executeAsOne()
+
+    /**
+     * Cross-session sample of the user's own messages, most recent first — used by
+     * `PhraseHabitRefreshService` as the input delta for AI-driven phrase-habit extraction.
+     * Unlike [getRecentActiveMessages], this is NOT scoped to a single session.
+     */
+    fun getRecentUserMessagesGlobal(limit: Int = 30): List<ChatMessage> = queries
+        .selectRecentActiveGlobalByRole(MessageRole.USER.value, limit.toLong())
+        .executeAsList()
+        .map { it.toChatMessage() }
 
     /**
      * Get messages with cursor-based pagination

@@ -1,0 +1,14 @@
+CREATE TABLE IF NOT EXISTS user_phrase_suggestions (
+    id TEXT PRIMARY KEY,
+    profile_id TEXT NOT NULL,
+    category_key TEXT NOT NULL,
+    phrase TEXT NOT NULL,
+    usage_count INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT AS kotlin.time.Instant NOT NULL,
+    updated_at TEXT AS kotlin.time.Instant NOT NULL,
+    FOREIGN KEY (profile_id) REFERENCES user_profiles(id) ON DELETE CASCADE,
+    UNIQUE(profile_id, category_key, phrase)
+);
+CREATE INDEX IF NOT EXISTS idx_user_phrase_suggestions_profile ON user_phrase_suggestions(profile_id);
+CREATE INDEX IF NOT EXISTS idx_user_phrase_suggestions_category ON user_phrase_suggestions(profile_id, category_key);
+
