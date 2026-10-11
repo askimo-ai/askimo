@@ -68,15 +68,15 @@ class ExceptionMapperTest {
     // ── Local server crash — unsupported GGUF architecture ──────────────────────
 
     @Test
-    fun `llama-server unknown model architecture surfaces the architecture name, not the raw stack trace`() {
+    fun `llama-server unknown model architecture surfaces the raw provider message, not authored guidance`() {
         val e = RuntimeException(
             "llama-server process has terminated: exit status 1: error loading model: " +
                 "unknown model architecture: 'mllama'\nerror loading model: unknown model architecture: 'mllama'",
         )
         val mapped = ExceptionMapper.map(e)
         assertIs<LocalServerException>(mapped)
-        assertTrue(mapped.details.contains("'mllama'"), "details should name the unsupported architecture")
-        assertTrue(mapped.details.contains("llama.cpp"), "details should explain it's an engine limitation")
+        assertTrue(mapped.details.contains("'mllama'"), "details should contain the provider's raw architecture text")
+        assertTrue(!mapped.details.contains("llama.cpp"))
         assertEquals(RetryPolicy.NONE, mapped.retryPolicy, "unsupported architecture is not retryable")
     }
 
@@ -102,17 +102,15 @@ class ExceptionMapperTest {
     // ── Multimodal not supported (OpenAI-compatible local servers) ──────────────
 
     @Test
-    fun `multimodal not supported message is classified as invalid request with actionable guidance`() {
+    fun `multimodal not supported message is classified with its own type, carrying the raw provider message`() {
         val e = RuntimeException(
             """{"error":{"message":"{\"error\":{\"code\":400,\"message\":\"Multimodal data provided, """ +
                 """but model does not support multimodal requests.\",\"type\":\"invalid_request_error\"}}",""" +
                 """"type":"invalid_request_error"}}""",
         )
         val mapped = ExceptionMapper.map(e)
-        assertIs<InvalidRequestException>(mapped)
-        assertTrue(mapped.details.contains("doesn't support images or file attachments"))
-        // Must NOT leak the raw nested-JSON payload to the user.
-        assertTrue(!mapped.details.contains("invalid_request_error"))
+        assertIs<MultimodalNotSupportedException>(mapped)
+        assertTrue(mapped.details.contains("does not support multimodal requests"))
     }
 
     // ── Already-classified exceptions pass through unchanged ────────────────────

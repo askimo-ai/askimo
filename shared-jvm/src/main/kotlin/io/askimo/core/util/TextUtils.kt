@@ -53,3 +53,28 @@ object TextUtils {
     /** Escapes a string for safe interpolation inside an AppleScript double-quoted literal. */
     fun quoteForAppleScript(text: String): String = "\"" + text.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 }
+
+/**
+ * Scrubs known-identifying patterns from free-text error messages before they're sent to
+ * analytics, then truncates to a short bound. This is the ONLY sanctioned way to include
+ * exception/provider text in an analytics payload — never pass raw `Throwable.message` or
+ * rendered user-facing text directly (see the privacy contract above).
+ *
+ * Pattern-based and best-effort, not a formal guarantee — callers that need a zero-risk
+ * alternative should prefer a fixed, bounded identifier instead (e.g. an i18n message key).
+ *
+ * Order matters: broader patterns (URLs) are redacted before narrower ones (bare tokens)
+ * that could otherwise match substrings of an already-redacted URL.
+ */
+fun redactErrorText(message: String): String {
+    val result = message
+        .replace(Regex("[\\r\\n]+"), " ")
+        .replace(Regex("""[\w.+-]+@[\w-]+\.[\w.-]+"""), "[email]")
+        .replace(Regex("""https?://\S+"""), "[url]")
+        .replace(Regex("""(?i)bearer\s+\S+"""), "[token]")
+        .replace(Regex("""\b(sk|pk|key)-[A-Za-z0-9_-]{10,}\b"""), "[api-key]")
+        .replace(Regex("""(?:[A-Za-z]:\\|/)[\w./\\-]{3,}"""), "[path]")
+        .replace(Regex("""\b[A-Za-z0-9_-]{16,}\b"""), "[id]")
+
+    return result.take(500)
+}

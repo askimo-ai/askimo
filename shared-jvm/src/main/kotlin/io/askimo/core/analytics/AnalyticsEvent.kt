@@ -233,7 +233,9 @@ enum class AnalyticsEvent(
 
     /**
      * A Plan execution failed.
-     * Properties: `step_count`, `error_type=missing_input|step_failed|unknown`.
+     * Properties: `step_count`, `error_type=missing_input|step_failed|unknown`, `error_class`
+     * (exception class name, when relevant), `error_excerpt` (REDACTED via
+     * [io.askimo.core.util.redactErrorText], max 500 chars — never raw text).
      */
     PLAN_FAILED(
         "plan_failed",
@@ -276,21 +278,21 @@ enum class AnalyticsEvent(
     /**
      * A categorised error occurred.
      * Properties: `error_type=provider_timeout|rate_limit|auth_error|context_length|connection_refused|model_not_found|server_error|local_server_error|insufficient_credits|unsupported_sampling|malformed_tool_call|max_tool_calling_round_trips|invalid_request|system_error|provider_error`,
-     * `provider` (when relevant), `error_message` (sanitised root-cause message, no PII, up to
-     * 4000 chars), `user_message` (the exact localized, user-facing text rendered via
-     * [io.askimo.core.exception.ExceptionHandler], sanitised, up to 4000 chars).
+     * `provider` (when relevant), `message_key` (fixed i18n key, e.g. "error.local_server" —
+     * zero leak risk, defined entirely in our own codebase), `error_excerpt` (REDACTED
+     * root-cause text via [io.askimo.core.util.redactErrorText], max 500 chars —
+     * emails/URLs/API keys/file paths/long IDs are scrubbed before this ever leaves the client).
      *
-     * `error_type` and `user_message` are both derived from
+     * `error_type` and `message_key` are both derived from
      * [io.askimo.core.exception.ExceptionMapper] (the same classifier that powers user-facing
-     * error messages), so analytics and UX never disagree on what an error "is" or what the user
-     * actually saw — see `TelemetryChatModelListener.onError`. Capturing both `error_message`
-     * (root cause) and `user_message` (rendered text) side by side lets us audit misclassified
-     * or unhelpful error messages directly from analytics, without waiting for a user bug report.
+     * error messages), so analytics and UX never disagree on what an error "is" — see
+     * `TelemetryChatModelListener.onError`. No raw exception/provider text is ever sent;
+     * `error_excerpt` only carries a redacted, bounded excerpt for spotting new error shapes.
      */
     ERROR_OCCURRED(
         "error_occurred",
-        "Categorised error. Properties: error_type, provider (optional), error_message (sanitised root cause, up to 4000 chars), " +
-            "user_message (sanitised rendered user-facing text, up to 4000 chars).",
+        "Categorised error. Properties: error_type, provider (optional), message_key, " +
+            "error_excerpt (redacted, up to 500 chars).",
     ),
 
     // ── Retention ────────────────────────────────────────────────────────────

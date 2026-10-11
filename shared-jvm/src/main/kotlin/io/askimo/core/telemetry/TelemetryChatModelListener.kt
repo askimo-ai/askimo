@@ -12,7 +12,6 @@ import io.askimo.core.analytics.Analytics
 import io.askimo.core.analytics.AnalyticsEvent
 import io.askimo.core.exception.AuthenticationException
 import io.askimo.core.exception.ContextLengthException
-import io.askimo.core.exception.ExceptionHandler
 import io.askimo.core.exception.ExceptionMapper
 import io.askimo.core.exception.InsufficientCreditsException
 import io.askimo.core.exception.InvalidRequestException
@@ -20,6 +19,7 @@ import io.askimo.core.exception.LocalServerException
 import io.askimo.core.exception.MalformedToolCallException
 import io.askimo.core.exception.MaxToolCallingRoundTripsExceededException
 import io.askimo.core.exception.ModelNotFoundChatException
+import io.askimo.core.exception.MultimodalNotSupportedException
 import io.askimo.core.exception.NetworkException
 import io.askimo.core.exception.RateLimitException
 import io.askimo.core.exception.RemoteServerException
@@ -28,6 +28,7 @@ import io.askimo.core.exception.TimeoutException
 import io.askimo.core.exception.UnsupportedSamplingException
 import io.askimo.core.logging.logger
 import io.askimo.core.util.MachineId
+import io.askimo.core.util.redactErrorText
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -185,32 +186,26 @@ class TelemetryChatModelListener(
             is UnsupportedSamplingException -> "unsupported_sampling"
             is MalformedToolCallException -> "malformed_tool_call"
             is MaxToolCallingRoundTripsExceededException -> "max_tool_calling_round_trips"
+            is MultimodalNotSupportedException -> "multimodal_not_supported"
             is InvalidRequestException -> "invalid_request"
             is SystemException -> "system_error"
             else -> "provider_error"
         }
 
-        // error_message: the true root cause (deepest exception in the chain).
-        // user_message: the exact localized text rendered to the user from `mapped`.
-        // Capturing both lets us audit classification quality, not just the error bucket.
-        val errorMessage = sanitise(ExceptionMapper.rootCauseMessage(error))
-        val userMessage = sanitise(ExceptionHandler.renderMessage(mapped))
-
+        // message_key: fixed i18n key, zero leak risk. error_excerpt: redacted root-cause text
+        // (emails/URLs/keys/paths/IDs scrubbed) — see Analytics.redactErrorText.
         Analytics.track(
             AnalyticsEvent.ERROR_OCCURRED,
             mapOf(
                 "error_type" to errorType,
                 "provider" to provider,
-                "error_message" to errorMessage,
-                "user_message" to userMessage,
+                "message_key" to mapped.getMessageKey(),
+                "error_excerpt" to redactErrorText(ExceptionMapper.rootCauseMessage(error)),
             ),
         )
 
         log.warn("LLM error from $provider:$model: ${error.message}", error)
     }
-
-    /** Truncates to a safe analytics payload size and collapses newlines to spaces. */
-    private fun sanitise(message: String): String = message.take(4000).replace(Regex("[\\r\\n]+"), " ")
 
     private fun syncUsage(
         config: UsageSyncConfig,

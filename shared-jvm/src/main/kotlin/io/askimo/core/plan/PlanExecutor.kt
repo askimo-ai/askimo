@@ -15,6 +15,7 @@ import io.askimo.core.plan.domain.PlanDef
 import io.askimo.core.plan.domain.PlanStep
 import io.askimo.core.plan.domain.PlanStepOutput
 import io.askimo.core.plan.domain.WorkflowNode
+import io.askimo.core.util.redactErrorText
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.Executors
 
@@ -115,7 +116,7 @@ class PlanExecutor(private val chatModel: ChatModel) {
                 mapOf(
                     "step_count" to stepCount.toString(),
                     "error_type" to "missing_input",
-                    "error_message" to (e.message ?: "unknown"),
+                    "error_excerpt" to redactErrorText(e.message ?: "unknown"),
                 ),
             )
             throw e
@@ -126,7 +127,7 @@ class PlanExecutor(private val chatModel: ChatModel) {
                     "step_count" to stepCount.toString(),
                     "error_type" to "step_failed",
                     "error_class" to e::class.simpleName.orEmpty(),
-                    "error_message" to (e.message ?: "unknown"),
+                    "error_excerpt" to redactErrorText(e.message ?: "unknown"),
                 ),
             )
             throw e

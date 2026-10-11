@@ -96,6 +96,23 @@ class InvalidRequestException(
 }
 
 /**
+ * The model doesn't support multimodal (image/file) input — common with OpenAI-compatible
+ * local/self-hosted servers (LM Studio, LocalAI, vLLM, etc.) when the user attaches an
+ * image/file to a text-only model.
+ *
+ * Has its own message key so the actionable guidance ("remove the attachment or switch
+ * models") is translated per locale, while [details] carries the raw provider message
+ * as-is — we never author per-provider copy since we can't anticipate every error wording.
+ */
+class MultimodalNotSupportedException(
+    val details: String = "",
+    cause: Throwable? = null,
+) : UserException("Model does not support multimodal input", cause) {
+    override fun getMessageKey() = "error.multimodal_not_supported"
+    override fun getMessageArgs() = mapOf("details" to details.take(200))
+}
+
+/**
  * Tool execution failed.
  */
 class ToolExecutionException(
