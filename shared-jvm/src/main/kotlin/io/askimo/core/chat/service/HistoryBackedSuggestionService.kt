@@ -27,6 +27,13 @@ import kotlinx.coroutines.launch
  * duplicate slot. Short acknowledgments and multi-line/structured pastes (see
  * [isEligibleCandidate]) never enter the cache.
  *
+ * **Known gap:** `EventBus.post` emits asynchronously, so a message persisted right around the
+ * first [suggest] call can be both read by [seedIfNeeded] *and* delivered via
+ * [UserMessageAddedEvent] — double-counting it in [HistoryEntry.count]. With count-based
+ * ranking, a message sent once could then outrank genuinely repeated history. A proper fix
+ * needs a shared message identity/watermark between the seed query and the event stream so
+ * already-seeded events can be deduped; not implemented here as it's a narrow startup race.
+ *
  * ### Ranking
  * Case-insensitive whole-input prefix match (predictable "retype faster", not a guess).
  * Among matches, most *frequently* typed wins, ties broken by most *recent* — same scheme as
