@@ -61,6 +61,7 @@ import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
 import io.askimo.core.chat.service.ChatSessionService
+import io.askimo.core.chat.service.PhraseHabitRefreshService
 import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
 import io.askimo.core.context.ExecutionMode
@@ -271,6 +272,14 @@ fun main(args: Array<String>) {
     startKoin {
         modules(allDesktopModules)
     }
+
+    // Kick off background "typing habit" extraction for the default profile so cross-session
+    // phrase suggestions are available without requiring an explicit UI trigger.
+    runCatching {
+        val koin = get()
+        val profileId = koin.get<DatabaseManager>().getUserProfileRepository().getProfile().id
+        koin.get<PhraseHabitRefreshService>().start(profileId)
+    }.onFailure { e -> log.warn("Failed to start PhraseHabitRefreshService: ${e.message}") }
 
     application {
         val savedLocale = ThemePreferences.locale.value

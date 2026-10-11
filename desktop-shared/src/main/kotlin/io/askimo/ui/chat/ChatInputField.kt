@@ -79,6 +79,10 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
@@ -86,11 +90,17 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -108,6 +118,7 @@ import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
 import io.askimo.core.chat.service.ChatDirectiveService
 import io.askimo.core.chat.service.ResourceCollectionService
+import io.askimo.core.chat.service.SuggestionService
 import io.askimo.core.chat.util.FileContentExtractor
 import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
@@ -376,6 +387,26 @@ fun chatInputField(
     LaunchedEffect(Unit) {
         availableDirectives = directiveService.listAllDirectives()
         defaultDirectiveId = directiveService.getGlobalDefaultDirectiveId()
+    }
+
+    // ── Inline autocomplete (ghost text) ────────────────────────────────────────
+    // Suggests the remainder of a previously-sent message, like shell history
+    // autocomplete. Accept with Tab, dismiss with Escape (see key handler below).
+    val suggestionService = remember {
+        KoinJavaComponent.get<SuggestionService>(SuggestionService::class.java)
+    }
+    var inlineSuggestion by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(inputText.text, inputText.selection, sessionId) {
+        val text = inputText.text
+        val cursorAtEnd = inputText.selection.start == text.length
+        if (text.isBlank() || !cursorAtEnd) {
+            inlineSuggestion = null
+        } else {
+            delay(150.milliseconds) // debounce — avoid recompute on every keystroke
+            inlineSuggestion = withContext(Dispatchers.IO) {
+                suggestionService.suggest(text, sessionId)
+            }
+        }
     }
 
     // Resource Collections chip state (see ChatActions.setActiveResourceCollections). At most
@@ -713,6 +744,10 @@ fun chatInputField(
                     else -> MaterialTheme.colorScheme.outlineVariant
                 }
                 val containerBorderWidth = if (isFocused || errorMessage != null) 2.dp else 1.dp
+                // Resolved in composable scope — AppColors.tertiaryIconColor() is @Composable
+                // and can't be called from the VisualTransformation lambda below (runs outside
+                // composition).
+                val ghostTextColor = AppColors.tertiaryIconColor()
 
                 Column(
                     modifier = Modifier
@@ -733,8 +768,31 @@ fun chatInputField(
                                 textFieldWidthPx = coordinates.size.width.toFloat()
                             }
                             .onImeAwarePreviewKeyEvent(inputText.composition) { keyEvent ->
+                                // Accept inline suggestion with Tab.
+                                if (keyEvent.key == Key.Tab && keyEvent.type == KeyEventType.KeyDown) {
+                                    val suggestion = inlineSuggestion
+                                    if (suggestion != null) {
+                                        val newText = inputText.text + suggestion
+                                        onInputTextChange(
+                                            TextFieldValue(text = newText, selection = TextRange(newText.length)),
+                                        )
+                                        inlineSuggestion = null
+                                        return@onImeAwarePreviewKeyEvent true
+                                    }
+                                }
+                                // Dismiss inline suggestion with Escape, without consuming
+                                // the event further (e.g. other Escape handlers elsewhere).
+                                if (keyEvent.key == Key.Escape &&
+                                    keyEvent.type == KeyEventType.KeyDown &&
+                                    inlineSuggestion != null
+                                ) {
+                                    inlineSuggestion = null
+                                    return@onImeAwarePreviewKeyEvent true
+                                }
+
                                 when (KeyMapManager.handleKeyEvent(keyEvent)) {
                                     KeyMapManager.AppShortcut.NEW_LINE -> {
+                                        inlineSuggestion = null
                                         val cursorPosition = inputText.selection.start
                                         val textBeforeCursor = inputText.text.substring(0, cursorPosition)
                                         val textAfterCursor = inputText.text.substring(cursorPosition)
@@ -751,6 +809,7 @@ fun chatInputField(
 
                                     KeyMapManager.AppShortcut.SEND_MESSAGE -> {
                                         if (inputText.text.isNotBlank() && !isLoading && !isThinking) {
+                                            inlineSuggestion = null
                                             onSendMessage(creationMode)
                                         }
                                         true
@@ -762,6 +821,33 @@ fun chatInputField(
                         placeholder = { Text(activePlaceholder) },
                         maxLines = maxVisibleInputLines,
                         interactionSource = interactionSource,
+                        visualTransformation = remember(inlineSuggestion, ghostTextColor) {
+                            val suffix = inlineSuggestion
+                            if (suffix.isNullOrEmpty()) {
+                                VisualTransformation.None
+                            } else {
+                                VisualTransformation { text ->
+                                    val originalLength = text.length
+                                    val annotated = buildAnnotatedString {
+                                        append(text)
+                                        withStyle(SpanStyle(color = ghostTextColor)) {
+                                            append(suffix)
+                                        }
+                                    }
+                                    // The suggestion is appended past the real text's length,
+                                    // so forward mapping is 1:1, but reverse mapping must clamp
+                                    // any offset within the ghost suffix back to the end of the
+                                    // real text — OffsetMapping.Identity assumes transformed and
+                                    // original lengths match, which isn't true here and crashes
+                                    // (transformedToOriginal returned invalid mapping).
+                                    val offsetMapping = object : OffsetMapping {
+                                        override fun originalToTransformed(offset: Int): Int = offset
+                                        override fun transformedToOriginal(offset: Int): Int = offset.coerceAtMost(originalLength)
+                                    }
+                                    TransformedText(annotated, offsetMapping)
+                                }
+                            }
+                        },
                         // Border is provided by the outer container; keep OutlinedTextField's own border transparent.
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Color.Transparent,

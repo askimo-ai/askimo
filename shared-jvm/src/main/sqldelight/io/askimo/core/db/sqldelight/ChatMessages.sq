@@ -33,6 +33,12 @@ SELECT * FROM chat_messages WHERE session_id = :sessionId ORDER BY created_at AS
 countByRole:
 SELECT COUNT(*) FROM chat_messages WHERE role = :role;
 
+countByRoleSince:
+SELECT COUNT(*) FROM chat_messages WHERE role = :role AND is_outdated = 0 AND created_at > :since;
+
+selectRecentActiveGlobalByRole:
+SELECT * FROM chat_messages WHERE role = :role AND is_outdated = 0 ORDER BY created_at DESC LIMIT :limit;
+
 selectBySessionAscFromStart:
 SELECT * FROM chat_messages WHERE session_id = :sessionId ORDER BY created_at ASC LIMIT :limit;
 

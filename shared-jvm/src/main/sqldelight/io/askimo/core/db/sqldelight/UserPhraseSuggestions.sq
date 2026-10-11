@@ -1,0 +1,39 @@
+CREATE TABLE IF NOT EXISTS user_phrase_suggestions (
+    id TEXT PRIMARY KEY,
+    profile_id TEXT NOT NULL,
+    category_key TEXT NOT NULL,
+    phrase TEXT NOT NULL,
+    usage_count INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT AS kotlin.time.Instant NOT NULL,
+    updated_at TEXT AS kotlin.time.Instant NOT NULL,
+    FOREIGN KEY (profile_id) REFERENCES user_profiles(id) ON DELETE CASCADE,
+    UNIQUE(profile_id, category_key, phrase)
+);
+CREATE INDEX IF NOT EXISTS idx_user_phrase_suggestions_profile ON user_phrase_suggestions(profile_id);
+CREATE INDEX IF NOT EXISTS idx_user_phrase_suggestions_category ON user_phrase_suggestions(profile_id, category_key);
+
+-- All rows for a profile (all categories, all variants). Dataset is tiny by design
+-- (capped at 20 categories x 5 variants = 100 rows/profile — see PhraseHabitRefreshService
+-- and UserPhraseSuggestionRepository), so grouping/eviction logic is done in Kotlin rather
+-- than with more elaborate per-category SQL.
+selectByProfileId:
+SELECT * FROM user_phrase_suggestions WHERE profile_id = :profileId ORDER BY category_key, usage_count DESC, updated_at DESC;
+
+insertVariant:
+INSERT INTO user_phrase_suggestions (id, profile_id, category_key, phrase, usage_count, created_at, updated_at)
+VALUES (:id, :profileId, :categoryKey, :phrase, 1, :createdAt, :updatedAt);
+
+-- Bumps an existing variant's usage/recency when a refresh re-confirms the same phrase text.
+touchVariant:
+UPDATE user_phrase_suggestions SET usage_count = usage_count + 1, updated_at = :updatedAt WHERE id = :id;
+
+deleteById:
+DELETE FROM user_phrase_suggestions WHERE id = :id;
+
+deleteByProfileId:
+DELETE FROM user_phrase_suggestions WHERE profile_id = :profileId;
+
+-- Used by PhraseHabitRefreshService's gating logic (time floor + message-count floor).
+selectLastRefreshedAt:
+SELECT MAX(updated_at) AS last_refreshed_at FROM user_phrase_suggestions WHERE profile_id = :profileId;
+

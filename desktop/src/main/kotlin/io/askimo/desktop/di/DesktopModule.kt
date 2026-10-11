@@ -7,8 +7,13 @@ import io.askimo.core.agent.service.WorkspaceService
 import io.askimo.core.chat.service.ChatDirectiveService
 import io.askimo.core.chat.service.ChatSessionExporterService
 import io.askimo.core.chat.service.ChatSessionService
+import io.askimo.core.chat.service.CompositeSuggestionService
+import io.askimo.core.chat.service.HistoryBackedSuggestionService
+import io.askimo.core.chat.service.PersistedPhraseSuggestionService
+import io.askimo.core.chat.service.PhraseHabitRefreshService
 import io.askimo.core.chat.service.ProjectService
 import io.askimo.core.chat.service.ResourceCollectionService
+import io.askimo.core.chat.service.SuggestionService
 import io.askimo.core.context.AppContext
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.mcp.McpClientFactory
@@ -91,6 +96,34 @@ val desktopModule = module {
     single { ChatDirectiveService(repository = get(), userProfileRepository = get(), projectRepository = get()) }
 
     single { ResourceCollectionService(ragIndexer = get()) }
+
+    single { get<DatabaseManager>().getUserPhraseSuggestionRepository() }
+
+    single { HistoryBackedSuggestionService(messageRepository = get()) }
+
+    single {
+        PersistedPhraseSuggestionService(
+            phraseRepository = get(),
+            profileIdProvider = { runCatching { get<DatabaseManager>().getUserProfileRepository().getProfile().id }.getOrNull() },
+        )
+    }
+
+    single<SuggestionService> {
+        CompositeSuggestionService(
+            get<HistoryBackedSuggestionService>(),
+            get<PersistedPhraseSuggestionService>(),
+        )
+    }
+
+    single {
+        PhraseHabitRefreshService(
+            messageRepository = get(),
+            phraseRepository = get(),
+            suggestionCache = get(),
+            userProfileRepository = get<DatabaseManager>().getUserProfileRepository(),
+            appContext = get(),
+        )
+    }
 
     single { McpClientFactory() }
     single { McpInstanceService(mcpClientFactory = get()) }

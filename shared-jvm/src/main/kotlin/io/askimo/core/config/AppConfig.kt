@@ -660,6 +660,18 @@ data class NotificationsConfig(
     val showDetails: Boolean = false,
 )
 
+/**
+ * Configuration for the inline chat-input autocomplete ("ghost text") feature.
+ * Lives under the `suggestions:` key in askimo.yml. Enabled by default.
+ *
+ * When [enabled] is false, [io.askimo.core.chat.service.CompositeSuggestionService] stops
+ * returning suggestions on the typing path, and `PhraseHabitRefreshService` stops making
+ * background AI calls to extract new typing-habit phrases.
+ */
+data class SuggestionsConfig(
+    val enabled: Boolean = true,
+)
+
 data class AppConfigData(
     val embedding: EmbeddingConfig = EmbeddingConfig(),
     val retry: RetryConfig = RetryConfig(),
@@ -675,6 +687,7 @@ data class AppConfigData(
     val webSearch: WebSearchConfig = WebSearchConfig(),
     val voice: VoiceConfig = VoiceConfig(),
     val notifications: NotificationsConfig = NotificationsConfig(),
+    val suggestions: SuggestionsConfig = SuggestionsConfig(),
     val context: AppContextParams = AppContextParams.noOp(),
     val currentLocale: String? = null,
 )
@@ -762,6 +775,12 @@ object AppConfig {
      * See [NotificationsConfig] for field semantics.
      */
     val notifications: NotificationsConfig get() = delegate.notifications
+
+    /**
+     * Configuration for the inline chat-input autocomplete ("ghost text") feature.
+     * See [SuggestionsConfig] for field semantics.
+     */
+    val suggestions: SuggestionsConfig get() = delegate.suggestions
 
     /**
      * Raw proxy configuration **without** keychain/secure-storage lookup.
@@ -943,6 +962,9 @@ object AppConfig {
             - sage
             - shimmer
             - verse
+
+        suggestions:
+          enabled: true
 
         context:
           current_instance_id: ""
@@ -1161,6 +1183,8 @@ object AppConfig {
                 "voice" -> current.copy(voice = updateVoiceField(current.voice, field, value))
 
                 "notifications" -> current.copy(notifications = updateNotificationsField(current.notifications, field, value))
+
+                "suggestions" -> current.copy(suggestions = updateSuggestionsField(current.suggestions, field, value))
 
                 else -> {
                     log.error("Unknown config section: $section", null)
@@ -1576,6 +1600,15 @@ object AppConfig {
 
         else -> {
             log.error("Unknown notifications field: $field", null)
+            config
+        }
+    }
+
+    private fun updateSuggestionsField(config: SuggestionsConfig, field: String, value: Any): SuggestionsConfig = when (field) {
+        "enabled" -> config.copy(enabled = value as Boolean)
+
+        else -> {
+            log.error("Unknown suggestions field: $field", null)
             config
         }
     }

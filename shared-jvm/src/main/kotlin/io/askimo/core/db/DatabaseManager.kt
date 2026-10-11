@@ -18,6 +18,7 @@ import io.askimo.core.chat.repository.ResourceCollectionRepository
 import io.askimo.core.chat.repository.ResourceSegmentRepository
 import io.askimo.core.chat.repository.SessionMemoryRepository
 import io.askimo.core.chat.repository.UserMemoryRepository
+import io.askimo.core.chat.repository.UserPhraseSuggestionRepository
 import io.askimo.core.db.sqldelight.Agent_run_history
 import io.askimo.core.db.sqldelight.Chat_directives
 import io.askimo.core.db.sqldelight.Chat_messages
@@ -33,6 +34,7 @@ import io.askimo.core.db.sqldelight.Resource_collections
 import io.askimo.core.db.sqldelight.Session_memory
 import io.askimo.core.db.sqldelight.User_interests
 import io.askimo.core.db.sqldelight.User_memory
+import io.askimo.core.db.sqldelight.User_phrase_suggestions
 import io.askimo.core.db.sqldelight.User_preferences
 import io.askimo.core.db.sqldelight.User_profiles
 import io.askimo.core.db.sqldelight.Workspaces
@@ -122,6 +124,10 @@ class DatabaseManager private constructor(
             updated_atAdapter = InstantColumnAdapter,
         ),
         user_profilesAdapter = User_profiles.Adapter(
+            created_atAdapter = InstantColumnAdapter,
+            updated_atAdapter = InstantColumnAdapter,
+        ),
+        user_phrase_suggestionsAdapter = User_phrase_suggestions.Adapter(
             created_atAdapter = InstantColumnAdapter,
             updated_atAdapter = InstantColumnAdapter,
         ),
@@ -254,6 +260,12 @@ class DatabaseManager private constructor(
     }
 
     fun getUserProfileRepository(): UserProfileRepository = _userProfileRepository
+
+    private val _userPhraseSuggestionRepository: UserPhraseSuggestionRepository by lazy {
+        UserPhraseSuggestionRepository(this)
+    }
+
+    fun getUserPhraseSuggestionRepository(): UserPhraseSuggestionRepository = _userPhraseSuggestionRepository
 
     private val _planExecutionRepository: PlanExecutionRepository by lazy {
         PlanExecutionRepository(this)

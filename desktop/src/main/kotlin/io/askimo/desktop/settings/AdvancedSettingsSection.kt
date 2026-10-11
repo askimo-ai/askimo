@@ -50,6 +50,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.analytics.Analytics
+import io.askimo.core.chat.repository.UserPhraseSuggestionRepository
+import io.askimo.core.chat.service.PersistedPhraseSuggestionService
 import io.askimo.core.config.AppConfig
 import io.askimo.core.config.MIN_MODEL_TIMEOUT_SECONDS
 import io.askimo.core.config.MemoryMode
@@ -57,7 +59,9 @@ import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.LogLevel
 import io.askimo.core.logging.LoggingService
 import io.askimo.core.logging.currentFileLogger
+import io.askimo.core.user.repository.UserProfileRepository
 import io.askimo.core.util.NumberFormatUtil
+import io.askimo.ui.common.components.dangerButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
@@ -72,6 +76,7 @@ import io.askimo.ui.shell.DeveloperModePreferences
 import io.askimo.ui.shell.logViewerDialog
 import io.askimo.ui.util.Platform
 import kotlinx.coroutines.delay
+import org.koin.core.context.GlobalContext
 import java.awt.Desktop
 import java.io.File
 import kotlin.time.Duration.Companion.milliseconds
@@ -123,6 +128,9 @@ fun advancedSettingsSection() {
 
                 // Memory Configuration Section
                 memoryConfigurationSection()
+
+                // Typing Suggestions Section
+                typingSuggestionsSection()
 
                 // Analytics Section
                 analyticsSection()
@@ -764,6 +772,108 @@ private fun memoryConfigurationSection() {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun typingSuggestionsSection() {
+    val phraseRepository = remember { GlobalContext.get().get<UserPhraseSuggestionRepository>() }
+    val userProfileRepository = remember { GlobalContext.get().get<UserProfileRepository>() }
+    val suggestionCache = remember { GlobalContext.get().get<PersistedPhraseSuggestionService>() }
+    var enabled by remember { mutableStateOf(AppConfig.suggestions.enabled) }
+    var showConfirmDialog by remember { mutableStateOf(false) }
+    var showResetSuccess by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showResetSuccess) {
+        if (showResetSuccess) {
+            delay(2000.milliseconds)
+            showResetSuccess = false
+        }
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.large),
+            verticalArrangement = Arrangement.spacedBy(Spacing.medium),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                ) {
+                    Text(
+                        text = stringResource("settings.suggestions.title"),
+                        style = AppTextStyles.sectionTitle,
+                    )
+                    Text(
+                        text = stringResource("settings.suggestions.description"),
+                        style = AppTextStyles.caption,
+                    )
+                }
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = { checked ->
+                        enabled = checked
+                        AppConfig.updateField("suggestions.enabled", checked)
+                    },
+                )
+            }
+
+            if (enabled) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    dangerButton(onClick = { showConfirmDialog = true }) {
+                        Text(stringResource("settings.suggestions.reset"))
+                    }
+
+                    AnimatedVisibility(visible = showResetSuccess, enter = fadeIn(), exit = fadeOut()) {
+                        Text(
+                            text = stringResource("settings.suggestions.reset.success"),
+                            style = AppTextStyles.caption,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (showConfirmDialog) {
+        AppComponents.alertDialog(
+            onDismissRequest = { showConfirmDialog = false },
+            title = { Text(stringResource("settings.suggestions.reset")) },
+            text = { Text(stringResource("settings.suggestions.reset.confirm")) },
+            confirmButton = {
+                dangerButton(
+                    onClick = {
+                        runCatching {
+                            val profileId = userProfileRepository.getProfile().id
+                            phraseRepository.clear(profileId)
+                            suggestionCache.refreshCache(profileId)
+                        }.onFailure { e -> log.error("Failed to reset phrase suggestions", e) }
+                        showConfirmDialog = false
+                        showResetSuccess = true
+                    },
+                ) {
+                    Text(stringResource("settings.suggestions.reset"))
+                }
+            },
+            dismissButton = {
+                secondaryButton(onClick = { showConfirmDialog = false }) {
+                    Text(stringResource("settings.suggestions.reset.cancel"))
+                }
+            },
+        )
     }
 }
 
