@@ -22,6 +22,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlin.time.Clock
@@ -47,6 +48,11 @@ import kotlin.time.Instant
  *  - **either** [minMessagesBetweenRefresh] new user messages or [minRefreshInterval] of time
  *    has passed since the last successful refresh, **and**
  *  - the user has sent at least [MIN_TOTAL_MESSAGES_FOR_COLD_START] messages overall.
+ *
+ * ### Privacy backstop
+ * Every extracted phrase is validated — not just trusted — via [looksLikeRawContent] before
+ * persistence, rejecting anything that still looks like unstripped raw message content (e.g.
+ * from a model that failed to generalize, or a prompt-injection attempt in a user message).
  */
 class PhraseHabitRefreshService(
     private val messageRepository: ChatMessageRepository,
@@ -63,6 +69,22 @@ class PhraseHabitRefreshService(
         private const val DELTA_SAMPLE_LIMIT = 30
         private const val MAX_HABITS_PER_CALL = 5
         private const val MIN_TOTAL_MESSAGES_FOR_COLD_START = 5
+
+        /**
+         * Minimum word count before [looksLikeRawContent] applies the verbatim-overlap check —
+         * short generic boilerplate (e.g. "Thanks!") is always allowed, even if it happens to
+         * match a source message.
+         */
+        private const val MIN_SUSPICIOUS_WORDS = 6
+
+        /** See [looksLikeRawContent]. */
+        private const val VERBATIM_COVERAGE_THRESHOLD = 0.7
+
+        /** Digits, emails, URLs, file paths — specifics the prompt asks the model to strip. */
+        private val SPECIFIC_CONTENT_PATTERN = Regex(
+            """\d|@[\w.-]+\.[a-z]{2,}|https?://|[/\\][\w.-]+[/\\]""",
+            RegexOption.IGNORE_CASE,
+        )
     }
 
     private val log = logger<PhraseHabitRefreshService>()
@@ -103,6 +125,24 @@ class PhraseHabitRefreshService(
                         attemptRefresh(profileId)
                     }
                 }
+        }
+    }
+
+    /**
+     * Clears all persisted phrase suggestions for [profileId], coordinated with any in-flight
+     * or pending refresh so a worker's merge can't race the clear and leave suggestions present
+     * immediately after a reported reset.
+     *
+     * Cancels the debounced [pendingRefreshJob] first, then suspends on [refreshMutex] — if
+     * [attemptRefresh] is already running (e.g. mid AI call), this waits for it to finish
+     * merging and refreshing the cache, *then* clears and refreshes again, guaranteeing the
+     * clear is the last writer. Safe to call from a UI coroutine.
+     */
+    suspend fun resetSuggestions(profileId: String) {
+        pendingRefreshJob?.cancel()
+        refreshMutex.withLock {
+            phraseRepository.clear(profileId)
+            suggestionCache.refreshCache(profileId)
         }
     }
 
@@ -152,13 +192,51 @@ class PhraseHabitRefreshService(
                 .onFailure { e -> log.warn("Phrase habit extraction failed for profile {}: {}", profileId, e.message) }
                 .getOrNull() ?: return
 
-            habits.forEach { habit ->
+            // Advance the gate checkpoint on any successful attempt — including one that
+            // legitimately found no recurring habits — so the cooldown/count gate isn't
+            // bypassed on the very next message (it's independent of suggestion rows, which
+            // only change when a habit is actually merged).
+            phraseRepository.recordRefreshCheckpoint(profileId, now)
+
+            val safeHabits = habits.filterNot { looksLikeRawContent(it.phrase, messages) }
+            if (safeHabits.size != habits.size) {
+                log.warn(
+                    "Dropped {} of {} extracted habit(s) for profile {} — looked like unstripped raw message content",
+                    habits.size - safeHabits.size,
+                    habits.size,
+                    profileId,
+                )
+            }
+            if (safeHabits.isEmpty()) return
+
+            safeHabits.forEach { habit ->
                 phraseRepository.mergeHabit(profileId, habit.key, habit.phrase)
             }
             suggestionCache.refreshCache(profileId)
-            log.debug("Phrase habit refresh merged {} habit(s) for profile {}", habits.size, profileId)
+            log.debug("Phrase habit refresh merged {} habit(s) for profile {}", safeHabits.size, profileId)
         } finally {
             refreshMutex.unlock()
+        }
+    }
+
+    /**
+     * Rejects a [phrase] that looks like raw message content rather than a generalized habit —
+     * either it contains digits/emails/URLs/paths (specifics the prompt asks to strip), or it's
+     * a long (>= [MIN_SUSPICIOUS_WORDS] words) near-verbatim excerpt of one of [sourceMessages].
+     * Short generic phrases are allowed through even if they match a source message verbatim —
+     * that's the expected output for boilerplate openers/closers, not a privacy leak.
+     */
+    private fun looksLikeRawContent(phrase: String, sourceMessages: List<String>): Boolean {
+        if (SPECIFIC_CONTENT_PATTERN.containsMatchIn(phrase)) return true
+
+        val wordCount = phrase.trim().split(Regex("\\s+")).size
+        if (wordCount < MIN_SUSPICIOUS_WORDS) return false
+
+        val normalizedPhrase = phrase.trim().lowercase().replace(Regex("\\s+"), " ")
+        return sourceMessages.any { message ->
+            val normalizedMessage = message.trim().lowercase().replace(Regex("\\s+"), " ")
+            normalizedMessage.contains(normalizedPhrase) &&
+                normalizedPhrase.length >= normalizedMessage.length * VERBATIM_COVERAGE_THRESHOLD
         }
     }
 

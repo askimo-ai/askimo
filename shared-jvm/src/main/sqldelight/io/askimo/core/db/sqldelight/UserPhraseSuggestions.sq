@@ -33,7 +33,23 @@ DELETE FROM user_phrase_suggestions WHERE id = :id;
 deleteByProfileId:
 DELETE FROM user_phrase_suggestions WHERE profile_id = :profileId;
 
--- Used by PhraseHabitRefreshService's gating logic (time floor + message-count floor).
-selectLastRefreshedAt:
-SELECT MAX(updated_at) AS last_refreshed_at FROM user_phrase_suggestions WHERE profile_id = :profileId;
+-- Independent of suggestion rows — a successful extraction attempt (even one returning no
+-- habits) must still advance the gate in PhraseHabitRefreshService. MAX(updated_at) over
+-- user_phrase_suggestions alone never moves for an empty result, bypassing the cooldown/
+-- message-count gate on every subsequent message. See PhraseHabitRefreshService.attemptRefresh.
+CREATE TABLE IF NOT EXISTS phrase_refresh_checkpoint (
+    profile_id TEXT PRIMARY KEY NOT NULL,
+    last_refreshed_at TEXT AS kotlin.time.Instant NOT NULL,
+    FOREIGN KEY (profile_id) REFERENCES user_profiles(id) ON DELETE CASCADE
+);
+
+upsertRefreshCheckpoint:
+INSERT OR REPLACE INTO phrase_refresh_checkpoint (profile_id, last_refreshed_at)
+VALUES (:profileId, :lastRefreshedAt);
+
+selectRefreshCheckpoint:
+SELECT last_refreshed_at FROM phrase_refresh_checkpoint WHERE profile_id = :profileId;
+
+deleteRefreshCheckpointByProfileId:
+DELETE FROM phrase_refresh_checkpoint WHERE profile_id = :profileId;
 

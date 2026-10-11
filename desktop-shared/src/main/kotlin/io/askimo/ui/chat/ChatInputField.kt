@@ -399,9 +399,8 @@ fun chatInputField(
     LaunchedEffect(inputText.text, inputText.selection, sessionId) {
         val text = inputText.text
         val cursorAtEnd = inputText.selection.start == text.length
-        if (text.isBlank() || !cursorAtEnd) {
-            inlineSuggestion = null
-        } else {
+        inlineSuggestion = null // clear stale suggestion immediately; avoid accepting a suffix for old text
+        if (text.isNotBlank() && cursorAtEnd) {
             delay(150.milliseconds) // debounce — avoid recompute on every keystroke
             inlineSuggestion = withContext(Dispatchers.IO) {
                 suggestionService.suggest(text, sessionId)

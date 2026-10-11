@@ -28,6 +28,7 @@ import io.askimo.core.db.sqldelight.File_segments
 import io.askimo.core.db.sqldelight.Index_file_state
 import io.askimo.core.db.sqldelight.Llm_usage_records
 import io.askimo.core.db.sqldelight.Model_classifications
+import io.askimo.core.db.sqldelight.Phrase_refresh_checkpoint
 import io.askimo.core.db.sqldelight.Plan_executions
 import io.askimo.core.db.sqldelight.Projects
 import io.askimo.core.db.sqldelight.Resource_collections
@@ -130,6 +131,9 @@ class DatabaseManager private constructor(
         user_phrase_suggestionsAdapter = User_phrase_suggestions.Adapter(
             created_atAdapter = InstantColumnAdapter,
             updated_atAdapter = InstantColumnAdapter,
+        ),
+        phrase_refresh_checkpointAdapter = Phrase_refresh_checkpoint.Adapter(
+            last_refreshed_atAdapter = InstantColumnAdapter,
         ),
         workspacesAdapter = Workspaces.Adapter(
             created_atAdapter = InstantColumnAdapter,

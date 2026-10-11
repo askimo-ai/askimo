@@ -85,6 +85,7 @@ tasks.register("collectThirdPartyNotices") {
     description = "Merges every subproject's resolved dependency licenses into one deduplicated " +
         "THIRD-PARTY-NOTICES.txt at the repo root."
     dependsOn(subprojects.mapNotNull { it.tasks.findByName("generateLicenseReport") })
+    dependsOn(subprojects.mapNotNull { it.tasks.findByName("checkLicense") })
     outputs.upToDateWhen { false }
 
     doLast {
@@ -122,7 +123,6 @@ tasks.register("collectThirdPartyNotices") {
 
         val out = StringBuilder()
         out.appendLine("Askimo — Third-Party Software Notices")
-        out.appendLine("Generated: ${java.time.LocalDateTime.now()}")
         out.appendLine(
             "This file lists every third-party dependency bundled in Askimo's distributed " +
                 "artifacts (CLI, desktop app) across all modules, deduplicated, along with its license.",

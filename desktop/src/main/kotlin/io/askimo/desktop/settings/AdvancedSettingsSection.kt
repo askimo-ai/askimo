@@ -42,6 +42,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,8 +51,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.analytics.Analytics
-import io.askimo.core.chat.repository.UserPhraseSuggestionRepository
-import io.askimo.core.chat.service.PersistedPhraseSuggestionService
+import io.askimo.core.chat.service.PhraseHabitRefreshService
 import io.askimo.core.config.AppConfig
 import io.askimo.core.config.MIN_MODEL_TIMEOUT_SECONDS
 import io.askimo.core.config.MemoryMode
@@ -76,6 +76,7 @@ import io.askimo.ui.shell.DeveloperModePreferences
 import io.askimo.ui.shell.logViewerDialog
 import io.askimo.ui.util.Platform
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 import java.awt.Desktop
 import java.io.File
@@ -777,12 +778,12 @@ private fun memoryConfigurationSection() {
 
 @Composable
 private fun typingSuggestionsSection() {
-    val phraseRepository = remember { GlobalContext.get().get<UserPhraseSuggestionRepository>() }
+    val phraseHabitRefreshService = remember { GlobalContext.get().get<PhraseHabitRefreshService>() }
     val userProfileRepository = remember { GlobalContext.get().get<UserProfileRepository>() }
-    val suggestionCache = remember { GlobalContext.get().get<PersistedPhraseSuggestionService>() }
     var enabled by remember { mutableStateOf(AppConfig.suggestions.enabled) }
     var showConfirmDialog by remember { mutableStateOf(false) }
     var showResetSuccess by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(showResetSuccess) {
         if (showResetSuccess) {
@@ -856,13 +857,17 @@ private fun typingSuggestionsSection() {
             confirmButton = {
                 dangerButton(
                     onClick = {
-                        runCatching {
-                            val profileId = userProfileRepository.getProfile().id
-                            phraseRepository.clear(profileId)
-                            suggestionCache.refreshCache(profileId)
-                        }.onFailure { e -> log.error("Failed to reset phrase suggestions", e) }
                         showConfirmDialog = false
-                        showResetSuccess = true
+                        coroutineScope.launch {
+                            runCatching {
+                                val profileId = userProfileRepository.getProfile().id
+                                phraseHabitRefreshService.resetSuggestions(profileId)
+                            }.onSuccess {
+                                showResetSuccess = true
+                            }.onFailure { e ->
+                                log.error("Failed to reset phrase suggestions", e)
+                            }
+                        }
                     },
                 ) {
                     Text(stringResource("settings.suggestions.reset"))

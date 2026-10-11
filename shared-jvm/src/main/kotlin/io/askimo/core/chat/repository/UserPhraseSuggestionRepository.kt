@@ -77,9 +77,18 @@ class UserPhraseSuggestionRepository internal constructor(
         .mapValues { (_, variants) -> variants.maxWith(compareBy({ it.usageCount }, { it.updatedAt })).phrase }
 
     fun lastRefreshedAt(profileId: String): Instant? = queries
-        .selectLastRefreshedAt(profileId)
+        .selectRefreshCheckpoint(profileId)
         .executeAsOneOrNull()
-        ?.last_refreshed_at
+
+    /**
+     * Records that a refresh attempt completed successfully for [profileId] — called even when
+     * the extraction legitimately returned no habits, so the next attempt's cooldown/
+     * message-count gate (see `PhraseHabitRefreshService.attemptRefresh`) is honored instead of
+     * re-firing on every subsequent message.
+     */
+    fun recordRefreshCheckpoint(profileId: String, at: Instant) {
+        queries.upsertRefreshCheckpoint(profileId = profileId, lastRefreshedAt = at)
+    }
 
     /**
      * Merges a single `{categoryKey, phrase}` extraction result into the persisted set,
@@ -137,5 +146,6 @@ class UserPhraseSuggestionRepository internal constructor(
 
     fun clear(profileId: String) {
         queries.deleteByProfileId(profileId)
+        queries.deleteRefreshCheckpointByProfileId(profileId)
     }
 }
