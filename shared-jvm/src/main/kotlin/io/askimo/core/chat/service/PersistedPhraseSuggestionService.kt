@@ -49,11 +49,18 @@ class PersistedPhraseSuggestionService(
      * Rebuilds the in-memory cache from the database for [profileId]. Called by
      * [PhraseHabitRefreshService] after every merge (write-through), and lazily on the first
      * [suggest] call if no refresh has run yet this session.
+     *
+     * On failure, leaves the existing cache (and [cachedProfileId]) untouched instead of
+     * marking [profileId] as loaded with an empty result — otherwise a transient DB error
+     * would silently wipe all persisted suggestions until the next merge/reset, since
+     * [suggest] would see a matching [cachedProfileId] and never retry.
      */
     fun refreshCache(profileId: String) {
         val variants = runCatching { phraseRepository.getAllVariants(profileId) }
-            .onFailure { e -> log.warn("Failed to load persisted phrase suggestions for profile {}: {}", profileId, e.message) }
-            .getOrDefault(emptyList())
+            .getOrElse { e ->
+                log.warn("Failed to load persisted phrase suggestions for profile {}: {}", profileId, e.message)
+                return
+            }
         cachedVariants = variants
         cachedProfileId = profileId
     }

@@ -664,15 +664,14 @@ data class NotificationsConfig(
  * Configuration for the inline chat-input autocomplete ("ghost text") feature.
  * Lives under the `suggestions:` key in askimo.yml.
  *
- * Session-history suggestions (see [io.askimo.core.chat.service.HistoryBackedSuggestionService])
+ * History-based suggestions ([io.askimo.core.chat.service.HistoryBackedSuggestionService])
  * are always on — free, local-only, no AI call — so there's nothing to gate there.
  *
- * [aiExtractionEnabled] gates the opt-in, cross-session enhancement on top of that: when true,
- * `PhraseHabitRefreshService` periodically sends a sample of recent messages (plus
- * personalization context) to the active AI provider — which may be a cloud service — to learn
- * generalized "typing habit" phrases, and [io.askimo.core.chat.service.PersistedPhraseSuggestionService]
- * serves them across sessions. Off by default: this is the only part of the suggestions feature
- * that sends chat content off-device, so it requires explicit opt-in.
+ * [aiExtractionEnabled] gates the opt-in AI enhancement: when true, `PhraseHabitRefreshService`
+ * periodically sends a sample of recent messages to the active AI provider — which may be a
+ * cloud service — to learn generalized "typing habit" phrases, served by
+ * [io.askimo.core.chat.service.PersistedPhraseSuggestionService]. Off by default — the only
+ * part of this feature that sends chat content off-device.
  */
 data class SuggestionsConfig(
     val aiExtractionEnabled: Boolean = false,

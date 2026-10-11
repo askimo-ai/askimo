@@ -16,6 +16,7 @@ import kotlin.time.Instant
  */
 data class UserMessageAddedEvent(
     val sessionId: String,
+    val content: String,
     override val timestamp: Instant = Clock.System.now(),
     override val source: EventSource = EventSource.SYSTEM,
 ) : Event {

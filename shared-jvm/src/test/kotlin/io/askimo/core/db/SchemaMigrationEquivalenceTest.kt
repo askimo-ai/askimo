@@ -49,6 +49,7 @@ class SchemaMigrationEquivalenceTest {
         "file_attachments",
         "attachment_references",
         "user_phrase_suggestions",
+        "phrase_refresh_checkpoint",
     )
 
     @Test

@@ -18,6 +18,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
@@ -65,6 +66,8 @@ class PhraseHabitRefreshService(
     private val minRefreshInterval: Duration = 6.hours,
     private val minMessagesBetweenRefresh: Long = 20,
     private val cooldown: Duration = 15.minutes,
+    /** How long a burst of [UserMessageAddedEvent]s is debounced into a single refresh attempt. */
+    private val debounceDelay: Duration = 2.seconds,
 ) {
     companion object {
         /** How many of the most recent user messages to feed the AI per refresh cycle. */
@@ -123,11 +126,21 @@ class PhraseHabitRefreshService(
                 .collect {
                     pendingRefreshJob?.cancel()
                     pendingRefreshJob = scope.launch {
-                        delay(2.seconds) // debounce a tight burst of events into one attempt
+                        delay(debounceDelay) // debounce a tight burst of events into one attempt
                         attemptRefresh(profileId)
                     }
                 }
         }
+    }
+
+    /**
+     * Cancels the [EventBus] subscription started by [start] and any pending debounced job.
+     * App-lifetime singletons in production never need this, but tests that create a fresh
+     * instance per test case should call it (e.g. in `@AfterEach`) to stop the background
+     * collector — otherwise it keeps listening on the process-wide [EventBus] indefinitely.
+     */
+    fun close() {
+        scope.cancel()
     }
 
     /**

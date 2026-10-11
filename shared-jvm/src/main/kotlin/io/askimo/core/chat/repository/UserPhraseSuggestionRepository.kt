@@ -129,15 +129,18 @@ class UserPhraseSuggestionRepository internal constructor(
                 queries.deleteById(toEvict.id)
             }
 
-            // Evict the entire least-recently-touched category if the profile is now over
-            // its category cap. Re-read category count fresh (the insert above may have
-            // introduced a brand-new category key).
+            // Evict the entire least-recently-touched category if the profile is now over its
+            // cap. The new category is excluded from the stale-candidate pool before taking
+            // the minimum — otherwise a timestamp tie or wall-clock rollback could make it
+            // "win" as stalest, and a post-filter would then skip eviction entirely, leaving
+            // the profile over MAX_CATEGORIES.
             val categoryCount = getCategories(profileId).keys.size
             if (categoryCount > MAX_CATEGORIES) {
                 val recencyByCategory = getCategories(profileId)
+                    .filterKeys { it != normalizedKey }
                     .mapValues { (_, variants) -> variants.maxOf { it.updatedAt } }
                 val staleCategory = recencyByCategory.minByOrNull { it.value }?.key
-                if (staleCategory != null && staleCategory != normalizedKey) {
+                if (staleCategory != null) {
                     getCategories(profileId)[staleCategory]?.forEach { queries.deleteById(it.id) }
                 }
             }

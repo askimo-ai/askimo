@@ -185,6 +185,38 @@ class UserPhraseSuggestionRepositoryIT {
     }
 
     @Test
+    fun `should evict an existing category, never the just-inserted one, on a timestamp tie or wall-clock rollback`() {
+        // Fill the profile to its category cap.
+        repeat(UserPhraseSuggestionRepository.MAX_CATEGORIES) { i ->
+            repository.mergeHabit(PROFILE_ID, "category_$i", "Phrase for category $i")
+        }
+        assertEquals(UserPhraseSuggestionRepository.MAX_CATEGORIES, repository.getCategories(PROFILE_ID).keys.size)
+
+        // Simulate a wall-clock rollback: push every existing category's updated_at far into
+        // the future. A brand-new category merged right after this — stamped with the real,
+        // "earlier" current time — would then look like the least-recently-touched row by raw
+        // timestamp alone, even though it was just created this call. Regression for a bug
+        // where the eviction guard compared the new category's key *after* picking the minimum
+        // instead of excluding it *before* — on this tie/rollback it picked the new category as
+        // "stale", the guard then matched and skipped eviction entirely, silently leaving the
+        // profile over MAX_CATEGORIES.
+        databaseManager.driver.execute(
+            identifier = null,
+            sql = "UPDATE user_phrase_suggestions SET updated_at = ? WHERE profile_id = ?",
+            parameters = 2,
+        ) {
+            bindString(0, "2099-01-01T00:00:00Z")
+            bindString(1, PROFILE_ID)
+        }
+
+        repository.mergeHabit(PROFILE_ID, "new_category", "Brand new phrase")
+
+        val categories = repository.getCategories(PROFILE_ID)
+        assertEquals(UserPhraseSuggestionRepository.MAX_CATEGORIES, categories.keys.size)
+        assertTrue("new_category" in categories.keys)
+    }
+
+    @Test
     fun `should return representative phrase per category by highest usage then recency`() {
         repository.mergeHabit(PROFILE_ID, "opener", "Hey!")
         repository.mergeHabit(PROFILE_ID, "opener", "Hello!")

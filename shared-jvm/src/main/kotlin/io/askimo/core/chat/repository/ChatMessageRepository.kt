@@ -110,7 +110,12 @@ class ChatMessageRepository internal constructor(
 
         EventBus.post(PushDataToServerEvent(reason = "message written"))
         if (messageWithInjectedFields.role == MessageRole.USER) {
-            EventBus.post(UserMessageAddedEvent(sessionId = messageWithInjectedFields.sessionId))
+            EventBus.post(
+                UserMessageAddedEvent(
+                    sessionId = messageWithInjectedFields.sessionId,
+                    content = messageWithInjectedFields.content,
+                ),
+            )
         }
         return messageWithInjectedFields
     }

@@ -8,13 +8,11 @@ package io.askimo.core.chat.service
  * Combines multiple [SuggestionService]s, trying each in order and returning the first
  * non-null suggestion. Ordering matters: put the most specific/relevant source first.
  *
- * Current composition (see `DesktopModule`): [HistoryBackedSuggestionService] (this exact
- * session's own history — always on, free, local-only) before
- * [PersistedPhraseSuggestionService] (cross-session AI-derived typing habits — gated on
- * `AppConfig.suggestions.aiExtractionEnabled` internally, since that's an opt-in feature).
+ * Current composition (see `DesktopModule`): [HistoryBackedSuggestionService] (own message
+ * history, always on, free, local-only) before [PersistedPhraseSuggestionService] (AI-derived
+ * typing habits, gated on `AppConfig.suggestions.aiExtractionEnabled`).
  *
- * This dispatcher itself stays config-agnostic — each delegate is responsible for its own
- * on/off semantics.
+ * This dispatcher stays config-agnostic — each delegate owns its own on/off semantics.
  */
 class CompositeSuggestionService(
     private val delegates: List<SuggestionService>,
