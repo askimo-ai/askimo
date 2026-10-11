@@ -43,10 +43,34 @@ object ExceptionHandler {
         contextId: String? = null,
     ): String = render(askimoException, contextId)
 
+    /**
+     * Renders the localized, user-facing message for [askimoException] — same content as
+     * [handle] — without the logging side effect.
+     *
+     * @param askimoException The already-classified exception to render
+     * @return Localized user-friendly error message (same content [handle] would show)
+     */
+    fun renderMessage(askimoException: AskimoException): String = renderOnly(askimoException)
+
     private fun render(
         askimoException: AskimoException,
         contextId: String?,
     ): String {
+        val result = renderOnly(askimoException)
+
+        // Log appropriately
+        val logPrefix = contextId?.let { "[$it] " } ?: ""
+        if (askimoException.isUserError()) {
+            log.warn("${logPrefix}User error: ${askimoException.message}")
+        } else {
+            log.error("${logPrefix}System error: ${askimoException.message}", askimoException)
+        }
+
+        return result
+    }
+
+    /** Pure rendering — localized template + substituted args + the report-bug hint. No logging. */
+    private fun renderOnly(askimoException: AskimoException): String {
         // Get localized message (uses LocalizationManager.getCurrentLocale() internally)
         val localizedMessage = LocalizationManager.getString(
             askimoException.getMessageKey(),
@@ -56,14 +80,6 @@ object ExceptionHandler {
         var result = localizedMessage
         askimoException.getMessageArgs().forEach { (key, value) ->
             result = result.replace("{$key}", value)
-        }
-
-        // Log appropriately
-        val logPrefix = contextId?.let { "[$it] " } ?: ""
-        if (askimoException.isUserError()) {
-            log.warn("${logPrefix}User error: ${askimoException.message}")
-        } else {
-            log.error("${logPrefix}System error: ${askimoException.message}", askimoException)
         }
 
         val hint = LocalizationManager.getString(

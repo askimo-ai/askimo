@@ -275,12 +275,22 @@ enum class AnalyticsEvent(
 
     /**
      * A categorised error occurred.
-     * Properties: `error_type=provider_timeout|rate_limit|auth_error|context_length|connection_refused|model_not_found|server_error|network_error|provider_error`,
-     * `provider` (when relevant), `error_message` (sanitised, no PII, up to 4000 chars).
+     * Properties: `error_type=provider_timeout|rate_limit|auth_error|context_length|connection_refused|model_not_found|server_error|local_server_error|insufficient_credits|unsupported_sampling|malformed_tool_call|max_tool_calling_round_trips|invalid_request|system_error|provider_error`,
+     * `provider` (when relevant), `error_message` (sanitised root-cause message, no PII, up to
+     * 4000 chars), `user_message` (the exact localized, user-facing text rendered via
+     * [io.askimo.core.exception.ExceptionHandler], sanitised, up to 4000 chars).
+     *
+     * `error_type` and `user_message` are both derived from
+     * [io.askimo.core.exception.ExceptionMapper] (the same classifier that powers user-facing
+     * error messages), so analytics and UX never disagree on what an error "is" or what the user
+     * actually saw — see `TelemetryChatModelListener.onError`. Capturing both `error_message`
+     * (root cause) and `user_message` (rendered text) side by side lets us audit misclassified
+     * or unhelpful error messages directly from analytics, without waiting for a user bug report.
      */
     ERROR_OCCURRED(
         "error_occurred",
-        "Categorised error. Properties: error_type, provider (optional), error_message (sanitised, up to 4000 chars).",
+        "Categorised error. Properties: error_type, provider (optional), error_message (sanitised root cause, up to 4000 chars), " +
+            "user_message (sanitised rendered user-facing text, up to 4000 chars).",
     ),
 
     // ── Retention ────────────────────────────────────────────────────────────

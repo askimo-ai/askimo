@@ -73,6 +73,12 @@ enum class OpenAiCompatibleTemplate(
             val json = appJson.parseToJsonElement(body)
             json.jsonObject["result"]?.jsonArray.orEmpty()
                 .mapNotNull { it.jsonObject["name"]?.jsonPrimitive?.contentOrNull }
+                // `/models/search` also returns user fine-tunes / custom AI Gateway "functions",
+                // whose `name` is a bare UUID (e.g. "4df48b4f-e3c5-4ade-82c7-c06b65e25d18"). Those
+                // are NOT invokable through the OpenAI-compatible /ai/v1/chat/completions route —
+                // calling one 404s with "Function '<uuid>': Not found for account '<id>'".
+                // Only catalog models (prefixed "@cf/") work via the v1 compat endpoint.
+                .filter { it.startsWith("@cf/") }
                 .distinct()
                 .sorted()
         },

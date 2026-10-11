@@ -80,6 +80,22 @@ object ExceptionMapper {
     }
 
     /**
+     * Returns the message of the deepest exception in the cause chain — the true root cause —
+     * as opposed to `throwable.message`, which may only be a shallow wrapper message (e.g.
+     * `CompletionException("request failed")` wrapping a deeper `IOException` with the actual
+     * detail). [matchByMessage] itself matches against the full joined chain, not just the top
+     * message, so callers that want to know exactly what text drove classification (e.g.
+     * analytics/telemetry) should use this instead of `throwable.message` directly.
+     *
+     * @param throwable The exception to inspect
+     * @return The root cause's message, falling back to [throwable]'s own message, then "unknown"
+     */
+    fun rootCauseMessage(throwable: Throwable): String {
+        val chain = buildExceptionChain(throwable)
+        return chain.last().message ?: throwable.message ?: "unknown"
+    }
+
+    /**
      * Returns true when [message] contains patterns that indicate a local AI server crash
      * (Ollama, Docker AI, LocalAI, LMStudio process dying or failing to load a model).
      */
@@ -88,6 +104,41 @@ object ExceptionMapper {
         message.contains("llama_model_loader", ignoreCase = true) ||
         message.contains("error loading model", ignoreCase = true) ||
         (message.contains("api_error", ignoreCase = true) && message.contains("exit status", ignoreCase = true))
+
+    /** Captures the architecture name out of llama.cpp's `unknown model architecture: 'xxx'` error. */
+    private val UNKNOWN_ARCHITECTURE_PATTERN = Regex("unknown model architecture: '([^']+)'", RegexOption.IGNORE_CASE)
+
+    /**
+     * Captures a model name quoted with backticks, single, or double quotes right after the
+     * word "model" — matches OpenAI-style messages like:
+     *   "The model `davinci-002` does not exist or you do not have access to it."
+     *   "The model 'gpt-5-turbo' does not exist"
+     */
+    private val MODEL_NAME_PATTERN = Regex("""model[\s:]*[`'"]([^`'"]+)[`'"]""", RegexOption.IGNORE_CASE)
+
+    /** Best-effort extraction of the offending model name from a provider error message. */
+    private fun extractModelName(message: String): String = MODEL_NAME_PATTERN.find(message)?.groupValues?.get(1) ?: ""
+
+    /**
+     * Builds a short, user-facing `details` string for [LocalServerException].
+     *
+     * Special-cases llama.cpp's "unknown model architecture: 'xxx'" crash — this means the
+     * GGUF file uses a model architecture (often a vision/multimodal one, e.g. `mllama` for
+     * Llama 3.2 Vision) that the bundled llama.cpp build inside the local AI server
+     * (LM Studio / Ollama / Docker Model Runner / LocalAI) doesn't support yet. This is a
+     * limitation of that server's engine version, not an Askimo bug — so we surface the
+     * architecture name directly instead of a raw, hard-to-read stack trace excerpt.
+     */
+    private fun buildLocalServerDetails(message: String): String {
+        val architecture = UNKNOWN_ARCHITECTURE_PATTERN.find(message)?.groupValues?.get(1)
+        return if (architecture != null) {
+            "Unsupported model architecture '$architecture' (often a vision/multimodal model). " +
+                "Your local AI server's engine (llama.cpp) doesn't support this format yet — " +
+                "try a different model, or update LM Studio / Ollama / Docker Model Runner to the latest version."
+        } else {
+            message.take(300)
+        }
+    }
 
     /**
      * Try to match an exception by its concrete type.
@@ -121,7 +172,7 @@ object ExceptionMapper {
         is InternalServerException -> {
             val msg = exception.message ?: ""
             if (isLocalServerMessage(msg)) {
-                LocalServerException(details = msg, cause = exception)
+                LocalServerException(details = buildLocalServerDetails(msg), cause = exception)
             } else {
                 RemoteServerException(details = msg, cause = exception)
             }
@@ -157,7 +208,7 @@ object ExceptionMapper {
                 combinedMessage.contains("llama_model_loader", ignoreCase = true) ||
                 combinedMessage.contains("error loading model", ignoreCase = true) ||
                 (combinedMessage.contains("api_error", ignoreCase = true) && combinedMessage.contains("exit status", ignoreCase = true)) ->
-                LocalServerException(details = combinedMessage.take(300), cause = rootCause)
+                LocalServerException(details = buildLocalServerDetails(combinedMessage), cause = rootCause)
 
             // Remote AI provider returned a transient server-side error (HTTP 5xx).
             // Covers 503 Service Unavailable, 529 Overloaded, and similar temporary outages.
@@ -195,7 +246,7 @@ object ExceptionMapper {
                 combinedMessage.contains("invalid model", ignoreCase = true) ||
                 combinedMessage.contains("does not exist", ignoreCase = true) ->
                 ModelNotFoundChatException(
-                    model = "",
+                    model = extractModelName(combinedMessage),
                     cause = rootCause,
                 )
 
@@ -248,6 +299,22 @@ object ExceptionMapper {
                         combinedMessage.contains("must not be blank", ignoreCase = true)
                     ) ->
                 MalformedToolCallException(cause = rootCause)
+
+            // Model doesn't support multimodal (image/file) input — common with OpenAI-compatible
+            // local/self-hosted servers (LM Studio, LocalAI, vLLM, etc.) when the user attaches an
+            // image/file to a text-only model. Checked before the generic 400 bucket so the user
+            // gets actionable guidance instead of a raw nested-JSON error dump.
+            combinedMessage.contains("multimodal", ignoreCase = true) &&
+                (
+                    combinedMessage.contains("does not support", ignoreCase = true) ||
+                        combinedMessage.contains("not support", ignoreCase = true) ||
+                        combinedMessage.contains("unsupported", ignoreCase = true)
+                    ) ->
+                InvalidRequestException(
+                    details = "This model doesn't support images or file attachments (multimodal input). " +
+                        "Remove the attachment, or switch to a vision-capable model.",
+                    cause = rootCause,
+                )
 
             // Invalid request
             combinedMessage.contains("400", ignoreCase = true) ||

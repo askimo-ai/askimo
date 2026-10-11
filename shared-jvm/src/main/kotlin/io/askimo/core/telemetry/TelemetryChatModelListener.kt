@@ -10,6 +10,22 @@ import dev.langchain4j.model.chat.listener.ChatModelRequestContext
 import dev.langchain4j.model.chat.listener.ChatModelResponseContext
 import io.askimo.core.analytics.Analytics
 import io.askimo.core.analytics.AnalyticsEvent
+import io.askimo.core.exception.AuthenticationException
+import io.askimo.core.exception.ContextLengthException
+import io.askimo.core.exception.ExceptionHandler
+import io.askimo.core.exception.ExceptionMapper
+import io.askimo.core.exception.InsufficientCreditsException
+import io.askimo.core.exception.InvalidRequestException
+import io.askimo.core.exception.LocalServerException
+import io.askimo.core.exception.MalformedToolCallException
+import io.askimo.core.exception.MaxToolCallingRoundTripsExceededException
+import io.askimo.core.exception.ModelNotFoundChatException
+import io.askimo.core.exception.NetworkException
+import io.askimo.core.exception.RateLimitException
+import io.askimo.core.exception.RemoteServerException
+import io.askimo.core.exception.SystemException
+import io.askimo.core.exception.TimeoutException
+import io.askimo.core.exception.UnsupportedSamplingException
 import io.askimo.core.logging.logger
 import io.askimo.core.util.MachineId
 import java.net.URI
@@ -153,55 +169,48 @@ class TelemetryChatModelListener(
 
         telemetry.recordLLMError(provider, model, error)
 
-        // Categorise the error type without including the message (may contain PII/keys)
-        val msg = error.message ?: error.cause?.message ?: ""
-        val errorType = when {
-            msg.contains("timeout", ignoreCase = true) ||
-                msg.contains("timed out", ignoreCase = true) -> "provider_timeout"
-
-            msg.contains("rate limit", ignoreCase = true) ||
-                msg.contains("429") -> "rate_limit"
-
-            msg.contains("401") ||
-                msg.contains("403") ||
-                msg.contains("unauthorized", ignoreCase = true) ||
-                msg.contains("forbidden", ignoreCase = true) -> "auth_error"
-
-            msg.contains("context length", ignoreCase = true) ||
-                msg.contains("context window", ignoreCase = true) ||
-                msg.contains("too long", ignoreCase = true) ||
-                msg.contains("maximum context", ignoreCase = true) -> "context_length"
-
-            msg.contains("connection refused", ignoreCase = true) ||
-                error is java.net.ConnectException ||
-                error.cause is java.net.ConnectException -> "connection_refused"
-
-            msg.contains("unknown host", ignoreCase = true) ||
-                error is java.net.UnknownHostException ||
-                error.cause is java.net.UnknownHostException -> "connection_refused"
-
-            (msg.contains("model", ignoreCase = true) && msg.contains("not found", ignoreCase = true)) ||
-                msg.contains("no such file", ignoreCase = true) -> "model_not_found"
-
-            msg.contains("500") ||
-                msg.contains("internal server error", ignoreCase = true) -> "server_error"
-
-            error is java.io.IOException ||
-                error.cause is java.io.IOException -> "network_error"
-
+        // Reuse the same classification logic that drives user-facing error messages
+        // (ExceptionMapper) so analytics and UX never disagree on what an error "is".
+        val mapped = ExceptionMapper.map(error)
+        val errorType = when (mapped) {
+            is TimeoutException -> "provider_timeout"
+            is RateLimitException -> "rate_limit"
+            is AuthenticationException -> "auth_error"
+            is ContextLengthException -> "context_length"
+            is NetworkException -> "connection_refused"
+            is ModelNotFoundChatException -> "model_not_found"
+            is RemoteServerException -> "server_error"
+            is LocalServerException -> "local_server_error"
+            is InsufficientCreditsException -> "insufficient_credits"
+            is UnsupportedSamplingException -> "unsupported_sampling"
+            is MalformedToolCallException -> "malformed_tool_call"
+            is MaxToolCallingRoundTripsExceededException -> "max_tool_calling_round_trips"
+            is InvalidRequestException -> "invalid_request"
+            is SystemException -> "system_error"
             else -> "provider_error"
         }
-        val sanitisedMessage = (error.message ?: error.cause?.message)
-            ?.take(4000)
-            ?.replace(Regex("[\\r\\n]+"), " ")
-            ?: "unknown"
+
+        // error_message: the true root cause (deepest exception in the chain).
+        // user_message: the exact localized text rendered to the user from `mapped`.
+        // Capturing both lets us audit classification quality, not just the error bucket.
+        val errorMessage = sanitise(ExceptionMapper.rootCauseMessage(error))
+        val userMessage = sanitise(ExceptionHandler.renderMessage(mapped))
+
         Analytics.track(
             AnalyticsEvent.ERROR_OCCURRED,
-            mapOf("error_type" to errorType, "provider" to provider, "error_message" to sanitisedMessage),
+            mapOf(
+                "error_type" to errorType,
+                "provider" to provider,
+                "error_message" to errorMessage,
+                "user_message" to userMessage,
+            ),
         )
 
         log.warn("LLM error from $provider:$model: ${error.message}", error)
     }
+
+    /** Truncates to a safe analytics payload size and collapses newlines to spaces. */
+    private fun sanitise(message: String): String = message.take(4000).replace(Regex("[\\r\\n]+"), " ")
 
     private fun syncUsage(
         config: UsageSyncConfig,
