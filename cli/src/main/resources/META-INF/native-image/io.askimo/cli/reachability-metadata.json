@@ -4390,6 +4390,9 @@
       "name": "<init>",
       "parameterTypes": [ "boolean" ]
     }, {
+      "name": "getAiExtractionEnabled",
+      "parameterTypes": [ ]
+    }, {
       "name": "getEnabled",
       "parameterTypes": [ ]
     } ]

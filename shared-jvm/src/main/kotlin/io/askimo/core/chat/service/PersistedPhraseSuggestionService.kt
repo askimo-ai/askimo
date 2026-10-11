@@ -22,8 +22,8 @@ import io.askimo.core.logging.logger
  * phrases) is kept as a small in-memory, write-through cache — [refreshCache] is called by
  * [PhraseHabitRefreshService] after every merge, so [suggest] never touches the database.
  *
- * Matching is exact, case-insensitive prefix only — the result is spliced in as
- * `match.substring(typed.length)`, which is only correct for a true prefix.
+ * Matching is exact, case-insensitive prefix only (see [bestPrefixMatch]) — the result is
+ * spliced in as `match.substring(typed.length)`, which is only correct for a true prefix.
  *
  * Ties broken by highest `usageCount`, then most recently touched.
  */
@@ -76,16 +76,11 @@ class PersistedPhraseSuggestionService(
         val trimmed = input.trimStart()
         if (trimmed.length < MIN_INPUT_LENGTH) return null
 
-        val match = cachedVariants
-            .asSequence()
-            .filter { variant ->
-                variant.phrase.length > trimmed.length &&
-                    variant.phrase.startsWith(trimmed, ignoreCase = true) &&
-                    !variant.phrase.equals(trimmed, ignoreCase = true)
-            }
-            .maxWithOrNull(compareBy({ it.usageCount }, { it.updatedAt }))
-            ?: return null
-
-        return match.phrase.substring(trimmed.length)
+        return bestPrefixMatch(
+            candidates = cachedVariants.asSequence(),
+            trimmedInput = trimmed,
+            textOf = { it.phrase },
+            comparator = compareBy({ it.usageCount }, { it.updatedAt }),
+        )
     }
 }
