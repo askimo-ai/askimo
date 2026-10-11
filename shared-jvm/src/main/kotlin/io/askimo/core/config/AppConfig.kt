@@ -969,7 +969,7 @@ object AppConfig {
             - verse
 
         suggestions:
-          aiExtractionEnabled: false
+          ai_extraction_enabled: false
 
         context:
           current_instance_id: ""

@@ -13,7 +13,6 @@ import io.askimo.core.context.MessageRole
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.UserMessageAddedEvent
 import io.askimo.core.providers.ChatClient
-import io.askimo.core.user.repository.UserProfileRepository
 import io.askimo.test.extensions.AskimoTestHome
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -56,15 +55,12 @@ class PhraseHabitRefreshServiceTest {
     private lateinit var messageRepository: ChatMessageRepository
     private lateinit var phraseRepository: UserPhraseSuggestionRepository
     private lateinit var suggestionCache: PersistedPhraseSuggestionService
-    private lateinit var userProfileRepository: UserProfileRepository
     private lateinit var appContext: AppContext
     private lateinit var chatClient: ChatClient
 
     private val profileId = "test-profile"
 
-    /** Generous poll timeout for [timeout] — well above [debounce] + processing time. The
-     *  companion [warmUp] absorbs one-time JIT/dispatcher/Mockito startup jitter up front, so
-     *  this doesn't need to be inflated to cover whichever test method JUnit runs first. */
+    /** Generous poll timeout for [timeout] — well above [debounce] + processing time. */
     private val verifyTimeoutMs = 2_000L
     private val debounce = 30.milliseconds
 
@@ -83,7 +79,6 @@ class PhraseHabitRefreshServiceTest {
         messageRepository = messageRepository,
         phraseRepository = phraseRepository,
         suggestionCache = suggestionCache,
-        userProfileRepository = userProfileRepository,
         appContext = appContext,
         minRefreshInterval = minRefreshInterval,
         minMessagesBetweenRefresh = minMessagesBetweenRefresh,
@@ -110,12 +105,10 @@ class PhraseHabitRefreshServiceTest {
         messageRepository = mock()
         phraseRepository = mock()
         suggestionCache = mock()
-        userProfileRepository = mock()
         appContext = mock()
         chatClient = mock()
 
         whenever(appContext.createUtilityClient()).thenReturn(chatClient)
-        whenever(userProfileRepository.getPersonalizationContext()).thenReturn(null)
         whenever(phraseRepository.getRepresentativePhrasesByCategory(any())).thenReturn(emptyMap())
         whenever(phraseRepository.lastRefreshedAt(any())).thenReturn(null)
         whenever(messageRepository.countByRole(MessageRole.USER)).thenReturn(10)

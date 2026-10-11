@@ -13,7 +13,6 @@ import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.UserMessageAddedEvent
 import io.askimo.core.logging.logger
 import io.askimo.core.providers.cleanJsonResponse
-import io.askimo.core.user.repository.UserProfileRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -61,7 +60,6 @@ class PhraseHabitRefreshService(
     private val messageRepository: ChatMessageRepository,
     private val phraseRepository: UserPhraseSuggestionRepository,
     private val suggestionCache: PersistedPhraseSuggestionService,
-    private val userProfileRepository: UserProfileRepository,
     private val appContext: AppContext,
     private val minRefreshInterval: Duration = 6.hours,
     private val minMessagesBetweenRefresh: Long = 20,
@@ -258,8 +256,7 @@ class PhraseHabitRefreshService(
     private fun extractHabits(profileId: String, messages: List<String>): List<HabitEntry> {
         val client = appContext.createUtilityClient()
         val existingCategories = phraseRepository.getRepresentativePhrasesByCategory(profileId)
-        val personalization = runCatching { userProfileRepository.getPersonalizationContext() }.getOrNull()
-        val prompt = buildExtractionPrompt(personalization, existingCategories, messages)
+        val prompt = buildExtractionPrompt(existingCategories, messages)
 
         val raw = client.sendMessage(prompt)
         val cleaned = cleanJsonResponse(
@@ -273,7 +270,6 @@ class PhraseHabitRefreshService(
     }
 
     private fun buildExtractionPrompt(
-        personalization: String?,
         existingCategories: Map<String, String>,
         messages: List<String>,
     ): String {
@@ -283,16 +279,12 @@ class PhraseHabitRefreshService(
             existingCategories.entries.joinToString("\n") { (key, phrase) -> "- $key: \"$phrase\"" }
         }
         val messagesBlock = messages.joinToString("\n") { "- $it" }
-        val personalizationBlock = personalization?.let {
-            "\nUSER CONTEXT (use this to correctly interpret domain-specific phrasing — do not\n" +
-                "copy it into any habit phrase):\n$it\n"
-        } ?: ""
 
         return """
             You are analyzing a chat user's own recent messages to detect recurring typing
             habits — phrases, sentence openers, or closers they tend to reuse — so they can be
             offered as autocomplete suggestions in the future.
-            $personalizationBlock
+
             EXISTING HABIT CATEGORIES (reuse a key below if a message matches one of these;
             only invent a new key if the pattern is genuinely new):
             $existingBlock

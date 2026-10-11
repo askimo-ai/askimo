@@ -120,7 +120,6 @@ val desktopModule = module {
             messageRepository = get(),
             phraseRepository = get(),
             suggestionCache = get(),
-            userProfileRepository = get<DatabaseManager>().getUserProfileRepository(),
             appContext = get(),
         )
     }
