@@ -20,69 +20,43 @@ import kotlinx.coroutines.launch
  * the active one.
  *
  * ### Caching
- * Registered as an app-lifetime singleton (see `DesktopModule`), so a single bounded,
- * content-keyed map ([cache]) of the last [HISTORY_SCAN_LIMIT] **distinct, eligible** user
- * messages is kept in-memory: seeded once, lazily, from the DB on the first [suggest] call via
- * [ChatMessageRepository.getRecentUserMessagesGlobal] (overfetched — see
- * [SEED_OVERFETCH_FACTOR] — since that query already filters to `role = USER` server-side but
- * not for eligibility), then kept in sync purely by consuming [UserMessageAddedEvent] — no
- * further DB reads happen on the typing path. Repeating a message bumps its
- * [HistoryEntry.count] and recency instead of adding a duplicate slot, so the bounded window
- * holds [HISTORY_SCAN_LIMIT] distinct messages, not occurrences. Short acknowledgments (see
- * [isEligibleCandidate]) and multi-line/structured pastes never enter the cache at all.
+ * App-lifetime singleton (see `DesktopModule`) holding a bounded, content-keyed map ([cache])
+ * of the last [HISTORY_SCAN_LIMIT] distinct, eligible user messages. Seeded once from the DB
+ * on the first [suggest] call, then kept in sync via [UserMessageAddedEvent] — no further DB
+ * reads on the typing path. Repeats bump [HistoryEntry.count]/recency instead of adding a
+ * duplicate slot. Short acknowledgments and multi-line/structured pastes (see
+ * [isEligibleCandidate]) never enter the cache.
  *
  * ### Ranking
- * Matching is still a case-insensitive **whole-input prefix** of a past message, exactly as
- * before — this stays predictable "retype faster" behavior rather than guessing new content.
- * Among multiple matches, the candidate typed most *often* wins (ties broken by most
- * *recently*), matching the usage/recency ranking already used by
+ * Case-insensitive whole-input prefix match (predictable "retype faster", not a guess).
+ * Among matches, most *frequently* typed wins, ties broken by most *recent* — same scheme as
  * [PersistedPhraseSuggestionService].
  *
- * [sessionId] is only used as an "is there an active session at all" gate, not as a filter
- * — suggestions may be drawn from any session.
+ * [sessionId] only gates "is there an active session" — not used to filter candidates.
  */
 class HistoryBackedSuggestionService(
     private val messageRepository: ChatMessageRepository,
 ) : SuggestionService {
 
     companion object {
-        /** How many of the most recent **distinct, eligible** user messages (across all sessions) to retain/scan. */
+        /** Max distinct, eligible user messages retained. */
         private const val HISTORY_SCAN_LIMIT = 200
 
-        /**
-         * Seeding overfetch multiplier: raw DB rows are mostly-distinct but often include a lot
-         * of low-value short replies ("yes", "thanks") and literal repeats, which
-         * [isEligibleCandidate] and dedup then collapse — so without overfetching, the
-         * distinct/eligible window would end up far smaller than [HISTORY_SCAN_LIMIT]. Pulling
-         * this many raw rows up front keeps the cache close to full of genuinely useful,
-         * distinct messages.
-         */
+        /** Seed fetch escalates up to this multiple of [HISTORY_SCAN_LIMIT] raw rows — see [seedIfNeeded]. */
         private const val SEED_OVERFETCH_FACTOR = 5
 
-        /** Minimum typed length before we bother searching — avoids noisy 1-2 char matches. */
+        /** Minimum typed length before bothering to search. */
         private const val MIN_INPUT_LENGTH = 3
 
-        /**
-         * Minimum content length for a message to be worth caching/suggesting at all — below
-         * this, a message is almost always a short acknowledgment ("yes", "ok", "thanks") with
-         * no useful remainder to complete. A plain length gate is simpler and more robust than
-         * maintaining a phrase denylist (no locale/wording coverage gaps).
-         */
+        /** Minimum message length to cache/suggest — filters out "yes"/"ok"/"thanks" style
+         *  replies without needing a phrase denylist. */
         private const val MIN_CANDIDATE_LENGTH = 10
 
-        /** Dedup key only — trims and case-folds so e.g. trailing-space/casing variants of the
-         *  same message collapse into one [HistoryEntry] instead of wasting cache slots. Never
-         *  used for match substring offsets (that's done against [HistoryEntry.content]). */
+        /** Dedup key — trim + case-fold so casing/whitespace variants collapse into one entry. */
         private fun dedupKey(text: String): String = text.trim().lowercase()
 
-        /**
-         * Filters out candidates that shouldn't be cached/suggested at all:
-         *  - blank or shorter than [MIN_CANDIDATE_LENGTH] (filters out "yes", "ok", "thanks",
-         *    etc. without needing an explicit phrase list),
-         *  - multi-line or otherwise "structured" content (contains `\n`/`\r`, or starts with a
-         *    brace/bracket like `{`/`[` — typically pasted JSON/code, not a natural sentence) —
-         *    suggesting these as inline ghost text breaks the single-line input UX.
-         */
+        /** Rejects: too short (see [MIN_CANDIDATE_LENGTH]), multi-line, or starting with
+         *  `{`/`[` (pasted JSON/code — would break single-line ghost text). */
         private fun isEligibleCandidate(content: String): Boolean {
             val trimmed = content.trim()
             if (trimmed.length < MIN_CANDIDATE_LENGTH) return false
@@ -95,16 +69,13 @@ class HistoryBackedSuggestionService(
     /**
      * One distinct historical message and its usage stats.
      *
-     * @property content Original (non-normalized) message text — completions are spliced from
-     *   this so casing/spacing in the suggestion matches what the user actually sent.
-     * @property count How many times this exact message has been sent — the primary ranking
-     *   signal (frequent phrases beat merely-recent ones).
-     * @property lastSeenOrder Monotonic insertion/touch counter — tie-breaker, and basis for
-     *   FIFO eviction of the least-recently-touched entry once [HISTORY_SCAN_LIMIT] is exceeded.
+     * @property content Original text — completions are spliced from this.
+     * @property count Times sent — primary ranking signal.
+     * @property lastSeenOrder Monotonic touch counter — tie-breaker and LRU eviction basis.
      */
     private data class HistoryEntry(val content: String, var count: Int, var lastSeenOrder: Long)
 
-    /** Global map keyed by [dedupKey] → [HistoryEntry], capped at [HISTORY_SCAN_LIMIT] distinct entries. */
+    /** Keyed by [dedupKey] → [HistoryEntry], capped at [HISTORY_SCAN_LIMIT]. */
     private val cache = LinkedHashMap<String, HistoryEntry>()
     private val cacheLock = Any()
     private var order = 0L
@@ -129,7 +100,9 @@ class HistoryBackedSuggestionService(
         if (trimmed.length < MIN_INPUT_LENGTH) return null
 
         seedIfNeeded()
-        val snapshot = synchronized(cacheLock) { cache.values.toList() }
+        // Copy entries (not just the list) while locked: count/lastSeenOrder are mutable and
+        // can be updated concurrently by onUserMessageAdded right after the lock is released.
+        val snapshot = synchronized(cacheLock) { cache.values.map { it.copy() } }
 
         return bestPrefixMatch(
             candidates = snapshot.asSequence(),
@@ -139,21 +112,36 @@ class HistoryBackedSuggestionService(
         )
     }
 
-    /** Lazily seeds the cache from the DB — runs at most once for this singleton's lifetime. */
+    /**
+     * Lazily seeds the cache from the DB — runs once per lifetime.
+     *
+     * [ChatMessageRepository.getRecentUserMessagesGlobal] only takes a `limit` (no cursor), so
+     * true non-overlapping batches aren't possible. Instead this escalates the fetch limit in
+     * [HISTORY_SCAN_LIMIT] steps — re-querying only if the previous attempt didn't yield enough
+     * eligible messages — capped at [SEED_OVERFETCH_FACTOR] x [HISTORY_SCAN_LIMIT] rows.
+     * Usually stops after one cheap 200-row fetch.
+     */
     private fun seedIfNeeded() {
         if (seeded) return
         synchronized(cacheLock) {
             if (seeded) return
-            // getRecentUserMessagesGlobal already filters role = USER server-side and returns
-            // most-recent-first; reverse to seed oldest → newest so recency order is preserved.
-            // Overfetch since isEligibleCandidate + dedup collapse a meaningful fraction of raw
-            // rows (short replies, literal repeats) — without this the distinct/eligible window
-            // would end up well under HISTORY_SCAN_LIMIT.
-            val seedContent = messageRepository
-                .getRecentUserMessagesGlobal(limit = HISTORY_SCAN_LIMIT * SEED_OVERFETCH_FACTOR)
-                .map { it.content }
-                .asReversed()
-            seedContent.forEach { addOrTouch(it) }
+            val maxFetchLimit = HISTORY_SCAN_LIMIT * SEED_OVERFETCH_FACTOR
+            var fetchLimit = HISTORY_SCAN_LIMIT
+
+            while (true) {
+                val rows = messageRepository.getRecentUserMessagesGlobal(limit = fetchLimit)
+
+                // Rebuild from scratch so count/lastSeenOrder aren't inflated by re-seeing the
+                // same rows across escalating fetches.
+                cache.clear()
+                order = 0
+                rows.map { it.content }.asReversed().forEach { addOrTouch(it) }
+
+                val dbExhausted = rows.size < fetchLimit
+                val gotEnough = cache.size >= HISTORY_SCAN_LIMIT
+                if (gotEnough || dbExhausted || fetchLimit >= maxFetchLimit) break
+                fetchLimit = (fetchLimit + HISTORY_SCAN_LIMIT).coerceAtMost(maxFetchLimit)
+            }
             seeded = true
         }
     }
@@ -162,10 +150,8 @@ class HistoryBackedSuggestionService(
         synchronized(cacheLock) { addOrTouch(content) }
     }
 
-    /** Must be called while holding [cacheLock]. Bumps an existing entry's count/recency, or
-     *  inserts a new one — evicting the least-recently-touched entry once over capacity.
-     *  No-ops for content that fails [isEligibleCandidate] (short replies, structured/multi-line
-     *  pastes) — these are never worth caching as suggestions. */
+    /** Must hold [cacheLock]. Bumps an existing entry or inserts one, evicting the
+     *  least-recently-touched entry over capacity. No-ops if [isEligibleCandidate] fails. */
     private fun addOrTouch(content: String) {
         if (!isEligibleCandidate(content)) return
         val key = dedupKey(content)
