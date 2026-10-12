@@ -42,6 +42,22 @@ interface ChatModelFactory<T : ProviderSettings> {
     fun availableModels(settings: T): List<ModelDTO>
 
     /**
+     * Returns the list of models suitable for use as an embedding model.
+     *
+     * Most providers expose embedding and chat models through the same listing endpoint,
+     * so the default implementation simply narrows [availableModels] via [filterModelsForType].
+     *
+     * Providers whose embedding catalog lives behind a *different* endpoint from the chat
+     * model catalog (e.g. OpenRouter, which serves embeddings from
+     * `/api/v1/embeddings/models` rather than `/api/v1/models`) should override this to query
+     * that endpoint directly instead of relying on keyword filtering.
+     *
+     * @param settings Provider-specific settings that may be needed to retrieve available models
+     * @return List of [ModelDTO] entries suitable for embeddings
+     */
+    fun availableEmbeddingModels(settings: T): List<ModelDTO> = filterModelsForType(availableModels(settings), SpecialModelType.EMBEDDING)
+
+    /**
      * Returns the provider type for this factory.
      *
      * @return The ModelProvider enum value representing this factory's provider

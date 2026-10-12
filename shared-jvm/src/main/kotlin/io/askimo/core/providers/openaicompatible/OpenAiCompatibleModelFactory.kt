@@ -79,6 +79,21 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
         return modelIds.map { ModelDTO.of(getProvider(), it) }
     }
 
+    /**
+     * Uses the template's [OpenAiCompatibleTemplate.embeddingModelFetcher] when present (e.g.
+     * OpenRouter, whose embedding catalog lives at a different endpoint than [availableModels]).
+     * Falls back to keyword-filtering [availableModels] for templates/instances without one.
+     */
+    override fun availableEmbeddingModels(settings: OpenAiCompatibleSettings): List<ModelDTO> {
+        if (!canFetchModels(settings)) return emptyList()
+        val baseUrl = effectiveBaseUrl(settings)
+        val template = settings.templateName
+            ?.let { name -> OpenAiCompatibleTemplate.entries.find { it.name == name } }
+        val fetcher = template?.embeddingModelFetcher ?: return super.availableEmbeddingModels(settings)
+        val modelIds = fetcher(resolveApiKey(settings), baseUrl, settings.httpVersion.toJdkVersion())
+        return modelIds.map { ModelDTO.of(getProvider(), it) }
+    }
+
     override fun canFetchModels(settings: OpenAiCompatibleSettings): Boolean {
         if (settings.baseUrl.isBlank()) return false
         val template = settings.templateName

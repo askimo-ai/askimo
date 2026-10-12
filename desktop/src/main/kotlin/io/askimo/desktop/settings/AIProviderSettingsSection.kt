@@ -454,7 +454,12 @@ private fun providerModelTypePickerDialog(
                 val settings = instance.settings
 
                 @Suppress("UNCHECKED_CAST")
-                val models = (factory as ChatModelFactory<ProviderSettings>).availableModels(settings)
+                val typedFactory = factory as ChatModelFactory<ProviderSettings>
+                val models = if (modelType == SpecialModelType.EMBEDDING) {
+                    typedFactory.availableEmbeddingModels(settings)
+                } else {
+                    typedFactory.availableModels(settings)
+                }
                 if (models.isEmpty()) {
                     errorMessage = "No models available for ${provider.name.lowercase()}"
                     errorHelp = factory.getNoModelsHelpText()

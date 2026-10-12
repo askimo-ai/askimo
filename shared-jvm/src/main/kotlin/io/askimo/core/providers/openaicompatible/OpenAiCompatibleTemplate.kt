@@ -54,6 +54,18 @@ enum class OpenAiCompatibleTemplate(
      * returns a sorted, deduplicated list of model ID strings.
      */
     val modelFetcher: ((apiKey: String, baseUrl: String, httpVersion: HttpClient.Version) -> List<String>)? = null,
+    /**
+     * Custom embedding-model-fetching strategy for providers whose embedding catalog is served
+     * from a *different* endpoint than the chat/completion model catalog ([modelFetcher]).
+     *
+     * If `null`, callers fall back to filtering [modelFetcher] / the default `/models` listing
+     * by keyword (see [io.askimo.core.providers.filterModelsForType]), which only works when
+     * the provider actually includes embedding models in its standard model list.
+     *
+     * Receives the resolved API key, the configured base URL, and the HTTP version;
+     * returns a sorted, deduplicated list of model ID strings.
+     */
+    val embeddingModelFetcher: ((apiKey: String, baseUrl: String, httpVersion: HttpClient.Version) -> List<String>)? = null,
 ) {
     CLOUDFLARE_AI(
         displayName = "Cloudflare AI",
@@ -137,6 +149,18 @@ enum class OpenAiCompatibleTemplate(
         apiKeyUrl = "https://openrouter.ai/keys",
         apiMode = OpenAiApiMode.RESPONSES,
         helpTextKey = "provider.template.openrouter.help",
+        // OpenRouter's standard GET /models endpoint only lists chat/completion models.
+        // Embedding models are served from a separate endpoint, so they must be fetched here
+        // explicitly — otherwise the embedding-model picker would show 0 usable results.
+        embeddingModelFetcher = { apiKey, baseUrl, httpVersion ->
+            val url = baseUrl.trimEnd('/').removeSuffix("/v1") + "/v1/embeddings/models?limit=500"
+            val (_, body) = httpGet(url, headers = mapOf("Authorization" to "Bearer $apiKey"), httpVersion = httpVersion)
+            val json = appJson.parseToJsonElement(body)
+            json.jsonObject["data"]?.jsonArray.orEmpty()
+                .mapNotNull { it.jsonObject["id"]?.jsonPrimitive?.contentOrNull }
+                .distinct()
+                .sorted()
+        },
     ),
 
     TOGETHER_AI(
