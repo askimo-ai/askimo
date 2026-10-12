@@ -251,7 +251,7 @@ object ChatRequestTransformers {
         is UserMessage -> {
             val textPart = message.contents()
                 .filterIsInstance<TextContent>()
-                .joinToString("\n") { it.text() }.trim()
+                .joinToString("\n") { it.text() }
 
             // Include image identity: count + content hashes (sorted for stability)
             val imageParts = message.contents()

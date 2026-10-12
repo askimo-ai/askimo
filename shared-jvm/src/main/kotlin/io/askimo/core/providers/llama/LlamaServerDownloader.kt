@@ -181,6 +181,11 @@ object LlamaServerDownloader {
             )
         }
 
+        // destDir isn't keyed by release tag, and on Windows executableName has no
+        // version-specific subpath at all — extracting over an old install would leave files
+        // the new release removed/renamed behind. Clear it now that the archive is verified.
+        prepareCleanDestDir(destDir)
+
         try {
             Files.newInputStream(archivePath).use { raw ->
                 when (platform.archiveFormat) {
@@ -267,6 +272,16 @@ object LlamaServerDownloader {
                 paths.sorted(Comparator.reverseOrder()).forEach { Files.deleteIfExists(it) }
             }
         }
+    }
+
+    /**
+     * Wipes [destDir] (if present) and recreates it empty. Factored out of [download] so this
+     * specific "don't let a new release's extraction merge with a stale old install" step is
+     * independently unit-testable without needing a network call or a real archive.
+     */
+    internal fun prepareCleanDestDir(destDir: Path) {
+        deletePartialInstall(destDir)
+        Files.createDirectories(destDir)
     }
 
     // ── Archive extraction ──────────────────────────────────────────────────────────────────
