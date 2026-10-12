@@ -7,8 +7,8 @@ package io.askimo.core.util
 import io.askimo.core.logging.logger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.net.URI
 import java.net.http.HttpClient
@@ -17,6 +17,7 @@ import java.net.http.HttpResponse
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Streams a large (potentially multi-GB) GET download directly to disk with progress callbacks —
@@ -32,6 +33,9 @@ import java.time.Duration
 object StreamingDownloader {
 
     private val log = logger<StreamingDownloader>()
+
+    /** How often the inactivity watchdog checks for a stalled read — see [download]. */
+    private const val WATCHDOG_POLL_INTERVAL_MS = 1000L
 
     class DownloadException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
@@ -83,27 +87,55 @@ object StreamingDownloader {
         val response = try {
             client.send(request, HttpResponse.BodyHandlers.ofInputStream())
         } catch (e: Exception) {
+            // A retry can reuse the same destPath as a prior interrupted attempt — clean up any
+            // leftover partial file here too (not just in the read-loop below), so a connect
+            // failure never leaves a stale multi-GB file masquerading as downloaded.
+            runCatching { Files.deleteIfExists(destPath) }
             throw DownloadException(connectErrorMessage(e.message ?: e.toString()), e)
         }
 
         if (response.statusCode() !in 200..299) {
             response.body().close()
+            // Same cleanup as above — a non-2xx response must not leave a stale partial file.
+            runCatching { Files.deleteIfExists(destPath) }
             throw DownloadException(httpErrorMessage(response.statusCode()))
         }
 
         val totalBytes = response.headers().firstValueAsLong("Content-Length").orElse(-1L)
         var downloadedBytes = 0L
+        val input = response.body()
+
+        // input.read() is a blocking call, not a suspension point — it can neither observe
+        // coroutine cancellation nor be bounded by readTimeoutMs (HttpRequest.timeout only
+        // covers waiting for the response headers, not consuming an ofInputStream() body
+        // afterward). A stalled peer that stops sending bytes after headers would otherwise
+        // hang this download forever. Closing `input` from another thread is the documented
+        // way to unblock a pending read with an IOException, so a watchdog thread does that
+        // on inactivity, and a Job completion handler does the same on cancellation.
+        val lastActivityAt = AtomicLong(System.currentTimeMillis())
+        val job = currentCoroutineContext()[Job]
+        val cancelHandle = job?.invokeOnCompletion { cause -> if (cause != null) input.close() }
+        val watchdog = Thread({
+            while (!Thread.currentThread().isInterrupted) {
+                Thread.sleep(WATCHDOG_POLL_INTERVAL_MS)
+                if (System.currentTimeMillis() - lastActivityAt.get() > readTimeoutMs) {
+                    input.close()
+                    break
+                }
+            }
+        }, "streaming-download-watchdog").apply { isDaemon = true }
+        watchdog.start()
 
         try {
-            response.body().use { input ->
+            input.use { stream ->
                 Files.newOutputStream(destPath).use { output ->
                     val buffer = ByteArray(1 shl 20) // 1 MiB
                     while (true) {
-                        currentCoroutineContext().ensureActive()
-                        val read = input.read(buffer)
+                        val read = stream.read(buffer)
                         if (read == -1) break
                         output.write(buffer, 0, read)
                         downloadedBytes += read
+                        lastActivityAt.set(System.currentTimeMillis())
                         onProgress(downloadedBytes, totalBytes)
                     }
                 }
@@ -116,7 +148,10 @@ object StreamingDownloader {
             throw e
         } catch (e: Exception) {
             Files.deleteIfExists(destPath)
-            throw DownloadException("Download from $url failed: ${e.message}", e)
+            throw DownloadException("Download from $url stalled, failed, or was cancelled: ${e.message}", e)
+        } finally {
+            watchdog.interrupt()
+            cancelHandle?.dispose()
         }
 
         // Catches a connection that silently dropped mid-stream (e.g. flaky proxy/CDN closing

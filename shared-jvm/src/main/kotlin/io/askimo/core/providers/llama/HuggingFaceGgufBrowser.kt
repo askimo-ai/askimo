@@ -5,6 +5,7 @@
 package io.askimo.core.providers.llama
 
 import io.askimo.core.logging.logger
+import io.askimo.core.util.encodeUrlPathSegments
 import io.askimo.core.util.httpGet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -105,7 +106,10 @@ object HuggingFaceGgufBrowser {
                     labelKey = "",
                     label = "$repoId — $leafName",
                     approxSizeBytes = 0L, // unknown until download; HF search doesn't reliably expose file size
-                    downloadUrl = "https://huggingface.co/$repoId/resolve/main/$rfilename",
+                    // rfilename can contain spaces/reserved chars (e.g. "#") — splicing it in raw
+                    // would break URI parsing or silently change the target. See
+                    // encodeUrlPathSegments's doc.
+                    downloadUrl = "https://huggingface.co/$repoId/resolve/main/${encodeUrlPathSegments(rfilename)}",
                     sourceRepoId = repoId,
                 )
             }

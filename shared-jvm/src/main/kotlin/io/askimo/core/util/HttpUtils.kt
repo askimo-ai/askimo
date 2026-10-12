@@ -8,12 +8,29 @@ import java.io.ByteArrayInputStream
 import java.io.IOException
 import java.net.ConnectException
 import java.net.URI
+import java.net.URLEncoder
 import java.net.http.HttpClient
 import java.net.http.HttpConnectTimeoutException
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.nio.charset.StandardCharsets
 import java.time.Duration
 import java.util.zip.GZIPInputStream
+
+/**
+ * Percent-encodes each `/`-separated segment of a URL path (e.g. a server-provided file path
+ * being spliced into a `resolve/.../<path>`-style URL), so segments containing spaces or
+ * reserved characters (`#`, `?`, `%`, etc.) don't break [URI] parsing or get misinterpreted as
+ * part of the URL's structure (e.g. a literal `#` starting a fragment). [URLEncoder] encodes for
+ * query-string/form use (e.g. turns spaces into `+`, which is wrong in a path segment), so each
+ * segment is encoded with it and then `+` is corrected back to `%20`.
+ *
+ * Use this instead of splicing a raw path into a URL string directly whenever that path
+ * originates from an external source (API response, user input) rather than a fixed literal.
+ */
+fun encodeUrlPathSegments(path: String): String = path.split("/").joinToString("/") { segment ->
+    URLEncoder.encode(segment, StandardCharsets.UTF_8).replace("+", "%20")
+}
 
 /**
  * Perform a GET request to a local/remote URL with proxy support.
