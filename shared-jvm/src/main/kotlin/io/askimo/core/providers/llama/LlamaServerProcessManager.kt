@@ -104,6 +104,9 @@ object LlamaServerProcessManager {
     /** Number of CPU threads passed to `llama-server` — defaults to all available cores. */
     private val DEFAULT_THREADS = Runtime.getRuntime().availableProcessors()
 
+    /** HTTP header browsers attach to cross-origin requests; rejected in [handleProxyRequest]. */
+    private const val REJECTED_ORIGIN_HEADER = "Origin"
+
     private val forwardClient: HttpClient = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(10))
         .build()
@@ -346,9 +349,28 @@ object LlamaServerProcessManager {
 
     // ── Request handling ─────────────────────────────────────────────────────────────────────
 
+    /**
+     * Security note: this proxy is unauthenticated and trusts any client that can reach
+     * 127.0.0.1 — acceptable for a loopback-only endpoint talking to our own in-process
+     * langchain4j clients, but it also means a malicious web page could issue a simple
+     * cross-origin `POST` here (e.g. via `fetch`) and trigger multi-GB model loading/inference
+     * as a side effect, even though CORS still blocks that page from *reading* the response
+     * (classic DNS-rebinding/CSRF-style risk against local servers). [REJECTED_ORIGIN_HEADER]
+     * below rejects exactly that: browsers always attach an `Origin` header to cross-origin
+     * fetch/XHR requests, whereas our own JDK [HttpClient]-based callers never send one — so any
+     * request carrying it is dropped before being dispatched to a child process. A same-origin
+     * page (e.g. one actually served from 127.0.0.1) could still omit `Origin` and slip through;
+     * a per-run shared-secret header would close that gap too, but isn't implemented yet since
+     * nothing is currently served from this host besides the proxy itself.
+     */
     private fun handleProxyRequest(exchange: HttpExchange) {
         var acquiredSlot: ChildSlot? = null
         try {
+            if (exchange.requestHeaders.containsKey(REJECTED_ORIGIN_HEADER)) {
+                writeError(exchange, 403, "Cross-origin requests are not allowed.")
+                return
+            }
+
             val path = exchange.requestURI.path
             val method = exchange.requestMethod.uppercase()
 
@@ -373,7 +395,7 @@ object LlamaServerProcessManager {
             val modelPath = entry?.let { LlamaModelDownloader.modelPath(it) }
                 ?: AskimoHomeModelsFallback.resolve(modelFileName)
 
-            if (!Files.exists(modelPath)) {
+            if (modelPath == null || !Files.exists(modelPath)) {
                 writeError(
                     exchange,
                     404,
@@ -716,7 +738,21 @@ object LlamaServerProcessManager {
  * Fallback resolution for a requested model file name that isn't in [LlamaModelCatalog] (e.g. a
  * user manually dropped an extra `.gguf` file into the models directory) — looked up directly by
  * file name under [AskimoHome.llamaModelsDir] instead of being rejected.
+ *
+ * `fileName` is attacker-controlled (it comes straight from the unauthenticated proxy request
+ * body's `"model"` field — see `LlamaServerProcessManager.handleProxyRequest`), so this must not
+ * resolve it as an arbitrary path: an absolute path or a `../`-laden value would let a request
+ * make `llama-server` attempt to open any existing file on disk the app process can read.
+ * [resolve] therefore normalizes the candidate and requires it to still be a direct child of
+ * [AskimoHome.llamaModelsDir] with a `.gguf` extension, returning `null` otherwise so the caller
+ * reports a normal "not downloaded" error instead of touching the path at all.
  */
 private object AskimoHomeModelsFallback {
-    fun resolve(fileName: String): java.nio.file.Path = AskimoHome.llamaModelsDir().resolve(fileName)
+    fun resolve(fileName: String): java.nio.file.Path? {
+        val modelsDir = AskimoHome.llamaModelsDir().toAbsolutePath().normalize()
+        val candidate = modelsDir.resolve(fileName).normalize()
+        if (candidate.parent != modelsDir) return null
+        if (!candidate.fileName.toString().endsWith(".gguf", ignoreCase = true)) return null
+        return candidate
+    }
 }

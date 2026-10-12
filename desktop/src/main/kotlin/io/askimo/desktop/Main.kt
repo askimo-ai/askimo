@@ -79,6 +79,7 @@ import io.askimo.core.logging.LoggingService
 import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.mcp.McpInstanceService
 import io.askimo.core.providers.ModelProvider
+import io.askimo.core.providers.llama.LlamaServerProcessManager
 import io.askimo.core.user.domain.UserProfile
 import io.askimo.core.util.AskimoHome
 import io.askimo.core.util.PersonalAskimoHome
@@ -303,6 +304,10 @@ fun main(args: Array<String>) {
             }.getOrDefault(0)
             Analytics.trackSessionEnd(messageCount)
             Analytics.shutdown()
+            // Stops the reverse-proxy HTTP listener and kills any resident llama-server child
+            // process(es) — without this, quitting left llama-server running as an orphaned
+            // process (no parent left to stop it) and the proxy listener bound past Compose exit.
+            LlamaServerProcessManager.shutdown()
             exitApplication()
         }
 

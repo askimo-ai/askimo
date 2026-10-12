@@ -260,10 +260,18 @@ private fun localLlmBinaryCard() {
                             if (checked) {
                                 LlamaDownloadManager.startBinaryDownload(platform)
                             } else {
-                                scope.launch { LlamaServerProcessManager.stopProxy() }
-                                LlamaServerDownloader.delete(platform)
-                                isDownloaded = false
-                                installedVersion = null
+                                // Must stop the proxy/child process and *wait* for it before
+                                // deleting the binary — launching stopProxy() fire-and-forget
+                                // while deleting immediately races the shutdown: on Windows in
+                                // particular, the executable/shared libraries stay locked while
+                                // the process is still exiting, so the delete can fail silently
+                                // even though the UI has already flipped to "disabled".
+                                scope.launch {
+                                    LlamaServerProcessManager.stopProxy()
+                                    LlamaServerDownloader.delete(platform)
+                                    isDownloaded = false
+                                    installedVersion = null
+                                }
                             }
                         },
                         modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
@@ -495,9 +503,15 @@ private fun localLlmCtxSizeField() {
                     } else {
                         isEditing = false
                         textValue.toIntOrNull()?.let { validInt ->
-                            if (validInt != lastValidValue) {
-                                lastValidValue = validInt
-                                AppConfig.updateField("localLlm.ctxSize", validInt)
+                            // AppConfig.updateField clamps ctxSize to a 512 minimum (see
+                            // LocalLlmConfig.ctxSize's doc) — clamp here too so lastValidValue
+                            // (and thus what's displayed as "saved") matches what's actually
+                            // persisted, instead of showing e.g. "1" as saved while the launch
+                            // flag silently becomes 512.
+                            val clamped = validInt.coerceAtLeast(512)
+                            if (clamped != lastValidValue) {
+                                lastValidValue = clamped
+                                AppConfig.updateField("localLlm.ctxSize", clamped)
                                 showSavedIndicator = true
                             }
                         }
