@@ -16,6 +16,7 @@ import java.io.IOException
 import java.io.InputStream
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.PosixFilePermission
 import java.time.Duration
 import java.util.zip.GZIPInputStream
 import java.util.zip.ZipInputStream
@@ -100,8 +101,11 @@ object LlamaServerDownloader {
         platform: LlamaServerPlatform,
         onProgress: (bytesDownloaded: Long, totalBytes: Long) -> Unit = { _, _ -> },
     ): Path = withContext(Dispatchers.IO) {
-        if (isDownloaded(platform)) {
-            writeVersionMarker(platform) // backfill if missing (pre-tracking install)
+        // isDownloaded only checks the executable exists — on platforms whose executableName
+        // doesn't embed the release tag (e.g. Windows), that path never changes when releaseTag
+        // is bumped, so a stale binary would be kept forever (and an unmarked legacy install
+        // wrongly assumed current). Only skip the download when the recorded version matches.
+        if (isDownloaded(platform) && installedVersion(platform) == LlamaServerCatalog.releaseTag()) {
             _binaryEnabled.value = true
             return@withContext executablePath(platform)
         }
@@ -141,6 +145,9 @@ object LlamaServerDownloader {
                 }
             }
         } catch (e: Exception) {
+            // Partial extraction can leave a non-empty executable, which isDownloaded would
+            // then mistake for a complete install. Clean up so a retry starts fresh.
+            deletePartialInstall(destDir)
             throw DownloadException("Failed to extract llama-server archive: ${e.message}", e)
         } finally {
             Files.deleteIfExists(archivePath)
@@ -148,6 +155,7 @@ object LlamaServerDownloader {
 
         val exe = executablePath(platform)
         if (!Files.exists(exe)) {
+            deletePartialInstall(destDir)
             throw DownloadException(
                 "Extraction succeeded but expected executable was not found at $exe. " +
                     "The archive's internal layout may have changed — see LlamaServerCatalog.executableName.",
@@ -172,9 +180,9 @@ object LlamaServerDownloader {
             val perms = Files.getPosixFilePermissions(path).toMutableSet()
             perms.addAll(
                 setOf(
-                    java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE,
-                    java.nio.file.attribute.PosixFilePermission.GROUP_EXECUTE,
-                    java.nio.file.attribute.PosixFilePermission.OTHERS_EXECUTE,
+                    PosixFilePermission.OWNER_EXECUTE,
+                    PosixFilePermission.GROUP_EXECUTE,
+                    PosixFilePermission.OTHERS_EXECUTE,
                 ),
             )
             Files.setPosixFilePermissions(path, perms)
@@ -190,6 +198,16 @@ object LlamaServerDownloader {
         if (!Files.exists(dir)) return
         Files.walk(dir).use { paths ->
             paths.sorted(Comparator.reverseOrder()).forEach { Files.deleteIfExists(it) }
+        }
+    }
+
+    /** Recursively removes a partially-extracted install directory after an extraction failure. */
+    private fun deletePartialInstall(dir: Path) {
+        if (!Files.exists(dir)) return
+        runCatching {
+            Files.walk(dir).use { paths ->
+                paths.sorted(Comparator.reverseOrder()).forEach { Files.deleteIfExists(it) }
+            }
         }
     }
 
@@ -366,7 +384,12 @@ object LlamaServerDownloader {
         val buffer = ByteArray(1 shl 16)
         while (remaining > 0) {
             val read = input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
-            if (read == -1) break
+            if (read == -1) {
+                // gzip can be well-formed while the tar payload it wraps is truncated — without
+                // this check a short read is silently accepted, leaving a truncated executable
+                // marked as a complete install.
+                throw IOException("Unexpected end of archive: expected $remaining more byte(s) of entry data.")
+            }
             output.write(buffer, 0, read)
             remaining -= read
         }

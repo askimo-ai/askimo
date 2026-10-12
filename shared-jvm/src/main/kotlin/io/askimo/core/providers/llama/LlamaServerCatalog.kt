@@ -68,12 +68,27 @@ object LlamaServerCatalog {
     fun detectCurrentPlatform(): LlamaServerPlatform? {
         val osName = System.getProperty("os.name").lowercase()
         val archName = System.getProperty("os.arch").lowercase()
-        val isArm = archName.contains("aarch64") || archName.contains("arm")
+        // Match explicit 64-bit arch names only — falling back to "x86_64" for anything
+        // non-ARM previously advertised support (and downloaded an unusable binary) on 32-bit
+        // x86, ARM32, and other exotic architectures.
+        val isArm64 = archName == "aarch64" || archName == "arm64"
+        val isX86Arch = archName == "x86_64" || archName == "amd64"
 
         return when {
-            osName.contains("mac") || osName.contains("darwin") -> MACOS
-            osName.contains("win") -> if (isArm) WINDOWS_AARCH64 else WINDOWS_X86_64
-            osName.contains("nux") || osName.contains("nix") -> if (isArm) LINUX_AARCH64 else LINUX_X86_64
+            osName.contains("mac") || osName.contains("darwin") -> if (isArm64 || isX86Arch) MACOS else null
+
+            osName.contains("win") -> when {
+                isArm64 -> WINDOWS_AARCH64
+                isX86Arch -> WINDOWS_X86_64
+                else -> null
+            }
+
+            osName.contains("nux") || osName.contains("nix") -> when {
+                isArm64 -> LINUX_AARCH64
+                isX86Arch -> LINUX_X86_64
+                else -> null
+            }
+
             else -> null
         }
     }

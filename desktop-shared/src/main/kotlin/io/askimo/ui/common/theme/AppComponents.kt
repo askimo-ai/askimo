@@ -1212,6 +1212,8 @@ object AppComponents {
         labelStyle: TextStyle = AppTextStyles.body,
         hintStyle: TextStyle = AppTextStyles.caption,
     ) {
+        var displayedValue by remember(value) { mutableStateOf(value) }
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1225,8 +1227,11 @@ object AppComponents {
                 Text(text = hint, style = hintStyle)
             }
             Switch(
-                checked = value,
-                onCheckedChange = onValueChange,
+                checked = displayedValue,
+                onCheckedChange = {
+                    displayedValue = it
+                    onValueChange(it)
+                },
                 modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
             )
         }

@@ -83,10 +83,16 @@ class RAGIntentClassifier(
             "SKIP" -> return RAGIntent.SKIP
         }
 
-        // Fallback: find the first standalone occurrence of one of the three keywords
-        // anywhere in the response (handles "**SEARCH**", "Intent: RAG.", explanatory
-        // sentences, markdown, trailing punctuation, etc.).
-        val match = Regex("""\b(RAG|SEARCH|SKIP)\b""").find(normalized)?.groupValues?.get(1)
+        // Fallback: find every standalone keyword occurrence (handles "**SEARCH**",
+        // "Intent: RAG.", markdown, trailing punctuation, etc.). Only accept it when exactly
+        // one *distinct* keyword appears — taking the first match would misclassify responses
+        // that restate all options before answering (e.g. "Options: RAG, SEARCH, SKIP. Answer:
+        // SEARCH" would wrongly resolve to RAG).
+        val matches = Regex("""\b(RAG|SEARCH|SKIP)\b""").findAll(normalized)
+            .map { it.groupValues[1] }
+            .distinct()
+            .toList()
+        val match = matches.singleOrNull()
 
         return when (match) {
             "RAG" -> RAGIntent.RAG

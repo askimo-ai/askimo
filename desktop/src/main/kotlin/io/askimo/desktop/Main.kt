@@ -294,6 +294,7 @@ fun main(args: Array<String>) {
 
         // Load saved window state or use defaults (persisted automatically via rememberPersistedWindowState)
         val windowState = rememberPersistedWindowState()
+        val exitScope = rememberCoroutineScope()
 
         // Single source of truth for "what happens when Askimo quits" — used by both the
         // window close button (onCloseRequest) and the in-app Quit confirmation dialog
@@ -306,9 +307,14 @@ fun main(args: Array<String>) {
             Analytics.shutdown()
             // Stops the reverse-proxy HTTP listener and kills any resident llama-server child
             // process(es) — without this, quitting left llama-server running as an orphaned
-            // process (no parent left to stop it) and the proxy listener bound past Compose exit.
-            LlamaServerProcessManager.shutdown()
-            exitApplication()
+            // process. Uses the suspend stopProxy() on a background dispatcher, not the blocking
+            // LlamaServerProcessManager.shutdown() — this callback runs on the Compose UI
+            // dispatcher, which a suspended loadModel() health-check may need to resume on to
+            // release its slot mutex; blocking it here would deadlock app quit.
+            exitScope.launch(Dispatchers.IO) {
+                LlamaServerProcessManager.stopProxy()
+                withContext(Dispatchers.Main) { exitApplication() }
+            }
         }
 
         Window(

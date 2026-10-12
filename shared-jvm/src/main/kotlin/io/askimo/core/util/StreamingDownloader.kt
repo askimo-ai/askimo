@@ -82,6 +82,7 @@ object StreamingDownloader {
         }
 
         if (response.statusCode() !in 200..299) {
+            response.body().close()
             throw DownloadException(httpErrorMessage(response.statusCode()))
         }
 

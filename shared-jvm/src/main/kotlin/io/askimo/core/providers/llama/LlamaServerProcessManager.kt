@@ -36,6 +36,7 @@ import java.net.http.HttpResponse
 import java.nio.file.Files
 import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -112,6 +113,8 @@ object LlamaServerProcessManager {
         .build()
 
     @Volatile private var proxyServer: HttpServer? = null
+
+    @Volatile private var proxyExecutor: ExecutorService? = null
 
     @Volatile private var proxyPort: Int = -1
 
@@ -244,6 +247,12 @@ object LlamaServerProcessManager {
         unloadModels()
         proxyServer?.stop(1)
         proxyServer = null
+        // HttpServer.stop() only stops accepting connections/exchanges — it never touches a
+        // caller-supplied executor (see HttpServer.setExecutor's docs), so without this every
+        // stop/start cycle leaked another cached thread pool, and its worker threads (non-daemon
+        // by default) could delay JVM exit.
+        proxyExecutor?.shutdownNow()
+        proxyExecutor = null
         _proxyStatus.value = ProxyStatus()
     }
 
@@ -262,10 +271,12 @@ object LlamaServerProcessManager {
             proxyPort = findFreePort()
         }
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", proxyPort), 0)
-        server.executor = Executors.newCachedThreadPool()
+        val executor = Executors.newCachedThreadPool()
+        server.executor = executor
         server.createContext("/") { exchange -> handleProxyRequest(exchange) }
         server.start()
         proxyServer = server
+        proxyExecutor = executor
         _proxyStatus.value = ProxyStatus(running = true, port = proxyPort)
         log.info("llama local-LLM reverse proxy listening on 127.0.0.1:{}", proxyPort)
 
@@ -287,18 +298,31 @@ object LlamaServerProcessManager {
     }
 
     private suspend fun checkIdleSlot(slot: ChildSlot) {
+        // Cheap pre-check outside the lock; the real idle + zero-active-request check happens
+        // again below under the mutex, since lastUsedAt is set when forwarding *starts*, not
+        // finishes — otherwise a still-streaming request past the timeout gets force-killed.
         val idleFor = Duration.between(slot.lastUsedAt, Instant.now())
         if (slot.process != null && idleFor.toMinutes() >= IDLE_UNLOAD_TIMEOUT_MINUTES) {
-            log.info(
-                "llama-server ({}) idle for {} minutes — stopping to free memory",
-                if (slot.embeddingMode) "embedding" else "chat",
-                idleFor.toMinutes(),
-            )
-            slot.mutex.withLock { stopSlotLocked(slot) }
+            slot.mutex.withLock {
+                val stillIdle = Duration.between(slot.lastUsedAt, Instant.now()).toMinutes() >= IDLE_UNLOAD_TIMEOUT_MINUTES
+                if (slot.process != null && stillIdle && slot.activeRequestCount.get() == 0) {
+                    log.info(
+                        "llama-server ({}) idle for {} minutes — stopping to free memory",
+                        if (slot.embeddingMode) "embedding" else "chat",
+                        idleFor.toMinutes(),
+                    )
+                    stopSlotLocked(slot)
+                }
+            }
         }
     }
 
-    /** Stops the reverse proxy and both child processes. Call on app shutdown. */
+    /**
+     * Stops the reverse proxy and both child processes. Blocking — never call from a UI/Compose
+     * dispatcher thread that a slot-mutex-holding coroutine (e.g. a suspended `loadModel()`
+     * health-check) might need to resume on, or this deadlocks. See `Main.kt`'s `performExit`,
+     * which calls the suspend [stopProxy] directly on a background dispatcher instead.
+     */
     fun shutdown() {
         runBlocking { stopProxy() }
     }
@@ -453,13 +477,29 @@ object LlamaServerProcessManager {
     }
 
     /**
-     * Synthesizes an OpenAI-style `GET /models` response listing every *downloaded* catalog
-     * entry (chat + embedding), without needing any `llama-server` child process running.
+     * Synthesizes an OpenAI-style `GET /models` response listing every `.gguf` file actually
+     * present under [AskimoHome.llamaModelsDir] — not just [LlamaModelCatalog.allEntries].
+     * Dynamically discovered downloads (Hugging Face browser search results) and manually
+     * dropped-in files are intentionally absent from the curated catalog, but still need to show
+     * up here: this is what the "Local LLM (built-in)" provider's model picker lists from, so a
+     * catalog-only response would make those models undownloadable from a user's perspective
+     * despite the file already being on disk.
      */
     private fun writeModelsList(exchange: HttpExchange) {
-        val downloaded = LlamaModelCatalog.allEntries.filter { LlamaModelDownloader.isDownloaded(it) }
-        val data = downloaded.joinToString(",") { entry ->
-            """{"id":"${entry.fileName}","object":"model","created":0,"owned_by":"llama.cpp"}"""
+        val modelsDir = AskimoHome.llamaModelsDir()
+        val fileNames = if (Files.isDirectory(modelsDir)) {
+            Files.list(modelsDir).use { paths ->
+                paths
+                    .filter { Files.isRegularFile(it) && it.fileName.toString().endsWith(".gguf", ignoreCase = true) }
+                    .map { it.fileName.toString() }
+                    .sorted()
+                    .toList()
+            }
+        } else {
+            emptyList()
+        }
+        val data = fileNames.joinToString(",") { fileName ->
+            """{"id":"${escapeJsonString(fileName)}","object":"model","created":0,"owned_by":"llama.cpp"}"""
         }
         val body = """{"object":"list","data":[$data]}""".toByteArray(Charsets.UTF_8)
         exchange.responseHeaders.add("Content-Type", "application/json")
@@ -510,12 +550,14 @@ object LlamaServerProcessManager {
     }
 
     private fun writeError(exchange: HttpExchange, status: Int, message: String) {
-        val escaped = message.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", " ")
-        val body = """{"error":{"message":"$escaped"}}""".toByteArray(Charsets.UTF_8)
+        val body = """{"error":{"message":"${escapeJsonString(message)}"}}""".toByteArray(Charsets.UTF_8)
         exchange.responseHeaders.add("Content-Type", "application/json")
         exchange.sendResponseHeaders(status, body.size.toLong())
         exchange.responseBody.use { it.write(body) }
     }
+
+    /** Minimal JSON string escaping for values embedded in a hand-built JSON response body. */
+    private fun escapeJsonString(value: String): String = value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", " ")
 
     // ── Child process swap logic ─────────────────────────────────────────────────────────────
 
@@ -701,7 +743,16 @@ object LlamaServerProcessManager {
             }
         }, "llama-server-output-drain").apply { isDaemon = true }.start()
 
-        waitForHealthy(port, process, recentOutput)
+        // waitForHealthy's own destroyForcibly() only fires on its normal timeout path. If
+        // this coroutine is cancelled while suspended here (e.g. Settings is navigated away
+        // from mid-load), slot.process is never assigned and the child leaks. Catch Throwable
+        // (not just Exception) so cancellation cleans up too, then rethrow.
+        try {
+            waitForHealthy(port, process, recentOutput)
+        } catch (t: Throwable) {
+            process.destroyForcibly()
+            throw t
+        }
 
         slot.process = process
         slot.port = port

@@ -11,6 +11,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -54,12 +55,12 @@ object LlamaDownloadManager {
         scope.launch {
             try {
                 LlamaServerDownloader.download(platform) { done, total ->
-                    _binaryDownload.value = _binaryDownload.value?.copy(downloadedBytes = done, totalBytes = total)
+                    _binaryDownload.update { it?.copy(downloadedBytes = done, totalBytes = total) }
                 }
                 _binaryDownload.value = null
             } catch (e: Exception) {
                 log.warn("llama-server binary download failed", e)
-                _binaryDownload.value = _binaryDownload.value?.copy(error = e.message ?: "Unknown error")
+                _binaryDownload.update { it?.copy(error = e.message ?: "Unknown error") }
             }
         }
     }
@@ -91,24 +92,17 @@ object LlamaDownloadManager {
             log.debug("Ignoring download request for {} — already downloading", fileName)
             return
         }
-        _modelDownloads.value = _modelDownloads.value + (fileName to ModelDownloadState())
+        _modelDownloads.update { it + (fileName to ModelDownloadState()) }
         scope.launch {
             try {
                 LlamaModelDownloader.download(entry) { done, total ->
-                    _modelDownloads.value += (fileName to ModelDownloadState(done, total))
+                    _modelDownloads.update { it + (fileName to ModelDownloadState(done, total)) }
                 }
-                _modelDownloads.value -= fileName
+                _modelDownloads.update { it - fileName }
             } catch (e: Exception) {
                 log.warn("Model download failed for {}", fileName, e)
-                _modelDownloads.value += (fileName to ModelDownloadState(error = e.message ?: "Unknown error"))
+                _modelDownloads.update { it + (fileName to ModelDownloadState(error = e.message ?: "Unknown error")) }
             }
-        }
-    }
-
-    /** Dismisses a failed model download's error state (e.g. before retrying). */
-    fun clearModelError(fileName: String) {
-        if (_modelDownloads.value[fileName]?.error != null) {
-            _modelDownloads.value -= fileName
         }
     }
 }
