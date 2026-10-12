@@ -25,7 +25,18 @@ object LlamaModelDownloader {
 
     class DownloadException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
-    fun modelPath(entry: LlamaModelEntry): Path = AskimoHome.llamaModelsDir().resolve(entry.fileName)
+    /**
+     * Resolves [entry]'s `.gguf` file under [AskimoHome.llamaModelsDir] — the single chokepoint
+     * every other function here goes through. [LlamaModelEntry.fileName] is partly sourced from
+     * Hugging Face metadata, which only sanitizes `/` (not `\`, which Windows treats as a
+     * separator) — normalize and require the result stay a direct child of the models dir.
+     */
+    fun modelPath(entry: LlamaModelEntry): Path {
+        val base = AskimoHome.llamaModelsDir().toAbsolutePath().normalize()
+        val resolved = base.resolve(entry.fileName).normalize()
+        require(resolved.parent == base) { "Refusing to resolve unsafe model file name: ${entry.fileName}" }
+        return resolved
+    }
 
     fun isDownloaded(entry: LlamaModelEntry): Boolean = modelPath(entry).let { Files.exists(it) && Files.size(it) > 0 }
 
