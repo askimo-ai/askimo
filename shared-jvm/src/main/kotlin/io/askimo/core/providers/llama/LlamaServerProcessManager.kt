@@ -347,6 +347,18 @@ object LlamaServerProcessManager {
         slot.mutex.withLock { stopSlotLocked(slot) }
     }
 
+    /**
+     * Deletes [entry]'s downloaded `.gguf` file, first unloading its slot's resident child
+     * process (if any) and waiting for full termination. Encapsulates ordering that callers must
+     * not get wrong: deleting while `llama-server` still has the file open throws on Windows
+     * (the file is locked) and, on Unix, leaves the process serving a now-unlinked file while the
+     * caller believes it's gone.
+     */
+    suspend fun deleteModel(entry: LlamaModelEntry) {
+        unloadModel(entry.isEmbedding)
+        LlamaModelDownloader.delete(entry)
+    }
+
     // ── Request handling ─────────────────────────────────────────────────────────────────────
 
     /**

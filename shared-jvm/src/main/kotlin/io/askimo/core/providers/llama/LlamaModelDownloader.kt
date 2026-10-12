@@ -9,6 +9,7 @@ import io.askimo.core.util.AskimoHome
 import io.askimo.core.util.StreamingDownloader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -103,7 +104,14 @@ object LlamaModelDownloader {
             throw DownloadException(e.message ?: "Download of ${entry.fileName} failed or was cancelled.", e)
         }
 
-        Files.move(partPath, finalPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        // ATOMIC_MOVE is optional per the NIO.2 spec — some filesystems don't support it and
+        // throw AtomicMoveNotSupportedException, which would otherwise turn an already-successful
+        // multi-GB download into a failure right at the last step.
+        try {
+            Files.move(partPath, finalPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        } catch (_: AtomicMoveNotSupportedException) {
+            Files.move(partPath, finalPath, StandardCopyOption.REPLACE_EXISTING)
+        }
         log.info("Downloaded llama model {} ({} bytes) to {}", entry.fileName, downloadedBytes, finalPath)
         finalPath
     }

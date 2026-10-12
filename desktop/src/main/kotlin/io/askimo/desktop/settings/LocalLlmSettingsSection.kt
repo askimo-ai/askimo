@@ -927,10 +927,13 @@ private fun localLlmModelsCard() {
 
 @Composable
 private fun localLlmModelRow(entry: LlamaModelEntry) {
+    val scope = rememberCoroutineScope()
     val downloadsByFileName by LlamaDownloadManager.modelDownloads.collectAsState()
     val downloadState = downloadsByFileName[entry.fileName]
     val downloading = downloadState != null && downloadState.error == null
     var isDownloaded by remember(entry.fileName) { mutableStateOf(LlamaModelDownloader.isDownloaded(entry)) }
+    var isDeleting by remember(entry.fileName) { mutableStateOf(false) }
+    var deleteError by remember(entry.fileName) { mutableStateOf<String?>(null) }
 
     // Refreshes isDownloaded once this entry's download (started from here, or from a previous
     // visit to this page — see LlamaDownloadManager's doc) finishes, since the download itself
@@ -985,9 +988,20 @@ private fun localLlmModelRow(entry: LlamaModelEntry) {
                 // LlamaServerProcessManager.ensureModelLoaded). This row only manages what's
                 // on disk — download/delete, nothing more.
                 isDownloaded -> OutlinedButton(
+                    enabled = !isDeleting,
                     onClick = {
-                        LlamaModelDownloader.delete(entry)
-                        isDownloaded = false
+                        scope.launch {
+                            isDeleting = true
+                            deleteError = null
+                            try {
+                                LlamaServerProcessManager.deleteModel(entry)
+                                isDownloaded = false
+                            } catch (e: Exception) {
+                                deleteError = e.message ?: "Failed to delete model."
+                            } finally {
+                                isDeleting = false
+                            }
+                        }
                     },
                     modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                 ) {
@@ -1013,6 +1027,13 @@ private fun localLlmModelRow(entry: LlamaModelEntry) {
         downloadState?.error?.let { error ->
             Text(
                 text = LocalizationManager.getString("settings.local_llm.download_failed", error),
+                style = AppTextStyles.caption,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        deleteError?.let { error ->
+            Text(
+                text = error,
                 style = AppTextStyles.caption,
                 color = MaterialTheme.colorScheme.error,
             )
