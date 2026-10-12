@@ -66,9 +66,10 @@ object LlamaModelDownloader {
     /**
      * Downloads [entry] if not already present, reporting progress via [onProgress] as
      * `(bytesDownloaded, totalBytes)`. Downloads to a sibling `.part` file first, then atomically
-     * moves it into place on success.
+     * moves it into place on success, after which [validationError] is re-checked against the
+     * final file — a corrupted/wrong-sized file is deleted rather than left looking downloaded.
      *
-     * @throws DownloadException on network failure or non-2xx response.
+     * @throws DownloadException on network failure, non-2xx response, or failed [validationError] check.
      */
     suspend fun download(
         entry: LlamaModelEntry,
@@ -112,6 +113,19 @@ object LlamaModelDownloader {
         } catch (_: AtomicMoveNotSupportedException) {
             Files.move(partPath, finalPath, StandardCopyOption.REPLACE_EXISTING)
         }
+
+        // A non-2xx response is already rejected by StreamingDownloader, but a *successful* HTTP
+        // 200 whose body is actually an HTML/JSON error page (or otherwise wrong-sized — e.g. a
+        // rate-limit or LFS-pointer response from Hugging Face) would otherwise pass straight
+        // through as a "downloaded" model, only to fail opaquely the first time llama-server
+        // tries to load it. Re-run the same sanity check isDownloaded()/the UI rely on against
+        // the now-final file, and fail closed — deleting the bad file — rather than surfacing it
+        // as a successful download.
+        validationError(entry)?.let { error ->
+            Files.deleteIfExists(finalPath)
+            throw DownloadException(error)
+        }
+
         log.info("Downloaded llama model {} ({} bytes) to {}", entry.fileName, downloadedBytes, finalPath)
         finalPath
     }

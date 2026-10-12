@@ -1260,6 +1260,8 @@ object AppComponents {
     ) {
         var dropdownExpanded by remember { mutableStateOf(false) }
 
+        var displayedValue by remember(value) { mutableStateOf(value) }
+
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
             Text(text = label, style = labelStyle)
             Box(modifier = Modifier.widthIn(min = 160.dp, max = 240.dp)) {
@@ -1275,7 +1277,7 @@ object AppComponents {
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = displayName(value),
+                            text = displayName(displayedValue),
                             style = AppTextStyles.body,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -1297,10 +1299,11 @@ object AppComponents {
                         themedDropdownMenuItem(
                             text = { Text(text = displayName(option), style = AppTextStyles.body) },
                             onClick = {
+                                displayedValue = option
                                 onValueChange(option)
                                 dropdownExpanded = false
                             },
-                            isSelected = option == value,
+                            isSelected = option == displayedValue,
                             showDivider = index < options.lastIndex,
                         )
                     }

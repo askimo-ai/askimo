@@ -350,7 +350,14 @@ object LlamaServerDownloader {
             var pendingLongLinkName: String? = null
             while (true) {
                 val read = readFully(gzip, header)
-                if (read < 512) break
+                // Valid tarballs only end via a full all-zero block (checked below), never
+                // mid-header — a short read here means the tar payload was truncated/corrupted,
+                // which must not be mistaken for a clean end-of-archive (isDownloaded would then
+                // treat the truncated install as complete).
+                if (read == 0) break
+                if (read < 512) {
+                    throw IOException("Truncated tar archive: expected a 512-byte header, got only $read byte(s).")
+                }
                 if (header.all { it == 0.toByte() }) break // end-of-archive marker
 
                 val nameFromHeader = String(header, 0, 100).trimEnd('\u0000')

@@ -5,6 +5,7 @@
 package io.askimo.core.util
 
 import io.askimo.core.logging.logger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -45,13 +46,17 @@ object StreamingDownloader {
      * sibling `.part` file) should `Files.move(..., ATOMIC_MOVE)` into place themselves only
      * after this returns successfully.
      *
+     * Coroutine cancellation still deletes the partial file but rethrows [CancellationException]
+     * unchanged, not wrapped in [DownloadException] — it's not an operational failure, and
+     * wrapping it would break structured concurrency's cancellation propagation.
+     *
      * [connectErrorMessage]/[httpErrorMessage]/[incompleteMessage] let each call site keep its
      * own specific, actionable wording (mentioning the right upstream service/catalog) instead of
      * a generic one-size-fits-all message, while still sharing the actual download mechanics.
      *
      * @return the number of bytes downloaded (== the file size written to [destPath]).
-     * @throws DownloadException on connection failure, non-2xx response, cancellation, or an
-     * incomplete transfer.
+     * @throws DownloadException on connection failure, non-2xx response, or an incomplete transfer.
+     * @throws CancellationException if the calling coroutine is cancelled mid-transfer.
      */
     suspend fun download(
         url: String,
@@ -103,9 +108,15 @@ object StreamingDownloader {
                     }
                 }
             }
+        } catch (e: CancellationException) {
+            // Normal coroutine cancellation, not a download failure — must not be wrapped in
+            // DownloadException, or callers would treat it as an operational error and break
+            // cancellation propagation. Clean up the partial file, then rethrow unchanged.
+            Files.deleteIfExists(destPath)
+            throw e
         } catch (e: Exception) {
             Files.deleteIfExists(destPath)
-            throw DownloadException("Download from $url failed or was cancelled: ${e.message}", e)
+            throw DownloadException("Download from $url failed: ${e.message}", e)
         }
 
         // Catches a connection that silently dropped mid-stream (e.g. flaky proxy/CDN closing
