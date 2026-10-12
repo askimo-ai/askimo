@@ -8,6 +8,7 @@ import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.StreamingChatModel
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel.OpenAiEmbeddingModelBuilder
+import io.askimo.core.providers.ModelCategory
 import io.askimo.core.providers.ModelDTO
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ProviderModelUtils
@@ -83,6 +84,9 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
      * Uses the template's [OpenAiCompatibleTemplate.embeddingModelFetcher] when present (e.g.
      * OpenRouter, whose embedding catalog lives at a different endpoint than [availableModels]).
      * Falls back to keyword-filtering [availableModels] for templates/instances without one.
+     *
+     * Results are tagged [ModelCategory.EMBEDDING] explicitly so the picker dialog's
+     * `filterModelsForType` keyword pass can't hide valid IDs from this dedicated catalog.
      */
     override fun availableEmbeddingModels(settings: OpenAiCompatibleSettings): List<ModelDTO> {
         if (!canFetchModels(settings)) return emptyList()
@@ -91,7 +95,7 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
             ?.let { name -> OpenAiCompatibleTemplate.entries.find { it.name == name } }
         val fetcher = template?.embeddingModelFetcher ?: return super.availableEmbeddingModels(settings)
         val modelIds = fetcher(resolveApiKey(settings), baseUrl, settings.httpVersion.toJdkVersion())
-        return modelIds.map { ModelDTO.of(getProvider(), it) }
+        return modelIds.map { ModelDTO(provider = getProvider(), modelId = it, displayName = it, category = ModelCategory.EMBEDDING) }
     }
 
     override fun canFetchModels(settings: OpenAiCompatibleSettings): Boolean {
