@@ -198,7 +198,6 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
-import kotlin.system.exitProcess
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -295,29 +294,33 @@ fun main(args: Array<String>) {
         // Load saved window state or use defaults (persisted automatically via rememberPersistedWindowState)
         val windowState = rememberPersistedWindowState()
 
+        // Single source of truth for "what happens when Askimo quits" — used by both the
+        // window close button (onCloseRequest) and the in-app Quit confirmation dialog
+        val performExit = {
+            val messageCount = runCatching {
+                val t = AppContext.getInstance().telemetry
+                t.usageRepository.countByPeriod(t.sessionStart, Clock.System.now())
+            }.getOrDefault(0)
+            Analytics.trackSessionEnd(messageCount)
+            Analytics.shutdown()
+            exitApplication()
+        }
+
         Window(
             icon = icon,
-            onCloseRequest = {
-                val messageCount = runCatching {
-                    val t = AppContext.getInstance().telemetry
-                    t.usageRepository.countByPeriod(t.sessionStart, Clock.System.now())
-                }.getOrDefault(0)
-                Analytics.trackSessionEnd(messageCount)
-                Analytics.shutdown()
-                exitApplication()
-            },
+            onCloseRequest = performExit,
             title = "Askimo",
             state = windowState,
             undecorated = isScreenshotMode,
         ) {
-            app(frameWindowScope = this@Window, windowState = windowState)
+            app(frameWindowScope = this@Window, windowState = windowState, onQuit = performExit)
         }
     }
 }
 
 @Composable
 @Preview
-fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = null) {
+fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = null, onQuit: () -> Unit = {}) {
     var isReady by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { isReady = true }
 
@@ -1363,7 +1366,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                 dangerButton(
                                     onClick = {
                                         showQuitDialog = false
-                                        exitProcess(0)
+                                        onQuit()
                                     },
                                 ) {
                                     Text(stringResource("action.yes"))

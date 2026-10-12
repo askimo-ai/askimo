@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.NetworkCheck
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -72,6 +73,7 @@ enum class SettingsSection {
     NETWORK,
     WEB_SEARCH,
     VOICE,
+    LOCAL_LLM,
     NOTIFICATIONS,
     SHORTCUTS,
     MCP_SERVERS,
@@ -206,6 +208,12 @@ fun settingsViewWithSidebar(
                         onClick = { onSectionChange(SettingsSection.VOICE) },
                     )
                     settingsSidebarItem(
+                        title = stringResource("settings.local_llm"),
+                        icon = Icons.Outlined.Storage,
+                        isSelected = selectedSection == SettingsSection.LOCAL_LLM,
+                        onClick = { onSectionChange(SettingsSection.LOCAL_LLM) },
+                    )
+                    settingsSidebarItem(
                         title = stringResource("settings.notifications"),
                         icon = Icons.Outlined.Notifications,
                         isSelected = selectedSection == SettingsSection.NOTIFICATIONS,
@@ -294,6 +302,7 @@ fun settingsViewWithSidebar(
                         SettingsSection.NETWORK -> networkSettingsSection()
                         SettingsSection.WEB_SEARCH -> webSearchSettingsSection()
                         SettingsSection.VOICE -> voiceSettingsSection()
+                        SettingsSection.LOCAL_LLM -> localLlmSettingsSection()
                         SettingsSection.NOTIFICATIONS -> notificationsSettingsSection()
                         SettingsSection.SHORTCUTS -> shortcutsSettingsSection()
                         SettingsSection.MCP_SERVERS -> mcpServerTemplatesSection()

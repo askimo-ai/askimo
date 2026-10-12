@@ -7,6 +7,7 @@ package io.askimo.core.memory
 import dev.langchain4j.data.message.ChatMessage
 import dev.langchain4j.data.message.ChatMessageType
 import dev.langchain4j.data.message.SystemMessage
+import dev.langchain4j.data.message.UserMessage
 import dev.langchain4j.memory.ChatMemory
 import io.askimo.core.chat.domain.SessionMemory
 import io.askimo.core.chat.repository.SessionMemoryRepository
@@ -289,11 +290,45 @@ class TokenAwareSummarizingMemory(
     /**
      * Add message to memory. Non-blocking - triggers async summarization if needed.
      * Automatically persists to database if configured with sessionId and repository.
+     *
+     * Deduplicates a consecutive identical [UserMessage] — see [isDuplicateRetryMessage]'s doc
+     * for why this is necessary: `ChatClientExtensions.sendStreamingMessageWithCallback`'s
+     * context-length retry loop is Askimo's own code (not LangChain4j's), so on a
+     * `ContextLengthException` it just loops back and calls `sendMessageStreaming(userContents)`
+     * again with the same content. LangChain4j's generated `AiServices` method unconditionally
+     * calls `chatMemory.add(UserMessage)` on every invocation — it has no notion of "this is a
+     * retry" — so without this guard, every context-length retry would permanently duplicate the
+     * user's turn in memory (and in the persisted DB history), inflating token usage and showing
+     * the same message twice in exported/replayed conversations.
      */
     override fun add(message: ChatMessage) {
-        messages.add(message)
+        synchronized(messages) {
+            if (isDuplicateRetryMessage(message)) {
+                log.debug(
+                    "Skipping duplicate consecutive UserMessage add — likely a context-length " +
+                        "retry re-sending the same user turn (see add()'s doc).",
+                )
+                return
+            }
+            messages.add(message)
+        }
         messagesSinceLastSummary.incrementAndGet()
         addMessageToDb(message)
+    }
+
+    /**
+     * True if [message] is a [UserMessage] identical to the last message currently in memory.
+     * Scoped to [UserMessage] only — [dev.langchain4j.data.message.AiMessage] /
+     * [dev.langchain4j.data.message.ToolExecutionResultMessage] can legitimately repeat (e.g. a
+     * tool genuinely returning the same result twice) and must never be silently dropped. Two
+     * distinct user turns happening to have identical text (not back-to-back) are unaffected
+     * since this only compares against the immediately-preceding message. Must be called while
+     * holding the [messages] lock (see [add]).
+     */
+    private fun isDuplicateRetryMessage(message: ChatMessage): Boolean {
+        if (message !is UserMessage) return false
+        val last = messages.lastOrNull() ?: return false
+        return last == message
     }
 
     private fun addMessageToDb(message: ChatMessage) {

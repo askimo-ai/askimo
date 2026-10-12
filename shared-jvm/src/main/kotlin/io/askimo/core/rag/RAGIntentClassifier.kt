@@ -56,17 +56,50 @@ class RAGIntentClassifier(
             classifierChatClient.sendMessage(prompt)
         }
 
-        val intent = when (response.trim().uppercase()) {
-            "RAG" -> RAGIntent.RAG
-            "SEARCH" -> RAGIntent.SEARCH
-            else -> RAGIntent.SKIP
-        }
+        val intent = parseIntent(response)
 
         log.debug("RAG Classification: $intent (response: $response)")
         intent
     } catch (e: Exception) {
         log.warn("Intent classification failed: ${e.message}. Defaulting to RAG", e)
         RAGIntent.RAG
+    }
+
+    /**
+     * Parses the classifier model's raw response into a [RAGIntent], tolerating the kind of
+     * chatty/non-compliant output smaller local models (e.g. via `llama-server`) tend to produce
+     * instead of the requested single word — e.g. "I'll classify this as RAG because..." or
+     * "**SEARCH**". Falls back to [RAGIntent.RAG] (the safest option — it still runs the real
+     * hybrid retriever) when no intent keyword can be found at all, rather than silently
+     * skipping retrieval or misrouting to a raw grep dump.
+     */
+    private fun parseIntent(response: String): RAGIntent {
+        val normalized = response.trim().uppercase()
+
+        // Fast path: exact match (what well-behaved models return).
+        when (normalized) {
+            "RAG" -> return RAGIntent.RAG
+            "SEARCH" -> return RAGIntent.SEARCH
+            "SKIP" -> return RAGIntent.SKIP
+        }
+
+        // Fallback: find the first standalone occurrence of one of the three keywords
+        // anywhere in the response (handles "**SEARCH**", "Intent: RAG.", explanatory
+        // sentences, markdown, trailing punctuation, etc.).
+        val match = Regex("""\b(RAG|SEARCH|SKIP)\b""").find(normalized)?.groupValues?.get(1)
+
+        return when (match) {
+            "RAG" -> RAGIntent.RAG
+
+            "SEARCH" -> RAGIntent.SEARCH
+
+            "SKIP" -> RAGIntent.SKIP
+
+            else -> {
+                log.warn("Could not parse RAG intent from classifier response, defaulting to RAG: $response")
+                RAGIntent.RAG
+            }
+        }
     }
 
     private fun buildPrompt(

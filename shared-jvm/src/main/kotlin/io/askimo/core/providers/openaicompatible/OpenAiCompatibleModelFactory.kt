@@ -11,6 +11,7 @@ import dev.langchain4j.model.openai.OpenAiEmbeddingModel.OpenAiEmbeddingModelBui
 import io.askimo.core.providers.ModelDTO
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ProviderModelUtils
+import io.askimo.core.providers.llama.LlamaServerProcessManager
 import io.askimo.core.util.ApiKeyUtils.safeApiKey
 import io.askimo.core.util.createJdkHttpClientBuilder
 import io.askimo.core.util.toJdkVersion
@@ -35,24 +36,42 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
         OpenAiApiMode.RESPONSES -> responsesApiDelegate
     }
 
+    /**
+     * Resolves the base URL to actually connect to for [settings].
+     *
+     * For every template except [OpenAiCompatibleTemplate.ASKIMO_LOCAL_LLM], this is simply the
+     * persisted [OpenAiCompatibleSettings.baseUrl].
+     *
+     * [OpenAiCompatibleTemplate.ASKIMO_LOCAL_LLM] is special: [LlamaServerProcessManager] binds
+     * its reverse proxy to a freshly chosen free port on every app launch (to avoid clashing with
+     * a user-run Ollama/LM Studio). The persisted `baseUrl` is just a stale snapshot of that port,
+     * so this always reads the *live* [LlamaServerProcessManager.proxyBaseUrl] instead.
+     */
+    private fun effectiveBaseUrl(settings: OpenAiCompatibleSettings): String = if (settings.isTemplate && settings.templateName == OpenAiCompatibleTemplate.ASKIMO_LOCAL_LLM.name) {
+        LlamaServerProcessManager.proxyBaseUrl
+    } else {
+        settings.baseUrl
+    }
+
     override fun getProvider(): ModelProvider = ModelProvider.OPENAI_COMPATIBLE
     override fun defaultSettings(): OpenAiCompatibleSettings = OpenAiCompatibleSettings()
     override fun resolveApiKey(settings: OpenAiCompatibleSettings): String = safeApiKey(settings.apiKey.ifBlank { "not-needed" })
 
     override fun availableModels(settings: OpenAiCompatibleSettings): List<ModelDTO> {
         if (!canFetchModels(settings)) return emptyList()
+        val baseUrl = effectiveBaseUrl(settings)
         val template = settings.templateName
             ?.let { name -> OpenAiCompatibleTemplate.entries.find { it.name == name } }
         val modelIds = if (template?.modelFetcher != null) {
             template.modelFetcher(
                 resolveApiKey(settings),
-                settings.baseUrl,
+                baseUrl,
                 settings.httpVersion.toJdkVersion(),
             )
         } else {
             ProviderModelUtils.fetchModels(
                 apiKey = resolveApiKey(settings),
-                url = "${settings.baseUrl.trimEnd('/')}/models",
+                url = "${baseUrl.trimEnd('/')}/models",
                 providerName = getProvider(),
                 httpVersion = settings.httpVersion.toJdkVersion(),
             )
@@ -70,21 +89,25 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
         return !apiKeyNeeded || settings.apiKey.isNotBlank()
     }
 
-    override fun probeThinkingSupport(settings: OpenAiCompatibleSettings): Boolean = delegate(settings).probeThinkingSupport(
-        baseUrl = settings.baseUrl,
-        apiKey = resolveApiKey(settings),
-        modelName = settings.defaultModel,
-        httpClientBuilder = createJdkHttpClientBuilder(settings.baseUrl, settings.httpVersion),
-        log = log,
-    )
+    override fun probeThinkingSupport(settings: OpenAiCompatibleSettings): Boolean {
+        val baseUrl = effectiveBaseUrl(settings)
+        return delegate(settings).probeThinkingSupport(
+            baseUrl = baseUrl,
+            apiKey = resolveApiKey(settings),
+            modelName = settings.defaultModel,
+            httpClientBuilder = createJdkHttpClientBuilder(baseUrl, settings.httpVersion),
+            log = log,
+        )
+    }
 
     override fun createStreamingModel(settings: OpenAiCompatibleSettings): StreamingChatModel {
         val listener = createTelemetryListener()
+        val baseUrl = effectiveBaseUrl(settings)
         return delegate(settings).createStreamingModel(
-            baseUrl = settings.baseUrl,
+            baseUrl = baseUrl,
             apiKey = resolveApiKey(settings),
             modelName = settings.defaultModel,
-            httpClientBuilder = createJdkHttpClientBuilder(settings.baseUrl, settings.httpVersion),
+            httpClientBuilder = createJdkHttpClientBuilder(baseUrl, settings.httpVersion),
             listener = listener,
             provider = getProvider(),
         )
@@ -93,22 +116,24 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
     override fun createSecondaryModel(settings: OpenAiCompatibleSettings): ChatModel {
         val listener = createTelemetryListener()
         val modelName = settings.utilityModel.ifBlank { utilityModelFallback(settings) }
+        val baseUrl = effectiveBaseUrl(settings)
         return delegate(settings).createSecondaryModel(
-            baseUrl = settings.baseUrl,
+            baseUrl = baseUrl,
             apiKey = resolveApiKey(settings),
             modelName = modelName,
-            httpClientBuilder = createJdkHttpClientBuilder(settings.baseUrl, settings.httpVersion),
+            httpClientBuilder = createJdkHttpClientBuilder(baseUrl, settings.httpVersion),
             listener = listener,
         )
     }
 
     override fun createModel(settings: OpenAiCompatibleSettings): ChatModel {
         val listener = createTelemetryListener()
+        val baseUrl = effectiveBaseUrl(settings)
         return delegate(settings).createModel(
-            baseUrl = settings.baseUrl,
+            baseUrl = baseUrl,
             apiKey = resolveApiKey(settings),
             modelName = settings.defaultModel,
-            httpClientBuilder = createJdkHttpClientBuilder(settings.baseUrl, settings.httpVersion),
+            httpClientBuilder = createJdkHttpClientBuilder(baseUrl, settings.httpVersion),
             listener = listener,
             provider = getProvider(),
         )
@@ -127,8 +152,9 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
             "No embedding model is configured for ${ModelProvider.OPENAI_COMPATIBLE.name}. " +
                 "Go to Settings > AI Provider and select an embedding model under the provider configuration card."
         }
+        val baseUrl = effectiveBaseUrl(settings)
         return OpenAiEmbeddingModelBuilder()
-            .baseUrl(settings.baseUrl)
+            .baseUrl(baseUrl)
             .apiKey(resolveApiKey(settings))
             .modelName(modelName)
             .build()

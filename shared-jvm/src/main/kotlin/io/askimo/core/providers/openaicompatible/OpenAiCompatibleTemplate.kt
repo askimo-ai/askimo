@@ -5,6 +5,7 @@
 package io.askimo.core.providers.openaicompatible
 
 import io.askimo.core.providers.HttpVersion
+import io.askimo.core.providers.llama.LlamaServerProcessManager
 import io.askimo.core.util.appJson
 import io.askimo.core.util.httpGet
 import kotlinx.serialization.json.contentOrNull
@@ -204,6 +205,32 @@ enum class OpenAiCompatibleTemplate(
         apiKeyUrl = "",
         helpTextKey = "provider.template.ollama.help",
         apiMode = OpenAiApiMode.RESPONSES,
+        httpVersion = HttpVersion.HTTP_1_1,
+    ),
+
+    /**
+     * Askimo's built-in local LLM — no external server (Ollama, LM Studio) required.
+     *
+     * Unlike every other entry here, [baseUrl] is not a fixed well-known address: it points at
+     * [LlamaServerProcessManager]'s own managed reverse proxy,
+     * which owns a single `llama-server` child process and swaps which GGUF model is loaded
+     * on demand. The proxy is started (but the child process is not — that happens lazily on
+     * first request) the moment this property is read, i.e. when this enum class is loaded.
+     *
+     * [apiKeyRequired] is `false` — the proxy accepts any/no key. Gating on whether the
+     * `llama-server` binary and at least one `.gguf` model have been downloaded yet is the
+     * Settings UI's responsibility (see `io.askimo.core.providers.llama.LlamaServerDownloader`
+     * and `io.askimo.core.providers.llama.LlamaModelDownloader`), not this template's.
+     */
+    ASKIMO_LOCAL_LLM(
+        displayName = "Local LLM (built-in)",
+        initials = "AI",
+        taglineKey = "provider.template.askimo_local_llm.tagline",
+        baseUrl = LlamaServerProcessManager.proxyBaseUrl,
+        apiKeyRequired = false,
+        apiKeyUrl = "",
+        helpTextKey = "provider.template.askimo_local_llm.help",
+        apiMode = OpenAiApiMode.CHAT_COMPLETIONS,
         httpVersion = HttpVersion.HTTP_1_1,
     ),
 }

@@ -415,6 +415,150 @@ data class ModelsConfig(
 )
 
 /**
+ * Persisted state for Askimo's built-in local LLM engine (see
+ * [io.askimo.core.providers.llama.LlamaServerProcessManager]), so the model that was actually
+ * resident in the previous session is automatically reloaded the next time the app starts
+ */
+data class LocalLlmConfig(
+    /**
+     * [io.askimo.core.providers.llama.LlamaModelEntry.fileName] of the last model that was
+     * actually loaded into the `llama-server` child process. Null if no model has ever been loaded.
+     */
+    val lastSelectedModelFileName: String? = null,
+    /** [io.askimo.core.providers.llama.LlamaModelEntry.isEmbedding] for [lastSelectedModelFileName]. */
+    val lastSelectedModelIsEmbedding: Boolean = false,
+    /**
+     * Explicit context-window size (`--ctx-size`) passed to every `llama-server` launch
+     */
+    val ctxSize: Int = 8192,
+    /**
+     * Number of transformer layers offloaded to GPU (`--n-gpu-layers`). `0` = fully CPU (the
+     * default, matching [io.askimo.core.providers.llama.LlamaServerCatalog]'s CPU-only release
+     * builds). Dormant today since no catalog build currently ships GPU acceleration, but kept
+     * configurable so it's ready the moment a GPU-enabled build variant is added — the single
+     * biggest lever on inference speed once available.
+     */
+    val nGpuLayers: Int = 0,
+    /**
+     * KV-cache quantization type for the K matrix (`--cache-type-k`), e.g. `f16`, `q8_0`, `q4_0`.
+     * Quantizing the KV cache shrinks its memory footprint (roughly linear in [ctxSize] ×
+     * layers × heads) — directly relevant on CPU-only hardware where KV cache, not compute, is
+     * often the real limiter on how large [ctxSize] can safely go. `f16` (no quantization) is the
+     * safe default; llama-server requires `--flash-attn` whenever either cache type is
+     * non-`f16` — see [io.askimo.core.providers.llama.LlamaServerProcessManager] for where that's
+     * applied automatically.
+     */
+    val cacheTypeK: String = "f16",
+    /** KV-cache quantization type for the V matrix (`--cache-type-v`) — see [cacheTypeK]'s doc. */
+    val cacheTypeV: String = "f16",
+    /**
+     * Prompt-processing (prefill) batch size (`--batch-size` / `-b`). Controls how many prompt
+     * tokens llama-server processes per logical batch — the main knob on "time to first token"
+     * for large prompts, which matters here since Askimo feeds RAG context + system prompt +
+     * conversation history on every request (see
+     * [io.askimo.core.memory.TokenAwareSummarizingMemory]). Larger values process prompts faster
+     * at the cost of a bigger one-time memory/compute spike; llama-server's own default (2048)
+     * is a safe starting point.
+     */
+    val batchSize: Int = 2048,
+    /**
+     * Physical micro-batch size (`--ubatch-size` / `-ub`) — the actual batch size used internally
+     * per compute step; must be `<= batchSize`. llama-server's own default (512) works well
+     * alongside the default [batchSize]; lowering it reduces peak memory during prompt processing
+     * at some further throughput cost, useful on very memory-constrained machines.
+     */
+    val ubatchSize: Int = 512,
+    /**
+     * Enables Flash Attention kernels (`--flash-attn`) — reduces both memory and latency on
+     * supported builds/hardware. Default `true` since it's effectively a free speedup when
+     * supported; llama-server silently falls back to standard attention if unsupported. **Always**
+     * forced on regardless of this value whenever [cacheTypeK] or [cacheTypeV] is non-`f16`
+     * (hard llama-server requirement — see [io.askimo.core.providers.llama.LlamaServerProcessManager]).
+     */
+    val flashAttn: Boolean = true,
+    /**
+     * Disables memory-mapped model loading (`--no-mmap`) — forces the whole model into RAM up
+     * front instead of lazily paging it in from disk. Slower initial load, but avoids mid-generation
+     * stalls from page faults on memory-constrained or slow-disk machines, where the default mmap
+     * behavior can look like a random hang. Default `false` (use mmap) since it's faster to load
+     * and fine on most hardware.
+     */
+    val noMmap: Boolean = false,
+    /**
+     * Locks the model into physical RAM (`--mlock`), preventing the OS from swapping it to disk
+     * under memory pressure. Reduces the same class of "random hang" symptom as [noMmap] from a
+     * different angle (preventing eviction rather than avoiding lazy paging); costs that much
+     * RAM permanently for as long as the model is loaded. Default `false`.
+     */
+    val mlock: Boolean = false,
+    /**
+     * Number of parallel request slots within a single `llama-server` child process
+     * (`--parallel` / `-np`). Only relevant if more than one chat session ever hits the *same*
+     * chat-slot process concurrently — see [io.askimo.core.providers.llama.LlamaServerProcessManager]'s
+     * class doc for why chat vs. embedding contention is already eliminated by splitting into two
+     * processes; this controls contention *within* one of those two processes. Default `1`
+     * (serialize concurrent requests) since most desktop usage is single-session.
+     */
+    val numParallel: Int = 1,
+    /**
+     * Enables continuous batching (`--cont-batching`), letting llama-server interleave multiple
+     * in-flight generations instead of fully serializing them. Only has an effect when
+     * [numParallel] > 1. Default `true` (llama-server's own default) — negligible cost when
+     * [numParallel] is 1.
+     */
+    val contBatching: Boolean = true,
+    /**
+     * Skips llama-server's internal warmup inference pass (`--no-warmup`), shaving a few seconds
+     * off model load time at the cost of a slightly slower *first* real request (which then pays
+     * the warmup cost instead). Default `false` (warm up during load, not during the user's first
+     * message).
+     */
+    val noWarmup: Boolean = false,
+    /**
+     * NUMA optimization strategy (`--numa <mode>`) — one of `""` (not passed / disabled),
+     * `distribute`, `isolate`, or `numactl`. Only matters on multi-socket/NUMA workstations;
+     * harmless no-op elsewhere. Default `""` (disabled).
+     */
+    val numaMode: String = "",
+    /**
+     * Server-side cap on generated tokens per response (`--n-predict`). `-1` (the default) means
+     * unlimited / not passed — generation length is instead controlled by the client request
+     * (langchain4j's own max-tokens parameter) and natural stop tokens. A belt-and-suspenders
+     * safety net more than a day-to-day tuning knob; most users should leave this at `-1`.
+     */
+    val nPredict: Int = -1,
+    /**
+     * RoPE frequency base override (`--rope-freq-base`) for extending a model's effective context
+     * beyond its native trained length ("self-extend"). `0.0` (the default) means not passed —
+     * use the model's own trained value. Generally reduces output quality the further beyond
+     * native length you push, so leave at `0.0` unless you specifically need a larger [ctxSize]
+     * than the model was trained for and accept the quality tradeoff.
+     */
+    val ropeFreqBase: Double = 0.0,
+    /** RoPE frequency scale override (`--rope-freq-scale`) — paired with [ropeFreqBase] for the same self-extend use case; `0.0` means not passed. */
+    val ropeFreqScale: Double = 0.0,
+    /**
+     * llama.cpp GitHub release tag the default download URLs below were generated from. **Not**
+     * exposed in Settings UI — this (and every `*DownloadUrl` field below) is here purely so an
+     * advanced user can see/hand-edit it directly in `askimo.yml` (`local_llm.release_tag`) if
+     * they need to point at a different release or a mirror, without digging through source.
+     * [io.askimo.core.providers.llama.LlamaServerDownloader.installedVersion] records whichever
+     * tag was actually extracted, independent of this field.
+     */
+    val releaseTag: String = "b11433",
+    /** Download URL for the macOS (arm64) `llama-server` release archive. Hand-editable in `askimo.yml` only — see [releaseTag]. */
+    val macosDownloadUrl: String = "https://github.com/ggml-org/llama.cpp/releases/download/$releaseTag/llama-$releaseTag-bin-macos-arm64.tar.gz",
+    /** Download URL for the Linux x86_64 `llama-server` release archive. Hand-editable in `askimo.yml` only — see [releaseTag]. */
+    val linuxX86DownloadUrl: String = "https://github.com/ggml-org/llama.cpp/releases/download/$releaseTag/llama-$releaseTag-bin-ubuntu-x64.tar.gz",
+    /** Download URL for the Linux aarch64 `llama-server` release archive. Hand-editable in `askimo.yml` only — see [releaseTag]. */
+    val linuxArmDownloadUrl: String = "https://github.com/ggml-org/llama.cpp/releases/download/$releaseTag/llama-$releaseTag-bin-ubuntu-arm64.tar.gz",
+    /** Download URL for the Windows x86_64 `llama-server` release archive. Hand-editable in `askimo.yml` only — see [releaseTag]. */
+    val windowsX86DownloadUrl: String = "https://github.com/ggml-org/llama.cpp/releases/download/$releaseTag/llama-$releaseTag-bin-win-cpu-x64.zip",
+    /** Download URL for the Windows aarch64 `llama-server` release archive. Hand-editable in `askimo.yml` only — see [releaseTag]. */
+    val windowsArmDownloadUrl: String = "https://github.com/ggml-org/llama.cpp/releases/download/$releaseTag/llama-$releaseTag-bin-win-cpu-arm64.zip",
+)
+
+/**
  * Configuration for the Askimo business analytics system.
  * Lives under the `analytics:` key in askimo.yml.
  */
@@ -687,6 +831,7 @@ data class AppConfigData(
     val memory: MemoryConfig = MemoryConfig(),
     val rag: RagConfig = RagConfig(),
     val models: ModelsConfig = ModelsConfig(),
+    val localLlm: LocalLlmConfig = LocalLlmConfig(),
     val proxy: ProxyConfig = ProxyConfig(),
     val analytics: AnalyticsConfig = AnalyticsConfig(),
     val webSearch: WebSearchConfig = WebSearchConfig(),
@@ -706,6 +851,7 @@ object AppConfig {
     val memory: MemoryConfig get() = delegate.memory
     val rag: RagConfig get() = delegate.rag
     val models: ModelsConfig get() = delegate.models
+    val localLlm: LocalLlmConfig get() = delegate.localLlm
     val context: AppContextParams get() = delegate.context
     val analytics: AnalyticsConfig get() = delegate.analytics
 
@@ -1182,6 +1328,8 @@ object AppConfig {
 
                 "models" -> current.copy(models = updateModelsField(current.models, field, value))
 
+                "localLlm" -> current.copy(localLlm = updateLocalLlmField(current.localLlm, field, value))
+
                 "proxy" -> current.copy(proxy = updateProxyField(current.proxy, field, value))
 
                 "analytics" -> current.copy(analytics = updateAnalyticsField(current.analytics, field, value))
@@ -1353,6 +1501,49 @@ object AppConfig {
 
         log.error("Unknown models config path '$field'. Per-provider model fields are now configured per-instance in Settings > AI Provider.", null)
         return config
+    }
+
+    private fun updateLocalLlmField(config: LocalLlmConfig, field: String, value: Any): LocalLlmConfig = when (field) {
+        "lastSelectedModelFileName" -> config.copy(lastSelectedModelFileName = (value as? String)?.ifBlank { null })
+
+        "lastSelectedModelIsEmbedding" -> config.copy(lastSelectedModelIsEmbedding = value as Boolean)
+
+        "ctxSize" -> config.copy(ctxSize = (value as Int).coerceAtLeast(512))
+
+        "nGpuLayers" -> config.copy(nGpuLayers = (value as Int).coerceAtLeast(0))
+
+        "cacheTypeK" -> config.copy(cacheTypeK = (value as String).ifBlank { config.cacheTypeK })
+
+        "cacheTypeV" -> config.copy(cacheTypeV = (value as String).ifBlank { config.cacheTypeV })
+
+        "batchSize" -> config.copy(batchSize = (value as Int).coerceAtLeast(1))
+
+        "ubatchSize" -> config.copy(ubatchSize = (value as Int).coerceAtLeast(1))
+
+        "flashAttn" -> config.copy(flashAttn = value as Boolean)
+
+        "noMmap" -> config.copy(noMmap = value as Boolean)
+
+        "mlock" -> config.copy(mlock = value as Boolean)
+
+        "numParallel" -> config.copy(numParallel = (value as Int).coerceAtLeast(1))
+
+        "contBatching" -> config.copy(contBatching = value as Boolean)
+
+        "noWarmup" -> config.copy(noWarmup = value as Boolean)
+
+        "numaMode" -> config.copy(numaMode = value as String)
+
+        "nPredict" -> config.copy(nPredict = value as Int)
+
+        "ropeFreqBase" -> config.copy(ropeFreqBase = (value as? Double) ?: (value as? Int)?.toDouble() ?: config.ropeFreqBase)
+
+        "ropeFreqScale" -> config.copy(ropeFreqScale = (value as? Double) ?: (value as? Int)?.toDouble() ?: config.ropeFreqScale)
+
+        else -> {
+            log.error("Unknown localLlm field: $field", null)
+            config
+        }
     }
 
     private fun updateProxyField(config: ProxyConfig, field: String, value: Any): ProxyConfig = when (field) {

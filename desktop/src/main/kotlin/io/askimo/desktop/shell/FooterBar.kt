@@ -5,6 +5,7 @@
 package io.askimo.desktop.shell
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,11 +14,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -26,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +39,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -48,6 +54,11 @@ import io.askimo.core.event.internal.ModelChangedEvent
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.providers.ProviderInstanceService
 import io.askimo.core.providers.ProviderRegistry
+import io.askimo.core.providers.llama.LlamaServerCatalog
+import io.askimo.core.providers.llama.LlamaServerDownloader
+import io.askimo.core.providers.llama.LlamaServerProcessManager
+import io.askimo.core.providers.openaicompatible.OpenAiCompatibleSettings
+import io.askimo.core.providers.openaicompatible.OpenAiCompatibleTemplate
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppTextStyles
@@ -55,9 +66,123 @@ import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.clickableCard
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.shell.notificationIcon
+import kotlinx.coroutines.launch
 import org.koin.java.KoinJavaComponent.get
 
 // ── Footer AI config section ───────────────────────────────────────────────────────────────
+
+/**
+ * Small colored badge overlaid on the footer's provider icon, shown only when the active
+ * instance is the built-in Local LLM provider ([OpenAiCompatibleTemplate.ASKIMO_LOCAL_LLM])
+ * **and** the engine binary is installed (gated by the caller via
+ * [LlamaServerDownloader.binaryEnabled] — see [aiConfigInfo]) — surfaces whether
+ * [LlamaServerProcessManager]'s reverse proxy/child process is actually reachable *before* the
+ * user sends a message and hits a proxy error (e.g. after manually stopping the engine in
+ * Settings or the footer pill).
+ */
+@Composable
+private fun localLlmStatusBadge(
+    proxyRunning: Boolean,
+    modelLoaded: Boolean,
+    port: Int?,
+    onClick: () -> Unit,
+) {
+    val (color, tooltip) = when {
+        !proxyRunning -> MaterialTheme.colorScheme.error to stringResource("footer.local_llm.stopped")
+        !modelLoaded -> AppColors.warningColor() to stringResource("footer.local_llm.idle", port ?: 0)
+        else -> MaterialTheme.colorScheme.primary to stringResource("footer.local_llm.ready", port ?: 0)
+    }
+    themedTooltip(text = tooltip) {
+        // Outer box is the "ring" (card's own background color) that visually cuts the badge
+        // out from the icon behind it, like an avatar online-status indicator.
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .pointerHoverIcon(PointerIcon.Hand)
+                .clickable(enabled = !proxyRunning, onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(color),
+            )
+        }
+    }
+}
+
+/**
+ * Standalone "Local LLM" status pill shown in the footer next to the notification bell —
+ * independent of which provider instance is currently active, since the `llama-server` engine
+ * can be started/stopped from Settings (or right here) regardless of what's selected for chat
+ * right now. Clicking it toggles the proxy: starts it when stopped, stops it when running.
+ * Visibility is bound to [LlamaServerDownloader.binaryEnabled] (whether the engine binary is
+ * downloaded) — reflects a Settings-page enable/disable toggle immediately in the same session,
+ * and correctly shows/hides again after an app restart since that flag is re-seeded from disk.
+ */
+@Composable
+private fun localLlmEngineStatusPill() {
+    val platform = remember { LlamaServerCatalog.detectCurrentPlatform() }
+    LaunchedEffect(platform) {
+        if (platform != null) {
+            LlamaServerDownloader.refreshBinaryStatus(platform)
+        }
+    }
+    val binaryDownloaded by LlamaServerDownloader.binaryEnabled.collectAsState()
+    if (!binaryDownloaded) return
+
+    val scope = rememberCoroutineScope()
+    val proxyStatus by LlamaServerProcessManager.proxyStatus.collectAsState()
+    val llmStatus by LlamaServerProcessManager.status.collectAsState()
+
+    // Status color still reflects the 3-state reality (stopped/idle/ready); the icon now
+    // separately conveys the *action* a click will take (▶ to start, ■ to stop), so the
+    // affordance isn't just "a colored dot" — it's unambiguous even without reading the tooltip.
+    val (statusColor, tooltip) = when {
+        !proxyStatus.running -> MaterialTheme.colorScheme.error to stringResource("footer.local_llm.stopped")
+        !llmStatus.running -> AppColors.warningColor() to stringResource("footer.local_llm.idle", llmStatus.port ?: proxyStatus.port ?: 0)
+        else -> MaterialTheme.colorScheme.primary to stringResource("footer.local_llm.ready", llmStatus.port ?: proxyStatus.port ?: 0)
+    }
+    val actionIcon = if (proxyStatus.running) Icons.Default.Stop else Icons.Default.PlayArrow
+
+    themedTooltip(text = tooltip) {
+        Row(
+            modifier = Modifier
+                .clip(MaterialTheme.shapes.small)
+                .background(statusColor.copy(alpha = 0.12f))
+                .pointerHoverIcon(PointerIcon.Hand)
+                .clickable {
+                    scope.launch {
+                        runCatching {
+                            if (proxyStatus.running) {
+                                LlamaServerProcessManager.stopProxy()
+                            } else {
+                                LlamaServerProcessManager.startProxy()
+                            }
+                        }
+                    }
+                }
+                .padding(horizontal = Spacing.extraSmall, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = actionIcon,
+                contentDescription = null,
+                modifier = Modifier.size(12.dp),
+                tint = statusColor,
+            )
+            Text(
+                text = stringResource("footer.local_llm.label"),
+                style = AppTextStyles.caption,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
 
 @Composable
 private fun aiConfigInfo(
@@ -75,6 +200,26 @@ private fun aiConfigInfo(
             }
         }
     }
+
+    val isLocalLlm = remember(configInfo.instanceId) {
+        (appContext.getActiveInstance()?.settings as? OpenAiCompatibleSettings)
+            ?.let { it.isTemplate && it.templateName == OpenAiCompatibleTemplate.ASKIMO_LOCAL_LLM.name } == true
+    }
+    val proxyStatus by LlamaServerProcessManager.proxyStatus.collectAsState()
+    val llmStatus by LlamaServerProcessManager.status.collectAsState()
+
+    // Badge visibility is gated on whether the llama-server binary is installed (same signal as
+    // localLlmEngineStatusPill) — not on whether the proxy is currently enabled/disabled, which
+    // only affects the badge's *color* (see localLlmStatusBadge's proxyRunning/modelLoaded
+    // params). A user who's merely stopped the engine (still installed) should still see the
+    // badge turn red, rather than it vanishing entirely.
+    val localLlmPlatform = remember { LlamaServerCatalog.detectCurrentPlatform() }
+    LaunchedEffect(localLlmPlatform) {
+        if (localLlmPlatform != null) {
+            LlamaServerDownloader.refreshBinaryStatus(localLlmPlatform)
+        }
+    }
+    val localLlmBinaryInstalled by LlamaServerDownloader.binaryEnabled.collectAsState()
 
     val noProvider = configInfo.provider == ModelProvider.UNKNOWN
 
@@ -145,12 +290,24 @@ private fun aiConfigInfo(
                     horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.AutoAwesome,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurface,
-                    )
+                    Box {
+                        Icon(
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
+                        if (isLocalLlm && localLlmBinaryInstalled) {
+                            Box(modifier = Modifier.align(Alignment.BottomEnd)) {
+                                localLlmStatusBadge(
+                                    proxyRunning = proxyStatus.running,
+                                    modelLoaded = llmStatus.running,
+                                    port = llmStatus.port ?: proxyStatus.port,
+                                    onClick = { scope.launch { runCatching { LlamaServerProcessManager.startProxy() } } },
+                                )
+                            }
+                        }
+                    }
                     val instanceLabel = configInfo.instanceDisplayName.ifBlank {
                         ProviderRegistry.getProviderDisplayName(configInfo.provider)
                     }
@@ -231,8 +388,13 @@ fun footerBar(
                 aiConfigInfo(onAddProvider = onAddProvider)
             }
 
-            // Right — notification bell
-            Box(modifier = Modifier.align(Alignment.CenterEnd)) {
+            // Right — Local LLM engine status + notification bell
+            Row(
+                modifier = Modifier.align(Alignment.CenterEnd),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                localLlmEngineStatusPill()
                 notificationIcon(onShowUpdateDetails = onShowUpdateDetails)
             }
         }

@@ -26,15 +26,7 @@ fun httpGet(
     readTimeoutMs: Long = 8_000,
     httpVersion: HttpClient.Version = HttpClient.Version.HTTP_2,
 ): Pair<Int, String> {
-    val client = ProxyUtil.configureProxy(HttpClient.newBuilder().version(httpVersion), url)
-        .connectTimeout(Duration.ofMillis(connectTimeoutMs))
-        .build()
-    val requestBuilder = HttpRequest.newBuilder()
-        .uri(URI(url))
-        .timeout(Duration.ofMillis(readTimeoutMs))
-        .GET()
-    headers.forEach { (k, v) -> requestBuilder.header(k, v) }
-    val response = client.sendWithErrorHandling(requestBuilder.build(), url)
+    val response = sendRequest(url, headers, connectTimeoutMs, readTimeoutMs, httpVersion) { GET() }
     val decompressedBody = decompressGzipIfNeeded(response.body(), response)
     return response.statusCode() to decompressedBody
 }
@@ -51,16 +43,7 @@ fun httpPost(
     readTimeoutMs: Long = 600_000,
     httpVersion: HttpClient.Version = HttpClient.Version.HTTP_2,
 ): Pair<Int, String> {
-    val client = ProxyUtil.configureProxy(HttpClient.newBuilder().version(httpVersion), url)
-        .connectTimeout(Duration.ofMillis(connectTimeoutMs))
-        .build()
-    val requestBuilder = HttpRequest.newBuilder()
-        .uri(URI(url))
-        .timeout(Duration.ofMillis(readTimeoutMs))
-        .header("Content-Type", "application/json")
-        .POST(HttpRequest.BodyPublishers.ofString(body))
-    headers.forEach { (k, v) -> requestBuilder.header(k, v) }
-    val response = client.sendWithErrorHandling(requestBuilder.build(), url)
+    val response = sendJsonPost(url, body, headers, connectTimeoutMs, readTimeoutMs, httpVersion)
     val decompressedBody = decompressGzipIfNeeded(response.body(), response)
     return response.statusCode() to decompressedBody
 }
@@ -78,18 +61,45 @@ fun httpPostForBytes(
     readTimeoutMs: Long = 600_000,
     httpVersion: HttpClient.Version = HttpClient.Version.HTTP_2,
 ): Pair<Int, ByteArray> {
+    val response = sendJsonPost(url, body, headers, connectTimeoutMs, readTimeoutMs, httpVersion)
+    val decompressedBody = decompressGzipBytesIfNeeded(response.body(), response)
+    return response.statusCode() to decompressedBody
+}
+
+private fun sendJsonPost(
+    url: String,
+    body: String,
+    headers: Map<String, String>,
+    connectTimeoutMs: Long,
+    readTimeoutMs: Long,
+    httpVersion: HttpClient.Version,
+): HttpResponse<ByteArray> = sendRequest(url, headers, connectTimeoutMs, readTimeoutMs, httpVersion) {
+    header("Content-Type", "application/json")
+    POST(HttpRequest.BodyPublishers.ofString(body))
+}
+
+/**
+ * Builds a proxy-aware [HttpClient] + [HttpRequest] for [url] and sends it, wrapping connection
+ * errors — shared by [httpGet]/[httpPost]/[httpPostForBytes] which otherwise only differ in the
+ * HTTP method/body via [configureRequest].
+ */
+private fun sendRequest(
+    url: String,
+    headers: Map<String, String>,
+    connectTimeoutMs: Long,
+    readTimeoutMs: Long,
+    httpVersion: HttpClient.Version,
+    configureRequest: HttpRequest.Builder.() -> Unit,
+): HttpResponse<ByteArray> {
     val client = ProxyUtil.configureProxy(HttpClient.newBuilder().version(httpVersion), url)
         .connectTimeout(Duration.ofMillis(connectTimeoutMs))
         .build()
     val requestBuilder = HttpRequest.newBuilder()
         .uri(URI(url))
         .timeout(Duration.ofMillis(readTimeoutMs))
-        .header("Content-Type", "application/json")
-        .POST(HttpRequest.BodyPublishers.ofString(body))
+    requestBuilder.configureRequest()
     headers.forEach { (k, v) -> requestBuilder.header(k, v) }
-    val response = client.sendWithErrorHandling(requestBuilder.build(), url)
-    val decompressedBody = decompressGzipBytesIfNeeded(response.body(), response)
-    return response.statusCode() to decompressedBody
+    return client.sendWithErrorHandling(requestBuilder.build(), url)
 }
 
 /**

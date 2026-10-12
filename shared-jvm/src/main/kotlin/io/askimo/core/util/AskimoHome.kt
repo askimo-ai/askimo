@@ -72,6 +72,21 @@ object AskimoHome {
     fun modelsDir(): Path = base().resolve("models")
     fun whisperModelsDir(): Path = modelsDir().resolve("whisper")
 
+    /**
+     * Directory for the downloaded `llama-server` binary (+ its `ggml`/backend shared libraries),
+     * used by the built-in local LLM provider. The binary is downloaded on demand (not bundled)
+     * because it is large and platform/GPU-variant specific — see
+     * `io.askimo.core.providers.llama.LlamaServerDownloader`. Lives under the profile home so it
+     * survives app updates/reinstalls.
+     */
+    fun llamaBinDir(): Path = base().resolve("bin").resolve("llama")
+
+    /**
+     * Directory for downloaded `.gguf` model weights used by the built-in local LLM provider.
+     * See `io.askimo.core.providers.llama.LlamaModelDownloader`.
+     */
+    fun llamaModelsDir(): Path = modelsDir().resolve("llama")
+
     fun userHome(): Path = Paths.get(System.getProperty("user.home")).toAbsolutePath().normalize()
 
     fun expandTilde(raw: String): Path = get().expandTilde(raw)
