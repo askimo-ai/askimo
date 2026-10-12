@@ -17,6 +17,7 @@ import java.io.InputStream
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermission
+import java.security.MessageDigest
 import java.time.Duration
 import java.util.zip.GZIPInputStream
 import java.util.zip.ZipInputStream
@@ -91,11 +92,37 @@ object LlamaServerDownloader {
     }
 
     /**
+     * Backfills [installedVersion]'s marker for [platform] **without any network call**, for
+     * installs from older Askimo builds that predate version-marker tracking.
+     *
+     * Only safe where [LlamaServerPlatform.executableName] embeds the release tag in its path
+     * (macOS/Linux: `llama-$releaseTag/llama-server`) — there, [executablePath] existing *is*
+     * proof it matches [LlamaServerCatalog.releaseTag]. Windows' fixed `llama-server.exe` path
+     * proves nothing about the installed version, so this is a no-op there (stays "unknown")
+     * rather than calling the real (network) [download] just to find out — which would silently
+     * trigger a large download from merely opening a settings page.
+     */
+    fun backfillVersionMarkerIfProvable(platform: LlamaServerPlatform) {
+        if (installedVersion(platform) != null) return
+        if (!isDownloaded(platform)) return
+        when (platform.id) {
+            LlamaPlatformId.WINDOWS_X86_64, LlamaPlatformId.WINDOWS_AARCH64 -> return
+            else -> writeVersionMarker(platform)
+        }
+    }
+
+    /**
      * Downloads and extracts [platform]'s `llama-server` archive, reporting progress via
      * [onProgress] as `(bytesDownloaded, totalBytes)` (`totalBytes` is `-1` if unknown).
      * No-op if already downloaded.
      *
-     * @throws DownloadException on network failure, non-2xx response, or extraction failure.
+     * The downloaded archive's SHA-256 is verified against the pinned checksum from
+     * [LlamaServerCatalog.sha256] **before** any extraction happens — this is executable code
+     * that gets launched directly, so a `Content-Length` match alone (which only rules out
+     * truncation) is not sufficient integrity assurance against a compromised mirror/CDN.
+     *
+     * @throws DownloadException on network failure, non-2xx response, checksum mismatch, or
+     * extraction failure.
      */
     suspend fun download(
         platform: LlamaServerPlatform,
@@ -137,6 +164,23 @@ object LlamaServerDownloader {
             throw DownloadException(e.message ?: "Download of llama-server failed or was cancelled.", e)
         }
 
+        // The archive is extracted and its executable later launched directly — a Content-Length
+        // match (already enforced by StreamingDownloader) only rules out truncation, not a
+        // mirror/CDN/compromised host serving substitute bytes of the exact expected length.
+        // Verify against the pinned per-platform checksum before touching the archive contents,
+        // and fail closed (delete + throw) on any mismatch rather than extracting first.
+        val expectedSha256 = LlamaServerCatalog.sha256(platform)
+        val actualSha256 = sha256Hex(archivePath)
+        if (!actualSha256.equals(expectedSha256, ignoreCase = true)) {
+            Files.deleteIfExists(archivePath)
+            throw DownloadException(
+                "Checksum verification failed for llama-server archive downloaded from $assetUrl " +
+                    "(expected sha256 $expectedSha256, got $actualSha256). Refusing to extract a " +
+                    "potentially corrupted or tampered archive. If the llama.cpp release asset was " +
+                    "legitimately updated, the pinned checksum in LocalLlmConfig must be updated too.",
+            )
+        }
+
         try {
             Files.newInputStream(archivePath).use { raw ->
                 when (platform.archiveFormat) {
@@ -172,6 +216,20 @@ object LlamaServerDownloader {
         writeVersionMarker(platform)
         _binaryEnabled.value = true
         exe
+    }
+
+    /** Computes the lowercase hex SHA-256 digest of the file at [path], streaming it in chunks. */
+    private fun sha256Hex(path: Path): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        Files.newInputStream(path).use { input ->
+            val buffer = ByteArray(1 shl 20) // 1 MiB
+            while (true) {
+                val read = input.read(buffer)
+                if (read == -1) break
+                digest.update(buffer, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     private fun makeExecutable(path: Path) {

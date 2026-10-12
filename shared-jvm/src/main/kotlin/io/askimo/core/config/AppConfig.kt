@@ -556,6 +556,23 @@ data class LocalLlmConfig(
     val windowsX86DownloadUrl: String = "https://github.com/ggml-org/llama.cpp/releases/download/$releaseTag/llama-$releaseTag-bin-win-cpu-x64.zip",
     /** Download URL for the Windows aarch64 `llama-server` release archive. Hand-editable in `askimo.yml` only — see [releaseTag]. */
     val windowsArmDownloadUrl: String = "https://github.com/ggml-org/llama.cpp/releases/download/$releaseTag/llama-$releaseTag-bin-win-cpu-arm64.zip",
+    /**
+     * SHA-256 of the macOS (arm64) `llama-server` release archive for [releaseTag], pinned so
+     * [io.askimo.core.providers.llama.LlamaServerDownloader.download] can verify archive
+     * integrity before extraction — a `Content-Length` match alone only rules out truncation, not
+     * a mirror/CDN serving substitute bytes of the exact expected length. Hand-editable in
+     * `askimo.yml` only, alongside [macosDownloadUrl] — both must be updated together whenever
+     * [releaseTag] (or a mirror URL) changes.
+     */
+    val macosSha256: String = "5e7b2383009facb31404f308cdb9edd1fb15131330801408fb582bd05e188f97",
+    /** SHA-256 of the Linux x86_64 `llama-server` release archive for [releaseTag] — see [macosSha256]. */
+    val linuxX86Sha256: String = "d6ff12a557793e302ddbba9660a0f045c403e2f67ab5dcdc1254b343c560c015",
+    /** SHA-256 of the Linux aarch64 `llama-server` release archive for [releaseTag] — see [macosSha256]. */
+    val linuxArmSha256: String = "9261c811ece17f236508edaa861042b40d8e673874f2eb3c3f524649dd4269fd",
+    /** SHA-256 of the Windows x86_64 `llama-server` release archive for [releaseTag] — see [macosSha256]. */
+    val windowsX86Sha256: String = "301943380e45deae3991d42dddd03fae65c6a4963a5d882328a60208b43aa9e0",
+    /** SHA-256 of the Windows aarch64 `llama-server` release archive for [releaseTag] — see [macosSha256]. */
+    val windowsArmSha256: String = "c415c3576dd673d31da874c57ef8863f9592b8f0e1f092290271cbaf619b2ade",
 )
 
 /**

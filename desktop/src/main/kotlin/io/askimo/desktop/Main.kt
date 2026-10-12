@@ -298,7 +298,7 @@ fun main(args: Array<String>) {
 
         // Single source of truth for "what happens when Askimo quits" — used by both the
         // window close button (onCloseRequest) and the in-app Quit confirmation dialog
-        val performExit = {
+        val performExit: () -> Unit = {
             val messageCount = runCatching {
                 val t = AppContext.getInstance().telemetry
                 t.usageRepository.countByPeriod(t.sessionStart, Clock.System.now())
@@ -312,8 +312,13 @@ fun main(args: Array<String>) {
             // dispatcher, which a suspended loadModel() health-check may need to resume on to
             // release its slot mutex; blocking it here would deadlock app quit.
             exitScope.launch(Dispatchers.IO) {
-                LlamaServerProcessManager.stopProxy()
-                withContext(Dispatchers.Main) { exitApplication() }
+                try {
+                    LlamaServerProcessManager.stopProxy()
+                } catch (e: Exception) {
+                    log.warn("stopProxy() failed while quitting; exiting anyway", e)
+                } finally {
+                    withContext(Dispatchers.Main) { exitApplication() }
+                }
             }
         }
 

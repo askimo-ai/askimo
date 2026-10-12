@@ -75,7 +75,10 @@ object LlamaServerCatalog {
         val isX86Arch = archName == "x86_64" || archName == "amd64"
 
         return when {
-            osName.contains("mac") || osName.contains("darwin") -> if (isArm64 || isX86Arch) MACOS else null
+            // Only Apple Silicon (arm64) is supported — AppConfig.localLlm.macosDownloadUrl
+            // points at an arm64-only asset, so Intel Macs (x86_64) are intentionally
+            // unsupported here rather than downloading a binary that can't run.
+            osName.contains("mac") || osName.contains("darwin") -> if (isArm64) MACOS else null
 
             osName.contains("win") -> when {
                 isArm64 -> WINDOWS_AARCH64
@@ -104,4 +107,18 @@ object LlamaServerCatalog {
 
     /** Release tag currently configured (see [AppConfig.localLlm]'s `releaseTag`) — used to resolve [LlamaServerPlatform.executableName]. */
     fun releaseTag(): String = AppConfig.localLlm.releaseTag
+
+    /**
+     * Pinned SHA-256 of [platform]'s release archive — read from [AppConfig.localLlm], used by
+     * [LlamaServerDownloader.download] to verify archive integrity before extraction. A
+     * `Content-Length` match alone only detects truncation, not a mirror/CDN serving substitute
+     * bytes of the exact expected length.
+     */
+    fun sha256(platform: LlamaServerPlatform): String = when (platform.id) {
+        LlamaPlatformId.MACOS -> AppConfig.localLlm.macosSha256
+        LlamaPlatformId.LINUX_X86_64 -> AppConfig.localLlm.linuxX86Sha256
+        LlamaPlatformId.LINUX_AARCH64 -> AppConfig.localLlm.linuxArmSha256
+        LlamaPlatformId.WINDOWS_X86_64 -> AppConfig.localLlm.windowsX86Sha256
+        LlamaPlatformId.WINDOWS_AARCH64 -> AppConfig.localLlm.windowsArmSha256
+    }
 }

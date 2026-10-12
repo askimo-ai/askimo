@@ -153,17 +153,15 @@ private fun localLlmBinaryCard() {
         mutableStateOf(platform?.let { LlamaServerDownloader.installedVersion(it) })
     }
 
-    // Backfills the version marker for a binary that was downloaded by an older Askimo build,
-    // predating installedVersion tracking (see LlamaServerDownloader.installedVersion's doc).
-    // Without this, a pre-existing install's version never appears in this page: download()
-    // only gets called again from the Switch's onCheckedChange below, which requires toggling
-    // the binary off and back on — but an already-downloaded binary starts the Switch in the
-    // "on" position, so a user has no reason to ever do that. download() itself no-ops (no
-    // network call) when already downloaded, it just writes the marker file, so this is cheap
-    // and safe to run every time this card is composed.
+    // Backfills the version marker for installs from pre-tracking Askimo builds (see
+    // LlamaServerDownloader.installedVersion's doc) — otherwise their version never appears here,
+    // since an already-downloaded binary starts the Switch "on", giving the user no reason to
+    // toggle it off/on to re-trigger download(). No network call: only writes the marker where
+    // the install path itself proves the version (macOS/Linux); no-op on Windows, where it can't
+    // be proven without a real download — which would violate this page's explicit-download rule.
     LaunchedEffect(platform, isDownloaded) {
         if (platform != null && isDownloaded && installedVersion == null) {
-            runCatching { LlamaServerDownloader.download(platform) }
+            LlamaServerDownloader.backfillVersionMarkerIfProvable(platform)
             installedVersion = LlamaServerDownloader.installedVersion(platform)
         }
     }
