@@ -6,15 +6,9 @@ package io.askimo.core.providers.llama
 
 import io.askimo.core.logging.logger
 import io.askimo.core.util.AskimoHome
-import io.askimo.core.util.ProxyUtil
+import io.askimo.core.util.StreamingDownloader
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
-import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -87,61 +81,26 @@ object LlamaModelDownloader {
         Files.createDirectories(AskimoHome.llamaModelsDir())
         val partPath = finalPath.resolveSibling("${entry.fileName}.part")
 
-        val client = ProxyUtil.configureProxy(HttpClient.newBuilder(), entry.downloadUrl)
-            .connectTimeout(Duration.ofSeconds(30))
-            .followRedirects(HttpClient.Redirect.NORMAL)
-            .build()
-        val request = HttpRequest.newBuilder()
-            .uri(URI(entry.downloadUrl))
-            .timeout(Duration.ofHours(4))
-            .GET()
-            .build()
-
         log.info("Downloading llama model {} from {}", entry.fileName, entry.downloadUrl)
-        val response = try {
-            client.send(request, HttpResponse.BodyHandlers.ofInputStream())
-        } catch (e: Exception) {
-            throw DownloadException("Failed to connect to Hugging Face to download ${entry.fileName}: ${e.message}", e)
-        }
-
-        if (response.statusCode() !in 200..299) {
-            throw DownloadException(
-                "Downloading ${entry.fileName} failed (HTTP ${response.statusCode()}). The Hugging Face repo " +
-                    "file layout may have changed — see LlamaModelCatalog.",
+        val downloadedBytes = try {
+            StreamingDownloader.download(
+                url = entry.downloadUrl,
+                destPath = partPath,
+                connectTimeoutMs = Duration.ofSeconds(30).toMillis(),
+                readTimeoutMs = Duration.ofHours(4).toMillis(),
+                connectErrorMessage = { msg -> "Failed to connect to Hugging Face to download ${entry.fileName}: $msg" },
+                httpErrorMessage = { status ->
+                    "Downloading ${entry.fileName} failed (HTTP $status). The Hugging Face repo " +
+                        "file layout may have changed — see LlamaModelCatalog."
+                },
+                incompleteMessage = { downloaded, total ->
+                    "Download of ${entry.fileName} appears incomplete ($downloaded of $total bytes received). " +
+                        "Please try downloading again."
+                },
+                onProgress = onProgress,
             )
-        }
-
-        val totalBytes = response.headers().firstValueAsLong("Content-Length").orElse(-1L)
-        var downloadedBytes = 0L
-
-        try {
-            response.body().use { input ->
-                Files.newOutputStream(partPath).use { output ->
-                    val buffer = ByteArray(1 shl 20) // 1 MiB
-                    while (true) {
-                        currentCoroutineContext().ensureActive()
-                        val read = input.read(buffer)
-                        if (read == -1) break
-                        output.write(buffer, 0, read)
-                        downloadedBytes += read
-                        onProgress(downloadedBytes, totalBytes)
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Files.deleteIfExists(partPath)
-            throw DownloadException("Download of ${entry.fileName} failed or was cancelled: ${e.message}", e)
-        }
-
-        // Catches a connection that silently dropped mid-stream (e.g. flaky proxy/CDN closing
-        // the socket without an error) — without this, a truncated transfer would still "succeed"
-        // and get moved into place, only to fail later and opaquely when llama-server loads it.
-        if (totalBytes > 0 && downloadedBytes != totalBytes) {
-            Files.deleteIfExists(partPath)
-            throw DownloadException(
-                "Download of ${entry.fileName} appears incomplete ($downloadedBytes of $totalBytes bytes received). " +
-                    "Please try downloading again.",
-            )
+        } catch (e: StreamingDownloader.DownloadException) {
+            throw DownloadException(e.message ?: "Download of ${entry.fileName} failed or was cancelled.", e)
         }
 
         Files.move(partPath, finalPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)

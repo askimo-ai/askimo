@@ -33,6 +33,16 @@ object HuggingFaceGgufBrowser {
     /** Quantization substrings preferred when a repo has many `.gguf` variants — first match wins. */
     private val PREFERRED_QUANT_ORDER = listOf("Q4_K_M", "Q4_K_S", "Q5_K_M", "Q4_0", "Q8_0", "Q6_K")
 
+    /**
+     * Matches Hugging Face's sharded-GGUF naming convention, e.g. `model-00001-of-00004.gguf`.
+     * A shard is not a loadable model on its own — `llama-server --model` needs every shard
+     * present alongside it — and this browser only ever downloads the single file the user
+     * picked, so surfacing one shard as a standalone result would silently produce a file
+     * `llama-server` can't load. Excluded entirely rather than grouped/multi-file-downloaded,
+     * since the curated [LlamaModelCatalog] is the place for models that need special handling.
+     */
+    private val SHARDED_GGUF_PATTERN = Regex("""-\d{5}-of-\d{5}\.gguf$""", RegexOption.IGNORE_CASE)
+
     /** Max `.gguf` files kept per repo, to avoid one repo with 20 quantizations flooding the list. */
     private const val MAX_FILES_PER_REPO = 3
 
@@ -69,16 +79,21 @@ object HuggingFaceGgufBrowser {
             val repoId = repo.jsonObject["id"]?.jsonPrimitive?.contentOrNull ?: return@flatMap emptyList()
             val siblings = repo.jsonObject["siblings"]?.jsonArray.orEmpty()
             val ggufFiles = siblings
+                .asSequence()
                 .mapNotNull { it.jsonObject["rfilename"]?.jsonPrimitive?.contentOrNull }
                 .filter { it.endsWith(".gguf", ignoreCase = true) }
                 // Vision-projector shards — not standalone chat/embedding models, can't be
                 // loaded directly with `--model`.
                 .filterNot { it.contains("mmproj", ignoreCase = true) }
+                // Multi-part GGUF shards (e.g. "model-00001-of-00004.gguf") — see
+                // SHARDED_GGUF_PATTERN's doc for why one shard can't be downloaded/loaded alone.
+                .filterNot { SHARDED_GGUF_PATTERN.containsMatchIn(it) }
                 .sortedBy { fileName ->
                     val idx = PREFERRED_QUANT_ORDER.indexOfFirst { fileName.contains(it, ignoreCase = true) }
                     if (idx >= 0) idx else PREFERRED_QUANT_ORDER.size
                 }
                 .take(MAX_FILES_PER_REPO)
+                .toList()
 
             ggufFiles.map { rfilename ->
                 val leafName = rfilename.substringAfterLast('/')

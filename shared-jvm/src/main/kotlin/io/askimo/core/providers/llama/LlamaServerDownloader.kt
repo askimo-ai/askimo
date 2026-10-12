@@ -6,20 +6,14 @@ package io.askimo.core.providers.llama
 
 import io.askimo.core.logging.logger
 import io.askimo.core.util.AskimoHome
-import io.askimo.core.util.ProxyUtil
+import io.askimo.core.util.StreamingDownloader
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.io.InputStream
-import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
@@ -117,50 +111,26 @@ object LlamaServerDownloader {
         Files.createDirectories(destDir)
         val archivePath = AskimoHome.llamaBinDir().resolve("${platform.resourceDir}.download")
 
-        val client = ProxyUtil.configureProxy(HttpClient.newBuilder(), assetUrl)
-            .connectTimeout(Duration.ofSeconds(30))
-            .followRedirects(HttpClient.Redirect.NORMAL)
-            .build()
-        val request = HttpRequest.newBuilder()
-            .uri(URI(assetUrl))
-            .timeout(Duration.ofHours(1))
-            .GET()
-            .build()
-
         log.info("Downloading llama-server for {} from {}", platform.resourceDir, assetUrl)
-        val response = try {
-            client.send(request, HttpResponse.BodyHandlers.ofInputStream())
-        } catch (e: Exception) {
-            throw DownloadException("Failed to connect to GitHub to download llama-server: ${e.message}", e)
-        }
-
-        if (response.statusCode() !in 200..299) {
-            throw DownloadException(
-                "Downloading llama-server failed (HTTP ${response.statusCode()}) from $assetUrl. " +
-                    "The llama.cpp release asset layout may have changed — see LlamaServerCatalog.",
+        val downloadedBytes = try {
+            StreamingDownloader.download(
+                url = assetUrl,
+                destPath = archivePath,
+                connectTimeoutMs = Duration.ofSeconds(30).toMillis(),
+                readTimeoutMs = Duration.ofHours(1).toMillis(),
+                connectErrorMessage = { msg -> "Failed to connect to GitHub to download llama-server: $msg" },
+                httpErrorMessage = { status ->
+                    "Downloading llama-server failed (HTTP $status) from $assetUrl. " +
+                        "The llama.cpp release asset layout may have changed — see LlamaServerCatalog."
+                },
+                incompleteMessage = { downloaded, total ->
+                    "Download of llama-server appears incomplete ($downloaded of $total bytes received). " +
+                        "Please try downloading again."
+                },
+                onProgress = onProgress,
             )
-        }
-
-        val totalBytes = response.headers().firstValueAsLong("Content-Length").orElse(-1L)
-        var downloadedBytes = 0L
-
-        try {
-            response.body().use { input ->
-                Files.newOutputStream(archivePath).use { output ->
-                    val buffer = ByteArray(1 shl 20) // 1 MiB
-                    while (true) {
-                        currentCoroutineContext().ensureActive()
-                        val read = input.read(buffer)
-                        if (read == -1) break
-                        output.write(buffer, 0, read)
-                        downloadedBytes += read
-                        onProgress(downloadedBytes, totalBytes)
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Files.deleteIfExists(archivePath)
-            throw DownloadException("Download of llama-server failed or was cancelled: ${e.message}", e)
+        } catch (e: StreamingDownloader.DownloadException) {
+            throw DownloadException(e.message ?: "Download of llama-server failed or was cancelled.", e)
         }
 
         try {
@@ -225,14 +195,54 @@ object LlamaServerDownloader {
 
     // ── Archive extraction ──────────────────────────────────────────────────────────────────
 
+    /**
+     * Resolves a zip/tar entry's [name] against [destDir], rejecting both lexical traversal
+     * (`../`) and traversal *through* an existing symlink ancestor. The lexical
+     * `outPath.startsWith(destDir)` check alone is insufficient: a malicious archive can first
+     * create `dest/link -> ../../outside` (a symlink entry, which passes the lexical check since
+     * `link` itself is a legitimate child of `destDir`), then a *later* entry named `link/evil`
+     * resolves lexically to `dest/link/evil` — still underneath `destDir` as a string — but
+     * [Files.newOutputStream]/[Files.createDirectories] follow the `link` symlink at the OS level
+     * and actually write outside the installation directory entirely. Rejecting any entry whose
+     * path has a symlink as one of its ancestors closes that gap.
+     */
+    private fun resolveSafeEntryPath(destDir: Path, name: String): Path {
+        val outPath = destDir.resolve(name).normalize()
+        if (!outPath.startsWith(destDir)) {
+            throw IOException("Archive entry escapes destination directory: $name")
+        }
+        var ancestor = outPath.parent
+        while (ancestor != null && ancestor != destDir && ancestor.startsWith(destDir)) {
+            if (Files.isSymbolicLink(ancestor)) {
+                throw IOException("Archive entry traverses a symlinked ancestor directory: $name")
+            }
+            ancestor = ancestor.parent
+        }
+        return outPath
+    }
+
+    /**
+     * Validates that a symlink entry's target doesn't escape [destDir]. An absolute target, or
+     * a relative target that normalizes to somewhere outside `destDir` once resolved against the
+     * symlink's own parent directory, is rejected — otherwise the symlink itself becomes the
+     * escape vector even though its own entry path already passed [resolveSafeEntryPath].
+     */
+    private fun validateSymlinkTarget(destDir: Path, outPath: Path, linkName: String) {
+        val linkTargetPath = java.nio.file.Paths.get(linkName)
+        if (linkTargetPath.isAbsolute) {
+            throw IOException("Archive symlink target is absolute: $linkName")
+        }
+        val resolvedTarget = outPath.parent.resolve(linkTargetPath).normalize()
+        if (!resolvedTarget.startsWith(destDir)) {
+            throw IOException("Archive symlink target escapes destination directory: $linkName -> $resolvedTarget")
+        }
+    }
+
     private fun extractZip(input: InputStream, destDir: Path) {
         ZipInputStream(input).use { zip ->
             var entry = zip.nextEntry
             while (entry != null) {
-                val outPath = destDir.resolve(entry.name).normalize()
-                if (!outPath.startsWith(destDir)) {
-                    throw IOException("Zip entry escapes destination directory: ${entry.name}")
-                }
+                val outPath = resolveSafeEntryPath(destDir, entry.name)
                 if (entry.isDirectory) {
                     Files.createDirectories(outPath)
                 } else {
@@ -298,15 +308,13 @@ object LlamaServerDownloader {
 
                     '5' -> {
                         // Directory
-                        val outPath = destDir.resolve(name).normalize()
-                        if (!outPath.startsWith(destDir)) throw IOException("Tar entry escapes destination directory: $name")
+                        val outPath = resolveSafeEntryPath(destDir, name)
                         Files.createDirectories(outPath)
                     }
 
                     '0', '\u0000' -> {
                         // Regular file
-                        val outPath = destDir.resolve(name).normalize()
-                        if (!outPath.startsWith(destDir)) throw IOException("Tar entry escapes destination directory: $name")
+                        val outPath = resolveSafeEntryPath(destDir, name)
                         Files.createDirectories(outPath.parent)
                         Files.newOutputStream(outPath).use { out ->
                             copyExactly(gzip, out, size)
@@ -316,8 +324,8 @@ object LlamaServerDownloader {
 
                     '2' -> {
                         // Symlink — no data block (size is normally 0), target is in the header.
-                        val outPath = destDir.resolve(name).normalize()
-                        if (!outPath.startsWith(destDir)) throw IOException("Tar entry escapes destination directory: $name")
+                        val outPath = resolveSafeEntryPath(destDir, name)
+                        validateSymlinkTarget(destDir, outPath, linkName)
                         Files.createDirectories(outPath.parent)
                         Files.deleteIfExists(outPath)
                         Files.createSymbolicLink(outPath, java.nio.file.Paths.get(linkName))
