@@ -4,6 +4,9 @@
  */
 package io.askimo.ui.common.theme
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.MarqueeAnimationMode
 import androidx.compose.foundation.ScrollbarStyle
@@ -30,6 +33,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
@@ -43,6 +47,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
@@ -63,15 +68,18 @@ import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.MenuItemColors
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -95,7 +103,12 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import io.askimo.core.i18n.LocalizationManager
+import io.askimo.core.util.NumberFormatUtil
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.ui.clickableCard
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
 private val urlRegex = Regex("""https?://[^\s)]+""")
 
@@ -902,5 +915,393 @@ object AppComponents {
             overflow = TextOverflow.Ellipsis,
             modifier = modifier.then(marqueeModifier),
         )
+    }
+
+    // ── Settings form fields ─────────────────────────────────────────────────
+    //
+    // Shared "blur-to-save" editors used across every Settings sub-page (Advanced/RAG/Models,
+    // Local LLM launch parameters, Voice TTS cache limits, etc.) — previously duplicated nearly
+    // verbatim in each section (e.g. `settingsIntField`/`localLlmIntField`/`voiceIntField` were
+    // the same component three times over). All of them: show the raw editable value while
+    // focused, reformat on blur, and call `onValueChange` only with an already-validated value.
+    // When a minimum is configurable, out-of-range/non-numeric input is *rejected* (flagged via
+    // `isError` and reverted to the last valid value) rather than silently clamped, so whatever
+    // is shown as "saved" always matches what's actually persisted.
+
+    private const val SAVED_INDICATOR_VISIBLE_MS = 2000
+
+    /** Shared trailing "✓ Saved" indicator shown briefly after a field persists a new value. */
+    @Composable
+    private fun savedIndicator(visible: Boolean) {
+        AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut()) {
+            Icon(
+                Icons.Default.Check,
+                contentDescription = "Saved",
+                tint = AppTextStyles.primaryContent,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
+
+    /**
+     * Numeric [Int] launch/config-parameter field with "blur-to-save" UX. See the section doc
+     * above for the shared rejection-over-clamping validation contract.
+     */
+    @Composable
+    fun settingsIntField(
+        label: String,
+        hint: String,
+        value: Int,
+        onValueChange: (Int) -> Unit,
+        minValue: Int = Int.MIN_VALUE,
+        labelStyle: TextStyle = AppTextStyles.body,
+        hintStyle: TextStyle = AppTextStyles.caption,
+        colors: TextFieldColors = AppColors.outlinedTextFieldColors(),
+    ) {
+        var lastValidValue by remember { mutableStateOf(value) }
+        var textValue by remember { mutableStateOf(LocalizationManager.formatNumber(value)) }
+        var isEditing by remember { mutableStateOf(false) }
+        var showSavedIndicator by remember { mutableStateOf(false) }
+
+        LaunchedEffect(value) {
+            if (value != lastValidValue) {
+                lastValidValue = value
+                if (!isEditing) textValue = LocalizationManager.formatNumber(value)
+            }
+        }
+
+        LaunchedEffect(showSavedIndicator) {
+            if (showSavedIndicator) {
+                delay(SAVED_INDICATOR_VISIBLE_MS.milliseconds)
+                showSavedIndicator = false
+            }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+            Text(text = label, style = labelStyle)
+            val parsedValue = textValue.toIntOrNull()
+            OutlinedTextField(
+                value = textValue,
+                onValueChange = { textValue = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { focusState ->
+                        if (focusState.isFocused) {
+                            isEditing = true
+                            textValue = lastValidValue.toString()
+                        } else {
+                            isEditing = false
+                            textValue.toIntOrNull()?.takeIf { it >= minValue }?.let { validInt ->
+                                if (validInt != lastValidValue) {
+                                    lastValidValue = validInt
+                                    onValueChange(validInt)
+                                    showSavedIndicator = true
+                                }
+                            }
+                            // Reject non-numeric / below-minimum input by reverting instead of
+                            // persisting an unintended value (see section doc above).
+                            textValue = LocalizationManager.formatNumber(lastValidValue)
+                        }
+                    },
+                textStyle = AppTextStyles.body,
+                singleLine = true,
+                isError = isEditing && (parsedValue == null || parsedValue < minValue),
+                trailingIcon = { savedIndicator(showSavedIndicator) },
+                colors = colors,
+            )
+            Text(text = hint, style = hintStyle)
+        }
+    }
+
+    /** Numeric [Long] launch/config-parameter field — see [settingsIntField]'s doc. */
+    @Composable
+    fun settingsLongField(
+        label: String,
+        hint: String,
+        value: Long,
+        onValueChange: (Long) -> Unit,
+        minValue: Long? = null,
+        labelStyle: TextStyle = AppTextStyles.body,
+        hintStyle: TextStyle = AppTextStyles.caption,
+        colors: TextFieldColors = AppColors.outlinedTextFieldColors(),
+    ) {
+        var lastValidValue by remember { mutableStateOf(value) }
+        var textValue by remember { mutableStateOf(LocalizationManager.formatNumber(value)) }
+        var isEditing by remember { mutableStateOf(false) }
+        var showSavedIndicator by remember { mutableStateOf(false) }
+
+        LaunchedEffect(value) {
+            if (value != lastValidValue) {
+                lastValidValue = value
+                if (!isEditing) textValue = LocalizationManager.formatNumber(value)
+            }
+        }
+
+        LaunchedEffect(showSavedIndicator) {
+            if (showSavedIndicator) {
+                delay(SAVED_INDICATOR_VISIBLE_MS.milliseconds)
+                showSavedIndicator = false
+            }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+            Text(text = label, style = labelStyle)
+            val parsedValue = textValue.toLongOrNull()
+            OutlinedTextField(
+                value = textValue,
+                onValueChange = { textValue = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { focusState ->
+                        if (focusState.isFocused) {
+                            isEditing = true
+                            textValue = lastValidValue.toString()
+                        } else {
+                            isEditing = false
+                            textValue.toLongOrNull()?.takeIf { minValue == null || it >= minValue }?.let { validLong ->
+                                if (validLong != lastValidValue) {
+                                    lastValidValue = validLong
+                                    onValueChange(validLong)
+                                    showSavedIndicator = true
+                                }
+                            }
+                            textValue = LocalizationManager.formatNumber(lastValidValue)
+                        }
+                    },
+                textStyle = AppTextStyles.body,
+                singleLine = true,
+                isError = isEditing && (parsedValue == null || (minValue != null && parsedValue < minValue)),
+                trailingIcon = { savedIndicator(showSavedIndicator) },
+                colors = colors,
+            )
+            Text(text = hint, style = hintStyle)
+        }
+    }
+
+    /**
+     * Numeric [Double] launch/config-parameter field (e.g. a similarity threshold, a
+     * rope-frequency scale). Unlike [settingsIntField]/[settingsLongField], there is no
+     * `minValue` — callers needing a floor should validate in their own `onValueChange`.
+     */
+    @Composable
+    fun settingsDoubleField(
+        label: String,
+        hint: String,
+        value: Double,
+        onValueChange: (Double) -> Unit,
+        labelStyle: TextStyle = AppTextStyles.body,
+        hintStyle: TextStyle = AppTextStyles.caption,
+        colors: TextFieldColors = AppColors.outlinedTextFieldColors(),
+    ) {
+        var lastValidValue by remember { mutableStateOf(value) }
+        var textValue by remember { mutableStateOf(NumberFormatUtil.formatDecimal(value)) }
+        var isEditing by remember { mutableStateOf(false) }
+        var showSavedIndicator by remember { mutableStateOf(false) }
+
+        LaunchedEffect(value) {
+            if (value != lastValidValue) {
+                lastValidValue = value
+                if (!isEditing) textValue = NumberFormatUtil.formatDecimal(value)
+            }
+        }
+
+        LaunchedEffect(showSavedIndicator) {
+            if (showSavedIndicator) {
+                delay(SAVED_INDICATOR_VISIBLE_MS.milliseconds)
+                showSavedIndicator = false
+            }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+            Text(text = label, style = labelStyle)
+            OutlinedTextField(
+                value = textValue,
+                onValueChange = { textValue = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { focusState ->
+                        if (focusState.isFocused) {
+                            isEditing = true
+                            textValue = lastValidValue.toString()
+                        } else {
+                            isEditing = false
+                            textValue.toDoubleOrNull()?.let { validDouble ->
+                                if (validDouble != lastValidValue) {
+                                    lastValidValue = validDouble
+                                    onValueChange(validDouble)
+                                    showSavedIndicator = true
+                                }
+                            }
+                            textValue = NumberFormatUtil.formatDecimal(lastValidValue)
+                        }
+                    },
+                textStyle = AppTextStyles.body,
+                singleLine = true,
+                isError = isEditing && textValue.toDoubleOrNull() == null,
+                trailingIcon = { savedIndicator(showSavedIndicator) },
+                colors = colors,
+            )
+            Text(text = hint, style = hintStyle)
+        }
+    }
+
+    /**
+     * Editable comma-separated [Set<String>] field. Displays items joined by `", "` and
+     * re-parses on focus-lost by splitting on commas (trimming whitespace, dropping empties).
+     */
+    @Composable
+    fun settingsStringSetField(
+        label: String,
+        hint: String,
+        value: Set<String>,
+        onValueChange: (Set<String>) -> Unit,
+        labelStyle: TextStyle = AppTextStyles.body,
+        hintStyle: TextStyle = AppTextStyles.caption,
+        colors: TextFieldColors = AppColors.outlinedTextFieldColors(),
+    ) {
+        var textValue by remember(value) { mutableStateOf(value.joinToString(", ")) }
+        var showSavedIndicator by remember { mutableStateOf(false) }
+
+        LaunchedEffect(showSavedIndicator) {
+            if (showSavedIndicator) {
+                delay(SAVED_INDICATOR_VISIBLE_MS.milliseconds)
+                showSavedIndicator = false
+            }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+            Text(text = label, style = labelStyle)
+            OutlinedTextField(
+                value = textValue,
+                onValueChange = { textValue = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { focusState ->
+                        if (!focusState.isFocused) {
+                            val parsed = textValue
+                                .split(",")
+                                .map { it.trim() }
+                                .filter { it.isNotEmpty() }
+                                .toSet()
+                            if (parsed != value) {
+                                onValueChange(parsed)
+                                showSavedIndicator = true
+                            }
+                        }
+                    },
+                textStyle = AppTextStyles.body,
+                minLines = 2,
+                maxLines = 5,
+                trailingIcon = { savedIndicator(showSavedIndicator) },
+                colors = colors,
+            )
+            Text(text = hint, style = hintStyle)
+        }
+    }
+
+    /**
+     * Boolean config-parameter toggle: label + hint on the left, [Switch] on the right,
+     * persisted immediately (no blur-to-save debounce needed for a binary value).
+     */
+    @Composable
+    fun settingsBooleanField(
+        label: String,
+        hint: String,
+        value: Boolean,
+        onValueChange: (Boolean) -> Unit,
+        labelStyle: TextStyle = AppTextStyles.body,
+        hintStyle: TextStyle = AppTextStyles.caption,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f).padding(end = Spacing.large),
+                verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+            ) {
+                Text(text = label, style = labelStyle)
+                Text(text = hint, style = hintStyle)
+            }
+            Switch(
+                checked = value,
+                onCheckedChange = onValueChange,
+                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+            )
+        }
+    }
+
+    /**
+     * Generic single-select dropdown field for a fixed list of [options] — label on top, a
+     * clickable card showing the current selection, and a [dropdownMenu] of choices. Manages
+     * its own expanded/collapsed state internally (unlike [dropdownMenu] itself, which the
+     * caller must drive explicitly), since every call site needs exactly one `expanded`
+     * boolean with no cross-field interaction.
+     *
+     * [displayName] lets a raw option value (e.g. `""` for "disabled") be shown as a friendlier
+     * localized label without changing the persisted [value].
+     */
+    @Composable
+    fun <T> settingsDropdownField(
+        label: String,
+        hint: String,
+        value: T,
+        options: List<T>,
+        onValueChange: (T) -> Unit,
+        displayName: @Composable (T) -> String = { it.toString() },
+        labelStyle: TextStyle = AppTextStyles.fieldLabel,
+        hintStyle: TextStyle = AppTextStyles.caption,
+    ) {
+        var dropdownExpanded by remember { mutableStateOf(false) }
+
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+            Text(text = label, style = labelStyle)
+            Box(modifier = Modifier.widthIn(min = 160.dp, max = 240.dp)) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickableCard { dropdownExpanded = true },
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(Spacing.medium),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = displayName(value),
+                            style = AppTextStyles.body,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f).padding(end = Spacing.small),
+                        )
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Change $label",
+                            tint = AppTextStyles.primaryContent,
+                        )
+                    }
+                }
+
+                dropdownMenu(
+                    expanded = dropdownExpanded,
+                    onDismissRequest = { dropdownExpanded = false },
+                ) {
+                    options.forEachIndexed { index, option ->
+                        themedDropdownMenuItem(
+                            text = { Text(text = displayName(option), style = AppTextStyles.body) },
+                            onClick = {
+                                onValueChange(option)
+                                dropdownExpanded = false
+                            },
+                            isSelected = option == value,
+                            showDivider = index < options.lastIndex,
+                        )
+                    }
+                }
+            }
+            Text(text = hint, style = hintStyle)
+        }
     }
 }

@@ -4,9 +4,6 @@
  */
 package io.askimo.desktop.settings
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -25,13 +22,10 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -50,11 +44,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.config.AppConfig
 import io.askimo.core.i18n.LocalizationManager
@@ -69,20 +61,16 @@ import io.askimo.core.providers.llama.LlamaServerDownloader
 import io.askimo.core.providers.llama.LlamaServerPlatform
 import io.askimo.core.providers.llama.LlamaServerProcessManager
 import io.askimo.core.util.AskimoHome
-import io.askimo.core.util.NumberFormatUtil
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
-import io.askimo.ui.common.ui.clickableCard
 import io.askimo.ui.util.Platform
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.awt.Desktop
 import java.io.File
-import kotlin.time.Duration.Companion.milliseconds
 
 private val log = Logger("LocalLlmSettingsSection")
 
@@ -346,19 +334,23 @@ private fun localLlmBinaryCard() {
             if (isDownloaded) {
                 localLlmCtxSizeField()
                 HorizontalDivider()
-                localLlmIntField(
+                AppComponents.settingsIntField(
                     label = stringResource("settings.local_llm.batch_size.label"),
                     hint = stringResource("settings.local_llm.batch_size.hint"),
                     value = AppConfig.localLlm.batchSize,
-                    configField = "localLlm.batchSize",
                     minValue = 1,
+                    labelStyle = AppTextStyles.fieldLabel,
+                    hintStyle = AppTextStyles.caption.copy(color = AppTextStyles.secondaryContent),
+                    onValueChange = { newValue -> AppConfig.updateField("localLlm.batchSize", newValue) },
                 )
-                localLlmIntField(
+                AppComponents.settingsIntField(
                     label = stringResource("settings.local_llm.ubatch_size.label"),
                     hint = stringResource("settings.local_llm.ubatch_size.hint"),
                     value = AppConfig.localLlm.ubatchSize,
-                    configField = "localLlm.ubatchSize",
                     minValue = 1,
+                    labelStyle = AppTextStyles.fieldLabel,
+                    hintStyle = AppTextStyles.caption.copy(color = AppTextStyles.secondaryContent),
+                    onValueChange = { newValue -> AppConfig.updateField("localLlm.ubatchSize", newValue) },
                 )
                 localLlmCacheTypeField(
                     label = stringResource("settings.local_llm.cache_type_k.label"),
@@ -372,78 +364,98 @@ private fun localLlmBinaryCard() {
                     value = AppConfig.localLlm.cacheTypeV,
                     configField = "localLlm.cacheTypeV",
                 )
-                localLlmIntField(
+                AppComponents.settingsIntField(
                     label = stringResource("settings.local_llm.n_gpu_layers.label"),
                     hint = stringResource("settings.local_llm.n_gpu_layers.hint"),
                     value = AppConfig.localLlm.nGpuLayers,
-                    configField = "localLlm.nGpuLayers",
                     minValue = 0,
+                    labelStyle = AppTextStyles.fieldLabel,
+                    hintStyle = AppTextStyles.caption.copy(color = AppTextStyles.secondaryContent),
+                    onValueChange = { newValue -> AppConfig.updateField("localLlm.nGpuLayers", newValue) },
                 )
                 HorizontalDivider()
                 Text(text = stringResource("settings.local_llm.advanced.title"), style = AppTextStyles.fieldLabel)
-                localLlmSwitchField(
+                AppComponents.settingsBooleanField(
                     label = stringResource("settings.local_llm.flash_attn.label"),
                     hint = stringResource("settings.local_llm.flash_attn.hint"),
                     value = AppConfig.localLlm.flashAttn,
-                    configField = "localLlm.flashAttn",
+                    labelStyle = AppTextStyles.fieldLabel,
+                    hintStyle = AppTextStyles.caption.copy(color = AppTextStyles.secondaryContent),
+                    onValueChange = { checked -> AppConfig.updateField("localLlm.flashAttn", checked) },
                 )
-                localLlmSwitchField(
+                AppComponents.settingsBooleanField(
                     label = stringResource("settings.local_llm.no_mmap.label"),
                     hint = stringResource("settings.local_llm.no_mmap.hint"),
                     value = AppConfig.localLlm.noMmap,
-                    configField = "localLlm.noMmap",
+                    labelStyle = AppTextStyles.fieldLabel,
+                    hintStyle = AppTextStyles.caption.copy(color = AppTextStyles.secondaryContent),
+                    onValueChange = { checked -> AppConfig.updateField("localLlm.noMmap", checked) },
                 )
-                localLlmSwitchField(
+                AppComponents.settingsBooleanField(
                     label = stringResource("settings.local_llm.mlock.label"),
                     hint = stringResource("settings.local_llm.mlock.hint"),
                     value = AppConfig.localLlm.mlock,
-                    configField = "localLlm.mlock",
+                    labelStyle = AppTextStyles.fieldLabel,
+                    hintStyle = AppTextStyles.caption.copy(color = AppTextStyles.secondaryContent),
+                    onValueChange = { checked -> AppConfig.updateField("localLlm.mlock", checked) },
                 )
-                localLlmIntField(
+                AppComponents.settingsIntField(
                     label = stringResource("settings.local_llm.num_parallel.label"),
                     hint = stringResource("settings.local_llm.num_parallel.hint"),
                     value = AppConfig.localLlm.numParallel,
-                    configField = "localLlm.numParallel",
                     minValue = 1,
+                    labelStyle = AppTextStyles.fieldLabel,
+                    hintStyle = AppTextStyles.caption.copy(color = AppTextStyles.secondaryContent),
+                    onValueChange = { newValue -> AppConfig.updateField("localLlm.numParallel", newValue) },
                 )
-                localLlmSwitchField(
+                AppComponents.settingsBooleanField(
                     label = stringResource("settings.local_llm.cont_batching.label"),
                     hint = stringResource("settings.local_llm.cont_batching.hint"),
                     value = AppConfig.localLlm.contBatching,
-                    configField = "localLlm.contBatching",
+                    labelStyle = AppTextStyles.fieldLabel,
+                    hintStyle = AppTextStyles.caption.copy(color = AppTextStyles.secondaryContent),
+                    onValueChange = { checked -> AppConfig.updateField("localLlm.contBatching", checked) },
                 )
-                localLlmSwitchField(
+                AppComponents.settingsBooleanField(
                     label = stringResource("settings.local_llm.no_warmup.label"),
                     hint = stringResource("settings.local_llm.no_warmup.hint"),
                     value = AppConfig.localLlm.noWarmup,
-                    configField = "localLlm.noWarmup",
+                    labelStyle = AppTextStyles.fieldLabel,
+                    hintStyle = AppTextStyles.caption.copy(color = AppTextStyles.secondaryContent),
+                    onValueChange = { checked -> AppConfig.updateField("localLlm.noWarmup", checked) },
                 )
-                localLlmDropdownField(
+                AppComponents.settingsDropdownField(
                     label = stringResource("settings.local_llm.numa_mode.label"),
                     hint = stringResource("settings.local_llm.numa_mode.hint"),
                     value = AppConfig.localLlm.numaMode,
                     options = NUMA_MODES,
                     displayName = { if (it.isBlank()) stringResource("settings.local_llm.numa_mode.disabled") else it },
-                    configField = "localLlm.numaMode",
+                    onValueChange = { newValue -> AppConfig.updateField("localLlm.numaMode", newValue) },
                 )
-                localLlmIntField(
+                AppComponents.settingsIntField(
                     label = stringResource("settings.local_llm.n_predict.label"),
                     hint = stringResource("settings.local_llm.n_predict.hint"),
                     value = AppConfig.localLlm.nPredict,
-                    configField = "localLlm.nPredict",
                     minValue = -1,
+                    labelStyle = AppTextStyles.fieldLabel,
+                    hintStyle = AppTextStyles.caption.copy(color = AppTextStyles.secondaryContent),
+                    onValueChange = { newValue -> AppConfig.updateField("localLlm.nPredict", newValue) },
                 )
-                localLlmDoubleField(
+                AppComponents.settingsDoubleField(
                     label = stringResource("settings.local_llm.rope_freq_base.label"),
                     hint = stringResource("settings.local_llm.rope_freq_base.hint"),
                     value = AppConfig.localLlm.ropeFreqBase,
-                    configField = "localLlm.ropeFreqBase",
+                    labelStyle = AppTextStyles.fieldLabel,
+                    hintStyle = AppTextStyles.caption.copy(color = AppTextStyles.secondaryContent),
+                    onValueChange = { newValue -> AppConfig.updateField("localLlm.ropeFreqBase", newValue) },
                 )
-                localLlmDoubleField(
+                AppComponents.settingsDoubleField(
                     label = stringResource("settings.local_llm.rope_freq_scale.label"),
                     hint = stringResource("settings.local_llm.rope_freq_scale.hint"),
                     value = AppConfig.localLlm.ropeFreqScale,
-                    configField = "localLlm.ropeFreqScale",
+                    labelStyle = AppTextStyles.fieldLabel,
+                    hintStyle = AppTextStyles.caption.copy(color = AppTextStyles.secondaryContent),
+                    onValueChange = { newValue -> AppConfig.updateField("localLlm.ropeFreqScale", newValue) },
                 )
             }
 
@@ -472,142 +484,19 @@ private fun localLlmBinaryCard() {
  * Context-window size (`--ctx-size`) field — see [io.askimo.core.config.LocalLlmConfig.ctxSize]
  * for why this is bounded rather than left at the model's native training context. Changes take
  * effect the next time a chat/embedding `llama-server` child process is (re)started, not on an
- * already-running one.
+ * already-running one. [AppConfig.updateField] applies its own 512-minimum backstop clamp, but
+ * the shared field below rejects (rather than silently clamps) anything below that minimum, so
+ * what's shown as "saved" always matches what's actually persisted.
  */
 @Composable
 private fun localLlmCtxSizeField() {
-    var lastValidValue by remember { mutableStateOf(AppConfig.localLlm.ctxSize) }
-    var textValue by remember { mutableStateOf(LocalizationManager.formatNumber(lastValidValue)) }
-    var isEditing by remember { mutableStateOf(false) }
-    var showSavedIndicator by remember { mutableStateOf(false) }
-
-    LaunchedEffect(showSavedIndicator) {
-        if (showSavedIndicator) {
-            delay(2000.milliseconds)
-            showSavedIndicator = false
-        }
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
-        Text(text = stringResource("settings.local_llm.ctx_size.label"), style = AppTextStyles.fieldLabel)
-        OutlinedTextField(
-            value = textValue,
-            onValueChange = { textValue = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { focusState ->
-                    if (focusState.isFocused) {
-                        // Switch to raw number for easy editing
-                        isEditing = true
-                        textValue = lastValidValue.toString()
-                    } else {
-                        isEditing = false
-                        textValue.toIntOrNull()?.let { validInt ->
-                            // AppConfig.updateField clamps ctxSize to a 512 minimum (see
-                            // LocalLlmConfig.ctxSize's doc) — clamp here too so lastValidValue
-                            // (and thus what's displayed as "saved") matches what's actually
-                            // persisted, instead of showing e.g. "1" as saved while the launch
-                            // flag silently becomes 512.
-                            val clamped = validInt.coerceAtLeast(512)
-                            if (clamped != lastValidValue) {
-                                lastValidValue = clamped
-                                AppConfig.updateField("localLlm.ctxSize", clamped)
-                                showSavedIndicator = true
-                            }
-                        }
-                        // Always reformat on blur (even if unchanged)
-                        textValue = LocalizationManager.formatNumber(lastValidValue)
-                    }
-                },
-            textStyle = AppTextStyles.body,
-            singleLine = true,
-            isError = isEditing && textValue.toIntOrNull() == null,
-            trailingIcon = {
-                AnimatedVisibility(visible = showSavedIndicator, enter = fadeIn(), exit = fadeOut()) {
-                    Icon(
-                        Icons.Default.Check,
-                        contentDescription = "Saved",
-                        tint = AppTextStyles.primaryContent,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-            },
-            colors = AppColors.outlinedTextFieldColors(),
-        )
-        Text(
-            text = stringResource("settings.local_llm.ctx_size.hint"),
-            style = AppTextStyles.caption,
-            color = AppTextStyles.secondaryContent,
-        )
-    }
-}
-
-/**
- * Generic integer launch-parameter field (`--batch-size`, `--ubatch-size`, `--n-gpu-layers`) —
- * same blur-to-save + brief ✓ indicator UX as [localLlmCtxSizeField]. [configField] is the
- * [AppConfig.updateField] dot-path to persist to, e.g. `"localLlm.batchSize"`.
- */
-@Composable
-private fun localLlmIntField(
-    label: String,
-    hint: String,
-    value: Int,
-    configField: String,
-    minValue: Int = 0,
-) {
-    var lastValidValue by remember { mutableStateOf(value) }
-    var textValue by remember { mutableStateOf(LocalizationManager.formatNumber(value)) }
-    var isEditing by remember { mutableStateOf(false) }
-    var showSavedIndicator by remember { mutableStateOf(false) }
-
-    LaunchedEffect(showSavedIndicator) {
-        if (showSavedIndicator) {
-            delay(2000.milliseconds)
-            showSavedIndicator = false
-        }
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
-        Text(text = label, style = AppTextStyles.fieldLabel)
-        OutlinedTextField(
-            value = textValue,
-            onValueChange = { textValue = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { focusState ->
-                    if (focusState.isFocused) {
-                        isEditing = true
-                        textValue = lastValidValue.toString()
-                    } else {
-                        isEditing = false
-                        textValue.toIntOrNull()?.let { validInt ->
-                            val clamped = validInt.coerceAtLeast(minValue)
-                            if (clamped != lastValidValue) {
-                                lastValidValue = clamped
-                                AppConfig.updateField(configField, clamped)
-                                showSavedIndicator = true
-                            }
-                        }
-                        textValue = LocalizationManager.formatNumber(lastValidValue)
-                    }
-                },
-            textStyle = AppTextStyles.body,
-            singleLine = true,
-            isError = isEditing && textValue.toIntOrNull() == null,
-            trailingIcon = {
-                AnimatedVisibility(visible = showSavedIndicator, enter = fadeIn(), exit = fadeOut()) {
-                    Icon(
-                        Icons.Default.Check,
-                        contentDescription = "Saved",
-                        tint = AppTextStyles.primaryContent,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-            },
-            colors = AppColors.outlinedTextFieldColors(),
-        )
-        Text(text = hint, style = AppTextStyles.caption, color = AppTextStyles.secondaryContent)
-    }
+    AppComponents.settingsIntField(
+        label = stringResource("settings.local_llm.ctx_size.label"),
+        hint = stringResource("settings.local_llm.ctx_size.hint"),
+        value = AppConfig.localLlm.ctxSize,
+        minValue = 512,
+        onValueChange = { newValue -> AppConfig.updateField("localLlm.ctxSize", newValue) },
+    )
 }
 
 /** KV-cache quantization types accepted by llama-server's `--cache-type-k`/`--cache-type-v`. */
@@ -627,177 +516,14 @@ private fun localLlmCacheTypeField(
     hint: String,
     value: String,
     configField: String,
-) = localLlmDropdownField(label, hint, value, KV_CACHE_TYPES, configField)
-
-/**
- * Generic single-select dropdown field for a string-valued launch parameter — same visual
- * pattern as `AdvancedSettingsSection`'s memory-mode selector. [displayName] lets a raw option
- * value (e.g. `""`) be shown as a friendlier localized label without changing the persisted value.
- */
-@Composable
-private fun localLlmDropdownField(
-    label: String,
-    hint: String,
-    value: String,
-    options: List<String>,
-    configField: String,
-    displayName: @Composable (String) -> String = { it },
 ) {
-    var current by remember { mutableStateOf(value) }
-    var dropdownExpanded by remember { mutableStateOf(false) }
-
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
-        Text(text = label, style = AppTextStyles.fieldLabel)
-        Box(modifier = Modifier.widthIn(min = 160.dp, max = 240.dp)) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickableCard { dropdownExpanded = true },
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(Spacing.medium),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = displayName(current),
-                        style = AppTextStyles.body,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f).padding(end = Spacing.small),
-                    )
-                    Icon(
-                        Icons.Default.Edit,
-                        contentDescription = "Change $label",
-                        tint = AppTextStyles.primaryContent,
-                    )
-                }
-            }
-
-            AppComponents.dropdownMenu(
-                expanded = dropdownExpanded,
-                onDismissRequest = { dropdownExpanded = false },
-            ) {
-                options.forEachIndexed { index, option ->
-                    AppComponents.themedDropdownMenuItem(
-                        text = { Text(text = displayName(option), style = AppTextStyles.body) },
-                        onClick = {
-                            current = option
-                            AppConfig.updateField(configField, option)
-                            dropdownExpanded = false
-                        },
-                        isSelected = option == current,
-                        showDivider = index < options.lastIndex,
-                    )
-                }
-            }
-        }
-        Text(text = hint, style = AppTextStyles.caption, color = AppTextStyles.secondaryContent)
-    }
-}
-
-/**
- * Generic boolean launch-parameter switch (e.g. `--flash-attn`, `--no-mmap`, `--mlock`) — label +
- * hint on the left, [Switch] on the right, persisted immediately via [AppConfig.updateField].
- */
-@Composable
-private fun localLlmSwitchField(
-    label: String,
-    hint: String,
-    value: Boolean,
-    configField: String,
-) {
-    var current by remember { mutableStateOf(value) }
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(
-            modifier = Modifier.weight(1f).padding(end = Spacing.large),
-            verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-        ) {
-            Text(text = label, style = AppTextStyles.fieldLabel)
-            Text(text = hint, style = AppTextStyles.caption, color = AppTextStyles.secondaryContent)
-        }
-        Switch(
-            checked = current,
-            onCheckedChange = { checked ->
-                current = checked
-                AppConfig.updateField(configField, checked)
-            },
-            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-        )
-    }
-}
-
-/**
- * Generic double-valued launch-parameter field (e.g. `--rope-freq-base`/`--rope-freq-scale`) —
- * same blur-to-save + brief ✓ indicator UX as [localLlmIntField]. `0.0` is treated as "not set"
- * by the call sites that read this back (see [io.askimo.core.config.LocalLlmConfig.ropeFreqBase]'s
- * doc), so it's a valid, meaningful value here rather than an error state.
- */
-@Composable
-private fun localLlmDoubleField(
-    label: String,
-    hint: String,
-    value: Double,
-    configField: String,
-) {
-    var lastValidValue by remember { mutableStateOf(value) }
-    var textValue by remember { mutableStateOf(NumberFormatUtil.formatDecimal(value)) }
-    var isEditing by remember { mutableStateOf(false) }
-    var showSavedIndicator by remember { mutableStateOf(false) }
-
-    LaunchedEffect(showSavedIndicator) {
-        if (showSavedIndicator) {
-            delay(2000.milliseconds)
-            showSavedIndicator = false
-        }
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
-        Text(text = label, style = AppTextStyles.fieldLabel)
-        OutlinedTextField(
-            value = textValue,
-            onValueChange = { textValue = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { focusState ->
-                    if (focusState.isFocused) {
-                        isEditing = true
-                        textValue = lastValidValue.toString()
-                    } else {
-                        isEditing = false
-                        textValue.toDoubleOrNull()?.let { validDouble ->
-                            if (validDouble != lastValidValue) {
-                                lastValidValue = validDouble
-                                AppConfig.updateField(configField, validDouble)
-                                showSavedIndicator = true
-                            }
-                        }
-                        textValue = NumberFormatUtil.formatDecimal(lastValidValue)
-                    }
-                },
-            textStyle = AppTextStyles.body,
-            singleLine = true,
-            isError = isEditing && textValue.toDoubleOrNull() == null,
-            trailingIcon = {
-                AnimatedVisibility(visible = showSavedIndicator, enter = fadeIn(), exit = fadeOut()) {
-                    Icon(
-                        Icons.Default.Check,
-                        contentDescription = "Saved",
-                        tint = AppTextStyles.primaryContent,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-            },
-            colors = AppColors.outlinedTextFieldColors(),
-        )
-        Text(text = hint, style = AppTextStyles.caption, color = AppTextStyles.secondaryContent)
-    }
+    AppComponents.settingsDropdownField(
+        label = label,
+        hint = hint,
+        value = value,
+        options = KV_CACHE_TYPES,
+        onValueChange = { newValue -> AppConfig.updateField(configField, newValue) },
+    )
 }
 
 /**
@@ -1022,7 +748,7 @@ private fun localLlmModelRow(entry: LlamaModelEntry) {
         }
 
         if (downloading) {
-            downloadProgress(downloadState?.downloadedBytes ?: 0L, downloadState?.totalBytes ?: -1L)
+            downloadProgress(downloadState.downloadedBytes, downloadState.totalBytes)
         }
         downloadState?.error?.let { error ->
             Text(

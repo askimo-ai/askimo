@@ -4,9 +4,6 @@
  */
 package io.askimo.desktop.settings
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,7 +19,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
@@ -47,7 +43,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -528,7 +523,7 @@ private fun voiceConfigCard() {
                         style = AppTextStyles.caption,
                         color = AppTextStyles.secondaryContent,
                     )
-                    voiceIntField(
+                    AppComponents.settingsIntField(
                         label = stringResource("settings.voice.cache.max_messages"),
                         hint = stringResource("settings.voice.cache.max_messages.hint"),
                         value = ttsCacheMaxMessages,
@@ -538,7 +533,7 @@ private fun voiceConfigCard() {
                             AppConfig.updateField("voice.ttsCacheMaxMessages", newValue)
                         },
                     )
-                    voiceIntField(
+                    AppComponents.settingsIntField(
                         label = stringResource("settings.voice.cache.max_mb"),
                         hint = stringResource("settings.voice.cache.max_mb.hint"),
                         value = ttsCacheMaxMb,
@@ -1005,87 +1000,5 @@ private fun voiceToggleRow(
             onCheckedChange = onCheckedChange,
             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
         )
-    }
-}
-
-/**
- * Numeric input field for voice cache size settings — mirrors the validation pattern used by
- * `AdvancedSettingsSection.ragIntField`: shows a raw editable number while focused, reformats
- * with locale grouping on blur, flags invalid/out-of-range input with [OutlinedTextField.isError]
- * instead of silently clamping while the user is still typing, and only calls [onValueChange]
- * with an already-validated value (never blank/non-numeric/below [minValue]).
- */
-@Composable
-private fun voiceIntField(
-    label: String,
-    hint: String,
-    value: Int,
-    minValue: Int,
-    onValueChange: (Int) -> Unit,
-    labelColor: Color = AppTextStyles.primaryContent,
-    hintColor: Color = AppTextStyles.secondaryContent,
-    colors: TextFieldColors = AppColors.outlinedTextFieldColors(),
-) {
-    var lastValidValue by remember { mutableStateOf(value) }
-    var textValue by remember { mutableStateOf(LocalizationManager.formatNumber(value)) }
-    var isEditing by remember { mutableStateOf(false) }
-    var showSavedIndicator by remember { mutableStateOf(false) }
-
-    LaunchedEffect(value) {
-        if (value != lastValidValue) {
-            lastValidValue = value
-            if (!isEditing) textValue = LocalizationManager.formatNumber(value)
-        }
-    }
-
-    LaunchedEffect(showSavedIndicator) {
-        if (showSavedIndicator) {
-            delay(2000.milliseconds)
-            showSavedIndicator = false
-        }
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
-        Text(text = label, style = AppTextStyles.body.copy(color = labelColor))
-        val parsedValue = textValue.toIntOrNull()
-        OutlinedTextField(
-            value = textValue,
-            onValueChange = { textValue = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { focusState ->
-                    if (focusState.isFocused) {
-                        isEditing = true
-                        textValue = lastValidValue.toString()
-                    } else {
-                        isEditing = false
-                        textValue.toIntOrNull()?.takeIf { it >= minValue }?.let { validInt ->
-                            if (validInt != lastValidValue) {
-                                lastValidValue = validInt
-                                onValueChange(validInt)
-                                showSavedIndicator = true
-                            }
-                        }
-                        // Reject non-numeric / below-minimum input by reverting to the last
-                        // valid value instead of persisting garbage.
-                        textValue = LocalizationManager.formatNumber(lastValidValue)
-                    }
-                },
-            textStyle = AppTextStyles.body.copy(color = Color.Unspecified),
-            singleLine = true,
-            isError = isEditing && (parsedValue == null || parsedValue < minValue),
-            trailingIcon = {
-                AnimatedVisibility(visible = showSavedIndicator, enter = fadeIn(), exit = fadeOut()) {
-                    Icon(
-                        Icons.Default.Check,
-                        contentDescription = "Saved",
-                        tint = AppTextStyles.primaryContent,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-            },
-            colors = colors,
-        )
-        Text(text = hint, style = AppTextStyles.caption.copy(color = hintColor))
     }
 }

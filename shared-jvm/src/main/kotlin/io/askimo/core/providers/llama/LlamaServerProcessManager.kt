@@ -348,14 +348,22 @@ object LlamaServerProcessManager {
     }
 
     /**
-     * Deletes [entry]'s downloaded `.gguf` file, first unloading its slot's resident child
-     * process (if any) and waiting for full termination. Encapsulates ordering that callers must
-     * not get wrong: deleting while `llama-server` still has the file open throws on Windows
-     * (the file is locked) and, on Unix, leaves the process serving a now-unlinked file while the
-     * caller believes it's gone.
+     * Deletes [entry]'s downloaded `.gguf` file, first unloading *every* slot currently serving
+     * it and waiting for full termination. Deliberately does not trust [LlamaModelEntry.isEmbedding]
+     * to pick a single slot: that's static catalog metadata, whereas which slot a file actually
+     * loaded into is decided dynamically by the request path that last loaded it (chat vs.
+     * `/embeddings` — see `ensureModelLoaded`) and can disagree with the catalog (e.g. a
+     * chat-tagged model manually used for embeddings, or a non-catalog fallback file). Checking
+     * both slots' live `modelFileName` instead of `entry.isEmbedding` avoids unloading the wrong
+     * slot, which would otherwise throw on Windows (the actually-open file stays locked) and
+     * leave a process serving a now-unlinked file on Unix.
      */
     suspend fun deleteModel(entry: LlamaModelEntry) {
-        unloadModel(entry.isEmbedding)
+        for (slot in listOf(chatSlot, embeddingSlot)) {
+            slot.mutex.withLock {
+                if (slot.modelFileName == entry.fileName) stopSlotLocked(slot)
+            }
+        }
         LlamaModelDownloader.delete(entry)
     }
 

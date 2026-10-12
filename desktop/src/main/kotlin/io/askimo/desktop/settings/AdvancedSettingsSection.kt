@@ -24,7 +24,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Visibility
@@ -33,7 +32,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,7 +44,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -55,12 +52,10 @@ import io.askimo.core.chat.service.PhraseHabitRefreshService
 import io.askimo.core.config.AppConfig
 import io.askimo.core.config.MIN_MODEL_TIMEOUT_SECONDS
 import io.askimo.core.config.MemoryMode
-import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.LogLevel
 import io.askimo.core.logging.LoggingService
 import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.user.repository.UserProfileRepository
-import io.askimo.core.util.NumberFormatUtil
 import io.askimo.ui.common.components.dangerButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
@@ -473,7 +468,7 @@ private fun ragConfigurationSection() {
             )
 
             // Vector Search Max Results
-            settingsIntField(
+            AppComponents.settingsIntField(
                 label = stringResource("settings.rag.vector.max.results"),
                 hint = stringResource("settings.rag.vector.max.results.hint"),
                 value = AppConfig.rag.vectorSearchMaxResults,
@@ -483,7 +478,7 @@ private fun ragConfigurationSection() {
             )
 
             // Vector Search Min Score
-            settingsDoubleField(
+            AppComponents.settingsDoubleField(
                 label = stringResource("settings.rag.vector.min.score"),
                 hint = stringResource("settings.rag.vector.min.score.hint"),
                 value = AppConfig.rag.vectorSearchMinScore,
@@ -493,7 +488,7 @@ private fun ragConfigurationSection() {
             )
 
             // Hybrid Max Results
-            settingsIntField(
+            AppComponents.settingsIntField(
                 label = stringResource("settings.rag.hybrid.max.results"),
                 hint = stringResource("settings.rag.hybrid.max.results.hint"),
                 value = AppConfig.rag.hybridMaxResults,
@@ -503,7 +498,7 @@ private fun ragConfigurationSection() {
             )
 
             // Rank Fusion Constant
-            settingsIntField(
+            AppComponents.settingsIntField(
                 label = stringResource("settings.rag.rank.fusion.constant"),
                 hint = stringResource("settings.rag.rank.fusion.constant.hint"),
                 value = AppConfig.rag.rankFusionConstant,
@@ -513,7 +508,7 @@ private fun ragConfigurationSection() {
             )
 
             // Use Absolute Paths in Citations
-            settingsBooleanField(
+            AppComponents.settingsBooleanField(
                 label = stringResource("settings.rag.use.absolute.paths"),
                 hint = stringResource("settings.rag.use.absolute.paths.hint"),
                 value = AppConfig.rag.useAbsolutePathInCitations,
@@ -539,7 +534,7 @@ private fun ragConfigurationSection() {
             )
 
             // Max Characters Per Chunk
-            settingsIntField(
+            AppComponents.settingsIntField(
                 label = stringResource("settings.rag.embedding.max.chars.per.chunk"),
                 hint = stringResource("settings.rag.embedding.max.chars.per.chunk.hint"),
                 value = AppConfig.embedding.maxCharsPerChunk,
@@ -549,7 +544,7 @@ private fun ragConfigurationSection() {
             )
 
             // Chunk Overlap
-            settingsIntField(
+            AppComponents.settingsIntField(
                 label = stringResource("settings.rag.embedding.chunk.overlap"),
                 hint = stringResource("settings.rag.embedding.chunk.overlap.hint"),
                 value = AppConfig.embedding.chunkOverlap,
@@ -575,7 +570,7 @@ private fun ragConfigurationSection() {
             )
 
             // Max File Bytes
-            settingsLongField(
+            AppComponents.settingsLongField(
                 label = stringResource("settings.rag.indexing.max.file.bytes"),
                 hint = stringResource("settings.rag.indexing.max.file.bytes.hint"),
                 value = AppConfig.indexing.maxFileBytes,
@@ -585,7 +580,7 @@ private fun ragConfigurationSection() {
             )
 
             // Supported Extensions
-            settingsStringSetField(
+            AppComponents.settingsStringSetField(
                 label = stringResource("settings.rag.indexing.supported.extensions"),
                 hint = stringResource("settings.rag.indexing.supported.extensions.hint"),
                 value = AppConfig.indexing.supportedExtensions,
@@ -595,7 +590,7 @@ private fun ragConfigurationSection() {
             )
 
             // Excluded File Names
-            settingsStringSetField(
+            AppComponents.settingsStringSetField(
                 label = stringResource("settings.rag.indexing.exclude.file.names"),
                 hint = stringResource("settings.rag.indexing.exclude.file.names.hint"),
                 value = AppConfig.indexing.excludeFileNames,
@@ -605,7 +600,7 @@ private fun ragConfigurationSection() {
             )
 
             // Binary Extensions
-            settingsStringSetField(
+            AppComponents.settingsStringSetField(
                 label = stringResource("settings.rag.indexing.binary.extensions"),
                 hint = stringResource("settings.rag.indexing.binary.extensions.hint"),
                 value = AppConfig.indexing.binaryExtensions,
@@ -615,7 +610,7 @@ private fun ragConfigurationSection() {
             )
 
             // Embedding Batch Size
-            settingsLongField(
+            AppComponents.settingsLongField(
                 label = stringResource("settings.rag.indexing.embedding.batch.size"),
                 hint = stringResource("settings.rag.indexing.embedding.batch.size.hint"),
                 value = AppConfig.indexing.embeddingBatchSize.toLong(),
@@ -649,7 +644,7 @@ private fun modelsConfigurationSection() {
                 style = AppTextStyles.caption,
             )
 
-            settingsIntField(
+            AppComponents.settingsIntField(
                 label = stringResource("settings.models.max.tool.calling.round.trips"),
                 hint = stringResource("settings.models.max.tool.calling.round.trips.hint"),
                 value = AppConfig.models.maxToolCallingRoundTrips,
@@ -661,7 +656,7 @@ private fun modelsConfigurationSection() {
             // Unified request timeout — applied to both the utility and default/primary
             // models so slower local models (e.g. Ollama on modest hardware) don't hit
             // HttpTimeoutException before they finish responding.
-            settingsLongField(
+            AppComponents.settingsLongField(
                 label = stringResource("settings.models.timeout.seconds"),
                 hint = stringResource("settings.models.timeout.seconds.hint"),
                 value = AppConfig.models.requestTimeoutInSeconds,
@@ -878,389 +873,6 @@ private fun typingSuggestionsSection() {
                     Text(stringResource("settings.suggestions.reset.cancel"))
                 }
             },
-        )
-    }
-}
-
-@Composable
-private fun settingsBooleanField(
-    label: String,
-    hint: String,
-    value: Boolean,
-    onValueChange: (Boolean) -> Unit,
-) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-            ) {
-                Text(
-                    text = label,
-                    style = AppTextStyles.body,
-                )
-                Text(
-                    text = hint,
-                    style = AppTextStyles.caption,
-                )
-            }
-            Switch(
-                checked = value,
-                onCheckedChange = onValueChange,
-            )
-        }
-    }
-}
-
-@Composable
-private fun settingsIntField(
-    label: String,
-    hint: String,
-    value: Int,
-    onValueChange: (Int) -> Unit,
-) {
-    var lastValidValue by remember { mutableStateOf(value) }
-    var textValue by remember { mutableStateOf(LocalizationManager.formatNumber(value)) }
-    var isEditing by remember { mutableStateOf(false) }
-    var showSavedIndicator by remember { mutableStateOf(false) }
-
-    LaunchedEffect(value) {
-        if (value != lastValidValue) {
-            lastValidValue = value
-            if (!isEditing) textValue = LocalizationManager.formatNumber(value)
-        }
-    }
-
-    LaunchedEffect(showSavedIndicator) {
-        if (showSavedIndicator) {
-            delay(2000.milliseconds)
-            showSavedIndicator = false
-        }
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
-        Text(
-            text = label,
-            style = AppTextStyles.body,
-        )
-        OutlinedTextField(
-            value = textValue,
-            onValueChange = { textValue = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { focusState ->
-                    if (focusState.isFocused) {
-                        // Switch to raw number for easy editing
-                        isEditing = true
-                        textValue = lastValidValue.toString()
-                    } else {
-                        isEditing = false
-                        textValue.toIntOrNull()?.let { validInt ->
-                            if (validInt != lastValidValue) {
-                                lastValidValue = validInt
-                                onValueChange(validInt)
-                                showSavedIndicator = true
-                            }
-                        }
-                        // Always reformat on blur (even if unchanged)
-                        textValue = LocalizationManager.formatNumber(lastValidValue)
-                    }
-                },
-            textStyle = AppTextStyles.body,
-            singleLine = true,
-            isError = isEditing && textValue.toIntOrNull() == null,
-            trailingIcon = {
-                AnimatedVisibility(visible = showSavedIndicator, enter = fadeIn(), exit = fadeOut()) {
-                    Icon(
-                        Icons.Default.Check,
-                        contentDescription = "Saved",
-                        tint = AppTextStyles.primaryContent,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-            },
-            colors = AppColors.outlinedTextFieldColors(),
-        )
-        Text(text = hint, style = AppTextStyles.caption)
-    }
-}
-
-@Composable
-private fun settingsDoubleField(
-    label: String,
-    hint: String,
-    value: Double,
-    onValueChange: (Double) -> Unit,
-) {
-    var lastValidValue by remember { mutableStateOf(value) }
-    var textValue by remember { mutableStateOf(NumberFormatUtil.formatDecimal(value)) }
-    var isEditing by remember { mutableStateOf(false) }
-    var showSavedIndicator by remember { mutableStateOf(false) }
-
-    LaunchedEffect(value) {
-        if (value != lastValidValue) {
-            lastValidValue = value
-            if (!isEditing) textValue = NumberFormatUtil.formatDecimal(value)
-        }
-    }
-
-    LaunchedEffect(showSavedIndicator) {
-        if (showSavedIndicator) {
-            delay(2000.milliseconds)
-            showSavedIndicator = false
-        }
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
-        Text(text = label, style = AppTextStyles.body)
-        OutlinedTextField(
-            value = textValue,
-            onValueChange = { textValue = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { focusState ->
-                    if (focusState.isFocused) {
-                        isEditing = true
-                        textValue = lastValidValue.toString()
-                    } else {
-                        isEditing = false
-                        textValue.toDoubleOrNull()?.let { validDouble ->
-                            if (validDouble != lastValidValue) {
-                                lastValidValue = validDouble
-                                onValueChange(validDouble)
-                                showSavedIndicator = true
-                            }
-                        }
-                        textValue = NumberFormatUtil.formatDecimal(lastValidValue)
-                    }
-                },
-            textStyle = AppTextStyles.body,
-            singleLine = true,
-            isError = isEditing && textValue.toDoubleOrNull() == null,
-            trailingIcon = {
-                AnimatedVisibility(visible = showSavedIndicator, enter = fadeIn(), exit = fadeOut()) {
-                    Icon(Icons.Default.Check, contentDescription = "Saved", tint = AppTextStyles.primaryContent, modifier = Modifier.size(20.dp))
-                }
-            },
-            colors = AppColors.outlinedTextFieldColors(),
-        )
-        Text(text = hint, style = AppTextStyles.caption)
-    }
-}
-
-@Composable
-private fun settingsOptionalIntField(
-    label: String,
-    hint: String,
-    value: Int?,
-    onValueChange: (Int?) -> Unit,
-) {
-    var textValue by remember { mutableStateOf(value?.toString() ?: "") }
-    var lastValidValue by remember { mutableStateOf(value) }
-    var showSavedIndicator by remember { mutableStateOf(false) }
-
-    LaunchedEffect(value) {
-        if (value != lastValidValue) {
-            textValue = value?.toString() ?: ""
-            lastValidValue = value
-        }
-    }
-
-    LaunchedEffect(showSavedIndicator) {
-        if (showSavedIndicator) {
-            delay(2000.milliseconds)
-            showSavedIndicator = false
-        }
-    }
-
-    Column(
-        verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-    ) {
-        Text(
-            text = label,
-            style = AppTextStyles.body,
-        )
-        OutlinedTextField(
-            value = textValue,
-            onValueChange = { newValue ->
-                textValue = newValue
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { focusState ->
-                    if (!focusState.isFocused) {
-                        val newValidValue = if (textValue.isBlank()) {
-                            null
-                        } else {
-                            textValue.toIntOrNull()
-                        }
-
-                        if (newValidValue != lastValidValue && (textValue.isBlank() || textValue.toIntOrNull() != null)) {
-                            lastValidValue = newValidValue
-                            onValueChange(newValidValue)
-                            showSavedIndicator = true
-                        }
-                    }
-                },
-            textStyle = AppTextStyles.body,
-            singleLine = true,
-            isError = textValue.isNotBlank() && textValue.toIntOrNull() == null,
-            trailingIcon = {
-                AnimatedVisibility(
-                    visible = showSavedIndicator,
-                    enter = fadeIn(),
-                    exit = fadeOut(),
-                ) {
-                    Icon(
-                        Icons.Default.Check,
-                        contentDescription = "Saved",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-            },
-            colors = AppColors.outlinedTextFieldColors(),
-        )
-        Text(
-            text = hint,
-            style = AppTextStyles.caption,
-        )
-    }
-}
-
-@Composable
-private fun settingsLongField(
-    label: String,
-    hint: String,
-    value: Long,
-    onValueChange: (Long) -> Unit,
-    minValue: Long? = null,
-) {
-    var lastValidValue by remember { mutableStateOf(value) }
-    var textValue by remember { mutableStateOf(LocalizationManager.formatNumber(value)) }
-    var isEditing by remember { mutableStateOf(false) }
-    var showSavedIndicator by remember { mutableStateOf(false) }
-
-    LaunchedEffect(value) {
-        if (value != lastValidValue) {
-            lastValidValue = value
-            if (!isEditing) textValue = LocalizationManager.formatNumber(value)
-        }
-    }
-
-    LaunchedEffect(showSavedIndicator) {
-        if (showSavedIndicator) {
-            delay(2000.milliseconds)
-            showSavedIndicator = false
-        }
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
-        Text(text = label, style = AppTextStyles.body)
-        OutlinedTextField(
-            value = textValue,
-            onValueChange = { textValue = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { focusState ->
-                    if (focusState.isFocused) {
-                        isEditing = true
-                        textValue = lastValidValue.toString()
-                    } else {
-                        isEditing = false
-                        textValue.toLongOrNull()?.let { parsedLong ->
-                            val validLong = if (minValue != null) parsedLong.coerceAtLeast(minValue) else parsedLong
-                            if (validLong != lastValidValue) {
-                                lastValidValue = validLong
-                                onValueChange(validLong)
-                                showSavedIndicator = true
-                            }
-                        }
-                        textValue = LocalizationManager.formatNumber(lastValidValue)
-                    }
-                },
-            textStyle = AppTextStyles.body,
-            singleLine = true,
-            isError = isEditing && (textValue.toLongOrNull() == null || (minValue != null && (textValue.toLongOrNull() ?: minValue) < minValue)),
-            trailingIcon = {
-                AnimatedVisibility(visible = showSavedIndicator, enter = fadeIn(), exit = fadeOut()) {
-                    Icon(Icons.Default.Check, contentDescription = "Saved", tint = AppTextStyles.primaryContent, modifier = Modifier.size(20.dp))
-                }
-            },
-            colors = AppColors.outlinedTextFieldColors(),
-        )
-        Text(text = hint, style = AppTextStyles.caption)
-    }
-}
-
-/**
- * Editable comma-separated [Set<String>] field.
- * Displays items joined by ", " and parses on focus-lost by splitting on commas.
- */
-@Composable
-private fun settingsStringSetField(
-    label: String,
-    hint: String,
-    value: Set<String>,
-    onValueChange: (Set<String>) -> Unit,
-) {
-    var textValue by remember(value) { mutableStateOf(value.joinToString(", ")) }
-    var showSavedIndicator by remember { mutableStateOf(false) }
-
-    LaunchedEffect(showSavedIndicator) {
-        if (showSavedIndicator) {
-            delay(2000.milliseconds)
-            showSavedIndicator = false
-        }
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
-        Text(
-            text = label,
-            style = AppTextStyles.body,
-        )
-        OutlinedTextField(
-            value = textValue,
-            onValueChange = { textValue = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { focusState ->
-                    if (!focusState.isFocused) {
-                        val parsed = textValue
-                            .split(",")
-                            .map { it.trim() }
-                            .filter { it.isNotEmpty() }
-                            .toSet()
-                        if (parsed != value) {
-                            onValueChange(parsed)
-                            showSavedIndicator = true
-                        }
-                    }
-                },
-            textStyle = AppTextStyles.body,
-            minLines = 2,
-            maxLines = 5,
-            trailingIcon = {
-                AnimatedVisibility(visible = showSavedIndicator, enter = fadeIn(), exit = fadeOut()) {
-                    Icon(
-                        Icons.Default.Check,
-                        contentDescription = "Saved",
-                        tint = AppTextStyles.primaryContent,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-            },
-            colors = AppColors.outlinedTextFieldColors(),
-        )
-        Text(
-            text = hint,
-            style = AppTextStyles.caption,
         )
     }
 }
