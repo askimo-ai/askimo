@@ -64,9 +64,24 @@ object Platform {
     fun openInFileManager(file: File) {
         try {
             when {
-                isMac -> Runtime.getRuntime().exec(arrayOf("open", file.absolutePath))
-                isLinux -> Runtime.getRuntime().exec(arrayOf("xdg-open", file.absolutePath))
-                isWindows -> Runtime.getRuntime().exec(arrayOf("explorer", file.absolutePath))
+                isMac -> if (file.isDirectory) {
+                    Runtime.getRuntime().exec(arrayOf("open", file.absolutePath))
+                } else {
+                    Runtime.getRuntime().exec(arrayOf("open", "-R", file.absolutePath))
+                }
+
+                isWindows -> if (file.isDirectory) {
+                    Runtime.getRuntime().exec(arrayOf("explorer", file.absolutePath))
+                } else {
+                    Runtime.getRuntime().exec(arrayOf("explorer", "/select,", file.absolutePath))
+                }
+
+                isLinux -> {
+                    // xdg-open has no "reveal/select" concept; open the containing folder instead.
+                    val target = if (file.isDirectory) file else file.parentFile ?: file
+                    Runtime.getRuntime().exec(arrayOf("xdg-open", target.absolutePath))
+                }
+
                 else -> if (Desktop.isDesktopSupported()) Desktop.getDesktop().open(file)
             }
         } catch (e: Exception) {

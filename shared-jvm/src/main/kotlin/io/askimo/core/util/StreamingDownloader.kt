@@ -19,7 +19,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicLong
-import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /**
@@ -102,14 +101,14 @@ object StreamingDownloader {
 
         // input.read() is a blocking call — it can't observe coroutine cancellation and isn't
         // bounded by readTimeoutMs (HttpRequest.timeout only covers waiting for headers, not
-        // reading the body). Closing `input` from another thread is the standard way to unblock
-        // a pending read with an IOException, so the watchdog below polls for both an inactivity
-        // timeout and job cancellation, closing the stream the moment either is true.
+        // reading the body). Closing `input` from another thread unblocks a pending read with an
+        // IOException, so the watchdog below polls for inactivity or job cancellation and closes
+        // the stream the moment either is true.
         //
-        // A Job.invokeOnCompletion handler would react faster than polling, but would deadlock
-        // here: it only fires once the job fully completes, and this job can't complete until
-        // the read loop breaks — which needs the handler to run first. (The `onCancelling = true`
-        // variant that fires earlier is an internal API, so it's not used.)
+        // Polling instead of Job.invokeOnCompletion: that handler only fires once the job fully
+        // completes, but the job can't complete until the read loop breaks — which needs the
+        // handler to run first, i.e. a deadlock. (The earlier-firing `onCancelling = true`
+        // variant is an internal API, so it's not used.)
         val lastActivityAt = AtomicLong(System.currentTimeMillis())
         val job = currentCoroutineContext()[Job]
         val watchdog = Thread({
@@ -187,14 +186,26 @@ object StreamingDownloader {
         val future = client.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
         cont.invokeOnCancellation { future.cancel(true) }
         future.whenComplete { result, error ->
-            // Guards against a double-resume: once invokeOnCancellation above fires, the
-            // continuation is no longer active, but cancelling `future` still completes it
-            // (exceptionally), which would otherwise re-enter this callback.
-            if (!cont.isActive) return@whenComplete
+            // Guards against a double-resume: once invokeOnCancellation fires, the continuation
+            // is no longer active, but cancelling `future` still completes it (exceptionally),
+            // which would otherwise re-enter this callback. If the future instead completed
+            // successfully (completion won the race), close its body since no one will read it.
+            //
+            // @Suppress: .close() runs on the future's own completion thread, not a coroutine
+            // dispatcher — the IDE's warning here is a false positive from this lambda's textual
+            // nesting inside a suspend fun.
+            @Suppress("BlockingMethodInNonBlockingContext")
+            if (!cont.isActive) {
+                result?.body()?.close()
+                return@whenComplete
+            }
             if (error != null) {
                 cont.resumeWithException(error)
             } else {
-                cont.resume(result)
+                // Uses the resource-aware resume overload: if cancellation wins the narrower race
+                // between this isActive check and delivery of the resumed value, onCancellation
+                // closes the body that would otherwise never be read/closed by anyone.
+                cont.resume(result) { _, _, _ -> result.body().close() }
             }
         }
     }

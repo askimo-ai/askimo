@@ -596,11 +596,12 @@ private fun localLlmModelsCard() {
     LaunchedEffect(Unit) { runSearch() }
 
     // Rescans disk for every downloaded model (see listDownloadedEntries's doc) — keeps a model
-    // manageable even after it's no longer in the current search/popular results. Re-runs when a
-    // download finishes (modelDownloads) or a row is deleted (diskScanTrigger, from
-    // localLlmModelRow).
+    // manageable even after it's no longer in the current search/popular results. Keyed by the
+    // file-name *set*, not the map itself: downloadedBytes changes every buffer, which would
+    // otherwise re-trigger this (and its disk scan) constantly during a download.
     val modelDownloads by LlamaDownloadManager.modelDownloads.collectAsState()
-    LaunchedEffect(modelDownloads, diskScanTrigger) {
+    val downloadKeys = remember(modelDownloads) { modelDownloads.keys.toSet() }
+    LaunchedEffect(downloadKeys, diskScanTrigger) {
         downloadedEntries = withContext(Dispatchers.IO) { LlamaModelDownloader.listDownloadedEntries() }
     }
 
@@ -807,7 +808,7 @@ private fun localLlmModelRow(entry: LlamaModelEntry, onModelDeleted: () -> Unit)
                     }
                     entry.lastModified?.let {
                         if (isNotEmpty()) append("  ·  ")
-                        append("updated ${formatHfTimestamp(it)}")
+                        append(LocalizationManager.getString("settings.local_llm.models.updated_on", formatHfTimestamp(it)))
                     }
                 }
                 if (hfMeta.isNotEmpty()) {
