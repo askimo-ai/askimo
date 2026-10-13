@@ -95,12 +95,14 @@ object LlamaModelDownloader {
                 .filter { Files.isRegularFile(it) && it.fileName.toString().endsWith(".gguf", ignoreCase = true) }
                 .map { path ->
                     val fileName = path.fileName.toString()
-                    loadMetadata(fileName) ?: LlamaModelEntry(
-                        fileName = fileName,
-                        labelKey = "",
-                        approxSizeBytes = runCatching { Files.size(path) }.getOrDefault(0L),
-                        downloadUrl = "",
-                    )
+                    (
+                        loadMetadata(fileName) ?: LlamaModelEntry(
+                            fileName = fileName,
+                            labelKey = "",
+                            approxSizeBytes = runCatching { Files.size(path) }.getOrDefault(0L),
+                            downloadUrl = "",
+                        )
+                        ).copy(fileName = fileName)
                 }
                 .sorted(compareBy { it.fileName })
                 .toList()
