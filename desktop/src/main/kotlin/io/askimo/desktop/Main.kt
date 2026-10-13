@@ -317,7 +317,7 @@ fun main(args: Array<String>) {
                 } catch (e: Exception) {
                     log.warn("stopProxy() failed while quitting; exiting anyway", e)
                 } finally {
-                    withContext(Dispatchers.Main) { exitApplication() }
+                    exitApplication()
                 }
             }
         }

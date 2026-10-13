@@ -5,14 +5,17 @@
 package io.askimo.core.providers.llama
 
 import io.askimo.core.logging.logger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * App-scoped owner of `llama-server` binary + `.gguf` model download state, so downloads
@@ -44,6 +47,9 @@ object LlamaDownloadManager {
     /** `null` when no binary download is running and no error is pending acknowledgement. */
     val binaryDownload: StateFlow<BinaryDownloadState?> = _binaryDownload.asStateFlow()
 
+    /** Tracks the in-flight binary download [Job] so [cancelBinaryDownload] can cancel it. */
+    private var binaryDownloadJob: Job? = null
+
     /** Starts downloading [platform]'s `llama-server` binary, unless one is already in progress (no-op). */
     fun startBinaryDownload(platform: LlamaServerPlatform) {
         val existing = _binaryDownload.value
@@ -52,17 +58,31 @@ object LlamaDownloadManager {
             return
         }
         _binaryDownload.value = BinaryDownloadState()
-        scope.launch {
+        binaryDownloadJob = scope.launch {
             try {
                 LlamaServerDownloader.download(platform) { done, total ->
                     _binaryDownload.update { it?.copy(downloadedBytes = done, totalBytes = total) }
                 }
                 _binaryDownload.value = null
+            } catch (e: CancellationException) {
+                // User-initiated cancel (see cancelBinaryDownload) — StreamingDownloader.download
+                // already deletes the partial file; just clear the tracked state (not an error).
+                _binaryDownload.value = null
+                throw e
             } catch (e: Exception) {
                 log.warn("llama-server binary download failed", e)
                 _binaryDownload.update { it?.copy(error = e.message ?: "Unknown error") }
             }
         }
+    }
+
+    /**
+     * Cancels an in-progress binary download, if any (no-op otherwise). The underlying
+     * [io.askimo.core.util.StreamingDownloader] already deletes the partial file on cancellation,
+     * so this just needs to cancel the coroutine actually doing the downloading.
+     */
+    fun cancelBinaryDownload() {
+        binaryDownloadJob?.cancel()
     }
 
     /** Dismisses a failed binary download's error state (e.g. before retrying). */
@@ -84,6 +104,9 @@ object LlamaDownloadManager {
     /** Keyed by [LlamaModelEntry.fileName]; absent = not downloading and no pending error. */
     val modelDownloads: StateFlow<Map<String, ModelDownloadState>> = _modelDownloads.asStateFlow()
 
+    /** Tracks each in-flight model download's [Job] (keyed by file name) so [cancelModelDownload] can cancel it. */
+    private val modelDownloadJobs = ConcurrentHashMap<String, Job>()
+
     /** Starts downloading [entry], unless it's already downloading (no-op). */
     fun startModelDownload(entry: LlamaModelEntry) {
         val fileName = entry.fileName
@@ -93,16 +116,32 @@ object LlamaDownloadManager {
             return
         }
         _modelDownloads.update { it + (fileName to ModelDownloadState()) }
-        scope.launch {
+        val job = scope.launch {
             try {
                 LlamaModelDownloader.download(entry) { done, total ->
                     _modelDownloads.update { it + (fileName to ModelDownloadState(done, total)) }
                 }
                 _modelDownloads.update { it - fileName }
+            } catch (e: CancellationException) {
+                // User-initiated cancel (see cancelModelDownload) — StreamingDownloader.download
+                // already deletes the partial file; just clear the tracked state (not an error).
+                _modelDownloads.update { it - fileName }
+                throw e
             } catch (e: Exception) {
                 log.warn("Model download failed for {}", fileName, e)
                 _modelDownloads.update { it + (fileName to ModelDownloadState(error = e.message ?: "Unknown error")) }
             }
         }
+        modelDownloadJobs[fileName] = job
+        job.invokeOnCompletion { modelDownloadJobs.remove(fileName, job) }
+    }
+
+    /**
+     * Cancels [fileName]'s in-progress download, if any (no-op otherwise). The underlying
+     * [io.askimo.core.util.StreamingDownloader] already deletes the partial `.part` file on
+     * cancellation, so this just needs to cancel the coroutine actually doing the downloading.
+     */
+    fun cancelModelDownload(fileName: String) {
+        modelDownloadJobs[fileName]?.cancel()
     }
 }

@@ -7,6 +7,8 @@ package io.askimo.core.providers.llama
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import io.askimo.core.config.AppConfig
+import io.askimo.core.event.EventBus
+import io.askimo.core.event.error.LlamaServerStartFailedEvent
 import io.askimo.core.logging.logger
 import io.askimo.core.util.AskimoHome
 import io.askimo.core.util.ProcessBuilderExt
@@ -333,6 +335,8 @@ object LlamaServerProcessManager {
      * Loads (or swaps to) [entry] in its corresponding slot (chat or embedding) — used by the
      * Settings "Local LLM" page's Select/Start button, independent of the proxy's own lifecycle
      * (see [startProxy]/[stopProxy]). Throws if the binary or the model file isn't downloaded yet.
+     * Also posts a [LlamaServerStartFailedEvent] if the child process itself fails to start or
+     * become healthy — see [ensureModelLoaded] for the equivalent on-demand-request path.
      */
     suspend fun loadModel(entry: LlamaModelEntry) {
         val modelPath = LlamaModelDownloader.modelPath(entry)
@@ -351,6 +355,15 @@ object LlamaServerProcessManager {
             try {
                 stopSlotLocked(slot)
                 startSlotLocked(slot, modelPath, entry.isEmbedding)
+            } catch (e: Exception) {
+                EventBus.post(
+                    LlamaServerStartFailedEvent(
+                        modelFileName = entry.fileName,
+                        isEmbedding = entry.isEmbedding,
+                        cause = e,
+                    ),
+                )
+                throw e
             } finally {
                 if (slot.status.value.loading) {
                     slot.status.value = slot.status.value.copy(loading = false, loadingModelFileName = null)
@@ -464,7 +477,20 @@ object LlamaServerProcessManager {
             }
 
             val slot = slotFor(isEmbeddingRequest)
-            val targetPort = runBlocking { ensureModelLoaded(slot, modelPath, isEmbeddingRequest) }
+            val targetPort = try {
+                runBlocking { ensureModelLoaded(slot, modelPath, isEmbeddingRequest) }
+            } catch (e: Exception) {
+                log.warn("llama-server failed to load model \"{}\": {}", modelFileName, e.message, e)
+                EventBus.post(
+                    LlamaServerStartFailedEvent(
+                        modelFileName = modelFileName,
+                        isEmbedding = isEmbeddingRequest,
+                        cause = e,
+                    ),
+                )
+                writeError(exchange, 502, "Local LLM proxy error: ${e.message}")
+                return
+            }
             acquiredSlot = slot
             forwardRequest(exchange, targetPort, bodyBytes)
         } catch (e: Exception) {

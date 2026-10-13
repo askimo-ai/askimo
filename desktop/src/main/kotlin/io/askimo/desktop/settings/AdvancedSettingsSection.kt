@@ -73,8 +73,6 @@ import io.askimo.ui.util.Platform
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
-import java.awt.Desktop
-import java.io.File
 import kotlin.time.Duration.Companion.milliseconds
 
 private val log = currentFileLogger()
@@ -294,7 +292,7 @@ private fun logViewerCard(
                 secondaryButton(
                     onClick = {
                         val logDir = LoggingService.getLogDirectory()
-                        openInFileManager(logDir.toFile())
+                        Platform.openInFileManager(logDir.toFile())
                     },
                 ) {
                     Icon(
@@ -316,36 +314,6 @@ private fun logViewerCard(
                 )
             }
         }
-    }
-}
-
-/**
- * Opens a file or directory in the system's file manager.
- * Platform-aware implementation for macOS, Linux, and Windows.
- */
-private fun openInFileManager(file: File) {
-    try {
-        when {
-            Platform.isMac -> {
-                Runtime.getRuntime().exec(arrayOf("open", file.absolutePath))
-            }
-
-            Platform.isLinux -> {
-                Runtime.getRuntime().exec(arrayOf("xdg-open", file.absolutePath))
-            }
-
-            Platform.isWindows -> {
-                Runtime.getRuntime().exec(arrayOf("explorer", file.absolutePath))
-            }
-
-            else -> {
-                if (Desktop.isDesktopSupported()) {
-                    Desktop.getDesktop().open(file)
-                }
-            }
-        }
-    } catch (e: Exception) {
-        log.error("Failed to open log directory: ${file.absolutePath}", e)
     }
 }
 

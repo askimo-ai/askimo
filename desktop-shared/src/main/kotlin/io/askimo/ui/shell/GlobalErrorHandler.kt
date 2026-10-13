@@ -5,10 +5,12 @@
 package io.askimo.ui.shell
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import io.askimo.core.AppConstants
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.error.AppErrorEvent
 import io.askimo.core.event.error.IndexingErrorEvent
 import io.askimo.core.event.error.IndexingErrorType
+import io.askimo.core.event.error.LlamaServerStartFailedEvent
 import io.askimo.core.event.error.ModelNotAvailableEvent
 import io.askimo.core.event.error.SendMessageErrorEvent
 import io.askimo.core.event.internal.NavigateToProviderSettingsEvent
@@ -33,6 +35,19 @@ data class ErrorDialogState(
     /** Callback invoked when the user clicks the action button. The dialog is dismissed before this runs. */
     val action: (() -> Unit)? = null,
 )
+
+/**
+ * Appends the localized "need help? visit our forum" hint to [message] — same wording/link as
+ * [io.askimo.core.exception.ExceptionHandler]'s report-bug hint, kept consistent across every
+ * error surface in the app (CLI exception rendering and this global error dialog alike).
+ */
+private fun withForumHint(message: String): String {
+    val hint = LocalizationManager.getString(
+        "error.report_bug_hint",
+        "https://${AppConstants.DOMAIN}/forum/section/?s=help",
+    )
+    return "$message\n\n$hint"
+}
 
 /**
  * Listens to [EventBus.errorEvents] and surfaces errors through [ErrorDialogState].
@@ -61,10 +76,12 @@ fun globalErrorHandler(onStateChange: (ErrorDialogState) -> Unit) {
                                 ErrorDialogState(
                                     show = true,
                                     title = LocalizationManager.getString("error.indexing.model_not_found.title"),
-                                    message = LocalizationManager.getString(
-                                        "error.indexing.model_not_found.message",
-                                        modelName,
-                                        provider,
+                                    message = withForumHint(
+                                        LocalizationManager.getString(
+                                            "error.indexing.model_not_found.message",
+                                            modelName,
+                                            provider,
+                                        ),
                                     ),
                                 ),
                             )
@@ -76,9 +93,11 @@ fun globalErrorHandler(onStateChange: (ErrorDialogState) -> Unit) {
                                 ErrorDialogState(
                                     show = true,
                                     title = LocalizationManager.getString("error.indexing.input_too_large.title"),
-                                    message = LocalizationManager.getString(
-                                        "error.indexing.input_too_large.message",
-                                        files,
+                                    message = withForumHint(
+                                        LocalizationManager.getString(
+                                            "error.indexing.input_too_large.message",
+                                            files,
+                                        ),
                                     ),
                                     details = event.details["message"],
                                 ),
@@ -90,8 +109,10 @@ fun globalErrorHandler(onStateChange: (ErrorDialogState) -> Unit) {
                                 ErrorDialogState(
                                     show = true,
                                     title = LocalizationManager.getString("error.indexing.io_error.title"),
-                                    message = event.details["message"]
-                                        ?: LocalizationManager.getString("error.indexing.io_error.message"),
+                                    message = withForumHint(
+                                        event.details["message"]
+                                            ?: LocalizationManager.getString("error.indexing.io_error.message"),
+                                    ),
                                 ),
                             )
                         }
@@ -101,8 +122,10 @@ fun globalErrorHandler(onStateChange: (ErrorDialogState) -> Unit) {
                                 ErrorDialogState(
                                     show = true,
                                     title = LocalizationManager.getString("error.indexing.unknown.title"),
-                                    message = event.details["message"]
-                                        ?: LocalizationManager.getString("error.indexing.unknown.message"),
+                                    message = withForumHint(
+                                        event.details["message"]
+                                            ?: LocalizationManager.getString("error.indexing.unknown.message"),
+                                    ),
                                 ),
                             )
                         }
@@ -119,14 +142,18 @@ fun globalErrorHandler(onStateChange: (ErrorDialogState) -> Unit) {
                                 LocalizationManager.getString("error.model.not_available.title.chat")
                             },
                             message = if (event.isEmbedding) {
-                                LocalizationManager.getString(
-                                    "error.model.not_available.message.embedding",
-                                    event.modelName,
+                                withForumHint(
+                                    LocalizationManager.getString(
+                                        "error.model.not_available.message.embedding",
+                                        event.modelName,
+                                    ),
                                 )
                             } else {
-                                LocalizationManager.getString(
-                                    "error.model.not_available.message.chat",
-                                    event.modelName,
+                                withForumHint(
+                                    LocalizationManager.getString(
+                                        "error.model.not_available.message.chat",
+                                        event.modelName,
+                                    ),
                                 )
                             },
                             linkText = if (event.isEmbedding) {
@@ -139,6 +166,26 @@ fun globalErrorHandler(onStateChange: (ErrorDialogState) -> Unit) {
                             } else {
                                 null
                             },
+                        ),
+                    )
+                }
+
+                is LlamaServerStartFailedEvent -> {
+                    onStateChange(
+                        ErrorDialogState(
+                            show = true,
+                            title = if (event.isEmbedding) {
+                                LocalizationManager.getString("error.llama_server.start_failed.title.embedding")
+                            } else {
+                                LocalizationManager.getString("error.llama_server.start_failed.title.chat")
+                            },
+                            message = withForumHint(
+                                LocalizationManager.getString(
+                                    "error.llama_server.start_failed.message",
+                                    event.reason,
+                                ),
+                            ),
+                            details = event.cause.stackTraceToString(),
                         ),
                     )
                 }
@@ -157,7 +204,7 @@ fun globalErrorHandler(onStateChange: (ErrorDialogState) -> Unit) {
                         ErrorDialogState(
                             show = true,
                             title = LocalizationManager.getString("error.send_message.title"),
-                            message = localizedMsg,
+                            message = withForumHint(localizedMsg),
                             actionLabel = if (isProviderConfigError) {
                                 LocalizationManager.getString("error.action.configure_provider")
                             } else {
@@ -179,7 +226,7 @@ fun globalErrorHandler(onStateChange: (ErrorDialogState) -> Unit) {
                         ErrorDialogState(
                             show = true,
                             title = event.title,
-                            message = event.message,
+                            message = withForumHint(event.message),
                             details = event.cause?.message,
                         ),
                     )

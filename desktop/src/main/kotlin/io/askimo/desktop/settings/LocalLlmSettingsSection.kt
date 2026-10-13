@@ -6,6 +6,7 @@ package io.askimo.desktop.settings
 
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,10 +48,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.config.AppConfig
 import io.askimo.core.i18n.LocalizationManager
-import io.askimo.core.logging.Logger
 import io.askimo.core.providers.llama.HuggingFaceGgufBrowser
 import io.askimo.core.providers.llama.LlamaDownloadManager
 import io.askimo.core.providers.llama.LlamaModelCatalog
@@ -68,11 +70,14 @@ import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.util.Platform
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.awt.Desktop
-import java.io.File
-
-private val log = Logger("LocalLlmSettingsSection")
+import java.net.URI
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 /**
  * Settings page for Askimo's built-in local LLM — downloading the `llama-server` binary and
@@ -153,12 +158,10 @@ private fun localLlmBinaryCard() {
         mutableStateOf(platform?.let { LlamaServerDownloader.installedVersion(it) })
     }
 
-    // Backfills the version marker for installs from pre-tracking Askimo builds (see
-    // LlamaServerDownloader.installedVersion's doc) — otherwise their version never appears here,
-    // since an already-downloaded binary starts the Switch "on", giving the user no reason to
-    // toggle it off/on to re-trigger download(). No network call: only writes the marker where
-    // the install path itself proves the version (macOS/Linux); no-op on Windows, where it can't
-    // be proven without a real download — which would violate this page's explicit-download rule.
+    // Backfills the version marker for pre-tracking installs (see
+    // LlamaServerDownloader.installedVersion's doc) — an already-downloaded binary starts the
+    // Switch "on", so there's no other trigger to re-detect its version. No network call: only
+    // writes the marker where the install path itself proves it (macOS/Linux); no-op on Windows.
     LaunchedEffect(platform, isDownloaded) {
         if (platform != null && isDownloaded && installedVersion == null) {
             LlamaServerDownloader.backfillVersionMarkerIfProvable(platform)
@@ -166,10 +169,9 @@ private fun localLlmBinaryCard() {
         }
     }
 
-    // Refreshes isDownloaded/installedVersion once a download (started from here, or from a
-    // previous visit to this page — see LlamaDownloadManager's doc) finishes, since the download
-    // itself now runs app-scoped rather than tied to this Composable's lifecycle — fixes the
-    // same bug class previously found with the Whisper STT model download.
+    // Refreshes isDownloaded/installedVersion once a download (from here or a previous visit —
+    // see LlamaDownloadManager's doc) finishes, since downloads run app-scoped rather than tied
+    // to this Composable's lifecycle.
     LaunchedEffect(binaryDownloadState, platform) {
         if (platform != null && binaryDownloadState == null) {
             val nowDownloaded = LlamaServerDownloader.isDownloaded(platform)
@@ -180,21 +182,13 @@ private fun localLlmBinaryCard() {
         }
     }
 
-    // Starts the stable reverse-proxy endpoint as soon as the engine is enabled — whether that's
-    // because a download just finished, or because the binary was already downloaded from a
-    // previous session and the user is revisiting this page. Unlike actual model loading, this
-    // requires no model at all — it just makes the "Local LLM (built-in)" AI provider connectable
-    // (listing downloaded models via GET /models) right away. See startProxy's doc.
-    //
-    // Also best-effort warms up whichever model was actually resident last session in the
-    // background (see AppConfig.localLlm / LlamaServerProcessManager's persistence in
-    // startSlotLocked) — purely an invisible latency optimization, not a user-facing control.
-    // Model *loading* into memory is otherwise fully automatic/lazy, driven by real chat/
-    // embedding requests through the proxy (see LlamaServerProcessManager.ensureModelLoaded), and
-    // model *selection* happens in Settings > AI Provider's model picker for the Local LLM
-    // instance — exactly like any other provider. This page only manages what's downloaded to
-    // disk (see localLlmModelsCard/localLlmModelRow): download/delete, nothing more. Silently
-    // no-ops below if the last-used model is no longer downloaded.
+    // Starts the reverse-proxy endpoint as soon as the engine is enabled (fresh download or a
+    // prior session's binary) — requires no model, just makes the provider connectable via
+    // GET /models (see startProxy's doc). Also best-effort warms up last session's resident model
+    // in the background (see AppConfig.localLlm); purely a latency optimization, not user-facing.
+    // Model loading itself stays fully automatic/lazy via real requests (see
+    // LlamaServerProcessManager.ensureModelLoaded); this page only manages what's on disk. No-ops
+    // if the last-used model is no longer downloaded.
     LaunchedEffect(platform, isDownloaded) {
         if (platform != null && isDownloaded) {
             LlamaServerProcessManager.startProxy()
@@ -246,12 +240,9 @@ private fun localLlmBinaryCard() {
                             if (checked) {
                                 LlamaDownloadManager.startBinaryDownload(platform)
                             } else {
-                                // Must stop the proxy/child process and *wait* for it before
-                                // deleting the binary — launching stopProxy() fire-and-forget
-                                // while deleting immediately races the shutdown: on Windows in
-                                // particular, the executable/shared libraries stay locked while
-                                // the process is still exiting, so the delete can fail silently
-                                // even though the UI has already flipped to "disabled".
+                                // Stop the proxy/process and *wait* before deleting — deleting
+                                // fire-and-forget races shutdown (on Windows especially, the
+                                // executable stays locked until the process fully exits).
                                 scope.launch {
                                     LlamaServerProcessManager.stopProxy()
                                     LlamaServerDownloader.delete(platform)
@@ -269,7 +260,7 @@ private fun localLlmBinaryCard() {
                 Text(
                     text = stringResource("settings.local_llm.binary.unsupported_platform"),
                     style = AppTextStyles.caption,
-                    color = MaterialTheme.colorScheme.error,
+                    color = AppColors.warningColor(),
                 )
                 return@Column
             }
@@ -294,7 +285,11 @@ private fun localLlmBinaryCard() {
                                 stringResource("settings.local_llm.server.stopped")
                             },
                             style = AppTextStyles.caption,
-                            color = if (proxyStatus.running) MaterialTheme.colorScheme.primary else AppTextStyles.secondaryContent,
+                            color = if (proxyStatus.running) {
+                                AppColors.statusIconColor(AppColors.StatusTone.SUCCESS)
+                            } else {
+                                AppTextStyles.secondaryContent
+                            },
                         )
                         installedVersion?.let { version ->
                             Text(
@@ -304,10 +299,8 @@ private fun localLlmBinaryCard() {
                             )
                         }
                     }
-                    // Explicit delete, independent of the enable/disable Switch above — lets
-                    // users force a clean reinstall (e.g. ahead of a future upgrade flow)
-                    // without having to reason about the Switch's combined "disable AND
-                    // delete" semantics.
+                    // Explicit delete, separate from the Switch above — lets users force a clean
+                    // reinstall without the Switch's combined "disable AND delete" semantics.
                     OutlinedButton(
                         enabled = !downloading,
                         onClick = {
@@ -427,7 +420,7 @@ private fun localLlmBinaryCard() {
                     hint = stringResource("settings.local_llm.numa_mode.hint"),
                     value = AppConfig.localLlm.numaMode,
                     options = NUMA_MODES,
-                    displayName = { if (it.isBlank()) stringResource("settings.local_llm.numa_mode.disabled") else it },
+                    displayName = { it.ifBlank { stringResource("settings.local_llm.numa_mode.disabled") } },
                     onValueChange = { newValue -> AppConfig.updateField("localLlm.numaMode", newValue) },
                 )
                 AppComponents.settingsIntField(
@@ -458,7 +451,11 @@ private fun localLlmBinaryCard() {
             }
 
             if (downloading) {
-                downloadProgress(binaryDownloadState?.downloadedBytes ?: 0L, binaryDownloadState?.totalBytes ?: -1L)
+                downloadProgress(
+                    binaryDownloadState?.downloadedBytes ?: 0L,
+                    binaryDownloadState?.totalBytes ?: -1L,
+                    onCancel = { LlamaDownloadManager.cancelBinaryDownload() },
+                )
             } else if (!isDownloaded) {
                 Text(
                     text = stringResource("settings.local_llm.binary.not_downloaded"),
@@ -471,7 +468,7 @@ private fun localLlmBinaryCard() {
                 Text(
                     text = LocalizationManager.getString("settings.local_llm.download_failed", error),
                     style = AppTextStyles.caption,
-                    color = MaterialTheme.colorScheme.error,
+                    color = AppColors.warningColor(),
                 )
             }
         }
@@ -525,18 +522,23 @@ private fun localLlmCacheTypeField(
 }
 
 /**
- * Unified download-management card for every `.gguf` model — curated catalog entries
- * ([LlamaModelCatalog.allEntries]) plus ad-hoc Hugging Face search results
- * ([HuggingFaceGgufBrowser]), each with its own download/delete control.
+ * Unified download-management card for every `.gguf` model — curated embedding entries
+ * ([LlamaModelCatalog.allEntries]) plus live Hugging Face results ([HuggingFaceGgufBrowser]).
+ * Chat models aren't hardcoded: the card defaults to Hugging Face's most-downloaded GGUF repos
+ * (see [HuggingFaceGgufBrowser.popularModels]) and the search box narrows that down — see
+ * [LlamaModelCatalog]'s class doc for why only embedding models stay curated.
  *
- * Deliberately **not** split into "chat" vs. "embedding" sections: which role a downloaded
- * model actually plays is decided entirely by which field (`defaultModel`/`utilityModel`/
- * `embeddingModel`, etc.) the user assigns its filename to in Settings > AI Provider for the
- * "Local LLM (built-in)" instance — exactly like any other OpenAI-compatible provider, where
- * Askimo has no way to know in advance which of the user's model names are chat vs. embedding
- * models either. [LlamaModelEntry.isEmbedding]/[LlamaModelEntry.poolingType] remain purely
- * process-launch metadata (picking the right `--pooling` value and child-process slot — see
- * [LlamaServerProcessManager]), surfaced here only as a small informational badge per row.
+ * Layout, top to bottom: (1) "Downloaded Models" — everything already on disk (see
+ * [LlamaModelDownloader.listDownloadedEntries]), so a model stays manageable even once it scrolls
+ * out of the live results below; (2) the search box; (3) browsable catalog/search results,
+ * excluding anything already shown in (1).
+ *
+ * Deliberately **not** split into "chat" vs. "embedding" sections: a model's role is decided by
+ * which field (`defaultModel`/`utilityModel`/`embeddingModel`) the user assigns it to in
+ * Settings > AI Provider — exactly like any other OpenAI-compatible provider.
+ * [LlamaModelEntry.isEmbedding]/[LlamaModelEntry.poolingType] are purely process-launch metadata
+ * (picking `--pooling` and a child-process slot — see [LlamaServerProcessManager]), shown here
+ * only as a small badge per row.
  */
 @Composable
 private fun localLlmModelsCard() {
@@ -546,13 +548,21 @@ private fun localLlmModelsCard() {
     var searchError by remember { mutableStateOf<String?>(null) }
     var searchResults by remember { mutableStateOf<List<LlamaModelEntry>>(emptyList()) }
     var hasSearched by remember { mutableStateOf(false) }
+    var downloadedEntries by remember { mutableStateOf<List<LlamaModelEntry>>(emptyList()) }
+    var diskScanTrigger by remember { mutableStateOf(0) }
 
     fun runSearch() {
         isSearching = true
         searchError = null
         scope.launch {
             try {
-                searchResults = HuggingFaceGgufBrowser.search(query.trim())
+                // Blank query = Hugging Face's most-downloaded GGUF repos overall (see
+                // popularModels's doc) — also what's auto-loaded on first composition below.
+                searchResults = if (query.isBlank()) {
+                    HuggingFaceGgufBrowser.popularModels()
+                } else {
+                    HuggingFaceGgufBrowser.search(query.trim())
+                }
                 hasSearched = true
             } catch (e: Exception) {
                 searchError = e.message
@@ -562,11 +572,29 @@ private fun localLlmModelsCard() {
         }
     }
 
-    // Curated catalog entries always shown; search results append any not already in the
-    // catalog (by fileName) so a search that happens to match a curated model doesn't duplicate
-    // its row.
-    val catalogFileNames = remember { LlamaModelCatalog.allEntries.map { it.fileName }.toSet() }
-    val displayedEntries = LlamaModelCatalog.allEntries + searchResults.filter { it.fileName !in catalogFileNames }
+    // Loads the default "Popular on Hugging Face" list on open — chat models aren't curated
+    // (see LlamaModelCatalog's class doc), so without this only the curated embedding entries
+    // would show until the user searches.
+    LaunchedEffect(Unit) { runSearch() }
+
+    // Rescans disk for every downloaded model (see listDownloadedEntries's doc) — keeps a model
+    // manageable even after it's no longer in the current search/popular results. Re-runs when a
+    // download finishes (modelDownloads) or a row is deleted (diskScanTrigger, from
+    // localLlmModelRow).
+    val modelDownloads by LlamaDownloadManager.modelDownloads.collectAsState()
+    LaunchedEffect(modelDownloads, diskScanTrigger) {
+        downloadedEntries = withContext(Dispatchers.IO) { LlamaModelDownloader.listDownloadedEntries() }
+    }
+
+    // Always reflects what's on disk, regardless of the current search/popular results — shown
+    // as its own section above the search box.
+    val downloadedFileNames = remember(downloadedEntries) { downloadedEntries.map { it.fileName }.toSet() }
+
+    // Curated entries + live results, excluding anything already downloaded (shown above instead)
+    // so a model never appears twice with conflicting Download/Delete controls.
+    val browseEntries = (LlamaModelCatalog.allEntries + searchResults)
+        .distinctBy { it.fileName }
+        .filter { it.fileName !in downloadedFileNames }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -590,7 +618,7 @@ private fun localLlmModelsCard() {
                     )
                 }
                 OutlinedButton(
-                    onClick = { openInFileManager(AskimoHome.llamaModelsDir().toFile()) },
+                    onClick = { Platform.openInFileManager(AskimoHome.llamaModelsDir().toFile()) },
                     modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                 ) {
                     Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -599,6 +627,19 @@ private fun localLlmModelsCard() {
                         modifier = Modifier.padding(start = Spacing.extraSmall),
                     )
                 }
+            }
+
+            // Downloaded models always come first, regardless of search state.
+            if (downloadedEntries.isNotEmpty()) {
+                Text(
+                    text = stringResource("settings.local_llm.models.downloaded_title"),
+                    style = AppTextStyles.fieldLabel,
+                )
+                downloadedEntries.forEach { entry ->
+                    HorizontalDivider()
+                    localLlmModelRow(entry, onModelDeleted = { diskScanTrigger++ })
+                }
+                HorizontalDivider()
             }
 
             Row(
@@ -630,7 +671,7 @@ private fun localLlmModelsCard() {
                 Text(
                     text = LocalizationManager.getString("settings.local_llm.hf_browser.search_failed", error),
                     style = AppTextStyles.caption,
-                    color = MaterialTheme.colorScheme.error,
+                    color = AppColors.warningColor(),
                 )
             }
             if (hasSearched && searchResults.isEmpty() && !isSearching && searchError == null) {
@@ -641,16 +682,35 @@ private fun localLlmModelsCard() {
                 )
             }
 
-            displayedEntries.forEach { entry ->
+            browseEntries.forEach { entry ->
                 HorizontalDivider()
-                localLlmModelRow(entry)
+                localLlmModelRow(entry, onModelDeleted = { diskScanTrigger++ })
             }
         }
     }
 }
 
+/**
+ * Formats a raw count (e.g. Hugging Face downloads/likes) as a compact human-readable string,
+ * e.g. `1_234_567 -> "1.2M"`, `8_400 -> "8.4K"`. Values under 1000 are shown as-is.
+ */
+private fun formatMetricCount(count: Long): String = when {
+    count >= 1_000_000 -> "${(count / 100_000 / 10.0).let { "%.1f".format(it) }}M"
+    count >= 1_000 -> "${(count / 100 / 10.0).let { "%.1f".format(it) }}K"
+    else -> count.toString()
+}
+
+/** Parses a Hugging Face API ISO-8601 timestamp (e.g. `lastModified`) into a short local date, e.g. `2026-10-12`. */
+private fun formatHfTimestamp(isoTimestamp: String): String = try {
+    DateTimeFormatter.ofPattern("yyyy-MM-dd")
+        .withZone(ZoneId.systemDefault())
+        .format(Instant.parse(isoTimestamp))
+} catch (_: Exception) {
+    isoTimestamp.take(10)
+}
+
 @Composable
-private fun localLlmModelRow(entry: LlamaModelEntry) {
+private fun localLlmModelRow(entry: LlamaModelEntry, onModelDeleted: () -> Unit) {
     val scope = rememberCoroutineScope()
     val downloadsByFileName by LlamaDownloadManager.modelDownloads.collectAsState()
     val downloadState = downloadsByFileName[entry.fileName]
@@ -659,10 +719,8 @@ private fun localLlmModelRow(entry: LlamaModelEntry) {
     var isDeleting by remember(entry.fileName) { mutableStateOf(false) }
     var deleteError by remember(entry.fileName) { mutableStateOf<String?>(null) }
 
-    // Refreshes isDownloaded once this entry's download (started from here, or from a previous
-    // visit to this page — see LlamaDownloadManager's doc) finishes, since the download itself
-    // now runs app-scoped rather than tied to this row's Composable lifecycle — fixes the same
-    // bug class previously found with the Whisper STT model download.
+    // Refreshes isDownloaded once this entry's download (from here or a previous visit) finishes,
+    // since downloads run app-scoped rather than tied to this row's lifecycle.
     LaunchedEffect(downloadState, entry.fileName) {
         if (downloadState == null) {
             val nowDownloaded = LlamaModelDownloader.isDownloaded(entry)
@@ -676,11 +734,24 @@ private fun localLlmModelRow(entry: LlamaModelEntry) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(modifier = Modifier.weight(1f).padding(end = Spacing.large)) {
+            Column(
+                modifier = Modifier.weight(1f).padding(end = Spacing.large),
+                verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+                    val title = entry.label ?: stringResource(entry.labelKey).ifBlank { entry.fileName }
                     Text(
-                        text = entry.label ?: stringResource(entry.labelKey).ifBlank { entry.fileName },
+                        text = title,
                         style = AppTextStyles.fieldLabel,
+                        color = if (entry.sourceRepoId != null) MaterialTheme.colorScheme.primary else AppTextStyles.primaryContent,
+                        textDecoration = if (entry.sourceRepoId != null) TextDecoration.Underline else null,
+                        modifier = entry.sourceRepoId?.let { repoId ->
+                            Modifier
+                                .clickable {
+                                    runCatching { Desktop.getDesktop().browse(URI("https://huggingface.co/$repoId")) }
+                                }
+                                .pointerHoverIcon(PointerIcon.Hand)
+                        } ?: Modifier,
                     )
                     if (entry.isEmbedding) {
                         Text(
@@ -696,21 +767,49 @@ private fun localLlmModelRow(entry: LlamaModelEntry) {
                 val caption = buildString {
                     append(entry.fileName)
                     if (entry.approxSizeBytes > 0) append(" · ${entry.approxSizeBytes / (1024 * 1024)} MB")
-                    entry.sourceRepoId?.let { append(" · $it") }
                 }
-                Text(text = caption, style = AppTextStyles.caption, color = AppTextStyles.secondaryContent)
+                // Raw .gguf file name is a disk/proxy implementation detail, not meant to be
+                // read/decoded by the user, so it's truncated rather than wrapped — the repo
+                // link above is what's actually actionable.
+                Text(
+                    text = caption,
+                    style = AppTextStyles.caption,
+                    color = AppTextStyles.secondaryContent,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+
+                // Hugging Face popularity/freshness metadata — null (and omitted) for curated
+                // catalog entries.
+                val hfMeta = buildString {
+                    entry.downloads?.let { append("⬇ ${formatMetricCount(it)}") }
+                    entry.likes?.let {
+                        if (isNotEmpty()) append("  ·  ")
+                        append("♥ ${formatMetricCount(it)}")
+                    }
+                    entry.lastModified?.let {
+                        if (isNotEmpty()) append("  ·  ")
+                        append("updated ${formatHfTimestamp(it)}")
+                    }
+                }
+                if (hfMeta.isNotEmpty()) {
+                    Text(
+                        text = hfMeta,
+                        style = AppTextStyles.caption,
+                        color = AppTextStyles.secondaryContent,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
 
             when {
                 downloading -> {}
 
-                // Selecting which downloaded model is actually used happens in Settings >
-                // AI Provider's model picker for the Local LLM instance (it lists every
-                // downloaded .gguf via GET /models — see writeModelsList), exactly like any
-                // other provider. Loading that model into memory is fully automatic/lazy,
-                // driven by the first real chat/embedding request through the proxy (see
-                // LlamaServerProcessManager.ensureModelLoaded). This row only manages what's
-                // on disk — download/delete, nothing more.
+                // Which downloaded model is actually used is picked in Settings > AI Provider's
+                // model picker (lists every downloaded .gguf via GET /models). Loading it into
+                // memory is automatic/lazy on first request (see
+                // LlamaServerProcessManager.ensureModelLoaded) — this row only manages disk state.
                 isDownloaded -> OutlinedButton(
                     enabled = !isDeleting,
                     onClick = {
@@ -720,6 +819,7 @@ private fun localLlmModelRow(entry: LlamaModelEntry) {
                             try {
                                 LlamaServerProcessManager.deleteModel(entry)
                                 isDownloaded = false
+                                onModelDeleted()
                             } catch (e: Exception) {
                                 deleteError = e.message ?: "Failed to delete model."
                             } finally {
@@ -746,27 +846,31 @@ private fun localLlmModelRow(entry: LlamaModelEntry) {
         }
 
         if (downloading) {
-            downloadProgress(downloadState.downloadedBytes, downloadState.totalBytes)
+            downloadProgress(
+                downloadState.downloadedBytes,
+                downloadState.totalBytes,
+                onCancel = { LlamaDownloadManager.cancelModelDownload(entry.fileName) },
+            )
         }
         downloadState?.error?.let { error ->
             Text(
                 text = LocalizationManager.getString("settings.local_llm.download_failed", error),
                 style = AppTextStyles.caption,
-                color = MaterialTheme.colorScheme.error,
+                color = AppColors.warningColor(),
             )
         }
         deleteError?.let { error ->
             Text(
                 text = error,
                 style = AppTextStyles.caption,
-                color = MaterialTheme.colorScheme.error,
+                color = AppColors.warningColor(),
             )
         }
     }
 }
 
 @Composable
-private fun downloadProgress(downloadedBytes: Long, totalBytes: Long) {
+private fun downloadProgress(downloadedBytes: Long, totalBytes: Long, onCancel: (() -> Unit)? = null) {
     val progress = if (totalBytes > 0) (downloadedBytes.toFloat() / totalBytes.toFloat()) else 0f
     LinearProgressIndicator(
         progress = { progress },
@@ -775,25 +879,21 @@ private fun downloadProgress(downloadedBytes: Long, totalBytes: Long) {
     val percent = (progress * 100).toInt()
     val downloadedMb = downloadedBytes / (1024 * 1024)
     val totalMb = if (totalBytes > 0) totalBytes / (1024 * 1024) else 0L
-    Text(
-        text = LocalizationManager.getString("settings.local_llm.downloading", percent, downloadedMb, totalMb),
-        style = AppTextStyles.caption,
-    )
-}
-
-/**
- * Opens a file or directory in the system's file manager. Platform-aware (macOS/Linux/Windows),
- * same approach as `AdvancedSettingsSection`'s log-folder button.
- */
-private fun openInFileManager(file: File) {
-    try {
-        when {
-            Platform.isMac -> Runtime.getRuntime().exec(arrayOf("open", file.absolutePath))
-            Platform.isLinux -> Runtime.getRuntime().exec(arrayOf("xdg-open", file.absolutePath))
-            Platform.isWindows -> Runtime.getRuntime().exec(arrayOf("explorer", file.absolutePath))
-            else -> if (Desktop.isDesktopSupported()) Desktop.getDesktop().open(file)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = LocalizationManager.getString("settings.local_llm.downloading", percent, downloadedMb, totalMb),
+            style = AppTextStyles.caption,
+        )
+        // Lets the user abort an in-progress download — StreamingDownloader already deletes the
+        // partial `.part` file on cancellation, so this never leaves stray files on disk.
+        if (onCancel != null) {
+            OutlinedButton(onClick = onCancel, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+                Text(stringResource("action.cancel"), style = AppTextStyles.caption)
+            }
         }
-    } catch (e: Exception) {
-        log.error("Failed to open local LLM models folder: ${file.absolutePath}", e)
     }
 }

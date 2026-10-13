@@ -4,6 +4,8 @@
  */
 package io.askimo.core.providers.llama
 
+import kotlinx.serialization.Serializable
+
 /**
  * A downloadable `.gguf` model weight file for the built-in local LLM provider.
  *
@@ -13,11 +15,19 @@ package io.askimo.core.providers.llama
  *
  * Not every entry comes from the curated [LlamaModelCatalog] — see
  * [io.askimo.core.providers.llama.HuggingFaceGgufBrowser] for entries discovered dynamically by
- * searching Hugging Face. [LlamaServerProcessManager]'s proxy and [LlamaModelDownloader] both
- * resolve purely by [fileName] under [io.askimo.core.util.AskimoHome.llamaModelsDir], so
+ * searching Hugging Face (the *default*, un-curated way chat models are now offered — see
+ * [LlamaModelCatalog]'s class doc). [LlamaServerProcessManager]'s proxy and [LlamaModelDownloader]
+ * both resolve purely by [fileName] under [io.askimo.core.util.AskimoHome.llamaModelsDir], so
  * dynamically-discovered entries work identically to curated ones without needing to be
  * registered anywhere.
+ *
+ * `@Serializable` so [LlamaModelDownloader] can persist an entry's display metadata as a JSON
+ * sidecar next to its `.gguf` file on successful download (see
+ * [LlamaModelDownloader]'s class doc) — without it, a model discovered via Hugging Face search
+ * would lose its label/repo-link/popularity stats the moment it scrolls out of the current
+ * search/popular results.
  */
+@Serializable
 data class LlamaModelEntry(
     val fileName: String,
     /** i18n key for the display label. Ignored when [label] is non-null. */
@@ -35,6 +45,11 @@ data class LlamaModelEntry(
      * hidden states is numerically unstable and llama-server's JSON serializer silently turns
      * the resulting NaN values into `null` array entries, which crashes langchain4j's response
      * parsing (`Embedding.from` → NPE on `Float.floatValue()`).
+     *
+     * This is exactly why embedding models stay a small hand-vetted list in [LlamaModelCatalog]
+     * rather than being sourced live from Hugging Face like chat models — pooling type isn't
+     * derivable from the API/tags, and guessing wrong here crashes rather than just degrading
+     * quality.
      */
     val poolingType: String = "mean",
     /**
@@ -47,93 +62,35 @@ data class LlamaModelEntry(
      * for display/attribution. Null for entries not sourced from a HF search.
      */
     val sourceRepoId: String? = null,
+    /** Hugging Face repo download count at search time. Null for curated entries. */
+    val downloads: Long? = null,
+    /** Hugging Face repo "likes" count at search time. Null for curated entries. */
+    val likes: Long? = null,
+    /** Hugging Face repo's `lastModified` timestamp (ISO-8601, as returned by the API). Null for curated entries. */
+    val lastModified: String? = null,
+    /** Hugging Face repo's `createdAt` timestamp (ISO-8601, as returned by the API). Null for curated entries. */
+    val createdAt: String? = null,
 )
 
 /**
- * Curated catalog of GGUF models offered in Settings for the built-in local LLM provider.
+ * Curated catalog for the built-in local LLM provider — **embedding models only**.
  *
- * Quantization: `Q4_K_M` is used for all chat entries — the standard "good quality / reasonable
- * size" default recommended by the llama.cpp community for CPU inference. Sizes are approximate
- * (actual file size varies slightly by quantization build).
+ * Chat models are deliberately *not* curated/hardcoded here. A hand-maintained list inevitably
+ * drifts from reality (stale file sizes, superseded releases, etc.), and there's no correctness
+ * risk in sourcing chat models live — any `.gguf` chat model works the same way through
+ * `llama-server`. Settings > Local LLM instead shows Hugging Face's most-downloaded GGUF repos by
+ * default (see [HuggingFaceGgufBrowser.popularModels]), with the same live
+ * downloads/likes/size/timestamp data as an explicit search — unifying "browse popular" and
+ * "search" into one code path and one display model.
  *
- * Deliberately spans multiple model families/sizes (not just one "tier" per size) so users can
- * pick based on their own priorities — general chat, coding, or reasoning — rather than only
- * speed vs. quality.
+ * Embedding models stay curated because [LlamaModelEntry.poolingType] has a real correctness
+ * risk if guessed wrong (see its doc) — something only worth hand-vetting for the two entries
+ * below, rather than trying to auto-detect from Hugging Face's API/tags.
  */
 object LlamaModelCatalog {
 
-    private const val HF_BARTOWSKI = "https://huggingface.co/bartowski"
     private const val HF_NOMIC = "https://huggingface.co/nomic-ai"
     private const val HF_QWEN = "https://huggingface.co/Qwen"
-
-    // ── General-purpose chat, small → large ────────────────────────────────────────────────
-
-    val FAST = LlamaModelEntry(
-        fileName = "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
-        labelKey = "provider.llama.model.fast",
-        approxSizeBytes = 2_020L * 1024 * 1024,
-        downloadUrl = "$HF_BARTOWSKI/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
-    )
-
-    val QWEN_SMALL = LlamaModelEntry(
-        fileName = "Qwen2.5-3B-Instruct-Q4_K_M.gguf",
-        labelKey = "provider.llama.model.qwen_small",
-        approxSizeBytes = 1_930L * 1024 * 1024,
-        downloadUrl = "$HF_BARTOWSKI/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf",
-    )
-
-    val PHI = LlamaModelEntry(
-        fileName = "Phi-3.5-mini-instruct-Q4_K_M.gguf",
-        labelKey = "provider.llama.model.phi",
-        approxSizeBytes = 2_390L * 1024 * 1024,
-        downloadUrl = "$HF_BARTOWSKI/Phi-3.5-mini-instruct-GGUF/resolve/main/Phi-3.5-mini-instruct-Q4_K_M.gguf",
-    )
-
-    val MISTRAL = LlamaModelEntry(
-        fileName = "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf",
-        labelKey = "provider.llama.model.mistral",
-        approxSizeBytes = 4_370L * 1024 * 1024,
-        downloadUrl = "$HF_BARTOWSKI/Mistral-7B-Instruct-v0.3-GGUF/resolve/main/Mistral-7B-Instruct-v0.3-Q4_K_M.gguf",
-    )
-
-    val BALANCED = LlamaModelEntry(
-        fileName = "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-        labelKey = "provider.llama.model.balanced",
-        approxSizeBytes = 4_920L * 1024 * 1024,
-        downloadUrl = "$HF_BARTOWSKI/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-    )
-
-    val GEMMA = LlamaModelEntry(
-        fileName = "gemma-2-9b-it-Q4_K_M.gguf",
-        labelKey = "provider.llama.model.gemma",
-        approxSizeBytes = 5_760L * 1024 * 1024,
-        downloadUrl = "$HF_BARTOWSKI/gemma-2-9b-it-GGUF/resolve/main/gemma-2-9b-it-Q4_K_M.gguf",
-    )
-
-    val BEST = LlamaModelEntry(
-        fileName = "Qwen2.5-14B-Instruct-Q4_K_M.gguf",
-        labelKey = "provider.llama.model.best",
-        approxSizeBytes = 8_990L * 1024 * 1024,
-        downloadUrl = "$HF_BARTOWSKI/Qwen2.5-14B-Instruct-GGUF/resolve/main/Qwen2.5-14B-Instruct-Q4_K_M.gguf",
-    )
-
-    // ── Specialized: coding & reasoning ─────────────────────────────────────────────────────
-
-    val CODER = LlamaModelEntry(
-        fileName = "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf",
-        labelKey = "provider.llama.model.coder",
-        approxSizeBytes = 4_680L * 1024 * 1024,
-        downloadUrl = "$HF_BARTOWSKI/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf",
-    )
-
-    val REASONING = LlamaModelEntry(
-        fileName = "DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf",
-        labelKey = "provider.llama.model.reasoning",
-        approxSizeBytes = 4_680L * 1024 * 1024,
-        downloadUrl = "$HF_BARTOWSKI/DeepSeek-R1-Distill-Qwen-7B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf",
-    )
-
-    // ── Embedding ────────────────────────────────────────────────────────────────────────────
 
     val EMBEDDING = LlamaModelEntry(
         fileName = "nomic-embed-text-v1.5.Q8_0.gguf",
@@ -154,13 +111,11 @@ object LlamaModelCatalog {
         poolingType = "last",
     )
 
-    /** Chat-capable entries shown in the "chat / utility model" pickers, small → large. */
-    val chatEntries: List<LlamaModelEntry> = listOf(QWEN_SMALL, FAST, PHI, MISTRAL, BALANCED, CODER, REASONING, GEMMA, BEST)
-
     /** Embedding entries shown in the "embedding model" picker. */
     val embeddingEntries: List<LlamaModelEntry> = listOf(EMBEDDING, EMBEDDING_MULTILINGUAL)
 
-    val allEntries: List<LlamaModelEntry> = chatEntries + embeddingEntries
+    /** Every curated entry — currently just [embeddingEntries] (see class doc for why). */
+    val allEntries: List<LlamaModelEntry> = embeddingEntries
 
     fun fromFileName(fileName: String): LlamaModelEntry? = allEntries.find { it.fileName == fileName }
 }

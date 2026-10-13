@@ -18,9 +18,11 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 /**
- * Searches Hugging Face for downloadable `.gguf` models, so Settings > Local LLM can offer far
- * more choices than the small curated [LlamaModelCatalog] without Askimo needing to ship/update
- * a hardcoded list for every new model release.
+ * Searches Hugging Face for downloadable `.gguf` models, so Settings > Local LLM can offer chat
+ * models without Askimo needing to ship/maintain a hardcoded, inevitably-stale list (see
+ * [LlamaModelCatalog]'s class doc — only embedding models stay curated there). [popularModels]
+ * is what's shown by default (most-downloaded GGUF repos overall); [search] additionally powers
+ * the explicit search box.
  *
  * Results are converted to ordinary [LlamaModelEntry] values — [LlamaServerProcessManager] and
  * [LlamaModelDownloader] don't need to know a model came from a live search vs. the static
@@ -78,6 +80,10 @@ object HuggingFaceGgufBrowser {
 
         repos.flatMap { repo ->
             val repoId = repo.jsonObject["id"]?.jsonPrimitive?.contentOrNull ?: return@flatMap emptyList()
+            val downloads = repo.jsonObject["downloads"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+            val likes = repo.jsonObject["likes"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+            val lastModified = repo.jsonObject["lastModified"]?.jsonPrimitive?.contentOrNull
+            val createdAt = repo.jsonObject["createdAt"]?.jsonPrimitive?.contentOrNull
             val siblings = repo.jsonObject["siblings"]?.jsonArray.orEmpty()
             val ggufFiles = siblings
                 .asSequence()
@@ -111,8 +117,22 @@ object HuggingFaceGgufBrowser {
                     // encodeUrlPathSegments's doc.
                     downloadUrl = "https://huggingface.co/$repoId/resolve/main/${encodeUrlPathSegments(rfilename)}",
                     sourceRepoId = repoId,
+                    downloads = downloads,
+                    likes = likes,
+                    lastModified = lastModified,
+                    createdAt = createdAt,
                 )
             }
         }.also { log.info("Hugging Face GGUF search for \"{}\" returned {} file(s)", query, it.size) }
     }
+
+    /**
+     * Hugging Face's most-downloaded GGUF repos overall — what Settings > Local LLM shows by
+     * default (see [LlamaModelCatalog]'s class doc for why chat models aren't hardcoded). Just
+     * [search] with a blank query; named separately so call sites read as "browse popular" rather
+     * than "the user searched for nothing".
+     *
+     * @throws SearchException on network failure or an unparsable response (same as [search]).
+     */
+    suspend fun popularModels(limit: Int = 20): List<LlamaModelEntry> = search(query = "", limit = limit)
 }

@@ -9,6 +9,9 @@ import io.askimo.core.util.AskimoHome
 import io.askimo.core.util.StreamingDownloader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -22,6 +25,7 @@ import java.time.Duration
 object LlamaModelDownloader {
 
     private val log = logger<LlamaModelDownloader>()
+    private val metadataJson = Json { ignoreUnknownKeys = true }
 
     class DownloadException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
@@ -39,6 +43,69 @@ object LlamaModelDownloader {
     }
 
     fun isDownloaded(entry: LlamaModelEntry): Boolean = modelPath(entry).let { Files.exists(it) && Files.size(it) > 0 }
+
+    /**
+     * Path to [fileName]'s metadata sidecar — colocated in [AskimoHome.llamaModelsDir] next to the
+     * `.gguf` itself (`<fileName>.json`), rather than a separate central manifest, so the metadata
+     * naturally travels/disappears with the model file. Users essentially never move an individual
+     * model file out of this folder by hand; if they do, losing just the display metadata for that
+     * one file is an acceptable, self-correcting degradation — it falls back to a plain
+     * filename-only entry (see [listDownloadedEntries]), same as any `.gguf` Askimo didn't
+     * download itself.
+     */
+    private fun metadataPath(fileName: String): Path = AskimoHome.llamaModelsDir().resolve("$fileName.json")
+
+    /** Persists [entry]'s display metadata next to its `.gguf` file — see [metadataPath]'s doc. */
+    private fun saveMetadata(entry: LlamaModelEntry) {
+        runCatching {
+            Files.createDirectories(AskimoHome.llamaModelsDir())
+            Files.writeString(metadataPath(entry.fileName), metadataJson.encodeToString(entry))
+        }.onFailure { e -> log.warn("Failed to save metadata for {}: {}", entry.fileName, e.message) }
+    }
+
+    /** Loads [fileName]'s metadata sidecar if present/parsable, else `null` — see [metadataPath]'s doc. */
+    private fun loadMetadata(fileName: String): LlamaModelEntry? = runCatching {
+        val path = metadataPath(fileName)
+        if (!Files.exists(path)) return@runCatching null
+        metadataJson.decodeFromString<LlamaModelEntry>(Files.readString(path))
+    }.getOrNull()
+
+    private fun deleteMetadata(fileName: String) {
+        runCatching { Files.deleteIfExists(metadataPath(fileName)) }
+    }
+
+    /**
+     * Scans [AskimoHome.llamaModelsDir] for every downloaded `.gguf` file and reconstructs a full
+     * [LlamaModelEntry] for each one — disk is the source of truth for *whether* a model is
+     * downloaded (same principle as `LlamaServerProcessManager.writeModelsList`), while each
+     * file's `<fileName>.json` sidecar (see [metadataPath]) is the source of truth for *what it
+     * looks like* (label, Hugging Face repo link, popularity stats). This is what lets Settings >
+     * Local LLM always show every downloaded model with its full display info, regardless of
+     * whether it's still present in the current Hugging Face search/popular result set.
+     *
+     * Falls back to a bare-filename entry (actual on-disk size, no repo link/stats) when no
+     * sidecar exists — e.g. a `.gguf` placed into the folder manually, or downloaded before this
+     * sidecar mechanism existed.
+     */
+    fun listDownloadedEntries(): List<LlamaModelEntry> {
+        val dir = AskimoHome.llamaModelsDir()
+        if (!Files.isDirectory(dir)) return emptyList()
+        return Files.list(dir).use { paths ->
+            paths
+                .filter { Files.isRegularFile(it) && it.fileName.toString().endsWith(".gguf", ignoreCase = true) }
+                .map { path ->
+                    val fileName = path.fileName.toString()
+                    loadMetadata(fileName) ?: LlamaModelEntry(
+                        fileName = fileName,
+                        labelKey = "",
+                        approxSizeBytes = runCatching { Files.size(path) }.getOrDefault(0L),
+                        downloadUrl = "",
+                    )
+                }
+                .sorted(compareBy { it.fileName })
+                .toList()
+        }
+    }
 
     /** Lists the catalog entries whose `.gguf` file is already present on disk. */
     fun listDownloaded(): List<LlamaModelEntry> = LlamaModelCatalog.allEntries.filter { isDownloaded(it) }
@@ -137,12 +204,14 @@ object LlamaModelDownloader {
             throw DownloadException(error)
         }
 
+        saveMetadata(entry)
         log.info("Downloaded llama model {} ({} bytes) to {}", entry.fileName, downloadedBytes, finalPath)
         finalPath
     }
 
-    /** Deletes a previously downloaded model file to free disk space. */
+    /** Deletes a previously downloaded model file (and its metadata sidecar) to free disk space. */
     fun delete(entry: LlamaModelEntry) {
         Files.deleteIfExists(modelPath(entry))
+        deleteMetadata(entry.fileName)
     }
 }
