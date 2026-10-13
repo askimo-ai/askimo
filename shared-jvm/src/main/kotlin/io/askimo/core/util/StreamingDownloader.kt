@@ -9,6 +9,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.net.URI
 import java.net.http.HttpClient
@@ -18,6 +19,8 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
  * Streams a large (potentially multi-GB) GET download directly to disk with progress callbacks —
@@ -77,7 +80,10 @@ object StreamingDownloader {
             .build()
 
         val response = try {
-            client.send(request, HttpResponse.BodyHandlers.ofInputStream())
+            sendCancellable(client, request)
+        } catch (e: CancellationException) {
+            runCatching { Files.deleteIfExists(destPath) }
+            throw e
         } catch (e: Exception) {
             // Clean up any leftover partial file from a prior attempt reusing this destPath.
             runCatching { Files.deleteIfExists(destPath) }
@@ -165,5 +171,31 @@ object StreamingDownloader {
 
         log.info("Downloaded {} bytes from {} to {}", downloadedBytes, url, destPath)
         downloadedBytes
+    }
+
+    /**
+     * Bridges [HttpClient.sendAsync] into a cancellable suspend call — cancelling the calling
+     * coroutine cancels the underlying [java.util.concurrent.CompletableFuture], which actually
+     * aborts the in-flight HTTP exchange instead of merely abandoning a wait on the blocking
+     * [HttpClient.send]. See the call site in [download] for why this matters specifically for
+     * the connect/header-wait phase, which the body-read watchdog doesn't cover.
+     */
+    private suspend fun sendCancellable(
+        client: HttpClient,
+        request: HttpRequest,
+    ): HttpResponse<java.io.InputStream> = suspendCancellableCoroutine { cont ->
+        val future = client.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
+        cont.invokeOnCancellation { future.cancel(true) }
+        future.whenComplete { result, error ->
+            // Guards against a double-resume: once invokeOnCancellation above fires, the
+            // continuation is no longer active, but cancelling `future` still completes it
+            // (exceptionally), which would otherwise re-enter this callback.
+            if (!cont.isActive) return@whenComplete
+            if (error != null) {
+                cont.resumeWithException(error)
+            } else {
+                cont.resume(result)
+            }
+        }
     }
 }

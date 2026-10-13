@@ -182,6 +182,7 @@ fun globalErrorHandler(onStateChange: (ErrorDialogState) -> Unit) {
                             message = withForumHint(
                                 LocalizationManager.getString(
                                     "error.llama_server.start_failed.message",
+                                    event.modelFileName,
                                     event.reason,
                                 ),
                             ),

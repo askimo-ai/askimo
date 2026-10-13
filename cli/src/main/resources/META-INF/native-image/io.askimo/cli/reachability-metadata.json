@@ -3809,6 +3809,9 @@
     "allDeclaredFields": true,
     "methods": [ {
       "name": "<init>",
+      "parameterTypes": [ "io.askimo.core.config.EmbeddingConfig", "io.askimo.core.config.RetryConfig", "io.askimo.core.config.ThrottleConfig", "io.askimo.core.config.IndexingConfig", "io.askimo.core.config.DeveloperConfig", "io.askimo.core.config.ChatConfig", "io.askimo.core.config.MemoryConfig", "io.askimo.core.config.RagConfig", "io.askimo.core.config.ModelsConfig", "io.askimo.core.config.LocalLlmConfig", "io.askimo.core.config.ProxyConfig", "io.askimo.core.config.AnalyticsConfig", "io.askimo.core.config.WebSearchConfig", "io.askimo.core.config.VoiceConfig", "io.askimo.core.config.NotificationsConfig", "io.askimo.core.config.SuggestionsConfig", "io.askimo.core.context.AppContextParams", "java.lang.String", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
+    }, {
+      "name": "<init>",
       "parameterTypes": [ "io.askimo.core.config.EmbeddingConfig", "io.askimo.core.config.RetryConfig", "io.askimo.core.config.ThrottleConfig", "io.askimo.core.config.IndexingConfig", "io.askimo.core.config.DeveloperConfig", "io.askimo.core.config.ChatConfig", "io.askimo.core.config.MemoryConfig", "io.askimo.core.config.RagConfig", "io.askimo.core.config.ModelsConfig", "io.askimo.core.config.ProxyConfig", "io.askimo.core.config.AnalyticsConfig", "io.askimo.core.config.WebSearchConfig", "io.askimo.core.config.VoiceConfig", "io.askimo.core.config.NotificationsConfig", "io.askimo.core.config.SuggestionsConfig", "io.askimo.core.context.AppContextParams", "java.lang.String", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
     }, {
       "name": "<init>",
@@ -3842,6 +3845,9 @@
       "parameterTypes": [ ]
     }, {
       "name": "getIndexing",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getLocalLlm",
       "parameterTypes": [ ]
     }, {
       "name": "getMemory",
@@ -4142,6 +4148,96 @@
       "parameterTypes": [ ]
     }, {
       "name": "getSupportedExtensions",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "io.askimo.core.config.LocalLlmConfig",
+    "methods": [ {
+      "name": "getBatchSize",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getCacheTypeK",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getCacheTypeV",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getContBatching",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getCtxSize",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getFlashAttn",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getLastSelectedModelFileName",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getLastSelectedModelIsEmbedding",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getLinuxArmDownloadUrl",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getLinuxArmSha256",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getLinuxX86DownloadUrl",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getLinuxX86Sha256",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getMacosDownloadUrl",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getMacosSha256",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getMlock",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getNGpuLayers",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getNPredict",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getNoMmap",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getNoWarmup",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getNumParallel",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getNumaMode",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getReleaseTag",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getRopeFreqBase",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getRopeFreqScale",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getUbatchSize",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getWindowsArmDownloadUrl",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getWindowsArmSha256",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getWindowsX86DownloadUrl",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getWindowsX86Sha256",
       "parameterTypes": [ ]
     } ]
   }, {

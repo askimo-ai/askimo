@@ -14,6 +14,7 @@ import io.askimo.core.util.AskimoHome
 import io.askimo.core.util.ProcessBuilderExt
 import io.askimo.core.util.appJson
 import io.askimo.core.util.httpGet
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -43,35 +44,28 @@ import java.util.concurrent.Executors
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Owns the **stable** local endpoint that `ModelProvider.OPENAI_COMPATIBLE` (via the
- * `OpenAiCompatibleTemplate.ASKIMO_LOCAL_LLM` template) talks to for the built-in local LLM
- * provider — giving the same "one host for all models" experience as Ollama/LM Studio, without
- * requiring them to be installed.
+ * Stable local endpoint the "Local LLM (built-in)" provider talks to (via
+ * `OpenAiCompatibleTemplate.ASKIMO_LOCAL_LLM`) — one host for all models, Ollama/LM
+ * Studio-style, without requiring either to be installed.
  *
- * Internally, **two** independent `llama-server` child processes can be resident at once — one
- * [ChildSlot] for chat/completions, one for embeddings — each with its own mutex, port, and
- * lifecycle. Splitting into two slots removes cross-contention: a chat request and an embedding
- * request never compete for the same child process, so a concurrent RAG indexing job can't kill
- * an in-flight chat response (and vice versa). A swap still only happens *within* a slot (e.g.
- * switching between two chat models); embedding models are small enough that keeping one resident
- * alongside a chat model doesn't meaningfully change memory footprint.
+ * Runs up to two `llama-server` child processes — one [ChildSlot] for chat, one for
+ * embeddings — each with its own mutex/port/lifecycle, so a chat request and an embedding
+ * request never contend for the same process (e.g. a RAG indexing job can't starve an
+ * in-flight chat response). Swaps only happen *within* a slot (switching chat models);
+ * embedding models stay small enough to keep resident alongside a chat model.
  *
- * This object is a tiny reverse proxy (plain JDK [HttpServer] + [HttpClient], no langchain4j
- * involved) in front of those two child processes:
+ * Acts as a tiny reverse proxy (plain JDK [HttpServer]/[HttpClient], no langchain4j) in front
+ * of the two slots:
+ * 1. Request arrives on [proxyBaseUrl].
+ * 2. Proxy reads the body's `"model"` field ([LlamaModelEntry.fileName]) and routes by path
+ *    (`/v1/embeddings` → embedding slot).
+ * 3. If the target slot is loaded with a different model, its process is stopped (draining
+ *    in-flight requests — see [DRAIN_TIMEOUT_SECONDS]) and restarted with `--model <path>` on
+ *    an ephemeral port, waiting for `/health`.
+ * 4. Request is forwarded and the response streamed back verbatim (including SSE).
  *
- * 1. A request arrives on the stable [proxyBaseUrl] port.
- * 2. The proxy peeks at the request body's `"model"` JSON field (the GGUF file name — see
- *    [LlamaModelEntry.fileName]) and the request path (`/v1/embeddings` → embedding slot).
- * 3. If that model differs from what's currently loaded in the target slot, the slot's running
- *    child process (if any) is stopped — after draining any in-flight request against it, see
- *    [DRAIN_TIMEOUT_SECONDS] — and a new one is started with `--model <path>` on an internal
- *    ephemeral port, and the proxy waits for `/health` to report ready.
- * 4. The original request is forwarded to the child and the response streamed back verbatim
- *    (including SSE for streaming chat completions).
- *
- * An idle child process is stopped automatically after [IDLE_UNLOAD_TIMEOUT_MINUTES] of no
- * requests (checked independently per slot), to free RAM. This is a constant for now; may become
- * user-configurable later.
+ * Each slot auto-unloads after [IDLE_UNLOAD_TIMEOUT_MINUTES] idle to free RAM — a fixed
+ * constant for now, may become user-configurable later.
  */
 
 object LlamaServerProcessManager {
@@ -355,6 +349,13 @@ object LlamaServerProcessManager {
             try {
                 stopSlotLocked(slot)
                 startSlotLocked(slot, modelPath, entry.isEmbedding)
+            } catch (e: CancellationException) {
+                // Not a real startup failure — the Settings page's last-used-model warm-up runs
+                // this from a LaunchedEffect (see localLlmBinaryCard), so leaving/recomposing
+                // that effect cancels this coroutine normally. CancellationException is a
+                // subclass of Exception, so without this it'd otherwise be caught below and
+                // misreported as the child process failing to start.
+                throw e
             } catch (e: Exception) {
                 EventBus.post(
                     LlamaServerStartFailedEvent(

@@ -11,6 +11,7 @@ import io.askimo.core.config.DeveloperConfig
 import io.askimo.core.config.EmbeddingConfig
 import io.askimo.core.config.FilterConfig
 import io.askimo.core.config.IndexingConfig
+import io.askimo.core.config.LocalLlmConfig
 import io.askimo.core.config.MemoryConfig
 import io.askimo.core.config.MemoryMode
 import io.askimo.core.config.ModelsConfig
@@ -79,6 +80,7 @@ class AskimoFeature : Feature {
             WebSearchConfig::class.java,
             VoiceConfig::class.java,
             NotificationsConfig::class.java,
+            LocalLlmConfig::class.java,
             AppContextParams::class.java,
             ParamKey::class.java,
             ProviderSettings::class.java,

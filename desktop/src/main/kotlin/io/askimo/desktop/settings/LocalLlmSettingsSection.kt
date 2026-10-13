@@ -70,7 +70,9 @@ import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.util.Platform
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.awt.Desktop
@@ -550,26 +552,42 @@ private fun localLlmModelsCard() {
     var hasSearched by remember { mutableStateOf(false) }
     var downloadedEntries by remember { mutableStateOf<List<LlamaModelEntry>>(emptyList()) }
     var diskScanTrigger by remember { mutableStateOf(0) }
+    // Guards against the auto-triggered blank-query popular-models request racing a
+    // user-triggered search: both run as independent coroutines writing searchResults/
+    // isSearching, so without cancelling the previous job, whichever completes *last* wins —
+    // even if it's the stale one (e.g. the initial popular-models load resolving after the
+    // user has already searched and seen fresher results).
+    var searchJob by remember { mutableStateOf<Job?>(null) }
 
     fun runSearch() {
+        searchJob?.cancel()
         isSearching = true
         searchError = null
-        scope.launch {
+        val job: Job = scope.launch {
             try {
                 // Blank query = Hugging Face's most-downloaded GGUF repos overall (see
                 // popularModels's doc) — also what's auto-loaded on first composition below.
-                searchResults = if (query.isBlank()) {
+                val results = if (query.isBlank()) {
                     HuggingFaceGgufBrowser.popularModels()
                 } else {
                     HuggingFaceGgufBrowser.search(query.trim())
                 }
+                searchResults = results
                 hasSearched = true
+            } catch (e: CancellationException) {
+                // Superseded by a newer search — don't touch isSearching/searchError below,
+                // the new job owns that state now.
+                throw e
             } catch (e: Exception) {
                 searchError = e.message
             } finally {
-                isSearching = false
+                // Only the still-current job may clear isSearching — a cancelled job's
+                // finally still runs, and without this guard it could flip isSearching back
+                // to false while the job that superseded it is still loading.
+                if (searchJob === coroutineContext[Job]) isSearching = false
             }
         }
+        searchJob = job
     }
 
     // Loads the default "Popular on Hugging Face" list on open — chat models aren't curated

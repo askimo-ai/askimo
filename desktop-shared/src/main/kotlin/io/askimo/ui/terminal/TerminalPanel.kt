@@ -81,6 +81,7 @@ import javax.swing.JScrollBar
 import javax.swing.UIManager
 import javax.swing.plaf.basic.BasicScrollBarUI
 import kotlin.ranges.coerceIn
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Terminal panel component with tabbed interface using JediTerm.
@@ -140,7 +141,7 @@ fun terminalPanel(
             ?: return@LaunchedEffect
 
         // Wait for the terminal to finish its PTY startup before writing
-        delay(2000)
+        delay(2000.milliseconds)
 
         val connector = activeTab.widget.ttyConnector ?: return@LaunchedEffect
         connector.write(pendingCommand.code)
@@ -383,12 +384,18 @@ fun terminalPanel(
             if (terminalTabs.isNotEmpty() && selectedTabIndex < terminalTabs.size) {
                 val currentTab = terminalTabs[selectedTabIndex]
                 // Use key() to force SwingPanel recreation when tab changes
+
                 key(currentTab.id) {
-                    SwingPanel(
-                        factory = { currentTab.widget.component },
-                        background = backgroundColor,
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                    key(currentTab.id) {
+                        SwingPanel(
+                            factory = {
+                                currentTab.widget.component.apply {
+                                    background = Color(backgroundColor.toArgb())
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
                 }
             }
         }
