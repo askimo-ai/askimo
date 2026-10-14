@@ -80,9 +80,47 @@ tasks.register("checkThirdPartyLicenses") {
     dependsOn(subprojects.mapNotNull { it.tasks.findByName("checkLicense") })
 }
 
+// Third-party software that Askimo bundles/downloads at runtime but that never appears as a
+// Gradle dependency (so the jk1 license-report plugin — which only inspects resolved JVM
+// dependency graphs — can never discover it on its own). Each entry here is merged into
+// THIRD-PARTY-NOTICES.txt by collectThirdPartyNotices alongside the auto-detected ones below.
+// Add a new entry whenever Askimo starts bundling/downloading another non-Gradle third-party
+// binary (e.g. a new native tool), so attribution stays accurate without relying on someone
+// remembering to hand-edit the generated file (which collectThirdPartyNotices overwrites wholesale).
+data class ManualThirdPartyNotice(
+    val name: String,
+    val version: String,
+    val licenses: Set<String>,
+    val urls: List<String>,
+)
+
+// Not a Gradle dependency: see that file's doc comments for the mirrored
+// release URL/tag this notice should be kept in sync with.
+val manualThirdPartyNotices = listOf(
+    ManualThirdPartyNotice(
+        name = "llama.cpp (ggml-org)",
+        version = "b11433",
+        licenses = setOf("MIT License"),
+        urls = listOf("https://github.com/ggml-org/llama.cpp"),
+    ),
+    ManualThirdPartyNotice(
+        name = "whisper.cpp (ggerganov)",
+        version = "unpinned", // bundled binaries predate release-tag tracking; see note above
+        licenses = setOf("MIT License"),
+        urls = listOf("https://github.com/ggerganov/whisper.cpp"),
+    ),
+    ManualThirdPartyNotice(
+        name = "whisper.cpp ggml model weights (ggerganov)",
+        version = "ggml-base / ggml-small / ggml-large-v3",
+        licenses = setOf("MIT License"),
+        urls = listOf("https://huggingface.co/ggerganov/whisper.cpp"),
+    ),
+)
+
 tasks.register("collectThirdPartyNotices") {
     group = "documentation"
-    description = "Merges every subproject's resolved dependency licenses into one deduplicated " +
+    description = "Merges every subproject's resolved dependency licenses, plus manually-tracked " +
+        "non-Gradle third-party binaries (see manualThirdPartyNotices), into one deduplicated " +
         "THIRD-PARTY-NOTICES.txt at the repo root."
     dependsOn(subprojects.mapNotNull { it.tasks.findByName("generateLicenseReport") })
     dependsOn(subprojects.mapNotNull { it.tasks.findByName("checkLicense") })
@@ -92,6 +130,10 @@ tasks.register("collectThirdPartyNotices") {
         data class Dep(val name: String, val version: String, val licenses: Set<String>, val urls: List<String>)
 
         val merged = sortedMapOf<String, Dep>()
+
+        manualThirdPartyNotices.forEach { manual ->
+            merged["${manual.name}:${manual.version}"] = Dep(manual.name, manual.version, manual.licenses, manual.urls)
+        }
 
         subprojects.forEach { sub ->
             val jsonFile = sub.layout.buildDirectory

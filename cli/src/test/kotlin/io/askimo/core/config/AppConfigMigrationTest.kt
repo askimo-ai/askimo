@@ -262,4 +262,98 @@ class AppConfigMigrationTest {
         assertTrue(AppConfig.context.providerInstances.isEmpty())
         assertEquals(yaml, Files.readString(configFile))
     }
+
+    // ── local_llm staleness-bug regression tests ────────────────────────────────────────
+
+    @Test
+    fun `stale local_llm provenance fields are stripped so new compiled defaults apply`() {
+        val configFile = AskimoHome.base().resolve("askimo.yml")
+        // Mirrors the actual shape the pre-fix bug produced: writeValueAsString(cached) dumped
+        // the *entire* LocalLlmConfig object, so realistically ALL provenance fields are present
+        // together (not just one or two, which is what a deliberate hand-edit would look like —
+        // see the "hand-edited local_llm override still wins" test below for that case).
+        Files.writeString(
+            configFile,
+            """
+            local_llm:
+              release_tag: "b99999-OLD"
+              macos_download_url: "https://github.com/ggml-org/llama.cpp/releases/download/b99999-OLD/llama-b99999-OLD-bin-macos-arm64.tar.gz"
+              linux_x86_download_url: "https://github.com/ggml-org/llama.cpp/releases/download/b99999-OLD/llama-b99999-OLD-bin-ubuntu-x64.tar.gz"
+              linux_arm_download_url: "https://github.com/ggml-org/llama.cpp/releases/download/b99999-OLD/llama-b99999-OLD-bin-ubuntu-arm64.tar.gz"
+              windows_x86_download_url: "https://github.com/ggml-org/llama.cpp/releases/download/b99999-OLD/llama-b99999-OLD-bin-win-cpu-x64.zip"
+              windows_arm_download_url: "https://github.com/ggml-org/llama.cpp/releases/download/b99999-OLD/llama-b99999-OLD-bin-win-cpu-arm64.zip"
+              macos_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              linux_x86_sha256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              linux_arm_sha256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+              windows_x86_sha256: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              windows_arm_sha256: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+              ctx_size: 16384
+            """.trimIndent(),
+        )
+        AppConfig.reset()
+
+        // The stale, never-user-editable provenance fields are gone — current compiled defaults
+        // (LocalLlmConfig()'s releaseTag/macosDownloadUrl/macosSha256) apply instead.
+        assertEquals(LocalLlmConfig().releaseTag, AppConfig.localLlm.releaseTag)
+        assertEquals(LocalLlmConfig().macosDownloadUrl, AppConfig.localLlm.macosDownloadUrl)
+        assertEquals(LocalLlmConfig().macosSha256, AppConfig.localLlm.macosSha256)
+
+        // ...but the genuinely user-editable field the user set is preserved.
+        assertEquals(16384, AppConfig.localLlm.ctxSize)
+
+        // The on-disk file was rewritten to drop the stale fields (self-terminating migration).
+        val migratedYaml = Files.readString(configFile)
+        val persisted = ObjectMapper(YAMLFactory()).readTree(migratedYaml).path("local_llm")
+        assertTrue(persisted.path("release_tag").isMissingNode)
+        assertTrue(persisted.path("macos_download_url").isMissingNode)
+        assertTrue(persisted.path("macos_sha256").isMissingNode)
+        assertEquals(16384, persisted.path("ctx_size").asInt())
+
+        // Idempotent: a second load finds nothing left to strip, file stays stable.
+        AppConfig.reset()
+        assertEquals(migratedYaml, Files.readString(configFile))
+    }
+
+    @Test
+    fun `local_llm section absent from askimo yml does not block loading current compiled defaults`() {
+        val configFile = AskimoHome.base().resolve("askimo.yml")
+        Files.writeString(configFile, "models:\n  max_tool_calling_round_trips: 7\n")
+        AppConfig.reset()
+
+        assertEquals(LocalLlmConfig().macosDownloadUrl, AppConfig.localLlm.macosDownloadUrl)
+        assertEquals(7, AppConfig.models.maxToolCallingRoundTrips)
+    }
+
+    @Test
+    fun `hand-edited local_llm override still wins over compiled defaults`() {
+        val configFile = AskimoHome.base().resolve("askimo.yml")
+        Files.writeString(
+            configFile,
+            """
+            local_llm:
+              macos_download_url: "https://my-custom-mirror.example.com/llama-server.tar.gz"
+            """.trimIndent(),
+        )
+        AppConfig.reset()
+
+        assertEquals("https://my-custom-mirror.example.com/llama-server.tar.gz", AppConfig.localLlm.macosDownloadUrl)
+        // Sibling fields the user didn't touch still come from current compiled defaults.
+        assertEquals(LocalLlmConfig().linuxX86DownloadUrl, AppConfig.localLlm.linuxX86DownloadUrl)
+    }
+
+    @Test
+    fun `updateField does not freeze untouched sections into askimo yml`() {
+        val configFile = AskimoHome.base().resolve("askimo.yml")
+        AppConfig.reset()
+
+        // Change something completely unrelated to local_llm...
+        AppConfig.updateField("developer.active", true)
+
+        // ...and local_llm must NOT have been written to disk at all, since the user never
+        // touched it — this is the exact bug: updateField previously serialized the *entire*
+        // in-memory config (including untouched sections), freezing that moment's compiled
+        // defaults into askimo.yml forever.
+        val persisted = ObjectMapper(YAMLFactory()).readTree(Files.readString(configFile))
+        assertTrue(persisted.path("local_llm").isMissingNode)
+    }
 }

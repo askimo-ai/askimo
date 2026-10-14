@@ -538,7 +538,7 @@ data class LocalLlmConfig(
     /** RoPE frequency scale override (`--rope-freq-scale`) — paired with [ropeFreqBase] for the same self-extend use case; `0.0` means not passed. */
     val ropeFreqScale: Double = 0.0,
     /**
-     * llama.cpp GitHub release tag the default download URLs below were generated from. **Not**
+     * llama.cpp GitHub release tag the default download URLs below were mirrored from. **Not**
      * exposed in Settings UI — this (and every `*DownloadUrl` field below) is here purely so an
      * advanced user can see/hand-edit it directly in `askimo.yml` (`local_llm.release_tag`) if
      * they need to point at a different release or a mirror, without digging through source.
@@ -546,16 +546,25 @@ data class LocalLlmConfig(
      * tag was actually extracted, independent of this field.
      */
     val releaseTag: String = "b11433",
+    /**
+     * Base URL the default `*DownloadUrl` fields below are built from — the
+     * `askimo-ai/askimo-thirdparties` repo, which mirrors upstream `ggml-org/llama.cpp` release
+     * assets as a dedicated release per [releaseTag] (see `tools/bin/llama-release.sh`). Assets
+     * are download exactly as-is (byte-for-byte, hence [macosSha256] etc. staying unchanged from
+     * the upstream originals) — mirroring only protects against upstream GitHub release pruning
+     * or asset-layout churn, not against needing re-verification of what's actually hosted.
+     */
+    val llamaMirrorBaseUrl: String = "https://github.com/askimo-ai/askimo-thirdparties/releases/download/llama-$releaseTag",
     /** Download URL for the macOS (arm64) `llama-server` release archive. Hand-editable in `askimo.yml` only — see [releaseTag]. */
-    val macosDownloadUrl: String = "https://github.com/ggml-org/llama.cpp/releases/download/$releaseTag/llama-$releaseTag-bin-macos-arm64.tar.gz",
+    val macosDownloadUrl: String = "$llamaMirrorBaseUrl/llama-$releaseTag-bin-macos-arm64.tar.gz",
     /** Download URL for the Linux x86_64 `llama-server` release archive. Hand-editable in `askimo.yml` only — see [releaseTag]. */
-    val linuxX86DownloadUrl: String = "https://github.com/ggml-org/llama.cpp/releases/download/$releaseTag/llama-$releaseTag-bin-ubuntu-x64.tar.gz",
+    val linuxX86DownloadUrl: String = "$llamaMirrorBaseUrl/llama-$releaseTag-bin-ubuntu-x64.tar.gz",
     /** Download URL for the Linux aarch64 `llama-server` release archive. Hand-editable in `askimo.yml` only — see [releaseTag]. */
-    val linuxArmDownloadUrl: String = "https://github.com/ggml-org/llama.cpp/releases/download/$releaseTag/llama-$releaseTag-bin-ubuntu-arm64.tar.gz",
+    val linuxArmDownloadUrl: String = "$llamaMirrorBaseUrl/llama-$releaseTag-bin-ubuntu-arm64.tar.gz",
     /** Download URL for the Windows x86_64 `llama-server` release archive. Hand-editable in `askimo.yml` only — see [releaseTag]. */
-    val windowsX86DownloadUrl: String = "https://github.com/ggml-org/llama.cpp/releases/download/$releaseTag/llama-$releaseTag-bin-win-cpu-x64.zip",
+    val windowsX86DownloadUrl: String = "$llamaMirrorBaseUrl/llama-$releaseTag-bin-win-cpu-x64.zip",
     /** Download URL for the Windows aarch64 `llama-server` release archive. Hand-editable in `askimo.yml` only — see [releaseTag]. */
-    val windowsArmDownloadUrl: String = "https://github.com/ggml-org/llama.cpp/releases/download/$releaseTag/llama-$releaseTag-bin-win-cpu-arm64.zip",
+    val windowsArmDownloadUrl: String = "$llamaMirrorBaseUrl/llama-$releaseTag-bin-win-cpu-arm64.zip",
     /**
      * SHA-256 of the macOS (arm64) `llama-server` release archive for [releaseTag], pinned so
      * [io.askimo.core.providers.llama.LlamaServerDownloader.download] can verify archive
@@ -1025,6 +1034,13 @@ object AppConfig {
             )
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
             .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
+    // NOTE: sparse (overrides-only) writing is implemented manually via sparseDiff() below rather
+    // than Jackson's built-in JsonInclude.Include.NON_DEFAULT — that inclusion mode needs a plain
+    // no-arg Java constructor to build its internal "default instance" for comparison, which
+    // Kotlin data classes with all-default constructor params don't expose (Kotlin instead
+    // generates a synthetic bitmask-based constructor only usable via jackson-module-kotlin's own
+    // KotlinValueInstantiator) — so NON_DEFAULT silently degrades to a null-check and doesn't
+    // actually diff values, which was verified to leave entire untouched sections in the output.
 
     // Default YAML written on first run if no config exists
     private val DEFAULT_YAML =
@@ -1150,18 +1166,36 @@ object AppConfig {
 
     private fun loadOnce(): AppConfigData {
         val path = resolveOrCreateConfigPath()
-        return if (path != null && path.isRegularFile()) {
+        val result = if (path != null && path.isRegularFile()) {
             val raw = Files.readString(path)
             try {
-                val config = mapper.readTree(raw)
-                val migrated = migrateLegacyProviders(config)
-                val loaded = mapper.treeToValue(config, AppConfigData::class.java)
+                val overrideTree = mapper.readTree(raw)
+                val migratedProviders = migrateLegacyProviders(overrideTree)
+                val migratedLocalLlm = migrateStaleLocalLlmProvenance(overrideTree)
+
+                // Merge the current build's compiled-in defaults (base layer, always fresh — see
+                // class doc) with the user's on-disk overrides (override layer, wins per-field) —
+                // this is what lets a newer Askimo version's updated defaults (e.g. a bumped
+                // llama.cpp mirror URL) reach existing users automatically, without ever having
+                // persisted those defaults into askimo.yml in the first place. See deepMerge.
+                //
+                // Deliberately done BEFORE the migration write-back below: treeToValue can throw
+                // (e.g. a hand-edited invalid field value), and an invalid config must never be
+                // partially rewritten on disk — only a config that loads successfully end-to-end
+                // gets its migration applied and persisted.
+                val baseTree = mapper.valueToTree<JsonNode>(AppConfigData())
+                val mergedTree = deepMerge(baseTree, overrideTree)
+                val loaded = mapper.treeToValue(mergedTree, AppConfigData::class.java)
                 val normalized = loaded.copy(memory = normalizeMemoryConfig(loaded.memory))
 
-                if (migrated) {
-                    log.info("Migrated legacy provider instances (provider_type and template_name)")
+                if (migratedProviders || migratedLocalLlm) {
+                    log.info(
+                        "Migrated askimo.yml (legacy provider instances: {}, stale local_llm provenance: {})",
+                        migratedProviders,
+                        migratedLocalLlm,
+                    )
                     try {
-                        Files.writeString(path, mapper.writerWithDefaultPrettyPrinter().writeValueAsString(config))
+                        Files.writeString(path, mapper.writerWithDefaultPrettyPrinter().writeValueAsString(overrideTree))
                     } catch (e: Exception) {
                         log.error("Failed to write migrated config", e)
                     }
@@ -1173,6 +1207,123 @@ object AppConfig {
             }
         } else {
             AppConfigData()
+        }
+        writeEffectiveConfigSnapshot(result)
+        return result
+    }
+
+    /**
+     * Recursively merges [override] onto [base]: for every key present in [override], its value
+     * wins — recursing into nested objects so a single overridden leaf field (e.g.
+     * `local_llm.macos_download_url`) doesn't blow away sibling fields from [base] that the user
+     * never touched. Non-object values (including arrays/collections) in [override] fully replace
+     * the corresponding [base] value rather than attempting an element-wise merge.
+     */
+    private fun deepMerge(base: JsonNode, override: JsonNode): JsonNode {
+        if (base !is ObjectNode || override !is ObjectNode) return override
+        val merged = base.deepCopy<ObjectNode>()
+        for ((key, overrideValue) in override.properties()) {
+            val baseValue = merged.get(key)
+            merged.replace(key, if (baseValue != null) deepMerge(baseValue, overrideValue) else overrideValue)
+        }
+        return merged
+    }
+
+    /**
+     * Write-side counterpart of [deepMerge]: recursively computes the subset of [current] that
+     * differs from [default], returning `null` when they're equal. Used by [writeSparseConfig]
+     * so updateField/saveContext only ever persist genuine overrides to askimo.yml, never fields
+     * equal to the current build's compiled defaults — see that function's doc for why this is
+     * hand-rolled instead of using Jackson's `JsonInclude.Include.NON_DEFAULT`.
+     */
+    private fun sparseDiff(current: JsonNode, default: JsonNode): JsonNode? {
+        if (current == default) return null
+        if (current !is ObjectNode || default !is ObjectNode) return current
+        val result = mapper.createObjectNode()
+        for ((key, currentValue) in current.properties()) {
+            val defaultValue = default.get(key)
+            if (defaultValue == null) {
+                result.replace(key, currentValue)
+            } else {
+                val diff = sparseDiff(currentValue, defaultValue)
+                if (diff != null) result.replace(key, diff)
+            }
+        }
+        return if (result.isEmpty) null else result
+    }
+
+    /**
+     * Serializes [data] to askimo.yml, keeping only fields that differ from [AppConfigData]'s
+     * current compiled defaults (via [sparseDiff]) — so saving one setting never bakes untouched
+     * sections (e.g. `local_llm`'s download URLs/checksums) into the file, which would otherwise
+     * permanently freeze out a later Askimo version's updated defaults for anything the user
+     * never explicitly touched. This is the write-side half of the fix; [loadOnce]'s
+     * compiled-defaults merge is the read-side half. Best-effort: failures are logged, never
+     * thrown — the in-memory [cached] value stays authoritative for the rest of this process
+     * either way, it just won't survive a restart if the write fails.
+     */
+    private fun writeSparseConfig(configPath: Path, data: AppConfigData) {
+        try {
+            val currentTree = mapper.valueToTree<JsonNode>(data)
+            val defaultTree = mapper.valueToTree<JsonNode>(AppConfigData())
+            val sparseTree = sparseDiff(currentTree, defaultTree) ?: mapper.createObjectNode()
+            Files.writeString(configPath, mapper.writerWithDefaultPrettyPrinter().writeValueAsString(sparseTree))
+        } catch (e: Exception) {
+            log.error("Failed to persist config to $configPath", e)
+        }
+    }
+
+    /**
+     * One-time, self-terminating cleanup: strips `local_llm`'s download-provenance fields
+     * (`release_tag`, the five `*_download_url` fields, the five `*_sha256` fields) from a user's
+     * persisted askimo.yml, but **only when every single one of those 11 fields is present
+     * together** — a deliberate hand-edit (the documented, supported way to point at a custom
+     * mirror) realistically only ever touches one or two of these fields, never reconstructs the
+     * entire block from scratch, so requiring the full set is what distinguishes "the pre-fix
+     * AppConfig bug froze the *entire* LocalLlmConfig object into this file" from "the user
+     * intentionally overrode one field" — stripping on partial presence would destroy the latter.
+     * Naturally idempotent: once stripped, there's nothing left to strip on the next launch, so
+     * no separate cache/marker file is needed — this check *is* the cache signal, matching
+     * [migrateLegacyProviders]'s existing pattern. Never touches genuinely user-editable
+     * local_llm fields (ctx_size, cache_type_k, last_selected_model_file_name, etc.).
+     */
+    private fun migrateStaleLocalLlmProvenance(config: JsonNode): Boolean {
+        val localLlm = config.path("local_llm") as? ObjectNode ?: return false
+        val provenanceFields = listOf(
+            "release_tag",
+            "macos_download_url", "linux_x86_download_url", "linux_arm_download_url",
+            "windows_x86_download_url", "windows_arm_download_url",
+            "macos_sha256", "linux_x86_sha256", "linux_arm_sha256",
+            "windows_x86_sha256", "windows_arm_sha256",
+        )
+        if (!provenanceFields.all { localLlm.has(it) }) return false
+        provenanceFields.forEach { localLlm.remove(it) }
+        return true
+    }
+
+    /**
+     * Writes a snapshot of the fully-resolved effective configuration (compiled defaults merged
+     * with the user's askimo.yml overrides, i.e. exactly what [loadOnce] just computed) to
+     * `askimo.effective.yml` next to askimo.yml — purely for human/support inspection (e.g.
+     * "what llama.cpp mirror URL is this install actually using right now").
+     *
+     * **Never read back by the app** (not referenced anywhere in [loadOnce] or [resolveOrCreateConfigPath]) —
+     * the header comment says so explicitly — so a stale, hand-edited, or corrupted copy of this
+     * file can never affect runtime behavior. Best-effort: failures are logged, never thrown,
+     * since this is a convenience file and must never block startup.
+     */
+    private fun writeEffectiveConfigSnapshot(data: AppConfigData) {
+        try {
+            val snapshotPath = AskimoHome.base().resolve("askimo.effective.yml")
+            val header =
+                "# Snapshot of the currently effective Askimo configuration (compiled defaults\n" +
+                    "# merged with your askimo.yml overrides) — regenerated on every launch.\n" +
+                    "# DO NOT EDIT: this file is NEVER read back by the app. To override a value,\n" +
+                    "# edit askimo.yml instead.\n\n"
+            val body = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(data)
+            Files.writeString(snapshotPath, header + body)
+        } catch (e: Exception) {
+            log.debug("Failed to write effective config snapshot: ${e.message}")
         }
     }
 
@@ -1269,15 +1420,8 @@ object AppConfig {
 
             val configPath = resolveOrCreateConfigPath()
             if (configPath != null && configPath.exists()) {
-                try {
-                    val updatedYaml = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(
-                        current.copy(context = persistable),
-                    )
-                    Files.writeString(configPath, updatedYaml)
-                    log.info("Saved context to $configPath")
-                } catch (e: Exception) {
-                    log.error("Failed to persist context to config file", e)
-                }
+                writeSparseConfig(configPath, current.copy(context = persistable))
+                log.info("Saved context to $configPath")
             }
         }
     }
@@ -1305,13 +1449,8 @@ object AppConfig {
                 cached = current.copy(currentLocale = tag)
                 val configPath = resolveOrCreateConfigPath()
                 if (configPath != null && configPath.exists()) {
-                    try {
-                        val updatedYaml = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(cached)
-                        Files.writeString(configPath, updatedYaml)
-                        log.debug("Updated currentLocale=$tag in $configPath")
-                    } catch (e: Exception) {
-                        log.error("Failed to persist currentLocale to config file", e)
-                    }
+                    writeSparseConfig(configPath, cached!!)
+                    log.debug("Updated currentLocale=$tag in $configPath")
                 }
                 return
             }
@@ -1369,13 +1508,8 @@ object AppConfig {
 
             val configPath = resolveOrCreateConfigPath()
             if (configPath != null && configPath.exists()) {
-                try {
-                    val updatedYaml = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(cached)
-                    Files.writeString(configPath, updatedYaml)
-                    log.debug("Updated {}={} in {}", path, value, configPath)
-                } catch (e: Exception) {
-                    log.error("Failed to persist $path to config file", e)
-                }
+                writeSparseConfig(configPath, cached!!)
+                log.debug("Updated {}={} in {}", path, value, configPath)
             }
         }
     }
