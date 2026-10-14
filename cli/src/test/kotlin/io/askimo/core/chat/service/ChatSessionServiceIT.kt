@@ -10,6 +10,7 @@ import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.repository.ChatDirectiveRepository
 import io.askimo.core.chat.repository.ChatMessageRepository
 import io.askimo.core.chat.repository.ChatSessionRepository
+import io.askimo.core.chat.repository.SessionMemoryRepository
 import io.askimo.core.context.AppContext
 import io.askimo.core.context.ExecutionMode
 import io.askimo.core.context.MessageRole
@@ -45,6 +46,7 @@ class ChatSessionServiceIT {
         private lateinit var sessionRepository: ChatSessionRepository
         private lateinit var messageRepository: ChatMessageRepository
         private lateinit var directiveRepository: ChatDirectiveRepository
+        private lateinit var sessionMemoryRepository: SessionMemoryRepository
 
         @JvmStatic
         @BeforeAll
@@ -56,7 +58,7 @@ class ChatSessionServiceIT {
             sessionRepository = databaseManager.getChatSessionRepository()
             messageRepository = databaseManager.getChatMessageRepository()
             directiveRepository = databaseManager.getChatDirectiveRepository()
-            val sessionMemoryRepository = databaseManager.getSessionMemoryRepository()
+            sessionMemoryRepository = databaseManager.getSessionMemoryRepository()
             val projectRepository = databaseManager.getProjectRepository()
 
             service = ChatSessionService(
@@ -691,6 +693,24 @@ class ChatSessionServiceIT {
         val forked = service.forkSession(session.id, aiMsg.id)
 
         assertEquals("Fork of: My Conversation", forked.title)
+    }
+
+    @Test
+    fun `forkSession should still copy messages and succeed when memory pre-population fails`() {
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "Memory Fork"))
+        val baseTime = Clock.System.now()
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Hello", createdAt = baseTime))
+        val aiMsg = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "Hi there", createdAt = baseTime.plus(1.seconds)))
+
+        val forked = service.forkSession(session.id, aiMsg.id)
+
+        assertEquals("Fork of: Memory Fork", forked.title)
+        val forkedMessages = service.getMessages(forked.id)
+        assertEquals(2, forkedMessages.size)
+        assertEquals("Hello", forkedMessages[0].content)
+        assertEquals("Hi there", forkedMessages[1].content)
+
+        assertNull(sessionMemoryRepository.getBySessionId(forked.id))
     }
 
     @Test

@@ -515,6 +515,39 @@ class ChatSessionService(
         }
         messageRepository.addMessages(copiedMessages)
 
+        // Persist the forked session's shared memory (TokenAwareSummarizingMemory) so its
+        // chat client continues with the copied conversation history instead of starting
+        // empty — mirrors messagesToCopy to MemoryMessage the same way
+        // markMessagesAsOutdatedAfter does, then lets loadFromFilteredMemory handle both
+        // in-memory population and DB persistence (including re-triggering summarization
+        // if the copied history already exceeds the token threshold). The source session's
+        // existing structured summary is intentionally not carried over (matches
+        // markMessagesAsOutdatedAfter's precedent) — it's re-derived from scratch as the
+        // forked history grows.
+        val forkedMemoryMessages = messagesToCopy.map { msg ->
+            MemoryMessage(
+                content = msg.content,
+                type = when (msg.role) {
+                    MessageRole.USER -> MessageRole.USER.value
+                    MessageRole.ASSISTANT -> MessageRole.ASSISTANT.value
+                    MessageRole.SYSTEM -> MessageRole.SYSTEM.value
+                    MessageRole.TOOL_EXECUTION_RESULT_MESSAGE -> MessageRole.TOOL_EXECUTION_RESULT_MESSAGE.value
+                },
+                createdAt = msg.createdAt.toJavaInstant(),
+            )
+        }
+        // Best-effort: TokenAwareSummarizingMemory's constructor needs an active AI provider
+        // (createUtilityClient()) — same constraint getOrCreateClientForSession's background
+        // warm-up below already tolerates. Without this guard, forking in an environment with
+        // no provider configured yet (e.g. first-run wizard, tests) would abort the whole fork
+        // instead of just skipping the memory pre-population (the chat client lazily rebuilds
+        // memory from these same copied DB messages on first real use anyway, in most flows).
+        try {
+            getOrCreateSharedMemory(forkedSession.id).loadFromFilteredMemory(forkedMemoryMessages)
+        } catch (e: Exception) {
+            log.debug("Could not pre-populate memory for forked session ${forkedSession.id}: ${e.message}")
+        }
+
         // Reflect the bulk write in the session's updatedAt
         sessionRepository.touchSession(forkedSession.id)
 

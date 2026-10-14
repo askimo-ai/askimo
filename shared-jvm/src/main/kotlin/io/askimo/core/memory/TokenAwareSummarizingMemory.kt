@@ -217,6 +217,17 @@ class TokenAwareSummarizingMemory(
     /** Reactive effective token budget (maxTokens minus emergency reserve). Updated on every mutation. */
     val budgetTokens: StateFlow<Int> = _budgetTokens.asStateFlow()
 
+    private val _isSummarizing = MutableStateFlow(false)
+
+    /**
+     * Reactive flag reflecting whether a summarization cycle (normal threshold-triggered or
+     * user-initiated [forceCompact]) is currently running in the background.
+     *
+     * Collect this in the UI layer to drive "Compressing…" spinners accurately — it stays
+     * true for the entire duration of the async cycle, not just an arbitrary delay.
+     */
+    val isSummarizing: StateFlow<Boolean> = _isSummarizing.asStateFlow()
+
     private val _isContextSizeLearned = MutableStateFlow(false)
 
     /**
@@ -510,6 +521,7 @@ class TokenAwareSummarizingMemory(
             log.debug("Summarization already in progress, skipping")
             return
         }
+        _isSummarizing.value = true
 
         CompletableFuture.runAsync({
             val startTime = System.currentTimeMillis()
@@ -542,6 +554,7 @@ class TokenAwareSummarizingMemory(
                 // Always reset on the same thread that set it — AtomicBoolean is safe here.
                 summarizationInProgress.set(false)
                 updatePressure()
+                _isSummarizing.value = false
                 val totalTime = (System.currentTimeMillis() - startTime) / 1000.0
                 if (totalTime > summarizationTimeoutSeconds) {
                     log.warn("Summarization took {}s, exceeding timeout of {}s", String.format("%.1f", totalTime), summarizationTimeoutSeconds)
@@ -557,7 +570,8 @@ class TokenAwareSummarizingMemory(
      *
      * Called when the user presses "Compress" from the UI at [MemoryPressureLevel.WARNING]
      * or [MemoryPressureLevel.CRITICAL] pressure.
-     * Runs asynchronously; [pressureLevel] updates when the cycle completes.
+     * Runs asynchronously; [pressureLevel] updates when the cycle completes, and
+     * [isSummarizing] stays true for the whole duration so the UI can show accurate progress.
      *
      * No-op if a summarization cycle is already in progress.
      */
@@ -567,6 +581,7 @@ class TokenAwareSummarizingMemory(
             return
         }
         log.info("forceCompact: triggering aggressive (COMPACT) summarization for session $sessionId")
+        _isSummarizing.value = true
 
         CompletableFuture.runAsync({
             try {
@@ -579,6 +594,7 @@ class TokenAwareSummarizingMemory(
             } finally {
                 summarizationInProgress.set(false)
                 updatePressure()
+                _isSummarizing.value = false
             }
         }, executorService)
     }

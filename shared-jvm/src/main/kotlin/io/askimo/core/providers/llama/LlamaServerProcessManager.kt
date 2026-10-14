@@ -646,6 +646,7 @@ object LlamaServerProcessManager {
         // resetting status — otherwise the "loading" indicator would flicker off between the
         // stop-old-process phase and the new process starting to load.
         slot.status.value = slot.status.value.copy(running = false, modelFileName = null, port = null)
+        logSlotStatuses()
     }
 
     private suspend fun startSlotLocked(slot: ChildSlot, modelPath: java.nio.file.Path, embeddingMode: Boolean) {
@@ -791,6 +792,7 @@ object LlamaServerProcessManager {
             embeddingMode = embeddingMode,
             port = port,
         )
+        logSlotStatuses()
         // Persists whichever model actually became resident in this slot — covers both manual
         // Select/Start clicks and automatic swaps from a real request (see ensureModelLoaded) —
         // so the next app launch can restore it automatically. See AppConfig.LocalLlmConfig's doc.
@@ -830,6 +832,24 @@ object LlamaServerProcessManager {
     }
 
     private fun findFreePort(): Int = ServerSocket(0).use { it.localPort }
+
+    /** Logs the current status of both the chat and embedding slots together — call after any state change worth observing. */
+    private fun logSlotStatuses() {
+        log.info(
+            "llama-server slots — chat: running={}, model={}, port={}, loading={} (loadingModel={}); " +
+                "embedding: running={}, model={}, port={}, loading={} (loadingModel={})",
+            chatSlot.status.value.running,
+            chatSlot.status.value.modelFileName,
+            chatSlot.status.value.port,
+            chatSlot.status.value.loading,
+            chatSlot.status.value.loadingModelFileName,
+            embeddingSlot.status.value.running,
+            embeddingSlot.status.value.modelFileName,
+            embeddingSlot.status.value.port,
+            embeddingSlot.status.value.loading,
+            embeddingSlot.status.value.loadingModelFileName,
+        )
+    }
 }
 
 /**

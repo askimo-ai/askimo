@@ -46,7 +46,6 @@ import kotlinx.coroutines.withContext
 import java.util.UUID
 import kotlin.collections.plus
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 
 /**
@@ -1320,12 +1319,32 @@ class ChatViewModel(
         sessionTitle = null
         project = null
 
+        // Clear chip selections scoped to the previous session — otherwise a resource
+        // collection (or bookmark) picked in the old chat would silently carry over and
+        // apply to the brand-new session's first message.
+        activeResourceCollectionIds = emptyList()
+        bookmarkedMessageIds = emptySet()
+
         // Clear ephemeral tool/thinking timeline state
         activeTimeline = emptyList()
         completedTimelines = emptyMap()
 
         // Clear search state
         clearSearch()
+
+        // Cancel the previous session's memory-pressure collector and reset its last-known
+        // values. Without this, a stale WARNING/CRITICAL banner (or an "isCompressing" spinner
+        // caught mid-flight) from the chat the user just left would keep showing on the blank
+        // "New Chat" screen until the collector happened to emit again — which may never
+        // happen since currentSessionId is now null.
+        pressureSubscriptionJob?.cancel()
+        pressureSubscriptionJob = null
+        memoryPressureLevel = MemoryPressureLevel.NORMAL
+        memoryUtilization = 0f
+        memoryUsedTokens = 0
+        memoryBudgetTokens = 0
+        isCompressing = false
+        isContextSizeLearned = false
 
         // "New Chat" doesn't change activeSessionId until the first message creates a real
         // session, so edit mode must be reset here directly rather than relying on sessionId
@@ -1564,6 +1583,11 @@ class ChatViewModel(
                 }
             }
             launch {
+                memory.isSummarizing.collect { summarizing ->
+                    isCompressing = summarizing
+                }
+            }
+            launch {
                 memory.usedTokens.collect { used ->
                     memoryUsedTokens = used
                 }
@@ -1588,30 +1612,27 @@ class ChatViewModel(
 
     /**
      * Trigger an aggressive (COMPACT-mode) summarization on the current session's memory.
-     * Updates [isCompressing] while the cycle runs; pressure updates automatically when done.
+     * [isCompressing] is driven by [TokenAwareSummarizingMemory.isSummarizing] (see
+     * [subscribeToMemoryPressure]) and stays true for the whole duration of the background
+     * cycle — it is not set manually here, so the UI's "Compressing…" state accurately
+     * reflects real progress instead of an arbitrary delay.
      */
     override fun compressMemory() {
         if (isCompressing) return
         val sessionId = currentSessionId.value ?: return
 
         viewModelScope.launch {
-            isCompressing = true
             try {
                 val memory = withContext(Dispatchers.IO) {
                     chatSessionService.getMemoryForSession(sessionId)
                 }
                 if (memory != null) {
                     memory.forceCompact()
-                    // forceCompact is async — wait a tick then stop the spinner; pressure
-                    // updates automatically via its StateFlow once the cycle completes.
-                    delay(500.milliseconds)
                 } else {
                     log.warn("compressMemory: no memory in cache for session {}", sessionId)
                 }
             } catch (e: Exception) {
                 log.error("compressMemory failed for session {}", sessionId, e)
-            } finally {
-                isCompressing = false
             }
         }
     }

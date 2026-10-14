@@ -1505,7 +1505,7 @@ private fun memoryPressureBanner(
         horizontalArrangement = Arrangement.spacedBy(Spacing.small),
     ) {
         Text(
-            text = message,
+            text = if (isCompressing) stringResource("memory.pressure.compressing") else message,
             style = AppTextStyles.hint,
             color = fg,
             modifier = Modifier.weight(1f),
@@ -1513,6 +1513,7 @@ private fun memoryPressureBanner(
         TextButton(
             onClick = onCompress,
             enabled = !isCompressing,
+            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
         ) {
             if (isCompressing) {
                 CircularProgressIndicator(
