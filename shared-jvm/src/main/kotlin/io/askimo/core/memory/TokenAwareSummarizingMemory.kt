@@ -551,10 +551,9 @@ class TokenAwareSummarizingMemory(
                     log.error("Fallback summarization also failed", fallbackError)
                 }
             } finally {
-                // Always reset on the same thread that set it — AtomicBoolean is safe here.
-                summarizationInProgress.set(false)
                 updatePressure()
                 _isSummarizing.value = false
+                summarizationInProgress.set(false)
                 val totalTime = (System.currentTimeMillis() - startTime) / 1000.0
                 if (totalTime > summarizationTimeoutSeconds) {
                     log.warn("Summarization took {}s, exceeding timeout of {}s", String.format("%.1f", totalTime), summarizationTimeoutSeconds)
@@ -592,9 +591,11 @@ class TokenAwareSummarizingMemory(
             } catch (e: Exception) {
                 log.error("forceCompact summarization failed", e)
             } finally {
-                summarizationInProgress.set(false)
+                // Same ordering requirement as triggerAsyncSummarization()'s finally — see its
+                // comment for why the guard must be released last.
                 updatePressure()
                 _isSummarizing.value = false
+                summarizationInProgress.set(false)
             }
         }, executorService)
     }

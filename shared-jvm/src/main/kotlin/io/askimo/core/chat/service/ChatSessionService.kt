@@ -524,18 +524,7 @@ class ChatSessionService(
         // existing structured summary is intentionally not carried over (matches
         // markMessagesAsOutdatedAfter's precedent) — it's re-derived from scratch as the
         // forked history grows.
-        val forkedMemoryMessages = messagesToCopy.map { msg ->
-            MemoryMessage(
-                content = msg.content,
-                type = when (msg.role) {
-                    MessageRole.USER -> MessageRole.USER.value
-                    MessageRole.ASSISTANT -> MessageRole.ASSISTANT.value
-                    MessageRole.SYSTEM -> MessageRole.SYSTEM.value
-                    MessageRole.TOOL_EXECUTION_RESULT_MESSAGE -> MessageRole.TOOL_EXECUTION_RESULT_MESSAGE.value
-                },
-                createdAt = msg.createdAt.toJavaInstant(),
-            )
-        }
+        val forkedMemoryMessages = messagesToCopy.map { it.toMemoryMessage() }
         // Best-effort: TokenAwareSummarizingMemory's constructor needs an active AI provider
         // (createUtilityClient()) — same constraint getOrCreateClientForSession's background
         // warm-up below already tolerates. Without this guard, forking in an environment with
@@ -748,18 +737,7 @@ class ChatSessionService(
 
             val remainingMessages = messageRepository.getRecentActiveMessages(sessionId, limit = 50).drop(1)
 
-            val memoryMessages = remainingMessages.map { msg ->
-                MemoryMessage(
-                    content = msg.content,
-                    type = when (msg.role) {
-                        MessageRole.USER -> MessageRole.USER.value
-                        MessageRole.ASSISTANT -> MessageRole.ASSISTANT.value
-                        MessageRole.SYSTEM -> MessageRole.SYSTEM.value
-                        MessageRole.TOOL_EXECUTION_RESULT_MESSAGE -> MessageRole.TOOL_EXECUTION_RESULT_MESSAGE.value
-                    },
-                    createdAt = msg.createdAt.toJavaInstant(),
-                )
-            }
+            val memoryMessages = remainingMessages.map { it.toMemoryMessage() }
 
             sharedMemory.loadFromFilteredMemory(memoryMessages)
 
@@ -1104,4 +1082,29 @@ class ChatSessionService(
         // Then include user's message/question at the end
         appendLine(userMessage.content)
     }
+
+    /**
+     * Convert a persisted [ChatMessage] (DB/display row) to a [MemoryMessage] for
+     * reconstructing a session's working memory (fork, or reload after an edit/retry
+     * via [markMessagesAsOutdatedAfter]).
+     *
+     * Tool-call metadata (toolCallId/toolName/toolExecutionRequests) is intentionally
+     * not carried over here. It only exists to pair tool_use/tool_result blocks for
+     * providers that validate that pairing — it doesn't affect future AI answers.
+     * loadFromFilteredMemory() silently drops any TOOL_EXECUTION_RESULT_MESSAGE row
+     * missing this metadata (see MemoryMessage.toChatMessage()), which is fine here:
+     * the conversational text content is preserved either way, and [ChatMessage] never
+     * carried this metadata in the first place — it only lives on a session's own
+     * persisted MemoryMessage rows.
+     */
+    private fun ChatMessage.toMemoryMessage(): MemoryMessage = MemoryMessage(
+        content = content,
+        type = when (role) {
+            MessageRole.USER -> MessageRole.USER.value
+            MessageRole.ASSISTANT -> MessageRole.ASSISTANT.value
+            MessageRole.SYSTEM -> MessageRole.SYSTEM.value
+            MessageRole.TOOL_EXECUTION_RESULT_MESSAGE -> MessageRole.TOOL_EXECUTION_RESULT_MESSAGE.value
+        },
+        createdAt = createdAt.toJavaInstant(),
+    )
 }
