@@ -13,8 +13,10 @@ import io.askimo.core.event.user.WhisperModelDownloadFailedEvent
 import io.askimo.core.event.user.WhisperModelDownloadStartedEvent
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,11 +29,13 @@ import java.nio.file.Files
  * started from Settings > Voice survives navigating away and back — fixes the prior
  * `rememberCoroutineScope()`-tied download getting cancelled when the view left composition.
  *
- * Only one download runs at a time ([startDownload] is a no-op if [state] is already non-null).
- * On success, the previously active tier's file is silently deleted (see
- * [deleteStalePreviousModel]) since only one model is ever in use. Start/completion/failure are
- * posted to [EventBus] so the notification bell reflects the outcome from any screen — live byte
- * progress stays out of the bus (to avoid flooding it) and is only exposed via [state].
+ * Only one download runs at a time ([startDownload] is a no-op if [state] is already non-null) —
+ * [cancelDownload] therefore needs no tier argument, unlike the per-model cancel in
+ * [io.askimo.core.providers.llama.LlamaDownloadManager]. On success, the previously active
+ * tier's file is silently deleted (see [deleteStalePreviousModel]) since only one model is ever
+ * in use. Start/completion/failure are posted to [EventBus] so the notification bell reflects the
+ * outcome from any screen — live byte progress stays out of the bus (to avoid flooding it) and is
+ * only exposed via [state].
  */
 object WhisperModelDownloadManager {
     private val log = logger<WhisperModelDownloadManager>()
@@ -57,6 +61,10 @@ object WhisperModelDownloadManager {
     /** `null` when no download is running and no error is pending acknowledgement. */
     val state: StateFlow<DownloadState?> = _state.asStateFlow()
 
+    /** Tracks the in-flight download [Job] so [cancelDownload] can cancel it. Only one download
+     *  ever runs at a time (see [startDownload]), so a single slot is enough. */
+    private var downloadJob: Job? = null
+
     /**
      * Starts downloading [tier] from [baseUrl], unless one is already in progress (no-op).
      * On success, persists the path directly to [AppConfig] regardless of whether Settings
@@ -74,7 +82,7 @@ object WhisperModelDownloadManager {
         val previousModelPath = AppConfig.rawVoice.localWhisperModelPath
         _state.value = DownloadState(tier)
 
-        scope.launch {
+        downloadJob = scope.launch {
             EventBus.emit(WhisperModelDownloadStartedEvent(tier.name, tierLabel))
             try {
                 val path = WhisperModelDownloader.download(tier, baseUrl) { done, total ->
@@ -85,12 +93,26 @@ object WhisperModelDownloadManager {
                 _state.value = null
                 EventBus.emit(WhisperModelDownloadFileReadyEvent(tier.name, path.toString()))
                 EventBus.emit(WhisperModelDownloadCompletedEvent(tier.name, tierLabel))
+            } catch (e: CancellationException) {
+                // User-initiated cancel (see cancelDownload) — WhisperModelDownloader.download
+                // already deletes the partial file; just clear the tracked state (not an error).
+                _state.value = null
+                throw e
             } catch (e: Exception) {
                 log.warn("Whisper model download failed for {}", tier, e)
                 _state.value = _state.value?.copy(error = e.message ?: "Unknown error")
                 EventBus.emit(WhisperModelDownloadFailedEvent(tier.name, tierLabel, e.message ?: "Unknown error"))
             }
         }
+    }
+
+    /**
+     * Cancels the in-progress download, if any (no-op otherwise). The underlying
+     * [WhisperModelDownloader] already deletes the partial `.part` file on cancellation, so
+     * this just needs to cancel the coroutine actually doing the downloading.
+     */
+    fun cancelDownload() {
+        downloadJob?.cancel()
     }
 
     /**

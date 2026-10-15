@@ -9,6 +9,7 @@ import io.askimo.core.logging.logger
 import io.askimo.core.util.AskimoHome
 import io.askimo.core.util.ProxyUtil
 import io.askimo.ui.voice.VoiceServiceException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -128,6 +129,11 @@ object WhisperModelDownloader {
                     }
                 }
             }
+        } catch (e: CancellationException) {
+            // Real cancellation (see WhisperModelDownloadManager.cancelDownload) — don't wrap it,
+            // or cancellation propagation breaks and the caller treats it as a download error.
+            Files.deleteIfExists(partPath)
+            throw e
         } catch (e: Exception) {
             Files.deleteIfExists(partPath)
             throw VoiceServiceException("Download of ${tier.fileName} failed or was cancelled: ${e.message}", e)

@@ -911,15 +911,30 @@ private fun whisperModelDownloadSection(
                 val percent = (progress * 100).toInt()
                 val downloadedMb = downloadedBytes / (1024 * 1024)
                 val totalMb = if (totalBytes > 0) totalBytes / (1024 * 1024) else selectedTier.approxSizeBytes / (1024 * 1024)
-                Text(
-                    text = LocalizationManager.getString(
-                        "settings.voice.whisper_model.downloading",
-                        percent,
-                        downloadedMb,
-                        totalMb,
-                    ),
-                    style = AppTextStyles.caption,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = LocalizationManager.getString(
+                            "settings.voice.whisper_model.downloading",
+                            percent,
+                            downloadedMb,
+                            totalMb,
+                        ),
+                        style = AppTextStyles.caption,
+                    )
+                    // Lets the user abort an in-progress download — WhisperModelDownloader
+                    // already deletes the partial `.part` file on cancellation, so this never
+                    // leaves stray files on disk.
+                    OutlinedButton(
+                        onClick = { WhisperModelDownloadManager.cancelDownload() },
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                    ) {
+                        Text(stringResource("action.cancel"), style = AppTextStyles.caption)
+                    }
+                }
             }
 
             isDownloaded -> Row(
