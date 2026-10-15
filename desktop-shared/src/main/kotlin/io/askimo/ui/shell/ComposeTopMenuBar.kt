@@ -2,7 +2,7 @@
  *
  * Copyright (c) 2026 Askimo
  */
-package io.askimo.desktop.shell
+package io.askimo.ui.shell
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -242,10 +242,6 @@ fun composeTopMenuBar(
                 menuAction("menu.help.release.notes") {
                     expandedMenu = null
                     runCatching { if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI("https://$DOMAIN/docs/changelogs/")) }
-                }
-                menuAction("menu.help.discord") {
-                    expandedMenu = null
-                    runCatching { if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI("https://discord.gg/eXSBR4fNmm")) }
                 }
                 menuAction("menu.help.forum") {
                     expandedMenu = null

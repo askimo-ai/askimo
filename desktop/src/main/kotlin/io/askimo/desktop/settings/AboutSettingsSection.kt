@@ -189,6 +189,16 @@ fun aboutSettingsSection() {
                             text = stringResource("about.copyright", Year.now().value, VersionInfo.author),
                             style = AppTextStyles.caption,
                         )
+                        Spacer(modifier = Modifier.height(Spacing.extraSmall))
+                        linkButton(
+                            onClick = {
+                                openUrl(
+                                    "https://raw.githubusercontent.com/askimo-ai/askimo/refs/heads/main/THIRD-PARTY-NOTICES.txt",
+                                )
+                            },
+                        ) {
+                            Text(stringResource("about.license.thirdParty"))
+                        }
                     }
                 }
 

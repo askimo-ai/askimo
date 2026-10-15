@@ -147,7 +147,7 @@ You shouldn't have to choose between the best AI model, your privacy, and gettin
 - **Reusable skills** - Define a skill once and materialize it into any supported agent's native skill-discovery folder, so it's just as invocable there as in Askimo's own chat
 
 **Voice**
-- **Speech-to-text** - Dictate messages via OpenAI's transcription API or a fully local/offline Whisper-compatible endpoint
+- **Speech-to-text** - Dictate messages via OpenAI's transcription API or a fully local/offline built-in Whisper engine (whisper.cpp)
 - **Text-to-speech** - Have AI responses read aloud via OpenAI's TTS API or a fully local/offline Piper endpoint, with optional auto-play for hands-free "conversation mode"
 
 **Reliability & Privacy**
@@ -182,7 +182,8 @@ cd askimo
 |---|---|
 | `desktop/` | Compose Multiplatform desktop application |
 | `desktop-shared/` | Shared UI components |
-| `shared/` | Core: providers, RAG, MCP, memory, tools, database, plans engine, skills & agent runtimes |
+| `shared/` | Kotlin Multiplatform common module: domain models/DTOs, chat types, event bus, and shared utils used by both JVM and other targets |
+| `shared-jvm/` | Core: providers, RAG, MCP, memory, tools, database, plans engine, skills & agent runtimes |
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for development guidelines and DCO requirements, or the [Development Getting Started Guide](https://askimo.chat/docs/development/getting-started/).
 

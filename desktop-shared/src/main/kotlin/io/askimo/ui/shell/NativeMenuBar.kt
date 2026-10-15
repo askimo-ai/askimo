@@ -431,15 +431,6 @@ object NativeMenuBar {
             }
             helpMenu.add(releaseNotesItem)
 
-            // Join Discord Community
-            val discordItem = MenuItem(menuLabel("menu.help.discord"))
-            discordItem.addActionListener {
-                runCatching {
-                    if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI("https://discord.gg/eXSBR4fNmm"))
-                }
-            }
-            helpMenu.add(discordItem)
-
             // Forum & Help — community Q&A and help section
             val forumItem = MenuItem(menuLabel("menu.help.forum"))
             forumItem.addActionListener {

@@ -101,7 +101,6 @@ import io.askimo.desktop.settings.aboutDialog
 import io.askimo.desktop.settings.fileViewerDialog
 import io.askimo.desktop.settings.providerWizardDialog
 import io.askimo.desktop.settings.settingsViewWithSidebar
-import io.askimo.desktop.shell.composeTopMenuBar
 import io.askimo.desktop.shell.footerBar
 import io.askimo.desktop.shell.navigationSidebar
 import io.askimo.desktop.shell.telemetryPanel
@@ -161,6 +160,7 @@ import io.askimo.ui.shell.ChatViewState
 import io.askimo.ui.shell.ErrorDialogState
 import io.askimo.ui.shell.NativeMenuBar
 import io.askimo.ui.shell.UpdateViewModel
+import io.askimo.ui.shell.composeTopMenuBar
 import io.askimo.ui.shell.feedbackPromptDialog
 import io.askimo.ui.shell.globalErrorHandler
 import io.askimo.ui.shell.globalSearchDialog

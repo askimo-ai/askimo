@@ -389,6 +389,16 @@ enum class AnalyticsEvent(
         "User skipped the inline feedback form without submitting. Properties: sentiment (neutral|unhappy|menu).",
     ),
 
+    /**
+     * User clicked "Ask the community" (forum link) from [feedbackPromptDialog] — either the
+     * inline nudge shown for question-like reasons, or the post-submit cross-post invite.
+     * Properties: `sentiment` (neutral|unhappy|menu), `source` (nudge|thanks).
+     */
+    USER_FEEDBACK_FORUM_CLICKED(
+        "user_feedback_forum_clicked",
+        "User opened the community forum from the inline feedback dialog. Properties: sentiment, source (nudge|thanks).",
+    ),
+
     // ── Consent ──────────────────────────────────────────────────────────────
 
     /** User explicitly opted in via the consent dialog or flag. */

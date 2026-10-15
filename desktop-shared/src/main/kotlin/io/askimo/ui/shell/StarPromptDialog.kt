@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.analytics.Analytics
 import io.askimo.core.analytics.AnalyticsEvent
 import io.askimo.core.service.StatsService
@@ -51,6 +52,8 @@ import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.awt.Desktop
+import java.net.URI
 
 /** Pre-defined feedback categories shown in [feedbackPromptDialog]. */
 enum class FeedbackReason(val emoji: String, val i18nKey: String) {
@@ -62,6 +65,29 @@ enum class FeedbackReason(val emoji: String, val i18nKey: String) {
     INTEGRATION("🔌", "feedback.reason.integration"),
     PRIVACY("🔒", "feedback.reason.privacy"),
     OTHER("🤔", "feedback.reason.other"),
+}
+
+/**
+ * Reasons that tend to be "how do I…" / "does Askimo support…" questions rather than
+ * Askimo-specific bugs — these get a faster, more useful answer from the community forum
+ * (other users + maintainers) than from a private feedback form, and the public thread
+ * benefits future users hitting the same question.
+ */
+private val FORUM_SUITABLE_REASONS = setOf(
+    FeedbackReason.MISSING_FEATURE,
+    FeedbackReason.INTEGRATION,
+    FeedbackReason.HARD_TO_USE,
+    FeedbackReason.OTHER,
+)
+
+private fun openAskimoForum(sentiment: String?, source: String) {
+    Analytics.track(
+        AnalyticsEvent.USER_FEEDBACK_FORUM_CLICKED,
+        mapOf("sentiment" to (sentiment ?: "menu"), "source" to source),
+    )
+    runCatching {
+        if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI("https://$DOMAIN/forum/section/?s=help"))
+    }
 }
 
 /**
@@ -224,6 +250,16 @@ fun feedbackPromptDialog(
                             textAlign = TextAlign.Center,
                         )
                     }
+                    // ── Cross-post invite — only for question-like reasons where a public
+                    // thread actually benefits other users; skipped for pure bug reports ──
+                    if (selectedReasons.any { it in FORUM_SUITABLE_REASONS }) {
+                        forumNudgeCard(
+                            title = null,
+                            message = stringResource("feedback.thanks.forum.hint"),
+                            buttonLabel = stringResource("feedback.thanks.forum.button"),
+                            onClick = { openAskimoForum(pathSentiment, "thanks") },
+                        )
+                    }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                         TextButton(onClick = onClose, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
                             Text(text = stringResource("feedback.thanks.close"), style = AppTextStyles.caption)
@@ -313,6 +349,17 @@ fun feedbackPromptDialog(
                                 if (row.size == 1) Spacer(modifier = Modifier.weight(1f))
                             }
                         }
+                    }
+                    // ── Forum nudge — shown when the selected reasons look like a question
+                    // rather than an Askimo-specific bug. Doesn't block the inline form; the
+                    // user can still send feedback below, this just offers a faster/public option ──
+                    if (selectedReasons.any { it in FORUM_SUITABLE_REASONS }) {
+                        forumNudgeCard(
+                            title = stringResource("feedback.forum.hint.title"),
+                            message = stringResource("feedback.forum.hint.message"),
+                            buttonLabel = stringResource("feedback.forum.hint.button"),
+                            onClick = { openAskimoForum(pathSentiment, "nudge") },
+                        )
                     }
                     // ── Comment field — encouraged on weak-sentiment paths, optional otherwise ──
                     OutlinedTextField(
@@ -425,6 +472,47 @@ fun feedbackPromptDialog(
                             Text(text = stringResource("feedback.action.send"))
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun forumNudgeCard(
+    title: String?,
+    message: String,
+    buttonLabel: String,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = AppColors.surfaceColor(AppColors.Elevation.RAISED),
+        contentColor = AppColors.contentColorFor(AppColors.Elevation.RAISED),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.medium),
+            verticalArrangement = Arrangement.spacedBy(Spacing.small),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(text = "🗣️", style = AppTextStyles.body)
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+                    if (title != null) {
+                        Text(text = title, style = AppTextStyles.fieldLabel, fontWeight = FontWeight.Medium)
+                    }
+                    Text(text = message, style = AppTextStyles.caption)
+                }
+            }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onClick, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+                    Text(text = buttonLabel, style = AppTextStyles.caption)
                 }
             }
         }
