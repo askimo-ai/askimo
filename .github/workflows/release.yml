@@ -591,10 +591,43 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          gh release download "${{ github.ref_name }}" \
-            --repo askimo-ai/askimo \
-            --pattern "${{ matrix.asset }}" \
-            --dir . --clobber
+          REPO="askimo-ai/askimo"
+          TAG="${{ github.ref_name }}"
+          ASSET_NAME="${{ matrix.asset }}"
+
+          # `gh release download <tag>` looks up the release via GitHub's
+          # "get release by tag" API, which only returns PUBLISHED releases.
+          # Our `release` job uploads with `draft: true`, so that lookup
+          # 404s ("release not found") even though the release and its
+          # assets genuinely exist. Use the releases-list API instead,
+          # which does include drafts, find the release matching our tag,
+          # then download the specific asset by its numeric ID.
+          echo "🔎 Looking up release for tag '$TAG' (including drafts)..."
+          RELEASE_JSON=$(gh api "repos/$REPO/releases" --paginate \
+            --jq "[.[] | select(.tag_name == \"$TAG\")][0]")
+
+          if [ -z "$RELEASE_JSON" ] || [ "$RELEASE_JSON" == "null" ]; then
+            echo "❌ No release (draft or published) found for tag '$TAG' in $REPO"
+            exit 1
+          fi
+
+          ASSET_ID=$(echo "$RELEASE_JSON" | jq -r --arg name "$ASSET_NAME" '.assets[] | select(.name == $name) | .id')
+          if [ -z "$ASSET_ID" ] || [ "$ASSET_ID" == "null" ]; then
+            echo "❌ Asset '$ASSET_NAME' not found on release for tag '$TAG'"
+            echo "Available assets:"
+            echo "$RELEASE_JSON" | jq -r '.assets[].name'
+            exit 1
+          fi
+
+          echo "📥 Downloading asset '$ASSET_NAME' (id=$ASSET_ID)..."
+          gh api "repos/$REPO/releases/assets/$ASSET_ID" \
+            -H "Accept: application/octet-stream" > "$ASSET_NAME"
+
+          if [ ! -s "$ASSET_NAME" ]; then
+            echo "❌ Downloaded file is empty/missing: $ASSET_NAME"
+            exit 1
+          fi
+          echo "✅ Downloaded $(ls -lh "$ASSET_NAME" | awk '{print $5}') -> $ASSET_NAME"
 
       - name: Verify downloaded DMG + inner .app (real Gatekeeper check)
         run: |
