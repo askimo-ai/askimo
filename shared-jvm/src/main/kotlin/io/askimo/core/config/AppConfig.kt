@@ -677,6 +677,10 @@ data class WebSearchConfig(
  *   `desktop-shared`. Requires a downloaded `ggml-*.bin` model file ([VoiceConfig.localWhisperModelPath]).
  *   Free, fully offline, lowest latency of the local options (no HTTP hop).
  * - [LOCAL_PIPER]: TTS-only. Talks to a user-hosted Piper HTTP server. Free, offline-capable.
+ * - [SYSTEM]: TTS-only. Shells out to the operating system's built-in TTS engine (macOS `say`,
+ *   Windows SAPI via PowerShell, Linux `espeak-ng`). Free, fully offline, zero configuration —
+ *   but voice quality is more robotic than OpenAI/Piper's neural voices, and requires `espeak-ng`
+ *   to be installed on Linux (macOS/Windows ship a TTS engine out of the box).
  */
 enum class VoiceProvider {
     NONE,
@@ -684,6 +688,7 @@ enum class VoiceProvider {
     LOCAL_WHISPER_CPP,
     LOCAL_WHISPER_FFM,
     LOCAL_PIPER,
+    SYSTEM,
 }
 
 private const val VOICE_OPENAI_KEY = "voice.openai.key"

@@ -10,6 +10,7 @@ import io.askimo.ui.voice.impl.LocalWhisperSpeechToTextFactory
 import io.askimo.ui.voice.impl.OpenAiSpeechToTextFactory
 import io.askimo.ui.voice.impl.OpenAiTextToSpeechFactory
 import io.askimo.ui.voice.impl.PiperTextToSpeechFactory
+import io.askimo.ui.voice.impl.SystemTextToSpeechFactory
 import io.askimo.ui.voice.impl.whispercpp.WhisperCppFfmSpeechToTextFactory
 
 /**
@@ -31,6 +32,7 @@ object VoiceServiceRegistry {
     private val ttsFactories: List<TextToSpeechFactory> = listOf(
         OpenAiTextToSpeechFactory,
         PiperTextToSpeechFactory,
+        SystemTextToSpeechFactory,
     )
 
     // Caches the last [SpeechToTextService] built for [cachedConfig] so repeated calls with an

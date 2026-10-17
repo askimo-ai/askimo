@@ -33,6 +33,12 @@ class AudioPlayer {
 
     @Volatile private var onFinished: (() -> Unit)? = null
 
+    // True once pause()/stop() is called explicitly — distinguishes a user-initiated STOP event
+    // from a natural-completion one. (Not framePosition >= frameLength: real OS-synthesized WAVs
+    // can report frameLength as AudioSystem.NOT_SPECIFIED (-1), making that comparison true on
+    // the very first STOP event — often just Clip startup/buffering — and cutting clips short.)
+    @Volatile private var explicitlyStoppedOrPaused = false
+
     /** True while a clip is actively playing (not paused, not stopped). */
     val isPlaying: Boolean get() = clip?.isRunning == true
 
@@ -68,20 +74,15 @@ class AudioPlayer {
                     val newClip = AudioSystem.getClip()
                     newClip.open(decodedStream)
                     newClip.addLineListener { event ->
-                        if (event.type == LineEvent.Type.STOP && newClip.framePosition >= newClip.frameLength) {
-                            // Runs on the JVM's line-event dispatch thread, concurrently with any
-                            // synchronized play/pause/stop call — synchronize here too, and only
-                            // act if `newClip` is still the active clip, so a stale event from a
-                            // clip that [stop] (or a subsequent [play]) already replaced can't
-                            // invoke a completion callback that no longer applies.
+                        if (event.type == LineEvent.Type.STOP) {
+                            // Runs on the line-event dispatch thread — synchronize, and only act
+                            // if `newClip` is still current and this STOP wasn't caused by an
+                            // explicit pause()/stop(), so a stale/self-triggered event can't fire
+                            // a completion callback that no longer applies.
                             synchronized(this@AudioPlayer) {
-                                if (clip === newClip) {
-                                    // Capture the callback and clear/close *before* invoking it —
-                                    // stop() releases the now-finished clip's native audio line
-                                    // (otherwise it would stay open/leaked until the next explicit
-                                    // stop()/play()) — and clearing state first means a callback
-                                    // that reentrantly calls play() again (same thread, same
-                                    // monitor) has its newly-assigned clip left untouched by us.
+                                if (clip === newClip && !explicitlyStoppedOrPaused) {
+                                    // Clear state and release the line before invoking the
+                                    // callback, so a reentrant play() call isn't clobbered.
                                     val callback = onFinished
                                     stop()
                                     callback?.invoke()
@@ -89,6 +90,7 @@ class AudioPlayer {
                             }
                         }
                     }
+                    explicitlyStoppedOrPaused = false
                     onFinished = onComplete
                     clip = newClip
                     newClip.start()
@@ -111,18 +113,25 @@ class AudioPlayer {
     /** Pauses playback in place; [resume] continues from the same position. No-op if not playing. */
     @Synchronized
     fun pause() {
-        clip?.takeIf { it.isRunning }?.stop()
+        clip?.takeIf { it.isRunning }?.let {
+            explicitlyStoppedOrPaused = true
+            it.stop()
+        }
     }
 
     /** Resumes playback from where it was paused. No-op if not paused or already playing. */
     @Synchronized
     fun resume() {
-        clip?.takeIf { it.isOpen && !it.isRunning }?.start()
+        clip?.takeIf { it.isOpen && !it.isRunning }?.let {
+            explicitlyStoppedOrPaused = false
+            it.start()
+        }
     }
 
     /** Stops playback and releases the underlying audio line. Safe to call when not playing. */
     @Synchronized
     fun stop() {
+        explicitlyStoppedOrPaused = true
         clip?.let {
             if (it.isRunning) it.stop()
             it.close()

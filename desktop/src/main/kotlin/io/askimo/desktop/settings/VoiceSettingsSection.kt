@@ -64,6 +64,7 @@ import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.clickableCard
 import io.askimo.ui.common.ui.themedTooltip
+import io.askimo.ui.voice.impl.SystemTextToSpeechService
 import io.askimo.ui.voice.impl.whispercpp.WhisperModelCatalog
 import io.askimo.ui.voice.impl.whispercpp.WhisperModelDownloadManager
 import io.askimo.ui.voice.impl.whispercpp.WhisperModelDownloader
@@ -78,7 +79,7 @@ private val sttProviders = listOf(VoiceProvider.NONE, VoiceProvider.OPENAI, Voic
 
 /** [VoiceProvider] entries valid for text-to-speech (LOCAL_WHISPER_CPP is STT-only). [VoiceProvider.NONE]
  *  lets the user disable auto-play/playback only, while keeping dictation enabled. */
-private val ttsProviders = listOf(VoiceProvider.NONE, VoiceProvider.OPENAI, VoiceProvider.LOCAL_PIPER)
+private val ttsProviders = listOf(VoiceProvider.NONE, VoiceProvider.OPENAI, VoiceProvider.LOCAL_PIPER, VoiceProvider.SYSTEM)
 
 @Composable
 fun voiceSettingsSection() {
@@ -156,6 +157,19 @@ private fun voiceConfigCard() {
     var ttsProviderDropdownExpanded by remember { mutableStateOf(false) }
     var ttsVoiceDropdownExpanded by remember { mutableStateOf(false) }
     var reuseKeyStatus by remember { mutableStateOf<String?>(null) }
+    // Voices actually installed on this machine for VoiceProvider.SYSTEM, lazily fetched once
+    // per session (shelling out to `say -v '?'` / `espeak-ng --voices` / PowerShell has
+    // noticeable latency) — null means "not fetched yet", empty means "fetched, none found".
+    var systemVoices by remember { mutableStateOf<List<String>?>(null) }
+    var systemVoiceDropdownExpanded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(ttsProvider) {
+        if (ttsProvider == VoiceProvider.SYSTEM && systemVoices == null) {
+            systemVoices = withContext(Dispatchers.IO) {
+                SystemTextToSpeechService(VoiceConfig()).listAvailableVoices()
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         val resolved = withContext(Dispatchers.IO) { AppConfig.voice }
@@ -377,6 +391,13 @@ private fun voiceConfigCard() {
                         if (newValue == VoiceProvider.OPENAI && ttsVoice !in openAiTtsVoices) {
                             ttsVoice = "alloy"
                             AppConfig.updateField("voice.ttsVoice", "alloy")
+                        } else if (newValue == VoiceProvider.SYSTEM) {
+                            // SYSTEM has no configurable voice (always uses the OS default) — an
+                            // OpenAI voice name like "alloy" or a Piper model id carried over from
+                            // another provider is not a valid OS voice name and would make the
+                            // underlying `say`/PowerShell/espeak-ng command fail outright. Clear it.
+                            ttsVoice = ""
+                            AppConfig.updateField("voice.ttsVoice", "")
                         }
                     },
                 )
@@ -395,19 +416,26 @@ private fun voiceConfigCard() {
                 // user picks NONE, there's no model/voice/speed/key to configure and auto-play
                 // is meaningless (nothing will ever be synthesized).
                 if (ttsProvider != VoiceProvider.NONE) {
-                    OutlinedTextField(
-                        value = ttsModel,
-                        onValueChange = { ttsModel = it },
-                        label = { Text(stringResource("settings.voice.tts_model")) },
-                        placeholder = { Text(stringResource("settings.voice.tts_model.placeholder")) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        colors = AppColors.outlinedTextFieldColors(),
-                    )
+                    // SYSTEM has no remote "model" concept — it's a local OS binary, not a
+                    // selectable model name — so this field is simply irrelevant there.
+                    if (ttsProvider != VoiceProvider.SYSTEM) {
+                        OutlinedTextField(
+                            value = ttsModel,
+                            onValueChange = { ttsModel = it },
+                            label = { Text(stringResource("settings.voice.tts_model")) },
+                            placeholder = { Text(stringResource("settings.voice.tts_model.placeholder")) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            colors = AppColors.outlinedTextFieldColors(),
+                        )
+                    }
 
                     // OpenAI's voice names are a fixed enum — offer a dropdown so users can't type an
                     // invalid value. Piper voice ids are arbitrary local model names the user installs
                     // themselves, so that case stays free text with a hint of the expected format.
+                    // SYSTEM's valid voice names are whatever's actually installed on this machine —
+                    // fetched lazily into `systemVoices` above — so it gets its own dropdown too,
+                    // with an "OS default" entry representing a blank ttsVoice.
                     when (ttsProvider) {
                         VoiceProvider.OPENAI -> voiceOptionSelector(
                             label = stringResource("settings.voice.tts_voice"),
@@ -421,6 +449,23 @@ private fun voiceConfigCard() {
                                 ttsVoiceDropdownExpanded = false
                             },
                         )
+
+                        VoiceProvider.SYSTEM -> {
+                            val systemDefaultLabel = stringResource("settings.voice.tts_voice.system_default")
+                            voiceOptionSelector(
+                                label = stringResource("settings.voice.tts_voice"),
+                                options = listOf(systemDefaultLabel) + systemVoices.orEmpty(),
+                                selected = ttsVoice.ifBlank { systemDefaultLabel },
+                                expanded = systemVoiceDropdownExpanded,
+                                onExpandedChange = { systemVoiceDropdownExpanded = it },
+                                onSelect = { newValue ->
+                                    val resolved = if (newValue == systemDefaultLabel) "" else newValue
+                                    ttsVoice = resolved
+                                    AppConfig.updateField("voice.ttsVoice", resolved)
+                                    systemVoiceDropdownExpanded = false
+                                },
+                            )
+                        }
 
                         else -> Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
                             OutlinedTextField(
@@ -439,8 +484,9 @@ private fun voiceConfigCard() {
                         }
                     }
 
-                    // Playback speed (0.25x–4.0x, OpenAI's supported range) — applies to both OpenAI
-                    // and Piper TTS providers since both accept the same `speed` field.
+                    // Playback speed (0.25x-4.0x, OpenAI's range) — applies to OpenAI, Piper, and
+                    // SYSTEM (see SystemTextToSpeechService.speedArgs for the per-OS mapping).
+                    // Hint text stays generic/approximate rather than per-OS.
                     Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -465,6 +511,7 @@ private fun voiceConfigCard() {
 
                     // Auto-play belongs to voice output (TTS) — it decides what happens once an
                     // AI response is ready to be read aloud.
+
                     voiceToggleRow(
                         label = stringResource("settings.voice.auto_play"),
                         description = stringResource("settings.voice.auto_play.description"),
@@ -925,9 +972,8 @@ private fun whisperModelDownloadSection(
                         ),
                         style = AppTextStyles.caption,
                     )
-                    // Lets the user abort an in-progress download — WhisperModelDownloader
-                    // already deletes the partial `.part` file on cancellation, so this never
-                    // leaves stray files on disk.
+                    // Lets the user abort an in-progress download — the downloader already
+                    // deletes the partial `.part` file on cancellation.
                     OutlinedButton(
                         onClick = { WhisperModelDownloadManager.cancelDownload() },
                         modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
