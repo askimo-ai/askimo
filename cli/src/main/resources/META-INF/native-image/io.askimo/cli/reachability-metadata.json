@@ -3544,6 +3544,9 @@
       "name": "forkSession should produce a new session independent from the source",
       "parameterTypes": [ ]
     }, {
+      "name": "forkSession should still copy messages and succeed when memory pre-population fails",
+      "parameterTypes": [ ]
+    }, {
       "name": "forkSession throws IllegalArgumentException for unknown source session",
       "parameterTypes": [ ]
     }, {
@@ -3889,6 +3892,9 @@
       "name": "config without legacy providers is not rewritten",
       "parameterTypes": [ ]
     }, {
+      "name": "hand-edited local_llm override still wins over compiled defaults",
+      "parameterTypes": [ ]
+    }, {
       "name": "invalid legacy config is not rewritten",
       "parameterTypes": [ ]
     }, {
@@ -3900,6 +3906,15 @@
     }, {
       "name": "legacy provider settings migrate without losing configuration",
       "parameterTypes": [ "java.lang.String", "java.lang.String", "java.lang.String" ]
+    }, {
+      "name": "local_llm section absent from askimo yml does not block loading current compiled defaults",
+      "parameterTypes": [ ]
+    }, {
+      "name": "stale local_llm provenance fields are stripped so new compiled defaults apply",
+      "parameterTypes": [ ]
+    }, {
+      "name": "updateField does not freeze untouched sections into askimo yml",
+      "parameterTypes": [ ]
     } ]
   }, {
     "type": "io.askimo.core.config.AppConfigTest",
@@ -4153,6 +4168,9 @@
   }, {
     "type": "io.askimo.core.config.LocalLlmConfig",
     "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ "java.lang.String", "boolean", "int", "int", "java.lang.String", "java.lang.String", "int", "int", "boolean", "boolean", "boolean", "int", "boolean", "boolean", "java.lang.String", "int", "double", "double", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
+    }, {
       "name": "getBatchSize",
       "parameterTypes": [ ]
     }, {
@@ -4187,6 +4205,9 @@
       "parameterTypes": [ ]
     }, {
       "name": "getLinuxX86Sha256",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getLlamaMirrorBaseUrl",
       "parameterTypes": [ ]
     }, {
       "name": "getMacosDownloadUrl",
@@ -4350,6 +4371,9 @@
   }, {
     "type": "io.askimo.core.config.NotificationsConfig",
     "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ "boolean", "boolean", "boolean" ]
+    }, {
       "name": "getEnabled",
       "parameterTypes": [ ]
     }, {
@@ -4508,6 +4532,9 @@
   }, {
     "type": "io.askimo.core.config.VoiceConfig",
     "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ "boolean", "io.askimo.core.config.VoiceProvider", "io.askimo.core.config.VoiceProvider", "java.lang.String", "java.lang.String", "java.lang.String", "double", "boolean", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "boolean", "boolean", "java.util.List", "int", "long" ]
+    }, {
       "name": "<init>",
       "parameterTypes": [ "boolean", "io.askimo.core.config.VoiceProvider", "io.askimo.core.config.VoiceProvider", "java.lang.String", "java.lang.String", "java.lang.String", "double", "boolean", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "boolean", "boolean", "java.util.List", "int", "long", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
     }, {

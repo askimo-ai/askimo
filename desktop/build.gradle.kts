@@ -1452,7 +1452,25 @@ fun stapleWithRetry(
         val combined = out.toString() + err.toString()
         logger.lifecycle("⚠️  Attempt $attempt failed (exit ${result.exitValue}):\n$combined")
 
-        if (!combined.contains("Error 65") && !combined.contains("Record not found")) {
+        // Known-transient failures that are safe to retry:
+        //  - Error 65 / "Record not found"  -> ticket hasn't propagated to CDN yet
+        //  - NSURLErrorDomain Code=-1005    -> "The network connection was lost"
+        //  - NSURLErrorDomain Code=-1001    -> request timed out
+        //  - NSURLErrorDomain Code=-1004    -> could not connect to the server
+        //  - NSPOSIXErrorDomain Code=54     -> connection reset by peer
+        val isTransient =
+            combined.contains("Error 65") ||
+                combined.contains("Record not found") ||
+                combined.contains("Code=-1005") ||
+                combined.contains("Code=-1001") ||
+                combined.contains("Code=-1004") ||
+                combined.contains("NSPOSIXErrorDomain Code=54") ||
+                combined.contains("network connection was lost", ignoreCase = true) ||
+                combined.contains("could not connect to the server", ignoreCase = true) ||
+                combined.contains("could not be found", ignoreCase = true) ||
+                combined.contains("timed out", ignoreCase = true)
+
+        if (!isTransient) {
             throw GradleException("❌ Stapler failed with unexpected error:\n$combined")
         }
     }
@@ -1462,6 +1480,62 @@ fun stapleWithRetry(
                 "Run manually when the ticket propagates:\n" +
                 "  xcrun stapler staple -v \"${target.absolutePath}\"",
         )
+    }
+}
+
+/**
+ * Runs `xcrun stapler validate` on [target], retrying on the same class of
+ * transient network/CDN errors that [stapleWithRetry] tolerates (e.g. the
+ * CloudKit ticket-delivery lookup dropping the connection mid-request).
+ * Hard-fails only once the error is confirmed non-transient or retries
+ * are exhausted — a missing/invalid ticket must still stop the build.
+ */
+fun validateStapleWithRetry(
+    target: File,
+    maxAttempts: Int = 5,
+    waitSeconds: Long = 30,
+) {
+    for (attempt in 1..maxAttempts) {
+        val out = ByteArrayOutputStream()
+        val result =
+            execOps.exec {
+                commandLine("xcrun", "stapler", "validate", target.absolutePath)
+                standardOutput = out
+                errorOutput = out
+                isIgnoreExitValue = true
+            }
+        val combined = out.toString()
+        logger.lifecycle(combined)
+
+        if (result.exitValue == 0) {
+            return
+        }
+
+        val isTransient =
+            combined.contains("Error 65") ||
+                combined.contains("Record not found") ||
+                combined.contains("Code=-1005") ||
+                combined.contains("Code=-1001") ||
+                combined.contains("Code=-1004") ||
+                combined.contains("NSPOSIXErrorDomain Code=54") ||
+                combined.contains("network connection was lost", ignoreCase = true) ||
+                combined.contains("could not connect to the server", ignoreCase = true) ||
+                combined.contains("could not be found", ignoreCase = true) ||
+                combined.contains("inconsistent with expections", ignoreCase = true) ||
+                combined.contains("timed out", ignoreCase = true)
+
+        if (!isTransient || attempt == maxAttempts) {
+            throw GradleException(
+                "❌ xcrun stapler validate FAILED on ${target.name} (exit ${result.exitValue}, attempt $attempt/$maxAttempts)\n" +
+                    combined,
+            )
+        }
+
+        logger.lifecycle(
+            "⚠️  stapler validate hit a transient error (attempt $attempt/$maxAttempts) — " +
+                "retrying in ${waitSeconds}s...",
+        )
+        Thread.sleep(waitSeconds * 1000)
     }
 }
 
@@ -1982,15 +2056,42 @@ tasks.register("notarizeApp") {
             throw GradleException("❌ .app notarization failed with status: $status")
         }
 
-        // Clean up the temporary ZIP — we do NOT staple the .app here.
-        // The .app will be packaged inside a DMG which is stapled in customNotarizeDmg.
-        // Stapling the .app directly is unreliable: xcrun stapler computes the ticket
-        // lookup hash differently from how notarytool records it for a ZIP submission,
-        // causing "Could not validate ticket" errors even when notarization was Accepted.
-        // Gatekeeper falls back to Apple's CDN for online verification when there is no
-        // embedded staple ticket, so the .app inside the stapled DMG is fully accepted.
         appZip.delete()
-        logger.lifecycle("✅ .app notarization complete! (ticket on Apple CDN — DMG will be stapled)")
+
+        // ── Staple the ticket directly onto the .app ──────────────────────
+        // Without this, Gatekeeper falls back to its periodically-synced local
+        // ticket database to recognize the app as notarized when it's run
+        // standalone (e.g. dragged out of the DMG into /Applications). If that
+        // sync hasn't propagated yet — which can take hours — `spctl` reports
+        // "rejected / Unnotarized Developer ID" even though notarization
+        // genuinely succeeded. Stapling embeds the ticket so verification is
+        // immediate and fully offline, regardless of where the user puts the app.
+        stapleWithRetry(appToSign)
+
+        // Hard-fail verification: if the staple ticket isn't present/valid, or
+        // Gatekeeper would still reject the app, stop the pipeline now rather
+        // than shipping a DMG whose inner .app fails for end users.
+        logger.lifecycle("🔍 Verifying staple ticket on .app...")
+        validateStapleWithRetry(appToSign)
+
+        logger.lifecycle("🔍 Verifying Gatekeeper accepts the .app...")
+        val spctlOut = ByteArrayOutputStream()
+        val spctlResult =
+            execOps.exec {
+                commandLine("spctl", "-a", "-vvv", appToSign.absolutePath)
+                standardOutput = spctlOut
+                errorOutput = spctlOut
+                isIgnoreExitValue = true
+            }
+        logger.lifecycle(spctlOut.toString())
+        if (spctlResult.exitValue != 0) {
+            throw GradleException(
+                "❌ spctl REJECTS the stapled .app (exit ${spctlResult.exitValue}) — aborting.\n" +
+                    spctlOut.toString(),
+            )
+        }
+
+        logger.lifecycle("✅ .app notarization complete! (ticket stapled directly onto the .app)")
     }
 }
 
@@ -2440,22 +2541,7 @@ tasks.register("customNotarizeDmg") {
 
         // ── Post-staple validation: hard fail if ticket is missing ────────
         logger.lifecycle("🔍 [3/3] Post-staple validation...")
-        val validateOut = ByteArrayOutputStream()
-        val validateResult =
-            execOps.exec {
-                commandLine("xcrun", "stapler", "validate", signedDmg.absolutePath)
-                standardOutput = validateOut
-                errorOutput = validateOut
-                isIgnoreExitValue = true
-            }
-        logger.lifecycle(validateOut.toString())
-        if (validateResult.exitValue != 0) {
-            throw GradleException(
-                "❌ xcrun stapler validate FAILED after stapling (exit ${validateResult.exitValue})\n" +
-                    "The staple ticket was NOT embedded — this DMG will trigger Gatekeeper warnings.\n" +
-                    validateOut.toString(),
-            )
-        }
+        validateStapleWithRetry(signedDmg)
         logger.lifecycle("   ✅ Staple ticket embedded and validated")
 
         // Final SHA-256 (should match before since stapler only adds a resource)

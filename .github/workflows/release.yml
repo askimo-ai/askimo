@@ -139,12 +139,50 @@ jobs:
 
       # ── CHECKPOINT 1: verify DMG is properly signed + stapled before upload ──
       # If this fails the whole pipeline stops — no point uploading a broken artifact.
+      # ── Shared helper: retry `xcrun stapler validate` on transient network
+      # errors (e.g. CloudKit ticket-delivery API dropping the connection).
+      # Mirrors validateStapleWithRetry() in desktop/build.gradle.kts so CI
+      # checkpoints don't hard-fail on the same network blips Gradle retries.
+      - name: "[macOS] Install stapler-validate retry helper"
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/stapler-retry.sh" <<'HELPER_EOF'
+          validate_with_retry() {
+            local target="$1"
+            local max_attempts="${2:-5}"
+            local wait_seconds="${3:-30}"
+            local attempt=1
+            local out exit_code
+            while [ "$attempt" -le "$max_attempts" ]; do
+              out=$(xcrun stapler validate "$target" 2>&1)
+              exit_code=$?
+              echo "$out"
+              if [ $exit_code -eq 0 ]; then
+                return 0
+              fi
+              if echo "$out" | grep -qiE "Error 65|Record not found|Code=-1005|Code=-1001|Code=-1004|NSPOSIXErrorDomain Code=54|network connection was lost|could not connect to the server|could not be found|inconsistent with expections|timed out"; then
+                if [ "$attempt" -lt "$max_attempts" ]; then
+                  echo "⚠️  stapler validate transient error (attempt $attempt/$max_attempts) — retrying in ${wait_seconds}s..."
+                  sleep "$wait_seconds"
+                  attempt=$((attempt + 1))
+                  continue
+                fi
+              fi
+              return $exit_code
+            done
+            return 1
+          }
+          HELPER_EOF
+          echo "✓ Helper installed at $RUNNER_TEMP/stapler-retry.sh"
+
       - name: "[macOS] Verify DMG signature and staple ticket before upload"
         if: runner.os == 'macOS'
         shell: bash
         run: |
           set -euo pipefail
           DMG="${{ matrix.artifact-pattern }}"
+          source "$RUNNER_TEMP/stapler-retry.sh"
 
           echo "══════════════════════════════════════════════════════════════"
           echo "CHECKPOINT 1 — DMG before upload to artifact store"
@@ -166,7 +204,7 @@ jobs:
           codesign --display --verbose=4 "$DMG" 2>&1 | grep -E "CDHash|TeamIdentifier|Identifier|Authority" || true
 
           echo "── Staple ticket ───────────────────────────────────────────"
-          xcrun stapler validate "$DMG" 2>&1 || { echo "❌ STAPLE TICKET MISSING — Gradle task failed to staple"; exit 1; }
+          validate_with_retry "$DMG" || { echo "❌ STAPLE TICKET MISSING — Gradle task failed to staple"; exit 1; }
           echo "✅ Staple ticket present"
 
           echo "── Gatekeeper assessment ───────────────────────────────────"
@@ -174,6 +212,51 @@ jobs:
             || { echo "❌ Gatekeeper rejected DMG"; exit 1; }
           echo "✅ Gatekeeper accepts DMG"
           echo "══════════════════════════════════════════════════════════════"
+
+      # ── CHECKPOINT 1b: verify the INNER .app also carries a stapled ticket ──
+      # The DMG having a ticket is not enough: once a user drags Askimo.app out
+      # of the DMG into /Applications, only the .app's own ticket matters.
+      # Without it, Gatekeeper falls back to its periodically-synced local
+      # ticket database and can report "Unnotarized Developer ID" for hours
+      # even though notarization genuinely succeeded. Fail the pipeline here,
+      # before anything is uploaded, if the inner .app isn't stapled.
+      - name: "[macOS] Verify inner .app has a stapled ticket"
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DMG="${{ matrix.artifact-pattern }}"
+          source "$RUNNER_TEMP/stapler-retry.sh"
+
+          echo "══════════════════════════════════════════════════════════════"
+          echo "CHECKPOINT 1b — inner .app ticket before upload to artifact store"
+          echo "══════════════════════════════════════════════════════════════"
+
+          MOUNT_DIR=$(mktemp -d)
+          hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MOUNT_DIR"
+
+          cleanup() { hdiutil detach "$MOUNT_DIR" -force >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+
+          APP=$(find "$MOUNT_DIR" -maxdepth 1 -name "*.app" | head -n1)
+          if [ -z "$APP" ]; then
+            echo "❌ No .app bundle found inside DMG"
+            ls -la "$MOUNT_DIR"
+            exit 1
+          fi
+          echo "── Found app: $APP"
+
+          echo "── Staple ticket on .app ────────────────────────────────────"
+          validate_with_retry "$APP" \
+            || { echo "❌ STAPLE TICKET MISSING on .app — Gradle notarizeApp failed to staple"; exit 1; }
+          echo "✅ Staple ticket present on .app"
+
+          echo "── Gatekeeper assessment of .app ────────────────────────────"
+          spctl -a -vvv "$APP" 2>&1 \
+            || { echo "❌ Gatekeeper rejects the .app"; exit 1; }
+          echo "✅ Gatekeeper accepts .app"
+          echo "══════════════════════════════════════════════════════════════"
+
 
       - name: Build uber JAR (Linux/macOS)
         if: runner.os != 'Windows'
@@ -258,6 +341,40 @@ jobs:
         with:
           path: dist
 
+      # Same transient-network-retry helper as the desktop-package job (separate
+      # runner, so it must be re-installed here).
+      - name: "[macOS] Install stapler-validate retry helper"
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/stapler-retry.sh" <<'HELPER_EOF'
+          validate_with_retry() {
+            local target="$1"
+            local max_attempts="${2:-5}"
+            local wait_seconds="${3:-30}"
+            local attempt=1
+            local out exit_code
+            while [ "$attempt" -le "$max_attempts" ]; do
+              out=$(xcrun stapler validate "$target" 2>&1)
+              exit_code=$?
+              echo "$out"
+              if [ $exit_code -eq 0 ]; then
+                return 0
+              fi
+              if echo "$out" | grep -qiE "Error 65|Record not found|Code=-1005|Code=-1001|Code=-1004|NSPOSIXErrorDomain Code=54|network connection was lost|could not connect to the server|could not be found|inconsistent with expections|timed out"; then
+                if [ "$attempt" -lt "$max_attempts" ]; then
+                  echo "⚠️  stapler validate transient error (attempt $attempt/$max_attempts) — retrying in ${wait_seconds}s..."
+                  sleep "$wait_seconds"
+                  attempt=$((attempt + 1))
+                  continue
+                fi
+              fi
+              return $exit_code
+            done
+            return 1
+          }
+          HELPER_EOF
+          echo "✓ Helper installed at $RUNNER_TEMP/stapler-retry.sh"
+
       # ── CHECKPOINT 2: confirm what arrived after upload-artifact round-trip ──
       # upload-artifact zips the file; that zip round-trip may strip the staple
       # ticket xattr. We re-staple from Apple CDN and HARD FAIL if it doesn't work.
@@ -265,6 +382,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          source "$RUNNER_TEMP/stapler-retry.sh"
           echo "══════════════════════════════════════════════════════════════"
           echo "CHECKPOINT 2 — DMGs after download-artifact"
           echo "══════════════════════════════════════════════════════════════"
@@ -293,7 +411,7 @@ jobs:
             codesign --display --verbose=4 "$DMG" 2>&1 | grep -E "CDHash|TeamIdentifier|Identifier|Authority|Signed Time" || true
 
             echo "   Staple ticket before re-staple:"
-            xcrun stapler validate "$DMG" 2>&1 \
+            validate_with_retry "$DMG" \
               && echo "   ℹ️  Ticket still present (survived zip)" \
               || echo "   ℹ️  Ticket stripped by upload-artifact zip (expected — will re-staple)"
 
@@ -312,7 +430,7 @@ jobs:
             fi
 
             echo "   Staple ticket after re-staple:"
-            xcrun stapler validate "$DMG" 2>&1 \
+            validate_with_retry "$DMG" \
               && echo "   ✅ Re-staple verified" \
               || { echo "   ❌ VALIDATE FAILED after re-staple"; FAILED=1; }
 
@@ -332,6 +450,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          source "$RUNNER_TEMP/stapler-retry.sh"
           mkdir -p release
 
           echo "══════════════════════════════════════════════════════════════"
@@ -350,7 +469,7 @@ jobs:
             cp "$SRC" "$DEST"
             echo "✓ Copied ARM64 DMG  : $DEST  ($(du -sh "$DEST" | cut -f1))"
             # Verify ticket survived the copy
-            xcrun stapler validate "$DEST" 2>&1 \
+            validate_with_retry "$DEST" \
               && echo "  ✅ Staple ticket intact after copy" \
               || { echo "  ❌ Staple ticket LOST after cp — aborting"; exit 1; }
           fi
@@ -364,7 +483,7 @@ jobs:
             DEST="release/Askimo-Desktop-macos-x64.dmg"
             cp "$SRC" "$DEST"
             echo "✓ Copied Intel DMG  : $DEST  ($(du -sh "$DEST" | cut -f1))"
-            xcrun stapler validate "$DEST" 2>&1 \
+            validate_with_retry "$DEST" \
               && echo "  ✅ Staple ticket intact after copy" \
               || { echo "  ❌ Staple ticket LOST after cp — aborting"; exit 1; }
           fi
@@ -435,6 +554,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          source "$RUNNER_TEMP/stapler-retry.sh"
           FAILED=0
 
           echo "══════════════════════════════════════════════════════════════"
@@ -460,7 +580,7 @@ jobs:
             codesign --display --verbose=4 "$DMG" 2>&1 | grep -E "CDHash|TeamIdentifier|Identifier|Authority|Signed Time" || true
 
             echo "Staple ticket:"
-            xcrun stapler validate "$DMG" 2>&1 \
+            validate_with_retry "$DMG" \
               && echo "✅ Staple ticket present" \
               || { echo "❌ STAPLE TICKET MISSING — DO NOT RELEASE"; FAILED=1; }
 
@@ -468,6 +588,28 @@ jobs:
             spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG" 2>&1 \
               && echo "✅ Gatekeeper accepts" \
               || { echo "❌ Gatekeeper REJECTS — DO NOT RELEASE"; FAILED=1; }
+
+            echo "Inner .app staple ticket:"
+            MOUNT_DIR=$(mktemp -d)
+            if hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MOUNT_DIR" >/dev/null 2>&1; then
+              APP=$(find "$MOUNT_DIR" -maxdepth 1 -name "*.app" | head -n1)
+              if [ -z "$APP" ]; then
+                echo "❌ No .app bundle found inside DMG — DO NOT RELEASE"
+                FAILED=1
+              else
+                validate_with_retry "$APP" \
+                  && echo "✅ Inner .app staple ticket present" \
+                  || { echo "❌ INNER .app STAPLE TICKET MISSING — DO NOT RELEASE"; FAILED=1; }
+                spctl -a -vvv "$APP" 2>&1 \
+                  && echo "✅ Gatekeeper accepts inner .app" \
+                  || { echo "❌ Gatekeeper REJECTS inner .app — DO NOT RELEASE"; FAILED=1; }
+              fi
+              hdiutil detach "$MOUNT_DIR" -force >/dev/null 2>&1 || true
+            else
+              echo "❌ Could not mount DMG to inspect inner .app — DO NOT RELEASE"
+              FAILED=1
+            fi
+            rmdir "$MOUNT_DIR" 2>/dev/null || true
             echo ""
           done
 
@@ -480,7 +622,7 @@ jobs:
           echo "✅ CHECKPOINT 3 PASSED — all DMGs are safe to upload to GitHub Releases"
 
       - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             release/*
@@ -492,3 +634,193 @@ jobs:
           draft: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+  # ── Post-publish smoke test ───────────────────────────────────────────────
+  # Downloads the DMG exactly as a real user would (via `gh release download`
+  # against the published GitHub Release asset) and re-runs the full Gatekeeper
+  # verification chain end-to-end. This is the only checkpoint that validates
+  # what actually ends up in users' hands, catching any corruption/stripping
+  # introduced by the action-gh-release upload step itself.
+  verify-release:
+    name: Verify published release (Gatekeeper smoke test) - ${{ matrix.arch }}
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [ release ]
+    runs-on: macos-latest
+    # The Intel (x64) smoke test has shown recurring transient network failures
+    # talking to Apple's CloudKit ticket-delivery API from GitHub's macos-latest
+    # runner specifically when validating the Intel DMG (build/package/staple
+    # themselves work fine — only this post-publish check is flaky). Don't let
+    # that block the release: ARM64's smoke test must still pass.
+    continue-on-error: ${{ matrix.arch == 'x64' }}
+    # NOTE: draft releases are only visible via the GitHub API to tokens with
+    # push/write access — a read-only token silently omits them from the
+    # releases list (this is GitHub's documented behavior, not a bug), which
+    # caused "No release (draft or published) found" even though the release
+    # job had just created it successfully. `contents: write` is required here
+    # purely to read the draft; this job does not modify the repo.
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            asset: Askimo-Desktop-macos-arm64.dmg
+          - arch: x64
+            asset: Askimo-Desktop-macos-x64.dmg
+
+    steps:
+      - name: "[macOS] Install stapler-validate retry helper"
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/stapler-retry.sh" <<'HELPER_EOF'
+          validate_with_retry() {
+            local target="$1"
+            local max_attempts="${2:-5}"
+            local wait_seconds="${3:-30}"
+            local attempt=1
+            local out exit_code
+            while [ "$attempt" -le "$max_attempts" ]; do
+              out=$(xcrun stapler validate "$target" 2>&1)
+              exit_code=$?
+              echo "$out"
+              if [ $exit_code -eq 0 ]; then
+                return 0
+              fi
+              if echo "$out" | grep -qiE "Error 65|Record not found|Code=-1005|Code=-1001|Code=-1004|NSPOSIXErrorDomain Code=54|network connection was lost|could not connect to the server|could not be found|inconsistent with expections|timed out"; then
+                if [ "$attempt" -lt "$max_attempts" ]; then
+                  echo "⚠️  stapler validate transient error (attempt $attempt/$max_attempts) — retrying in ${wait_seconds}s..."
+                  sleep "$wait_seconds"
+                  attempt=$((attempt + 1))
+                  continue
+                fi
+              fi
+              return $exit_code
+            done
+            return 1
+          }
+          HELPER_EOF
+          echo "✓ Helper installed at $RUNNER_TEMP/stapler-retry.sh"
+
+      - name: Wait for release assets to propagate
+        run: sleep 30
+
+      - name: Download published DMG
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          REPO="askimo-ai/askimo"
+          TAG="${{ github.ref_name }}"
+          ASSET_NAME="${{ matrix.asset }}"
+
+          # `gh release download <tag>` looks up the release via GitHub's
+          # "get release by tag" API, which only returns PUBLISHED releases.
+          # Our `release` job uploads with `draft: true`, so that lookup
+          # 404s ("release not found") even though the release and its
+          # assets genuinely exist. Use the releases-list API instead,
+          # which does include drafts, find the release matching our tag,
+          # then download the specific asset by its numeric ID.
+          echo "🔎 Looking up release for tag '$TAG' (including drafts)..."
+          RELEASE_JSON=$(gh api "repos/$REPO/releases" --paginate \
+            --jq "[.[] | select(.tag_name == \"$TAG\")][0]")
+
+          if [ -z "$RELEASE_JSON" ] || [ "$RELEASE_JSON" == "null" ]; then
+            echo "❌ No release (draft or published) found for tag '$TAG' in $REPO"
+            exit 1
+          fi
+
+          ASSET_ID=$(echo "$RELEASE_JSON" | jq -r --arg name "$ASSET_NAME" '.assets[] | select(.name == $name) | .id')
+          if [ -z "$ASSET_ID" ] || [ "$ASSET_ID" == "null" ]; then
+            echo "❌ Asset '$ASSET_NAME' not found on release for tag '$TAG'"
+            echo "Available assets:"
+            echo "$RELEASE_JSON" | jq -r '.assets[].name'
+            exit 1
+          fi
+
+          echo "📥 Downloading asset '$ASSET_NAME' (id=$ASSET_ID)..."
+          gh api "repos/$REPO/releases/assets/$ASSET_ID" \
+            -H "Accept: application/octet-stream" > "$ASSET_NAME"
+
+          if [ ! -s "$ASSET_NAME" ]; then
+            echo "❌ Downloaded file is empty/missing: $ASSET_NAME"
+            exit 1
+          fi
+          echo "✅ Downloaded $(ls -lh "$ASSET_NAME" | awk '{print $5}') -> $ASSET_NAME"
+
+      - name: Verify downloaded DMG + inner .app (real Gatekeeper check)
+        run: |
+          set -euo pipefail
+          DMG="${{ matrix.asset }}"
+          source "$RUNNER_TEMP/stapler-retry.sh"
+
+          echo "══════════════════════════════════════════════════════════════"
+          echo "SMOKE TEST — published DMG as downloaded by a real user"
+          echo "════════════════════════════════════════════════════════════"
+
+          if [ ! -f "$DMG" ]; then
+            echo "❌ Download failed — $DMG not found"
+            exit 1
+          fi
+
+          ls -lh "$DMG"
+          shasum -a 256 "$DMG"
+
+          echo "── DMG code signature ──────────────────────────────────────"
+          codesign --verify --verbose=2 "$DMG" 2>&1 \
+            || { echo "❌ DMG signature INVALID"; exit 1; }
+          echo "✅ DMG signature OK"
+
+          echo "── DMG staple ticket ───────────────────────────────────────"
+          validate_with_retry "$DMG" \
+            || { echo "❌ DMG staple ticket MISSING"; exit 1; }
+          echo "✅ DMG staple ticket present"
+
+          echo "── DMG Gatekeeper assessment ───────────────────────────────"
+          spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG" 2>&1 \
+            || { echo "❌ Gatekeeper REJECTS DMG"; exit 1; }
+          echo "✅ Gatekeeper accepts DMG"
+
+          echo ""
+          echo "── Inner .app (simulates dragging to /Applications) ───────"
+          MOUNT_DIR=$(mktemp -d)
+          hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MOUNT_DIR"
+
+          cleanup() { hdiutil detach "$MOUNT_DIR" -force >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+
+          APP=$(find "$MOUNT_DIR" -maxdepth 1 -name "*.app" | head -n1)
+          if [ -z "$APP" ]; then
+            echo "❌ No .app bundle found inside DMG"
+            exit 1
+          fi
+          echo "Found: $APP"
+
+          INSTALLED="/tmp/Askimo.app"
+          rm -rf "$INSTALLED"
+          cp -R "$APP" "$INSTALLED"
+
+          echo "-- Installed .app staple ticket --"
+          validate_with_retry "$INSTALLED" \
+            || { echo "❌ Installed .app staple ticket MISSING"; exit 1; }
+          echo "✅ Installed .app staple ticket present"
+
+          echo "-- Installed .app Gatekeeper (what the end user actually sees) --"
+          spctl -a -vvv "$INSTALLED" 2>&1 \
+            || { echo "❌ Gatekeeper REJECTS installed .app"; exit 1; }
+          echo "✅ Gatekeeper accepts installed .app"
+
+          echo ""
+          echo "══════════════════════════════════════════════════════════════"
+          echo "✅ SMOKE TEST PASSED — published release is safe for end users"
+          echo "══════════════════════════════════════════════════════════════"
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-verify-failure-${{ matrix.arch }}
+          path: "*.dmg"
+          if-no-files-found: ignore
+          retention-days: 7
