@@ -647,8 +647,14 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [ release ]
     runs-on: macos-latest
+    # NOTE: draft releases are only visible via the GitHub API to tokens with
+    # push/write access — a read-only token silently omits them from the
+    # releases list (this is GitHub's documented behavior, not a bug), which
+    # caused "No release (draft or published) found" even though the release
+    # job had just created it successfully. `contents: write` is required here
+    # purely to read the draft; this job does not modify the repo.
     permissions:
-      contents: read
+      contents: write
     strategy:
       fail-fast: false
       matrix:
