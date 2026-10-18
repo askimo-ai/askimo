@@ -7,6 +7,7 @@ package io.askimo.core.mcp.connectors
 import io.askimo.core.mcp.StdioMcpTransportConfig
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import java.io.File
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -32,10 +33,15 @@ class StdioMcpConnectorValidationTest {
     @Test
     @DisplayName("Should report a nonexistent absolute-path executable as invalid")
     fun testNonexistentAbsolutePathIsInvalid() {
+        val nonexistentAbsolutePath = File(
+            File.listRoots().first(),
+            "definitely/not/a/real/path/to/some-binary",
+        ).absolutePath
+
         val config = StdioMcpTransportConfig(
             id = "test-abs",
             name = "Test Absolute",
-            command = listOf("/definitely/not/a/real/path/to/some-binary"),
+            command = listOf(nonexistentAbsolutePath),
             env = emptyMap(),
         )
 
