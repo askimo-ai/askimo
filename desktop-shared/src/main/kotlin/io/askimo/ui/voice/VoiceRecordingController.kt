@@ -264,16 +264,30 @@ class VoiceRecordingController internal constructor(
                 recorderExecutor.execute {
                     try {
                         Snapshot.withMutableSnapshot { voiceWaveformSamples = emptyList() }
-                        audioRecorder.start { level ->
-                            // `level` is raw linear RMS (see PcmAudioEncoder.computeRmsLevel) — normal
-                            // speech volume is far below full-scale, so raw values (~0.01-0.1) always
-                            // collapse to the waveform's minimum bar height. Apply a perceptual sqrt
-                            // curve + gain (like a real VU meter) so speech visibly moves the bars.
-                            val boostedLevel = (sqrt(level.coerceIn(0f, 1f)) * 1.6f).coerceIn(0f, 1f)
-                            Snapshot.withMutableSnapshot {
-                                voiceWaveformSamples = (voiceWaveformSamples + boostedLevel).takeLast(MAX_WAVEFORM_SAMPLES)
-                            }
-                        }
+                        val voiceConfig = AppConfig.voice
+                        audioRecorder.start(
+                            onLevel = { level ->
+                                // `level` is raw linear RMS (see PcmAudioEncoder.computeRmsLevel) — normal
+                                // speech volume is far below full-scale, so raw values (~0.01-0.1) always
+                                // collapse to the waveform's minimum bar height. Apply a perceptual sqrt
+                                // curve + gain (like a real VU meter) so speech visibly moves the bars.
+                                val boostedLevel = (sqrt(level.coerceIn(0f, 1f)) * 1.6f).coerceIn(0f, 1f)
+                                Snapshot.withMutableSnapshot {
+                                    voiceWaveformSamples = (voiceWaveformSamples + boostedLevel).takeLast(MAX_WAVEFORM_SAMPLES)
+                                }
+                            },
+                            onSilenceTimeout = if (voiceConfig.autoStopOnSilence) {
+                                {
+                                    // Fires on the capture thread — hop onto `scope` (the composable's
+                                    // coroutine scope) before touching recording state/UI, same as every
+                                    // other state mutation path in this controller.
+                                    scope.launch { stopRecordingAndTranscribe() }
+                                }
+                            } else {
+                                null
+                            },
+                            silenceDurationMs = voiceConfig.autoStopSilenceDurationMs,
+                        )
                         if (operationGeneration == generation) {
                             voiceRecordingState = VoiceRecordingState.RECORDING
                         } else {

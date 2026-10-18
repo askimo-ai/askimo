@@ -139,6 +139,8 @@ private fun voiceConfigCard() {
     var localTtsEndpoint by remember { mutableStateOf(AppConfig.rawVoice.localTtsEndpoint) }
     var autoSendTranscript by remember { mutableStateOf(AppConfig.rawVoice.autoSendTranscript) }
     var autoPlayResponses by remember { mutableStateOf(AppConfig.rawVoice.autoPlayResponses) }
+    var autoStopOnSilence by remember { mutableStateOf(AppConfig.rawVoice.autoStopOnSilence) }
+    var autoStopSilenceDurationMs by remember { mutableStateOf(AppConfig.rawVoice.autoStopSilenceDurationMs) }
     var ttsCacheMaxMessages by remember { mutableStateOf(AppConfig.rawVoice.ttsCacheMaxMessages) }
     // Stored in bytes in config; displayed/edited in whole MB for a friendlier UI.
     var ttsCacheMaxMb by remember { mutableStateOf((AppConfig.rawVoice.ttsCacheMaxBytes / (1024 * 1024)).toInt().coerceAtLeast(1)) }
@@ -206,6 +208,10 @@ private fun voiceConfigCard() {
     LaunchedEffect(localTtsEndpoint) {
         delay(500.milliseconds)
         withContext(Dispatchers.IO) { AppConfig.updateField("voice.localTtsEndpoint", localTtsEndpoint) }
+    }
+    LaunchedEffect(autoStopSilenceDurationMs) {
+        delay(500.milliseconds)
+        withContext(Dispatchers.IO) { AppConfig.updateField("voice.autoStopSilenceDurationMs", autoStopSilenceDurationMs) }
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.large)) {
@@ -356,6 +362,49 @@ private fun voiceConfigCard() {
                             AppConfig.updateField("voice.autoSendTranscript", newValue)
                         },
                     )
+
+                    // Auto-stop-on-silence also belongs to dictation (STT) — it decides when
+                    // recording ends, so the user doesn't have to manually click/shortcut to
+                    // stop (Siri/Alexa-style "speak, then it just knows you're done").
+                    voiceToggleRow(
+                        label = stringResource("settings.voice.auto_stop_silence"),
+                        description = stringResource("settings.voice.auto_stop_silence.description"),
+                        checked = autoStopOnSilence,
+                        onCheckedChange = { newValue ->
+                            autoStopOnSilence = newValue
+                            AppConfig.updateField("voice.autoStopOnSilence", newValue)
+                        },
+                    )
+
+                    if (autoStopOnSilence) {
+                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = stringResource("settings.voice.auto_stop_silence.duration"),
+                                    style = AppTextStyles.fieldLabel,
+                                )
+                                Text(
+                                    text = String.format(java.util.Locale.ROOT, "%.1fs", autoStopSilenceDurationMs / 1000f),
+                                    style = AppTextStyles.caption,
+                                    color = AppTextStyles.secondaryContent,
+                                )
+                            }
+                            Slider(
+                                value = autoStopSilenceDurationMs.toFloat(),
+                                onValueChange = { autoStopSilenceDurationMs = it.toLong() },
+                                valueRange = 1_000f..6_000f,
+                                modifier = Modifier.fillMaxWidth().pointerHoverIcon(PointerIcon.Hand),
+                            )
+                            Text(
+                                text = stringResource("settings.voice.auto_stop_silence.duration.hint"),
+                                style = AppTextStyles.caption,
+                            )
+                        }
+                    }
                 }
             }
         }

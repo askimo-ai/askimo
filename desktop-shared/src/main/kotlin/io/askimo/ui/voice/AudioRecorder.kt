@@ -56,6 +56,9 @@ class AudioRecorder {
         private const val SIGNED = true
         private const val BIG_ENDIAN = false
         private const val READ_BUFFER_SIZE = 4096
+
+        /** RMS level (same scale as the onLevel callback) below which a chunk counts as "silence". */
+        private const val DEFAULT_SILENCE_THRESHOLD = 0.02f
     }
 
     private val format = AudioFormat(SAMPLE_RATE, SAMPLE_SIZE_BITS, CHANNELS, SIGNED, BIG_ENDIAN)
@@ -83,10 +86,27 @@ class AudioRecorder {
      *   Intended to drive a live "recording" UI indicator (e.g. a waveform/level meter) — this
      *   is a lightweight, high-frequency signal, not audio data, so callers can safely mutate
      *   Compose state directly from it (see the 🎤 button in `ChatInputField.kt`).
+     * @param onSilenceTimeout Optional callback invoked **once**, from the capture thread, the
+     *   first time the mic has been continuously below [silenceThreshold] for
+     *   [silenceDurationMs] *after* at least one chunk of actual speech was detected. Intended
+     *   to drive an auto-stop (see [io.askimo.ui.voice.VoiceRecordingController]) so the user
+     *   doesn't have to manually click/shortcut to stop — mirrors Siri/Alexa-style "speak, then
+     *   it just knows you're done." Callers must hop to their own dispatcher/scope before
+     *   touching UI state, since this fires on the capture thread, not the caller's thread.
+     * @param silenceThreshold RMS level (same units as [onLevel]'s `0f..1f`) below which a chunk
+     *   counts as silence. Tune against [onLevel]'s real-world values — typical room noise floor
+     *   vs. speech varies a lot by mic/gain.
+     * @param silenceDurationMs How long the signal must stay below [silenceThreshold],
+     *   continuously, before [onSilenceTimeout] fires. Ignored when [onSilenceTimeout] is null.
      * @throws MicrophoneUnavailableException if no input device is available, the OS denies
      *   access, or a temporary file for the capture buffer cannot be created.
      */
-    fun start(onLevel: ((Float) -> Unit)? = null) {
+    fun start(
+        onLevel: ((Float) -> Unit)? = null,
+        onSilenceTimeout: (() -> Unit)? = null,
+        silenceThreshold: Float = DEFAULT_SILENCE_THRESHOLD,
+        silenceDurationMs: Long = 1_500L,
+    ) {
         check(!isRecording) { "AudioRecorder is already recording" }
 
         val info = DataLine.Info(TargetDataLine::class.java, format)
@@ -127,6 +147,10 @@ class AudioRecorder {
         line = targetLine
         captureThread = Thread({
             val readBuffer = ByteArray(READ_BUFFER_SIZE)
+            // Local to the capture thread only — no synchronization needed.
+            var speechDetected = false
+            var silenceStartedAt: Long? = null
+            var silenceTimeoutFired = false
             try {
                 while (targetLine.isOpen) {
                     val bytesRead = targetLine.read(readBuffer, 0, readBuffer.size)
@@ -138,8 +162,21 @@ class AudioRecorder {
                                 log.warn("Failed writing captured audio to temp file", e)
                             }
                         }
-                        if (onLevel != null) {
-                            onLevel(PcmAudioEncoder.computeRmsLevel(readBuffer, bytesRead))
+                        val level = PcmAudioEncoder.computeRmsLevel(readBuffer, bytesRead)
+                        onLevel?.invoke(level)
+
+                        if (onSilenceTimeout != null && !silenceTimeoutFired) {
+                            if (level >= silenceThreshold) {
+                                speechDetected = true
+                                silenceStartedAt = null
+                            } else if (speechDetected) {
+                                val startedAt = silenceStartedAt
+                                    ?: System.currentTimeMillis().also { silenceStartedAt = it }
+                                if (System.currentTimeMillis() - startedAt >= silenceDurationMs) {
+                                    silenceTimeoutFired = true
+                                    onSilenceTimeout()
+                                }
+                            }
                         }
                     }
                 }

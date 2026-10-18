@@ -761,6 +761,22 @@ data class VoiceConfig(
      */
     val autoPlayResponses: Boolean = false,
     /**
+     * When true, a voice-dictation recording automatically stops (and transcribes) once the
+     * user has paused speaking for [autoStopSilenceDurationMs], instead of requiring a manual
+     * click/shortcut to stop — mirrors Siri/Alexa-style "speak, then it just knows you're done."
+     * Defaults on: at the default 1.5s pause threshold, false positives from normal mid-sentence
+     * pauses are unlikely, and manual click-to-stop remains available at any time as an override.
+     */
+    val autoStopOnSilence: Boolean = true,
+    /**
+     * How long (ms) the mic must stay below the RMS silence threshold before an in-progress
+     * recording is auto-stopped, when [autoStopOnSilence] is enabled. Only takes effect after
+     * at least one burst of actual speech was detected, so a recording that opens into silence
+     * (e.g. a slow mic permission prompt) doesn't immediately auto-finalize into an empty/no-op
+     * transcription.
+     */
+    val autoStopSilenceDurationMs: Long = 1_500L,
+    /**
      * Voice names accepted by OpenAI's `/v1/audio/speech` `voice` parameter — shown as a
      * dropdown (not free text) in Settings > Voice since any other value is rejected by the
      * API. Kept here (rather than hardcoded in the UI) so that when OpenAI ships a new voice,
@@ -1913,6 +1929,13 @@ object AppConfig {
         "autoSendTranscript" -> config.copy(autoSendTranscript = value as Boolean)
 
         "autoPlayResponses" -> config.copy(autoPlayResponses = value as Boolean)
+
+        "autoStopOnSilence" -> config.copy(autoStopOnSilence = value as Boolean)
+
+        "autoStopSilenceDurationMs" -> {
+            val parsed = (value as? Long) ?: (value as? Int)?.toLong() ?: value.toString().toLongOrNull()
+            config.copy(autoStopSilenceDurationMs = parsed?.takeIf { it > 0 } ?: config.autoStopSilenceDurationMs)
+        }
 
         "openAiTtsVoices" -> {
             val voices = when (value) {
