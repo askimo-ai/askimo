@@ -449,6 +449,15 @@ fun chatView(
         chatViewFocusRequester.requestFocus()
     }
 
+    // Also re-focus when "New Chat" empties the list — clearChat() doesn't change `sessionId`
+    // (a real session isn't assigned until the first message is sent), so the effect above
+    // won't refire, and whatever held focus in the old message list is now disposed.
+    LaunchedEffect(isEmptyState) {
+        if (isEmptyState) {
+            chatViewFocusRequester.requestFocus()
+        }
+    }
+
     // Load avatar painters from AvatarService (cached — decoded once per app lifetime).
     // userAvatarPath is passed in from the caller which already has userProfile loaded,
     // so there is no async race on first run and it re-triggers naturally when the

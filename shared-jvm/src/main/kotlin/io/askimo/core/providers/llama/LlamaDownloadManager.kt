@@ -5,9 +5,11 @@
 package io.askimo.core.providers.llama
 
 import io.askimo.core.event.EventBus
+import io.askimo.core.event.user.LlamaBinaryDownloadCancelledEvent
 import io.askimo.core.event.user.LlamaBinaryDownloadCompletedEvent
 import io.askimo.core.event.user.LlamaBinaryDownloadFailedEvent
 import io.askimo.core.event.user.LlamaBinaryDownloadStartedEvent
+import io.askimo.core.event.user.LlamaModelDownloadCancelledEvent
 import io.askimo.core.event.user.LlamaModelDownloadCompletedEvent
 import io.askimo.core.event.user.LlamaModelDownloadFailedEvent
 import io.askimo.core.event.user.LlamaModelDownloadStartedEvent
@@ -83,8 +85,10 @@ object LlamaDownloadManager {
             } catch (e: CancellationException) {
                 // User-initiated cancel (see cancelBinaryDownload) — StreamingDownloader.download
                 // already deletes the partial file; just clear the tracked state (not an error,
-                // and not reported as a failure event).
+                // and not reported as a failure event) and tell the notification footer to drop
+                // the in-progress card.
                 _binaryDownload.value = null
+                EventBus.emit(LlamaBinaryDownloadCancelledEvent(platformId))
                 throw e
             } catch (e: Exception) {
                 log.warn("llama-server binary download failed", e)
@@ -165,8 +169,10 @@ object LlamaDownloadManager {
             } catch (e: CancellationException) {
                 // User-initiated cancel (see cancelModelDownload) — StreamingDownloader.download
                 // already deletes the partial file; just clear the tracked state (not an error,
-                // and not reported as a failure event).
+                // and not reported as a failure event) and tell the notification footer to drop
+                // the in-progress card.
                 _modelDownloads.update { it - fileName }
+                EventBus.emit(LlamaModelDownloadCancelledEvent(fileName))
                 throw e
             } catch (e: Exception) {
                 log.warn("Model download failed for {}", fileName, e)

@@ -302,7 +302,11 @@ class WhisperCppFfmSpeechToTextService(private val config: VoiceConfig) :
         whisper_full_params.n_threads(params, Runtime.getRuntime().availableProcessors().coerceIn(1, maxThreads))
         whisper_full_params.language(params, arena.allocateFrom(whisperLanguageCode()))
         whisper_full_params.translate(params, false)
-        whisper_full_params.single_segment(params, false)
+        // true (not false): with false, whisper.cpp can emit two segments for the same speech,
+        // duplicating the phrase in the transcript — most visible here since inference re-decodes
+        // the entire buffered audio from scratch each pass (see WhisperStreamSession's doc).
+        // Doesn't truncate anything; long audio (>30s) still gets one segment per 30s window.
+        whisper_full_params.single_segment(params, true)
         whisper_full_params.no_context(params, true)
         // Silence whisper.cpp's own stdout/stderr logging — Askimo has its own logging pipeline.
         whisper_full_params.print_progress(params, false)

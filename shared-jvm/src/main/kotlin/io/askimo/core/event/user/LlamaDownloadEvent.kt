@@ -107,3 +107,37 @@ data class LlamaModelDownloadFailedEvent(
     override val type = EventType.INTERNAL
     override fun getDetails(): String = "Failed to download model '$modelLabel': $errorMessage"
 }
+
+/**
+ * Emitted when an in-progress `llama-server` engine binary download is cancelled by the user
+ * (e.g. clicking "Cancel" mid-download). Unlike started/completed/failed, this isn't meant to be
+ * displayed as its own card — the notification footer uses it purely as a signal to remove the
+ * in-progress card for [platformId] (see `llamaBinaryDownloadNotificationId`-style handling in
+ * `NotificationComponents.kt`).
+ */
+data class LlamaBinaryDownloadCancelledEvent(
+    /** Stable dedup key — [io.askimo.core.providers.llama.LlamaPlatformId] name. */
+    val platformId: String,
+    override val timestamp: Instant = Clock.System.now(),
+    override val source: EventSource = EventSource.SYSTEM,
+) : Event {
+    override val type = EventType.INTERNAL
+    override fun getDetails(): String = "Local LLM engine download cancelled."
+}
+
+/**
+ * Emitted when an in-progress `.gguf` model download is cancelled by the user (e.g. clicking
+ * "Cancel" mid-download). Unlike started/completed/failed, this isn't meant to be displayed as
+ * its own card — the notification footer uses it purely as a signal to remove the in-progress
+ * card for [fileName] (see `llamaModelDownloadNotificationId`-style handling in
+ * `NotificationComponents.kt`).
+ */
+data class LlamaModelDownloadCancelledEvent(
+    /** Stable dedup key — [io.askimo.core.providers.llama.LlamaModelEntry.fileName]. */
+    val fileName: String,
+    override val timestamp: Instant = Clock.System.now(),
+    override val source: EventSource = EventSource.SYSTEM,
+) : Event {
+    override val type = EventType.INTERNAL
+    override fun getDetails(): String = "Model download cancelled."
+}

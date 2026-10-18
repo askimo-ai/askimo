@@ -224,11 +224,11 @@ internal fun agenticRunArea(
         }
     }
 
-    // Reset the live-overwrite snapshot whenever a recording ends any other way (cancelled, or
-    // auto-/manually stopped without ever producing a single live update) so a stale snapshot
-    // can't leak into the next dictation cycle.
+    // Reset the live-overwrite snapshot only once IDLE (not just "left RECORDING") — leaving
+    // RECORDING also fires the instant stopping transitions to TRANSCRIBING, which raced with the
+    // in-flight onTranscript still needing this snapshot and caused it to double the transcript.
     LaunchedEffect(voiceRecordingController.voiceRecordingState) {
-        if (voiceRecordingController.voiceRecordingState != VoiceRecordingState.RECORDING) {
+        if (voiceRecordingController.voiceRecordingState == VoiceRecordingState.IDLE) {
             voiceLiveBaseText = null
         }
     }

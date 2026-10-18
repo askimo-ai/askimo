@@ -73,9 +73,11 @@ import io.askimo.core.event.user.IndexingCompletedEvent
 import io.askimo.core.event.user.IndexingFailedEvent
 import io.askimo.core.event.user.IndexingQueuedEvent
 import io.askimo.core.event.user.IndexingStartedEvent
+import io.askimo.core.event.user.LlamaBinaryDownloadCancelledEvent
 import io.askimo.core.event.user.LlamaBinaryDownloadCompletedEvent
 import io.askimo.core.event.user.LlamaBinaryDownloadFailedEvent
 import io.askimo.core.event.user.LlamaBinaryDownloadStartedEvent
+import io.askimo.core.event.user.LlamaModelDownloadCancelledEvent
 import io.askimo.core.event.user.LlamaModelDownloadCompletedEvent
 import io.askimo.core.event.user.LlamaModelDownloadFailedEvent
 import io.askimo.core.event.user.LlamaModelDownloadStartedEvent
@@ -156,6 +158,14 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
             unreadCount++
             trimEvents()
         }
+    }
+
+    // Removes a card by its dedup id without touching the unread badge — used when a
+    // started-but-not-yet-finished download is cancelled by the user, so its in-progress card
+    // simply disappears rather than being replaced by a completed/failed one.
+    fun removeEventById(id: String) {
+        val idx = events.indexOfFirst { it.id == id }
+        if (idx >= 0) events.removeAt(idx)
     }
 
     // User-facing events (UpdateAvailableEvent, ShellErrorEvent, …)
@@ -272,6 +282,10 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
                     showEventPopup = true // User must see failures
                 }
 
+                is LlamaBinaryDownloadCancelledEvent -> {
+                    removeEventById(llamaBinaryDownloadNotificationId(event.platformId))
+                }
+
                 is LlamaModelDownloadStartedEvent -> {
                     upsertEvent(NotificationEventItem(id = llamaModelDownloadNotificationId(event.fileName), event = event))
                 }
@@ -294,6 +308,10 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
                         ),
                     )
                     showEventPopup = true // User must see failures
+                }
+
+                is LlamaModelDownloadCancelledEvent -> {
+                    removeEventById(llamaModelDownloadNotificationId(event.fileName))
                 }
             }
         }
