@@ -112,7 +112,21 @@ class VoiceRecordingController internal constructor(
     var recordingElapsedSeconds by mutableStateOf(0)
         private set
 
+    // Growing live transcript shown while RECORDING, Siri/Alexa-style — only populated when the
+    // resolved STT service implements [StreamingSpeechToTextService] (currently only
+    // [io.askimo.ui.voice.impl.whispercpp.WhisperCppFfmSpeechToTextService]); stays blank for
+    // non-streaming providers, which only produce text once after [stopRecordingAndTranscribe].
+    var liveTranscript by mutableStateOf("")
+        private set
+
     private val audioRecorder = AudioRecorder()
+
+    // The in-progress live-transcription stream for the current recording, if the resolved STT
+    // service supports one (see [StreamingSpeechToTextService]) — null otherwise. Only ever
+    // touched from tasks running on [recorderExecutor]/[recorderDispatcher] (set in [toggle]'s
+    // IDLE branch, read/cleared in [stopRecordingAndTranscribe] and [cancelIfRecording]), so no
+    // separate synchronization is needed despite being read from multiple call sites.
+    private var activeStream: SpeechToTextStream? = null
 
     // Serializes every AudioRecorder start/stop/cancel call onto a single background thread —
     // mirrors AudioRecorder's own "not thread-safe for concurrent start/stop" contract. Without
@@ -152,7 +166,10 @@ class VoiceRecordingController internal constructor(
 
     /** Cancels any in-progress recording without transcribing — call when leaving composition. */
     fun cancelIfRecording() {
-        Snapshot.withMutableSnapshot { voiceWaveformSamples = emptyList() }
+        Snapshot.withMutableSnapshot {
+            voiceWaveformSamples = emptyList()
+            liveTranscript = ""
+        }
         // Bump unconditionally (not just `if (audioRecorder.isRecording)`) — a start() may still
         // be queued/opening the mic on recorderExecutor, which this (caller) thread can't
         // reliably observe via isRecording. Bumping invalidates that start() (see toggle()'s
@@ -165,6 +182,8 @@ class VoiceRecordingController internal constructor(
                 if (audioRecorder.isRecording) {
                     audioRecorder.cancel()
                 }
+                activeStream?.cancel()
+                activeStream = null
             } finally {
                 recorderOperationPending = false
             }
@@ -214,10 +233,22 @@ class VoiceRecordingController internal constructor(
         recorderOperationPending = true
         transcriptionJob = scope.launch {
             try {
-                val wavBytes = withContext(recorderDispatcher) { audioRecorder.stop() }
+                // Capture+clear `activeStream` on the same executor that set it, so there's no
+                // cross-thread race on the field itself (see activeStream's doc).
+                val (wavBytes, stream) = withContext(recorderDispatcher) {
+                    val bytes = audioRecorder.stop()
+                    val s = activeStream
+                    activeStream = null
+                    bytes to s
+                }
                 recorderOperationPending = false
                 val transcript = withContext(Dispatchers.IO) {
-                    VoiceServiceRegistry.speechToText(AppConfig.voice)
+                    // When a live stream was running, finish() already has the full transcript
+                    // built up from incremental passes — reuse it instead of re-transcribing the
+                    // same audio again from the batch WAV (wasteful and would double the final
+                    // latency for no benefit). Non-streaming providers (OpenAI, local whisper.cpp
+                    // server) have no such stream, so they fall back to the original batch path.
+                    stream?.finish() ?: VoiceServiceRegistry.speechToText(AppConfig.voice)
                         .transcribe(wavBytes, VoiceAudioFormat.WAV)
                 }
                 // Guard against a cancelAll() that ran after cooperative job-cancellation missed
@@ -239,6 +270,7 @@ class VoiceRecordingController internal constructor(
                 if (operationGeneration == generation) {
                     voiceRecordingState = VoiceRecordingState.IDLE
                 }
+                Snapshot.withMutableSnapshot { liveTranscript = "" }
                 transcriptionJob = null
                 recorderOperationPending = false
             }
@@ -263,8 +295,31 @@ class VoiceRecordingController internal constructor(
                 recorderOperationPending = true
                 recorderExecutor.execute {
                     try {
-                        Snapshot.withMutableSnapshot { voiceWaveformSamples = emptyList() }
+                        Snapshot.withMutableSnapshot {
+                            voiceWaveformSamples = emptyList()
+                            liveTranscript = ""
+                        }
                         val voiceConfig = AppConfig.voice
+                        // Resolve the STT service up front (not just at stop time) so a
+                        // streaming-capable provider (see StreamingSpeechToTextService — today
+                        // only whisper.cpp via FFM) can start producing live partial transcripts
+                        // as audio comes in, Siri/Alexa-style, instead of only after the user
+                        // stops. Non-streaming providers (OpenAI, local whisper.cpp server) are
+                        // unaffected — activeStream simply stays null for them.
+                        val sttService = VoiceServiceRegistry.speechToText(voiceConfig)
+                        activeStream = if (voiceConfig.liveTranscriptionEnabled) {
+                            (sttService as? StreamingSpeechToTextService)?.startStream { partial ->
+                                // Fires from the streaming session's own background coroutine, not
+                                // the capture thread — same "mutate Compose state directly, no
+                                // dispatcher hop needed" pattern already used for onLevel/waveform.
+                                Snapshot.withMutableSnapshot { liveTranscript = partial }
+                            }
+                        } else {
+                            // Kill switch (VoiceConfig.liveTranscriptionEnabled) — falls back to the
+                            // original "record → stop → transcribe once" batch flow even for a
+                            // streaming-capable provider.
+                            null
+                        }
                         audioRecorder.start(
                             onLevel = { level ->
                                 // `level` is raw linear RMS (see PcmAudioEncoder.computeRmsLevel) — normal
@@ -286,6 +341,7 @@ class VoiceRecordingController internal constructor(
                             } else {
                                 null
                             },
+                            onPcmChunk = activeStream?.let { stream -> { samples -> stream.feed(samples) } },
                             silenceDurationMs = voiceConfig.autoStopSilenceDurationMs,
                         )
                         if (operationGeneration == generation) {
@@ -295,6 +351,8 @@ class VoiceRecordingController internal constructor(
                             // what was just opened instead of publishing RECORDING into a
                             // context that's already been invalidated.
                             audioRecorder.cancel()
+                            activeStream?.cancel()
+                            activeStream = null
                         }
                     } catch (e: MicrophoneUnavailableException) {
                         EventBus.post(AppErrorEvent(title = errorTitleProvider(), message = e.message ?: "Microphone unavailable"))

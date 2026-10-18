@@ -90,6 +90,7 @@ import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.theme.clickableRounded
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.service.AvatarService
+import io.askimo.ui.voice.VoiceRecordingState
 import io.askimo.ui.voice.rememberVoiceRecordingController
 import io.askimo.ui.voice.voiceRecordingControls
 import kotlinx.coroutines.Dispatchers
@@ -183,13 +184,20 @@ internal fun agenticRunArea(
         voiceAutoSendTranscript = voice.autoSendTranscript
     }
 
+    // Snapshot of inputText.text taken the moment live dictation first starts overwriting the
+    // field (see the liveTranscript LaunchedEffect below) — null whenever we're not currently
+    // live-overwriting it. See ChatInputField's matching field for the full rationale; only
+    // matters for a streaming-capable STT provider (currently whisper.cpp via FFM).
+    var voiceLiveBaseText by remember { mutableStateOf<String?>(null) }
+
     // Shared voice-recording lifecycle (mic capture, waveform, auto-stop timer, STT)
     val voiceRecordingController = rememberVoiceRecordingController(
         busy = viewModel.isRunning,
         onTranscript = { transcript ->
-            val currentText = inputText.text
+            val currentText = voiceLiveBaseText ?: inputText.text
             val newText = if (currentText.isBlank()) transcript else "$currentText $transcript"
             inputText = TextFieldValue(text = newText, selection = TextRange(newText.length))
+            voiceLiveBaseText = null
 
             // Fully hands-free mode: run immediately instead of waiting for the user to press
             // Run. Off by default — see AppConfig.voice.autoSendTranscript.
@@ -202,6 +210,28 @@ internal fun agenticRunArea(
         if (voiceInputEnabled) voiceRecordingController.toggle()
     }
     cancelVoiceRecordingOnSend = { voiceRecordingController.cancelAll() }
+
+    // Live captions, Siri/Alexa-style — writes the growing transcript straight into the input
+    // field as it arrives, instead of only after the recording stops. Only ever fires for a
+    // streaming-capable STT provider (currently whisper.cpp via FFM); liveTranscript stays blank
+    // for every other provider, so this is a no-op for them.
+    LaunchedEffect(voiceRecordingController.liveTranscript) {
+        val transcript = voiceRecordingController.liveTranscript
+        if (voiceRecordingController.voiceRecordingState == VoiceRecordingState.RECORDING && transcript.isNotBlank()) {
+            val base = voiceLiveBaseText ?: inputText.text.also { voiceLiveBaseText = it }
+            val combined = if (base.isBlank()) transcript else "$base $transcript"
+            inputText = TextFieldValue(text = combined, selection = TextRange(combined.length))
+        }
+    }
+
+    // Reset the live-overwrite snapshot whenever a recording ends any other way (cancelled, or
+    // auto-/manually stopped without ever producing a single live update) so a stale snapshot
+    // can't leak into the next dictation cycle.
+    LaunchedEffect(voiceRecordingController.voiceRecordingState) {
+        if (voiceRecordingController.voiceRecordingState != VoiceRecordingState.RECORDING) {
+            voiceLiveBaseText = null
+        }
+    }
 
     // The controller is remembered without a `workspace.id` key (recreating it mid-recording
     // would just orphan the AudioRecorder), so guard against any of the identities it can be
@@ -499,6 +529,8 @@ internal fun agenticRunArea(
                         Spacer(modifier = Modifier.weight(1f))
 
                         // ── Voice input (🎤) — hidden entirely when disabled in Settings > Voice ──
+                        // Live captions (when supported — see StreamingSpeechToTextService) are
+                        // written directly into the input field itself, not shown separately here.
                         if (voiceInputEnabled) {
                             voiceRecordingControls(
                                 controller = voiceRecordingController,

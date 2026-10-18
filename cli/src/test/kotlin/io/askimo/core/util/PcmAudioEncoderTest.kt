@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test
 import java.nio.file.Files
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioSystem
+import kotlin.math.abs
+import kotlin.math.sqrt
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -59,6 +61,70 @@ class PcmAudioEncoderTest {
         val fullScale = (0 until 8).fold(ByteArray(0)) { acc, _ -> acc + littleEndianSample(Short.MAX_VALUE) }
         val level = PcmAudioEncoder.computeRmsLevel(fullScale, fullScale.size)
         assertTrue(level in 0f..1f)
+    }
+
+    // ── decodeToFloatMono ────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `decodeToFloatMono returns 0f samples for silence`() {
+        val silence = ByteArray(8) // 4 samples, all zero
+        val samples = PcmAudioEncoder.decodeToFloatMono(silence, silence.size)
+        assertEquals(4, samples.size)
+        samples.forEach { assertEquals(0f, it) }
+    }
+
+    @Test
+    fun `decodeToFloatMono maps Short MAX_VALUE to just under 1_0`() {
+        val bytes = littleEndianSample(Short.MAX_VALUE)
+        val samples = PcmAudioEncoder.decodeToFloatMono(bytes, bytes.size)
+        assertEquals(1, samples.size)
+        assertEquals(32767f / 32768f, samples[0])
+    }
+
+    @Test
+    fun `decodeToFloatMono maps Short MIN_VALUE to exactly -1_0`() {
+        val bytes = littleEndianSample(Short.MIN_VALUE)
+        val samples = PcmAudioEncoder.decodeToFloatMono(bytes, bytes.size)
+        assertEquals(1, samples.size)
+        assertEquals(-1f, samples[0])
+    }
+
+    @Test
+    fun `decodeToFloatMono preserves sample order and sign`() {
+        val shorts = shortArrayOf(0, 100, -100, 12345, -12345)
+        val bytes = shorts.fold(ByteArray(0)) { acc, s -> acc + littleEndianSample(s) }
+
+        val samples = PcmAudioEncoder.decodeToFloatMono(bytes, bytes.size)
+
+        assertEquals(shorts.size, samples.size)
+        shorts.forEachIndexed { i, s -> assertEquals(s / 32768f, samples[i]) }
+    }
+
+    @Test
+    fun `decodeToFloatMono ignores a trailing odd byte`() {
+        val bytes = littleEndianSample(100) + byteArrayOf(0x7F)
+        val samples = PcmAudioEncoder.decodeToFloatMono(bytes, bytes.size)
+        assertEquals(1, samples.size, "The dangling trailing byte shouldn't produce a partial sample")
+    }
+
+    @Test
+    fun `decodeToFloatMono handles an empty buffer`() {
+        val samples = PcmAudioEncoder.decodeToFloatMono(ByteArray(0), 0)
+        assertTrue(samples.isEmpty())
+    }
+
+    @Test
+    fun `decodeToFloatMono and computeRmsLevel agree on amplitude for the same PCM`() {
+        // Both should decode identically — guards against the two paths drifting apart
+        // (e.g. one adding dithering/rounding the other doesn't).
+        val shorts = shortArrayOf(1000, -1000, 2000, -2000)
+        val bytes = shorts.fold(ByteArray(0)) { acc, s -> acc + littleEndianSample(s) }
+
+        val samples = PcmAudioEncoder.decodeToFloatMono(bytes, bytes.size)
+        val rms = PcmAudioEncoder.computeRmsLevel(bytes, bytes.size)
+
+        val rmsFromFloats = sqrt(samples.map { (it * it).toDouble() }.average())
+        assertTrue(abs(rmsFromFloats.toFloat() - rms) < 0.001f)
     }
 
     // ── encodeBytesAsWav / encodeFileAsWav ──────────────────────────────────────────────

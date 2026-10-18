@@ -22,3 +22,42 @@ interface SpeechToTextService {
      */
     suspend fun transcribe(audio: ByteArray, format: VoiceAudioFormat = VoiceAudioFormat.WAV): String
 }
+
+/**
+ * Optional capability for Siri/Alexa-style live captions — a growing transcript shown while
+ * recording, instead of only after it stops. Implemented only by
+ * [io.askimo.ui.voice.impl.whispercpp.WhisperCppFfmSpeechToTextService], the sole in-process
+ * (FFM) provider cheap enough to re-run every second or so. HTTP-based providers
+ * ([io.askimo.ui.voice.impl.OpenAiSpeechToTextService], [io.askimo.ui.voice.impl.LocalWhisperSpeechToTextService])
+ * could implement this too, but each partial update would cost a network round-trip.
+ *
+ * [io.askimo.ui.voice.VoiceRecordingController] uses this path when available, falling back to
+ * [SpeechToTextService.transcribe] on the final WAV otherwise — purely additive.
+ */
+interface StreamingSpeechToTextService {
+    /**
+     * Starts a new live-transcription stream for one recording.
+     *
+     * @param onPartialUpdate Called with the full transcript-so-far after each inference pass.
+     *   May run on a background thread — hop to your own dispatcher before touching UI state.
+     */
+    fun startStream(onPartialUpdate: (String) -> Unit): SpeechToTextStream
+}
+
+/**
+ * One live-transcription session, fed audio as it's captured. Not thread-safe for concurrent
+ * [feed] calls — intended to be fed from a single capture thread/coroutine.
+ */
+interface SpeechToTextStream {
+    /** Feeds more mono float32 PCM samples (16kHz, `[-1f, 1f]`) into the stream, in order. */
+    fun feed(samples: FloatArray)
+
+    /**
+     * Signals no more audio is coming, runs one final inference pass, and returns the complete
+     * transcript. Suspends until done. Safe to call even if [feed] was never called.
+     */
+    suspend fun finish(): String
+
+    /** Aborts without producing a final transcript. Idempotent. */
+    fun cancel()
+}

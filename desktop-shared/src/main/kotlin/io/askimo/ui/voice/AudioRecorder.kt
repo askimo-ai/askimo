@@ -93,6 +93,13 @@ class AudioRecorder {
      *   doesn't have to manually click/shortcut to stop — mirrors Siri/Alexa-style "speak, then
      *   it just knows you're done." Callers must hop to their own dispatcher/scope before
      *   touching UI state, since this fires on the capture thread, not the caller's thread.
+     * @param onPcmChunk Optional callback invoked on the capture thread after each chunk is
+     *   read, with that chunk decoded to normalized `[-1f, 1f]` mono float32 PCM (16kHz, same
+     *   decode as [PcmAudioEncoder.decodeToFloatMono]). Intended to feed a live transcription
+     *   stream (see [io.askimo.ui.voice.StreamingSpeechToTextService]) as audio arrives, rather
+     *   than waiting for [stop] to produce the full WAV — unlike [onLevel], this does allocate
+     *   (one `FloatArray` per chunk), so it's only decoded/invoked when a non-null callback is
+     *   actually provided.
      * @param silenceThreshold RMS level (same units as [onLevel]'s `0f..1f`) below which a chunk
      *   counts as silence. Tune against [onLevel]'s real-world values — typical room noise floor
      *   vs. speech varies a lot by mic/gain.
@@ -104,6 +111,7 @@ class AudioRecorder {
     fun start(
         onLevel: ((Float) -> Unit)? = null,
         onSilenceTimeout: (() -> Unit)? = null,
+        onPcmChunk: ((FloatArray) -> Unit)? = null,
         silenceThreshold: Float = DEFAULT_SILENCE_THRESHOLD,
         silenceDurationMs: Long = 1_500L,
     ) {
@@ -149,8 +157,18 @@ class AudioRecorder {
             val readBuffer = ByteArray(READ_BUFFER_SIZE)
             // Local to the capture thread only — no synchronization needed.
             var speechDetected = false
-            var silenceStartedAt: Long? = null
+            // Accumulated *audio* duration (ms) continuously below silenceThreshold, derived
+            // purely from sample counts at the known SAMPLE_RATE — deliberately NOT wall-clock
+            // time (System.currentTimeMillis()). A wall-clock timer is vulnerable to this
+            // thread's own scheduling jitter: e.g. when live transcription (see onPcmChunk /
+            // StreamingSpeechToTextService) is busy re-running whisper_full on a background
+            // thread, CPU contention can delay this capture thread between reads, which would
+            // inflate a wall-clock timer even though the user never actually stopped talking —
+            // firing onSilenceTimeout mid-sentence. Tracking elapsed audio instead of elapsed
+            // wall-clock time makes the threshold immune to that class of scheduling jitter.
+            var accumulatedSilenceMs = 0.0
             var silenceTimeoutFired = false
+            val msPerSample = 1000.0 / SAMPLE_RATE
             try {
                 while (targetLine.isOpen) {
                     val bytesRead = targetLine.read(readBuffer, 0, readBuffer.size)
@@ -164,15 +182,17 @@ class AudioRecorder {
                         }
                         val level = PcmAudioEncoder.computeRmsLevel(readBuffer, bytesRead)
                         onLevel?.invoke(level)
+                        onPcmChunk?.invoke(PcmAudioEncoder.decodeToFloatMono(readBuffer, bytesRead))
 
                         if (onSilenceTimeout != null && !silenceTimeoutFired) {
                             if (level >= silenceThreshold) {
                                 speechDetected = true
-                                silenceStartedAt = null
+                                accumulatedSilenceMs = 0.0
                             } else if (speechDetected) {
-                                val startedAt = silenceStartedAt
-                                    ?: System.currentTimeMillis().also { silenceStartedAt = it }
-                                if (System.currentTimeMillis() - startedAt >= silenceDurationMs) {
+                                // 16-bit samples -> 2 bytes/sample; this chunk's audio duration.
+                                val chunkSampleCount = bytesRead / 2
+                                accumulatedSilenceMs += chunkSampleCount * msPerSample
+                                if (accumulatedSilenceMs >= silenceDurationMs) {
                                     silenceTimeoutFired = true
                                     onSilenceTimeout()
                                 }
@@ -185,6 +205,10 @@ class AudioRecorder {
             }
         }, "askimo-audio-recorder").apply {
             isDaemon = true
+            // Highest priority — this thread must never be starved of CPU by background work
+            // (e.g. live-transcription's periodic whisper_full inference passes), since any
+            // delay here risks dropping/batching audio input at the OS level.
+            priority = Thread.MAX_PRIORITY
             start()
         }
     }

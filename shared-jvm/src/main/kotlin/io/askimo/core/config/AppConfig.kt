@@ -55,12 +55,14 @@ data class ThrottleConfig(
     val perRequestSleepMs: Long = 30,
 )
 
+/** A detectable project type (Gradle, Maven, Node.js, ...) used to seed sensible exclude paths during indexing. */
 data class ProjectType(
     val name: String,
     val markers: Set<String>,
     val excludePaths: Set<String>,
 )
 
+/** Toggles for which exclude strategies are applied when filtering files for indexing. */
 data class FilterConfig(
     val gitignore: Boolean = true,
     val dockerignore: Boolean = false,
@@ -191,11 +193,13 @@ data class IndexingConfig(
     ),
 )
 
+/** Developer/debug mode toggle — gates internal diagnostic features. */
 data class DeveloperConfig(
     val enabled: Boolean = true,
     val active: Boolean = false,
 )
 
+/** Supported outbound proxy types. */
 enum class ProxyType {
     NONE,
     HTTP,
@@ -214,12 +218,16 @@ data class ProxyConfig(
     companion object {
         private const val KEYCHAIN_PASSWORD_PLACEHOLDER = "***keychain***"
 
+        /** Per-[ProxyType] key used to store/retrieve the password via [SecureKeyManager]. */
         private fun getStorageKey(proxyType: ProxyType): String = "proxy.${proxyType.name.lowercase()}.password"
 
+        /** True if [password] is a real value, not blank and not the keychain placeholder. */
         fun isActualPassword(password: String): Boolean = password.isNotBlank() && password != KEYCHAIN_PASSWORD_PLACEHOLDER
 
+        /** Retrieves the securely stored password for [proxyType], or null if none is stored. */
         fun getSecurePassword(proxyType: ProxyType): String? = SecureKeyManager.retrieveSecretKey(getStorageKey(proxyType))
 
+        /** Stores (or removes, if [password] is empty) the password for [proxyType] in secure storage. */
         fun setSecurePassword(proxyType: ProxyType, password: String): SecureKeyManager.StorageResult = if (password.isEmpty()) {
             // Remove password if empty
             SecureKeyManager.removeSecretKey(getStorageKey(proxyType))
@@ -239,7 +247,9 @@ data class ProxyConfig(
 }
 
 data class ChatConfig(
+    /** Max tokens reserved for the response. */
     val maxTokens: Int = 8000,
+    /** BCP-47 locale forcing the AI to respond in a given language; null means no forced locale. */
     val defaultResponseAILocale: String? = null,
 )
 
@@ -630,23 +640,38 @@ data class WebSearchConfig(
     val serplyApiKey: String = "",
 ) {
     companion object {
+        /** True if [value] is the keychain placeholder (i.e. not a real key). */
         fun isKeyPlaceholder(value: String): Boolean = value == WEB_SEARCH_KEY_PLACEHOLDER
+
+        /** True if [value] is a real key — not blank and not the placeholder. */
         fun isActualKey(value: String): Boolean = value.isNotBlank() && !isKeyPlaceholder(value)
+
+        /** Retrieves the securely stored Brave API key, or null if none is stored. */
         fun getSecureBraveKey(): String? = SecureKeyManager.retrieveSecretKey(WEB_SEARCH_KEY_BRAVE)
+
+        /** Retrieves the securely stored Tavily API key, or null if none is stored. */
         fun getSecureTavilyKey(): String? = SecureKeyManager.retrieveSecretKey(WEB_SEARCH_KEY_TAVILY)
+
+        /** Retrieves the securely stored Serply API key, or null if none is stored. */
         fun getSecureSerplyKey(): String? = SecureKeyManager.retrieveSecretKey(WEB_SEARCH_KEY_SERPLY)
+
+        /** Stores (or removes, if [key] is empty) the Brave API key in secure storage. */
         fun setSecureBraveKey(key: String): SecureKeyManager.StorageResult = if (key.isEmpty()) {
             SecureKeyManager.removeSecretKey(WEB_SEARCH_KEY_BRAVE)
             SecureKeyManager.StorageResult(success = true, method = SecureKeyManager.StorageMethod.KEYCHAIN)
         } else {
             SecureKeyManager.storeSecuredKey(WEB_SEARCH_KEY_BRAVE, key)
         }
+
+        /** Stores (or removes, if [key] is empty) the Tavily API key in secure storage. */
         fun setSecureTavilyKey(key: String): SecureKeyManager.StorageResult = if (key.isEmpty()) {
             SecureKeyManager.removeSecretKey(WEB_SEARCH_KEY_TAVILY)
             SecureKeyManager.StorageResult(success = true, method = SecureKeyManager.StorageMethod.KEYCHAIN)
         } else {
             SecureKeyManager.storeSecuredKey(WEB_SEARCH_KEY_TAVILY, key)
         }
+
+        /** Stores (or removes, if [key] is empty) the Serply API key in secure storage. */
         fun setSecureSerplyKey(key: String): SecureKeyManager.StorageResult = if (key.isEmpty()) {
             SecureKeyManager.removeSecretKey(WEB_SEARCH_KEY_SERPLY)
             SecureKeyManager.StorageResult(success = true, method = SecureKeyManager.StorageMethod.KEYCHAIN)
@@ -776,6 +801,19 @@ data class VoiceConfig(
      * transcription.
      */
     val autoStopSilenceDurationMs: Long = 1_500L,
+    /**
+     * When true, a growing live transcript is written into the input field
+     * while recording, for STT providers that support it (see
+     * `io.askimo.ui.voice.StreamingSpeechToTextService`; currently only
+     * `io.askimo.ui.voice.impl.whispercpp.WhisperCppFfmSpeechToTextService`). Defaults on, but
+     * kept as a dedicated kill switch separate from [sttProvider] itself — if the incremental
+     * re-transcription logic ever misbehaves (e.g. garbled/duplicated partial text) for some
+     * model/platform combination, users can flip this off and fall back to the original,
+     * well-tested "record → stop → transcribe once" flow without losing local whisper.cpp
+     * entirely. No effect on non-streaming providers (OpenAI, local whisper.cpp server), which
+     * never produce partial updates regardless of this flag.
+     */
+    val liveTranscriptionEnabled: Boolean = true,
     /**
      * Voice names accepted by OpenAI's `/v1/audio/speech` `voice` parameter — shown as a
      * dropdown (not free text) in Settings > Voice since any other value is rejected by the
@@ -1366,6 +1404,10 @@ object AppConfig {
         }
     }
 
+    /**
+     * Migrates legacy standalone provider types (DOCKER, LMSTUDIO, OLLAMA, LOCALAI) to the
+     * unified [ModelProvider.OPENAI_COMPATIBLE] type with an equivalent `template_name`.
+     */
     private fun migrateLegacyProviders(config: JsonNode): Boolean {
         val instances = config.path("context").path("provider_instances")
         if (!instances.isArray) return false
@@ -1604,23 +1646,27 @@ object AppConfig {
         else -> config
     }
 
+    /** Updates a single [RetryConfig] field by name; unknown fields are ignored. */
     private fun updateRetryField(config: RetryConfig, field: String, value: Any): RetryConfig = when (field) {
         "attempts" -> config.copy(attempts = value as Int)
         "baseDelayMs" -> config.copy(baseDelayMs = value as Long)
         else -> config
     }
 
+    /** Updates a single [ThrottleConfig] field by name; unknown fields are ignored. */
     private fun updateThrottleField(config: ThrottleConfig, field: String, value: Any): ThrottleConfig = when (field) {
         "perRequestSleepMs" -> config.copy(perRequestSleepMs = value as Long)
         else -> config
     }
 
+    /** Updates a single [EmbeddingConfig] field by name; unknown fields are ignored. */
     private fun updateEmbeddingField(config: EmbeddingConfig, field: String, value: Any): EmbeddingConfig = when (field) {
         "maxCharsPerChunk" -> config.copy(maxCharsPerChunk = value as Int)
         "chunkOverlap" -> config.copy(chunkOverlap = value as Int)
         else -> config
     }
 
+    /** Updates a single [ChatConfig] field by name; locale changes also fire [LanguageDirectiveChangedEvent]. */
     private fun updateChatField(config: ChatConfig, field: String, value: Any): ChatConfig = when (field) {
         "maxTokens" -> config.copy(maxTokens = value as Int)
 
@@ -1635,6 +1681,10 @@ object AppConfig {
         else -> config
     }
 
+    /**
+     * Updates a single [MemoryConfig] field by name. Setting `mode` swaps the entire config to
+     * that mode's preset rather than mutating fields individually.
+     */
     private fun updateMemoryField(config: MemoryConfig, field: String, value: Any): MemoryConfig = when (field) {
         "mode" -> {
             val newMode = when (value) {
@@ -1663,6 +1713,7 @@ object AppConfig {
         else -> config
     }
 
+    /** Updates a single [RagConfig] field by name; unknown fields are ignored. */
     private fun updateRagField(config: RagConfig, field: String, value: Any): RagConfig = when (field) {
         "vectorSearchMaxResults" -> config.copy(vectorSearchMaxResults = value as Int)
         "vectorSearchMinScore" -> config.copy(vectorSearchMinScore = (value as Number).toDouble())
@@ -1672,6 +1723,7 @@ object AppConfig {
         else -> config
     }
 
+    /** Updates a single [ModelsConfig] field by name; `requestTimeoutInSeconds` is clamped to [MIN_MODEL_TIMEOUT_SECONDS]. */
     private fun updateModelsField(config: ModelsConfig, field: String, value: Any): ModelsConfig {
         // Handle top-level scalar fields on ModelsConfig (no nested dot)
         if (field == "maxToolCallingRoundTrips") {
@@ -1693,6 +1745,7 @@ object AppConfig {
         return config
     }
 
+    /** Updates a single [LocalLlmConfig] field by name, coercing values into safe/valid ranges where applicable. */
     private fun updateLocalLlmField(config: LocalLlmConfig, field: String, value: Any): LocalLlmConfig = when (field) {
         "lastSelectedModelFileName" -> config.copy(lastSelectedModelFileName = (value as? String)?.ifBlank { null })
 
@@ -1736,6 +1789,7 @@ object AppConfig {
         }
     }
 
+    /** Updates a single [ProxyConfig] field by name; `password` is routed through secure storage. */
     private fun updateProxyField(config: ProxyConfig, field: String, value: Any): ProxyConfig = when (field) {
         "type" -> config.copy(type = if (value is String) ProxyType.valueOf(value) else value as ProxyType)
 
@@ -1784,6 +1838,7 @@ object AppConfig {
         }
     }
 
+    /** Updates a single [IndexingConfig] field by name; unknown fields are ignored. */
     @Suppress("UNCHECKED_CAST")
     private fun updateIndexingField(config: IndexingConfig, field: String, value: Any): IndexingConfig = when (field) {
         "maxFileBytes" -> config.copy(maxFileBytes = (value as Number).toLong())
@@ -1794,6 +1849,7 @@ object AppConfig {
         else -> config
     }
 
+    /** Updates a single [WebSearchConfig] field by name; API keys are routed through secure storage. */
     private fun updateWebSearchField(config: WebSearchConfig, field: String, value: Any): WebSearchConfig = when (field) {
         "backend" -> config.copy(
             backend = if (value is WebSearchBackend) {
@@ -1894,6 +1950,7 @@ object AppConfig {
         }
     }
 
+    /** Updates a single [VoiceConfig] field by name; `openAiApiKey` is routed through secure storage. */
     private fun updateVoiceField(config: VoiceConfig, field: String, value: Any): VoiceConfig = when (field) {
         "enabled" -> config.copy(enabled = value as Boolean)
 
@@ -1936,6 +1993,8 @@ object AppConfig {
             val parsed = (value as? Long) ?: (value as? Int)?.toLong() ?: value.toString().toLongOrNull()
             config.copy(autoStopSilenceDurationMs = parsed?.takeIf { it > 0 } ?: config.autoStopSilenceDurationMs)
         }
+
+        "liveTranscriptionEnabled" -> config.copy(liveTranscriptionEnabled = value as Boolean)
 
         "openAiTtsVoices" -> {
             val voices = when (value) {
@@ -1993,6 +2052,7 @@ object AppConfig {
         }
     }
 
+    /** Updates a single [NotificationsConfig] field by name; unknown fields are ignored. */
     private fun updateNotificationsField(config: NotificationsConfig, field: String, value: Any): NotificationsConfig = when (field) {
         "enabled" -> config.copy(enabled = value as Boolean)
 
@@ -2006,6 +2066,7 @@ object AppConfig {
         }
     }
 
+    /** Updates a single [SuggestionsConfig] field by name; unknown fields are ignored. */
     private fun updateSuggestionsField(config: SuggestionsConfig, field: String, value: Any): SuggestionsConfig = when (field) {
         "aiExtractionEnabled" -> config.copy(aiExtractionEnabled = value as Boolean)
 

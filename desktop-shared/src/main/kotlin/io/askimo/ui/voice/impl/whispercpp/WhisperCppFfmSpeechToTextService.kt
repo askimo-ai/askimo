@@ -10,11 +10,18 @@ import io.askimo.core.config.VoiceProvider
 import io.askimo.core.logging.logger
 import io.askimo.ui.voice.SpeechToTextFactory
 import io.askimo.ui.voice.SpeechToTextService
+import io.askimo.ui.voice.SpeechToTextStream
+import io.askimo.ui.voice.StreamingSpeechToTextService
 import io.askimo.ui.voice.VoiceAudioFormat
 import io.askimo.ui.voice.VoiceServiceException
 import io.askimo.ui.voice.whispercpp.whisper_full_params
 import io.askimo.ui.voice.whispercpp.whisper_h
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -29,43 +36,48 @@ import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioSystem
 
 /**
- * Speech-to-text via whisper.cpp running **in-process**, called directly through the Java
- * Foreign Function & Memory API (no JNI, no separate server process) — see
- * [io.askimo.ui.voice.whispercpp.whisper_h] for the jextract-generated bindings and
- * [NativeLibraryLoader] for how the bundled native library is located/loaded.
+ * Speech-to-text via whisper.cpp running **in-process** through the Java Foreign Function &
+ * Memory API (no JNI, no separate server) — see [io.askimo.ui.voice.whispercpp.whisper_h] for
+ * the jextract-generated bindings and [NativeLibraryLoader] for native library loading.
  *
- * Unlike [io.askimo.ui.voice.impl.LocalWhisperSpeechToTextService] (which talks HTTP to a
- * separately-running whisper.cpp server), this implementation loads the model and runs
- * inference directly inside the JVM process — lower latency (no HTTP hop), but requires the
- * native library + a downloaded `ggml-*.bin` model file (see [WhisperModelDownloader]) to be
- * present for the current platform.
+ * Unlike [io.askimo.ui.voice.impl.LocalWhisperSpeechToTextService] (HTTP to a whisper.cpp
+ * server), this loads the model and runs inference directly in the JVM — lower latency, but
+ * requires the native library + a downloaded `ggml-*.bin` model (see [WhisperModelDownloader]).
  *
- * The whisper.cpp context is created lazily on first [transcribe] call and kept alive for the
- * lifetime of this instance — re-creating it per call would reload the (potentially multi-GB)
- * model every time. `whisper_h.whisper_full` is not reentrant on the same context, so calls are
- * serialized via [mutex].
+ * The context is created lazily on first [transcribe] and kept alive for this instance's
+ * lifetime (reloading a multi-GB model per call would be too costly). `whisper_full` isn't
+ * reentrant on the same context, so calls are serialized via [mutex].
  *
- * Implements [AutoCloseable] so [close] can explicitly free the native context — it's off-heap
- * memory the JVM GC cannot reclaim on its own. [io.askimo.ui.voice.VoiceServiceRegistry] is the
- * sole owner of instances of this class: it caches one per resolved [VoiceConfig] and closes the
- * previous instance whenever the provider/config changes, so callers should never construct
- * this directly and don't need to call [close] themselves.
+ * Implements [AutoCloseable] to free the off-heap native context explicitly (the JVM GC can't
+ * reclaim it). [io.askimo.ui.voice.VoiceServiceRegistry] owns all instances — it caches one per
+ * resolved [VoiceConfig] and closes the previous one on config change — so callers should never
+ * construct this directly or call [close] themselves.
  */
 class WhisperCppFfmSpeechToTextService(private val config: VoiceConfig) :
     SpeechToTextService,
+    StreamingSpeechToTextService,
     AutoCloseable {
     private val log = logger<WhisperCppFfmSpeechToTextService>()
     private val mutex = Mutex()
+
+    companion object {
+        /**
+         * Re-run `whisper_full` on the growing buffer every ~1.2s of newly-fed audio (16kHz
+         * mono). Longer than ideal for "feels live", but keeps this CPU-heavy native call from
+         * competing with the audio-capture thread (see [io.askimo.ui.voice.AudioRecorder]'s
+         * silence-timer doc) and the UI thread.
+         */
+        private const val STREAM_PROCESS_INTERVAL_SAMPLES = (16_000 * 1.2).toInt()
+    }
 
     /** Lazily initialized on first [transcribe] call, guarded by [mutex]. Freed in [close]. */
     private var context: MemorySegment? = null
     private var loadedModelPath: String? = null
 
     /**
-     * Guarded by [mutex]. Set once [close] has run, and checked at the top of [transcribe] so a
+     * Guarded by [mutex]; set once [close] has run. Checked at the top of [transcribe] so a
      * caller racing a registry eviction can't resurrect a freed instance — [ensureContextLoaded]
-     * can't tell "never initialized" from "closed" by [context] alone, and would otherwise
-     * silently reload a native context the registry no longer tracks and will never [close].
+     * alone can't tell "never initialized" from "closed".
      */
     private var closed = false
 
@@ -80,32 +92,11 @@ class WhisperCppFfmSpeechToTextService(private val config: VoiceConfig) :
                 }
                 val ctx = ensureContextLoaded()
                 val samples = decodeToMono16kFloat(audio)
-
-                Arena.ofConfined().use { arena ->
-                    val params = buildFullParams(arena)
-                    val samplesSegment = arena.allocate(ValueLayout.JAVA_FLOAT.byteSize() * samples.size)
-                    MemorySegment.copy(samples, 0, samplesSegment, ValueLayout.JAVA_FLOAT, 0, samples.size)
-
-                    val result = whisper_h.whisper_full(ctx, params, samplesSegment, samples.size)
-                    if (result != 0) {
-                        throw VoiceServiceException("whisper.cpp transcription failed (whisper_full returned $result)")
-                    }
-
-                    val segmentCount = whisper_h.whisper_full_n_segments(ctx)
-                    buildString {
-                        for (i in 0 until segmentCount) {
-                            val textPtr = whisper_h.whisper_full_get_segment_text(ctx, i)
-                            append(textPtr.reinterpret(Long.MAX_VALUE).getString(0))
-                        }
-                    }.trim()
-                }
+                runWhisperFullLocked(ctx, samples)
             } catch (e: LinkageError) {
-                // System.load (NativeLibraryLoader.ensureLoaded) and FFM symbol resolution (first
-                // touch of any whisper_h.* downcall handle) throw UnsatisfiedLinkError/other
-                // LinkageError subtypes, NOT Exception — e.g. when the bundled native library is
-                // missing, corrupted, or built for the wrong OS/arch. VoiceRecordingController's
-                // catch block only handles Exception, so without this it would escape the voice
-                // error path entirely instead of surfacing a recoverable settings error.
+                // System.load/FFM symbol resolution throw LinkageError subtypes, not Exception
+                // (e.g. missing/corrupt/wrong-arch native library). VoiceRecordingController's
+                // catch only handles Exception, so without this it'd escape the voice error path.
                 throw VoiceServiceException(
                     "Failed to load or call the bundled whisper.cpp native library " +
                         "(${e.javaClass.simpleName}: ${e.message}). The library may be missing, " +
@@ -118,18 +109,15 @@ class WhisperCppFfmSpeechToTextService(private val config: VoiceConfig) :
     }
 
     /**
-     * Releases the native whisper.cpp context. Safe to call even if never initialized, and
-     * idempotent (second call is a no-op).
+     * Releases the native whisper.cpp context. Safe even if never initialized; idempotent.
      *
-     * Blocks briefly (via [runBlocking]) until it can acquire [mutex] — the same lock
-     * [transcribe] holds for the whole native `whisper_full` call — so this can't free the
-     * context out from under an in-flight, non-cancellable [transcribe] on this instance (e.g.
-     * [io.askimo.ui.voice.VoiceServiceRegistry] evicting it on a config change). Otherwise that
-     * race is a native use-after-free, since `whisper_full` isn't reentrant-safe against a
-     * concurrent `whisper_free`.
+     * Blocks briefly (via [runBlocking]) to acquire [mutex] — the same lock [transcribe] holds
+     * for the whole native call — so this can't free the context out from under an in-flight
+     * [transcribe] (e.g. [io.askimo.ui.voice.VoiceServiceRegistry] evicting it on config
+     * change); otherwise that's a native use-after-free.
      *
-     * Also sets [closed] under the same lock, so any [transcribe] call blocked on [mutex] when
-     * this runs — or arriving after — fails fast instead of leaking a new context. See [closed].
+     * Also sets [closed] under the same lock, so any blocked or later [transcribe] call fails
+     * fast instead of leaking a new context. See [closed].
      */
     override fun close() {
         runBlocking {
@@ -145,6 +133,132 @@ class WhisperCppFfmSpeechToTextService(private val config: VoiceConfig) :
         context?.let { whisper_h.whisper_free(it) }
         context = null
         loadedModelPath = null
+    }
+
+    /**
+     * Runs one `whisper_full` pass over [samples] on [ctx] and returns the joined segment text.
+     * Shared by [transcribe] and [WhisperStreamSession.runInferencePass]. Must be called while
+     * already holding [mutex] — not reentrant-safe against a concurrent `whisper_full`.
+     *
+     * @param maxThreads Thread cap for `whisper_full` (see [buildFullParams]). Streaming passes
+     *   use fewer threads than the default batch [transcribe]/[SpeechToTextStream.finish] call,
+     *   since they run far more often while recording is still in progress and shouldn't starve
+     *   [io.askimo.ui.voice.AudioRecorder]'s capture thread or the UI thread of CPU.
+     */
+    private fun runWhisperFullLocked(ctx: MemorySegment, samples: FloatArray, maxThreads: Int = 4): String {
+        Arena.ofConfined().use { arena ->
+            val params = buildFullParams(arena, maxThreads)
+            val samplesSegment = arena.allocate(ValueLayout.JAVA_FLOAT.byteSize() * samples.size)
+            MemorySegment.copy(samples, 0, samplesSegment, ValueLayout.JAVA_FLOAT, 0, samples.size)
+
+            val result = whisper_h.whisper_full(ctx, params, samplesSegment, samples.size)
+            if (result != 0) {
+                throw VoiceServiceException("whisper.cpp transcription failed (whisper_full returned $result)")
+            }
+
+            val segmentCount = whisper_h.whisper_full_n_segments(ctx)
+            return buildString {
+                for (i in 0 until segmentCount) {
+                    val textPtr = whisper_h.whisper_full_get_segment_text(ctx, i)
+                    append(textPtr.reinterpret(Long.MAX_VALUE).getString(0))
+                }
+            }.trim()
+        }
+    }
+
+    /**
+     * See [StreamingSpeechToTextService] — this is the Siri/Alexa-style "live captions while
+     * recording" entry point, available only for this in-process/FFM-based implementation.
+     */
+    override fun startStream(onPartialUpdate: (String) -> Unit): SpeechToTextStream = WhisperStreamSession(onPartialUpdate)
+
+    /**
+     * One live-transcription session (see [SpeechToTextStream]). Buffers incoming PCM chunks
+     * and, once [STREAM_PROCESS_INTERVAL_SAMPLES] of new audio has accumulated, re-runs
+     * `whisper_full` over the **entire buffered-so-far** audio — simplest strategy (vs.
+     * carrying whisper's token context across windows), and consistent since each pass sees
+     * the whole utterance. Cost grows with recording length; accepted trade-off since recordings
+     * stay short via [io.askimo.core.config.VoiceConfig.autoStopOnSilence] or
+     * [io.askimo.ui.voice.VoiceRecordingController]'s hard cap.
+     *
+     * All inference runs inside [consumerJob] (a single coroutine reading [incoming]), so
+     * concurrent [feed] calls can't race each other, and it shares [mutex] with [transcribe] so
+     * a live stream and a one-shot [transcribe] on this instance never run `whisper_full`
+     * concurrently.
+     */
+    private inner class WhisperStreamSession(
+        private val onPartialUpdate: (String) -> Unit,
+    ) : SpeechToTextStream {
+        private val sessionScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        private val incoming = Channel<FloatArray>(capacity = Channel.UNLIMITED)
+
+        // Only ever touched from inside consumerJob's single coroutine — no synchronization needed.
+        private val chunks = mutableListOf<FloatArray>()
+        private var totalSamples = 0
+        private var samplesSinceLastRun = 0
+        private var lastTranscript = ""
+
+        private val consumerJob = sessionScope.launch {
+            for (chunk in incoming) {
+                chunks.add(chunk)
+                totalSamples += chunk.size
+                samplesSinceLastRun += chunk.size
+                if (samplesSinceLastRun >= STREAM_PROCESS_INTERVAL_SAMPLES) {
+                    samplesSinceLastRun = 0
+                    runInferencePass()
+                }
+            }
+        }
+
+        override fun feed(samples: FloatArray) {
+            // trySend (not send): called directly from AudioRecorder's capture thread, which
+            // must never suspend. Fails only if the channel's already closed; safe to ignore.
+            incoming.trySend(samples)
+        }
+
+        override suspend fun finish(): String = withContext(Dispatchers.IO) {
+            incoming.close()
+            consumerJob.join()
+            val finalTranscript = try {
+                runInferencePass()
+            } catch (e: Exception) {
+                log.warn("Final whisper.cpp streaming inference pass failed", e)
+                lastTranscript
+            }
+            sessionScope.cancel()
+            finalTranscript
+        }
+
+        override fun cancel() {
+            incoming.close()
+            sessionScope.cancel()
+        }
+
+        /** Must only be called from inside [consumerJob]/[finish] — never concurrently. */
+        private suspend fun runInferencePass(): String {
+            if (totalSamples == 0) return lastTranscript
+            return try {
+                mutex.withLock {
+                    if (closed) return@withLock lastTranscript
+                    val ctx = ensureContextLoaded()
+                    val samples = FloatArray(totalSamples)
+                    var offset = 0
+                    for (chunk in chunks) {
+                        chunk.copyInto(samples, offset)
+                        offset += chunk.size
+                    }
+                    // Capped at 2 threads (vs. the 4 used by a one-shot transcribe()/finish()
+                    // call) — see runWhisperFullLocked's maxThreads doc for why.
+                    val text = runWhisperFullLocked(ctx, samples, maxThreads = 2)
+                    lastTranscript = text
+                    onPartialUpdate(text)
+                    text
+                }
+            } catch (e: LinkageError) {
+                log.warn("Failed to load or call the bundled whisper.cpp native library during streaming", e)
+                lastTranscript
+            }
+        }
     }
 
     private fun ensureContextLoaded(): MemorySegment {
@@ -183,9 +297,9 @@ class WhisperCppFfmSpeechToTextService(private val config: VoiceConfig) :
         }
     }
 
-    private fun buildFullParams(arena: Arena): MemorySegment {
+    private fun buildFullParams(arena: Arena, maxThreads: Int = 4): MemorySegment {
         val params = whisper_h.whisper_full_default_params(arena, whisper_h.WHISPER_SAMPLING_GREEDY())
-        whisper_full_params.n_threads(params, Runtime.getRuntime().availableProcessors().coerceIn(1, 4))
+        whisper_full_params.n_threads(params, Runtime.getRuntime().availableProcessors().coerceIn(1, maxThreads))
         whisper_full_params.language(params, arena.allocateFrom(whisperLanguageCode()))
         whisper_full_params.translate(params, false)
         whisper_full_params.single_segment(params, false)
@@ -210,17 +324,14 @@ class WhisperCppFfmSpeechToTextService(private val config: VoiceConfig) :
     }
 
     /**
-     * Decodes [audio] (a WAV file, per [io.askimo.ui.voice.AudioRecorder]'s output format) into
-     * normalized `[-1f, 1f]` mono float32 PCM at 16kHz, as required by
-     * [whisper_h.whisper_full]'s `samples` parameter.
+     * Decodes [audio] (a WAV file, per [io.askimo.ui.voice.AudioRecorder]'s output) into
+     * normalized `[-1f, 1f]` mono float32 PCM at 16kHz, as [whisper_h.whisper_full] requires.
      *
-     * [io.askimo.ui.voice.AudioRecorder] already captures at 16kHz mono 16-bit PCM, so this is
-     * normally just a format conversion with no resampling. Non-matching input is best-effort
-     * converted via [javax.sound.sampled], whose stock-JDK format conversion does **not**
-     * include a sample-rate converter — mismatched rates will throw. This mirrors the existing
-     * assumption in [io.askimo.ui.voice.impl.OpenAiSpeechToTextService]/
-     * [io.askimo.ui.voice.impl.LocalWhisperSpeechToTextService], which both forward the
-     * recorder's WAV bytes as-is.
+     * [io.askimo.ui.voice.AudioRecorder] already captures 16kHz mono 16-bit PCM, so this is
+     * normally just a format conversion, no resampling. Non-matching input is best-effort
+     * converted via [javax.sound.sampled], which has **no** sample-rate converter — mismatched
+     * rates will throw. Same assumption as [io.askimo.ui.voice.impl.OpenAiSpeechToTextService]/
+     * [io.askimo.ui.voice.impl.LocalWhisperSpeechToTextService].
      */
     private fun decodeToMono16kFloat(audio: ByteArray): FloatArray {
         val targetFormat = AudioFormat(16_000f, 16, 1, true, false)

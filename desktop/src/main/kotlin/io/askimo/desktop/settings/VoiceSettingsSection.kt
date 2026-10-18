@@ -141,6 +141,7 @@ private fun voiceConfigCard() {
     var autoPlayResponses by remember { mutableStateOf(AppConfig.rawVoice.autoPlayResponses) }
     var autoStopOnSilence by remember { mutableStateOf(AppConfig.rawVoice.autoStopOnSilence) }
     var autoStopSilenceDurationMs by remember { mutableStateOf(AppConfig.rawVoice.autoStopSilenceDurationMs) }
+    var liveTranscriptionEnabled by remember { mutableStateOf(AppConfig.rawVoice.liveTranscriptionEnabled) }
     var ttsCacheMaxMessages by remember { mutableStateOf(AppConfig.rawVoice.ttsCacheMaxMessages) }
     // Stored in bytes in config; displayed/edited in whole MB for a friendlier UI.
     var ttsCacheMaxMb by remember { mutableStateOf((AppConfig.rawVoice.ttsCacheMaxBytes / (1024 * 1024)).toInt().coerceAtLeast(1)) }
@@ -404,6 +405,22 @@ private fun voiceConfigCard() {
                                 style = AppTextStyles.caption,
                             )
                         }
+                    }
+
+                    // Live-transcription kill switch — only relevant for a streaming-capable STT
+                    // provider (currently only VoiceProvider.LOCAL_WHISPER_FFM, via
+                    // io.askimo.ui.voice.StreamingSpeechToTextService); hidden for every other
+                    // sttProvider since the flag would have no visible effect for them at all.
+                    if (sttProvider == VoiceProvider.LOCAL_WHISPER_FFM) {
+                        voiceToggleRow(
+                            label = stringResource("settings.voice.live_transcription"),
+                            description = stringResource("settings.voice.live_transcription.description"),
+                            checked = liveTranscriptionEnabled,
+                            onCheckedChange = { newValue ->
+                                liveTranscriptionEnabled = newValue
+                                AppConfig.updateField("voice.liveTranscriptionEnabled", newValue)
+                            },
+                        )
                     }
                 }
             }

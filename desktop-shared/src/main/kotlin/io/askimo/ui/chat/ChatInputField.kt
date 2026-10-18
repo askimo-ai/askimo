@@ -161,6 +161,7 @@ import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.common.ui.util.FileDialogUtils
 import io.askimo.ui.session.manageDirectivesDialog
 import io.askimo.ui.session.newDirectiveDialog
+import io.askimo.ui.voice.VoiceRecordingState
 import io.askimo.ui.voice.rememberVoiceRecordingController
 import io.askimo.ui.voice.voiceRecordingControls
 import kotlinx.coroutines.Dispatchers
@@ -495,13 +496,22 @@ fun chatInputField(
     // transcription is in flight aren't overwritten by a stale snapshot.
     val latestInputText by rememberUpdatedState(inputText)
 
+    // Snapshot of inputText.text taken the moment live dictation first starts overwriting the
+    // field (see the liveTranscript LaunchedEffect below) — null whenever we're not currently
+    // live-overwriting it. Needed because once live updates start replacing the field's content
+    // with "<base> <liveTranscript>", `latestInputText` itself is no longer a reliable "what did
+    // the user have typed before dictation" snapshot — only matters for providers that implement
+    // StreamingSpeechToTextService (currently whisper.cpp); for everything else this just stays
+    // null and onTranscript falls back to its original latestInputText-based behavior.
+    var voiceLiveBaseText by remember { mutableStateOf<String?>(null) }
+
     // Shared voice-recording lifecycle (mic capture, waveform, auto-stop timer, STT) — see
     // io.askimo.ui.voice.VoiceRecordingController. onTranscript inserts the transcript and
     // optionally auto-sends (see AppConfig.voice.autoSendTranscript).
     val voiceRecordingController = rememberVoiceRecordingController(
         busy = isLoading,
         onTranscript = { transcript ->
-            val currentText = latestInputText.text
+            val currentText = voiceLiveBaseText ?: latestInputText.text
             val newText = if (currentText.isBlank()) {
                 transcript
             } else {
@@ -510,6 +520,7 @@ fun chatInputField(
             onInputTextChange(
                 TextFieldValue(text = newText, selection = TextRange(newText.length)),
             )
+            voiceLiveBaseText = null
 
             // Hands-free mode: auto-send instead of waiting for the user to press Send.
             // Off by default — see AppConfig.voice.autoSendTranscript.
@@ -523,6 +534,28 @@ fun chatInputField(
     )
     val toggleVoiceRecording: () -> Unit = {
         if (voiceInputEnabled) voiceRecordingController.toggle()
+    }
+
+    // Live captions — writes the growing transcript straight into the input
+    // field as it arrives, instead of only after the recording stops. Only ever fires for a
+    // streaming-capable STT provider (currently whisper.cpp via FFM); liveTranscript stays blank
+    // for every other provider, so this is a no-op for them.
+    LaunchedEffect(voiceRecordingController.liveTranscript) {
+        val transcript = voiceRecordingController.liveTranscript
+        if (voiceRecordingController.voiceRecordingState == VoiceRecordingState.RECORDING && transcript.isNotBlank()) {
+            val base = voiceLiveBaseText ?: latestInputText.text.also { voiceLiveBaseText = it }
+            val combined = if (base.isBlank()) transcript else "$base $transcript"
+            onInputTextChange(TextFieldValue(text = combined, selection = TextRange(combined.length)))
+        }
+    }
+
+    // Reset the live-overwrite snapshot whenever a recording ends any other way (cancelled, or
+    // auto-/manually stopped without ever producing a single live update) so a stale snapshot
+    // can't leak into the next dictation cycle.
+    LaunchedEffect(voiceRecordingController.voiceRecordingState) {
+        if (voiceRecordingController.voiceRecordingState != VoiceRecordingState.RECORDING) {
+            voiceLiveBaseText = null
+        }
     }
 
     // Keep the parent's copy of (enabled, toggle) fresh whenever voiceInputEnabled changes
@@ -1148,6 +1181,8 @@ fun chatInputField(
                         // ── Voice input (🎤) — hidden entirely when disabled in Settings > Voice ──
                         // Grouped near Send since it's an input-modality toggle (dictation),
                         // not a content-attachment action like Attach/Image on the left.
+                        // Live captions (when supported — see StreamingSpeechToTextService) are
+                        // written directly into the input field itself, not shown separately here.
                         if (voiceInputEnabled) {
                             Spacer(modifier = Modifier.width(Spacing.small))
                             voiceRecordingControls(

@@ -41,6 +41,28 @@ object PcmAudioEncoder {
     }
 
     /**
+     * Decodes a chunk of 16-bit little-endian mono PCM samples into normalized `[-1f, 1f]`
+     * float32 samples — the format [io.askimo.ui.voice.whispercpp.whisper_h.whisper_full]'s
+     * `samples` parameter requires. Shared with [computeRmsLevel]'s sample-decoding logic so
+     * live per-chunk streaming (see `io.askimo.ui.voice.AudioRecorder`'s `onPcmChunk`) and
+     * whisper.cpp's live-transcription buffer use the exact same decode path as the RMS level
+     * meter — no surprise sample-alignment mismatches between the two.
+     */
+    fun decodeToFloatMono(buf: ByteArray, length: Int): FloatArray {
+        val sampleCount = length / 2
+        val samples = FloatArray(sampleCount)
+        var i = 0
+        var s = 0
+        while (i + 1 < length) {
+            val sample = ((buf[i + 1].toInt() shl 8) or (buf[i].toInt() and 0xFF)).toShort()
+            samples[s] = sample / 32768f
+            i += 2
+            s++
+        }
+        return samples
+    }
+
+    /**
      * Encodes the raw PCM audio at [pcmFile] (described by [format]) as a complete WAV file,
      * streaming directly from disk — the recording is never materialized as a single
      * in-memory byte array. Falls back to an empty (silent) WAV clip when [pcmFile] is null or
