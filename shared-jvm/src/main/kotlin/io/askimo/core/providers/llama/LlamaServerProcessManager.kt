@@ -805,8 +805,8 @@ object LlamaServerProcessManager {
         while (Instant.now().isBefore(deadline)) {
             if (!process.isAlive) {
                 error(
-                    "llama-server exited before becoming healthy (exit code ${process.exitValue()}).\n" +
-                        recentOutputTail(recentOutput),
+                    "${friendlyStartupErrorHintPrefix(recentOutput)}llama-server exited before becoming healthy " +
+                        "(exit code ${process.exitValue()}).\n" + recentOutputTail(recentOutput),
                 )
             }
             try {
@@ -822,13 +822,49 @@ object LlamaServerProcessManager {
             delay(HEALTH_CHECK_POLL_INTERVAL_MS.milliseconds)
         }
         process.destroyForcibly()
-        error("llama-server did not become healthy within ${HEALTH_CHECK_TIMEOUT_SECONDS}s.\n" + recentOutputTail(recentOutput))
+        error(
+            "${friendlyStartupErrorHintPrefix(recentOutput)}llama-server did not become healthy within " +
+                "${HEALTH_CHECK_TIMEOUT_SECONDS}s.\n" + recentOutputTail(recentOutput),
+        )
     }
 
     /** Formats the last captured lines of a crashed child process's output for an error message. */
     private fun recentOutputTail(recentOutput: ArrayDeque<String>): String {
         val lines = synchronized(recentOutput) { recentOutput.toList() }
         return if (lines.isEmpty()) "(no output captured)" else "Last output:\n" + lines.joinToString("\n")
+    }
+
+    /**
+     * Recognizes known-but-cryptic llama.cpp failure signatures in a crashed child process's
+     * captured output and returns a user-friendly explanation (with a trailing blank line) to
+     * prefix the raw error message with. Returns an empty string if nothing is recognized, so
+     * the raw `llama-server` output tail always stays visible either way.
+     */
+    private fun friendlyStartupErrorHintPrefix(recentOutput: ArrayDeque<String>): String {
+        val text = synchronized(recentOutput) { recentOutput.joinToString("\n") }
+        val hint = when {
+            text.contains("requires ctx_other to be set") || text.contains("eagle", ignoreCase = true) ->
+                "This .gguf file looks like a speculative-decoding \"draft\" model (e.g. an EAGLE/EAGLE3 " +
+                    "variant), not a standalone chat model. It can't be loaded by itself — delete it and " +
+                    "download the base/instruct model instead (avoid file names containing \"eagle\", " +
+                    "\"draft\", or \"speculative\")."
+
+            text.contains("unknown model architecture") ->
+                "llama.cpp doesn't recognize this model's architecture. It may be a non-text model (e.g. " +
+                    "vision/audio-only), a multimodal projector/adapter file, or use an architecture not " +
+                    "yet supported by the bundled llama-server build."
+
+            text.contains("missing tensor") || text.contains("tensor not found") ->
+                "This .gguf file appears to be incomplete or uses an unsupported quantization layout for " +
+                    "this model's architecture."
+
+            text.contains("unsupported GGUF") || text.contains("unknown pre-tokenizer") ->
+                "This .gguf file uses a format/tokenizer this llama-server build doesn't support yet — try " +
+                    "a different quantization or re-download the file in case it's outdated."
+
+            else -> null
+        }
+        return if (hint == null) "" else "$hint\n\n"
     }
 
     private fun findFreePort(): Int = ServerSocket(0).use { it.localPort }

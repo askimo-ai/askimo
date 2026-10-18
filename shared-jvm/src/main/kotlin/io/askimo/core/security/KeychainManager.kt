@@ -4,6 +4,15 @@
  */
 package io.askimo.core.security
 
+import com.sun.jna.Memory
+import com.sun.jna.Native
+import com.sun.jna.Pointer
+import com.sun.jna.Structure
+import com.sun.jna.WString
+import com.sun.jna.platform.win32.WinBase
+import com.sun.jna.ptr.PointerByReference
+import com.sun.jna.win32.StdCallLibrary
+import com.sun.jna.win32.W32APIOptions
 import io.askimo.core.logging.logger
 import io.askimo.core.security.KeychainManager.OperatingSystem.LINUX
 import io.askimo.core.security.KeychainManager.OperatingSystem.MACOS
@@ -11,6 +20,110 @@ import io.askimo.core.security.KeychainManager.OperatingSystem.UNKNOWN
 import io.askimo.core.security.KeychainManager.OperatingSystem.WINDOWS
 import io.askimo.core.util.ProcessBuilderExt
 import java.io.IOException
+
+/**
+ * Minimal native bindings for the subset of the Windows Credential Manager API (advapi32.dll)
+ * needed to store/retrieve/delete a generic credential.
+ *
+ * jna-platform does not ship Wincred/CredRead/CredWrite bindings (verified against 5.19.1), so
+ * we declare the native entry points ourselves. Loading with [W32APIOptions.UNICODE_OPTIONS]
+ * makes JNA's function mapper resolve e.g. "CredRead" -> the real export "CredReadW".
+ *
+ * This still avoids spawning any process at all (unlike the previous hidden-PowerShell +
+ * inline-C#-P/Invoke approach, which Windows Defender flagged as credential-stealing malware)
+ * and keeps the secret out of command-line args (unlike `cmdkey /pass:...`).
+ */
+internal interface CredentialApi : StdCallLibrary {
+    @Suppress("FunctionName")
+    fun CredWrite(
+        credential: CREDENTIAL,
+        flags: Int,
+    ): Boolean
+
+    @Suppress("FunctionName")
+    fun CredRead(
+        targetName: WString,
+        type: Int,
+        flags: Int,
+        pCredential: PointerByReference,
+    ): Boolean
+
+    @Suppress("FunctionName")
+    fun CredFree(credential: Pointer)
+
+    @Suppress("FunctionName")
+    fun CredDelete(
+        targetName: WString,
+        type: Int,
+        flags: Int,
+    ): Boolean
+
+    companion object {
+        val INSTANCE: CredentialApi =
+            Native.load("Advapi32", CredentialApi::class.java, W32APIOptions.UNICODE_OPTIONS)
+        const val CRED_TYPE_GENERIC = 1
+        const val CRED_PERSIST_LOCAL_MACHINE = 2
+    }
+}
+
+/** Mirrors the native `CREDENTIALW` struct from wincred.h. */
+@Structure.FieldOrder(
+    "flags",
+    "type",
+    "targetName",
+    "comment",
+    "lastWritten",
+    "credentialBlobSize",
+    "credentialBlob",
+    "persist",
+    "attributeCount",
+    "attributes",
+    "targetAlias",
+    "userName",
+)
+internal open class CREDENTIAL : Structure {
+    @Suppress("unused")
+    @JvmField
+    var flags: Int = 0
+
+    @JvmField var type: Int = 0
+
+    @JvmField var targetName: WString? = null
+
+    @Suppress("unused")
+    @JvmField
+    var comment: WString? = null
+
+    @Suppress("unused")
+    @JvmField
+    var lastWritten: WinBase.FILETIME = WinBase.FILETIME()
+
+    @JvmField var credentialBlobSize: Int = 0
+
+    @JvmField var credentialBlob: Pointer? = null
+
+    @JvmField var persist: Int = 0
+
+    @Suppress("unused")
+    @JvmField
+    var attributeCount: Int = 0
+
+    @Suppress("unused")
+    @JvmField
+    var attributes: Pointer? = null
+
+    @Suppress("unused")
+    @JvmField
+    var targetAlias: WString? = null
+
+    @JvmField var userName: WString? = null
+
+    constructor() : super()
+
+    constructor(p: Pointer) : super(p) {
+        read()
+    }
+}
 
 /**
  * Manages secure storage of API keys using system keychain.
@@ -255,143 +368,85 @@ object KeychainManager {
         return false
     }
 
+    /**
+     * Stores a secret in Windows Credential Manager via direct native calls (JNA → advapi32.dll
+     * CredWrite). We intentionally do NOT shell out to `cmdkey` here: `cmdkey /pass:...` exposes
+     * the secret in plaintext on the process command line (visible to other processes / task
+     * manager) for the life of the child process.
+     */
     private fun storeWindowsCredentialManager(
         keyIdentifier: String,
         secretKey: String,
     ): Boolean {
         val target = "$SERVICE_NAME:askimo-$keyIdentifier"
+        var blobMemory: Memory? = null
+        return try {
+            val blobBytes = secretKey.toByteArray(Charsets.UTF_16LE)
+            blobMemory = Memory(blobBytes.size.toLong()).apply { write(0, blobBytes, 0, blobBytes.size) }
 
-        try {
-            val process =
-                ProcessBuilderExt(
-                    "cmdkey",
-                    "/generic:$target",
-                    "/user:askimo",
-                    "/pass:$secretKey",
-                ).start()
+            val credential = CREDENTIAL()
+            credential.type = CredentialApi.CRED_TYPE_GENERIC
+            credential.targetName = WString(target)
+            credential.credentialBlobSize = blobBytes.size
+            credential.credentialBlob = blobMemory
+            credential.persist = CredentialApi.CRED_PERSIST_LOCAL_MACHINE
+            credential.userName = WString("askimo")
 
-            val exitCode = process.waitFor()
-            return exitCode == 0
+            val result = CredentialApi.INSTANCE.CredWrite(credential, 0)
+            if (!result) {
+                log.error("CredWrite failed for target $target (error ${Native.getLastError()})")
+            }
+            result
         } catch (e: Exception) {
-            log.error("Failed to store API key with cmdkey: ${e.message}", e)
-            return false
+            log.error("Failed to store API key via Credential Manager: ${e.message}", e)
+            false
+        } finally {
+            blobMemory?.clear()
         }
     }
 
+    /**
+     * Retrieves a secret from Windows Credential Manager via direct native calls (JNA → advapi32.dll
+     * CredRead). This replaces a previous implementation that spawned a hidden `powershell.exe`
+     * process compiling inline C# via `Add-Type` to P/Invoke `CredRead` — that pattern (hidden
+     * window + ExecutionPolicy Bypass + dynamically compiled P/Invoke into advapi32.dll for
+     * credential access) is structurally identical to known credential-stealing malware and was
+     * being flagged by Windows Defender/AV (e.g. Trojan:Win32/Commando.A!ml). Calling the Win32
+     * API directly avoids spawning any process at all.
+     */
     private fun retrieveWindowsCredentialManager(keyIdentifier: String): String? {
         val target = "$SERVICE_NAME:askimo-$keyIdentifier"
-
-        // Try PowerShell approach using CredentialManager API
-        try {
-            // Build PowerShell script with proper escaping
-            val csCode = """using System;
-using System.Runtime.InteropServices;
-using System.Text;
-
-public class CredentialManager {
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    public struct CREDENTIAL {
-        public uint Flags;
-        public uint Type;
-        public string TargetName;
-        public string Comment;
-        public System.Runtime.InteropServices.ComTypes.FILETIME LastWritten;
-        public uint CredentialBlobSize;
-        public IntPtr CredentialBlob;
-        public uint Persist;
-        public uint AttributeCount;
-        public IntPtr Attributes;
-        public string TargetAlias;
-        public string UserName;
-    }
-
-    [DllImport(\""advapi32.dll\"", EntryPoint = \""CredReadW\"", CharSet = CharSet.Unicode, SetLastError = true)]
-    public static extern bool CredRead(string target, uint type, int reservedFlag, out IntPtr credentialPtr);
-
-    [DllImport(\""advapi32.dll\"", SetLastError = true)]
-    public static extern bool CredFree(IntPtr cred);
-
-    public static string GetPassword(string target) {
-        IntPtr credPtr;
-        if (CredRead(target, 1, 0, out credPtr)) {
+        val pCredential = PointerByReference()
+        return try {
+            val found = CredentialApi.INSTANCE.CredRead(WString(target), CredentialApi.CRED_TYPE_GENERIC, 0, pCredential)
+            if (!found) {
+                log.debug("No credential found for target $target (error ${Native.getLastError()})")
+                return null
+            }
             try {
-                CREDENTIAL cred = (CREDENTIAL)Marshal.PtrToStructure(credPtr, typeof(CREDENTIAL));
-                if (cred.CredentialBlobSize > 0) {
-                    byte[] passwordBytes = new byte[cred.CredentialBlobSize];
-                    Marshal.Copy(cred.CredentialBlob, passwordBytes, 0, (int)cred.CredentialBlobSize);
-                    return Encoding.Unicode.GetString(passwordBytes);
-                }
-                return \""\"";
+                val credential = CREDENTIAL(pCredential.value)
+                val blob = credential.credentialBlob?.getByteArray(0, credential.credentialBlobSize)
+                blob?.let { String(it, Charsets.UTF_16LE) }
             } finally {
-                CredFree(credPtr);
-            }
-        }
-        return null;
-    }
-}"""
-
-            val powershellScript = "Add-Type -TypeDefinition '$csCode'; " +
-                "\$password = [CredentialManager]::GetPassword('$target'); " +
-                "if (\$password -ne \$null) { Write-Output \"FOUND:\$password\"; exit 0 } " +
-                "else { [Console]::Error.WriteLine('Credential not found'); exit 1 }"
-
-            val process =
-                ProcessBuilderExt(
-                    "powershell.exe",
-                    "-WindowStyle",
-                    "Hidden",
-                    "-ExecutionPolicy",
-                    "Bypass",
-                    "-Command",
-                    powershellScript,
-                ).start()
-
-            val output = process.inputStream.bufferedReader().readText().trim()
-            val errorOutput = process.errorStream.bufferedReader().readText().trim()
-            val exitCode = process.waitFor()
-
-            if (exitCode == 0 && output.startsWith("FOUND:")) {
-                return output.removePrefix("FOUND:")
-            } else if (errorOutput.isNotBlank()) {
-                log.error("PowerShell credential retrieval failed with exit code $exitCode: $errorOutput")
-            } else {
-                log.error("PowerShell credential retrieval failed with exit code $exitCode (no error message)")
+                CredentialApi.INSTANCE.CredFree(pCredential.value)
             }
         } catch (e: Exception) {
-            log.error("PowerShell credential retrieval failed: ${e.message}", e)
+            log.error("Failed to retrieve API key via Credential Manager: ${e.message}", e)
+            null
         }
-
-        // PowerShell failed, check if credential exists via cmdkey
-        try {
-            val checkProcess = ProcessBuilderExt("cmdkey", "/list:$target").start()
-            val checkOutput = checkProcess.inputStream.bufferedReader().readText()
-            val checkExitCode = checkProcess.waitFor()
-
-            if (checkExitCode == 0 && checkOutput.contains(target)) {
-                log.warn("Credential exists in Windows Credential Manager but cannot be retrieved")
-            }
-        } catch (e: Exception) {
-            log.error("Failed to check credential existence: ${e.message}", e)
-        }
-
-        return null
     }
 
+    /**
+     * Removes a secret from Windows Credential Manager via direct native calls (JNA → advapi32.dll
+     * CredDelete), for consistency with the store/retrieve paths above.
+     */
     private fun removeWindowsCredentialManager(keyIdentifier: String): Boolean {
         val target = "$SERVICE_NAME:askimo-$keyIdentifier"
-
-        try {
-            val process =
-                ProcessBuilderExt(
-                    "cmdkey",
-                    "/delete:$target",
-                ).start()
-
-            val exitCode = process.waitFor()
-            return exitCode == 0
+        return try {
+            CredentialApi.INSTANCE.CredDelete(WString(target), CredentialApi.CRED_TYPE_GENERIC, 0)
         } catch (e: Exception) {
-            log.error("Failed to remove API key with cmdkey: ${e.message}", e)
-            return false
+            log.error("Failed to remove API key via Credential Manager: ${e.message}", e)
+            false
         }
     }
 

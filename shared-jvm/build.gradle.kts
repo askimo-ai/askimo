@@ -69,6 +69,9 @@ dependencies {
 
     implementation(libs.bundles.commonmark)
 
+    implementation(libs.jna)
+    implementation(libs.jna.platform)
+
     // Testing
     testImplementation(libs.mockito.kotlin)
     testImplementation(libs.kotlin.test)

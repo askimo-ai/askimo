@@ -141,10 +141,9 @@ fun localLlmSettingsSection() {
 
 /**
  * Enables/disables the platform-matching `llama-server` binary (see [LlamaServerCatalog]) via a
- * single [Switch] — mirrors the "enable engine, setup happens automatically" mental model from
- * LM Studio/Ollama/Docker Model Runner, instead of a separate explicit "Download" button:
- * checking it downloads the binary if missing; unchecking it stops the server (if running) and
- * deletes the binary.
+ * single [Switch] — "enable engine, setup happens automatically", like LM Studio/Ollama/Docker
+ * Model Runner. Checking downloads the binary if missing; unchecking stops the server (if
+ * running) and deletes the binary.
  */
 @Composable
 private fun localLlmBinaryCard() {
@@ -161,9 +160,8 @@ private fun localLlmBinaryCard() {
     }
 
     // Backfills the version marker for pre-tracking installs (see
-    // LlamaServerDownloader.installedVersion's doc) — an already-downloaded binary starts the
-    // Switch "on", so there's no other trigger to re-detect its version. No network call: only
-    // writes the marker where the install path itself proves it (macOS/Linux); no-op on Windows.
+    // LlamaServerDownloader.installedVersion). An already-downloaded binary starts the Switch
+    // "on" with no other trigger to detect its version. No network call; no-op on Windows.
     LaunchedEffect(platform, isDownloaded) {
         if (platform != null && isDownloaded && installedVersion == null) {
             LlamaServerDownloader.backfillVersionMarkerIfProvable(platform)
@@ -171,9 +169,8 @@ private fun localLlmBinaryCard() {
         }
     }
 
-    // Refreshes isDownloaded/installedVersion once a download (from here or a previous visit —
-    // see LlamaDownloadManager's doc) finishes, since downloads run app-scoped rather than tied
-    // to this Composable's lifecycle.
+    // Refreshes isDownloaded/installedVersion once a download finishes, since downloads run
+    // app-scoped rather than tied to this Composable's lifecycle (see LlamaDownloadManager).
     LaunchedEffect(binaryDownloadState, platform) {
         if (platform != null && binaryDownloadState == null) {
             val nowDownloaded = LlamaServerDownloader.isDownloaded(platform)
@@ -184,13 +181,11 @@ private fun localLlmBinaryCard() {
         }
     }
 
-    // Starts the reverse-proxy endpoint as soon as the engine is enabled (fresh download or a
-    // prior session's binary) — requires no model, just makes the provider connectable via
-    // GET /models (see startProxy's doc). Also best-effort warms up last session's resident model
-    // in the background (see AppConfig.localLlm); purely a latency optimization, not user-facing.
-    // Model loading itself stays fully automatic/lazy via real requests (see
-    // LlamaServerProcessManager.ensureModelLoaded); this page only manages what's on disk. No-ops
-    // if the last-used model is no longer downloaded.
+    // Starts the reverse-proxy as soon as the engine is enabled — no model needed, just makes the
+    // provider connectable via GET /models (see startProxy). Also best-effort warms up the last
+    // session's resident model in the background; model loading itself stays automatic/lazy via
+    // real requests (see LlamaServerProcessManager.ensureModelLoaded). No-op if that model is no
+    // longer downloaded.
     LaunchedEffect(platform, isDownloaded) {
         if (platform != null && isDownloaded) {
             LlamaServerProcessManager.startProxy()
@@ -479,11 +474,9 @@ private fun localLlmBinaryCard() {
 
 /**
  * Context-window size (`--ctx-size`) field — see [io.askimo.core.config.LocalLlmConfig.ctxSize]
- * for why this is bounded rather than left at the model's native training context. Changes take
- * effect the next time a chat/embedding `llama-server` child process is (re)started, not on an
- * already-running one. [AppConfig.updateField] applies its own 512-minimum backstop clamp, but
- * the shared field below rejects (rather than silently clamps) anything below that minimum, so
- * what's shown as "saved" always matches what's actually persisted.
+ * for why it's bounded. Takes effect on the next (re)started `llama-server` process, not an
+ * already-running one. Rejects (rather than silently clamps) values below the 512 minimum so
+ * what's shown as "saved" matches what's actually persisted.
  */
 @Composable
 private fun localLlmCtxSizeField() {
@@ -524,23 +517,18 @@ private fun localLlmCacheTypeField(
 }
 
 /**
- * Unified download-management card for every `.gguf` model — curated embedding entries
+ * Download-management card for every `.gguf` model — curated embedding entries
  * ([LlamaModelCatalog.allEntries]) plus live Hugging Face results ([HuggingFaceGgufBrowser]).
- * Chat models aren't hardcoded: the card defaults to Hugging Face's most-downloaded GGUF repos
- * (see [HuggingFaceGgufBrowser.popularModels]) and the search box narrows that down — see
- * [LlamaModelCatalog]'s class doc for why only embedding models stay curated.
+ * Chat models default to HF's most-downloaded GGUF repos ([HuggingFaceGgufBrowser.popularModels]),
+ * narrowed by search — see [LlamaModelCatalog] for why only embedding models stay curated.
  *
- * Layout, top to bottom: (1) "Downloaded Models" — everything already on disk (see
- * [LlamaModelDownloader.listDownloadedEntries]), so a model stays manageable even once it scrolls
- * out of the live results below; (2) the search box; (3) browsable catalog/search results,
- * excluding anything already shown in (1).
+ * Layout: downloaded models first (stay manageable even once off the live results), then search,
+ * then browsable catalog/search results.
  *
- * Deliberately **not** split into "chat" vs. "embedding" sections: a model's role is decided by
- * which field (`defaultModel`/`utilityModel`/`embeddingModel`) the user assigns it to in
- * Settings > AI Provider — exactly like any other OpenAI-compatible provider.
- * [LlamaModelEntry.isEmbedding]/[LlamaModelEntry.poolingType] are purely process-launch metadata
- * (picking `--pooling` and a child-process slot — see [LlamaServerProcessManager]), shown here
- * only as a small badge per row.
+ * Not split into "chat" vs "embedding" sections: a model's role is decided by which field
+ * (`defaultModel`/`utilityModel`/`embeddingModel`) it's assigned to in Settings > AI Provider.
+ * [LlamaModelEntry.isEmbedding]/[LlamaModelEntry.poolingType] are just process-launch metadata
+ * (`--pooling`, child-process slot — see [LlamaServerProcessManager]), shown as a small badge.
  */
 @Composable
 private fun localLlmModelsCard() {
@@ -553,10 +541,8 @@ private fun localLlmModelsCard() {
     var downloadedEntries by remember { mutableStateOf<List<LlamaModelEntry>>(emptyList()) }
     var diskScanTrigger by remember { mutableStateOf(0) }
     // Guards against the auto-triggered blank-query popular-models request racing a
-    // user-triggered search: both run as independent coroutines writing searchResults/
-    // isSearching, so without cancelling the previous job, whichever completes *last* wins —
-    // even if it's the stale one (e.g. the initial popular-models load resolving after the
-    // user has already searched and seen fresher results).
+    // user-triggered search — both write searchResults/isSearching independently, so without
+    // cancelling the previous job, whichever completes last wins even if it's stale.
     var searchJob by remember { mutableStateOf<Job?>(null) }
 
     fun runSearch() {
@@ -566,7 +552,7 @@ private fun localLlmModelsCard() {
         val job: Job = scope.launch {
             try {
                 // Blank query = Hugging Face's most-downloaded GGUF repos overall (see
-                // popularModels's doc) — also what's auto-loaded on first composition below.
+                // popularModels) — also what's auto-loaded on first composition below.
                 val results = if (query.isBlank()) {
                     HuggingFaceGgufBrowser.popularModels()
                 } else {
@@ -575,15 +561,13 @@ private fun localLlmModelsCard() {
                 searchResults = results
                 hasSearched = true
             } catch (e: CancellationException) {
-                // Superseded by a newer search — don't touch isSearching/searchError below,
-                // the new job owns that state now.
+                // Superseded by a newer search — new job owns the state now.
                 throw e
             } catch (e: Exception) {
                 searchError = e.message
             } finally {
-                // Only the still-current job may clear isSearching — a cancelled job's
-                // finally still runs, and without this guard it could flip isSearching back
-                // to false while the job that superseded it is still loading.
+                // Only the current job may clear isSearching, else a cancelled job's finally
+                // could flip it back to false while the superseding job is still loading.
                 if (searchJob === coroutineContext[Job]) isSearching = false
             }
         }
@@ -591,11 +575,10 @@ private fun localLlmModelsCard() {
     }
 
     // Loads the default "Popular on Hugging Face" list on open — chat models aren't curated
-    // (see LlamaModelCatalog's class doc), so without this only the curated embedding entries
-    // would show until the user searches.
+    // (see LlamaModelCatalog), so otherwise only the curated embedding entries would show.
     LaunchedEffect(Unit) { runSearch() }
 
-    // Rescans disk for every downloaded model (see listDownloadedEntries's doc) — keeps a model
+    // Rescans disk for every downloaded model (see listDownloadedEntries) — keeps a model
     // manageable even after it's no longer in the current search/popular results. Keyed by the
     // file-name *set*, not the map itself: downloadedBytes changes every buffer, which would
     // otherwise re-trigger this (and its disk scan) constantly during a download.
@@ -605,13 +588,17 @@ private fun localLlmModelsCard() {
         downloadedEntries = withContext(Dispatchers.IO) { LlamaModelDownloader.listDownloadedEntries() }
     }
 
-    // Always reflects what's on disk, regardless of the current search/popular results — shown
-    // as its own section above the search box.
+    // On disk, regardless of search/popular results — shown above the search box.
     val downloadedFileNames = remember(downloadedEntries) { downloadedEntries.map { it.fileName }.toSet() }
 
-    // Curated entries + live results, excluding anything already downloaded (shown above instead)
-    // so a model never appears twice with conflicting Download/Delete controls.
-    val browseEntries = (LlamaModelCatalog.allEntries + searchResults)
+    // Entries currently downloading, from LlamaDownloadManager's own state. Without this, an
+    // in-progress download not in a fresh search result would vanish from the page — its file
+    // also isn't on disk yet, so downloadedEntries can't cover this gap either.
+    val activeDownloadEntries = remember(modelDownloads) { modelDownloads.values.map { it.entry } }
+
+    // Curated + live results + anything downloading, minus anything already downloaded (shown
+    // above instead) so a model never appears twice with conflicting Download/Delete controls.
+    val browseEntries = (LlamaModelCatalog.allEntries + searchResults + activeDownloadEntries)
         .distinctBy { it.fileName }
         .filter { it.fileName !in downloadedFileNames }
 
@@ -787,8 +774,7 @@ private fun localLlmModelRow(entry: LlamaModelEntry, onModelDeleted: () -> Unit)
                     append(entry.fileName)
                     if (entry.approxSizeBytes > 0) append(" · ${entry.approxSizeBytes / (1024 * 1024)} MB")
                 }
-                // Raw .gguf file name is a disk/proxy implementation detail, not meant to be
-                // read/decoded by the user, so it's truncated rather than wrapped — the repo
+                // Raw .gguf file name is an implementation detail, so it's truncated — the repo
                 // link above is what's actually actionable.
                 Text(
                     text = caption,
@@ -825,9 +811,8 @@ private fun localLlmModelRow(entry: LlamaModelEntry, onModelDeleted: () -> Unit)
             when {
                 downloading -> {}
 
-                // Which downloaded model is actually used is picked in Settings > AI Provider's
-                // model picker (lists every downloaded .gguf via GET /models). Loading it into
-                // memory is automatic/lazy on first request (see
+                // Which model is actually used is picked in Settings > AI Provider's picker;
+                // loading into memory is automatic/lazy on first request (see
                 // LlamaServerProcessManager.ensureModelLoaded) — this row only manages disk state.
                 isDownloaded -> OutlinedButton(
                     enabled = !isDeleting,

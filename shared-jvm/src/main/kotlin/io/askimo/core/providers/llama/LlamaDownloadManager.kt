@@ -4,6 +4,14 @@
  */
 package io.askimo.core.providers.llama
 
+import io.askimo.core.event.EventBus
+import io.askimo.core.event.user.LlamaBinaryDownloadCompletedEvent
+import io.askimo.core.event.user.LlamaBinaryDownloadFailedEvent
+import io.askimo.core.event.user.LlamaBinaryDownloadStartedEvent
+import io.askimo.core.event.user.LlamaModelDownloadCompletedEvent
+import io.askimo.core.event.user.LlamaModelDownloadFailedEvent
+import io.askimo.core.event.user.LlamaModelDownloadStartedEvent
+import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -23,7 +31,11 @@ import java.util.concurrent.ConcurrentHashMap
  * `rememberCoroutineScope()`-driven downloads got cancelled on leaving composition).
  *
  * Model downloads are keyed by [LlamaModelEntry.fileName] since multiple `.gguf` rows can
- * download concurrently; the binary uses a single slot (one binary per platform)
+ * download concurrently; the binary uses a single slot (one binary per platform).
+ *
+ * Start/completion/failure are posted to [EventBus] so the notification bell reflects the
+ * outcome from any screen (mirrors `WhisperModelDownloadManager`) — live byte progress stays
+ * out of the bus (to avoid flooding it) and is only exposed via [binaryDownload]/[modelDownloads].
  */
 object LlamaDownloadManager {
     private val log = logger<LlamaDownloadManager>()
@@ -57,21 +69,28 @@ object LlamaDownloadManager {
             log.debug("Ignoring llama-server binary download request — one is already in progress")
             return
         }
+        val platformId = platform.id.name
+        val platformLabel = platform.resourceDir
         _binaryDownload.value = BinaryDownloadState()
         binaryDownloadJob = scope.launch {
+            EventBus.emit(LlamaBinaryDownloadStartedEvent(platformId, platformLabel))
             try {
                 LlamaServerDownloader.download(platform) { done, total ->
                     _binaryDownload.update { it?.copy(downloadedBytes = done, totalBytes = total) }
                 }
                 _binaryDownload.value = null
+                EventBus.emit(LlamaBinaryDownloadCompletedEvent(platformId, platformLabel))
             } catch (e: CancellationException) {
                 // User-initiated cancel (see cancelBinaryDownload) — StreamingDownloader.download
-                // already deletes the partial file; just clear the tracked state (not an error).
+                // already deletes the partial file; just clear the tracked state (not an error,
+                // and not reported as a failure event).
                 _binaryDownload.value = null
                 throw e
             } catch (e: Exception) {
                 log.warn("llama-server binary download failed", e)
-                _binaryDownload.update { it?.copy(error = e.message ?: "Unknown error") }
+                val message = e.message ?: "Unknown error"
+                _binaryDownload.update { it?.copy(error = message) }
+                EventBus.emit(LlamaBinaryDownloadFailedEvent(platformId, platformLabel, message))
             }
         }
     }
@@ -92,8 +111,20 @@ object LlamaDownloadManager {
 
     // ── Models ───────────────────────────────────────────────────────────────────────────────
 
-    /** Same shape as [BinaryDownloadState]; kept separate since these are tracked per-[LlamaModelEntry.fileName]. */
+    /**
+     * Same shape as [BinaryDownloadState] plus the originating [entry] — kept separate from
+     * [BinaryDownloadState] since these are tracked per-[LlamaModelEntry.fileName].
+     *
+     * [entry] lets Settings UI keep rendering a downloading row even after it's no longer in the
+     * current Hugging Face search/popular results (e.g. the user re-searched, or simply
+     * navigated away and back — re-running the default popular-models query from scratch) and
+     * before [LlamaModelDownloader.listDownloadedEntries] can see it on disk (it isn't written
+     * there until the download finishes) — without this, an in-progress download's row (and its
+     * progress bar) would simply disappear from the page while still downloading in the
+     * background.
+     */
     data class ModelDownloadState(
+        val entry: LlamaModelEntry,
         val downloadedBytes: Long = 0L,
         val totalBytes: Long = -1L,
         val error: String? = null,
@@ -107,6 +138,9 @@ object LlamaDownloadManager {
     /** Tracks each in-flight model download's [Job] (keyed by file name) so [cancelModelDownload] can cancel it. */
     private val modelDownloadJobs = ConcurrentHashMap<String, Job>()
 
+    /** Resolves a user-facing label for [entry] — same fallback chain as the Settings UI's row title. */
+    private fun modelLabel(entry: LlamaModelEntry): String = entry.label ?: LocalizationManager.getString(entry.labelKey).ifBlank { entry.fileName }
+
     /** Starts downloading [entry], unless it's already downloading (no-op). */
     fun startModelDownload(entry: LlamaModelEntry) {
         val fileName = entry.fileName
@@ -115,21 +149,33 @@ object LlamaDownloadManager {
             log.debug("Ignoring download request for {} — already downloading", fileName)
             return
         }
-        _modelDownloads.update { it + (fileName to ModelDownloadState()) }
+        val label = modelLabel(entry)
+        _modelDownloads.update { it + (fileName to ModelDownloadState(entry = entry)) }
         val job = scope.launch {
+            EventBus.emit(LlamaModelDownloadStartedEvent(fileName, label))
             try {
                 LlamaModelDownloader.download(entry) { done, total ->
-                    _modelDownloads.update { it + (fileName to ModelDownloadState(done, total)) }
+                    _modelDownloads.update { map ->
+                        val current = map[fileName] ?: ModelDownloadState(entry)
+                        map + (fileName to current.copy(downloadedBytes = done, totalBytes = total))
+                    }
                 }
                 _modelDownloads.update { it - fileName }
+                EventBus.emit(LlamaModelDownloadCompletedEvent(fileName, label))
             } catch (e: CancellationException) {
                 // User-initiated cancel (see cancelModelDownload) — StreamingDownloader.download
-                // already deletes the partial file; just clear the tracked state (not an error).
+                // already deletes the partial file; just clear the tracked state (not an error,
+                // and not reported as a failure event).
                 _modelDownloads.update { it - fileName }
                 throw e
             } catch (e: Exception) {
                 log.warn("Model download failed for {}", fileName, e)
-                _modelDownloads.update { it + (fileName to ModelDownloadState(error = e.message ?: "Unknown error")) }
+                val message = e.message ?: "Unknown error"
+                _modelDownloads.update { map ->
+                    val current = map[fileName] ?: ModelDownloadState(entry)
+                    map + (fileName to current.copy(error = message))
+                }
+                EventBus.emit(LlamaModelDownloadFailedEvent(fileName, label, message))
             }
         }
         modelDownloadJobs[fileName] = job

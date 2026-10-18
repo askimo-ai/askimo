@@ -74,34 +74,33 @@ class SecureKeyManagerWindowsIntegrationTest {
         println("Retrieved key is null: ${retrievedKey == null}")
         assertNotNull(retrievedKey, "Retrieved API key should not be null")
 
-        val retrieved = retrievedKey
-        println("Retrieved length: ${retrieved.length}")
-        println("Retrieved prefix: ${retrieved.take(20)}...")
-        println("Retrieved suffix: ...${retrieved.takeLast(20)}")
+        println("Retrieved length: ${retrievedKey.length}")
+        println("Retrieved prefix: ${retrievedKey.take(20)}...")
+        println("Retrieved suffix: ...${retrievedKey.takeLast(20)}")
 
         // Detailed comparison
         println("\n=== Detailed Comparison ===")
-        println("Length match: ${LONG_API_KEY.length == retrieved.length}")
-        println("Content match: ${LONG_API_KEY == retrieved}")
+        println("Length match: ${LONG_API_KEY.length == retrievedKey.length}")
+        println("Content match: ${LONG_API_KEY == retrievedKey}")
 
-        if (LONG_API_KEY != retrieved) {
+        if (LONG_API_KEY != retrievedKey) {
             println("\n=== MISMATCH ANALYSIS ===")
-            val minLength = minOf(LONG_API_KEY.length, retrieved.length)
+            val minLength = minOf(LONG_API_KEY.length, retrievedKey.length)
             for (i in 0 until minLength) {
-                if (LONG_API_KEY[i] != retrieved[i]) {
+                if (LONG_API_KEY[i] != retrievedKey[i]) {
                     println("First difference at position $i:")
                     println("Expected: '${LONG_API_KEY[i]}' (${LONG_API_KEY[i].code})")
-                    println("Got: '${retrieved[i]}' (${retrieved[i].code})")
+                    println("Got: '${retrievedKey[i]}' (${retrievedKey[i].code})")
                     break
                 }
             }
-            if (LONG_API_KEY.length != retrieved.length) {
-                println("Length difference: expected ${LONG_API_KEY.length}, got ${retrieved.length}")
+            if (LONG_API_KEY.length != retrievedKey.length) {
+                println("Length difference: expected ${LONG_API_KEY.length}, got ${retrievedKey.length}")
             }
         }
 
-        assertEquals(LONG_API_KEY.length, retrieved.length, "Retrieved API key length should match original")
-        assertEquals(LONG_API_KEY, retrieved, "Retrieved API key should match stored key exactly")
+        assertEquals(LONG_API_KEY.length, retrievedKey.length, "Retrieved API key length should match original")
+        assertEquals(LONG_API_KEY, retrievedKey, "Retrieved API key should match stored key exactly")
     }
 
     @Test

@@ -893,34 +893,44 @@ object AppConfig {
     val rawWebSearch: WebSearchConfig get() = delegate.webSearch
 
     /**
-     * Web search configuration with API keys resolved from secure storage.
-     * Safe to pass directly to backends.
+     * Web search configuration with the API key for the **currently selected** [WebSearchConfig.backend]
+     * resolved from secure storage. Safe to pass directly to backends.
+     *
+     * Only the active backend's key is resolved — keys for other (unused) backends are left as-is
+     * (blank or a `***keychain***` placeholder) to avoid unnecessary keychain/secure-storage lookups.
      */
     val webSearch: WebSearchConfig
         get() {
             val config = delegate.webSearch
-            val braveKey = if (!WebSearchConfig.isActualKey(config.braveApiKey)) {
-                WebSearchConfig.getSecureBraveKey() ?: ""
-            } else {
-                config.braveApiKey
-            }
-            val tavilyKey = if (!WebSearchConfig.isActualKey(config.tavilyApiKey)) {
-                WebSearchConfig.getSecureTavilyKey() ?: ""
-            } else {
-                config.tavilyApiKey
-            }
-            val serplyKey = if (!WebSearchConfig.isActualKey(config.serplyApiKey)) {
-                WebSearchConfig.getSecureSerplyKey() ?: ""
-            } else {
-                config.serplyApiKey
-            }
-            val changed = braveKey != config.braveApiKey ||
-                tavilyKey != config.tavilyApiKey ||
-                serplyKey != config.serplyApiKey
-            return if (changed) {
-                config.copy(braveApiKey = braveKey, tavilyApiKey = tavilyKey, serplyApiKey = serplyKey)
-            } else {
-                config
+            return when (config.backend) {
+                WebSearchBackend.BRAVE -> {
+                    if (!WebSearchConfig.isActualKey(config.braveApiKey)) {
+                        val secureKey = WebSearchConfig.getSecureBraveKey()
+                        if (secureKey != null) config.copy(braveApiKey = secureKey) else config
+                    } else {
+                        config
+                    }
+                }
+
+                WebSearchBackend.TAVILY -> {
+                    if (!WebSearchConfig.isActualKey(config.tavilyApiKey)) {
+                        val secureKey = WebSearchConfig.getSecureTavilyKey()
+                        if (secureKey != null) config.copy(tavilyApiKey = secureKey) else config
+                    } else {
+                        config
+                    }
+                }
+
+                WebSearchBackend.SERPLY -> {
+                    if (!WebSearchConfig.isActualKey(config.serplyApiKey)) {
+                        val secureKey = WebSearchConfig.getSecureSerplyKey()
+                        if (secureKey != null) config.copy(serplyApiKey = secureKey) else config
+                    } else {
+                        config
+                    }
+                }
+
+                WebSearchBackend.DUCKDUCKGO, WebSearchBackend.SEARXNG -> config
             }
         }
 
@@ -973,10 +983,18 @@ object AppConfig {
     /**
      * Proxy configuration with password loaded from secure storage.
      * If password is a placeholder (***keychain***), loads actual password from keychain/encrypted storage.
+     * No-op (skips the keychain lookup) when the proxy is disabled ([ProxyType.NONE]), since the
+     * password is irrelevant in that case.
      */
     val proxy: ProxyConfig
         get() {
             val config = delegate.proxy
+
+            // Proxy disabled — no need to resolve a password that will never be used.
+            if (config.type == ProxyType.NONE) {
+                return config
+            }
+
             val currentPassword = config.password
 
             // If password is a placeholder, load from secure storage

@@ -73,6 +73,12 @@ import io.askimo.core.event.user.IndexingCompletedEvent
 import io.askimo.core.event.user.IndexingFailedEvent
 import io.askimo.core.event.user.IndexingQueuedEvent
 import io.askimo.core.event.user.IndexingStartedEvent
+import io.askimo.core.event.user.LlamaBinaryDownloadCompletedEvent
+import io.askimo.core.event.user.LlamaBinaryDownloadFailedEvent
+import io.askimo.core.event.user.LlamaBinaryDownloadStartedEvent
+import io.askimo.core.event.user.LlamaModelDownloadCompletedEvent
+import io.askimo.core.event.user.LlamaModelDownloadFailedEvent
+import io.askimo.core.event.user.LlamaModelDownloadStartedEvent
 import io.askimo.core.event.user.WhisperModelDownloadCompletedEvent
 import io.askimo.core.event.user.WhisperModelDownloadFailedEvent
 import io.askimo.core.event.user.WhisperModelDownloadStartedEvent
@@ -108,6 +114,12 @@ private fun indexingNotificationId(containerId: String, containerType: IndexingC
 /** Stable dedup key for a Whisper model download's started/completed/failed lifecycle. */
 private fun whisperDownloadNotificationId(tierName: String): String = "whisper_download_$tierName"
 
+/** Stable dedup key for a `llama-server` binary download's started/completed/failed lifecycle. */
+private fun llamaBinaryDownloadNotificationId(platformId: String): String = "llama_binary_download_$platformId"
+
+/** Stable dedup key for a `.gguf` model download's started/completed/failed lifecycle. */
+private fun llamaModelDownloadNotificationId(fileName: String): String = "llama_model_download_$fileName"
+
 /**
  * Notification bell icon displayed in the footer bar.
  *
@@ -131,10 +143,10 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
         while (events.size > 100) events.removeAt(events.lastIndex)
     }
 
-    // Upserts a terminal card (indexing completed/failed, whisper download completed/failed, …)
-    // and bumps the unread badge only when a new card is added — not when replacing an existing
-    // in-progress card.
-    fun upsertTerminalEvent(item: NotificationEventItem) {
+    // Upserts a card by its dedup id (indexing queued/started/completed/failed, whisper/llama
+    // download started/completed/failed, …) and bumps the unread badge only when a new card is
+    // added — not when replacing an existing in-progress card.
+    fun upsertEvent(item: NotificationEventItem) {
         val existingIdx = events.indexOfFirst { it.id == item.id }
         if (existingIdx >= 0) {
             events[existingIdx] = item
@@ -176,23 +188,11 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
                         is IndexingQueuedEvent -> indexingNotificationId(event.containerId, event.containerType)
                         else -> (event as IndexingStartedEvent).let { indexingNotificationId(it.containerId, it.containerType) }
                     }
-                    val existingIdx = events.indexOfFirst { it.id == notificationId }
-                    val item = NotificationEventItem(
-                        id = notificationId,
-                        event = event,
-                    )
-                    if (existingIdx >= 0) {
-                        // Replace in-place — card was already counted, don't bump badge
-                        events[existingIdx] = item
-                    } else {
-                        events.add(0, item)
-                        unreadCount++
-                        trimEvents()
-                    }
+                    upsertEvent(NotificationEventItem(id = notificationId, event = event))
                 }
 
                 is IndexingCompletedEvent -> {
-                    upsertTerminalEvent(
+                    upsertEvent(
                         NotificationEventItem(
                             id = indexingNotificationId(event.containerId, event.containerType),
                             event = event,
@@ -202,7 +202,7 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
                 }
 
                 is IndexingFailedEvent -> {
-                    upsertTerminalEvent(
+                    upsertEvent(
                         NotificationEventItem(
                             id = indexingNotificationId(event.containerId, event.containerType),
                             event = event,
@@ -225,20 +225,11 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
                 }
 
                 is WhisperModelDownloadStartedEvent -> {
-                    val notificationId = whisperDownloadNotificationId(event.tierName)
-                    val existingIdx = events.indexOfFirst { it.id == notificationId }
-                    val item = NotificationEventItem(id = notificationId, event = event)
-                    if (existingIdx >= 0) {
-                        events[existingIdx] = item
-                    } else {
-                        events.add(0, item)
-                        unreadCount++
-                        trimEvents()
-                    }
+                    upsertEvent(NotificationEventItem(id = whisperDownloadNotificationId(event.tierName), event = event))
                 }
 
                 is WhisperModelDownloadCompletedEvent -> {
-                    upsertTerminalEvent(
+                    upsertEvent(
                         NotificationEventItem(
                             id = whisperDownloadNotificationId(event.tierName),
                             event = event,
@@ -248,9 +239,57 @@ fun notificationIcon(onShowUpdateDetails: () -> Unit) {
                 }
 
                 is WhisperModelDownloadFailedEvent -> {
-                    upsertTerminalEvent(
+                    upsertEvent(
                         NotificationEventItem(
                             id = whisperDownloadNotificationId(event.tierName),
+                            event = event,
+                        ),
+                    )
+                    showEventPopup = true // User must see failures
+                }
+
+                is LlamaBinaryDownloadStartedEvent -> {
+                    upsertEvent(NotificationEventItem(id = llamaBinaryDownloadNotificationId(event.platformId), event = event))
+                }
+
+                is LlamaBinaryDownloadCompletedEvent -> {
+                    upsertEvent(
+                        NotificationEventItem(
+                            id = llamaBinaryDownloadNotificationId(event.platformId),
+                            event = event,
+                        ),
+                    )
+                    // Badge-only — don't force-open popup
+                }
+
+                is LlamaBinaryDownloadFailedEvent -> {
+                    upsertEvent(
+                        NotificationEventItem(
+                            id = llamaBinaryDownloadNotificationId(event.platformId),
+                            event = event,
+                        ),
+                    )
+                    showEventPopup = true // User must see failures
+                }
+
+                is LlamaModelDownloadStartedEvent -> {
+                    upsertEvent(NotificationEventItem(id = llamaModelDownloadNotificationId(event.fileName), event = event))
+                }
+
+                is LlamaModelDownloadCompletedEvent -> {
+                    upsertEvent(
+                        NotificationEventItem(
+                            id = llamaModelDownloadNotificationId(event.fileName),
+                            event = event,
+                        ),
+                    )
+                    // Badge-only — don't force-open popup
+                }
+
+                is LlamaModelDownloadFailedEvent -> {
+                    upsertEvent(
+                        NotificationEventItem(
+                            id = llamaModelDownloadNotificationId(event.fileName),
                             event = event,
                         ),
                     )
@@ -517,8 +556,10 @@ private fun expandErrorButton(expanded: Boolean, onToggle: () -> Unit) {
  *
  * Handles [UpdateAvailableEvent], [ShellErrorEvent], all four indexing events
  * ([IndexingQueuedEvent], [IndexingStartedEvent], [IndexingCompletedEvent], [IndexingFailedEvent]),
- * and the Whisper model download lifecycle ([WhisperModelDownloadStartedEvent],
- * [WhisperModelDownloadCompletedEvent], [WhisperModelDownloadFailedEvent]).
+ * the Whisper model download lifecycle ([WhisperModelDownloadStartedEvent],
+ * [WhisperModelDownloadCompletedEvent], [WhisperModelDownloadFailedEvent]), and the llama-server
+ * binary/model download lifecycles ([LlamaBinaryDownloadStartedEvent]/[LlamaModelDownloadStartedEvent],
+ * etc.).
  */
 @Composable
 fun notificationEventCard(
@@ -538,6 +579,15 @@ fun notificationEventCard(
     val isWhisperDownloadStarted = event is WhisperModelDownloadStartedEvent
     val isWhisperDownloadCompleted = event is WhisperModelDownloadCompletedEvent
     val isWhisperDownloadFailed = event is WhisperModelDownloadFailedEvent
+    val isLlamaBinaryDownloadStarted = event is LlamaBinaryDownloadStartedEvent
+    val isLlamaBinaryDownloadCompleted = event is LlamaBinaryDownloadCompletedEvent
+    val isLlamaBinaryDownloadFailed = event is LlamaBinaryDownloadFailedEvent
+    val isLlamaModelDownloadStarted = event is LlamaModelDownloadStartedEvent
+    val isLlamaModelDownloadCompleted = event is LlamaModelDownloadCompletedEvent
+    val isLlamaModelDownloadFailed = event is LlamaModelDownloadFailedEvent
+    val isLlamaDownloadStarted = isLlamaBinaryDownloadStarted || isLlamaModelDownloadStarted
+    val isLlamaDownloadCompleted = isLlamaBinaryDownloadCompleted || isLlamaModelDownloadCompleted
+    val isLlamaDownloadFailed = isLlamaBinaryDownloadFailed || isLlamaModelDownloadFailed
 
     val eventName = when (event) {
         is UpdateAvailableEvent -> stringResource("event.update.available")
@@ -550,6 +600,12 @@ fun notificationEventCard(
         is WhisperModelDownloadStartedEvent -> stringResource("event.whisper_download.started")
         is WhisperModelDownloadCompletedEvent -> stringResource("event.whisper_download.completed")
         is WhisperModelDownloadFailedEvent -> stringResource("event.whisper_download.failed")
+        is LlamaBinaryDownloadStartedEvent -> stringResource("event.llama_download.binary.started")
+        is LlamaBinaryDownloadCompletedEvent -> stringResource("event.llama_download.binary.completed")
+        is LlamaBinaryDownloadFailedEvent -> stringResource("event.llama_download.binary.failed")
+        is LlamaModelDownloadStartedEvent -> stringResource("event.llama_download.model.started")
+        is LlamaModelDownloadCompletedEvent -> stringResource("event.llama_download.model.completed")
+        is LlamaModelDownloadFailedEvent -> stringResource("event.llama_download.model.failed")
         else -> event::class.simpleName ?: "Unknown"
     }
 
@@ -559,7 +615,7 @@ fun notificationEventCard(
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
         )
 
-        isIndexingCompleted || isWhisperDownloadCompleted -> CardDefaults.cardColors(
+        isIndexingCompleted || isWhisperDownloadCompleted || isLlamaDownloadCompleted -> CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.tertiaryContainer,
             contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
         )
@@ -569,7 +625,7 @@ fun notificationEventCard(
 
     val contentColor = when {
         isUpdateEvent -> MaterialTheme.colorScheme.onSecondaryContainer
-        isIndexingCompleted || isWhisperDownloadCompleted -> MaterialTheme.colorScheme.onTertiaryContainer
+        isIndexingCompleted || isWhisperDownloadCompleted || isLlamaDownloadCompleted -> MaterialTheme.colorScheme.onTertiaryContainer
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
@@ -607,7 +663,7 @@ fun notificationEventCard(
                     modifier = Modifier.weight(1f),
                 ) {
                     when {
-                        isShellError || isIndexingFailed || isWhisperDownloadFailed -> Icon(
+                        isShellError || isIndexingFailed || isWhisperDownloadFailed || isLlamaDownloadFailed -> Icon(
                             imageVector = Icons.Outlined.ErrorOutline,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.error,
@@ -628,7 +684,7 @@ fun notificationEventCard(
                             modifier = Modifier.size(16.dp),
                         )
 
-                        isIndexingStarted || isWhisperDownloadStarted -> Icon(
+                        isIndexingStarted || isWhisperDownloadStarted || isLlamaDownloadStarted -> Icon(
                             imageVector = Icons.Outlined.Sync,
                             contentDescription = null,
                             tint = contentColor,
@@ -637,7 +693,7 @@ fun notificationEventCard(
                                 .rotate(rotationAngle),
                         )
 
-                        isIndexingCompleted || isWhisperDownloadCompleted -> Icon(
+                        isIndexingCompleted || isWhisperDownloadCompleted || isLlamaDownloadCompleted -> Icon(
                             imageVector = Icons.Outlined.CheckCircleOutline,
                             contentDescription = null,
                             tint = contentColor,
@@ -723,6 +779,36 @@ fun notificationEventCard(
                 if (tierLabel != null) {
                     Text(
                         text = tierLabel,
+                        style = AppTextStyles.fieldLabel,
+                        color = contentColor,
+                    )
+                }
+            }
+            if (isLlamaBinaryDownloadStarted || isLlamaBinaryDownloadCompleted || isLlamaBinaryDownloadFailed) {
+                val platformLabel = when (event) {
+                    is LlamaBinaryDownloadStartedEvent -> event.platformLabel
+                    is LlamaBinaryDownloadCompletedEvent -> event.platformLabel
+                    is LlamaBinaryDownloadFailedEvent -> event.platformLabel
+                    else -> null
+                }
+                if (platformLabel != null) {
+                    Text(
+                        text = platformLabel,
+                        style = AppTextStyles.fieldLabel,
+                        color = contentColor,
+                    )
+                }
+            }
+            if (isLlamaModelDownloadStarted || isLlamaModelDownloadCompleted || isLlamaModelDownloadFailed) {
+                val modelLabel = when (event) {
+                    is LlamaModelDownloadStartedEvent -> event.modelLabel
+                    is LlamaModelDownloadCompletedEvent -> event.modelLabel
+                    is LlamaModelDownloadFailedEvent -> event.modelLabel
+                    else -> null
+                }
+                if (modelLabel != null) {
+                    Text(
+                        text = modelLabel,
                         style = AppTextStyles.fieldLabel,
                         color = contentColor,
                     )

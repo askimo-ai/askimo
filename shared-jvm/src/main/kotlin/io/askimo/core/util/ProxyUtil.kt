@@ -5,6 +5,7 @@
 package io.askimo.core.util
 
 import io.askimo.core.config.AppConfig
+import io.askimo.core.config.ProxyConfig
 import io.askimo.core.config.ProxyType
 import io.askimo.core.logging.logger
 import java.io.IOException
@@ -43,6 +44,121 @@ private val log = logger<ProxyUtil>()
  * ```
  */
 object ProxyUtil {
+
+    /**
+     * Holds the immutable, pre-built proxy-selection objects derived from a [ProxyConfig].
+     * `null` fields mean "nothing to configure for this aspect" (e.g. no authenticator needed).
+     */
+    private data class ResolvedProxy(
+        val selector: ProxySelector?,
+        val authenticator: Authenticator?,
+    )
+
+    /** Last resolved proxy config + its derived [ResolvedProxy], used as a single-entry cache. */
+    @Volatile
+    private var cachedConfig: ProxyConfig? = null
+
+    @Volatile
+    private var cachedResolved: ResolvedProxy? = null
+
+    private val cacheLock = Any()
+
+    /**
+     * Resolves (and caches) the [ProxySelector]/[Authenticator] pair for the given [proxyConfig].
+     * [ProxyConfig] is a data class, so value equality is used to detect configuration changes
+     * and avoid rebuilding proxy objects on every call.
+     */
+    private fun resolveProxy(proxyConfig: ProxyConfig): ResolvedProxy {
+        cachedResolved?.let { resolved ->
+            if (cachedConfig == proxyConfig) return resolved
+        }
+
+        synchronized(cacheLock) {
+            cachedResolved?.let { resolved ->
+                if (cachedConfig == proxyConfig) return resolved
+            }
+
+            val resolved = buildResolvedProxy(proxyConfig)
+            cachedConfig = proxyConfig
+            cachedResolved = resolved
+            return resolved
+        }
+    }
+
+    private fun buildResolvedProxy(proxyConfig: ProxyConfig): ResolvedProxy = when (proxyConfig.type) {
+        ProxyType.SYSTEM -> {
+            log.info("Using system proxy settings")
+            ResolvedProxy(selector = ProxySelector.getDefault(), authenticator = null)
+        }
+
+        ProxyType.HTTP, ProxyType.HTTPS -> {
+            if (proxyConfig.host.isBlank()) {
+                log.warn("HTTP/HTTPS proxy enabled but host is empty")
+                ResolvedProxy(selector = null, authenticator = null)
+            } else {
+                try {
+                    val proxyAddress = InetSocketAddress(proxyConfig.host, proxyConfig.port)
+                    val proxy = Proxy(Proxy.Type.HTTP, proxyAddress)
+
+                    val proxySelector = object : ProxySelector() {
+                        override fun select(uri: URI?): List<Proxy> = listOf(proxy)
+
+                        override fun connectFailed(
+                            uri: URI?,
+                            sa: SocketAddress?,
+                            ioe: IOException?,
+                        ) {
+                            log.error("Proxy connection failed for $uri", ioe)
+                        }
+                    }
+
+                    val authenticator = if (proxyConfig.username.isNotBlank()) {
+                        createAuthenticator(
+                            proxyConfig.port,
+                            proxyConfig.username,
+                            proxyConfig.password,
+                        )
+                    } else {
+                        null
+                    }
+
+                    log.info("✓ HTTP/HTTPS proxy configured: ${proxyConfig.host}:${proxyConfig.port}")
+                    ResolvedProxy(selector = proxySelector, authenticator = authenticator)
+                } catch (e: Exception) {
+                    log.error("Failed to configure HTTP/HTTPS proxy: ${e.message}", e)
+                    ResolvedProxy(selector = null, authenticator = null)
+                }
+            }
+        }
+
+        ProxyType.SOCKS5 -> {
+            if (proxyConfig.host.isBlank()) {
+                log.warn("SOCKS5 proxy enabled but host is empty")
+                ResolvedProxy(selector = null, authenticator = null)
+            } else {
+                try {
+                    val proxyAddress = InetSocketAddress(proxyConfig.host, proxyConfig.port)
+                    val proxySelector = object : ProxySelector() {
+                        override fun select(uri: URI?): MutableList<Proxy> = mutableListOf(
+                            Proxy(Proxy.Type.SOCKS, proxyAddress),
+                        )
+
+                        override fun connectFailed(uri: URI?, sa: SocketAddress?, ioe: IOException?) {
+                            log.error("SOCKS5 proxy connection failed for $uri", ioe)
+                        }
+                    }
+
+                    log.info("✓ SOCKS5 proxy configured: ${proxyConfig.host}:${proxyConfig.port}")
+                    ResolvedProxy(selector = proxySelector, authenticator = null)
+                } catch (e: Exception) {
+                    log.error("Failed to configure SOCKS5 proxy: ${e.message}", e)
+                    ResolvedProxy(selector = null, authenticator = null)
+                }
+            }
+        }
+
+        ProxyType.NONE -> ResolvedProxy(selector = null, authenticator = null)
+    }
 
     /**
      * Checks if a host is local and should bypass proxy.
@@ -116,82 +232,20 @@ object ProxyUtil {
         when (proxyConfig.type) {
             ProxyType.SYSTEM -> {
                 // Use system proxy settings
-                log.info("Using system proxy settings")
-                builder.proxy(ProxySelector.getDefault())
+                log.debug("Using system proxy settings")
+                val resolved = resolveProxy(proxyConfig)
+                resolved.selector?.let { builder.proxy(it) }
             }
 
-            ProxyType.HTTP, ProxyType.HTTPS -> {
+            ProxyType.HTTP, ProxyType.HTTPS, ProxyType.SOCKS5 -> {
                 if (proxyConfig.host.isBlank()) {
-                    log.warn("HTTP/HTTPS proxy enabled but host is empty")
+                    log.warn("${proxyConfig.type} proxy enabled but host is empty")
                     return builder
                 }
 
-                try {
-                    val proxyAddress = InetSocketAddress(proxyConfig.host, proxyConfig.port)
-
-                    val proxy = Proxy(
-                        Proxy.Type.HTTP,
-                        proxyAddress,
-                    )
-
-                    val proxySelector = object : ProxySelector() {
-                        override fun select(uri: URI?): List<Proxy> = listOf(proxy)
-
-                        override fun connectFailed(
-                            uri: URI?,
-                            sa: SocketAddress?,
-                            ioe: IOException?,
-                        ) {
-                            log.error("Proxy connection failed for $uri", ioe)
-                        }
-                    }
-
-                    builder.proxy(proxySelector)
-
-                    if (proxyConfig.username.isNotBlank()) {
-                        builder.authenticator(
-                            createAuthenticator(
-                                proxyConfig.port,
-                                proxyConfig.username,
-                                proxyConfig.password,
-                            ),
-                        )
-                    }
-
-                    log.info("✓ HTTP/HTTPS proxy configured: ${proxyConfig.host}:${proxyConfig.port}")
-                } catch (e: Exception) {
-                    log.error("Failed to configure HTTP/HTTPS proxy: ${e.message}", e)
-                }
-            }
-
-            ProxyType.SOCKS5 -> {
-                if (proxyConfig.host.isBlank()) {
-                    log.warn("SOCKS5 proxy enabled but host is empty")
-                    return builder
-                }
-
-                try {
-                    // For SOCKS5, we need to create a custom ProxySelector
-                    val proxyAddress = InetSocketAddress(proxyConfig.host, proxyConfig.port)
-                    val proxySelector = object : ProxySelector() {
-                        override fun select(uri: URI?): MutableList<Proxy> = mutableListOf(
-                            Proxy(
-                                Proxy.Type.SOCKS,
-                                proxyAddress,
-                            ),
-                        )
-
-                        override fun connectFailed(uri: URI?, sa: SocketAddress?, ioe: IOException?) {
-                            log.error("SOCKS5 proxy connection failed for $uri", ioe)
-                        }
-                    }
-
-                    builder.proxy(proxySelector)
-
-                    log.info("✓ SOCKS5 proxy configured: ${proxyConfig.host}:${proxyConfig.port}")
-                } catch (e: Exception) {
-                    log.error("Failed to configure SOCKS5 proxy: ${e.message}", e)
-                }
+                val resolved = resolveProxy(proxyConfig)
+                resolved.selector?.let { builder.proxy(it) }
+                resolved.authenticator?.let { builder.authenticator(it) }
             }
         }
 
