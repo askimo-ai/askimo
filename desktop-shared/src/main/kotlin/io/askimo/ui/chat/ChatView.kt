@@ -415,6 +415,17 @@ fun chatView(
     // Resolved outside the onPreviewKeyEvent lambda below since stringResource() is
     // @Composable and that lambda runs outside of composition.
     val voiceErrorTitle = stringResource("chat.voice.error.title")
+    val selectFileTitle = stringResource("chat.select.file")
+
+    // Stable holder for the mic toggle — populated via SideEffect by chatInputField's
+    // onVoiceToggleHandlerReady so the global AppShortcut.TOGGLE_VOICE_RECORDING handler below
+    // can trigger it even when the input field itself isn't focused.
+    val voiceToggleHandler = remember {
+        object {
+            var enabled: Boolean = false
+            var toggle: () -> Unit = {}
+        }
+    }
 
     // Focus search field when search mode is activated
     LaunchedEffect(isSearchMode) {
@@ -432,7 +443,9 @@ fun chatView(
         }
     }
 
-    LaunchedEffect(Unit) {
+    // Re-establish keyboard focus within ChatView's subtree whenever the active session
+    // changes
+    LaunchedEffect(sessionId) {
         chatViewFocusRequester.requestFocus()
     }
 
@@ -538,6 +551,29 @@ fun chatView(
                         AppShortcut.FOCUS_MESSAGE_LIST -> {
                             messageListFocusRequester.requestFocus()
                             true
+                        }
+
+                        AppShortcut.ATTACH_FILE -> {
+                            if (!isLoading) {
+                                scope.launch {
+                                    val paths = FileDialogUtils.pickFilePaths(selectFileTitle)
+                                    if (paths.isNotEmpty()) {
+                                        dropFilesHandler.handle(paths.map { File(it) })
+                                    }
+                                }
+                                true
+                            } else {
+                                false
+                            }
+                        }
+
+                        AppShortcut.TOGGLE_VOICE_RECORDING -> {
+                            if (!isLoading && voiceToggleHandler.enabled) {
+                                voiceToggleHandler.toggle()
+                                true
+                            } else {
+                                false
+                            }
                         }
 
                         else -> false
@@ -1103,6 +1139,10 @@ fun chatView(
                         isCompressing = isCompressing,
                         isContextSizeLearned = isContextSizeLearned,
                         onCompressMemory = { actions.compressMemory() },
+                        onVoiceToggleHandlerReady = { enabled, toggle ->
+                            voiceToggleHandler.enabled = enabled
+                            voiceToggleHandler.toggle = toggle
+                        },
                         modifier = fieldModifier,
                     )
                 }

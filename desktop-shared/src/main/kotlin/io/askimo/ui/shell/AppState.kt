@@ -28,6 +28,7 @@ import io.askimo.ui.common.theme.ThemePaletteStyle
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.theme.detectMacOSDarkMode
 import kotlinx.coroutines.delay
+import java.awt.GraphicsEnvironment
 import java.util.Locale
 import kotlin.time.Duration.Companion.seconds
 
@@ -111,6 +112,37 @@ fun rememberThemeState(): ThemeState {
 // ── Window state persistence ──────────────────────────────────────────────────
 
 /**
+ * Clamps a saved width/height/x/y window geometry to the bounds of the
+ * current default screen's work area. Geometry saved from a previous
+ * session — especially geometry captured while the window was *maximized*
+ * (which may reflect a different monitor's resolution, or include OS
+ * chrome quirks) — can otherwise end up taller/wider than the current
+ * screen, pushing the title bar off-screen when the window is restored.
+ */
+private fun clampWindowGeometryToScreen(
+    width: Int,
+    height: Int,
+    x: Int,
+    y: Int,
+): IntArray {
+    val bounds = runCatching {
+        GraphicsEnvironment.getLocalGraphicsEnvironment()
+            .defaultScreenDevice.defaultConfiguration.bounds
+    }.getOrNull() ?: return intArrayOf(width, height, x, y)
+
+    val clampedWidth = width.coerceIn(MIN_WINDOW_WIDTH, bounds.width)
+    val clampedHeight = height.coerceIn(MIN_WINDOW_HEIGHT, bounds.height)
+    val maxX = (bounds.x + bounds.width - clampedWidth).coerceAtLeast(bounds.x)
+    val maxY = (bounds.y + bounds.height - clampedHeight).coerceAtLeast(bounds.y)
+    val clampedX = x.coerceIn(bounds.x, maxX)
+    val clampedY = y.coerceIn(bounds.y, maxY)
+    return intArrayOf(clampedWidth, clampedHeight, clampedX, clampedY)
+}
+
+private const val MIN_WINDOW_WIDTH = 400
+private const val MIN_WINDOW_HEIGHT = 300
+
+/**
  * Creates a [WindowState] pre-populated from [ThemePreferences] and
  * automatically saves changes back whenever size, position or placement change.
  */
@@ -122,23 +154,29 @@ fun rememberPersistedWindowState(): WindowState {
     val savedY = ThemePreferences.getWindowY()
     val isMaximized = ThemePreferences.isWindowMaximized()
 
+    // Clamp whatever was saved (possibly stale/from another monitor, or
+    // captured while maximized) to the current screen's visible work area
+    // before it's ever applied to the window.
+    val (clampedWidth, clampedHeight, clampedX, clampedY) = clampWindowGeometryToScreen(
+        width = if (savedWidth > 0) savedWidth else 1920,
+        height = if (savedHeight > 0) savedHeight else 1080,
+        x = savedX,
+        y = savedY,
+    )
+
     val windowState = rememberWindowState(
         width = if (isScreenshotMode) {
             SCREENSHOT_MODE_WIDTH
-        } else if (savedWidth > 0) {
-            savedWidth.dp
         } else {
-            1920.dp
+            clampedWidth.dp
         },
         height = if (isScreenshotMode) {
             SCREENSHOT_MODE_HEIGHT
-        } else if (savedHeight > 0) {
-            savedHeight.dp
         } else {
-            1080.dp
+            clampedHeight.dp
         },
         position = if (savedX >= 0 && savedY >= 0) {
-            WindowPosition(savedX.dp, savedY.dp)
+            WindowPosition(clampedX.dp, clampedY.dp)
         } else {
             WindowPosition.Aligned(Alignment.Center)
         },
@@ -155,13 +193,36 @@ fun rememberPersistedWindowState(): WindowState {
         // Never persist window geometry captured while in screenshot mode —
         // it's a temporary fixed-size session, not a real user preference.
         if (isScreenshotMode) return@LaunchedEffect
-        ThemePreferences.saveWindowState(
-            width = windowState.size.width.value.toInt(),
-            height = windowState.size.height.value.toInt(),
-            x = windowState.position.x.value.toInt(),
-            y = windowState.position.y.value.toInt(),
-            isMaximized = windowState.placement == WindowPlacement.Maximized,
-        )
+        // Only persist width/height/position while Floating. While the window
+        // is Maximized, windowState.size reports the full maximized dimensions
+        // (which can reflect a different/larger monitor than the one the user
+        // normally works in) — persisting those as the "restored" geometry is
+        // what causes the restored window to exceed the screen and push the
+        // title bar off-screen. The `isMaximized` flag itself is still saved
+        // on every change so the app reopens maximized/floating correctly.
+        if (windowState.placement == WindowPlacement.Floating) {
+            val (w, h, x, y) = clampWindowGeometryToScreen(
+                width = windowState.size.width.value.toInt(),
+                height = windowState.size.height.value.toInt(),
+                x = windowState.position.x.value.toInt(),
+                y = windowState.position.y.value.toInt(),
+            )
+            ThemePreferences.saveWindowState(
+                width = w,
+                height = h,
+                x = x,
+                y = y,
+                isMaximized = false,
+            )
+        } else {
+            ThemePreferences.saveWindowState(
+                width = savedWidth,
+                height = savedHeight,
+                x = savedX,
+                y = savedY,
+                isMaximized = windowState.placement == WindowPlacement.Maximized,
+            )
+        }
     }
 
     return windowState

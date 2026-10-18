@@ -2,7 +2,7 @@ Askimo — Third-Party Software Notices
 This file lists every third-party dependency bundled in Askimo's distributed artifacts (CLI, desktop app) across all modules, deduplicated, along with its license.
 ================================================================================
 
-Total unique dependencies: 290
+Total unique dependencies: 289
 
 * androidx.annotation:annotation-jvm:1.10.0
   URL: https://developer.android.com/jetpack/androidx/releases/annotation#1.10.0
@@ -242,27 +242,27 @@ Total unique dependencies: 290
   URL: https://github.com/FasterXML/jackson
   License(s): Apache License, Version 2.0
 
-* com.fasterxml.jackson.core:jackson-core:2.22.1
+* com.fasterxml.jackson.core:jackson-core:2.22.4
   URL: https://github.com/FasterXML/jackson-core
   License(s): Apache License, Version 2.0
 
-* com.fasterxml.jackson.core:jackson-databind:2.22.1
+* com.fasterxml.jackson.core:jackson-databind:2.22.4
   URL: https://github.com/FasterXML/jackson
   License(s): Apache License, Version 2.0
 
-* com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.22.1
+* com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.22.4
   URL: https://github.com/FasterXML/jackson-dataformats-text
   License(s): Apache License, Version 2.0
 
-* com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.22.1
+* com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.22.4
   URL: https://github.com/FasterXML/jackson-modules-java8/jackson-datatype-jsr310
   License(s): Apache License, Version 2.0
 
-* com.fasterxml.jackson.module:jackson-module-kotlin:2.22.1
+* com.fasterxml.jackson.module:jackson-module-kotlin:2.22.4
   URL: https://github.com/FasterXML/jackson-module-kotlin
   License(s): Apache License, Version 2.0
 
-* com.fasterxml.jackson:jackson-bom:2.22.1
+* com.fasterxml.jackson:jackson-bom:2.22.4
   URL: https://github.com/FasterXML/jackson-bom
   License(s): Apache License, Version 2.0
 
@@ -566,10 +566,6 @@ Total unique dependencies: 290
   URL: https://github.com/java-native-access/jna
   License(s): Apache License, Version 2.0 OR GNU LESSER GENERAL PUBLIC LICENSE, Version 2.1
 
-* net.java.dev.jna:jna:5.17.0
-  URL: https://github.com/java-native-access/jna
-  License(s): Apache License, Version 2.0 OR GNU LESSER GENERAL PUBLIC LICENSE, Version 2.1
-
 * net.java.dev.jna:jna:5.19.1
   URL: https://github.com/java-native-access/jna
   License(s): Apache License, Version 2.0 OR GNU LESSER GENERAL PUBLIC LICENSE, Version 2.1
@@ -794,47 +790,47 @@ Total unique dependencies: 290
   URL: https://github.com/JetBrains/compose-jb
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.animation:animation-core-desktop:1.12.1
+* org.jetbrains.compose.animation:animation-core-desktop:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.animation:animation-core:1.12.1
+* org.jetbrains.compose.animation:animation-core:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.animation:animation-desktop:1.12.1
+* org.jetbrains.compose.animation:animation-desktop:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.animation:animation:1.12.1
+* org.jetbrains.compose.animation:animation:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.desktop:desktop-jvm-macos-arm64:1.12.1
+* org.jetbrains.compose.desktop:desktop-jvm-macos-arm64:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.desktop:desktop-jvm:1.12.1
+* org.jetbrains.compose.desktop:desktop-jvm:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.desktop:desktop:1.12.1
+* org.jetbrains.compose.desktop:desktop:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.foundation:foundation-desktop:1.12.1
+* org.jetbrains.compose.foundation:foundation-desktop:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.foundation:foundation-layout-desktop:1.12.1
+* org.jetbrains.compose.foundation:foundation-layout-desktop:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.foundation:foundation-layout:1.12.1
+* org.jetbrains.compose.foundation:foundation-layout:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.foundation:foundation:1.12.1
+* org.jetbrains.compose.foundation:foundation:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
@@ -846,7 +842,7 @@ Total unique dependencies: 290
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.material:material-desktop:1.12.1
+* org.jetbrains.compose.material:material-desktop:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
@@ -866,95 +862,95 @@ Total unique dependencies: 290
   URL: https://github.com/JetBrains/compose-jb
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.material:material-ripple-desktop:1.12.1
+* org.jetbrains.compose.material:material-ripple-desktop:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.material:material-ripple:1.12.1
+* org.jetbrains.compose.material:material-ripple:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.material:material:1.12.1
+* org.jetbrains.compose.material:material:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.runtime:runtime-desktop:1.12.1
+* org.jetbrains.compose.runtime:runtime-desktop:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.runtime:runtime-saveable-desktop:1.12.1
+* org.jetbrains.compose.runtime:runtime-saveable-desktop:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.runtime:runtime-saveable:1.12.1
+* org.jetbrains.compose.runtime:runtime-saveable:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.runtime:runtime:1.12.1
+* org.jetbrains.compose.runtime:runtime:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.ui:ui-backhandler-desktop:1.12.1
+* org.jetbrains.compose.ui:ui-backhandler-desktop:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.ui:ui-backhandler:1.12.1
+* org.jetbrains.compose.ui:ui-backhandler:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.ui:ui-desktop:1.12.1
+* org.jetbrains.compose.ui:ui-desktop:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.ui:ui-geometry-desktop:1.12.1
+* org.jetbrains.compose.ui:ui-geometry-desktop:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.ui:ui-geometry:1.12.1
+* org.jetbrains.compose.ui:ui-geometry:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.ui:ui-graphics-desktop:1.12.1
+* org.jetbrains.compose.ui:ui-graphics-desktop:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.ui:ui-graphics:1.12.1
+* org.jetbrains.compose.ui:ui-graphics:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.ui:ui-text-desktop:1.12.1
+* org.jetbrains.compose.ui:ui-text-desktop:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.ui:ui-text:1.12.1
+* org.jetbrains.compose.ui:ui-text:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.ui:ui-tooling-preview-desktop:1.12.1
+* org.jetbrains.compose.ui:ui-tooling-preview-desktop:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.ui:ui-tooling-preview:1.12.1
+* org.jetbrains.compose.ui:ui-tooling-preview:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.ui:ui-unit-desktop:1.12.1
+* org.jetbrains.compose.ui:ui-unit-desktop:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.ui:ui-unit:1.12.1
+* org.jetbrains.compose.ui:ui-unit:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.ui:ui-util-desktop:1.12.1
+* org.jetbrains.compose.ui:ui-util-desktop:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.ui:ui-util:1.12.1
+* org.jetbrains.compose.ui:ui-util:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.ui:ui:1.12.1
+* org.jetbrains.compose.ui:ui:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
@@ -1066,15 +1062,15 @@ Total unique dependencies: 290
   URL: https://github.com/JetBrains/JetBrainsRuntimeApi
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.skiko:skiko-awt-runtime-macos-arm64:0.150.1
+* org.jetbrains.skiko:skiko-awt-runtime-macos-arm64:0.150.2
   URL: https://www.github.com/JetBrains/skiko
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.skiko:skiko-awt:0.150.1
+* org.jetbrains.skiko:skiko-awt:0.150.2
   URL: https://www.github.com/JetBrains/skiko
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.skiko:skiko:0.150.1
+* org.jetbrains.skiko:skiko:0.150.2
   URL: https://www.github.com/JetBrains/skiko
   License(s): Apache License, Version 2.0
 

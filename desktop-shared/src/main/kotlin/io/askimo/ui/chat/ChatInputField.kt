@@ -161,7 +161,6 @@ import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.common.ui.util.FileDialogUtils
 import io.askimo.ui.session.manageDirectivesDialog
 import io.askimo.ui.session.newDirectiveDialog
-import io.askimo.ui.util.Platform
 import io.askimo.ui.voice.rememberVoiceRecordingController
 import io.askimo.ui.voice.voiceRecordingControls
 import kotlinx.coroutines.Dispatchers
@@ -229,6 +228,11 @@ fun chatInputField(
     isCompressing: Boolean = false,
     isContextSizeLearned: Boolean = false,
     onCompressMemory: (() -> Unit)? = null,
+    // Lets a parent (e.g. ChatView) hook into the mic toggle so its own global keyboard
+    // shortcut handler can trigger voice recording even when this field isn't focused —
+    // see ChatView.kt's onPreviewKeyEvent for AppShortcut.TOGGLE_VOICE_RECORDING. Invoked via
+    // LaunchedEffect(voiceInputEnabled) below so the parent always holds a current (enabled, toggle).
+    onVoiceToggleHandlerReady: ((enabled: Boolean, toggle: () -> Unit) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val inputFocusRequester = remember { FocusRequester() }
@@ -244,11 +248,7 @@ fun chatInputField(
     // Whether the current model supports extended reasoning.
     var supportsReasoning by remember(resolvedProvider, currentModel) {
         mutableStateOf(
-            if (resolvedProvider != null && currentModel.isNotBlank()) {
-                ModelCapabilitiesCache.supportsThinking(resolvedProvider, currentModel)
-            } else {
-                false
-            },
+            resolvedProvider != null && currentModel.isNotBlank() && ModelCapabilitiesCache.supportsThinking(resolvedProvider, currentModel),
         )
     }
 
@@ -525,12 +525,20 @@ fun chatInputField(
         if (voiceInputEnabled) voiceRecordingController.toggle()
     }
 
+    // Keep the parent's copy of (enabled, toggle) fresh whenever voiceInputEnabled changes
+    LaunchedEffect(voiceInputEnabled) {
+        onVoiceToggleHandlerReady?.invoke(voiceInputEnabled, toggleVoiceRecording)
+    }
+
     // ── Rotating placeholder hints ─────────────────────────────────────────────
     // Cycles discoverability hints (web search, URL, attach) while input is empty
     // and the AI isn't responding.
     val placeholderHints = listOf(
         placeholder,
-        stringResource("chat.input.placeholder.hint.attach", Platform.modifierKey),
+        stringResource(
+            "chat.input.placeholder.hint.attach",
+            KeyMapManager.AppShortcut.ATTACH_FILE.getDisplayString(),
+        ),
     )
     var placeholderIndex by remember { mutableStateOf(0) }
     val activePlaceholder = if (inputText.text.isEmpty() && !isLoading && !isThinking) {
@@ -869,7 +877,10 @@ fun chatInputField(
                     ) {
                         // ── Left: action controls ──────────────────────────────────
                         themedTooltip(
-                            text = stringResource("chat.attach.file", Platform.modifierKey),
+                            text = stringResource(
+                                "chat.attach.file",
+                                KeyMapManager.AppShortcut.ATTACH_FILE.getDisplayString(),
+                            ),
                         ) {
                             IconButton(
                                 onClick = openFileDialog,

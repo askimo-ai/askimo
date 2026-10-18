@@ -7,24 +7,18 @@ package io.askimo.ui.common.keymap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.isAltPressed
-import androidx.compose.ui.input.key.isCtrlPressed
-import androidx.compose.ui.input.key.isMetaPressed
-import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import io.askimo.core.i18n.LocalizationManager
-import io.askimo.ui.util.Platform
 
 /**
  * Centralized keyboard shortcut manager for the Askimo Desktop application.
  * Handles all keyboard shortcuts and provides platform-specific key mappings.
  */
 object KeyMapManager {
-    /**
-     * Determines if the primary modifier key (Command on macOS, Ctrl on others) is pressed
-     */
-    fun KeyEvent.isPrimaryModifierPressed(): Boolean = if (Platform.isMac) isMetaPressed else isCtrlPressed
+    // Encapsulates macOS vs. Windows/Linux modifier-key differences — see KeyModifierScheme.kt
+    // for why that logic lives in its own per-platform classes rather than inline branches here.
+    private val modifierScheme: KeyModifierScheme = KeyModifierScheme.forCurrentPlatform()
 
     /**
      * Defines all application shortcuts
@@ -48,7 +42,11 @@ object KeyMapManager {
         SHOW_KEYBOARD_SHORTCUTS("shortcut.show.keyboard.shortcuts", Key.Slash, requiresPrimaryModifier = true),
 
         // View shortcuts
-        ENTER_FULLSCREEN("shortcut.enter.fullscreen", Key.F, requiresPrimaryModifier = true, requiresCtrl = true),
+        // Uses Alt (not Ctrl) as the extra modifier: on non-mac platforms the "primary
+        // modifier" collapses onto Ctrl, so pairing it with an explicit requiresCtrl here
+        // would be indistinguishable from SEARCH_IN_CHAT's plain Ctrl+F. Alt stays a
+        // distinct physical key on every platform, keeping this shortcut unambiguous.
+        ENTER_FULLSCREEN("shortcut.enter.fullscreen", Key.F, requiresPrimaryModifier = true, requiresAlt = true),
         NAVIGATE_TO_SESSIONS("shortcut.navigate.to.sessions", Key.E, requiresPrimaryModifier = true),
         NAVIGATE_TO_PROJECTS("shortcut.navigate.to.projects", Key.P, requiresPrimaryModifier = true),
         NAVIGATE_TO_BOOKMARKS("shortcut.navigate.to.bookmarks", Key.B, requiresPrimaryModifier = true, requiresShift = true),
@@ -89,52 +87,23 @@ object KeyMapManager {
          */
         fun getDescription(): String = LocalizationManager.getString(descriptionKey)
 
+        private val modifiers: ShortcutModifiers
+            get() = ShortcutModifiers(requiresPrimaryModifier, requiresCtrl, requiresShift, requiresAlt)
+
         /**
-         * Checks if this shortcut matches the given key event
+         * Checks if this shortcut matches the given key event. Modifier matching is fully
+         * delegated to [KeyModifierScheme] — see that file for why macOS vs. Windows/Linux
+         * differences live there instead of as inline branches here.
          */
-        fun matches(keyEvent: KeyEvent): Boolean {
-            if (keyEvent.key != key) return false
-            if (requiresPrimaryModifier && !keyEvent.isPrimaryModifierPressed()) return false
-            if (!requiresPrimaryModifier && keyEvent.isPrimaryModifierPressed()) return false
-            if (requiresShift && !keyEvent.isShiftPressed) return false
-            if (!requiresShift && keyEvent.isShiftPressed) return false
-            if (requiresAlt && !keyEvent.isAltPressed) return false
-            if (!requiresAlt && keyEvent.isAltPressed) return false
-            if (requiresCtrl && !keyEvent.isCtrlPressed) return false
-            if (!requiresCtrl && keyEvent.isCtrlPressed) return false
-            return true
-        }
+        fun matches(keyEvent: KeyEvent): Boolean = keyEvent.key == key && modifierScheme.matches(modifiers, keyEvent)
 
         /**
          * Returns a human-readable string for this shortcut
          */
         fun getDisplayString(): String {
-            val parts = mutableListOf<String>()
-
-            if (requiresPrimaryModifier) {
-                parts.add(Platform.modifierKey)
-            }
-            if (requiresCtrl) {
-                parts.add(if (Platform.isMac) "⌃" else "Ctrl")
-            }
-            if (requiresShift) {
-                parts.add(if (Platform.isMac) "⇧" else "Shift")
-            }
-            if (requiresAlt) {
-                parts.add(if (Platform.isMac) "⌥" else "Alt")
-            }
-
-            // Special key names
-            val keyName = when (key) {
-                Key.Enter -> if (Platform.isMac) "↵" else "Enter"
-                Key.Escape -> if (Platform.isMac) "⎋" else "Esc"
-                Key.Comma -> ","
-                Key.Slash -> "/"
-                else -> key.keyCode.toInt().toChar().uppercaseChar().toString()
-            }
-            parts.add(keyName)
-
-            return parts.joinToString(if (Platform.isMac) "" else "+")
+            val parts = modifierScheme.modifierLabels(modifiers).toMutableList()
+            parts.add(modifierScheme.keyLabel(key))
+            return parts.joinToString(modifierScheme.displaySeparator)
         }
     }
 

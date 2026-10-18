@@ -91,6 +91,7 @@ fun composeTopMenuBar(
     onShareFeedback: () -> Unit,
     onShowKeyboardShortcuts: () -> Unit,
     isSidebarExpanded: Boolean,
+    onExit: () -> Unit,
 ) {
     var expandedMenu by remember { mutableStateOf<TopMenu?>(null) }
 
@@ -108,25 +109,25 @@ fun composeTopMenuBar(
                 onExpandToggle = { expandedMenu = if (expandedMenu == TopMenu.FILE) null else TopMenu.FILE },
                 onDismiss = { expandedMenu = null },
             ) {
-                menuAction("chat.new") {
+                menuAction("chat.new", shortcut = "Ctrl+N") {
                     expandedMenu = null
                     onNewChat()
                 }
-                menuAction("menu.new.project") {
+                menuAction("menu.new.project", shortcut = "Ctrl+Shift+N") {
                     expandedMenu = null
                     onNewProject()
                 }
                 menuDivider()
-                menuAction("menu.search.sessions") {
+                menuAction("menu.search.sessions", shortcut = "Ctrl+Shift+F") {
                     expandedMenu = null
                     onSearchInSessions()
                 }
                 menuDivider()
-                menuAction("menu.export.backup") {
+                menuAction("menu.export.backup", shortcut = "Ctrl+Shift+E") {
                     expandedMenu = null
                     onExportBackup()
                 }
-                menuAction("menu.import.backup") {
+                menuAction("menu.import.backup", shortcut = "Ctrl+Shift+I") {
                     expandedMenu = null
                     onImportBackup()
                 }
@@ -140,9 +141,14 @@ fun composeTopMenuBar(
                     onClearPreferences()
                 }
                 menuDivider()
-                menuAction("settings.title") {
+                menuAction("settings.title", shortcut = "Ctrl+,") {
                     expandedMenu = null
                     onShowSettings()
+                }
+                menuDivider()
+                menuAction("shortcut.quit.application", shortcut = "Ctrl+Q") {
+                    expandedMenu = null
+                    onExit()
                 }
             }
 
@@ -166,7 +172,7 @@ fun composeTopMenuBar(
                     ThemePreferences.setThemeMode(ThemeMode.DARK)
                 }
                 menuDivider()
-                menuAction("menu.view.discover") {
+                menuAction("menu.view.discover", shortcut = "Ctrl+D") {
                     expandedMenu = null
                     onNavigateToDiscover()
                 }
@@ -197,12 +203,12 @@ fun composeTopMenuBar(
                     expandedMenu = null
                     onToggleSidebar()
                 }
-                menuAction(if (isFullScreen) "menu.view.exit.fullscreen" else "menu.view.fullscreen") {
+                menuAction(if (isFullScreen) "menu.view.exit.fullscreen" else "menu.view.fullscreen", shortcut = "Ctrl+Alt+F") {
                     expandedMenu = null
                     onToggleFullScreen()
                 }
                 menuDivider()
-                menuAction("menu.view.bookmarks") {
+                menuAction("menu.view.bookmarks", shortcut = "Ctrl+Shift+B") {
                     expandedMenu = null
                     onNavigateToBookmarks()
                 }
@@ -214,7 +220,7 @@ fun composeTopMenuBar(
                 onExpandToggle = { expandedMenu = if (expandedMenu == TopMenu.TERMINAL) null else TopMenu.TERMINAL },
                 onDismiss = { expandedMenu = null },
             ) {
-                menuAction("menu.terminal.new") {
+                menuAction("menu.terminal.new", shortcut = "Ctrl+Shift+T") {
                     expandedMenu = null
                     onOpenTerminal()
                 }
@@ -275,7 +281,7 @@ fun composeTopMenuBar(
                     }
                 }
                 menuDivider()
-                menuAction("menu.help.shortcuts") {
+                menuAction("menu.help.shortcuts", shortcut = "Ctrl+/") {
                     expandedMenu = null
                     onShowKeyboardShortcuts()
                 }
@@ -345,9 +351,10 @@ private fun menuAnchor(
 }
 
 @Composable
-private fun menuAction(key: String, onClick: () -> Unit) {
+private fun menuAction(key: String, shortcut: String? = null, onClick: () -> Unit) {
     DropdownMenuItem(
         text = { Text(stringResource(key)) },
+        trailingIcon = shortcut?.let { { shortcutLabel(it) } },
         onClick = onClick,
         modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
@@ -356,12 +363,28 @@ private fun menuAction(key: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun menuToggleAction(key: String, isSelected: Boolean, onClick: () -> Unit) {
+private fun menuToggleAction(key: String, isSelected: Boolean, shortcut: String? = null, onClick: () -> Unit) {
     AppComponents.themedDropdownMenuItem(
         text = { Text(stringResource(key)) },
+        trailingIcon = shortcut?.let { { shortcutLabel(it) } },
         onClick = onClick,
         isSelected = isSelected,
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+    )
+}
+
+/**
+ * Renders a keyboard shortcut hint (e.g. "Ctrl+Shift+N") at the trailing edge of a
+ * menu item, mirroring the accelerator labels shown beside items in the native
+ * macOS menu bar (see [NativeMenuBar]).
+ */
+@Composable
+private fun shortcutLabel(shortcut: String) {
+    Text(
+        text = shortcut,
+        style = AppTextStyles.body,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = Spacing.small),
     )
 }
 

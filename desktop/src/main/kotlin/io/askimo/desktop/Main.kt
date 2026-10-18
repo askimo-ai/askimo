@@ -5,6 +5,7 @@
 package io.askimo.desktop
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,6 +38,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color.Companion.Transparent
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.toComposeImageBitmap
@@ -363,6 +367,28 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
         }
     }
 
+    // Guarantees the app-level keyboard-shortcut handler (see the Row below wrapping both the
+    // Settings and main views) always has a focused descendant to tunnel key events through.
+    // Without this, since no view other than Chat ever requests Compose focus, launching into
+    // any other view (Discover is the default) — or navigating to Settings — left nothing in
+    // the app focused, silently breaking every keyboard shortcut (Ctrl+N included) until the
+    // user happened to click into some unrelated focusable element.
+    val rootFocusRequester = remember { FocusRequester() }
+    // Tracks whether the root Row OR any descendant (e.g. ChatView's own focusable Row,
+    // the chat input field, etc.) currently holds Compose focus. Used to gate the
+    // isWindowFocused reclaim below — see its comment for why this matters.
+    var appHasFocus by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        runCatching { rootFocusRequester.requestFocus() }
+    }
+    LaunchedEffect(isWindowFocused) {
+        // Re-claim focus whenever the OS window regains focus (e.g. after alt-tabbing back),
+        // but ONLY if nothing in the app currently holds focus.
+        if (isWindowFocused && !appHasFocus) {
+            runCatching { rootFocusRequester.requestFocus() }
+        }
+    }
+
     var currentView by remember { mutableStateOf(View.DISCOVER) }
     var previousView by remember { mutableStateOf(View.CHAT) }
     var settingsSection by remember { mutableStateOf(SettingsSection.APPEARANCE) }
@@ -378,7 +404,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     var selectedCollectionId by remember { mutableStateOf<String?>(null) }
     var sidebarWidthFraction by remember { mutableStateOf(ThemePreferences.getMainSidebarWidthFraction()) }
     var isFullScreen by remember { mutableStateOf(windowState?.placement == WindowPlacement.Fullscreen) }
-    var showQuitDialog by remember { mutableStateOf(false) }
     var showInvalidateCacheDialog by remember { mutableStateOf(false) }
     var showCacheDeletedDialog by remember { mutableStateOf(false) }
     var showClearPreferencesDialog by remember { mutableStateOf(false) }
@@ -742,6 +767,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
         showGlobalSearchDialog = true
     }
     val onShowSettingsMenuAction = {
+        previousView = currentView
         currentView = View.SETTINGS
     }
     val onCheckForUpdatesMenuAction = {
@@ -963,13 +989,91 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                     onShareFeedback = onShareFeedbackMenuAction,
                                     onShowKeyboardShortcuts = onShowKeyboardShortcutsMenuAction,
                                     isSidebarExpanded = isSidebarExpanded,
+                                    onExit = onQuit,
                                 )
                             }
 
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .weight(1f),
+                                    .weight(1f)
+                                    .focusRequester(rootFocusRequester)
+                                    .onFocusChanged { appHasFocus = it.hasFocus }
+                                    .focusable()
+                                    .onPreviewKeyEvent { keyEvent ->
+                                        val shortcut = KeyMapManager.handleKeyEvent(keyEvent)
+
+                                        when (shortcut) {
+                                            AppShortcut.NEW_CHAT -> {
+                                                onNewChatMenuAction()
+                                                true
+                                            }
+
+                                            AppShortcut.CREATE_PROJECT -> {
+                                                onNewProjectMenuAction()
+                                                true
+                                            }
+
+                                            AppShortcut.SEARCH_IN_CHAT -> {
+                                                if (currentView == View.CHAT && chatViewModel?.isSearchMode == false) {
+                                                    chatViewModel.enableSearchMode()
+                                                }
+                                                true
+                                            }
+
+                                            AppShortcut.GLOBAL_SEARCH -> {
+                                                onSearchInSessionsMenuAction()
+                                                true
+                                            }
+
+                                            AppShortcut.TOGGLE_CHAT_HISTORY -> {
+                                                isSessionsExpanded = !isSessionsExpanded
+                                                true
+                                            }
+
+                                            AppShortcut.OPEN_SETTINGS -> {
+                                                onShowSettingsMenuAction()
+                                                true
+                                            }
+
+                                            AppShortcut.STOP_AI_RESPONSE -> {
+                                                if (chatViewModel?.isLoading == true) {
+                                                    chatViewModel.cancelResponse()
+                                                    true
+                                                } else {
+                                                    false
+                                                }
+                                            }
+
+                                            AppShortcut.QUIT_APPLICATION -> {
+                                                onQuit()
+                                                true
+                                            }
+
+                                            AppShortcut.ENTER_FULLSCREEN -> {
+                                                onToggleFullScreenMenuAction()
+                                                true
+                                            }
+
+                                            AppShortcut.NAVIGATE_TO_SESSIONS -> {
+                                                currentView = View.SESSIONS
+                                                true
+                                            }
+
+                                            AppShortcut.NAVIGATE_TO_PROJECTS -> {
+                                                currentView = View.PROJECTS
+                                                Analytics.track(AnalyticsEvent.RAG_PANEL_OPENED)
+                                                true
+                                            }
+
+                                            AppShortcut.SHOW_KEYBOARD_SHORTCUTS -> {
+                                                onShowKeyboardShortcutsMenuAction()
+                                                true
+                                            }
+
+                                            else -> false
+                                        }
+                                    },
                             ) {
                                 if (currentView == View.SETTINGS) {
                                     settingsViewWithSidebar(
@@ -996,89 +1100,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .weight(1f)
-                                                .onPreviewKeyEvent { keyEvent ->
-                                                    val shortcut = KeyMapManager.handleKeyEvent(keyEvent)
-
-                                                    when (shortcut) {
-                                                        AppShortcut.NEW_CHAT -> {
-                                                            chatViewModel?.clearChat()
-                                                            currentView = View.CHAT
-                                                            true
-                                                        }
-
-                                                        AppShortcut.CREATE_PROJECT -> {
-                                                            showNewProjectDialog = true
-                                                            true
-                                                        }
-
-                                                        AppShortcut.SEARCH_IN_CHAT -> {
-                                                            if (currentView == View.CHAT && chatViewModel?.isSearchMode == false) {
-                                                                chatViewModel.enableSearchMode()
-                                                            }
-                                                            true
-                                                        }
-
-                                                        AppShortcut.GLOBAL_SEARCH -> {
-                                                            showGlobalSearchDialog = true
-                                                            true
-                                                        }
-
-                                                        AppShortcut.TOGGLE_CHAT_HISTORY -> {
-                                                            isSessionsExpanded = !isSessionsExpanded
-                                                            true
-                                                        }
-
-                                                        AppShortcut.OPEN_SETTINGS -> {
-                                                            previousView = currentView
-                                                            currentView = View.SETTINGS
-                                                            true
-                                                        }
-
-                                                        AppShortcut.STOP_AI_RESPONSE -> {
-                                                            if (chatViewModel?.isLoading == true) {
-                                                                chatViewModel.cancelResponse()
-                                                                true
-                                                            } else {
-                                                                false
-                                                            }
-                                                        }
-
-                                                        AppShortcut.QUIT_APPLICATION -> {
-                                                            showQuitDialog = true
-                                                            true
-                                                        }
-
-                                                        AppShortcut.ENTER_FULLSCREEN -> {
-                                                            windowState?.let { state ->
-                                                                state.placement = if (state.placement == WindowPlacement.Fullscreen) {
-                                                                    WindowPlacement.Floating
-                                                                } else {
-                                                                    WindowPlacement.Fullscreen
-                                                                }
-                                                            }
-                                                            true
-                                                        }
-
-                                                        AppShortcut.NAVIGATE_TO_SESSIONS -> {
-                                                            currentView = View.SESSIONS
-                                                            true
-                                                        }
-
-                                                        AppShortcut.NAVIGATE_TO_PROJECTS -> {
-                                                            currentView = View.PROJECTS
-                                                            Analytics.track(AnalyticsEvent.RAG_PANEL_OPENED)
-                                                            true
-                                                        }
-
-                                                        AppShortcut.SHOW_KEYBOARD_SHORTCUTS -> {
-                                                            showKeyboardShortcutsDialog = true
-                                                            true
-                                                        }
-
-                                                        else -> false
-                                                    }
-                                                },
+                                                .weight(1f),
                                         ) {
                                             Row(modifier = Modifier.fillMaxSize()) {
                                                 BoxWithConstraints {
@@ -1371,32 +1393,6 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                             }
                         } // End of main Column
                     } // End appBackground
-
-                    // Quit confirmation dialog
-                    if (showQuitDialog) {
-                        alertDialog(
-                            onDismissRequest = { showQuitDialog = false },
-                            title = { Text(stringResource("menu.quit") + "?") },
-                            text = { Text(stringResource("app.quit.confirm")) },
-                            confirmButton = {
-                                dangerButton(
-                                    onClick = {
-                                        showQuitDialog = false
-                                        onQuit()
-                                    },
-                                ) {
-                                    Text(stringResource("action.yes"))
-                                }
-                            },
-                            dismissButton = {
-                                secondaryButton(
-                                    onClick = { showQuitDialog = false },
-                                ) {
-                                    Text(stringResource("action.no"))
-                                }
-                            },
-                        )
-                    }
 
                     // Invalidate cache confirmation dialog
                     if (showInvalidateCacheDialog) {
