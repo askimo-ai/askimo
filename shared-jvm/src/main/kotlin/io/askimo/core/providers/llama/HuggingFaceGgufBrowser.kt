@@ -37,6 +37,14 @@ object HuggingFaceGgufBrowser {
     private val PREFERRED_QUANT_ORDER = listOf("Q4_K_M", "Q4_K_S", "Q5_K_M", "Q4_0", "Q8_0", "Q6_K")
 
     /**
+     * Hugging Face `pipeline_tag` values that correspond to chat/instruct-capable models.
+     * Repos tagged with anything else (e.g. `"object-detection"`, `"feature-extraction"`,
+     * `"image-text-to-text"`) aren't usable as a langchain4j chat model even though they ship a
+     * `.gguf` file and pass the `filter=gguf` search — see [search]'s `restrictToChatModels` param.
+     */
+    private val CHAT_PIPELINE_TAGS = setOf("text-generation", "text2text-generation", "conversational")
+
+    /**
      * Matches Hugging Face's sharded-GGUF naming convention, e.g. `model-00001-of-00004.gguf`.
      * A shard is not a loadable model on its own — `llama-server --model` needs every shard
      * present alongside it — and this browser only ever downloads the single file the user
@@ -56,9 +64,20 @@ object HuggingFaceGgufBrowser {
      * repos overall), returning up to [limit] repos' worth of `.gguf` file entries
      * (capped at [MAX_FILES_PER_REPO] files per repo).
      *
+     * @param restrictToChatModels When `true` (the default), only repos whose `pipeline_tag` is
+     * one of [CHAT_PIPELINE_TAGS] are returned — filters out non-chat GGUF repos (vision/grounding/
+     * detection/embedding models, etc.) that otherwise look identical to a chat model from the
+     * file listing alone. Repos with a missing/unrecognized `pipeline_tag` are excluded too, since
+     * there's no way to tell they're safe. Pass `false` to see every GGUF repo Hugging Face
+     * returns, unfiltered — for models HF hasn't tagged correctly, or tags Askimo doesn't
+     * recognize yet.
      * @throws SearchException on network failure or an unparsable response.
      */
-    suspend fun search(query: String, limit: Int = 20): List<LlamaModelEntry> = withContext(Dispatchers.IO) {
+    suspend fun search(
+        query: String,
+        limit: Int = 20,
+        restrictToChatModels: Boolean = true,
+    ): List<LlamaModelEntry> = withContext(Dispatchers.IO) {
         val encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8)
         val url = "https://huggingface.co/api/models" +
             "?search=$encodedQuery&filter=gguf&full=true&sort=downloads&direction=-1&limit=$limit"
@@ -80,6 +99,10 @@ object HuggingFaceGgufBrowser {
 
         repos.flatMap { repo ->
             val repoId = repo.jsonObject["id"]?.jsonPrimitive?.contentOrNull ?: return@flatMap emptyList()
+            val pipelineTag = repo.jsonObject["pipeline_tag"]?.jsonPrimitive?.contentOrNull
+            // See restrictToChatModels's doc — unknown/missing tags are excluded along with
+            // known-non-chat ones, since there's no safe way to tell those apart here.
+            if (restrictToChatModels && pipelineTag !in CHAT_PIPELINE_TAGS) return@flatMap emptyList()
             val downloads = repo.jsonObject["downloads"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
             val likes = repo.jsonObject["likes"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
             val lastModified = repo.jsonObject["lastModified"]?.jsonPrimitive?.contentOrNull
@@ -121,6 +144,7 @@ object HuggingFaceGgufBrowser {
                     likes = likes,
                     lastModified = lastModified,
                     createdAt = createdAt,
+                    pipelineTag = pipelineTag,
                 )
             }
         }.also { log.info("Hugging Face GGUF search for \"{}\" returned {} file(s)", query, it.size) }
@@ -134,5 +158,8 @@ object HuggingFaceGgufBrowser {
      *
      * @throws SearchException on network failure or an unparsable response (same as [search]).
      */
-    suspend fun popularModels(limit: Int = 20): List<LlamaModelEntry> = search(query = "", limit = limit)
+    suspend fun popularModels(
+        limit: Int = 20,
+        restrictToChatModels: Boolean = true,
+    ): List<LlamaModelEntry> = search(query = "", limit = limit, restrictToChatModels = restrictToChatModels)
 }

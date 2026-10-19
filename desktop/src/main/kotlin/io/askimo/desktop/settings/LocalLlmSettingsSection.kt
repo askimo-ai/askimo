@@ -534,6 +534,11 @@ private fun localLlmCacheTypeField(
 private fun localLlmModelsCard() {
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
+    // Off by default: HuggingFaceGgufBrowser.search's restrictToChatModels filters to Hugging
+    // Face's pipeline_tag=="text-generation"/"conversational" repos, hiding non-chat GGUF repos
+    // (e.g. embedding/vision/detection models) that otherwise look identical from the file
+    // listing alone. Letting the user flip it on covers repos HF tagged wrong or didn't tag.
+    var showAllModels by remember { mutableStateOf(false) }
     var isSearching by remember { mutableStateOf(false) }
     var searchError by remember { mutableStateOf<String?>(null) }
     var searchResults by remember { mutableStateOf<List<LlamaModelEntry>>(emptyList()) }
@@ -553,10 +558,11 @@ private fun localLlmModelsCard() {
             try {
                 // Blank query = Hugging Face's most-downloaded GGUF repos overall (see
                 // popularModels) — also what's auto-loaded on first composition below.
+                val restrictToChatModels = !showAllModels
                 val results = if (query.isBlank()) {
-                    HuggingFaceGgufBrowser.popularModels()
+                    HuggingFaceGgufBrowser.popularModels(restrictToChatModels = restrictToChatModels)
                 } else {
-                    HuggingFaceGgufBrowser.search(query.trim())
+                    HuggingFaceGgufBrowser.search(query.trim(), restrictToChatModels = restrictToChatModels)
                 }
                 searchResults = results
                 hasSearched = true
@@ -576,7 +582,9 @@ private fun localLlmModelsCard() {
 
     // Loads the default "Popular on Hugging Face" list on open — chat models aren't curated
     // (see LlamaModelCatalog), so otherwise only the curated embedding entries would show.
-    LaunchedEffect(Unit) { runSearch() }
+    // Re-keyed on showAllModels so flipping the toggle re-runs the current query/popular list
+    // immediately, without needing a manual re-search.
+    LaunchedEffect(showAllModels) { runSearch() }
 
     // Rescans disk for every downloaded model (see listDownloadedEntries) — keeps a model
     // manageable even after it's no longer in the current search/popular results. Keyed by the
@@ -669,6 +677,25 @@ private fun localLlmModelsCard() {
                 ) {
                     Text(stringResource("settings.local_llm.hf_browser.search"))
                 }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Switch(
+                    checked = showAllModels,
+                    onCheckedChange = { showAllModels = it },
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                )
+                Text(
+                    text = stringResource("settings.local_llm.hf_browser.show_all"),
+                    style = AppTextStyles.caption,
+                    color = AppTextStyles.secondaryContent,
+                    modifier = Modifier
+                        .clickable { showAllModels = !showAllModels }
+                        .pointerHoverIcon(PointerIcon.Hand),
+                )
             }
             if (isSearching) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -770,19 +797,26 @@ private fun localLlmModelRow(entry: LlamaModelEntry, onModelDeleted: () -> Unit)
                         )
                     }
                 }
+                // Raw .gguf file name is just an on-disk implementation detail, not useful to a
+                // user deciding whether to download — the repo link above (when present) is what's
+                // actually actionable, so it's left out of this caption entirely. pipelineTag
+                // (e.g. "text-generation") is shown instead when Hugging Face reported one.
                 val caption = buildString {
-                    append(entry.fileName)
-                    if (entry.approxSizeBytes > 0) append(" · ${entry.approxSizeBytes / (1024 * 1024)} MB")
+                    if (entry.approxSizeBytes > 0) append("${entry.approxSizeBytes / (1024 * 1024)} MB")
+                    entry.pipelineTag?.let {
+                        if (isNotEmpty()) append("  ·  ")
+                        append(it)
+                    }
                 }
-                // Raw .gguf file name is an implementation detail, so it's truncated — the repo
-                // link above is what's actually actionable.
-                Text(
-                    text = caption,
-                    style = AppTextStyles.caption,
-                    color = AppTextStyles.secondaryContent,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                if (caption.isNotEmpty()) {
+                    Text(
+                        text = caption,
+                        style = AppTextStyles.caption,
+                        color = AppTextStyles.secondaryContent,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
 
                 // Hugging Face popularity/freshness metadata — null (and omitted) for curated
                 // catalog entries.

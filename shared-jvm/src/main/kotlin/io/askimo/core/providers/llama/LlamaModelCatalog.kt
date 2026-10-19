@@ -70,6 +70,12 @@ data class LlamaModelEntry(
     val lastModified: String? = null,
     /** Hugging Face repo's `createdAt` timestamp (ISO-8601, as returned by the API). Null for curated entries. */
     val createdAt: String? = null,
+    /**
+     * Hugging Face repo's `pipeline_tag` (e.g. `"text-generation"`), as used by
+     * [io.askimo.core.providers.llama.HuggingFaceGgufBrowser.search]'s `restrictToChatModels`
+     * filter. Null for curated entries and for any repo Hugging Face didn't tag.
+     */
+    val pipelineTag: String? = null,
 )
 
 /**
