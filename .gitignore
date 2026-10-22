@@ -33,3 +33,4 @@ certificate*.txt
 .idea/
 .java-version
 .agents
+AGENTS.md

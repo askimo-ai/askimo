@@ -2190,9 +2190,6 @@ fun mainContent(
                     onJumpToMessage = { messageId, timestamp ->
                         chatViewModel.jumpToMessage(messageId, timestamp)
                     },
-                    initialInputText = sessionChatState?.inputText ?: TextFieldValue(""),
-                    initialAttachments = sessionChatState?.attachments ?: emptyList(),
-                    initialEditingMessage = sessionChatState?.editingMessage,
                     onStateChange = onChatStateChange,
                     sessionId = activeSessionId,
                     onRenameSession = { sessionId ->
