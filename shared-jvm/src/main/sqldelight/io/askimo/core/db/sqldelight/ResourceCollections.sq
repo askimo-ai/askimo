@@ -9,17 +9,20 @@ CREATE TABLE IF NOT EXISTS resource_collections (
     synced_at TEXT AS kotlin.time.Instant,
     index_status TEXT NOT NULL DEFAULT 'NOT_STARTED',
     last_indexed_at TEXT AS kotlin.time.Instant,
-    index_error TEXT
+    index_error TEXT,
+    -- LOCAL (default, on-device) or TEAM_MANAGED (synced read-only from a remote,
+    -- server-managed collection — see io.askimo.core.chat.domain.ResourceCollectionOrigin).
+    origin TEXT NOT NULL DEFAULT 'LOCAL'
 );
 
 insertCollection:
 INSERT INTO resource_collections (
     id, name, description, knowledge_sources_config, created_at, updated_at,
-    is_system_collection, index_status, last_indexed_at, index_error
+    is_system_collection, index_status, last_indexed_at, index_error, origin
 )
 VALUES (
     :id, :name, :description, :knowledgeSourcesConfig, :createdAt, :updatedAt,
-    :isSystemCollection, :indexStatus, :lastIndexedAt, :indexError
+    :isSystemCollection, :indexStatus, :lastIndexedAt, :indexError, :origin
 );
 
 selectById:
@@ -110,8 +113,8 @@ selectExistingByIds:
 SELECT id, updated_at FROM resource_collections WHERE id IN :ids;
 
 insertFromServer:
-INSERT INTO resource_collections (id, name, description, knowledge_sources_config, created_at, updated_at, is_system_collection, synced_at)
-VALUES (:id, :name, :description, :knowledgeSourcesConfig, :createdAt, :updatedAt, :isSystemCollection, :syncedAt);
+INSERT INTO resource_collections (id, name, description, knowledge_sources_config, created_at, updated_at, is_system_collection, synced_at, origin)
+VALUES (:id, :name, :description, :knowledgeSourcesConfig, :createdAt, :updatedAt, :isSystemCollection, :syncedAt, :origin);
 
 updateFromServer:
 UPDATE resource_collections SET
@@ -121,5 +124,24 @@ UPDATE resource_collections SET
     updated_at = :updatedAt,
     synced_at = :syncedAt,
     is_system_collection = :isSystemCollection
+WHERE id = :id;
+
+-- Separate insert/update pair for externally-managed (non-LOCAL origin) collection sync —
+-- deliberately not reusing insertFromServer/updateFromServer, which implement the unrelated
+-- *personal* collection-sync protocol. Always writes a non-LOCAL origin and a synced_at
+-- timestamp so these rows are permanently excluded from selectAllOrderedByUpdatedAtAsc's
+-- personal-unsynced sweep. Used by closed-source editions (e.g. askimo-app/askimo-team) to
+-- mirror a server-managed collection locally — see io.askimo.core.chat.domain.ResourceCollectionOrigin.
+insertExternallyManaged:
+INSERT INTO resource_collections (id, name, description, knowledge_sources_config, created_at, updated_at, is_system_collection, synced_at, origin)
+VALUES (:id, :name, :description, :knowledgeSourcesConfig, :createdAt, :updatedAt, :isSystemCollection, :syncedAt, :origin);
+
+updateExternallyManaged:
+UPDATE resource_collections SET
+    name = :name,
+    description = :description,
+    knowledge_sources_config = :knowledgeSourcesConfig,
+    updated_at = :updatedAt,
+    synced_at = :syncedAt
 WHERE id = :id;
 

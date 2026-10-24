@@ -362,6 +362,7 @@ class SessionManager(
                                 sessionId = sessionId,
                                 userMessageId = userMessage.id!!,
                                 assistantMessageId = assistantMessageId,
+                                collectionIds = chatSessionService.getActiveServerManagedCollectionIds(sessionId),
                             ),
                         )
                     }

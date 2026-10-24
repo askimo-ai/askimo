@@ -274,28 +274,12 @@ class ChatSessionService(
     fun getOrCreateContextForSession(
         sessionId: String,
     ): SessionChatContext = sessionContextCache.getOrPut(sessionId) {
-        val project = projectRepository.findProjectBySessionId(sessionId)
-
         // Reuse shared memory across regular and vision clients
         val sharedMemory = getOrCreateSharedMemory(sessionId)
 
         val useWebSearch = sessionWebSearchState[sessionId] ?: false
 
-        // Resolve the single RAG container backing this session's retriever: a
-        // project's sources take precedence; otherwise fall back to the session's
-        // chip-selected Resource Collection (at most one is ever active). Only one
-        // container is active at a time — combining both is a possible future enhancement.
-        val container: IndexingContainer? = when {
-            project != null -> project.asIndexingContainer()
-
-            else -> {
-                sessionRepository.getSession(sessionId)
-                    ?.activeResourceCollectionIds
-                    ?.firstOrNull()
-                    ?.let { resourceCollectionRepository.getCollection(it) }
-                    ?.asIndexingContainer()
-            }
-        }
+        val container = resolveActiveContainer(sessionId)
 
         // Content retriever only if a container is active
         val retriever = container?.let {
@@ -310,6 +294,53 @@ class ChatSessionService(
         )
 
         SessionChatContext(chatClient, sharedMemory)
+    }
+
+    /**
+     * Resolves the single RAG container backing [sessionId]'s retriever: a project's
+     * sources take precedence; otherwise the session's chip-selected Resource
+     * Collection (at most one is ever active — local or server-managed, see
+     * [io.askimo.core.chat.domain.ResourceCollectionOrigin]). Only one container is
+     * active at a time — combining both is a possible future enhancement.
+     *
+     * Shared by [getOrCreateContextForSession] and [getActiveServerManagedCollectionIds] so the
+     * two never drift on what "the active container" means for a session.
+     */
+    private fun resolveActiveContainer(sessionId: String): IndexingContainer? {
+        val project = projectRepository.findProjectBySessionId(sessionId)
+        return when {
+            project != null -> project.asIndexingContainer()
+
+            else -> {
+                sessionRepository.getSession(sessionId)
+                    ?.activeResourceCollectionIds
+                    ?.firstOrNull()
+                    ?.let { resourceCollectionRepository.getCollection(it) }
+                    ?.asIndexingContainer()
+            }
+        }
+    }
+
+    /**
+     * Returns the id(s) of the session's active Resource Collection, but only when
+     * that collection is server-managed (see
+     * [IndexingContainer.ServerResourceCollectionContainer]). Empty when a project
+     * is active (same precedence rule [resolveActiveContainer] already applies) or
+     * when the active collection, if any, is a local on-device one.
+     *
+     * Used to populate [io.askimo.core.providers.ProxyChatContext.Context.collectionIds]
+     * right before a proxied streaming send, since retrieval for a server-managed
+     * collection is performed entirely on the remote side — no local
+     * [dev.langchain4j.rag.content.retriever.ContentRetriever] is built for it
+     * (see [createRetrieverForContainer]).
+     */
+    fun getActiveServerManagedCollectionIds(sessionId: String): List<String> {
+        val container = resolveActiveContainer(sessionId)
+        return if (container is IndexingContainer.ServerResourceCollectionContainer) {
+            listOf(container.id)
+        } else {
+            emptyList()
+        }
     }
 
     /**
@@ -331,6 +362,15 @@ class ChatSessionService(
         container: IndexingContainer,
         useWebSearch: Boolean = false,
     ): ContentRetriever? {
+        if (container is IndexingContainer.ServerResourceCollectionContainer) {
+            // Server-managed collections have no local embedding store or Lucene index —
+            // retrieval for these is performed entirely on the remote side. The active
+            // collection id is instead surfaced via getActiveServerManagedCollectionIds() and
+            // threaded through ProxyChatContext at send time (see SessionManager.kt).
+            log.debug("Session container {} is server-managed — no local retriever built, remote side handles retrieval", container.id)
+            return null
+        }
+
         try {
             val embeddingModel = appContext.getEmbeddingModel()
 

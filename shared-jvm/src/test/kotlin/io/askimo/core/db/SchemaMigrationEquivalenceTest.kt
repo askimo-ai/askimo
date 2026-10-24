@@ -81,6 +81,71 @@ class SchemaMigrationEquivalenceTest {
         }
     }
 
+    @Test
+    fun `upgrade from version 64 - resource_collections gains origin column and matches canonical schema`() {
+        // Regression test for the "resource_collections.origin missing" incident: exercises the
+        // exact upgrade path a real installed user takes (an existing db sitting at some prior
+        // version, not a fresh install), starting one version *before* AfterVersion(64) so that
+        // specific callback is the one under test, rather than relying on the "from 0" sweep
+        // above to incidentally cover it.
+        createDriver().use { migratedDriver ->
+            AskimoDatabase.Schema.migrate(migratedDriver, 0, 64, *SqlDelightSchemaMigrations.callbacks())
+            migratedDriver.execute(null, "PRAGMA user_version = 64", 0)
+            assertTrue(
+                "origin" !in tableInfo(migratedDriver, "resource_collections").map { it.name },
+                "test setup invariant broken: 'origin' should not exist yet at version 64",
+            )
+
+            val newVersion = AskimoDatabase.Schema.version
+            AskimoDatabase.Schema.migrate(migratedDriver, 64, newVersion, *SqlDelightSchemaMigrations.callbacks())
+            migratedDriver.execute(null, "PRAGMA user_version = $newVersion", 0)
+
+            assertTrue(
+                "origin" in tableInfo(migratedDriver, "resource_collections").map { it.name },
+                "AfterVersion(64) should have added resource_collections.origin",
+            )
+
+            createDriver().use { createdDriver ->
+                AskimoDatabase.Schema.create(createdDriver)
+                assertSchemasMatch(migratedDriver, createdDriver)
+            }
+        }
+    }
+
+    @Test
+    fun `upgrade from version 65 - resource_collections gains origin column (regression for off-by-one anchor bug)`() {
+        // Regression test pinning down the exact boundary SqlDelight's generated migrate()
+        // cares about: it only invokes a callback when `callback.afterVersion >= oldVersion`.
+        // A user already at version 65 upgrading to the current version must still get
+        // resource_collections.origin — this exercises oldVersion=65 specifically (not 0 or 64),
+        // since an anchor one version too low (AfterVersion(64) instead of AfterVersion(65))
+        // would silently never fire for exactly this starting point, which the "migrate from 0"
+        // test above does not catch.
+        createDriver().use { migratedDriver ->
+            AskimoDatabase.Schema.migrate(migratedDriver, 0, 65, *SqlDelightSchemaMigrations.callbacks())
+            migratedDriver.execute(null, "PRAGMA user_version = 65", 0)
+            assertTrue(
+                "origin" !in tableInfo(migratedDriver, "resource_collections").map { it.name },
+                "test setup invariant broken: 'origin' should not exist yet at version 65",
+            )
+
+            val newVersion = AskimoDatabase.Schema.version
+            AskimoDatabase.Schema.migrate(migratedDriver, 65, newVersion, *SqlDelightSchemaMigrations.callbacks())
+            migratedDriver.execute(null, "PRAGMA user_version = $newVersion", 0)
+
+            assertTrue(
+                "origin" in tableInfo(migratedDriver, "resource_collections").map { it.name },
+                "A user already at version 65 upgrading to $newVersion must still get resource_collections.origin " +
+                    "(regression test for the AfterVersion anchor off-by-one bug)",
+            )
+
+            createDriver().use { createdDriver ->
+                AskimoDatabase.Schema.create(createdDriver)
+                assertSchemasMatch(migratedDriver, createdDriver)
+            }
+        }
+    }
+
     private fun createDriver(): JdbcSqliteDriver = JdbcSqliteDriver("jdbc:sqlite:file:memdb_${System.nanoTime()}?mode=memory&cache=shared")
 
     private fun migrateFromScratch(driver: JdbcSqliteDriver) {
