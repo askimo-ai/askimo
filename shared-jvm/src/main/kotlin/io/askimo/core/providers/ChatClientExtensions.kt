@@ -37,6 +37,7 @@ import io.askimo.core.intent.ToolApprovalPolicy
 import io.askimo.core.intent.ToolConfig
 import io.askimo.core.intent.ToolRegistry
 import io.askimo.core.intent.defaultApprovalPolicy
+import io.askimo.core.intent.requiresApproval
 import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.logging.logger
 import io.askimo.core.memory.SessionConversationSummary
@@ -389,14 +390,8 @@ fun ChatClient.sendStreamingMessageWithCallback(
                             // ── Approval guardrail ─────────────────────────────────────────────
                             if (onToolApprovalRequired != null) {
                                 val toolConfig = resolvedTools.find { it.specification.name() == toolName }
-                                val effectivePolicy = when (toolConfig?.approvalPolicy ?: ToolApprovalPolicy.DEFAULT) {
-                                    ToolApprovalPolicy.DEFAULT -> toolConfig?.category?.defaultApprovalPolicy()
-                                        ?: ToolApprovalPolicy.DEFAULT
 
-                                    ToolApprovalPolicy.REQUIRE_APPROVAL -> ToolApprovalPolicy.REQUIRE_APPROVAL
-                                }
-
-                                if (effectivePolicy == ToolApprovalPolicy.REQUIRE_APPROVAL) {
+                                if (toolConfig?.requiresApproval() == true) {
                                     val latch = CountDownLatch(1)
                                     var approved = false
                                     try {
