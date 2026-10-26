@@ -7,6 +7,7 @@ package io.askimo.core.chat.repository
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
 import io.askimo.core.chat.domain.KnowledgeSourceSerializer
 import io.askimo.core.chat.domain.ResourceCollection
+import io.askimo.core.chat.domain.ResourceCollectionOrigin
 import io.askimo.core.db.AbstractRepository
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.db.Pageable
@@ -33,6 +34,7 @@ private fun Resource_collections.toResourceCollection(): ResourceCollection = Re
     indexStatus = runCatching { IndexStatus.valueOf(index_status) }.getOrDefault(IndexStatus.NOT_STARTED),
     lastIndexedAt = last_indexed_at,
     indexError = index_error,
+    origin = runCatching { ResourceCollectionOrigin.valueOf(origin) }.getOrDefault(ResourceCollectionOrigin.LOCAL),
 )
 
 /**
@@ -74,6 +76,7 @@ class ResourceCollectionRepository internal constructor(
             indexStatus = collectionWithId.indexStatus.name,
             lastIndexedAt = collectionWithId.lastIndexedAt,
             indexError = collectionWithId.indexError,
+            origin = collectionWithId.origin.name,
         )
 
         log.debug("Created resource collection ${collectionWithId.id} with name '${collectionWithId.name}'")
@@ -314,7 +317,13 @@ class ResourceCollectionRepository internal constructor(
     fun markSynced(collectionId: String): Boolean = queries.markSynced(Clock.System.now(), collectionId).value > 0
 
     /**
-     * Upsert collections from server (for sync).
+     * Upsert collections from server (for sync). This is the **personal** collection-sync
+     * protocol (bidirectional, via `ConversationSyncService`'s push/pull) — rows written here
+     * are always `origin = LOCAL` regardless of what [collections] carries, since this method
+     * only ever handles the user's own on-device collections synced across their devices.
+     * Team-managed collections use [upsertExternallyManagedCollections] instead, which must
+     * never be routed through this method (different protocol, different `origin`).
+     *
      * @param collections List of collections from server
      */
     fun upsertFromServer(collections: List<ResourceCollection>) {
@@ -339,6 +348,7 @@ class ResourceCollectionRepository internal constructor(
                         updatedAt = collection.updatedAt,
                         isSystemCollection = if (collection.isSystemCollection) 1L else 0L,
                         syncedAt = now,
+                        origin = ResourceCollectionOrigin.LOCAL.name,
                     )
                     log.debug("upsertFromServer: inserted collection ${collection.id}")
                 } else if (collection.updatedAt > storedUpdatedAt) {
@@ -354,6 +364,69 @@ class ResourceCollectionRepository internal constructor(
                     log.debug("upsertFromServer: updated collection ${collection.id} (server newer)")
                 } else {
                     log.debug("upsertFromServer: skipped collection ${collection.id} (local is same or newer)")
+                }
+            }
+        }
+    }
+
+    /**
+     * Upsert collections managed externally (origin != LOCAL) by a closed-source edition
+     * that mirrors a remote, server-managed collection locally — deliberately separate
+     * from [upsertFromServer]/[getUnsyncedCollections]/[markSynced], which implement the
+     * unrelated *personal* collection-sync protocol. Always stamps `synced_at = now()`
+     * at write time, so [getUnsyncedCollections]'s `synced_at == null || updated_at >
+     * synced_at` check naturally and permanently excludes these rows from the personal
+     * push-sync sweep — an externally managed collection must never be "pushed back" to
+     * the server as if it were the user's own.
+     *
+     * This is generic, origin-agnostic infrastructure: the caller decides which non-LOCAL
+     * [ResourceCollectionOrigin] each collection carries. Business logic for when and how
+     * often to sync, and how to map a specific backend's DTOs, lives entirely in the
+     * closed-source caller.
+     *
+     * @param collections Collections to mirror locally, already mapped to the shared
+     *   [ResourceCollection] domain shape with a non-LOCAL `origin` set. `knowledgeSources` is
+     *   ignored (always serialized as empty) — content for these rows lives on the external
+     *   backend, never locally.
+     */
+    fun upsertExternallyManagedCollections(collections: List<ResourceCollection>) {
+        if (collections.isEmpty()) return
+
+        db.transaction {
+            val now = Clock.System.now()
+            val ids = collections.map { it.id }
+            val emptySourcesConfig = KnowledgeSourceSerializer.serialize(emptyList())
+
+            val existingById = queries.selectExistingByIds(ids).executeAsList()
+                .associate { it.id to it.updated_at }
+
+            for ((id, name, description, _, createdAt, updatedAt, isSystemCollection, _, _, _, origin) in collections) {
+                val storedUpdatedAt = existingById[id]
+                if (storedUpdatedAt == null) {
+                    queries.insertExternallyManaged(
+                        id = id,
+                        name = name,
+                        description = description,
+                        knowledgeSourcesConfig = emptySourcesConfig,
+                        createdAt = createdAt,
+                        updatedAt = updatedAt,
+                        isSystemCollection = if (isSystemCollection) 1L else 0L,
+                        syncedAt = now,
+                        origin = origin.name,
+                    )
+                    log.debug("upsertExternallyManagedCollections: inserted $id (origin=$origin)")
+                } else if (updatedAt > storedUpdatedAt) {
+                    queries.updateExternallyManaged(
+                        name = name,
+                        description = description,
+                        knowledgeSourcesConfig = emptySourcesConfig,
+                        updatedAt = updatedAt,
+                        syncedAt = now,
+                        id = id,
+                    )
+                    log.debug("upsertExternallyManagedCollections: updated $id (external newer)")
+                } else {
+                    log.debug("upsertExternallyManagedCollections: skipped $id (local is same or newer)")
                 }
             }
         }

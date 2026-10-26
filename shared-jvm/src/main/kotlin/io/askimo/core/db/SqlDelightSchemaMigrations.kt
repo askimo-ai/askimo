@@ -15,12 +15,22 @@ import app.cash.sqldelight.db.SqlDriver
  * `io.askimo.core.db.SchemaMigrations` list (unchanged there — see that file's doc comment for
  * the append-only rules). A subset of migrations are conditional (guarded `ADD COLUMN`, a
  * guarded `DROP COLUMN`, or a legacy-table rebuild) and cannot be expressed as static SQL —
- * those are ported here as [AfterVersion] callbacks instead, each tied to the exact version
- * boundary it originally occupied in the flat migration list.
+ * those are ported here as [AfterVersion] callbacks instead.
  *
- * NEVER renumber an existing [AfterVersion] anchor or edit a `.sqm` file's historical content —
- * same append-only rule as `SchemaMigrations.all`. Add new callbacks only for new `.sqm` files
- * added after the highest existing version.
+ * IMPORTANT: an `AfterVersion(N)` callback must be anchored at the SAME number `N` as the
+ * `.sqm` file it's meant to accompany (e.g. `65.sqm` pairs with `AfterVersion(65)`), NOT
+ * `N-1`. SQLDelight's generated `migrate()` only fires a callback when
+ * `callback.afterVersion >= oldVersion`, and bundles it with the static SQL block for that
+ * exact version number. Anchoring one version too low silently drops the callback for any
+ * user whose on-disk `user_version` already sits exactly at that boundary. Several
+ * pre-existing anchors below predate this fix and use the old (technically off-by-one)
+ * `N+1.sqm ↔ AfterVersion(N)` convention — left as-is per the append-only rule, since
+ * they're all harmless redundant re-adds of columns created by earlier, correctly-anchored
+ * migrations. Do not use them as a template for new entries.
+ *
+ * NEVER renumber an existing [AfterVersion] anchor that has already shipped to users, or
+ * edit a `.sqm` file's historical content — same append-only rule as `SchemaMigrations.all`.
+ * Add new callbacks only for new `.sqm` files added after the highest existing version.
  *
  * Verified against `io.askimo.core.db.SchemaMigrations` by `SchemaMigrationEquivalenceTest`,
  * which must pass before this is trusted as a drop-in replacement for the JDBC-loop version.
@@ -94,6 +104,8 @@ object SqlDelightSchemaMigrations {
             dropColumnIfExists(d, "projects", "space_id")
             dropColumnIfExists(d, "projects", "space_name")
         },
+
+        AfterVersion(65) { d -> addColumnIfMissing(d, "resource_collections", "origin", "TEXT NOT NULL DEFAULT 'LOCAL'") },
     )
 
     /**

@@ -28,16 +28,27 @@ object ProxyChatContext {
         val sessionId: String,
         val userMessageId: String,
         val assistantMessageId: String,
+        /**
+         * Ids of team-managed Resource Collections active for this turn — empty
+         * when none is active (the common case), in which case [toHeaderMap]
+         * omits the header entirely.
+         */
+        val collectionIds: List<String> = emptyList(),
     ) {
         /**
          * Returns the HTTP headers the proxy server reads to correlate and persist
-         * chat messages during the streaming call.
+         * chat messages during the streaming call, plus (when non-empty) a
+         * `X-Rag-Collection-Ids` header the proxy server can use to augment the
+         * request with retrieval-augmented context for the given collection ids.
          */
-        fun toHeaderMap(): Map<String, String> = mapOf(
-            "X-Session-Id" to sessionId,
-            "X-User-Message-Id" to userMessageId,
-            "X-Assistant-Message-Id" to assistantMessageId,
-        )
+        fun toHeaderMap(): Map<String, String> = buildMap {
+            put("X-Session-Id", sessionId)
+            put("X-User-Message-Id", userMessageId)
+            put("X-Assistant-Message-Id", assistantMessageId)
+            if (collectionIds.isNotEmpty()) {
+                put("X-Rag-Collection-Ids", collectionIds.joinToString(","))
+            }
+        }
     }
 
     private val current: ThreadLocal<Context?> = ThreadLocal.withInitial { null }

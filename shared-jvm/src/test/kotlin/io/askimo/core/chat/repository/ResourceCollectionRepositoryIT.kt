@@ -6,6 +6,7 @@ package io.askimo.core.chat.repository
 
 import io.askimo.core.chat.domain.LocalFoldersKnowledgeSourceConfig
 import io.askimo.core.chat.domain.ResourceCollection
+import io.askimo.core.chat.domain.ResourceCollectionOrigin
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.rag.state.IndexStatus
 import io.askimo.core.util.AskimoHome
@@ -347,5 +348,63 @@ class ResourceCollectionRepositoryIT {
     fun `should no-op upsert with empty list`() {
         repository.upsertFromServer(emptyList())
         assertTrue(repository.getAllCollections().isEmpty())
+    }
+
+    // ── upsertExternallyManagedCollections ──────────────────────────────────────
+
+    @Test
+    fun `should insert new team-managed collection with TEAM_MANAGED origin`() {
+        val fromTeamServer = ResourceCollection(id = "team-1", name = "HR", origin = ResourceCollectionOrigin.TEAM_MANAGED)
+
+        repository.upsertExternallyManagedCollections(listOf(fromTeamServer))
+
+        val retrieved = repository.getCollection("team-1")
+        assertNotNull(retrieved)
+        assertEquals(ResourceCollectionOrigin.TEAM_MANAGED, retrieved.origin)
+        assertTrue(retrieved.knowledgeSources.isEmpty())
+    }
+
+    @Test
+    fun `team-managed collections are never swept into getUnsyncedCollections`() {
+        repository.upsertExternallyManagedCollections(listOf(ResourceCollection(id = "team-2", name = "Customer", origin = ResourceCollectionOrigin.TEAM_MANAGED)))
+
+        assertFalse(repository.getUnsyncedCollections().any { it.id == "team-2" })
+    }
+
+    @Test
+    fun `should update existing team-managed collection when server version is newer`() {
+        repository.upsertExternallyManagedCollections(listOf(ResourceCollection(id = "team-3", name = "Original", origin = ResourceCollectionOrigin.TEAM_MANAGED)))
+        Thread.sleep(5)
+        val newer = ResourceCollection(id = "team-3", name = "Renamed", origin = ResourceCollectionOrigin.TEAM_MANAGED, updatedAt = Clock.System.now())
+
+        repository.upsertExternallyManagedCollections(listOf(newer))
+
+        val retrieved = repository.getCollection("team-3")!!
+        assertEquals("Renamed", retrieved.name)
+        assertEquals(ResourceCollectionOrigin.TEAM_MANAGED, retrieved.origin)
+    }
+
+    @Test
+    fun `should skip updating team-managed collection when local version is same age or newer`() {
+        val saved = ResourceCollection(id = "team-4", name = "Original", origin = ResourceCollectionOrigin.TEAM_MANAGED)
+        repository.upsertExternallyManagedCollections(listOf(saved))
+        val older = saved.copy(name = "Should Not Apply", updatedAt = saved.updatedAt.minus(5.minutes))
+
+        repository.upsertExternallyManagedCollections(listOf(older))
+
+        assertEquals("Original", repository.getCollection("team-4")!!.name)
+    }
+
+    @Test
+    fun `should no-op upsertExternallyManagedCollections with empty list`() {
+        repository.upsertExternallyManagedCollections(emptyList())
+        assertTrue(repository.getAllCollections().isEmpty())
+    }
+
+    @Test
+    fun `createCollection defaults to LOCAL origin`() {
+        val created = repository.createCollection(ResourceCollection(id = "", name = "Default Origin"))
+        assertEquals(ResourceCollectionOrigin.LOCAL, created.origin)
+        assertEquals(ResourceCollectionOrigin.LOCAL, repository.getCollection(created.id)!!.origin)
     }
 }

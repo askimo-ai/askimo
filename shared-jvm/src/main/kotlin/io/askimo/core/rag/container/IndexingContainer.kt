@@ -7,6 +7,7 @@ package io.askimo.core.rag.container
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.domain.ResourceCollection
+import io.askimo.core.chat.domain.ResourceCollectionOrigin
 
 /**
  * Discriminator for the kind of entity indexed by [io.askimo.core.rag.RagIndexer]. Used
@@ -43,10 +44,36 @@ sealed class IndexingContainer {
         override val knowledgeSources: List<KnowledgeSourceConfig> = collection.knowledgeSources
         override val type: IndexingContainerType = IndexingContainerType.RESOURCE_COLLECTION
     }
+
+    /**
+     * A [ResourceCollection] whose [ResourceCollection.origin] is
+     * [ResourceCollectionOrigin.TEAM_MANAGED] — indexed and retrieved entirely by a
+     * remote backend, not on this device. Kept as a distinct variant (rather than
+     * reusing [ResourceCollectionContainer]) so
+     * [io.askimo.core.chat.service.ChatSessionService.createRetrieverForContainer]
+     * can pattern-match it directly and skip the local hybrid-retriever pipeline —
+     * there's no local embedding store or Lucene index for these rows.
+     * [knowledgeSources] is always empty; [io.askimo.core.rag.RagIndexer] never
+     * receives indexing events for this container (no local "add knowledge
+     * source" action exists for it), so no indexing-side special-casing is needed.
+     */
+    data class ServerResourceCollectionContainer(val collection: ResourceCollection) : IndexingContainer() {
+        override val id: String = collection.id
+        override val name: String = collection.name
+        override val knowledgeSources: List<KnowledgeSourceConfig> = collection.knowledgeSources
+        override val type: IndexingContainerType = IndexingContainerType.RESOURCE_COLLECTION
+    }
 }
 
 /** Convenience wrapper for a [Project] as an [IndexingContainer]. */
 fun Project.asIndexingContainer(): IndexingContainer = IndexingContainer.ProjectContainer(this)
 
-/** Convenience wrapper for a [ResourceCollection] as an [IndexingContainer]. */
-fun ResourceCollection.asIndexingContainer(): IndexingContainer = IndexingContainer.ResourceCollectionContainer(this)
+/**
+ * Convenience wrapper for a [ResourceCollection] as an [IndexingContainer] —
+ * dispatches on [ResourceCollection.origin] so callers never need to check it
+ * themselves.
+ */
+fun ResourceCollection.asIndexingContainer(): IndexingContainer = when (origin) {
+    ResourceCollectionOrigin.LOCAL -> IndexingContainer.ResourceCollectionContainer(this)
+    ResourceCollectionOrigin.TEAM_MANAGED -> IndexingContainer.ServerResourceCollectionContainer(this)
+}
