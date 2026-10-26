@@ -45,6 +45,14 @@ enum class ToolApprovalPolicy {
 
     /** Always pause and ask the user before the AI executes this tool. */
     REQUIRE_APPROVAL,
+
+    /**
+     * Explicit user override: always run this tool automatically, even if its
+     * [ToolCategory] would otherwise imply [REQUIRE_APPROVAL] via [defaultApprovalPolicy].
+     * Unlike [DEFAULT], this never falls back to the category's default — it's an
+     * unconditional "never ask" for this specific tool.
+     */
+    ALWAYS_AUTO,
 }
 
 /**
@@ -59,6 +67,29 @@ fun ToolCategory.defaultApprovalPolicy(): ToolApprovalPolicy = when (this) {
 
     else -> ToolApprovalPolicy.DEFAULT
 }
+
+/**
+ * Resolves this tool's *effective* approval policy — i.e. what will actually happen at
+ * execution time — collapsing the stored [ToolConfig.approvalPolicy] (which may be the
+ * category-inheriting [ToolApprovalPolicy.DEFAULT]) down to a concrete decision.
+ *
+ * This is the single source of truth for approval resolution, shared by the runtime
+ * guardrail (`sendStreamingMessageWithCallback`) and any UI that needs to show the user
+ * what will actually happen — UIs should never interpret [ToolApprovalPolicy.DEFAULT]
+ * themselves, since its meaning depends on [ToolConfig.category].
+ */
+fun ToolConfig.effectiveApprovalPolicy(): ToolApprovalPolicy = when (approvalPolicy) {
+    ToolApprovalPolicy.DEFAULT -> category.defaultApprovalPolicy()
+    ToolApprovalPolicy.REQUIRE_APPROVAL -> ToolApprovalPolicy.REQUIRE_APPROVAL
+    ToolApprovalPolicy.ALWAYS_AUTO -> ToolApprovalPolicy.ALWAYS_AUTO
+}
+
+/**
+ * Convenience boolean view of [effectiveApprovalPolicy] — what UIs actually need: a
+ * simple "does this tool pause for approval or not" toggle, with [ToolApprovalPolicy.DEFAULT]'s
+ * category-inheriting nuance resolved away behind the scenes.
+ */
+fun ToolConfig.requiresApproval(): Boolean = effectiveApprovalPolicy() == ToolApprovalPolicy.REQUIRE_APPROVAL
 
 /**
  * Tool execution strategy using bitwise flags.

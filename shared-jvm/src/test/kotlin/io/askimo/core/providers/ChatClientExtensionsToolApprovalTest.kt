@@ -126,6 +126,23 @@ class ChatClientExtensionsToolApprovalTest {
         approvalPolicy = ToolApprovalPolicy.REQUIRE_APPROVAL,
     )
 
+    /**
+     * A [ToolConfig] with the given [category] and [approvalPolicy], matching [name] — used to
+     * exercise the `effectivePolicy` resolution (category default vs. explicit override) in
+     * isolation from the approval guardrail itself.
+     */
+    private fun toolConfigWith(
+        name: String,
+        category: ToolCategory,
+        approvalPolicy: ToolApprovalPolicy,
+    ) = ToolConfig(
+        specification = ToolSpecification.builder().name(name).build(),
+        category = category,
+        strategy = 0,
+        source = ToolSource.ASKIMO_BUILTIN,
+        approvalPolicy = approvalPolicy,
+    )
+
     private fun beforeToolExecution(request: ToolExecutionRequest) = BeforeToolExecution.builder()
         .request(request)
         .invocationContext(InvocationContext.builder().build())
@@ -460,5 +477,137 @@ class ChatClientExtensionsToolApprovalTest {
         assertEquals(1, toolFinishedCalls, "Expected onToolFinishedAwaitable to be invoked exactly once on denial, got $toolFinishedCalls")
         assertEquals(true, toolFinishedHasFailed, "Expected onToolFinishedAwaitable's hasFailed to be true on denial")
         assertEquals(0, timedOutCalls, "onToolApprovalTimedOut must never fire on explicit denial, got $timedOutCalls calls")
+    }
+
+    // ── effectivePolicy resolution (ToolApprovalPolicy x ToolCategory) ──────────────────────
+
+    /**
+     * Drives a single tool call end-to-end (before → executed → complete response) and records
+     * whether [onToolApprovalRequired] was invoked — i.e. whether the resolved `effectivePolicy`
+     * for [toolConfig] required approval. Approves immediately if asked, so the call always
+     * completes successfully and never throws.
+     */
+    private fun runSingleToolCallAndCheckApprovalRequested(toolConfig: ToolConfig): Boolean {
+        val chatMemory = FakeChatMemory()
+        val request = toolRequest("call_1", toolConfig.specification.name())
+        var approvalRequested = false
+
+        val chatClient = object : ChatClient {
+            override fun sendMessageStreaming(userContents: List<Content>): TokenStream = FakeTokenStream {
+                chatMemory.add(AiMessage.from(listOf(request)))
+                beforeToolExecutionHandler?.accept(beforeToolExecution(request))
+                toolExecutedHandler?.accept(
+                    ToolExecution.builder().request(request).result("ok")
+                        .invocationContext(InvocationContext.builder().build()).build(),
+                )
+                completeResponseHandler?.accept(
+                    ChatResponse.builder().aiMessage(AiMessage.from("done")).build(),
+                )
+            }
+
+            override fun sendMessage(prompt: String): String = error("not used")
+        }
+
+        chatClient.sendStreamingMessageWithCallback(
+            userContents = listOf(),
+            resolvedTools = listOf(toolConfig),
+            onToolApprovalRequired = { _, _, approve, _ ->
+                approvalRequested = true
+                approve()
+            },
+            chatMemory = chatMemory,
+        )
+
+        return approvalRequested
+    }
+
+    @Test
+    fun `DEFAULT policy on a mutating category (FILE_WRITE) tool requires approval`() {
+        val toolConfig = toolConfigWith("writeFile", ToolCategory.FILE_WRITE, ToolApprovalPolicy.DEFAULT)
+        assertTrue(
+            runSingleToolCallAndCheckApprovalRequested(toolConfig),
+            "Expected DEFAULT policy to inherit FILE_WRITE's category default (REQUIRE_APPROVAL)",
+        )
+    }
+
+    @Test
+    fun `DEFAULT policy on a mutating category (EXECUTE) tool requires approval`() {
+        val toolConfig = toolConfigWith("runCommand", ToolCategory.EXECUTE, ToolApprovalPolicy.DEFAULT)
+        assertTrue(
+            runSingleToolCallAndCheckApprovalRequested(toolConfig),
+            "Expected DEFAULT policy to inherit EXECUTE's category default (REQUIRE_APPROVAL)",
+        )
+    }
+
+    @Test
+    fun `DEFAULT policy on a non-mutating category (DATABASE) tool runs without approval`() {
+        val toolConfig = toolConfigWith("queryDb", ToolCategory.DATABASE, ToolApprovalPolicy.DEFAULT)
+        assertTrue(
+            !runSingleToolCallAndCheckApprovalRequested(toolConfig),
+            "Expected DEFAULT policy on a non-mutating category to auto-run without approval",
+        )
+    }
+
+    @Test
+    fun `ALWAYS_AUTO policy bypasses approval even for a mutating category (FILE_WRITE) tool`() {
+        val toolConfig = toolConfigWith("writeFile", ToolCategory.FILE_WRITE, ToolApprovalPolicy.ALWAYS_AUTO)
+        assertTrue(
+            !runSingleToolCallAndCheckApprovalRequested(toolConfig),
+            "Expected ALWAYS_AUTO to override FILE_WRITE's category default and skip approval",
+        )
+    }
+
+    @Test
+    fun `ALWAYS_AUTO policy bypasses approval even for a mutating category (EXECUTE) tool`() {
+        val toolConfig = toolConfigWith("runCommand", ToolCategory.EXECUTE, ToolApprovalPolicy.ALWAYS_AUTO)
+        assertTrue(
+            !runSingleToolCallAndCheckApprovalRequested(toolConfig),
+            "Expected ALWAYS_AUTO to override EXECUTE's category default and skip approval",
+        )
+    }
+
+    @Test
+    fun `REQUIRE_APPROVAL policy forces approval even on a non-mutating category (DATABASE) tool`() {
+        val toolConfig = toolConfigWith("queryDb", ToolCategory.DATABASE, ToolApprovalPolicy.REQUIRE_APPROVAL)
+        assertTrue(
+            runSingleToolCallAndCheckApprovalRequested(toolConfig),
+            "Expected an explicit REQUIRE_APPROVAL override to always require approval, regardless of category",
+        )
+    }
+
+    @Test
+    fun `no onToolApprovalRequired callback means no tool ever pauses for approval`() {
+        // Even a FILE_WRITE/DEFAULT tool (which would otherwise require approval) must run
+        // freely when the caller never supplied an onToolApprovalRequired callback at all —
+        // this is the "approval checks disabled" escape hatch used by callers that don't wire
+        // up an approval UI (e.g. CLI/non-interactive contexts).
+        val chatMemory = FakeChatMemory()
+        val request = toolRequest("call_1", "writeFile")
+        val toolConfig = toolConfigWith("writeFile", ToolCategory.FILE_WRITE, ToolApprovalPolicy.DEFAULT)
+
+        val chatClient = object : ChatClient {
+            override fun sendMessageStreaming(userContents: List<Content>): TokenStream = FakeTokenStream {
+                chatMemory.add(AiMessage.from(listOf(request)))
+                beforeToolExecutionHandler?.accept(beforeToolExecution(request))
+                toolExecutedHandler?.accept(
+                    ToolExecution.builder().request(request).result("ok")
+                        .invocationContext(InvocationContext.builder().build()).build(),
+                )
+                completeResponseHandler?.accept(
+                    ChatResponse.builder().aiMessage(AiMessage.from("done")).build(),
+                )
+            }
+
+            override fun sendMessage(prompt: String): String = error("not used")
+        }
+
+        // Must complete without throwing — i.e. the tool ran without ever pausing for approval,
+        // since no onToolApprovalRequired callback was supplied. (FakeTokenStream doesn't wire
+        // up onPartialResponse, so the returned text itself isn't asserted here.)
+        chatClient.sendStreamingMessageWithCallback(
+            userContents = listOf(),
+            resolvedTools = listOf(toolConfig),
+            chatMemory = chatMemory,
+        )
     }
 }

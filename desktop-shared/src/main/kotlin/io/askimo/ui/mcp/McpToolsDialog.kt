@@ -57,6 +57,7 @@ import io.askimo.core.intent.ToolApprovalPolicy
 import io.askimo.core.intent.ToolCategory
 import io.askimo.core.intent.ToolConfig
 import io.askimo.core.intent.ToolStrategy
+import io.askimo.core.intent.requiresApproval
 import io.askimo.core.mcp.McpInstance
 import io.askimo.core.mcp.McpInstanceService
 import io.askimo.core.mcp.SecretDetector
@@ -411,7 +412,7 @@ fun mcpToolsDialog(
                                     toolStrategyChip(tool.strategy)
                                 }
                                 toolApprovalPolicyControl(
-                                    current = tool.approvalPolicy,
+                                    tool = tool,
                                     onPolicyChanged = { newPolicy ->
                                         scope.launch(Dispatchers.IO) {
                                             mcpInstanceService.setToolApproval(instance.id, tool.specification.name(), newPolicy)
@@ -494,9 +495,15 @@ private fun String?.toJsonString(): String {
 
 @Composable
 private fun toolApprovalPolicyControl(
-    current: ToolApprovalPolicy,
+    tool: ToolConfig,
     onPolicyChanged: (ToolApprovalPolicy) -> Unit,
 ) {
+    // Resolve DEFAULT's category-inheriting nuance away — the user only ever sees/chooses
+    // between two concrete outcomes: "require approval" or "auto approve". Toggling always
+    // persists an explicit policy (REQUIRE_APPROVAL / ALWAYS_AUTO), never DEFAULT, so the
+    // choice sticks regardless of what the tool's category implies.
+    val requiresApproval = tool.requiresApproval()
+
     Row(
         horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
         verticalAlignment = Alignment.CenterVertically,
@@ -506,14 +513,18 @@ private fun toolApprovalPolicyControl(
             style = AppTextStyles.caption,
             color = AppColors.secondaryContentColorFor(AppColors.Elevation.RAISED),
         )
-        ToolApprovalPolicy.entries.forEach { policy ->
-            approvalPolicyButton(
-                label = stringResource("mcp.tool.approval.${policy.name.lowercase()}"),
-                tooltip = stringResource("mcp.tool.approval.${policy.name.lowercase()}.hint"),
-                isSelected = policy == current,
-                onClick = { if (policy != current) onPolicyChanged(policy) },
-            )
-        }
+        approvalPolicyButton(
+            label = stringResource("mcp.tool.approval.require_approval"),
+            tooltip = stringResource("mcp.tool.approval.require_approval.hint"),
+            isSelected = requiresApproval,
+            onClick = { if (!requiresApproval) onPolicyChanged(ToolApprovalPolicy.REQUIRE_APPROVAL) },
+        )
+        approvalPolicyButton(
+            label = stringResource("mcp.tool.approval.always_auto"),
+            tooltip = stringResource("mcp.tool.approval.always_auto.hint"),
+            isSelected = !requiresApproval,
+            onClick = { if (requiresApproval) onPolicyChanged(ToolApprovalPolicy.ALWAYS_AUTO) },
+        )
     }
 }
 
