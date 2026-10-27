@@ -1345,6 +1345,7 @@ fun chatView(
                                             bookmarkedMessageIds = bookmarkedMessageIds,
                                             onToggleBookmark = { messageId -> actions.toggleBookmark(messageId) },
                                             onForkFromMessage = { messageId -> actions.forkFromMessage(messageId) },
+                                            onDeleteMessage = { messageId -> actions.deleteMessage(messageId) },
                                         )
                                     }
                                 }

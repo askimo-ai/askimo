@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     is_bookmarked INTEGER DEFAULT 0,
     content_json TEXT,
     used_resource_collection_ids TEXT DEFAULT '[]',
+    deleted_at TEXT AS kotlin.time.Instant,
     FOREIGN KEY (session_id) REFERENCES chat_sessions (id) ON DELETE CASCADE,
     FOREIGN KEY (edit_parent_id) REFERENCES chat_messages (id) ON DELETE SET NULL
 );
@@ -28,35 +29,36 @@ INSERT INTO chat_messages (id, session_id, role, content, created_at, is_outdate
 VALUES (:id, :sessionId, :role, :content, :createdAt, :isOutdated, :editParentId, :isEdited, :isFailed, :inputTokens, :outputTokens, :totalTokens, :durationMs, :contentJson, :syncedAt);
 
 selectBySessionOrderedAsc:
-SELECT * FROM chat_messages WHERE session_id = :sessionId ORDER BY created_at ASC;
+SELECT * FROM chat_messages WHERE session_id = :sessionId AND deleted_at IS NULL ORDER BY created_at ASC;
 
 countByRole:
 SELECT COUNT(*) FROM chat_messages WHERE role = :role;
 
 countByRoleSince:
-SELECT COUNT(*) FROM chat_messages WHERE role = :role AND is_outdated = 0 AND created_at > :since;
+SELECT COUNT(*) FROM chat_messages WHERE role = :role AND is_outdated = 0 AND deleted_at IS NULL AND created_at > :since;
 
 selectRecentActiveGlobalByRole:
-SELECT * FROM chat_messages WHERE role = :role AND is_outdated = 0 ORDER BY created_at DESC LIMIT :limit;
+SELECT * FROM chat_messages WHERE role = :role AND is_outdated = 0 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT :limit;
 
 selectBySessionAscFromStart:
-SELECT * FROM chat_messages WHERE session_id = :sessionId ORDER BY created_at ASC LIMIT :limit;
+SELECT * FROM chat_messages WHERE session_id = :sessionId AND deleted_at IS NULL ORDER BY created_at ASC LIMIT :limit;
 
 selectBySessionDescFromEnd:
-SELECT * FROM chat_messages WHERE session_id = :sessionId ORDER BY created_at DESC LIMIT :limit;
+SELECT * FROM chat_messages WHERE session_id = :sessionId AND deleted_at IS NULL ORDER BY created_at DESC LIMIT :limit;
 
 selectBySessionAfterCursorAsc:
-SELECT * FROM chat_messages WHERE session_id = :sessionId AND created_at > :cursor ORDER BY created_at ASC LIMIT :limit;
+SELECT * FROM chat_messages WHERE session_id = :sessionId AND deleted_at IS NULL AND created_at > :cursor ORDER BY created_at ASC LIMIT :limit;
 
 selectBySessionBeforeCursorDesc:
-SELECT * FROM chat_messages WHERE session_id = :sessionId AND created_at < :cursor ORDER BY created_at DESC LIMIT :limit;
+SELECT * FROM chat_messages WHERE session_id = :sessionId AND deleted_at IS NULL AND created_at < :cursor ORDER BY created_at DESC LIMIT :limit;
 
 searchBySessionOrdered:
-SELECT * FROM chat_messages WHERE session_id = :sessionId AND LOWER(content) LIKE :pattern ORDER BY created_at ASC LIMIT :limit;
+SELECT * FROM chat_messages WHERE session_id = :sessionId AND deleted_at IS NULL AND LOWER(content) LIKE :pattern ORDER BY created_at ASC LIMIT :limit;
 
 searchGlobalDesc:
 SELECT cm.* FROM chat_messages cm
 WHERE LOWER(cm.content) LIKE :pattern
+  AND cm.deleted_at IS NULL
   AND (:startTime IS NULL OR cm.created_at >= :startTime)
   AND (:endTime IS NULL OR cm.created_at <= :endTime)
   AND (:projectId IS NULL OR cm.session_id IN (SELECT id FROM chat_sessions WHERE project_id = :projectId))
@@ -66,6 +68,7 @@ LIMIT :limit;
 searchGlobalAsc:
 SELECT cm.* FROM chat_messages cm
 WHERE LOWER(cm.content) LIKE :pattern
+  AND cm.deleted_at IS NULL
   AND (:startTime IS NULL OR cm.created_at >= :startTime)
   AND (:endTime IS NULL OR cm.created_at <= :endTime)
   AND (:projectId IS NULL OR cm.session_id IN (SELECT id FROM chat_sessions WHERE project_id = :projectId))
@@ -82,7 +85,7 @@ markOutdatedFrom:
 UPDATE chat_messages SET is_outdated = 1 WHERE session_id = :sessionId AND created_at >= :fromTimestamp;
 
 selectRecentActive:
-SELECT * FROM chat_messages WHERE session_id = :sessionId AND is_outdated = 0 ORDER BY created_at DESC LIMIT :limit;
+SELECT * FROM chat_messages WHERE session_id = :sessionId AND is_outdated = 0 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT :limit;
 
 updateContent:
 UPDATE chat_messages SET content = :content, is_edited = 1, content_json = NULL WHERE id = :id;
@@ -95,6 +98,20 @@ DELETE FROM chat_messages WHERE session_id = :sessionId;
 
 deleteByIds:
 DELETE FROM chat_messages WHERE id IN :ids;
+
+selectNextUserCreatedAt:
+SELECT created_at FROM chat_messages
+WHERE session_id = :sessionId AND role = :role AND deleted_at IS NULL AND created_at > :createdAt
+ORDER BY created_at ASC LIMIT 1;
+
+selectActiveIdsInRange:
+SELECT id FROM chat_messages
+WHERE session_id = :sessionId AND deleted_at IS NULL
+  AND created_at >= :fromCreatedAt
+  AND (:toCreatedAt IS NULL OR created_at < :toCreatedAt);
+
+softDeleteByIds:
+UPDATE chat_messages SET deleted_at = :deletedAt WHERE id IN :ids;
 
 upsertMessage:
 INSERT INTO chat_messages (id, session_id, role, content, created_at, is_outdated, edit_parent_id, is_edited, is_failed, input_tokens, output_tokens, total_tokens, duration_ms, content_json, synced_at)
@@ -128,10 +145,10 @@ updateBookmark:
 UPDATE chat_messages SET is_bookmarked = :isBookmarked WHERE id = :id;
 
 selectBookmarkedBySession:
-SELECT * FROM chat_messages WHERE session_id = :sessionId AND is_bookmarked = 1 ORDER BY created_at ASC;
+SELECT * FROM chat_messages WHERE session_id = :sessionId AND is_bookmarked = 1 AND deleted_at IS NULL ORDER BY created_at ASC;
 
 selectAllBookmarked:
-SELECT * FROM chat_messages WHERE is_bookmarked = 1 ORDER BY created_at DESC;
+SELECT * FROM chat_messages WHERE is_bookmarked = 1 AND deleted_at IS NULL ORDER BY created_at DESC;
 
 selectAllBookmarkedWithSessions:
 SELECT
@@ -145,8 +162,8 @@ SELECT
   cs.directive_id AS session_directive_id, cs.is_starred AS session_is_starred
 FROM chat_messages cm
 INNER JOIN chat_sessions cs ON cm.session_id = cs.id
-WHERE cm.is_bookmarked = 1
+WHERE cm.is_bookmarked = 1 AND cm.deleted_at IS NULL
 ORDER BY cs.updated_at DESC, cm.created_at ASC;
 
 selectBookmarkCountsBySession:
-SELECT session_id, COUNT(*) AS cnt FROM chat_messages WHERE is_bookmarked = 1 GROUP BY session_id;
+SELECT session_id, COUNT(*) AS cnt FROM chat_messages WHERE is_bookmarked = 1 AND deleted_at IS NULL GROUP BY session_id;

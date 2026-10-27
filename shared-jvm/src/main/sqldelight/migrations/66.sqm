@@ -1,0 +1,1 @@
+-- chat_messages.deleted_at — guarded ALTER TABLE ADD COLUMN via SqlDelightSchemaMigrations.callbacks() AfterVersion(66)

@@ -439,6 +439,46 @@ class ChatMessageRepository internal constructor(
     }
 
     /**
+     * Soft-delete a conversation turn: the user message [userMessageId] and every message that
+     * follows it up to (not including) the next user message. This covers the normal single
+     * response, a user message whose response failed or never arrived, and responses that were
+     * regenerated via retry (the outdated ones and their replacement all belong to the turn).
+     *
+     * Soft-deleted rows stay in the table (bookmarks, attachments and sync state are untouched)
+     * but are excluded from every read path.
+     *
+     * @param sessionId The session the message belongs to
+     * @param userMessageId The user message that starts the turn
+     * @return IDs of the soft-deleted messages, or an empty list if [userMessageId] is not an
+     *   active user message of [sessionId]
+     */
+    fun softDeleteTurn(sessionId: String, userMessageId: String): List<String> = db.transactionWithResult {
+        val userMessage = queries.selectMessageById(userMessageId).executeAsOneOrNull()
+        if (userMessage == null ||
+            userMessage.session_id != sessionId ||
+            userMessage.role != MessageRole.USER.value ||
+            userMessage.deleted_at != null
+        ) {
+            return@transactionWithResult emptyList()
+        }
+
+        val nextUserCreatedAt = queries.selectNextUserCreatedAt(
+            sessionId = sessionId,
+            role = MessageRole.USER.value,
+            createdAt = userMessage.created_at,
+        ).executeAsOneOrNull()
+
+        val turnIds = queries.selectActiveIdsInRange(
+            sessionId = sessionId,
+            fromCreatedAt = userMessage.created_at,
+            toCreatedAt = nextUserCreatedAt,
+        ).executeAsList()
+
+        queries.softDeleteByIds(Clock.System.now(), turnIds)
+        turnIds
+    }
+
+    /**
      * Helper method to load attachments for messages using LEFT JOIN.
      * This performs a single database query to efficiently load all attachments via reference table.
      *

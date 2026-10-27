@@ -72,6 +72,7 @@ class DatabaseManager private constructor(
         chat_messagesAdapter = Chat_messages.Adapter(
             created_atAdapter = InstantColumnAdapter,
             synced_atAdapter = InstantColumnAdapter,
+            deleted_atAdapter = InstantColumnAdapter,
         ),
         chat_sessionsAdapter = Chat_sessions.Adapter(
             created_atAdapter = InstantColumnAdapter,

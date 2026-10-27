@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandMore
@@ -362,6 +363,7 @@ fun messageBubble(
     onToggleBookmark: ((String) -> Unit)? = null,
     onForkFromMessage: ((String) -> Unit)? = null,
     voiceOutputEnabled: Boolean = false,
+    onDeleteMessage: ((String) -> Unit)? = null,
 ) {
     Box(
         modifier = Modifier
@@ -380,6 +382,7 @@ fun messageBubble(
                 isOutdatedMessage = isOutdatedMessage,
                 isBookmarked = message.id != null && message.id in bookmarkedMessageIds,
                 onToggleBookmark = if (message.id != null) onToggleBookmark else null,
+                onDeleteMessage = if (message.id != null) onDeleteMessage else null,
             )
         } else {
             aiMessageBubble(
@@ -422,6 +425,7 @@ private fun userMessageBubble(
     isOutdatedMessage: Boolean = false,
     isBookmarked: Boolean = false,
     onToggleBookmark: ((String) -> Unit)? = null,
+    onDeleteMessage: ((String) -> Unit)? = null,
 ) {
     val clipboardManager = LocalClipboardManager.current
     var isHovered by remember { mutableStateOf(false) }
@@ -628,6 +632,22 @@ private fun userMessageBubble(
                                         isBookmarked = isBookmarked,
                                         onToggleBookmark = onToggleBookmark,
                                     )
+                                }
+
+                                if (onDeleteMessage != null && message.id != null) {
+                                    themedTooltip(text = stringResource("message.delete")) {
+                                        IconButton(
+                                            onClick = { onDeleteMessage.invoke(message.id!!) },
+                                            modifier = Modifier.size(32.dp).pointerHoverIcon(PointerIcon.Hand),
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = stringResource("message.delete.description"),
+                                                modifier = Modifier.size(16.dp),
+                                                tint = AppTextStyles.secondaryContent,
+                                            )
+                                        }
+                                    }
                                 }
 
                                 // Timestamp — visible on hover, right side of action bar

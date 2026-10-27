@@ -81,6 +81,32 @@ class SchemaMigrationEquivalenceTest {
         }
     }
 
+    @Test
+    fun `existing database without chat_messages deleted_at - upgrade converges to the same canonical schema`() {
+        // Existing installs migrate from their stored user_version, not 0, and an AfterVersion
+        // callback only runs when its anchor is >= that version. Rebuild a database exactly as
+        // the last release left it (version 66, no deleted_at column) and upgrade it one step.
+        val lastReleaseVersion = 66L
+        createDriver().use { migratedDriver ->
+            AskimoDatabase.Schema.migrate(migratedDriver, 0, lastReleaseVersion, *SqlDelightSchemaMigrations.callbacks())
+            if (tableInfo(migratedDriver, "chat_messages").any { it.name == "deleted_at" }) {
+                migratedDriver.execute(null, "ALTER TABLE chat_messages DROP COLUMN deleted_at", 0)
+            }
+
+            AskimoDatabase.Schema.migrate(
+                migratedDriver,
+                lastReleaseVersion,
+                AskimoDatabase.Schema.version,
+                *SqlDelightSchemaMigrations.callbacks(),
+            )
+
+            createDriver().use { createdDriver ->
+                AskimoDatabase.Schema.create(createdDriver)
+                assertSchemasMatch(migratedDriver, createdDriver)
+            }
+        }
+    }
+
     private fun createDriver(): JdbcSqliteDriver = JdbcSqliteDriver("jdbc:sqlite:file:memdb_${System.nanoTime()}?mode=memory&cache=shared")
 
     private fun migrateFromScratch(driver: JdbcSqliteDriver) {
