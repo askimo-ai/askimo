@@ -7,6 +7,7 @@ package io.askimo.core.chat.service
 import io.askimo.core.chat.domain.ChatDirective
 import io.askimo.core.chat.domain.ChatMessage
 import io.askimo.core.chat.domain.ChatSession
+import io.askimo.core.chat.domain.SessionMemory
 import io.askimo.core.chat.repository.ChatDirectiveRepository
 import io.askimo.core.chat.repository.ChatMessageRepository
 import io.askimo.core.chat.repository.ChatSessionRepository
@@ -978,5 +979,38 @@ class ChatSessionServiceIT {
         assertTrue(result.success)
         assertEquals(forked.id, result.sessionId)
         assertEquals(2, result.messages.size)
+    }
+
+    @Test
+    fun `deleteTurn should hide the turn and drop stale persisted session memory`() {
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "Delete Turn"))
+        val baseTime = Clock.System.now()
+        val q1 = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "secret question", createdAt = baseTime))
+        val a1 = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "secret answer", createdAt = baseTime.plus(1.seconds)))
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "kept question", createdAt = baseTime.plus(2.seconds)))
+        sessionMemoryRepository.saveMemory(
+            SessionMemory(sessionId = session.id, memorySummary = "mentions secret question", memoryMessages = "[]"),
+        )
+
+        val deletedIds = service.deleteTurn(session.id, q1.id)
+
+        assertEquals(listOf(q1.id, a1.id), deletedIds)
+        assertEquals(listOf("kept question"), service.getMessages(session.id).map { it.content })
+        // No AI provider in tests, so the memory can't be rebuilt — but the stale summary that
+        // still mentions the deleted turn must be gone either way.
+        assertNull(sessionMemoryRepository.getBySessionId(session.id))
+    }
+
+    @Test
+    fun `deleteTurn should not touch messages or session memory for an assistant message`() {
+        val session = sessionRepository.createSession(ChatSession(id = "", title = "Delete Assistant"))
+        val baseTime = Clock.System.now()
+        service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.USER, content = "Question", createdAt = baseTime))
+        val a1 = service.addMessage(ChatMessage(id = "", sessionId = session.id, role = MessageRole.ASSISTANT, content = "Answer", createdAt = baseTime.plus(1.seconds)))
+        sessionMemoryRepository.saveMemory(SessionMemory(sessionId = session.id, memorySummary = "summary", memoryMessages = "[]"))
+
+        assertTrue(service.deleteTurn(session.id, a1.id).isEmpty())
+        assertEquals(2, service.getMessages(session.id).size)
+        assertNotNull(sessionMemoryRepository.getBySessionId(session.id))
     }
 }

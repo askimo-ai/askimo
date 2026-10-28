@@ -1533,6 +1533,52 @@ class ChatViewModel(
     }
 
     /**
+     * Delete the turn started by the user message [messageId] and hide it from the chat.
+     *
+     * Bookmarks on deleted messages are kept in the database but hidden, so the sidebar
+     * bookmark-count badge is decremented via [BookmarkToggledEvent].
+     */
+    override fun deleteMessage(messageId: String) {
+        val sessionId = currentSessionId.value ?: return
+        if (isLoading) {
+            errorMessage = "Please wait for the current response to complete before deleting."
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val deletedIds = withContext(Dispatchers.IO) {
+                    chatSessionService.deleteTurn(sessionId, messageId)
+                }.toSet()
+                if (deletedIds.isEmpty()) return@launch
+
+                // The live timeline belongs to the last AI message. If that message was deleted,
+                // clear it so it isn't drawn on the previous AI message, which becomes the last one.
+                if (messages.lastOrNull { !it.isUser }?.id in deletedIds) {
+                    activeTimeline = emptyList()
+                }
+                messages = messages.filterNot { it.id in deletedIds }
+                if (editingMessage?.id in deletedIds) {
+                    editingMessage = null
+                }
+
+                val hiddenBookmarks = bookmarkedMessageIds.count { it in deletedIds }
+                if (hiddenBookmarks > 0) {
+                    bookmarkedMessageIds = bookmarkedMessageIds - deletedIds
+                    EventBus.post(BookmarkToggledEvent(sessionId = sessionId, delta = -hiddenBookmarks))
+                }
+            } catch (e: Exception) {
+                log.error("Failed to delete message {}", messageId, e)
+                errorMessage = ErrorHandler.getUserFriendlyError(
+                    e,
+                    "deleting message",
+                    "Failed to delete message. Please try again.",
+                )
+            }
+        }
+    }
+
+    /**
      * Consume the pending scroll target after ChatView has scrolled to it.
      */
     override fun clearPendingScroll() {

@@ -30,6 +30,12 @@ interface ChatActions {
     fun clearPendingScroll()
 
     /**
+     * Delete the turn started by the user message [messageId] (the message and its response).
+     * Deleted messages are soft-deleted and hidden from the chat, unlike outdated ones.
+     */
+    fun deleteMessage(messageId: String)
+
+    /**
      * Enter edit mode for [message] (must be a user message). Session-scoped: lives on the
      * ChatViewModel — which is already cached per session in SessionManager — so it survives
      * view navigation and is correctly reset by clearChat() / a genuine session switch without

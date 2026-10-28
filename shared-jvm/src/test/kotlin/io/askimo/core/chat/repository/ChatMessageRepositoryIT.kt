@@ -921,4 +921,114 @@ class ChatMessageRepositoryIT {
         messageRepository.toggleBookmark(msg.id)
         assertTrue(messageRepository.getAllBookmarkedWithSessions().isEmpty())
     }
+
+    // ===== softDeleteTurn =====
+
+    private fun addAt(role: MessageRole, content: String, createdAt: Instant, isOutdated: Boolean = false): ChatMessage = messageRepository.addMessage(
+        ChatMessage(id = "", sessionId = testSession.id, role = role, content = content, createdAt = createdAt, isOutdated = isOutdated),
+    )
+
+    @Test
+    fun `softDeleteTurn should delete the user message and its response only`() {
+        val baseTime = Instant.parse("2024-01-01T00:00:00Z")
+        val user1 = addAt(MessageRole.USER, "Question 1", baseTime)
+        val ai1 = addAt(MessageRole.ASSISTANT, "Answer 1", baseTime.plus(1.seconds))
+        addAt(MessageRole.USER, "Question 2", baseTime.plus(2.seconds))
+        addAt(MessageRole.ASSISTANT, "Answer 2", baseTime.plus(3.seconds))
+
+        val deletedIds = messageRepository.softDeleteTurn(testSession.id, user1.id)
+
+        assertEquals(listOf(user1.id, ai1.id), deletedIds)
+        assertEquals(listOf("Question 2", "Answer 2"), messageRepository.getMessages(testSession.id).map { it.content })
+    }
+
+    @Test
+    fun `softDeleteTurn should delete only the user message when it has no response`() {
+        val baseTime = Instant.parse("2024-01-01T00:00:00Z")
+        val user1 = addAt(MessageRole.USER, "No answer", baseTime)
+        addAt(MessageRole.USER, "Question 2", baseTime.plus(1.seconds))
+        addAt(MessageRole.ASSISTANT, "Answer 2", baseTime.plus(2.seconds))
+
+        val deletedIds = messageRepository.softDeleteTurn(testSession.id, user1.id)
+
+        assertEquals(listOf(user1.id), deletedIds)
+        assertEquals(listOf("Question 2", "Answer 2"), messageRepository.getMessages(testSession.id).map { it.content })
+    }
+
+    @Test
+    fun `softDeleteTurn should delete the last turn including a failed response`() {
+        val baseTime = Instant.parse("2024-01-01T00:00:00Z")
+        addAt(MessageRole.USER, "Question 1", baseTime)
+        addAt(MessageRole.ASSISTANT, "Answer 1", baseTime.plus(1.seconds))
+        val user2 = addAt(MessageRole.USER, "Question 2", baseTime.plus(2.seconds))
+        val failed = messageRepository.addMessage(
+            ChatMessage(id = "", sessionId = testSession.id, role = MessageRole.ASSISTANT, content = "", createdAt = baseTime.plus(3.seconds), isFailed = true),
+        )
+
+        val deletedIds = messageRepository.softDeleteTurn(testSession.id, user2.id)
+
+        assertEquals(listOf(user2.id, failed.id), deletedIds)
+        assertEquals(listOf("Question 1", "Answer 1"), messageRepository.getMessages(testSession.id).map { it.content })
+    }
+
+    @Test
+    fun `softDeleteTurn should delete regenerated responses of the same turn`() {
+        val baseTime = Instant.parse("2024-01-01T00:00:00Z")
+        val user1 = addAt(MessageRole.USER, "Question", baseTime)
+        val outdatedAi = addAt(MessageRole.ASSISTANT, "First try", baseTime.plus(1.seconds), isOutdated = true)
+        val retriedAi = addAt(MessageRole.ASSISTANT, "Second try", baseTime.plus(2.seconds))
+
+        val deletedIds = messageRepository.softDeleteTurn(testSession.id, user1.id)
+
+        assertEquals(listOf(user1.id, outdatedAi.id, retriedAi.id), deletedIds)
+        assertTrue(messageRepository.getMessages(testSession.id).isEmpty())
+    }
+
+    @Test
+    fun `softDeleteTurn should ignore assistant, unknown and already deleted messages`() {
+        val baseTime = Instant.parse("2024-01-01T00:00:00Z")
+        val user1 = addAt(MessageRole.USER, "Question", baseTime)
+        val ai1 = addAt(MessageRole.ASSISTANT, "Answer", baseTime.plus(1.seconds))
+
+        assertTrue(messageRepository.softDeleteTurn(testSession.id, ai1.id).isEmpty())
+        assertTrue(messageRepository.softDeleteTurn(testSession.id, "missing-id").isEmpty())
+        assertTrue(messageRepository.softDeleteTurn("other-session", user1.id).isEmpty())
+        assertEquals(2, messageRepository.getMessages(testSession.id).size)
+
+        assertEquals(2, messageRepository.softDeleteTurn(testSession.id, user1.id).size)
+        assertTrue(messageRepository.softDeleteTurn(testSession.id, user1.id).isEmpty())
+    }
+
+    @Test
+    fun `softDeleteTurn should hide deleted messages from pagination, search and memory reads`() {
+        val baseTime = Instant.parse("2024-01-01T00:00:00Z")
+        val user1 = addAt(MessageRole.USER, "secret question", baseTime)
+        addAt(MessageRole.ASSISTANT, "secret answer", baseTime.plus(1.seconds))
+        addAt(MessageRole.USER, "kept question", baseTime.plus(2.seconds))
+
+        messageRepository.softDeleteTurn(testSession.id, user1.id)
+
+        val (backward, _) = messageRepository.getMessagesPaginated(testSession.id, limit = 10, direction = PaginationDirection.BACKWARD)
+        assertEquals(listOf("kept question"), backward.map { it.content })
+        val (forward, _) = messageRepository.getMessagesPaginated(testSession.id, limit = 10, cursor = baseTime.minus(1.seconds))
+        assertEquals(listOf("kept question"), forward.map { it.content })
+        assertTrue(messageRepository.searchMessages(testSession.id, "secret").isEmpty())
+        assertTrue(messageRepository.searchMessages(query = "secret").isEmpty())
+        assertEquals(listOf("kept question"), messageRepository.getRecentActiveMessages(testSession.id).map { it.content })
+    }
+
+    @Test
+    fun `softDeleteTurn should hide bookmarks of deleted messages`() {
+        val baseTime = Instant.parse("2024-01-01T00:00:00Z")
+        val user1 = addAt(MessageRole.USER, "Question", baseTime)
+        val ai1 = addAt(MessageRole.ASSISTANT, "Bookmarked answer", baseTime.plus(1.seconds))
+        messageRepository.toggleBookmark(ai1.id)
+
+        messageRepository.softDeleteTurn(testSession.id, user1.id)
+
+        assertTrue(messageRepository.getBookmarkedMessages(testSession.id).isEmpty())
+        assertTrue(messageRepository.getAllBookmarkedMessages().none { it.id == ai1.id })
+        assertTrue(messageRepository.getAllBookmarkedWithSessions().none { it.first.id == ai1.id })
+        assertFalse(messageRepository.getBookmarkCountsBySession().containsKey(testSession.id))
+    }
 }

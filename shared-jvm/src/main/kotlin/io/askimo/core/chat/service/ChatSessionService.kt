@@ -793,6 +793,45 @@ class ChatSessionService(
     }
 
     /**
+     * Soft-delete a conversation turn (a user message plus its response) and rebuild the
+     * session memory without it.
+     *
+     * Unlike [markMessagesAsOutdatedAfter], the memory is rebuilt even when the session isn't
+     * cached: the persisted session memory (including its summary) would otherwise still hold
+     * the deleted turn and bring it back the next time the memory is loaded.
+     *
+     * @param sessionId The session ID
+     * @param userMessageId The user message that starts the turn
+     * @return IDs of the soft-deleted messages (empty if nothing was deleted)
+     */
+    fun deleteTurn(sessionId: String, userMessageId: String): List<String> {
+        val deletedIds = messageRepository.softDeleteTurn(sessionId, userMessageId)
+        if (deletedIds.isEmpty()) return deletedIds
+
+        sessionMemoryRepository.deleteBySessionId(sessionId)
+
+        val remainingMessages = messageRepository.getRecentActiveMessages(sessionId, limit = 50)
+        val memoryMessages = remainingMessages.map { it.toMemoryMessage() }
+
+        // Best-effort, same as forkSession: creating the memory needs an active AI provider.
+        // The stale persisted memory is already gone, so the deleted turn can't come back.
+        try {
+            getOrCreateSharedMemory(sessionId).loadFromFilteredMemory(memoryMessages)
+        } catch (e: Exception) {
+            log.debug("Could not rebuild memory for session $sessionId after deleting a turn: ${e.message}")
+        }
+
+        log.debug(
+            "Soft-deleted {} messages from session {} and reloaded {} active messages into memory",
+            deletedIds.size,
+            sessionId,
+            memoryMessages.size,
+        )
+
+        return deletedIds
+    }
+
+    /**
      * Update the content of a message and mark it as edited.
      *
      * @param messageId The ID of the message to update

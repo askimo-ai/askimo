@@ -106,6 +106,8 @@ object SqlDelightSchemaMigrations {
         },
 
         AfterVersion(65) { d -> addColumnIfMissing(d, "resource_collections", "origin", "TEXT NOT NULL DEFAULT 'LOCAL'") },
+
+        AfterVersion(66) { d -> addColumnIfMissing(d, "chat_messages", "deleted_at", "TEXT") },
     )
 
     /**

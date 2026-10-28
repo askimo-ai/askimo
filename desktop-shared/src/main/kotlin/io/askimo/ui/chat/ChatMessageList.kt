@@ -40,6 +40,7 @@ import io.askimo.core.config.VoiceProvider
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.error.AppErrorEvent
 import io.askimo.core.i18n.LocalizationManager
+import io.askimo.ui.common.components.dangerButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
@@ -86,10 +87,14 @@ fun chatMessageList(
     bookmarkedMessageIds: Set<String> = emptySet(),
     onToggleBookmark: ((String) -> Unit)? = null,
     onForkFromMessage: ((String) -> Unit)? = null,
+    onDeleteMessage: ((String) -> Unit)? = null,
 ) {
     // Retry confirmation dialog state
     var showRetryConfirmDialog by remember { mutableStateOf(false) }
     var retryMessageId by remember { mutableStateOf<String?>(null) }
+
+    // Delete confirmation dialog state — holds the user message whose turn is being deleted
+    var deleteMessageId by remember { mutableStateOf<String?>(null) }
 
     // Cache voice-output enabled flag once for the whole list — AppConfig.voice resolves a key
     // from the OS keychain, so read it off the UI thread (same pattern as chatInputField's
@@ -274,6 +279,11 @@ fun chatMessageList(
                         onToggleBookmark = onToggleBookmark,
                         onForkFromMessage = onForkFromMessage,
                         voiceOutputEnabled = voiceOutputEnabled,
+                        onDeleteMessage = if (onDeleteMessage != null) {
+                            { messageId -> deleteMessageId = messageId }
+                        } else {
+                            null
+                        },
                     )
                     isFirstMessage = false
                     messageIndex++
@@ -361,6 +371,34 @@ fun chatMessageList(
                     },
                 ) {
                     Text(stringResource("message.ai.try.again.confirm.cancel"))
+                }
+            },
+        )
+    }
+
+    // Delete confirmation dialog
+    deleteMessageId?.let { messageId ->
+        AppComponents.alertDialog(
+            onDismissRequest = { deleteMessageId = null },
+            title = {
+                Text(stringResource("message.delete.confirm.title"))
+            },
+            text = {
+                Text(stringResource("message.delete.confirm.message"))
+            },
+            confirmButton = {
+                dangerButton(
+                    onClick = {
+                        onDeleteMessage?.invoke(messageId)
+                        deleteMessageId = null
+                    },
+                ) {
+                    Text(stringResource("message.delete.confirm.confirm"))
+                }
+            },
+            dismissButton = {
+                secondaryButton(onClick = { deleteMessageId = null }) {
+                    Text(stringResource("message.delete.confirm.cancel"))
                 }
             },
         )
