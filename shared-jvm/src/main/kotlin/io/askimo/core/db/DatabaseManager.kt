@@ -180,6 +180,13 @@ class DatabaseManager private constructor(
             AskimoDatabase.Schema.migrate(driver, oldVersion, newVersion, *SqlDelightSchemaMigrations.callbacks())
             setUserVersion(driver, newVersion)
         }
+        // Self-heal regardless of `user_version`: if the on-disk counter ever drifts ahead of
+        // the real column set (e.g. a `.db` file synced/copied without its matching `-wal` file,
+        // or any other way the counter and actual schema fell out of sync), the version check
+        // above alone would skip the callback that would have added the missing column/table.
+        // Every action in SqlDelightSchemaMigrations is idempotent, so re-running them all here
+        // is always a safe no-op when the schema is already correct.
+        SqlDelightSchemaMigrations.repairAll(driver)
     }
 
     private fun currentUserVersion(driver: JdbcSqliteDriver): Long = driver.executeQuery(
