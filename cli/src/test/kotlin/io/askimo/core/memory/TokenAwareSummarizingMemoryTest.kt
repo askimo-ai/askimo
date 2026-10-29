@@ -613,6 +613,100 @@ class TokenAwareSummarizingMemoryTest {
         }
     }
 
+    // ── Thinking-block stripping (Anthropic signature-binding regression) ──────
+
+    @Test
+    fun `messages() should strip thinking state from superseded AiMessages but keep it on the most recent one`() {
+        memory = createMemory(asyncSummarization = false)
+
+        val supersededThinkingMessage = AiMessage.builder()
+            .text("earlier answer")
+            .thinking("earlier reasoning")
+            .toolExecutionRequests(emptyList())
+            .attributes(mapOf("thinking_signature" to "sig-old"))
+            .build()
+        val latestThinkingMessage = AiMessage.builder()
+            .text("latest answer")
+            .thinking("latest reasoning")
+            .toolExecutionRequests(emptyList())
+            .attributes(mapOf("thinking_signature" to "sig-new"))
+            .build()
+
+        memory.add(UserMessage.from("question 1"))
+        memory.add(supersededThinkingMessage)
+        memory.add(UserMessage.from("question 2"))
+        memory.add(latestThinkingMessage) // must remain the LAST message for this assertion
+
+        val result = memory.messages()
+        val aiMessages = result.filterIsInstance<AiMessage>()
+        assertEquals(2, aiMessages.size)
+
+        val superseded = aiMessages.first { it.text() == "earlier answer" }
+        val latest = aiMessages.first { it.text() == "latest answer" }
+
+        assertEquals(null, superseded.thinking(), "Superseded AiMessage's thinking text must be stripped")
+        assertTrue(
+            !superseded.attributes().containsKey("thinking_signature"),
+            "Superseded AiMessage's thinking_signature attribute must be stripped",
+        )
+
+        assertEquals("latest reasoning", latest.thinking(), "Most recent AiMessage must keep its thinking text intact")
+        assertEquals(
+            "sig-new",
+            latest.attributes()["thinking_signature"],
+            "Most recent AiMessage must keep its thinking_signature attribute intact",
+        )
+    }
+
+    // ── Tool-call pairing atomicity during summarization pruning ───────────────
+
+    @Test
+    fun `tool_use and tool_result ids must match after any background summarization pruning`() {
+        // Fixed per-message token weight so threshold-crossing is deterministic regardless of timing.
+        val countingEstimator: (ChatMessage) -> Int = { _ -> 1000 }
+        memory = createMemory(
+            summarizationThreshold = 0.05,
+            asyncSummarization = false,
+            tokenEstimator = countingEstimator,
+        )
+        whenever(mockChatClient.sendMessage(any())).thenReturn(
+            """{"keyFacts":{},"mainTopics":[],"recentContext":""}""",
+        )
+
+        repeat(20) { i ->
+            memory.add(UserMessage.from("filler before $i"))
+            val request = dev.langchain4j.agent.tool.ToolExecutionRequest.builder()
+                .id("toolu_pair_$i")
+                .name("some_tool")
+                .arguments("{}")
+                .build()
+            memory.add(AiMessage.from(request))
+            memory.add(dev.langchain4j.data.message.ToolExecutionResultMessage.from(request, "output $i"))
+            memory.add(UserMessage.from("filler after $i"))
+        }
+
+        Thread.sleep(1000)
+        memory.close()
+
+        val finalMessages = memory.messages()
+        val toolUseIds = finalMessages
+            .filterIsInstance<AiMessage>()
+            .flatMap { it.toolExecutionRequests() }
+            .map { it.id() }
+            .toSet()
+        val toolResultIds = finalMessages
+            .filterIsInstance<dev.langchain4j.data.message.ToolExecutionResultMessage>()
+            .map { it.id() }
+            .toSet()
+
+        assertEquals(
+            toolUseIds,
+            toolResultIds,
+            "Every surviving tool_use id must have exactly one matching tool_result and vice versa " +
+                "— a mismatch means a summarization cycle split a tool_use/tool_result pair",
+        )
+    }
+
     // ── Helper ───────────────────────────────────────────────────────────────
 
     private fun createMemory(

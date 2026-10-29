@@ -161,4 +161,79 @@ class MemoryMessageTest {
         assertEquals(null, missingToolName.toChatMessage(), "toolName == null must be dropped")
         assertEquals(null, blankToolName.toChatMessage(), "toolName blank must be dropped")
     }
+
+    // ── stripThinking() — Anthropic "thinking block bound to a different conversation" regression ──
+
+    @Test
+    @DisplayName("stripThinking should clear thinking text and signature/redacted-thinking attributes from an AiMessage")
+    fun stripThinkingRemovesThinkingStateFromAiMessage() {
+        val aiMessage = AiMessage.builder()
+            .text("final answer")
+            .thinking("let me reason about this step by step")
+            .toolExecutionRequests(emptyList())
+            .attributes(
+                mapOf(
+                    "thinking_signature" to "sig-abc",
+                    "redacted_thinking" to listOf("redacted-block-1"),
+                    "other_key" to "keep-me",
+                ),
+            )
+            .build()
+
+        val stripped = aiMessage.stripThinking()
+
+        assertTrue(stripped is AiMessage)
+        assertEquals("final answer", stripped.text(), "Visible text must be preserved")
+        assertEquals(null, stripped.thinking(), "Thinking text must be cleared")
+        assertTrue(
+            !stripped.attributes().containsKey("thinking_signature"),
+            "thinking_signature attribute must be removed",
+        )
+        assertTrue(
+            !stripped.attributes().containsKey("redacted_thinking"),
+            "redacted_thinking attribute must be removed",
+        )
+        assertEquals("keep-me", stripped.attributes()["other_key"], "Unrelated attributes must survive")
+    }
+
+    @Test
+    @DisplayName("stripThinking should preserve tool execution requests on an AiMessage that also carries thinking")
+    fun stripThinkingPreservesToolExecutionRequests() {
+        val request = ToolExecutionRequest.builder()
+            .id("toolu_stripthinking_x")
+            .name("some_tool")
+            .arguments("{}")
+            .build()
+        val aiMessage = AiMessage.builder()
+            .thinking("reasoning that led to the tool call")
+            .toolExecutionRequests(listOf(request))
+            .attributes(mapOf("thinking_signature" to "sig"))
+            .build()
+
+        val stripped = aiMessage.stripThinking()
+
+        assertTrue(stripped is AiMessage)
+        assertTrue(stripped.hasToolExecutionRequests(), "tool_use must survive thinking removal")
+        assertEquals("toolu_stripthinking_x", stripped.toolExecutionRequests().first().id())
+        assertEquals(null, stripped.thinking())
+    }
+
+    @Test
+    @DisplayName("stripThinking should be a no-op for an AiMessage with no thinking state")
+    fun stripThinkingNoOpWhenNoThinkingState() {
+        val aiMessage = AiMessage.from("plain response, no thinking involved")
+        val stripped = aiMessage.stripThinking()
+        assertEquals(aiMessage, stripped, "Messages with no thinking state should be returned unchanged")
+    }
+
+    @Test
+    @DisplayName("stripThinking should be a no-op for non-AiMessage chat message types")
+    fun stripThinkingNoOpForNonAiMessage() {
+        val userMessage = UserMessage.from("hello")
+        assertEquals(userMessage, userMessage.stripThinking(), "UserMessage must pass through unchanged")
+
+        val request = ToolExecutionRequest.builder().id("toolu_stripthinking_y").name("tool").arguments("{}").build()
+        val toolResult = ToolExecutionResultMessage.from(request, "result text")
+        assertEquals(toolResult, toolResult.stripThinking(), "ToolExecutionResultMessage must pass through unchanged")
+    }
 }

@@ -7,6 +7,7 @@ package io.askimo.core.memory
 import dev.langchain4j.data.message.ChatMessage
 import dev.langchain4j.data.message.ChatMessageType
 import dev.langchain4j.data.message.SystemMessage
+import dev.langchain4j.data.message.ToolExecutionResultMessage
 import dev.langchain4j.data.message.UserMessage
 import dev.langchain4j.memory.ChatMemory
 import io.askimo.core.chat.domain.SessionMemory
@@ -391,7 +392,18 @@ class TokenAwareSummarizingMemory(
         // Synchronize to prevent ConcurrentModificationException if the summarizer
         // prunes messages on its background thread while LangChain4j reads here.
         synchronized(messages) {
-            addAll(messages.map { it.stripImages() })
+            val lastIndex = messages.size - 1
+            messages.forEachIndexed { index, message ->
+                // Only the most recent message may legitimately carry a thinking block into
+                // the next request (Anthropic's extended-thinking + tool-use continuation).
+                // Every earlier message has already been superseded by something newer, so its
+                // thinking/signature is stripped here — see ChatMessage.stripThinking()'s doc
+                // for why this prevents "thinking block is bound to a different conversation".
+                val sanitized = message.stripImages().let { stripped ->
+                    if (index != lastIndex) stripped.stripThinking() else stripped
+                }
+                add(sanitized)
+            }
         }
     }
 
@@ -484,6 +496,32 @@ class TokenAwareSummarizingMemory(
     }
 
     /**
+     * Groups [messages] into atomic "tool-call units": a [ToolExecutionResultMessage] always
+     * stays attached to the immediately preceding unit. Mirrors
+     * [io.askimo.core.providers.ChatRequestTransformers]'s private `groupIntoToolCallUnits` —
+     * duplicated here (rather than shared) since the two live in different packages and this
+     * copy only needs to protect summarization pruning, not request-time truncation.
+     *
+     * Without this, slicing conversation history by a raw message count (as summarization
+     * pruning used to do) can cut between an assistant `tool_use` AiMessage and its matching
+     * ToolExecutionResultMessage — pruning the AiMessage while leaving the
+     * ToolExecutionResultMessage behind as the new oldest message. Anthropic then rejects the
+     * next request with "unexpected tool_use_id found in tool_result blocks ... must have a
+     * corresponding tool_use block in the previous message."
+     */
+    private fun groupIntoToolCallUnits(messages: List<ChatMessage>): List<List<ChatMessage>> {
+        val groups = mutableListOf<MutableList<ChatMessage>>()
+        for (msg in messages) {
+            if (msg is ToolExecutionResultMessage && groups.isNotEmpty()) {
+                groups.last().add(msg)
+            } else {
+                groups.add(mutableListOf(msg))
+            }
+        }
+        return groups
+    }
+
+    /**
      * Removes exactly the given message instances (by reference/identity) from the list
      * and persists to database. Using identity comparison ensures that messages added
      * *after* the AI summarization call started are never accidentally pruned.
@@ -540,9 +578,11 @@ class TokenAwareSummarizingMemory(
                         messages.filterNot { it.type() == ChatMessageType.SYSTEM }
                     }
                     if (conversationMessages.isNotEmpty()) {
-                        val summarizableCandidates = (conversationMessages.size - AppConfig.memory.protectedRecentTurns).coerceAtLeast(0)
-                        val messagesToSummarizeCount = (summarizableCandidates * AppConfig.memory.summarizationPruneFraction).toInt().coerceAtLeast(if (summarizableCandidates > 0) 1 else conversationMessages.size)
-                        val messagesToSummarize = conversationMessages.take(messagesToSummarizeCount)
+                        val units = groupIntoToolCallUnits(conversationMessages)
+                        val summarizableCandidateUnits = (units.size - AppConfig.memory.protectedRecentTurns).coerceAtLeast(0)
+                        val unitsToSummarizeCount = (summarizableCandidateUnits * AppConfig.memory.summarizationPruneFraction).toInt()
+                            .coerceAtLeast(if (summarizableCandidateUnits > 0) 1 else units.size)
+                        val messagesToSummarize = units.take(unitsToSummarizeCount).flatten()
                         generateBasicSummary(messagesToSummarize)
                         pruneMessages(messagesToSummarize)
                         log.info("Fallback basic summarization complete. Remaining: ${messages.size}")
@@ -617,23 +657,26 @@ class TokenAwareSummarizingMemory(
 
         if (conversationMessages.isEmpty()) return
 
-        // Always protect the most recent turns verbatim. Summarize the configured fraction of the
-        // remaining candidates (oldest first) so each cycle creates significant
-        // breathing room before the next trigger fires.
-        val summarizableCandidates = (conversationMessages.size - protectedTurns).coerceAtLeast(0)
-        val messagesToSummarizeCount = (summarizableCandidates * pruneFraction).toInt().coerceAtLeast(
-            if (summarizableCandidates > 0) 1 else 0,
+        // Group into tool-call units first so a prune boundary can never split an assistant
+        // tool_use AiMessage from its ToolExecutionResultMessage (see groupIntoToolCallUnits'
+        // doc for why this matters). Always protect the most recent units verbatim. Summarize
+        // the configured fraction of the remaining candidate units (oldest first) so each cycle
+        // creates significant breathing room before the next trigger fires.
+        val units = groupIntoToolCallUnits(conversationMessages)
+        val summarizableCandidateUnits = (units.size - protectedTurns).coerceAtLeast(0)
+        val unitsToSummarizeCount = (summarizableCandidateUnits * pruneFraction).toInt().coerceAtLeast(
+            if (summarizableCandidateUnits > 0) 1 else 0,
         )
 
-        if (messagesToSummarizeCount == 0) {
+        if (unitsToSummarizeCount == 0) {
             log.debug("Not enough non-protected messages to summarize yet (total: ${conversationMessages.size}, protected: $protectedTurns)")
             return
         }
 
         // Copy messages to avoid holding lock during AI call
-        val messagesToSummarize = conversationMessages.take(messagesToSummarizeCount)
+        val messagesToSummarize = units.take(unitsToSummarizeCount).flatten()
 
-        log.info("Summarizing $messagesToSummarizeCount out of ${conversationMessages.size} conversation messages (protected last $protectedTurns)")
+        log.info("Summarizing ${messagesToSummarize.size} out of ${conversationMessages.size} conversation messages (protected last $protectedTurns)")
 
         try {
             generateStructuredSummary(messagesToSummarize)

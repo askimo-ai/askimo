@@ -601,17 +601,34 @@ private inline fun <reified T> parseStructuredOutput(
     arrayKeys: Set<String> = emptySet(),
     stringKeys: Set<String> = emptySet(),
 ): T {
-    var jsonText = rawResponse
-        .removePrefix("```json")
-        .removePrefix("```")
-        .removeSuffix("```")
-        .trim()
-
-    jsonText = cleanJsonResponse(jsonText)
-    jsonText = normalizeJsonFieldTypes(jsonText, arrayKeys, stringKeys)
-
+    val jsonText = normalizeJsonFieldTypes(extractJsonObject(rawResponse), arrayKeys, stringKeys)
     return json.decodeFromString<T>(jsonText)
 }
+
+/**
+ * Parse a conversation summary from a raw model response, accepting `keyFacts` either as the
+ * schema-enforced list of `{ "name": ..., "value": ... }` pairs or as a plain
+ * `{ "key": "value" }` object (what prompt-only responses typically produce).
+ */
+private fun parseSummaryResponse(rawResponse: String): SessionConversationSummary = parseStructuredOutput<SessionConversationSummary>(
+    collapseKeyFactPairs(extractJsonObject(rawResponse)),
+    arrayKeys = setOf("mainTopics"),
+    stringKeys = setOf("recentContext"),
+)
+
+/** Rewrite a `keyFacts` array of name/value pairs into the flat object shape. */
+private fun collapseKeyFactPairs(jsonText: String): String = runCatching {
+    val root = lenientJson.parseToJsonElement(jsonText) as? JsonObject ?: return jsonText
+    val pairs = root["keyFacts"] as? JsonArray ?: return jsonText
+
+    val facts = pairs.mapNotNull { entry ->
+        val obj = entry as? JsonObject ?: return@mapNotNull null
+        val name = (obj["name"] as? JsonPrimitive)?.content?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+        name to (obj["value"] ?: JsonPrimitive(""))
+    }
+
+    JsonObject(root + ("keyFacts" to JsonObject(facts.toMap()))).toString()
+}.getOrDefault(jsonText)
 
 /**
  * Generates a structured summary of a conversation using LangChain4j's native
@@ -639,9 +656,15 @@ fun ChatModel.getSummary(conversationText: String): SessionConversationSummary {
                     JsonObjectSchema.builder()
                         .addProperty(
                             "keyFacts",
-                            JsonObjectSchema.builder()
-                                .description("Key facts as name-value pairs extracted from the conversation")
-                                .additionalProperties(true)
+                            JsonArraySchema.builder()
+                                .description("Key facts extracted from the conversation, as name/value pairs")
+                                .items(
+                                    JsonObjectSchema.builder()
+                                        .addStringProperty("name", "Short snake_case key identifying the fact")
+                                        .addStringProperty("value", "Value of the fact")
+                                        .required("name", "value")
+                                        .build(),
+                                )
                                 .build(),
                         )
                         .addProperty(
@@ -660,23 +683,21 @@ fun ChatModel.getSummary(conversationText: String): SessionConversationSummary {
         .build()
 
     val chatRequest = ChatRequest.builder()
-        .messages(UserMessage.from(buildSummaryPrompt(conversationText)))
+        .messages(UserMessage.from(buildSummaryPrompt(conversationText, keyFactsAsPairs = true)))
         .responseFormat(responseFormat)
         .build()
 
     return try {
-        val rawJson = this.chat(chatRequest).aiMessage().text() ?: "{}"
-        json.decodeFromString<SessionConversationSummary>(rawJson)
+        val rawJson = this.chat(chatRequest).aiMessage().text().orEmpty()
+        val summary = parseSummaryResponse(rawJson)
+        if (!summary.isUsable()) error("model returned an empty or truncated summary")
+        summary
     } catch (e: Exception) {
-        log.warn("Native-schema summary failed ({}), retrying with prompt-only fallback", e.message)
+        log.warn("Native-schema summary unusable ({}), retrying with prompt-only fallback", e.summarizeForLog())
         // Fallback: send without ResponseFormat, parse manually
         try {
             val rawResponse = this.chat(ChatRequest.builder().messages(UserMessage.from(buildSummaryPrompt(conversationText))).build()).aiMessage().text() ?: "{}"
-            parseStructuredOutput<SessionConversationSummary>(
-                rawResponse,
-                arrayKeys = setOf("mainTopics"),
-                stringKeys = setOf("recentContext"),
-            )
+            parseSummaryResponse(rawResponse)
         } catch (fallback: Exception) {
             log.error("Summary fallback also failed. Returning minimal context summary.", fallback)
             SessionConversationSummary(
@@ -688,11 +709,37 @@ fun ChatModel.getSummary(conversationText: String): SessionConversationSummary {
     }
 }
 
+/** A summary is only worth keeping if the model produced at least one populated field. */
+private fun SessionConversationSummary.isUsable(): Boolean = keyFacts.isNotEmpty() || mainTopics.isNotEmpty() || recentContext.isNotBlank()
+
+/**
+ * Compact single-line error description for logging.
+ * Parser errors embed the whole offending payload, which can be thousands of characters.
+ */
+private fun Throwable.summarizeForLog(): String = (message ?: this::class.simpleName.orEmpty())
+    .lineSequence()
+    .firstOrNull()
+    ?.take(200)
+    .orEmpty()
+
 /**
  * Build the system prompt for conversation summarization.
  * Emphasizes quality, specificity, and actionable facts.
+ *
+ * @param keyFactsAsPairs when true, describes `keyFacts` as a list of name/value objects to
+ *   match the native JSON schema; otherwise as a plain object for the prompt-only fallback.
  */
-private fun buildSummaryPrompt(conversationText: String) = """
+private fun buildSummaryPrompt(
+    conversationText: String,
+    keyFactsAsPairs: Boolean = false,
+): String {
+    val keyFactsShape = if (keyFactsAsPairs) {
+        """"keyFacts": [ { "name": "key_name", "value": "value" }, ... ],"""
+    } else {
+        """"keyFacts": { "key_name": "value", ... },"""
+    }
+
+    return """
     Analyze this conversation and extract a structured summary.
 
     FOCUS ON:
@@ -706,11 +753,12 @@ private fun buildSummaryPrompt(conversationText: String) = """
 
     RESPOND WITH VALID JSON ONLY (no markdown or explanation):
     {
-      "keyFacts": { "key_name": "value", ... },
+      $keyFactsShape
       "mainTopics": [ "topic1", "topic2", ... ],
       "recentContext": "1-3 sentence summary of latest state and immediate goal"
     }
-""".trimIndent()
+    """.trimIndent()
+}
 
 /**
  * Extract stable, long-term facts about the user from a conversation.
@@ -733,11 +781,11 @@ fun ChatClient.getUserMemoryFacts(conversationText: String): Map<String, String>
     return try {
         val rawResponse = this.sendMessage(prompt)
         // Wrap flat {"key":"value"} into {"facts": {...}} expected by UserMemorySummary
-        val wrapped = """{"facts": ${cleanJsonResponse(rawResponse.removePrefix("```json").removePrefix("```").removeSuffix("```").trim())}}"""
+        val wrapped = """{"facts": ${extractJsonObject(rawResponse)}}"""
         val sanitized = normalizeJsonFieldTypes(wrapped, emptySet(), emptySet())
         json.decodeFromString<UserMemorySummary>(sanitized).facts
     } catch (e: Exception) {
-        log.debug("getUserMemoryFacts: could not parse response, returning empty — {}", e.message)
+        log.debug("getUserMemoryFacts: could not parse response, returning empty — {}", e.summarizeForLog())
         emptyMap()
     }
 }
@@ -806,6 +854,116 @@ private fun buildUserMemoryPrompt(conversationText: String) = """
 
     Return empty {} if no stable personalizable facts found.
 """.trimIndent()
+
+/**
+ * Extract the best-effort JSON object from a raw model response.
+ *
+ * Handles, in order of preference: a clean response, a response wrapped in markdown/prose,
+ * and a response truncated mid-object (e.g. the model hit its token limit).
+ */
+internal fun extractJsonObject(rawResponse: String): String {
+    val stripped = rawResponse
+        .trim()
+        .removePrefix("```json")
+        .removePrefix("```")
+        .removeSuffix("```")
+        .trim()
+    val cleaned = cleanJsonResponse(stripped)
+
+    return sequenceOf(stripped, cleaned, repairTruncatedJson(stripped), repairTruncatedJson(cleaned))
+        .firstOrNull { it.isNotBlank() && it.isParsableJson() }
+        ?: cleaned
+}
+
+private fun String.isParsableJson(): Boolean = runCatching { lenientJson.parseToJsonElement(this) }.isSuccess
+
+private val lenientJson = Json { ignoreUnknownKeys = true }
+
+/**
+ * Repair JSON truncated mid-structure by cutting back to the last complete value and
+ * closing any containers that are still open.
+ *
+ * Returns [jsonText] unchanged when it is already valid or cannot be repaired.
+ */
+internal fun repairTruncatedJson(jsonText: String): String {
+    val text = jsonText.trimEnd()
+    if (!text.startsWith("{") && !text.startsWith("[")) return jsonText
+    if (text.isParsableJson()) return text
+
+    class Frame(val close: Char, val isObject: Boolean) {
+        var awaitingValue = false
+    }
+
+    val stack = ArrayDeque<Frame>()
+    var safeCut = 0
+    var safeClosers = ""
+    var inString = false
+    var escaped = false
+    var inLiteral = false
+
+    fun closers() = stack.reversed().joinToString("") { it.close.toString() }
+
+    // A value is "complete" only when it is not a pending object key waiting for its value.
+    fun markComplete(end: Int) {
+        val top = stack.lastOrNull()
+        val complete = if (top != null && top.isObject) {
+            top.awaitingValue.also { top.awaitingValue = false }
+        } else {
+            true
+        }
+        if (complete) {
+            safeCut = end
+            safeClosers = closers()
+        }
+    }
+
+    for (i in text.indices) {
+        val c = text[i]
+
+        if (inString) {
+            when {
+                escaped -> escaped = false
+
+                c == '\\' -> escaped = true
+
+                c == '"' -> {
+                    inString = false
+                    markComplete(i + 1)
+                }
+            }
+            continue
+        }
+
+        if (inLiteral && (c.isWhitespace() || c == ',' || c == '}' || c == ']')) {
+            inLiteral = false
+            markComplete(i)
+        }
+
+        when (c) {
+            '"' -> inString = true
+
+            '{', '[' -> {
+                stack.addLast(Frame(if (c == '{') '}' else ']', c == '{'))
+                safeCut = i + 1
+                safeClosers = closers()
+            }
+
+            '}', ']' -> {
+                if (stack.isNotEmpty()) stack.removeLast()
+                markComplete(i + 1)
+            }
+
+            ':' -> stack.lastOrNull()?.awaitingValue = true
+
+            ',' -> Unit
+
+            else -> if (!c.isWhitespace()) inLiteral = true
+        }
+    }
+
+    val repaired = text.substring(0, safeCut) + safeClosers
+    return if (repaired.isParsableJson()) repaired else jsonText
+}
 
 internal fun cleanJsonResponse(jsonText: String): String {
     // First, try to find the actual JSON object

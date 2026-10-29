@@ -27,33 +27,20 @@ class StructuredOutputParsingTest {
     // ── helpers that mirror the private functions ─────────────────────────────
 
     private fun parseConversationSummary(rawResponse: String): SessionConversationSummary {
-        var jsonText = rawResponse
-            .removePrefix("```json")
-            .removePrefix("```")
-            .removeSuffix("```")
-            .trim()
-
-        jsonText = cleanJsonResponse(jsonText)
-        jsonText = normalizeJsonFieldTypes(jsonText, arrayKeys = setOf("mainTopics"), stringKeys = setOf("recentContext"))
+        val jsonText = normalizeJsonFieldTypes(
+            extractJsonObject(rawResponse),
+            arrayKeys = setOf("mainTopics"),
+            stringKeys = setOf("recentContext"),
+        )
 
         return json.decodeFromString<SessionConversationSummary>(jsonText)
     }
 
-    private fun parseUserMemoryFacts(rawResponse: String): Map<String, String> {
-        var jsonText = rawResponse
-            .removePrefix("```json")
-            .removePrefix("```")
-            .removeSuffix("```")
-            .trim()
-
-        jsonText = cleanAndWrapUserMemory(jsonText)
-        return json.decodeFromString<UserMemorySummary>(jsonText).facts
-    }
+    private fun parseUserMemoryFacts(rawResponse: String): Map<String, String> = json.decodeFromString<UserMemorySummary>(cleanAndWrapUserMemory(rawResponse)).facts
 
     /** Mirrors the logic in getUserMemoryFacts() */
     private fun cleanAndWrapUserMemory(raw: String): String {
-        val cleaned = cleanJsonResponse(raw)
-        val wrapped = """{"facts": $cleaned}"""
+        val wrapped = """{"facts": ${extractJsonObject(raw)}}"""
         return normalizeJsonFieldTypes(wrapped, emptySet(), emptySet())
     }
 
@@ -119,6 +106,62 @@ class StructuredOutputParsingTest {
         assertTrue(result.keyFacts.isEmpty())
         assertTrue(result.mainTopics.isEmpty())
         assertEquals("", result.recentContext)
+    }
+
+    // ── truncated-response tests (regression: model stalls on open map schema) ─
+    @Test
+    fun `repairs response truncated after a key with no value`() {
+        // Real regression: model emitted `{"keyFacts":` then only newlines until the token cap
+        val raw = "{\"keyFacts\":" + "\n".repeat(12)
+
+        assertEquals("{}", extractJsonObject(raw))
+
+        val result = parseConversationSummary(raw)
+
+        assertTrue(result.keyFacts.isEmpty())
+        assertTrue(result.mainTopics.isEmpty())
+    }
+
+    @Test
+    fun `repairs response truncated mid-array and keeps complete values`() {
+        val raw = """{"keyFacts":{"lang":"Kotlin"},"mainTopics":["memory","summar"""
+
+        val result = parseConversationSummary(raw)
+
+        assertEquals("Kotlin", result.keyFacts["lang"])
+        assertEquals(listOf("memory"), result.mainTopics)
+    }
+
+    @Test
+    fun `repairs response truncated mid-object and drops the dangling key`() {
+        val raw = """{"keyFacts":{"lang":"Kotlin","framework":"""
+
+        val result = parseConversationSummary(raw)
+
+        assertEquals(mapOf("lang" to "Kotlin"), result.keyFacts)
+    }
+
+    @Test
+    fun `leaves already-valid json untouched`() {
+        val raw = """{"keyFacts":{},"mainTopics":["a"],"recentContext":"x"}"""
+
+        assertEquals(raw, repairTruncatedJson(raw))
+    }
+
+    @Test
+    fun `returns original text when repair is impossible`() {
+        val raw = "not json at all"
+
+        assertEquals(raw, repairTruncatedJson(raw))
+    }
+
+    @Test
+    fun `repairs truncated user memory facts`() {
+        val raw = """{"role":"engineer","os":"ma"""
+
+        val result = parseUserMemoryFacts(raw)
+
+        assertEquals(mapOf("role" to "engineer"), result)
     }
 
     // ── UserMemorySummary / getUserMemoryFacts tests ──────────────────────────
