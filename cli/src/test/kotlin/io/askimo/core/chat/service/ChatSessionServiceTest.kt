@@ -86,7 +86,11 @@ class ChatSessionServiceTest {
         whenever(mockAppContext.buildUserMemoryPrefix()).thenReturn("")
         whenever(mockSecondaryModel.chat(any<ChatRequest>())).thenReturn(
             ChatResponse.builder()
-                .aiMessage(AiMessage.from("""{"keyFacts":{},"mainTopics":[],"recentContext":""}"""))
+                .aiMessage(
+                    AiMessage.from(
+                        """{"keyFacts":[{"name":"topic","value":"testing"}],"mainTopics":["testing"],"recentContext":"Verifying summarization."}""",
+                    ),
+                )
                 .build(),
         )
 

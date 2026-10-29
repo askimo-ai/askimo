@@ -273,3 +273,59 @@ fun ChatMessage.stripImages(): ChatMessage = when (this) {
  * This is the reverse operation of MemoryMessage.toChatMessage()
  */
 fun ChatMessage.toMemoryMessage(): MemoryMessage = MemoryMessage.from(this)
+
+/**
+ * Attribute key langchain4j-anthropic uses on [AiMessage] to carry the cryptographic signature
+ * of a `thinking` content block (see `dev.langchain4j.model.anthropic.internal.mapper.AnthropicMapper
+ * .THINKING_SIGNATURE_KEY`). Hardcoded here (rather than depending on that `internal` package)
+ * because the upstream constant is explicitly documented as a stable literal:
+ * "do not change, will break backward compatibility!".
+ */
+private const val THINKING_SIGNATURE_KEY = "thinking_signature"
+
+/**
+ * Attribute key for `redacted_thinking` blocks — see [THINKING_SIGNATURE_KEY]'s doc for why this
+ * is a hardcoded literal instead of an import.
+ */
+private const val REDACTED_THINKING_KEY = "redacted_thinking"
+
+/**
+ * Returns a copy of this [ChatMessage] with any thinking/reasoning content and its
+ * provider-specific signature attributes removed. No-op for non-[AiMessage] types and for
+ * [AiMessage]s that carry no thinking state (avoids an unnecessary rebuild).
+ *
+ * ## Why this exists
+ * Anthropic's extended thinking cryptographically signs each `thinking` block, binding it to
+ * the exact sequence of prior messages it was generated with. Replaying a signed block into a
+ * *later, different* request — e.g. because it's still sitting unmodified in long-lived
+ * [ChatMessage] history — makes Anthropic reject the request with:
+ * "Invalid `signature` in `thinking` block. The block is bound to a different conversation."
+ *
+ * ## Why callers must NOT apply this to the most recent message
+ * Anthropic's extended-thinking + tool-use flow *requires* the thinking block from the latest
+ * `AiMessage` to be echoed back verbatim on the immediately following request when continuing a
+ * multi-step tool-calling turn (tool_use -> tool_result -> next model call, all within one
+ * logical turn). Stripping it there would break that legitimate continuation. Only messages that
+ * have already been superseded by something newer in the conversation should be stripped — see
+ * callers for how "superseded" is determined.
+ */
+fun ChatMessage.stripThinking(): ChatMessage = when (this) {
+    is AiMessage -> {
+        val hasThinkingState = thinking() != null ||
+            attributes().containsKey(THINKING_SIGNATURE_KEY) ||
+            attributes().containsKey(REDACTED_THINKING_KEY)
+        if (!hasThinkingState) {
+            this
+        } else {
+            val sanitizedAttributes = attributes().filterKeys {
+                it != THINKING_SIGNATURE_KEY && it != REDACTED_THINKING_KEY
+            }
+            toBuilder()
+                .thinking(null)
+                .attributes(sanitizedAttributes)
+                .build()
+        }
+    }
+
+    else -> this
+}

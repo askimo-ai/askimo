@@ -182,6 +182,7 @@ class AnthropicModelFactory : ChatModelFactory<AnthropicSettings> {
             .modelName(settings.defaultModel)
             .baseUrl(settings.baseUrl)
             .timeout(Duration.ofSeconds(AppConfig.models.requestTimeoutInSeconds))
+            .cacheSystemMessages(true)
             .cacheTools(true)
             .listeners(listOf(TelemetryChatModelListener(telemetry, ANTHROPIC.name.lowercase())))
             .apply {
