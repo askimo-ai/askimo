@@ -958,7 +958,7 @@ fun chatView(
                             Icon(
                                 Icons.Default.Search,
                                 contentDescription = "Search",
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                tint = AppColors.contentColorFor(AppColors.Elevation.ACCENT),
                             )
 
                             // Search input field
@@ -982,7 +982,7 @@ fun chatView(
                                         "${currentSearchResultIndex + 1}/${searchResults.size}"
                                     },
                                     style = AppTextStyles.caption,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    color = AppColors.secondaryContentColorFor(AppColors.Elevation.ACCENT),
                                     modifier = Modifier.padding(horizontal = Spacing.small),
                                 )
                             }

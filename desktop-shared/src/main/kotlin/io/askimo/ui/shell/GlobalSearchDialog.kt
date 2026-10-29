@@ -56,6 +56,7 @@ import io.askimo.core.search.DateFilter
 import io.askimo.core.search.SearchResult
 import io.askimo.core.search.SessionSearchService
 import io.askimo.core.search.SortBy
+import io.askimo.ui.common.components.clickableCard
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
@@ -199,104 +200,26 @@ fun globalSearchDialog(
                 horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
             ) {
                 // Date Filter
-                Column(
+                filterDropdown(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-                ) {
-                    Text(
-                        text = stringResource("global.search.filter.date"),
-                        style = AppTextStyles.fieldLabel,
-                    )
-                    Box {
-                        Card(
-                            onClick = { dateFilterExpanded = true },
-                            modifier = Modifier.fillMaxWidth().pointerHoverIcon(PointerIcon.Hand),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(Spacing.medium),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    text = selectedDateFilter,
-                                    style = AppTextStyles.body,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f).padding(end = Spacing.small),
-                                )
-                                Icon(Icons.Default.Edit, contentDescription = null, tint = AppTextStyles.primaryContent)
-                            }
-                        }
-                        AppComponents.dropdownMenu(
-                            expanded = dateFilterExpanded,
-                            onDismissRequest = { dateFilterExpanded = false },
-                        ) {
-                            dateFilterOptions.forEachIndexed { index, option ->
-                                AppComponents.themedDropdownMenuItem(
-                                    text = { Text(option, style = AppTextStyles.body) },
-                                    onClick = {
-                                        selectedDateFilter = option
-                                        dateFilterExpanded = false
-                                    },
-                                    isSelected = option == selectedDateFilter,
-                                    showDivider = index < dateFilterOptions.lastIndex,
-                                )
-                            }
-                        }
-                    }
-                }
+                    label = stringResource("global.search.filter.date"),
+                    selectedOption = selectedDateFilter,
+                    options = dateFilterOptions,
+                    expanded = dateFilterExpanded,
+                    onExpandedChange = { dateFilterExpanded = it },
+                    onOptionSelected = { selectedDateFilter = it },
+                )
 
                 // Sort By
-                Column(
+                filterDropdown(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-                ) {
-                    Text(
-                        text = stringResource("global.search.sort.by"),
-                        style = AppTextStyles.fieldLabel,
-                    )
-                    Box {
-                        Card(
-                            onClick = { sortByExpanded = true },
-                            modifier = Modifier.fillMaxWidth().pointerHoverIcon(PointerIcon.Hand),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(Spacing.medium),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    text = selectedSortBy,
-                                    style = AppTextStyles.body,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f).padding(end = Spacing.small),
-                                )
-                                Icon(Icons.Default.Edit, contentDescription = null, tint = AppTextStyles.primaryContent)
-                            }
-                        }
-                        AppComponents.dropdownMenu(
-                            expanded = sortByExpanded,
-                            onDismissRequest = { sortByExpanded = false },
-                        ) {
-                            sortByOptions.forEachIndexed { index, option ->
-                                AppComponents.themedDropdownMenuItem(
-                                    text = { Text(option, style = AppTextStyles.body) },
-                                    onClick = {
-                                        selectedSortBy = option
-                                        sortByExpanded = false
-                                    },
-                                    isSelected = option == selectedSortBy,
-                                    showDivider = index < sortByOptions.lastIndex,
-                                )
-                            }
-                        }
-                    }
-                }
+                    label = stringResource("global.search.sort.by"),
+                    selectedOption = selectedSortBy,
+                    options = sortByOptions,
+                    expanded = sortByExpanded,
+                    onExpandedChange = { sortByExpanded = it },
+                    onOptionSelected = { selectedSortBy = it },
+                )
             }
         },
         content = {
@@ -407,6 +330,71 @@ fun globalSearchDialog(
     )
 }
 
+/**
+ * A labeled, card-styled dropdown trigger used for the date-filter and sort-by selectors.
+ * Shows [label] above a clickable [selectedOption] pill that opens a themed dropdown menu
+ * listing [options]; selecting one calls [onOptionSelected] and closes the menu.
+ */
+@Composable
+private fun filterDropdown(
+    label: String,
+    selectedOption: String,
+    options: List<String>,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    onOptionSelected: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+    ) {
+        Text(
+            text = label,
+            style = AppTextStyles.fieldLabel,
+        )
+        Box {
+            Card(
+                onClick = { onExpandedChange(true) },
+                modifier = Modifier.fillMaxWidth().pointerHoverIcon(PointerIcon.Hand),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(Spacing.medium),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = selectedOption,
+                        style = AppTextStyles.body,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f).padding(end = Spacing.small),
+                    )
+                    Icon(Icons.Default.Edit, contentDescription = null, tint = AppTextStyles.primaryContent)
+                }
+            }
+            AppComponents.dropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { onExpandedChange(false) },
+            ) {
+                options.forEachIndexed { index, option ->
+                    AppComponents.themedDropdownMenuItem(
+                        text = { Text(option, style = AppTextStyles.body) },
+                        onClick = {
+                            onOptionSelected(option)
+                            onExpandedChange(false)
+                        },
+                        isSelected = option == selectedOption,
+                        showDivider = index < options.lastIndex,
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun searchResultItem(
     result: SearchResult,
@@ -431,11 +419,9 @@ private fun searchResultItem(
         highlightSearchTerms(messagePreview, searchQuery)
     }
 
-    Card(
+    clickableCard(
         onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .pointerHoverIcon(PointerIcon.Hand),
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = AppColors.surfaceColor(AppColors.Elevation.RAISED),
         ),
