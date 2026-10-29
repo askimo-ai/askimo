@@ -6,6 +6,7 @@ package io.askimo.core.chat.domain
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlin.math.abs
 
 /**
  * Base sealed class for all knowledge source configurations.
@@ -18,6 +19,37 @@ import kotlinx.serialization.Serializable
 sealed class KnowledgeSourceConfig {
     abstract val resourceIdentifier: String
     abstract val config: Map<String, String>
+
+    /**
+     * Ranking weight applied to retrieved content from this source (see
+     * `HybridContentRetriever`). Defaults to [KnowledgeSourcePriority.NORMAL], which
+     * leaves ranking unchanged, so JSON stored before this field existed decodes as-is.
+     */
+    abstract val priority: Double
+}
+
+/**
+ * The priority levels offered in the UI and the ranking weight each maps to. The stored
+ * value is the plain [weight], so it can be tuned without migrating saved sources.
+ */
+enum class KnowledgeSourcePriority(val weight: Double) {
+    LOW(0.5),
+    NORMAL(1.0),
+    HIGH(2.0),
+    ALWAYS_PRIORITIZE(100.0),
+    ;
+
+    companion object {
+        /** The level whose weight is closest to [weight], for displaying a stored value. */
+        fun fromWeight(weight: Double): KnowledgeSourcePriority = entries.minBy { abs(it.weight - weight) }
+    }
+}
+
+/** Returns a copy of this source with [priority] replaced, keeping its concrete type. */
+fun KnowledgeSourceConfig.withPriority(priority: Double): KnowledgeSourceConfig = when (this) {
+    is LocalFoldersKnowledgeSourceConfig -> copy(priority = priority)
+    is LocalFilesKnowledgeSourceConfig -> copy(priority = priority)
+    is UrlKnowledgeSourceConfig -> copy(priority = priority)
 }
 
 /**
@@ -39,6 +71,7 @@ data class LocalFoldersKnowledgeSourceConfig(
     override val resourceIdentifier: String,
     val watchForChanges: Boolean = true,
     override val config: Map<String, String> = emptyMap(),
+    override val priority: Double = KnowledgeSourcePriority.NORMAL.weight,
 ) : KnowledgeSourceConfig()
 
 /**
@@ -54,6 +87,7 @@ data class LocalFoldersKnowledgeSourceConfig(
 data class LocalFilesKnowledgeSourceConfig(
     override val resourceIdentifier: String,
     override val config: Map<String, String> = emptyMap(),
+    override val priority: Double = KnowledgeSourcePriority.NORMAL.weight,
 ) : KnowledgeSourceConfig()
 
 /**
@@ -72,6 +106,7 @@ data class LocalFilesKnowledgeSourceConfig(
 data class UrlKnowledgeSourceConfig(
     override val resourceIdentifier: String,
     override val config: Map<String, String> = emptyMap(),
+    override val priority: Double = KnowledgeSourcePriority.NORMAL.weight,
 ) : KnowledgeSourceConfig()
 
 /**

@@ -760,8 +760,10 @@ class RagIndexer(
             val knowledgeSource = event.knowledgeSource
 
             val containerCoordinators = coordinators[containerKey]
+            // Match by identity, not full equality: the live coordinator keeps the config it
+            // was started with, so a later watch or priority change would otherwise miss it.
             val coordinatorToRemove = containerCoordinators?.find {
-                it.knowledgeSourceConfig == event.knowledgeSource
+                it.knowledgeSourceConfig.resourceIdentifier == event.knowledgeSource.resourceIdentifier
             }
 
             if (coordinatorToRemove != null) {

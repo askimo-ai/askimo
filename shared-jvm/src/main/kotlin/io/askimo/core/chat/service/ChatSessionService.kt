@@ -10,6 +10,7 @@ import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever
 import io.askimo.core.cache.SynchronizedCache
 import io.askimo.core.chat.domain.ChatMessage
 import io.askimo.core.chat.domain.ChatSession
+import io.askimo.core.chat.domain.KnowledgeSourceConfig
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.domain.SESSION_TITLE_MAX_LENGTH
 import io.askimo.core.chat.dto.ChatMessageDTO
@@ -46,8 +47,10 @@ import io.askimo.core.memory.MemoryMessage
 import io.askimo.core.memory.TokenAwareSummarizingMemory
 import io.askimo.core.providers.ChatClient
 import io.askimo.core.providers.ModelProvider
+import io.askimo.core.rag.KnowledgeSourcePriorityResolver
 import io.askimo.core.rag.RagUtils
 import io.askimo.core.rag.container.IndexingContainer
+import io.askimo.core.rag.container.IndexingContainerType
 import io.askimo.core.rag.container.asIndexingContainer
 import io.askimo.core.util.formatFileSize
 import io.askimo.core.vision.toUserMessage
@@ -352,6 +355,17 @@ class ChatSessionService(
     ): ChatClient = getOrCreateContextForSession(sessionId).chatClient
 
     /**
+     * Re-reads [container]'s knowledge sources so priority changes reach a session whose
+     * retriever is already cached. Falls back to the sources the retriever was built with.
+     */
+    private fun currentKnowledgeSources(container: IndexingContainer): List<KnowledgeSourceConfig> = runCatching {
+        when (container.type) {
+            IndexingContainerType.PROJECT -> projectRepository.getProject(container.id)?.knowledgeSources
+            IndexingContainerType.RESOURCE_COLLECTION -> resourceCollectionRepository.getCollection(container.id)?.knowledgeSources
+        }
+    }.getOrNull() ?: container.knowledgeSources
+
+    /**
      * Build a [ContentRetriever] for any RAG-indexed [IndexingContainer] (a [Project] or a
      * [io.askimo.core.chat.domain.ResourceCollection]). Same pipeline for both — hybrid
      * vector (JVector) + keyword (Lucene) search with RRF fusion, optionally augmented
@@ -389,6 +403,7 @@ class ChatSessionService(
                     .build(),
                 container.knowledgeSources.map { it.resourceIdentifier },
                 useWebSearch = useWebSearch,
+                priorityResolver = KnowledgeSourcePriorityResolver { currentKnowledgeSources(container) },
             )
 
             return vectorRetriever

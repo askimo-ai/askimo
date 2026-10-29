@@ -75,6 +75,7 @@ import io.askimo.core.rag.state.IndexStatus
 import io.askimo.core.util.TimeUtil
 import io.askimo.desktop.knowledgesource.addReferenceMaterialDialog
 import io.askimo.desktop.knowledgesource.buildKnowledgeSourceConfigs
+import io.askimo.desktop.knowledgesource.knowledgeSourcePrioritySelector
 import io.askimo.desktop.knowledgesource.knowledgeSourcesPanel
 import io.askimo.desktop.knowledgesource.mergeKnowledgeSourceConfigs
 import io.askimo.ui.chat.CreationMode
@@ -333,6 +334,7 @@ fun projectView(
                                     viewModel.toggleWatchForChanges(source, watch)
                                 }
                             },
+                            onPriorityChange = { priority -> viewModel.setPriority(source, priority) },
                         )
                     }
 
@@ -617,6 +619,7 @@ private fun knowledgeSourceItem(
     onDelete: () -> Unit = {},
     onRescan: () -> Unit = {},
     onWatchToggle: (Boolean) -> Unit = {},
+    onPriorityChange: (Double) -> Unit = {},
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -650,6 +653,8 @@ private fun knowledgeSourceItem(
         Row(
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            knowledgeSourcePrioritySelector(priority = source.priority, onPriorityChange = onPriorityChange)
+
             // Watch-for-changes toggle — only folders can be watched (files/URLs never are)
             if (source is LocalFoldersKnowledgeSourceConfig) {
                 themedTooltip(text = stringResource("projects.sources.watch.tooltip")) {
