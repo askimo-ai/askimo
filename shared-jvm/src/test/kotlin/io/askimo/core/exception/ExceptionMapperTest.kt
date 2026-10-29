@@ -5,6 +5,8 @@
 package io.askimo.core.exception
 
 import dev.langchain4j.exception.InternalServerException
+import io.askimo.core.chat.util.AttachmentStorageException
+import io.askimo.core.chat.util.FileSizeExceededException
 import org.junit.jupiter.api.Test
 import java.io.IOException
 import java.util.concurrent.CompletionException
@@ -120,6 +122,24 @@ class ExceptionMapperTest {
         val original = RateLimitException(retryAfterSeconds = 30)
         val mapped = ExceptionMapper.map(original)
         assertEquals(original, mapped)
+    }
+
+    // ── Attachment storage failures ─────────────────────────────────────────────
+
+    @Test
+    fun `AttachmentStorageException is classified as AttachmentException carrying the raw message`() {
+        val e = AttachmentStorageException("Source file does not exist: /tmp/missing-file.png")
+        val mapped = ExceptionMapper.map(e)
+        assertIs<AttachmentException>(mapped)
+        assertTrue(mapped.details.contains("Source file does not exist"))
+    }
+
+    @Test
+    fun `FileSizeExceededException is classified as AttachmentException with formatted size details`() {
+        val e = FileSizeExceededException(fileSize = 20_000_000L, maxAllowedSize = 10_000_000L)
+        val mapped = ExceptionMapper.map(e)
+        assertIs<AttachmentException>(mapped)
+        assertTrue(mapped.details.contains("too large"))
     }
 
     // ── End-to-end: what the user actually sees via ExceptionHandler ────────────

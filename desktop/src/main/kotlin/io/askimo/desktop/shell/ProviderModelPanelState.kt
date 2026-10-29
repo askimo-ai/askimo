@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import io.askimo.core.context.AppContext
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.error.AppErrorEvent
+import io.askimo.core.exception.ExceptionHandler
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
 import io.askimo.core.providers.ChatModelFactory
@@ -20,7 +21,6 @@ import io.askimo.core.providers.ProviderInstance
 import io.askimo.core.providers.ProviderInstanceService
 import io.askimo.core.providers.ProviderSettings
 import io.askimo.core.providers.ProviderTestResult
-import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -233,7 +233,7 @@ class ProviderModelPanelState(
                 } catch (e: Exception) {
                     log.error("Connection test failed for instance $instanceId", e)
                     ProviderTestResult.Failure(
-                        message = ErrorHandler.getUserFriendlyError(e, "testing connection", "Could not reach the provider. Please check your settings."),
+                        message = ExceptionHandler.handle(e, "testing connection", "Could not reach the provider. Please check your settings."),
                     )
                 }
             }
@@ -327,7 +327,7 @@ class ProviderModelPanelState(
                 EventBus.post(
                     AppErrorEvent(
                         title = "Failed to load models",
-                        message = ErrorHandler.getUserFriendlyError(e, "loading models for ${instance.providerType}"),
+                        message = ExceptionHandler.handle(e, "loading models for ${instance.providerType}"),
                         cause = e,
                     ),
                 )

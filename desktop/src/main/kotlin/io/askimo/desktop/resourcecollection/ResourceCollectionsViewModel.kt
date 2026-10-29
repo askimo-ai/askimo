@@ -23,10 +23,10 @@ import io.askimo.core.event.user.IndexingCompletedEvent
 import io.askimo.core.event.user.IndexingFailedEvent
 import io.askimo.core.event.user.IndexingQueuedEvent
 import io.askimo.core.event.user.IndexingStartedEvent
+import io.askimo.core.exception.ExceptionHandler
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
 import io.askimo.core.rag.container.IndexingContainerType
-import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -166,7 +166,7 @@ class ResourceCollectionsViewModel(
                 }
                 pagedCollections = result
             } catch (e: Exception) {
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "loading collections",
                     LocalizationManager.getString("resourcecollections.error.loading"),
@@ -264,7 +264,7 @@ class ResourceCollectionsViewModel(
                     errorMessage = LocalizationManager.getString("resourcecollections.error.not.found")
                 }
             } catch (e: Exception) {
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "deleting collection",
                     LocalizationManager.getString("resourcecollections.error.deleting"),
@@ -293,7 +293,7 @@ class ResourceCollectionsViewModel(
         }
         updated
     } catch (e: Exception) {
-        errorMessage = ErrorHandler.getUserFriendlyError(
+        errorMessage = ExceptionHandler.handle(
             e,
             "updating collection",
             LocalizationManager.getString("resourcecollections.error.updating"),

@@ -173,6 +173,22 @@ class LocalServerException(
 }
 
 /**
+ * An attachment could not be saved to persistent storage — e.g. the source file went
+ * missing before it could be copied, or an I/O error occurred while copying it. When this
+ * is thrown, the caller must not persist the associated message, to avoid orphaned
+ * attachment metadata pointing at a file that was never stored.
+ *
+ * @param details A short description of the failure (e.g. the missing file path).
+ */
+class AttachmentException(
+    val details: String = "",
+    cause: Throwable? = null,
+) : UserException("Attachment storage failed", cause) {
+    override fun getMessageKey() = "error.attachment"
+    override fun getMessageArgs() = mapOf("details" to details)
+}
+
+/**
  * Remote AI provider returned a server-side error (HTTP 5xx), such as 503 Service Unavailable
  * or 529 Service Overloaded. This is typically transient — the provider's infrastructure is
  * temporarily overwhelmed. The request may succeed after a brief wait and retry.

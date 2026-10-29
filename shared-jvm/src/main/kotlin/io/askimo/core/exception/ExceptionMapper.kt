@@ -6,9 +6,12 @@ package io.askimo.core.exception
 
 import dev.langchain4j.exception.InternalServerException
 import dev.langchain4j.exception.ModelNotFoundException
+import io.askimo.core.chat.util.AttachmentStorageException
+import io.askimo.core.chat.util.FileSizeExceededException
 import io.askimo.core.config.AppConfig
 import io.askimo.core.logging.logger
 import io.askimo.core.providers.isContextLengthMessage
+import io.askimo.core.util.formatFileSize
 import java.net.ConnectException
 import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
@@ -153,6 +156,21 @@ object ExceptionMapper {
                 RemoteServerException(details = msg, cause = exception)
             }
         }
+
+        // An attachment file could not be saved (e.g. source file went missing before it
+        // could be copied, or an I/O error occurred during copy). See AttachmentStorageManager.
+        is AttachmentStorageException -> AttachmentException(
+            details = exception.message ?: "",
+            cause = exception,
+        )
+
+        // Attachment exceeds the configured maximum file size. Preserve the formatted
+        // size detail rather than falling back to the generic exception message.
+        is FileSizeExceededException -> AttachmentException(
+            details = "File is too large (${formatFileSize(exception.fileSize)}). " +
+                "Maximum allowed size is ${formatFileSize(exception.maxAllowedSize)}.",
+            cause = exception,
+        )
 
         // Add more type-based matches as needed
         else -> null
