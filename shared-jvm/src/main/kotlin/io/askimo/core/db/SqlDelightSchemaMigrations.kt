@@ -34,81 +34,112 @@ import app.cash.sqldelight.db.SqlDriver
  *
  * Verified against `io.askimo.core.db.SchemaMigrations` by `SchemaMigrationEquivalenceTest`,
  * which must pass before this is trusted as a drop-in replacement for the JDBC-loop version.
+ *
+ * SELF-HEALING: every action below is idempotent (guarded by `tableColumns`/existence checks),
+ * so in addition to being wired up as version-gated [AfterVersion] callbacks for the normal
+ * `Schema.migrate()` path, they're also exposed via [repairAll] — which re-applies ALL of them
+ * unconditionally, regardless of the recorded `PRAGMA user_version`. [DatabaseManager] calls
+ * [repairAll] on every startup (not just when a migration actually runs) so that a database
+ * whose `user_version` has drifted ahead of its real column set (e.g. a `.db` file copied/synced
+ * from another machine without its matching `-wal` file, an interrupted prior run, or any other
+ * way the counter and the actual schema fell out of sync) still gets missing columns/tables
+ * repaired instead of throwing "no such column" at query time.
  */
 object SqlDelightSchemaMigrations {
 
-    fun callbacks(): Array<AfterVersion> = arrayOf(
-        AfterVersion(4) { d -> addColumnIfMissing(d, "projects", "synced_at", "TEXT") },
-        AfterVersion(5) { d -> addColumnIfMissing(d, "projects", "is_starred", "INTEGER DEFAULT 0") },
-        AfterVersion(6) { d -> addColumnIfMissing(d, "projects", "space_id", "TEXT") },
-        AfterVersion(7) { d -> addColumnIfMissing(d, "projects", "space_name", "TEXT") },
-        AfterVersion(8) { d -> addColumnIfMissing(d, "projects", "default_directive_id", "TEXT") },
+    /**
+     * Single source of truth for every conditional migration action, each paired with the
+     * schema version it's anchored to. [callbacks] wraps these as version-gated [AfterVersion]
+     * callbacks for `Schema.migrate()`; [repairAll] runs all of them unconditionally as a
+     * self-healing pass. Add new entries only for new `.sqm` files added after the highest
+     * existing version — same append-only rule as before.
+     */
+    private val migrationActions: List<Pair<Long, (SqlDriver) -> Unit>> = listOf(
+        4L to { d -> addColumnIfMissing(d, "projects", "synced_at", "TEXT") },
+        5L to { d -> addColumnIfMissing(d, "projects", "is_starred", "INTEGER DEFAULT 0") },
+        6L to { d -> addColumnIfMissing(d, "projects", "space_id", "TEXT") },
+        7L to { d -> addColumnIfMissing(d, "projects", "space_name", "TEXT") },
+        8L to { d -> addColumnIfMissing(d, "projects", "default_directive_id", "TEXT") },
 
-        AfterVersion(10) { d -> addColumnIfMissing(d, "resource_collections", "index_status", "TEXT NOT NULL DEFAULT 'NOT_STARTED'") },
-        AfterVersion(11) { d -> addColumnIfMissing(d, "resource_collections", "last_indexed_at", "TEXT") },
-        AfterVersion(12) { d -> addColumnIfMissing(d, "resource_collections", "index_error", "TEXT") },
+        10L to { d -> addColumnIfMissing(d, "resource_collections", "index_status", "TEXT NOT NULL DEFAULT 'NOT_STARTED'") },
+        11L to { d -> addColumnIfMissing(d, "resource_collections", "last_indexed_at", "TEXT") },
+        12L to { d -> addColumnIfMissing(d, "resource_collections", "index_error", "TEXT") },
 
-        AfterVersion(14) { d ->
+        14L to { d ->
             addColumnIfMissing(d, "chat_sessions", "project_id", "TEXT REFERENCES projects(id) ON DELETE CASCADE")
         },
-        AfterVersion(15) { d -> addColumnIfMissing(d, "chat_sessions", "synced_at", "TEXT") },
-        AfterVersion(16) { d -> addColumnIfMissing(d, "chat_sessions", "is_user_renamed", "INTEGER DEFAULT 0") },
-        AfterVersion(17) { d ->
+        15L to { d -> addColumnIfMissing(d, "chat_sessions", "synced_at", "TEXT") },
+        16L to { d -> addColumnIfMissing(d, "chat_sessions", "is_user_renamed", "INTEGER DEFAULT 0") },
+        17L to { d ->
             addColumnIfMissing(d, "chat_sessions", "active_resource_collection_ids", "VARCHAR(2000) DEFAULT '[]'")
         },
-        AfterVersion(18) { d -> dropColumnIfExists(d, "chat_sessions", "sort_order") },
+        18L to { d -> dropColumnIfExists(d, "chat_sessions", "sort_order") },
 
-        AfterVersion(20) { d -> addColumnIfMissing(d, "chat_messages", "is_edited", "INTEGER DEFAULT 0") },
-        AfterVersion(21) { d -> addColumnIfMissing(d, "chat_messages", "is_failed", "INTEGER DEFAULT 0") },
-        AfterVersion(22) { d -> addColumnIfMissing(d, "chat_messages", "synced_at", "TEXT") },
-        AfterVersion(23) { d -> addColumnIfMissing(d, "chat_messages", "input_tokens", "INTEGER") },
-        AfterVersion(24) { d -> addColumnIfMissing(d, "chat_messages", "output_tokens", "INTEGER") },
-        AfterVersion(25) { d -> addColumnIfMissing(d, "chat_messages", "total_tokens", "INTEGER") },
-        AfterVersion(26) { d -> addColumnIfMissing(d, "chat_messages", "duration_ms", "INTEGER") },
-        AfterVersion(27) { d -> addColumnIfMissing(d, "chat_messages", "is_bookmarked", "INTEGER DEFAULT 0") },
-        AfterVersion(28) { d -> addColumnIfMissing(d, "chat_messages", "content_json", "TEXT") },
-        AfterVersion(29) { d ->
+        20L to { d -> addColumnIfMissing(d, "chat_messages", "is_edited", "INTEGER DEFAULT 0") },
+        21L to { d -> addColumnIfMissing(d, "chat_messages", "is_failed", "INTEGER DEFAULT 0") },
+        22L to { d -> addColumnIfMissing(d, "chat_messages", "synced_at", "TEXT") },
+        23L to { d -> addColumnIfMissing(d, "chat_messages", "input_tokens", "INTEGER") },
+        24L to { d -> addColumnIfMissing(d, "chat_messages", "output_tokens", "INTEGER") },
+        25L to { d -> addColumnIfMissing(d, "chat_messages", "total_tokens", "INTEGER") },
+        26L to { d -> addColumnIfMissing(d, "chat_messages", "duration_ms", "INTEGER") },
+        27L to { d -> addColumnIfMissing(d, "chat_messages", "is_bookmarked", "INTEGER DEFAULT 0") },
+        28L to { d -> addColumnIfMissing(d, "chat_messages", "content_json", "TEXT") },
+        29L to { d ->
             addColumnIfMissing(d, "chat_messages", "used_resource_collection_ids", "VARCHAR(2000) DEFAULT '[]'")
         },
 
-        AfterVersion(35) { d ->
+        35L to { d ->
             addColumnIfMissing(d, "chat_directives", "updated_at", "TEXT NOT NULL DEFAULT '1970-01-01T00:00:00'")
         },
-        AfterVersion(36) { d -> addColumnIfMissing(d, "chat_directives", "deleted_at", "TEXT") },
-        AfterVersion(37) { d -> addColumnIfMissing(d, "chat_directives", "synced_at", "TEXT") },
-        AfterVersion(38) { d -> addColumnIfMissing(d, "chat_directives", "scope", "TEXT NOT NULL DEFAULT 'PERSONAL'") },
-        AfterVersion(39) { d -> addColumnIfMissing(d, "chat_directives", "created_by", "TEXT") },
+        36L to { d -> addColumnIfMissing(d, "chat_directives", "deleted_at", "TEXT") },
+        37L to { d -> addColumnIfMissing(d, "chat_directives", "synced_at", "TEXT") },
+        38L to { d -> addColumnIfMissing(d, "chat_directives", "scope", "TEXT NOT NULL DEFAULT 'PERSONAL'") },
+        39L to { d -> addColumnIfMissing(d, "chat_directives", "created_by", "TEXT") },
 
-        AfterVersion(42) { d -> migrateFileSegmentsTable(d) },
+        42L to { d -> migrateFileSegmentsTable(d) },
 
-        AfterVersion(44) { d -> migrateIndexFileStateTable(d) },
+        44L to { d -> migrateIndexFileStateTable(d) },
 
-        AfterVersion(46) { d -> addColumnIfMissing(d, "plan_executions", "step_outputs", "TEXT") },
-        AfterVersion(47) { d -> addColumnIfMissing(d, "plan_executions", "total_input_tokens", "INTEGER") },
-        AfterVersion(48) { d -> addColumnIfMissing(d, "plan_executions", "total_output_tokens", "INTEGER") },
-        AfterVersion(49) { d -> addColumnIfMissing(d, "plan_executions", "total_tokens", "INTEGER") },
-        AfterVersion(50) { d -> addColumnIfMissing(d, "plan_executions", "total_duration_ms", "INTEGER") },
+        46L to { d -> addColumnIfMissing(d, "plan_executions", "step_outputs", "TEXT") },
+        47L to { d -> addColumnIfMissing(d, "plan_executions", "total_input_tokens", "INTEGER") },
+        48L to { d -> addColumnIfMissing(d, "plan_executions", "total_output_tokens", "INTEGER") },
+        49L to { d -> addColumnIfMissing(d, "plan_executions", "total_tokens", "INTEGER") },
+        50L to { d -> addColumnIfMissing(d, "plan_executions", "total_duration_ms", "INTEGER") },
 
-        AfterVersion(53) { d -> addColumnIfMissing(d, "agent_run_history", "content_json", "TEXT") },
-        AfterVersion(54) { d -> addColumnIfMissing(d, "agent_run_history", "agent_id", "TEXT") },
-        AfterVersion(55) { d -> addColumnIfMissing(d, "agent_run_history", "is_cancelled", "INTEGER NOT NULL DEFAULT 0") },
+        53L to { d -> addColumnIfMissing(d, "agent_run_history", "content_json", "TEXT") },
+        54L to { d -> addColumnIfMissing(d, "agent_run_history", "agent_id", "TEXT") },
+        55L to { d -> addColumnIfMissing(d, "agent_run_history", "is_cancelled", "INTEGER NOT NULL DEFAULT 0") },
 
-        AfterVersion(57) { d ->
+        57L to { d ->
             addColumnIfMissing(d, "resource_collections", "index_status", "TEXT NOT NULL DEFAULT 'NOT_STARTED'")
             addColumnIfMissing(d, "resource_collections", "last_indexed_at", "TEXT")
             addColumnIfMissing(d, "resource_collections", "index_error", "TEXT")
         },
-        AfterVersion(58) { d -> addColumnIfMissing(d, "chat_message_attachments", "storage_path", "VARCHAR(1024)") },
+        58L to { d -> addColumnIfMissing(d, "chat_message_attachments", "storage_path", "VARCHAR(1024)") },
 
-        AfterVersion(61) { d ->
+        61L to { d ->
             dropColumnIfExists(d, "projects", "space_id")
             dropColumnIfExists(d, "projects", "space_name")
         },
 
-        AfterVersion(65) { d -> addColumnIfMissing(d, "resource_collections", "origin", "TEXT NOT NULL DEFAULT 'LOCAL'") },
+        65L to { d -> addColumnIfMissing(d, "resource_collections", "origin", "TEXT NOT NULL DEFAULT 'LOCAL'") },
 
-        AfterVersion(66) { d -> addColumnIfMissing(d, "chat_messages", "deleted_at", "TEXT") },
+        66L to { d -> addColumnIfMissing(d, "chat_messages", "deleted_at", "TEXT") },
     )
+
+    fun callbacks(): Array<AfterVersion> = migrationActions.map { (version, action) ->
+        AfterVersion(version) { d -> action(d) }
+    }.toTypedArray()
+
+    /**
+     * Re-applies every conditional migration action unconditionally, regardless of
+     * `PRAGMA user_version`. Safe to call on every startup: each action is guarded by an
+     * existence check and is a no-op when the table/column is already in its current shape.
+     * See the class doc for why this is necessary in addition to [callbacks].
+     */
+    fun repairAll(driver: SqlDriver) {
+        migrationActions.forEach { (_, action) -> action(driver) }
+    }
 
     /**
      * Adds [column] to [table] only if it doesn't already exist. Ported 1:1 from
