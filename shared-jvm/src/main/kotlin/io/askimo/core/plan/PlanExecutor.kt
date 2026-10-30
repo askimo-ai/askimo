@@ -7,6 +7,7 @@ package io.askimo.core.plan
 import dev.langchain4j.agentic.AgenticServices
 import dev.langchain4j.agentic.UntypedAgent
 import dev.langchain4j.model.chat.ChatModel
+import dev.langchain4j.model.chat.StreamingChatModel
 import io.askimo.core.analytics.Analytics
 import io.askimo.core.analytics.AnalyticsEvent
 import io.askimo.core.event.EventBus
@@ -45,7 +46,7 @@ import java.util.concurrent.Executors
  * Only built-in [ToolRegistry] tools are resolved at this layer.
  * MCP tools are skipped until a plan-aware MCP wiring layer is added.
  */
-class PlanExecutor(private val chatModel: ChatModel) {
+class PlanExecutor(private val chatModel: StreamingChatModel) {
 
     private val log = logger<PlanExecutor>()
 
@@ -385,7 +386,7 @@ class PlanExecutor(private val chatModel: ChatModel) {
             ?: error("Plan references unknown step '${node.stepId}'")
 
         val builder = AgenticServices.agentBuilder()
-            .chatModel(chatModel)
+            .streamingChatModel(chatModel)
             .name(step.id)
             .outputKey(step.id)
             .userMessage(step.message)

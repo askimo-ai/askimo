@@ -111,7 +111,7 @@ class PlanService(
         planExecutionRepository.updateStatus(execution.id, PlanExecutionStatus.RUNNING)
         log.info("Starting plan '{}' (execution={})", plan.id, execution.id)
 
-        val chatModel = runCatching { appContext.createChatModel() }.getOrElse { e ->
+        val chatModel = runCatching { appContext.createStreamingChatModel() }.getOrElse { e ->
             val msg = "Failed to create chat model for plan '${plan.id}': ${e.message}"
             log.error(msg, e)
             planExecutionRepository.updateStatus(execution.id, PlanExecutionStatus.FAILED, msg)

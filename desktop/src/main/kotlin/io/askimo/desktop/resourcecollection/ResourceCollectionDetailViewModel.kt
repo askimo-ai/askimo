@@ -272,7 +272,7 @@ class ResourceCollectionDetailViewModel(
                 loadCollection()
             } catch (e: Exception) {
                 log.error("Failed to change knowledge source priority", e)
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "changing knowledge source priority",
                     LocalizationManager.getString("resourcecollections.error.updating"),
