@@ -48,7 +48,7 @@ class HybridContentRetrieverTest {
         priorityResolver = if (withResolver) KnowledgeSourcePriorityResolver { sources.toList() } else null,
     ).retrieve(Query.from("q")).map { it.textSegment().text() }
 
-    private fun folder(path: Path, priority: KnowledgeSourcePriority) = LocalFoldersKnowledgeSourceConfig(path.toString(), priority = priority.weight)
+    private fun folder(path: Path, priority: KnowledgeSourcePriority) = LocalFoldersKnowledgeSourceConfig(path.toString(), priority = priority)
 
     @Test
     fun `without a resolver the ranking is plain RRF`() {

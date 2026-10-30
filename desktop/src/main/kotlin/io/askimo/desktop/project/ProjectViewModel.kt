@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
+import io.askimo.core.chat.domain.KnowledgeSourcePriority
 import io.askimo.core.chat.domain.LocalFoldersKnowledgeSourceConfig
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.domain.withPriority
@@ -307,7 +308,7 @@ class ProjectViewModel(
      * Change a source's ranking priority. Retrieval reads it at query time, so no
      * re-index is needed.
      */
-    fun setPriority(source: KnowledgeSourceConfig, priority: Double) {
+    fun setPriority(source: KnowledgeSourceConfig, priority: KnowledgeSourcePriority) {
         val project = currentProject ?: return
         scope.launch {
             try {

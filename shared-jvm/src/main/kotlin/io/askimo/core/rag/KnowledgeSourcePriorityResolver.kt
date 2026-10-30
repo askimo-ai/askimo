@@ -12,7 +12,7 @@ import java.nio.file.Paths
 
 /**
  * Maps retrieved [Content] back to the knowledge source it was indexed from and returns
- * that source's [KnowledgeSourceConfig.priority].
+ * the weight of that source's [KnowledgeSourceConfig.priority].
  *
  * Chunks carry no source id, but every local chunk has an absolute `file_path` and every
  * URL chunk has its `url`, so the owning source can be found at query time without
@@ -20,10 +20,10 @@ import java.nio.file.Paths
  * path, or an exact URL. Live web results and anything unmatched get
  * [KnowledgeSourcePriority.NORMAL].
  *
+ * @param ignoreCase Whether paths compare case-insensitively (true on Windows).
  * @param sources Supplies the container's current sources. It's read once per
  *   [snapshot] rather than captured at construction, so a priority change applies to
  *   the next query even though the session's retriever is cached.
- * @param ignoreCase Whether paths compare case-insensitively (true on Windows).
  */
 class KnowledgeSourcePriorityResolver(
     private val ignoreCase: Boolean = System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true),
@@ -33,13 +33,13 @@ class KnowledgeSourcePriorityResolver(
     /** Returns a weight lookup for one query, built from the sources as they are now. */
     fun snapshot(): (Content) -> Double {
         val current = sources()
-        if (current.all { it.priority == KnowledgeSourcePriority.NORMAL.weight }) return { NORMAL }
+        if (current.all { it.priority == KnowledgeSourcePriority.NORMAL }) return { NORMAL }
 
         val urlWeights = current.filterIsInstance<UrlKnowledgeSourceConfig>()
-            .associate { it.resourceIdentifier.trim() to it.priority }
+            .associate { it.resourceIdentifier.trim() to it.priority.weight }
         // Longest first, so a nested folder wins over its parent.
         val pathWeights = current.filterNot { it is UrlKnowledgeSourceConfig }
-            .map { normalizePath(it.resourceIdentifier) to it.priority }
+            .map { normalizePath(it.resourceIdentifier) to it.priority.weight }
             .sortedByDescending { it.first.length }
 
         return { content ->

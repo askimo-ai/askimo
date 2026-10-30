@@ -60,6 +60,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
+import io.askimo.core.chat.domain.KnowledgeSourcePriority
 import io.askimo.core.chat.domain.LocalFoldersKnowledgeSourceConfig
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.dto.FileAttachmentDTO
@@ -619,7 +620,7 @@ private fun knowledgeSourceItem(
     onDelete: () -> Unit = {},
     onRescan: () -> Unit = {},
     onWatchToggle: (Boolean) -> Unit = {},
-    onPriorityChange: (Double) -> Unit = {},
+    onPriorityChange: (KnowledgeSourcePriority) -> Unit = {},
 ) {
     var showMenu by remember { mutableStateOf(false) }
 

@@ -35,16 +35,15 @@ import io.askimo.ui.common.ui.themedTooltip
 
 /**
  * Compact priority picker shown on each knowledge source row (Project and Resource
- * Collection views). Displays the level closest to the stored [priority] weight and
- * reports the chosen level's weight through [onPriorityChange].
+ * Collection views). Shows the current [priority] and reports the chosen level through
+ * [onPriorityChange].
  */
 @Composable
 fun knowledgeSourcePrioritySelector(
-    priority: Double,
-    onPriorityChange: (Double) -> Unit,
+    priority: KnowledgeSourcePriority,
+    onPriorityChange: (KnowledgeSourcePriority) -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    val current = KnowledgeSourcePriority.fromWeight(priority)
 
     Box {
         themedTooltip(text = stringResource("projects.sources.priority.tooltip")) {
@@ -54,7 +53,7 @@ fun knowledgeSourcePrioritySelector(
                 modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
             ) {
                 Text(
-                    text = stringResource(current.labelKey()),
+                    text = stringResource(priority.labelKey()),
                     style = AppTextStyles.caption,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
@@ -71,10 +70,10 @@ fun knowledgeSourcePrioritySelector(
                     text = { Text(stringResource(level.labelKey())) },
                     onClick = {
                         showMenu = false
-                        if (level != current) onPriorityChange(level.weight)
+                        if (level != priority) onPriorityChange(level)
                     },
                     leadingIcon = {
-                        if (level == current) {
+                        if (level == priority) {
                             Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
                         } else {
                             Spacer(modifier = Modifier.width(16.dp))

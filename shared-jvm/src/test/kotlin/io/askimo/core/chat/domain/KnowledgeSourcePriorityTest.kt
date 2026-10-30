@@ -26,7 +26,7 @@ class KnowledgeSourcePriorityTest {
         val sources = KnowledgeSourceSerializer.deserialize(withoutPriority)
 
         assertEquals(3, sources.size)
-        assertTrue(sources.all { it.priority == KnowledgeSourcePriority.NORMAL.weight })
+        assertTrue(sources.all { it.priority == KnowledgeSourcePriority.NORMAL })
         assertEquals(false, (sources[0] as LocalFoldersKnowledgeSourceConfig).watchForChanges)
     }
 
@@ -34,26 +34,44 @@ class KnowledgeSourcePriorityTest {
     fun `legacy path array decodes as normal`() {
         val sources = KnowledgeSourceSerializer.deserialize("""["/repo/src", "/repo/docs"]""")
 
-        assertEquals(listOf(1.0, 1.0), sources.map { it.priority })
+        assertEquals(listOf(KnowledgeSourcePriority.NORMAL, KnowledgeSourcePriority.NORMAL), sources.map { it.priority })
     }
 
     @Test
     fun `priority survives a save and load`() {
         val sources = listOf(
-            LocalFoldersKnowledgeSourceConfig("/repo/src", priority = KnowledgeSourcePriority.HIGH.weight),
-            UrlKnowledgeSourceConfig("https://example.com/docs", priority = KnowledgeSourcePriority.LOW.weight),
+            LocalFoldersKnowledgeSourceConfig("/repo/src", priority = KnowledgeSourcePriority.HIGH),
+            UrlKnowledgeSourceConfig("https://example.com/docs", priority = KnowledgeSourcePriority.LOW),
         )
 
         assertEquals(sources, KnowledgeSourceSerializer.deserialize(KnowledgeSourceSerializer.serialize(sources)))
     }
 
     @Test
+    fun `priority is saved as its weight`() {
+        val saved = KnowledgeSourceSerializer.serialize(
+            listOf(LocalFoldersKnowledgeSourceConfig("/repo/src", priority = KnowledgeSourcePriority.HIGH)),
+        )
+
+        assertTrue(saved.contains("\"priority\":2.0"), saved)
+    }
+
+    @Test
+    fun `a saved weight between levels loads as the nearest level`() {
+        val saved = KnowledgeSourceSerializer.serialize(
+            listOf(LocalFoldersKnowledgeSourceConfig("/repo/src", priority = KnowledgeSourcePriority.HIGH)),
+        ).replace("\"priority\":2.0", "\"priority\":1.8")
+
+        assertEquals(KnowledgeSourcePriority.HIGH, KnowledgeSourceSerializer.deserialize(saved).single().priority)
+    }
+
+    @Test
     fun `withPriority keeps the source type and its other fields`() {
         val folder = LocalFoldersKnowledgeSourceConfig("/repo/src", watchForChanges = false, config = mapOf("excludePatterns" to "build"))
 
-        val updated = folder.withPriority(KnowledgeSourcePriority.ALWAYS_PRIORITIZE.weight)
+        val updated = folder.withPriority(KnowledgeSourcePriority.ALWAYS_PRIORITIZE)
 
-        assertEquals(folder.copy(priority = KnowledgeSourcePriority.ALWAYS_PRIORITIZE.weight), updated)
+        assertEquals(folder.copy(priority = KnowledgeSourcePriority.ALWAYS_PRIORITIZE), updated)
     }
 
     @Test

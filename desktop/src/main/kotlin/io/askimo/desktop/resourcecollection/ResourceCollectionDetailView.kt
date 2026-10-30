@@ -53,6 +53,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
+import io.askimo.core.chat.domain.KnowledgeSourcePriority
 import io.askimo.core.chat.domain.LocalFoldersKnowledgeSourceConfig
 import io.askimo.core.chat.domain.ResourceCollection
 import io.askimo.core.event.EventBus
@@ -489,7 +490,7 @@ private fun knowledgeSourceItemForCollection(
     onSelect: () -> Unit = {},
     onDelete: () -> Unit = {},
     onWatchToggle: (Boolean) -> Unit = {},
-    onPriorityChange: (Double) -> Unit = {},
+    onPriorityChange: (KnowledgeSourcePriority) -> Unit = {},
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
