@@ -11,6 +11,7 @@ import io.askimo.core.context.AppContext
 import io.askimo.core.error.AppError
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.ProviderInstanceSavedEvent
+import io.askimo.core.exception.ExceptionHandler
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
 import io.askimo.core.providers.ChatModelFactory
@@ -26,7 +27,6 @@ import io.askimo.core.providers.ProviderTestResult
 import io.askimo.core.providers.SettingField
 import io.askimo.core.providers.openaicompatible.OpenAiCompatibleSettings
 import io.askimo.core.providers.openaicompatible.OpenAiCompatibleTemplate
-import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -488,7 +488,7 @@ class ProviderWizardViewModel(
                 } catch (e: Exception) {
                     log.error("Error saving instance", e)
                     ProviderTestResult.Failure(
-                        ErrorHandler.getUserFriendlyError(e, "saving instance", "Failed to apply provider settings. Please try again."),
+                        ExceptionHandler.handle(e, "saving instance", "Failed to apply provider settings. Please try again."),
                     )
                 }
             }
@@ -593,7 +593,7 @@ class ProviderWizardViewModel(
                 } catch (e: Exception) {
                     log.error("Error auto-fetching models for provider config", e)
                     ProviderTestResult.Failure(
-                        ErrorHandler.getUserFriendlyError(e, "fetching models", "Could not reach the provider. Please check your settings."),
+                        ExceptionHandler.handle(e, "fetching models", "Could not reach the provider. Please check your settings."),
                     )
                 }
             }

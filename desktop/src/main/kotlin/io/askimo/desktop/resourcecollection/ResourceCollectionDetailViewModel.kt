@@ -25,6 +25,7 @@ import io.askimo.core.event.user.IndexingFailedEvent
 import io.askimo.core.event.user.IndexingInProgressEvent
 import io.askimo.core.event.user.IndexingQueuedEvent
 import io.askimo.core.event.user.IndexingStartedEvent
+import io.askimo.core.exception.ExceptionHandler
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
 import io.askimo.core.rag.container.IndexingContainerType
@@ -32,7 +33,6 @@ import io.askimo.core.rag.state.IndexProgress
 import io.askimo.core.rag.state.IndexStateManager
 import io.askimo.core.rag.state.IndexStatus
 import io.askimo.desktop.knowledgesource.mergeKnowledgeSourceConfigs
-import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filter
@@ -103,7 +103,7 @@ class ResourceCollectionDetailViewModel(
                 log.debug("Loaded collection: ${collection?.name} (${collection?.id})")
             } catch (e: Exception) {
                 log.error("Failed to load collection", e)
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "loading collection",
                     LocalizationManager.getString("resourcecollections.error.loading"),
@@ -144,7 +144,7 @@ class ResourceCollectionDetailViewModel(
         updated
     } catch (e: Exception) {
         log.error("Failed to update collection", e)
-        errorMessage = ErrorHandler.getUserFriendlyError(
+        errorMessage = ExceptionHandler.handle(
             e,
             "updating collection",
             LocalizationManager.getString("resourcecollections.error.updating"),
@@ -162,7 +162,7 @@ class ResourceCollectionDetailViewModel(
         }
     } catch (e: Exception) {
         log.error("Failed to delete collection", e)
-        errorMessage = ErrorHandler.getUserFriendlyError(
+        errorMessage = ExceptionHandler.handle(
             e,
             "deleting collection",
             LocalizationManager.getString("resourcecollections.error.deleting"),
@@ -201,7 +201,7 @@ class ResourceCollectionDetailViewModel(
                 }
             } catch (e: Exception) {
                 log.error("Failed to add knowledge sources", e)
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "adding knowledge sources",
                     LocalizationManager.getString("resourcecollections.error.updating"),
@@ -239,7 +239,7 @@ class ResourceCollectionDetailViewModel(
                 loadCollection()
             } catch (e: Exception) {
                 log.error("Failed to delete knowledge source", e)
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "deleting knowledge source",
                     LocalizationManager.getString("resourcecollections.error.updating"),
@@ -315,7 +315,7 @@ class ResourceCollectionDetailViewModel(
                 loadCollection()
             } catch (e: Exception) {
                 log.error("Failed to toggle watch for changes", e)
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "toggling watch for changes",
                     LocalizationManager.getString("resourcecollections.error.updating"),

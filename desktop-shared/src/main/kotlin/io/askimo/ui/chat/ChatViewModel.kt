@@ -29,11 +29,11 @@ import io.askimo.core.event.internal.ChatInProgressEvent
 import io.askimo.core.event.internal.DiagramFixedEvent
 import io.askimo.core.event.internal.ProjectRefreshEvent
 import io.askimo.core.event.internal.SessionTitleUpdatedEvent
+import io.askimo.core.exception.ExceptionHandler
 import io.askimo.core.logging.logger
 import io.askimo.core.memory.MemoryPressureLevel
 import io.askimo.core.util.TextUtils
 import io.askimo.ui.session.SessionManager
-import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -46,6 +46,7 @@ import kotlinx.coroutines.withContext
 import java.util.UUID
 import kotlin.collections.plus
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 
 /**
@@ -379,6 +380,35 @@ class ChatViewModel(
     }
 
     /**
+     * Persists the partial streamed AI response as a failed message after an error, appending
+     * the rendered error text so the saved message shows why it failed (not just cut-off
+     * partial text). Replaces the temporary id=null streaming message with the saved one,
+     * giving it a real id so retry becomes available.
+     *
+     * @param sessionId The session the failed response belongs to
+     * @param renderedError The already-localized/rendered error text (see [ExceptionHandler.handle])
+     */
+    private suspend fun saveFailedPartialResponse(sessionId: String, renderedError: String) {
+        val partial = currentResponse.ifBlank { "" }
+        val failedMessage = withContext(Dispatchers.IO) {
+            chatSessionService.saveAiResponse(
+                sessionId = sessionId,
+                response = if (partial.isBlank()) renderedError else "$partial\n\n$renderedError",
+                isFailed = true,
+            )
+        }
+        // Replace the temporary id=null streaming message with the saved failed one
+        messages = messages.toMutableList().apply {
+            val tempIndex = indexOfLast { !it.isUser && it.id == null }
+            if (tempIndex >= 0) {
+                this[tempIndex] = failedMessage.toDTO()
+            } else {
+                add(failedMessage.toDTO())
+            }
+        }
+    }
+
+    /**
      * Subscribe to a SPECIFIC thread by sessionId.
      * This ensures we only get chunks from THIS specific question, not old ones.
      */
@@ -674,34 +704,22 @@ class ChatViewModel(
                     } catch (e: Exception) {
                         log.error("Failed to retry message", e)
                         if (currentSessionId.value == sessionId) {
-                            errorMessage = ErrorHandler.getUserFriendlyError(e, "retrying message")
+                            val renderedError = ExceptionHandler.handle(e, "retrying message")
                             isLoading = false
                             EventBus.post(ChatCompletedEvent(sessionId = sessionId, failed = true))
                             isThinking = false
                             stopThinkingTimer()
-                            // Save the failed partial response so it gets a real id and retry remains available
-                            val partial = currentResponse.ifBlank { "" }
-                            val failedMessage = withContext(Dispatchers.IO) {
-                                chatSessionService.saveAiResponse(
-                                    sessionId = sessionId,
-                                    response = partial,
-                                    isFailed = true,
-                                )
-                            }
-                            messages = messages.toMutableList().apply {
-                                val tempIndex = indexOfLast { !it.isUser && it.id == null }
-                                if (tempIndex >= 0) {
-                                    this[tempIndex] = failedMessage.toDTO()
-                                } else {
-                                    add(failedMessage.toDTO())
-                                }
-                            }
+                            // The rendered error is shown inline as the failed message bubble
+                            // (via saveFailedPartialResponse + the retry icon in
+                            // MessageComponents), so it's not also surfaced in the below-input
+                            // errorMessage banner here.
+                            saveFailedPartialResponse(sessionId, renderedError)
                         }
                     }
                 }
             } catch (e: Exception) {
                 log.error("Failed to retry message", e)
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "retrying message",
                     "Failed to retry message. Please try again.",
@@ -796,27 +814,10 @@ class ChatViewModel(
                 subscribeToThread(sessionId)
             } catch (e: Exception) {
                 if (currentSessionId.value == sessionId) {
-                    errorMessage = ErrorHandler.getUserFriendlyError(e, "sending message")
+                    val renderedError = ExceptionHandler.handle(e, "sending message")
                     isThinking = false
                     stopThinkingTimer()
-                    // Save the failed partial response so it gets a real id and retry becomes available
-                    val partial = currentResponse.ifBlank { "" }
-                    val failedMessage = withContext(Dispatchers.IO) {
-                        chatSessionService.saveAiResponse(
-                            sessionId = sessionId,
-                            response = partial,
-                            isFailed = true,
-                        )
-                    }
-                    // Replace the temporary id=null streaming message with the saved failed one
-                    messages = messages.toMutableList().apply {
-                        val tempIndex = indexOfLast { !it.isUser && it.id == null }
-                        if (tempIndex >= 0) {
-                            this[tempIndex] = failedMessage.toDTO()
-                        } else {
-                            add(failedMessage.toDTO())
-                        }
-                    }
+                    saveFailedPartialResponse(sessionId, renderedError)
                 } else {
                     EventBus.emit(SendMessageErrorEvent(e))
                 }
@@ -861,7 +862,7 @@ class ChatViewModel(
         // Timer for elapsed seconds
         thinkingJob = viewModelScope.launch {
             while (isThinking) {
-                delay(1000)
+                delay(1000.milliseconds)
                 thinkingElapsedSeconds = ((System.currentTimeMillis() - startTimeMillis) / 1000).toInt()
             }
         }
@@ -869,7 +870,7 @@ class ChatViewModel(
         // Animation for spinner frames (200ms interval like CLI)
         animationJob = viewModelScope.launch {
             while (isThinking) {
-                delay(200)
+                delay(200.milliseconds)
                 thinkingFrameIndex++
             }
         }
@@ -1007,7 +1008,7 @@ class ChatViewModel(
                     isLoading = false
                 }
             } catch (e: Exception) {
-                errorMessage = ErrorHandler.getUserFriendlyError(e, "resuming session", "Failed to load session. Please try again.")
+                errorMessage = ExceptionHandler.handle(e, "resuming session", "Failed to load session. Please try again.")
                 isLoading = false
             }
         }
@@ -1047,7 +1048,7 @@ class ChatViewModel(
                 isLoadingPrevious = false
             } catch (e: Exception) {
                 log.error("Failed to load previous messages", e)
-                errorMessage = ErrorHandler.getUserFriendlyError(e, "loading previous messages", "Failed to load previous messages. Please try again.")
+                errorMessage = ExceptionHandler.handle(e, "loading previous messages", "Failed to load previous messages. Please try again.")
                 isLoadingPrevious = false
             }
         }
@@ -1098,7 +1099,7 @@ class ChatViewModel(
                 isSearching = false
             } catch (e: Exception) {
                 log.error("Failed to search messages", e)
-                errorMessage = ErrorHandler.getUserFriendlyError(e, "searching messages", "Search failed. Please try again.")
+                errorMessage = ExceptionHandler.handle(e, "searching messages", "Search failed. Please try again.")
                 isSearching = false
             }
         }
@@ -1221,7 +1222,7 @@ class ChatViewModel(
                 // Signal ChatView to scroll to the target message after recomposition
                 pendingScrollToMessageId = messageId
             } catch (e: Exception) {
-                errorMessage = ErrorHandler.getUserFriendlyError(e, "jumping to message", "Failed to navigate to message. Please try again.")
+                errorMessage = ExceptionHandler.handle(e, "jumping to message", "Failed to navigate to message. Please try again.")
                 isLoading = false
             }
         }
@@ -1246,7 +1247,7 @@ class ChatViewModel(
                 true
             }
         } catch (e: Exception) {
-            errorMessage = ErrorHandler.getUserFriendlyError(
+            errorMessage = ExceptionHandler.handle(
                 e,
                 "editing message",
                 "Failed to mark messages as outdated.",
@@ -1283,7 +1284,7 @@ class ChatViewModel(
                 }
             }
         } catch (e: Exception) {
-            errorMessage = ErrorHandler.getUserFriendlyError(
+            errorMessage = ExceptionHandler.handle(
                 e,
                 "editing message",
                 "Failed to edit message. Please try again.",
@@ -1447,7 +1448,7 @@ class ChatViewModel(
                     }
                 }
             } catch (e: Exception) {
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "updating message",
                     "Failed to update message. Please try again.",
@@ -1569,7 +1570,7 @@ class ChatViewModel(
                 }
             } catch (e: Exception) {
                 log.error("Failed to delete message {}", messageId, e)
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "deleting message",
                     "Failed to delete message. Please try again.",

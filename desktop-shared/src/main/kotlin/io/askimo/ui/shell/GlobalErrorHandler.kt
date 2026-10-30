@@ -15,6 +15,7 @@ import io.askimo.core.event.error.ModelNotAvailableEvent
 import io.askimo.core.event.error.SendMessageErrorEvent
 import io.askimo.core.event.internal.NavigateToProviderSettingsEvent
 import io.askimo.core.exception.AuthenticationException
+import io.askimo.core.exception.ExceptionHandler
 import io.askimo.core.exception.ExceptionMapper
 import io.askimo.core.exception.ModelNotFoundChatException
 import io.askimo.core.exception.ProviderNotConfiguredException
@@ -193,10 +194,7 @@ fun globalErrorHandler(onStateChange: (ErrorDialogState) -> Unit) {
 
                 is SendMessageErrorEvent -> {
                     val mapped = ExceptionMapper.map(event.throwable)
-                    val localizedMsg = LocalizationManager.getString(
-                        mapped.getMessageKey(),
-                        *mapped.getMessageArgs().values.toTypedArray(),
-                    )
+                    val localizedMsg = ExceptionHandler.localizedMessage(mapped)
                     val isProviderConfigError = mapped is AuthenticationException ||
                         mapped is ProviderNotConfiguredException ||
                         mapped is ModelNotFoundChatException

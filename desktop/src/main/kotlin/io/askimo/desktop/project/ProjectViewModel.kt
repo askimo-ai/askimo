@@ -29,13 +29,13 @@ import io.askimo.core.event.user.IndexingFailedEvent
 import io.askimo.core.event.user.IndexingInProgressEvent
 import io.askimo.core.event.user.IndexingQueuedEvent
 import io.askimo.core.event.user.IndexingStartedEvent
+import io.askimo.core.exception.ExceptionHandler
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
 import io.askimo.core.rag.RagIndexer
 import io.askimo.core.rag.container.IndexingContainerType
 import io.askimo.core.rag.state.IndexProgress
 import io.askimo.core.rag.state.IndexStatus
-import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filter
@@ -120,7 +120,7 @@ class ProjectViewModel(
                 log.debug("Loaded project: ${project?.name} (${project?.id})")
             } catch (e: Exception) {
                 log.error("Failed to load project", e)
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "loading project",
                     LocalizationManager.getString("project.error.loading"),
@@ -144,7 +144,7 @@ class ProjectViewModel(
                 log.debug("Loaded ${sessions.size} sessions for project $projectId")
             } catch (e: Exception) {
                 log.error("Failed to load project sessions", e)
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "loading project sessions",
                     LocalizationManager.getString("project.error.loading_sessions"),
@@ -166,7 +166,7 @@ class ProjectViewModel(
                 log.debug("Loaded ${projects.size} projects for dropdown")
             } catch (e: Exception) {
                 log.error("Failed to load all projects", e)
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "loading projects list",
                     LocalizationManager.getString("projects.error.loading"),
@@ -220,7 +220,7 @@ class ProjectViewModel(
                 loadProject() // Refresh project data
             } catch (e: Exception) {
                 log.error("Failed to update project", e)
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "updating project",
                     LocalizationManager.getString("project.error.updating"),
@@ -267,7 +267,7 @@ class ProjectViewModel(
                 loadProject()
             } catch (e: Exception) {
                 log.error("Failed to delete knowledge source", e)
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "deleting knowledge source",
                     LocalizationManager.getString("project.error.deleting_knowledge_source"),
@@ -295,7 +295,7 @@ class ProjectViewModel(
                 )
             } catch (e: Exception) {
                 log.error("Failed to request rescan for knowledge source", e)
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "rescanning knowledge source",
                     LocalizationManager.getString("project.error.rescanning_knowledge_source"),
@@ -379,7 +379,7 @@ class ProjectViewModel(
                 loadProject()
             } catch (e: Exception) {
                 log.error("Failed to toggle watch for changes", e)
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "toggling watch for changes",
                     LocalizationManager.getString("project.error.updating_knowledge_source"),
@@ -416,7 +416,7 @@ class ProjectViewModel(
                 loadSessions()
             } catch (e: Exception) {
                 log.error("Failed to move session", e)
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "moving session",
                     LocalizationManager.getString("session.error.moving"),
@@ -446,7 +446,7 @@ class ProjectViewModel(
                 loadSessions()
             } catch (e: Exception) {
                 log.error("Failed to remove session from project", e)
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "removing session from project",
                     LocalizationManager.getString("session.error.removing"),

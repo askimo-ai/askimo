@@ -19,11 +19,11 @@ import io.askimo.core.event.internal.ProjectRefreshEvent
 import io.askimo.core.event.internal.ProjectsRefreshEvent
 import io.askimo.core.event.internal.ProviderInstanceSavedEvent
 import io.askimo.core.event.internal.ReIndexEvent
+import io.askimo.core.exception.ExceptionHandler
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
 import io.askimo.core.rag.container.IndexingContainerType
 import io.askimo.ui.shell.ProjectsSidebarState
-import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -177,7 +177,7 @@ class ProjectsViewModel(
                 }
                 pagedProjects = result
             } catch (e: Exception) {
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "loading projects",
                     LocalizationManager.getString("projects.error.loading"),
@@ -293,7 +293,7 @@ class ProjectsViewModel(
                     errorMessage = LocalizationManager.getString("projects.error.not.found")
                 }
             } catch (e: Exception) {
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "deleting project",
                     LocalizationManager.getString("projects.error.deleting"),
@@ -327,7 +327,7 @@ class ProjectsViewModel(
                 refresh()
             } catch (e: Exception) {
                 log.error("Failed to update project $projectId", e)
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "updating project",
                     LocalizationManager.getString("projects.error.updating"),

@@ -16,11 +16,11 @@ import io.askimo.core.event.internal.BookmarkToggledEvent
 import io.askimo.core.event.internal.SessionCreatedEvent
 import io.askimo.core.event.internal.SessionTitleUpdatedEvent
 import io.askimo.core.event.internal.SessionsRefreshEvent
+import io.askimo.core.exception.ExceptionHandler
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
 import io.askimo.ui.common.export.ExportFormat
 import io.askimo.ui.shell.PinnedSidebarState
-import io.askimo.ui.util.ErrorHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -267,7 +267,7 @@ class SessionsViewModel(
                 }
                 pagedSessions = result
             } catch (e: Exception) {
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "loading sessions",
                     LocalizationManager.getString("sessions.error.loading"),
@@ -381,7 +381,7 @@ class SessionsViewModel(
                     errorMessage = LocalizationManager.getString("sessions.error.not.found")
                 }
             } catch (e: Exception) {
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "deleting session",
                     LocalizationManager.getString("sessions.error.deleting"),
@@ -406,7 +406,7 @@ class SessionsViewModel(
                     errorMessage = LocalizationManager.getString("sessions.error.not.found")
                 }
             } catch (e: Exception) {
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "deleting session",
                     LocalizationManager.getString("sessions.error.deleting"),
@@ -430,7 +430,7 @@ class SessionsViewModel(
                     errorMessage = LocalizationManager.getString("sessions.error.not.found")
                 }
             } catch (e: Exception) {
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "updating session",
                     LocalizationManager.getString("sessions.error.updating"),
@@ -458,7 +458,7 @@ class SessionsViewModel(
                 renameCurrentTitle = session.title
                 showRenameDialog = true
             } catch (e: Exception) {
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "preparing rename",
                     "Failed to prepare rename: ${e.message}",
@@ -495,7 +495,7 @@ class SessionsViewModel(
                     errorMessage = LocalizationManager.getString("sessions.error.rename.failed")
                 }
             } catch (e: Exception) {
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "renaming session",
                     LocalizationManager.getString("sessions.error.renaming"),
@@ -533,7 +533,7 @@ class SessionsViewModel(
                 exportDefaultFilename = "$defaultFilename.${exportFormat.extension}"
                 showExportDialog = true
             } catch (e: Exception) {
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "preparing export",
                     "Failed to prepare export: ${e.message}",
@@ -596,14 +596,14 @@ class SessionsViewModel(
                 if (e.message?.contains("File name too long") == true) {
                     errorMessage = LocalizationManager.getString("file.name.too.long")
                 } else {
-                    errorMessage = ErrorHandler.getUserFriendlyError(
+                    errorMessage = ExceptionHandler.handle(
                         e,
                         "exporting session",
                         "Failed to export session: ${e.message}",
                     )
                 }
             } catch (e: Exception) {
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     e,
                     "exporting session",
                     "Failed to export session: ${e.message}",
@@ -655,14 +655,14 @@ class SessionsViewModel(
             }
 
             result.onFailure { error ->
-                errorMessage = ErrorHandler.getUserFriendlyError(
+                errorMessage = ExceptionHandler.handle(
                     error,
                     "exporting session",
                     "Failed to export session: ${error.message}",
                 )
             }
         } catch (e: Exception) {
-            errorMessage = ErrorHandler.getUserFriendlyError(
+            errorMessage = ExceptionHandler.handle(
                 e,
                 "exporting session",
                 "Failed to export session: ${e.message}",
