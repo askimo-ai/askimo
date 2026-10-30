@@ -72,3 +72,54 @@ fun deleteSessionDialog(
         },
     )
 }
+
+/**
+ * Confirmation dialog for bulk-deleting [count] selected sessions from the sidebar.
+ *
+ * @param count Number of sessions about to be deleted
+ * @param onConfirm Callback when user confirms deletion
+ * @param onDismiss Callback when user cancels or dismisses the dialog
+ */
+@Composable
+fun bulkDeleteSessionsDialog(
+    count: Int,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AppComponents.alertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(28.dp),
+                )
+                Text(
+                    text = stringResource("sidebar.sessions.bulkDelete.confirm.title"),
+                    style = AppTextStyles.pageTitle,
+                )
+            }
+        },
+        text = {
+            Text(
+                text = stringResource("sidebar.sessions.bulkDelete.confirm.message", "$count"),
+                style = AppTextStyles.body,
+            )
+        },
+        dismissButton = {
+            secondaryButton(onClick = onDismiss) {
+                Text(stringResource("session.delete.confirm.cancel"))
+            }
+        },
+        confirmButton = {
+            dangerButton(onClick = onConfirm) {
+                Text(stringResource("session.delete.confirm.button"))
+            }
+        },
+    )
+}

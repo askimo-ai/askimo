@@ -426,6 +426,14 @@ class ChatSessionService(
     fun countSessionsWithoutProject(): Int = sessionRepository.countSessionsWithoutProject()
 
     /**
+     * Associates every session in [sessionIds] with [projectId] (or removes them from their
+     * project when null) in a single bulk SQL update rather than one statement per session.
+     *
+     * @return the number of sessions actually updated.
+     */
+    fun updateSessionProjectForIds(sessionIds: List<String>, projectId: String?): Int = sessionRepository.updateSessionProjectForIds(sessionIds, projectId)
+
+    /**
      * Search sessions by title (case-insensitive) that have no project, with pagination.
      */
     fun searchSessionsWithoutProject(
@@ -651,6 +659,22 @@ class ChatSessionService(
             EventBus.post(SessionDeletedEvent(sessionId = sessionId))
         }
         return deleted
+    }
+
+    /**
+     * Deletes every session in [sessionIds] (and their messages/memory) as a single DB
+     * transaction, instead of committing once per session — much faster for large bulk
+     * selections since SQLite would otherwise fsync on every individual delete.
+     *
+     * @return the number of sessions actually deleted.
+     */
+    fun deleteSessions(sessionIds: List<String>): Int {
+        if (sessionIds.isEmpty()) return 0
+        var deletedCount = 0
+        DatabaseManager.getInstance().db.transaction {
+            sessionIds.forEach { sessionId -> if (deleteSession(sessionId)) deletedCount++ }
+        }
+        return deletedCount
     }
 
     /**

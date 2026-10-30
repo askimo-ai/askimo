@@ -122,6 +122,17 @@ object ApplicationPreferences {
     fun getShowTokenUsageCard(): Boolean = safeGetBoolean(SHOW_TOKEN_USAGE_CARD_KEY, true)
     fun setShowTokenUsageCard(show: Boolean) = safePutBoolean(SHOW_TOKEN_USAGE_CARD_KEY, show)
 
+    private const val SIDEBAR_SESSIONS_SORT_OPTION_KEY = "ui.sidebar_sessions_sort_option"
+    private const val SIDEBAR_SESSIONS_GROUP_OPTION_KEY = "ui.sidebar_sessions_group_option"
+
+    /** Raw persisted value for the sidebar's sessions sort option (see `SessionSortOption`). */
+    fun getSidebarSessionsSortOption(): String? = safeGet(SIDEBAR_SESSIONS_SORT_OPTION_KEY, null)
+    fun setSidebarSessionsSortOption(value: String) = safePut(SIDEBAR_SESSIONS_SORT_OPTION_KEY, value)
+
+    /** Raw persisted value for the sidebar's sessions group option (see `SessionGroupOption`). */
+    fun getSidebarSessionsGroupOption(): String? = safeGet(SIDEBAR_SESSIONS_GROUP_OPTION_KEY, null)
+    fun setSidebarSessionsGroupOption(value: String) = safePut(SIDEBAR_SESSIONS_GROUP_OPTION_KEY, value)
+
     // ============================================================
     // LIFECYCLE
     // ============================================================

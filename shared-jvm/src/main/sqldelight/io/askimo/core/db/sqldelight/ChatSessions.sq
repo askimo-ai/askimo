@@ -108,6 +108,9 @@ ORDER BY is_starred DESC, updated_at DESC LIMIT :limit OFFSET :offset;
 updateProject:
 UPDATE chat_sessions SET project_id = :projectId, updated_at = :updatedAt WHERE id = :id;
 
+updateProjectForIds:
+UPDATE chat_sessions SET project_id = :projectId, updated_at = :updatedAt WHERE id IN :ids;
+
 selectExistingByIds:
 SELECT id, updated_at FROM chat_sessions WHERE id IN :ids;
 

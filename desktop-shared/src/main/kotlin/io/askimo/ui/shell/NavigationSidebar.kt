@@ -7,6 +7,7 @@ package io.askimo.ui.shell
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,25 +21,39 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DriveFileMove
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Deselect
+import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Workspaces
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -47,6 +62,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -60,6 +76,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.RoundRect
@@ -75,6 +93,8 @@ import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -100,8 +120,14 @@ import io.askimo.ui.common.theme.LocalFontScale
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.session.SessionActionMenu.sidebarMenu
+import io.askimo.ui.session.SessionDateBucket
+import io.askimo.ui.session.SessionGroupOption
+import io.askimo.ui.session.SessionSortOption
 import io.askimo.ui.session.SessionsViewModel
+import io.askimo.ui.session.bulkDeleteSessionsDialog
 import io.askimo.ui.session.deleteSessionDialog
+import io.askimo.ui.session.groupedByOption
+import io.askimo.ui.session.moveToProjectMenuItem
 import io.askimo.ui.session.sessionTooltip
 import io.askimo.ui.util.Platform
 import kotlinx.coroutines.launch
@@ -249,6 +275,7 @@ fun navigationSidebar(
 // Expanded sidebar
 // ─────────────────────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun expandedNavigationSidebar(
     animatedWidth: Dp,
@@ -278,6 +305,7 @@ private fun expandedNavigationSidebar(
     userProfileContent: @Composable () -> Unit,
 ) {
     val fontScale = LocalFontScale.current
+    var showSessionsSearchField by remember { mutableStateOf(false) }
 
     val inProgressSessionIds = remember { mutableStateSetOf<String>() }
     LaunchedEffect(Unit) {
@@ -322,120 +350,187 @@ private fun expandedNavigationSidebar(
         }
         HorizontalDivider()
 
-        // Scrollable nav items
-        Column(
+        // Scrollable nav items, with the Sessions header pinned via stickyHeader while the
+        // rest of the sidebar (nav items, Pinned section, session rows) scrolls underneath it.
+        LazyColumn(
             modifier = Modifier
                 .weight(1f)
-                .verticalScroll(rememberScrollState())
                 .padding(vertical = Spacing.small),
         ) {
-            // New Chat
-            themedTooltip(text = stringResource("chat.new.tooltip", Platform.modifierKey)) {
-                sidebarItem(
-                    icon = { Icon(Icons.Default.EditNote, contentDescription = null) },
-                    label = { Text(stringResource("chat.new"), style = AppTextStyles.groupTitle) },
-                    selected = false,
-                    onClick = onNewChat,
-                    modifier = Modifier
-                        .padding(horizontal = Spacing.small)
-                        .pointerHoverIcon(PointerIcon.Hand),
-                )
+            item {
+                // New Chat
+                themedTooltip(text = stringResource("chat.new.tooltip", Platform.modifierKey)) {
+                    sidebarItem(
+                        icon = { Icon(Icons.Default.EditNote, contentDescription = null) },
+                        label = { Text(stringResource("chat.new"), style = AppTextStyles.groupTitle) },
+                        selected = false,
+                        onClick = onNewChat,
+                        modifier = Modifier
+                            .padding(horizontal = Spacing.small)
+                            .pointerHoverIcon(PointerIcon.Hand),
+                    )
+                }
             }
 
-            // Primary nav items (injected by caller — order and visibility controlled externally)
-            navItems.filter { it.isVisible }.forEach { item ->
-                sidebarNavItemRow(item = item)
+            item {
+                // Primary nav items (injected by caller — order and visibility controlled externally)
+                Column {
+                    navItems.filter { it.isVisible }.forEach { navItem ->
+                        sidebarNavItemRow(item = navItem)
+                    }
+                }
             }
 
-            // Pinned section (starred projects + starred sessions)
-            pinnedSection(
-                starredProjects = projectsState.starredProjects,
-                starredSessions = pinnedState.starredSessions,
-                currentSessionId = currentSessionId,
-                currentProjectId = currentProjectId,
-                inProgressSessionIds = inProgressSessionIds,
-                bookmarkCountsBySession = sessionsViewModel.bookmarkCountsBySession,
-                onSelectProject = onSelectProject,
-                onResumeSession = onResumeSession,
-                onStarProject = onStarProject,
-                onStarSession = onStarSession,
-                onDeleteSession = onDeleteSession,
-                onRenameSession = onRenameSession,
-                onExportSession = onExportSession,
-                onEditProject = onEditProject,
-                onDeleteProject = onDeleteProject,
-            )
-
-            // Visual separator between pinned and sessions zones
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
-                color = AppColors.codeBlockBorderColor(),
-            )
-
-            // Sessions header (collapsible)
-            sidebarItem(
-                icon = {
-                    Icon(
-                        Icons.Default.History,
-                        contentDescription = null,
-                        modifier = Modifier.size((16 * fontScale).dp),
-                        tint = if (isSessionsSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppTextStyles.secondaryContent,
-                    )
-                },
-                label = {
-                    Text(
-                        stringResource("chat.sessions").uppercase(),
-                        style = AppTextStyles.sidebarSectionHeader,
-                        color = if (isSessionsSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppTextStyles.secondaryContent,
-                    )
-                },
-                selected = isSessionsSelected,
-                onClick = onToggleSessions,
-                badge = {
-                    val badgeColor = if (isSessionsSelected) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-                    ) {
-                        if (!isSessionsExpanded && sessionsViewModel.totalSessionCount > 0) {
-                            val count = sessionsViewModel.totalSessionCount
-                            Text(
-                                text = if (count > 99) "99+" else "$count",
-                                style = AppTextStyles.hint,
-                            )
-                        }
-                        Icon(
-                            imageVector = if (isSessionsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = if (isSessionsExpanded) "Collapse" else "Expand",
-                            tint = badgeColor,
-                            modifier = Modifier.size((18 * fontScale).dp),
-                        )
-                    }
-                },
-                modifier = Modifier
-                    .padding(horizontal = Spacing.small, vertical = Spacing.extraSmall)
-                    .pointerHoverIcon(PointerIcon.Hand),
-            )
-
-            if (isSessionsExpanded) {
-                sessionsList(
-                    sessionsViewModel = sessionsViewModel,
+            item {
+                // Pinned section (starred projects + starred sessions)
+                pinnedSection(
+                    starredProjects = projectsState.starredProjects,
+                    starredSessions = pinnedState.starredSessions,
                     currentSessionId = currentSessionId,
+                    currentProjectId = currentProjectId,
                     inProgressSessionIds = inProgressSessionIds,
-                    onNavigateToSessions = onNavigateToSessions,
+                    bookmarkCountsBySession = sessionsViewModel.bookmarkCountsBySession,
+                    onSelectProject = onSelectProject,
                     onResumeSession = onResumeSession,
-                    onDeleteSession = onDeleteSession,
+                    onStarProject = onStarProject,
                     onStarSession = onStarSession,
+                    onDeleteSession = onDeleteSession,
                     onRenameSession = onRenameSession,
                     onExportSession = onExportSession,
-                    onShowSessionSummary = onShowSessionSummary,
-                    availableProjects = projectsState.projects,
-                    onMoveSessionToNewProject = onMoveSessionToNewProject,
+                    onEditProject = onEditProject,
+                    onDeleteProject = onDeleteProject,
                 )
+            }
+
+            item {
+                // Visual separator between pinned and sessions zones
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
+                    color = AppColors.codeBlockBorderColor(),
+                )
+            }
+
+            stickyHeader {
+                Column(modifier = Modifier.background(AppColors.sidebarSurfaceColor())) {
+                    // Sessions header (collapsible)
+                    sidebarItem(
+                        icon = {
+                            Icon(
+                                Icons.Default.History,
+                                contentDescription = null,
+                                modifier = Modifier.size((16 * fontScale).dp),
+                                tint = if (isSessionsSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppTextStyles.secondaryContent,
+                            )
+                        },
+                        label = {
+                            val headerColor = if (isSessionsSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppTextStyles.secondaryContent
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    stringResource("chat.sessions").uppercase(),
+                                    style = AppTextStyles.sidebarSectionHeader,
+                                    color = headerColor,
+                                )
+                                Icon(
+                                    imageVector = if (isSessionsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = if (isSessionsExpanded) "Collapse" else "Expand",
+                                    tint = headerColor,
+                                    modifier = Modifier.size((18 * fontScale).dp),
+                                )
+                            }
+                        },
+                        selected = isSessionsSelected,
+                        onClick = onToggleSessions,
+                        badge = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                            ) {
+                                if (!isSessionsExpanded && sessionsViewModel.totalSessionCount > 0) {
+                                    val count = sessionsViewModel.totalSessionCount
+                                    Text(
+                                        text = if (count > 99) "99+" else "$count",
+                                        style = AppTextStyles.hint,
+                                    )
+                                }
+                                if (isSessionsExpanded) {
+                                    themedTooltip(text = stringResource("sidebar.sessions.search.tooltip")) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size((22 * fontScale).dp)
+                                                .clip(CircleShape)
+                                                .clickable {
+                                                    showSessionsSearchField = !showSessionsSearchField
+                                                    if (!showSessionsSearchField) {
+                                                        sessionsViewModel.sidebarSearchQuery = ""
+                                                    }
+                                                }
+                                                .pointerHoverIcon(PointerIcon.Hand),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Search,
+                                                contentDescription = stringResource("sidebar.sessions.search.tooltip"),
+                                                modifier = Modifier.size((16 * fontScale).dp),
+                                                tint = AppTextStyles.secondaryContent,
+                                            )
+                                        }
+                                    }
+                                    sessionsOrganizeMenu(
+                                        sortOption = sessionsViewModel.sortOption,
+                                        onSelectSort = sessionsViewModel::selectSortOption,
+                                        groupOption = sessionsViewModel.groupOption,
+                                        onSelectGroup = sessionsViewModel::selectGroupOption,
+                                        selectionMode = sessionsViewModel.selectionMode,
+                                        onToggleSelectionMode = sessionsViewModel::toggleSelectionMode,
+                                    )
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .padding(horizontal = Spacing.small, vertical = Spacing.extraSmall)
+                            .pointerHoverIcon(PointerIcon.Hand),
+                    )
+
+                    if (isSessionsExpanded) {
+                        if (showSessionsSearchField) {
+                            sessionsSearchField(
+                                query = sessionsViewModel.sidebarSearchQuery,
+                                onQueryChange = { sessionsViewModel.sidebarSearchQuery = it },
+                                onClear = {
+                                    sessionsViewModel.sidebarSearchQuery = ""
+                                    showSessionsSearchField = false
+                                },
+                            )
+                        }
+
+                        if (sessionsViewModel.selectionMode) {
+                            sessionsBulkActionBar(
+                                sessionsViewModel = sessionsViewModel,
+                                availableProjects = projectsState.projects,
+                                onMoveSessionToNewProject = { onMoveSessionToNewProject(it) },
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (isSessionsExpanded) {
+                item {
+                    sessionsList(
+                        sessionsViewModel = sessionsViewModel,
+                        currentSessionId = currentSessionId,
+                        inProgressSessionIds = inProgressSessionIds,
+                        onNavigateToSessions = onNavigateToSessions,
+                        onResumeSession = onResumeSession,
+                        onDeleteSession = onDeleteSession,
+                        onStarSession = onStarSession,
+                        onRenameSession = onRenameSession,
+                        onExportSession = onExportSession,
+                        onShowSessionSummary = onShowSessionSummary,
+                        availableProjects = projectsState.projects,
+                        onMoveSessionToNewProject = onMoveSessionToNewProject,
+                    )
+                }
             }
         }
 
@@ -807,21 +902,21 @@ private fun pinnedSection(
                 )
             },
             label = {
-                Text(
-                    stringResource("sidebar.pinned").uppercase(),
-                    style = AppTextStyles.sidebarSectionHeader,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stringResource("sidebar.pinned").uppercase(),
+                        style = AppTextStyles.sidebarSectionHeader,
+                    )
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = null,
+                        tint = AppTextStyles.secondaryContent,
+                        modifier = Modifier.size((18 * fontScale).dp),
+                    )
+                }
             },
             selected = false,
             onClick = { isExpanded = !isExpanded },
-            badge = {
-                Icon(
-                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = null,
-                    tint = AppTextStyles.secondaryContent,
-                    modifier = Modifier.size((18 * fontScale).dp),
-                )
-            },
             modifier = Modifier
                 .padding(vertical = Spacing.extraSmall)
                 .pointerHoverIcon(PointerIcon.Hand),
@@ -1059,6 +1154,8 @@ private fun sessionsList(
         ),
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
+        val unstarredSessions = sessionsViewModel.filteredSortedRecentSessions.filter { !it.isStarred }
+
         if (sessionsViewModel.recentSessions.isEmpty()) {
             Text(
                 text = "No sessions yet",
@@ -1068,24 +1165,50 @@ private fun sessionsList(
                     vertical = Spacing.extraSmall,
                 ),
             )
+        } else if (unstarredSessions.isEmpty() && sessionsViewModel.sidebarSearchQuery.isNotBlank()) {
+            Text(
+                text = stringResource("sidebar.sessions.search.noResults"),
+                style = AppTextStyles.caption,
+                modifier = Modifier.padding(
+                    horizontal = Spacing.extraSmall,
+                    vertical = Spacing.extraSmall,
+                ),
+            )
         } else {
-            val unstarredSessions = sessionsViewModel.recentSessions.filter { !it.isStarred }
+            val groups = unstarredSessions.groupedByOption(sessionsViewModel.groupOption)
 
-            unstarredSessions.forEach { session ->
-                sessionItemWithMenu(
-                    session = session,
-                    isSelected = session.id == currentSessionId,
-                    isChatInProgress = session.id in inProgressSessionIds,
-                    onResumeSession = onResumeSession,
-                    onDeleteSession = onDeleteSession,
-                    onStarSession = onStarSession,
-                    onRenameSession = onRenameSession,
-                    onExportSession = onExportSession,
-                    onShowSessionSummary = onShowSessionSummary,
-                    availableProjects = availableProjects,
-                    onMoveSessionToNewProject = onMoveSessionToNewProject,
-                    bookmarkCount = sessionsViewModel.bookmarkCountsBySession[session.id] ?: 0,
-                )
+            groups.forEach { (bucket, sessionsInBucket) ->
+                if (bucket != null) {
+                    Text(
+                        text = bucket.label(),
+                        style = AppTextStyles.caption,
+                        color = AppTextStyles.secondaryContent,
+                        modifier = Modifier.padding(
+                            start = Spacing.extraSmall,
+                            top = Spacing.small,
+                            bottom = Spacing.extraSmall,
+                        ),
+                    )
+                }
+                sessionsInBucket.forEach { session ->
+                    sessionItemWithMenu(
+                        session = session,
+                        isSelected = session.id == currentSessionId,
+                        isChatInProgress = session.id in inProgressSessionIds,
+                        onResumeSession = onResumeSession,
+                        onDeleteSession = onDeleteSession,
+                        onStarSession = onStarSession,
+                        onRenameSession = onRenameSession,
+                        onExportSession = onExportSession,
+                        onShowSessionSummary = onShowSessionSummary,
+                        availableProjects = availableProjects,
+                        onMoveSessionToNewProject = onMoveSessionToNewProject,
+                        bookmarkCount = sessionsViewModel.bookmarkCountsBySession[session.id] ?: 0,
+                        selectionMode = sessionsViewModel.selectionMode,
+                        isSessionSelected = session.id in sessionsViewModel.selectedSessionIds,
+                        onToggleSessionSelected = sessionsViewModel::toggleSessionSelected,
+                    )
+                }
             }
 
             if (sessionsViewModel.totalSessionCount > SessionsViewModel.MAX_SIDEBAR_SESSIONS) {
@@ -1108,6 +1231,339 @@ private fun sessionsList(
     }
 }
 
+/** Localized caption shown above each [SessionDateBucket] group in the sidebar. */
+@Composable
+private fun SessionDateBucket.label(): String = when (this) {
+    SessionDateBucket.TODAY -> stringResource("message.date.today")
+    SessionDateBucket.YESTERDAY -> stringResource("message.date.yesterday")
+    SessionDateBucket.PREVIOUS_7_DAYS -> stringResource("sidebar.sessions.date.previous7Days")
+    SessionDateBucket.OLDER -> stringResource("sidebar.sessions.date.older")
+}
+
+/**
+ * Compact dropdown trigger allowing the user to pick the sidebar sessions' sort and group
+ * options, toggle bulk-selection mode, presented as a nested "Sort by" / "Group by" menu
+ * (mirrors the [moveToProjectMenuItem] submenu pattern).
+ */
+@Composable
+private fun sessionsOrganizeMenu(
+    sortOption: SessionSortOption,
+    onSelectSort: (SessionSortOption) -> Unit,
+    groupOption: SessionGroupOption,
+    onSelectGroup: (SessionGroupOption) -> Unit,
+    selectionMode: Boolean,
+    onToggleSelectionMode: () -> Unit,
+) {
+    var showMenu by remember { mutableStateOf(false) }
+    var showSortSubmenu by remember { mutableStateOf(false) }
+    var showGroupSubmenu by remember { mutableStateOf(false) }
+    var sortItemWidth by remember { mutableStateOf(0.dp) }
+    var groupItemWidth by remember { mutableStateOf(0.dp) }
+    val density = LocalDensity.current
+    val fontScale = LocalFontScale.current
+
+    fun closeAll() {
+        showMenu = false
+        showSortSubmenu = false
+        showGroupSubmenu = false
+    }
+
+    @Composable
+    fun sortLabelFor(option: SessionSortOption): String = when (option) {
+        SessionSortOption.LAST_UPDATED -> stringResource("sidebar.sessions.sort.lastUpdated")
+        SessionSortOption.CREATED -> stringResource("sidebar.sessions.sort.created")
+        SessionSortOption.TITLE_ASC -> stringResource("sidebar.sessions.sort.titleAsc")
+        SessionSortOption.TITLE_DESC -> stringResource("sidebar.sessions.sort.titleDesc")
+    }
+
+    @Composable
+    fun groupLabelFor(option: SessionGroupOption): String = when (option) {
+        SessionGroupOption.NONE -> stringResource("sidebar.sessions.group.none")
+        SessionGroupOption.BY_DATE -> stringResource("sidebar.sessions.group.byDate")
+    }
+
+    Box {
+        themedTooltip(text = stringResource("sidebar.sessions.organize.tooltip")) {
+            Box(
+                modifier = Modifier
+                    .size((22 * fontScale).dp)
+                    .clip(CircleShape)
+                    .clickable { showMenu = true }
+                    .pointerHoverIcon(PointerIcon.Hand),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Default.FilterList,
+                    contentDescription = stringResource("sidebar.sessions.organize.tooltip"),
+                    modifier = Modifier.size((16 * fontScale).dp),
+                    tint = AppTextStyles.secondaryContent,
+                )
+            }
+        }
+
+        dropdownMenu(expanded = showMenu, onDismissRequest = { closeAll() }) {
+            Column {
+                AppComponents.menuItem(
+                    text = { Text(stringResource("sidebar.sessions.select")) },
+                    leadingIcon = {
+                        Icon(Icons.Default.Checklist, contentDescription = null)
+                    },
+                    trailingIcon = {
+                        if (selectionMode) {
+                            Icon(Icons.Default.Check, contentDescription = null)
+                        }
+                    },
+                    onClick = {
+                        closeAll()
+                        onToggleSelectionMode()
+                    },
+                )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.extraSmall))
+
+                Box {
+                    AppComponents.menuItem(
+                        text = { Text(stringResource("sidebar.sessions.sortBy")) },
+                        onClick = {
+                            showSortSubmenu = !showSortSubmenu
+                            showGroupSubmenu = false
+                        },
+                        leadingIcon = {
+                            Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null)
+                        },
+                        trailingIcon = {
+                            Icon(
+                                Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                modifier = Modifier.size((20 * fontScale).dp),
+                            )
+                        },
+                        modifier = Modifier.onGloballyPositioned { coordinates ->
+                            sortItemWidth = with(density) { coordinates.size.width.toDp() }
+                        },
+                    )
+
+                    if (showSortSubmenu) {
+                        Box(modifier = Modifier.offset(x = sortItemWidth, y = -Spacing.small)) {
+                            dropdownMenu(expanded = showSortSubmenu, onDismissRequest = { showSortSubmenu = false }) {
+                                SessionSortOption.entries.forEach { option ->
+                                    AppComponents.menuItem(
+                                        text = { Text(sortLabelFor(option)) },
+                                        leadingIcon = {
+                                            if (option == sortOption) {
+                                                Icon(Icons.Default.Check, contentDescription = null)
+                                            }
+                                        },
+                                        onClick = {
+                                            closeAll()
+                                            onSelectSort(option)
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.extraSmall))
+
+                Box {
+                    AppComponents.menuItem(
+                        text = { Text(stringResource("sidebar.sessions.groupBy")) },
+                        onClick = {
+                            showGroupSubmenu = !showGroupSubmenu
+                            showSortSubmenu = false
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Default.Category, contentDescription = null)
+                        },
+                        trailingIcon = {
+                            Icon(
+                                Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                modifier = Modifier.size((20 * fontScale).dp),
+                            )
+                        },
+                        modifier = Modifier.onGloballyPositioned { coordinates ->
+                            groupItemWidth = with(density) { coordinates.size.width.toDp() }
+                        },
+                    )
+
+                    if (showGroupSubmenu) {
+                        Box(modifier = Modifier.offset(x = groupItemWidth, y = -Spacing.small)) {
+                            dropdownMenu(expanded = showGroupSubmenu, onDismissRequest = { showGroupSubmenu = false }) {
+                                SessionGroupOption.entries.forEach { option ->
+                                    AppComponents.menuItem(
+                                        text = { Text(groupLabelFor(option)) },
+                                        leadingIcon = {
+                                            if (option == groupOption) {
+                                                Icon(Icons.Default.Check, contentDescription = null)
+                                            }
+                                        },
+                                        onClick = {
+                                            closeAll()
+                                            onSelectGroup(option)
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Inline, non-modal search field for filtering the sidebar's sessions list by title. */
+@Composable
+private fun sessionsSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onClear: () -> Unit,
+) {
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        placeholder = { Text(stringResource("sidebar.sessions.search.placeholder"), style = AppTextStyles.caption) },
+        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+        trailingIcon = {
+            IconButton(onClick = onClear, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+                Icon(Icons.Default.Close, contentDescription = stringResource("action.cancel"))
+            }
+        },
+        singleLine = true,
+        textStyle = AppTextStyles.caption,
+        colors = AppColors.outlinedTextFieldColors(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.small, vertical = Spacing.extraSmall)
+            .focusRequester(focusRequester),
+    )
+}
+
+/**
+ * Action bar shown above the sessions list while bulk-selection mode is active: shows the
+ * current selection count plus Select All / Delete / Move to project / Cancel actions.
+ */
+@Composable
+private fun sessionsBulkActionBar(
+    sessionsViewModel: SessionsViewModel,
+    availableProjects: List<Project>,
+    onMoveSessionToNewProject: (sessionId: String) -> Unit,
+) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    val fontScale = LocalFontScale.current
+    val selectedCount = sessionsViewModel.selectedSessionIds.size
+    val visibleIds = sessionsViewModel.filteredSortedRecentSessions.filter { !it.isStarred }.map { it.id }
+
+    if (showDeleteDialog) {
+        bulkDeleteSessionsDialog(
+            count = selectedCount,
+            onConfirm = {
+                showDeleteDialog = false
+                sessionsViewModel.bulkDeleteSelected()
+            },
+            onDismiss = { showDeleteDialog = false },
+        )
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = stringResource("sidebar.sessions.selected.count", "$selectedCount"),
+            style = AppTextStyles.caption,
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+        ) {
+            val allVisibleSelected = visibleIds.isNotEmpty() && visibleIds.all { it in sessionsViewModel.selectedSessionIds }
+            val selectAllLabel = if (allVisibleSelected) {
+                stringResource("sidebar.sessions.deselectAll")
+            } else {
+                stringResource("sidebar.sessions.selectAll")
+            }
+            themedTooltip(text = selectAllLabel) {
+                IconButton(
+                    onClick = {
+                        if (allVisibleSelected) {
+                            sessionsViewModel.clearSelection()
+                        } else {
+                            sessionsViewModel.selectAllVisible(visibleIds)
+                        }
+                    },
+                    modifier = Modifier.size((24 * fontScale).dp).pointerHoverIcon(PointerIcon.Hand),
+                ) {
+                    Icon(
+                        if (allVisibleSelected) Icons.Default.Deselect else Icons.Default.DoneAll,
+                        contentDescription = selectAllLabel,
+                    )
+                }
+            }
+
+            Box {
+                var showMoveMenu by remember { mutableStateOf(false) }
+                themedTooltip(text = stringResource("session.move.to.project")) {
+                    IconButton(
+                        onClick = { showMoveMenu = true },
+                        enabled = selectedCount > 0,
+                        modifier = Modifier.size((24 * fontScale).dp).pointerHoverIcon(PointerIcon.Hand),
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.DriveFileMove, contentDescription = stringResource("session.move.to.project"))
+                    }
+                }
+                dropdownMenu(expanded = showMoveMenu, onDismissRequest = { showMoveMenu = false }) {
+                    moveToProjectMenuItem(
+                        projects = availableProjects,
+                        onNewProject = {
+                            showMoveMenu = false
+                            val firstSelected = sessionsViewModel.selectedSessionIds.firstOrNull()
+                            if (firstSelected != null) onMoveSessionToNewProject(firstSelected)
+                        },
+                        onSelectProject = { project ->
+                            showMoveMenu = false
+                            sessionsViewModel.bulkMoveSelectedToProject(project.id)
+                        },
+                        onDismiss = { showMoveMenu = false },
+                    )
+                }
+            }
+
+            themedTooltip(text = stringResource("action.delete")) {
+                IconButton(
+                    onClick = { showDeleteDialog = true },
+                    enabled = selectedCount > 0,
+                    modifier = Modifier.size((24 * fontScale).dp).pointerHoverIcon(PointerIcon.Hand),
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = stringResource("action.delete"), tint = MaterialTheme.colorScheme.error)
+                }
+            }
+
+            themedTooltip(text = stringResource("action.cancel")) {
+                IconButton(
+                    onClick = { sessionsViewModel.toggleSelectionMode() },
+                    modifier = Modifier.size((24 * fontScale).dp).pointerHoverIcon(PointerIcon.Hand),
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = stringResource("action.cancel"))
+                }
+            }
+        }
+    }
+    HorizontalDivider(modifier = Modifier.padding(horizontal = Spacing.small))
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Session item with context menu
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1126,6 +1582,9 @@ private fun sessionItemWithMenu(
     availableProjects: List<Project>,
     onMoveSessionToNewProject: (sessionId: String) -> Unit,
     bookmarkCount: Int = 0,
+    selectionMode: Boolean = false,
+    isSessionSelected: Boolean = false,
+    onToggleSessionSelected: (String) -> Unit = {},
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -1157,35 +1616,40 @@ private fun sessionItemWithMenu(
             onResumeSession = onResumeSession,
             onMenuClick = { showMenu = true },
             bookmarkCount = bookmarkCount,
+            selectionMode = selectionMode,
+            isSessionSelected = isSessionSelected,
+            onToggleSessionSelected = onToggleSessionSelected,
         )
 
-        Box(modifier = Modifier.align(Alignment.CenterEnd).padding(end = Spacing.small)) {
-            dropdownMenu(
-                expanded = showMenu,
-                onDismissRequest = { showMenu = false },
-            ) {
-                sidebarMenu(
-                    isStarred = session.isStarred,
-                    projects = availableProjects,
-                    onExport = { onExportSession(session.id) },
-                    onRename = { onRenameSession(session.id, session.title) },
-                    onStar = { onStarSession(session.id, !session.isStarred) },
-                    onDelete = {
-                        showMenu = false
-                        showDeleteDialog = true
-                    },
-                    onMoveToNewProject = {
-                        showMenu = false
-                        onMoveSessionToNewProject(session.id)
-                    },
-                    onMoveToExistingProject = { selectedProject ->
-                        sessionRepository.updateSessionProject(session.id, selectedProject.id)
-                        EventBus.post(ProjectsRefreshEvent(reason = "Session ${session.id} moved to project ${selectedProject.id}"))
-                        EventBus.post(SessionsRefreshEvent(reason = "Session ${session.id} moved to project ${selectedProject.id}"))
-                    },
-                    onShowSessionSummary = { onShowSessionSummary(session.id) },
-                    onDismiss = { showMenu = false },
-                )
+        if (!selectionMode) {
+            Box(modifier = Modifier.align(Alignment.CenterEnd).padding(end = Spacing.small)) {
+                dropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                ) {
+                    sidebarMenu(
+                        isStarred = session.isStarred,
+                        projects = availableProjects,
+                        onExport = { onExportSession(session.id) },
+                        onRename = { onRenameSession(session.id, session.title) },
+                        onStar = { onStarSession(session.id, !session.isStarred) },
+                        onDelete = {
+                            showMenu = false
+                            showDeleteDialog = true
+                        },
+                        onMoveToNewProject = {
+                            showMenu = false
+                            onMoveSessionToNewProject(session.id)
+                        },
+                        onMoveToExistingProject = { selectedProject ->
+                            sessionRepository.updateSessionProject(session.id, selectedProject.id)
+                            EventBus.post(ProjectsRefreshEvent(reason = "Session ${session.id} moved to project ${selectedProject.id}"))
+                            EventBus.post(SessionsRefreshEvent(reason = "Session ${session.id} moved to project ${selectedProject.id}"))
+                        },
+                        onShowSessionSummary = { onShowSessionSummary(session.id) },
+                        onDismiss = { showMenu = false },
+                    )
+                }
             }
         }
     }
@@ -1204,12 +1668,23 @@ private fun sessionDrawerItemContent(
     onResumeSession: (String) -> Unit,
     onMenuClick: () -> Unit,
     bookmarkCount: Int = 0,
+    selectionMode: Boolean = false,
+    isSessionSelected: Boolean = false,
+    onToggleSessionSelected: (String) -> Unit = {},
 ) {
     val fontScale = LocalFontScale.current
 
     sessionTooltip(session = session) {
         sidebarItem(
-            icon = if (isChatInProgress) {
+            icon = if (selectionMode) {
+                {
+                    Checkbox(
+                        checked = isSessionSelected,
+                        onCheckedChange = { onToggleSessionSelected(session.id) },
+                        modifier = Modifier.size((20 * fontScale).dp),
+                    )
+                }
+            } else if (isChatInProgress) {
                 {
                     CircularProgressIndicator(
                         modifier = Modifier.size((14 * fontScale).dp),
@@ -1224,13 +1699,19 @@ private fun sessionDrawerItemContent(
                 navigationItemLabelWithMenu(
                     text = session.title,
                     onMenuClick = onMenuClick,
-                    isHovered = isHovered,
+                    isHovered = isHovered && !selectionMode,
                     isSelected = isSelected,
                     bookmarkCount = bookmarkCount,
                 )
             },
             selected = isSelected,
-            onClick = { onResumeSession(session.id) },
+            onClick = {
+                if (selectionMode) {
+                    onToggleSessionSelected(session.id)
+                } else {
+                    onResumeSession(session.id)
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .pointerHoverIcon(PointerIcon.Hand),
