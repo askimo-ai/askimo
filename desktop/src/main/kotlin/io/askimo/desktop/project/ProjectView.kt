@@ -60,6 +60,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
+import io.askimo.core.chat.domain.KnowledgeSourcePriority
 import io.askimo.core.chat.domain.LocalFoldersKnowledgeSourceConfig
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.dto.FileAttachmentDTO
@@ -75,6 +76,7 @@ import io.askimo.core.rag.state.IndexStatus
 import io.askimo.core.util.TimeUtil
 import io.askimo.desktop.knowledgesource.addReferenceMaterialDialog
 import io.askimo.desktop.knowledgesource.buildKnowledgeSourceConfigs
+import io.askimo.desktop.knowledgesource.knowledgeSourcePrioritySelector
 import io.askimo.desktop.knowledgesource.knowledgeSourcesPanel
 import io.askimo.desktop.knowledgesource.mergeKnowledgeSourceConfigs
 import io.askimo.ui.chat.CreationMode
@@ -333,6 +335,7 @@ fun projectView(
                                     viewModel.toggleWatchForChanges(source, watch)
                                 }
                             },
+                            onPriorityChange = { priority -> viewModel.setPriority(source, priority) },
                         )
                     }
 
@@ -617,6 +620,7 @@ private fun knowledgeSourceItem(
     onDelete: () -> Unit = {},
     onRescan: () -> Unit = {},
     onWatchToggle: (Boolean) -> Unit = {},
+    onPriorityChange: (KnowledgeSourcePriority) -> Unit = {},
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -650,6 +654,8 @@ private fun knowledgeSourceItem(
         Row(
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            knowledgeSourcePrioritySelector(priority = source.priority, onPriorityChange = onPriorityChange)
+
             // Watch-for-changes toggle — only folders can be watched (files/URLs never are)
             if (source is LocalFoldersKnowledgeSourceConfig) {
                 themedTooltip(text = stringResource("projects.sources.watch.tooltip")) {

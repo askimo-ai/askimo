@@ -9,8 +9,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
+import io.askimo.core.chat.domain.KnowledgeSourcePriority
 import io.askimo.core.chat.domain.LocalFoldersKnowledgeSourceConfig
 import io.askimo.core.chat.domain.Project
+import io.askimo.core.chat.domain.withPriority
 import io.askimo.core.context.AppContext
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
@@ -297,6 +299,39 @@ class ProjectViewModel(
                     e,
                     "rescanning knowledge source",
                     LocalizationManager.getString("project.error.rescanning_knowledge_source"),
+                )
+            }
+        }
+    }
+
+    /**
+     * Change a source's ranking priority. Retrieval reads it at query time, so no
+     * re-index is needed.
+     */
+    fun setPriority(source: KnowledgeSourceConfig, priority: KnowledgeSourcePriority) {
+        val project = currentProject ?: return
+        scope.launch {
+            try {
+                val updatedSources = project.knowledgeSources.map {
+                    if (it.resourceIdentifier == source.resourceIdentifier) it.withPriority(priority) else it
+                }
+
+                withContext(Dispatchers.IO) {
+                    projectRepository.updateProject(
+                        projectId = projectId,
+                        name = project.name,
+                        description = project.description,
+                        knowledgeSources = updatedSources,
+                    )
+                }
+
+                loadProject()
+            } catch (e: Exception) {
+                log.error("Failed to change knowledge source priority", e)
+                errorMessage = ErrorHandler.getUserFriendlyError(
+                    e,
+                    "changing knowledge source priority",
+                    LocalizationManager.getString("project.error.updating_knowledge_source"),
                 )
             }
         }

@@ -53,6 +53,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
+import io.askimo.core.chat.domain.KnowledgeSourcePriority
 import io.askimo.core.chat.domain.LocalFoldersKnowledgeSourceConfig
 import io.askimo.core.chat.domain.ResourceCollection
 import io.askimo.core.event.EventBus
@@ -63,6 +64,7 @@ import io.askimo.core.rag.container.IndexingContainerType
 import io.askimo.core.rag.state.IndexStatus
 import io.askimo.desktop.knowledgesource.addReferenceMaterialDialog
 import io.askimo.desktop.knowledgesource.buildKnowledgeSourceConfigs
+import io.askimo.desktop.knowledgesource.knowledgeSourcePrioritySelector
 import io.askimo.desktop.knowledgesource.knowledgeSourcesPanel
 import io.askimo.desktop.knowledgesource.ragSourcesTreeWithPreview
 import io.askimo.desktop.project.reIndexConfirmDialog
@@ -232,6 +234,7 @@ fun resourceCollectionView(
                                         viewModel.toggleWatchForChanges(source, watch)
                                     }
                                 },
+                                onPriorityChange = { priority -> viewModel.setPriority(source, priority) },
                             )
                         }
                     } else {
@@ -487,6 +490,7 @@ private fun knowledgeSourceItemForCollection(
     onSelect: () -> Unit = {},
     onDelete: () -> Unit = {},
     onWatchToggle: (Boolean) -> Unit = {},
+    onPriorityChange: (KnowledgeSourcePriority) -> Unit = {},
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -521,6 +525,8 @@ private fun knowledgeSourceItemForCollection(
         Row(
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            knowledgeSourcePrioritySelector(priority = source.priority, onPriorityChange = onPriorityChange)
+
             // Only folders support watch-for-changes.
             if (source is LocalFoldersKnowledgeSourceConfig) {
                 themedTooltip(text = stringResource("projects.sources.watch.tooltip")) {

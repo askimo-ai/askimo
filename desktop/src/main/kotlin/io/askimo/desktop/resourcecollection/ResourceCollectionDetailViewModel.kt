@@ -7,8 +7,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
+import io.askimo.core.chat.domain.KnowledgeSourcePriority
 import io.askimo.core.chat.domain.LocalFoldersKnowledgeSourceConfig
 import io.askimo.core.chat.domain.ResourceCollection
+import io.askimo.core.chat.domain.withPriority
 import io.askimo.core.chat.service.ResourceCollectionService
 import io.askimo.core.context.AppContext
 import io.askimo.core.db.DatabaseManager
@@ -240,6 +242,39 @@ class ResourceCollectionDetailViewModel(
                 errorMessage = ErrorHandler.getUserFriendlyError(
                     e,
                     "deleting knowledge source",
+                    LocalizationManager.getString("resourcecollections.error.updating"),
+                )
+            }
+        }
+    }
+
+    /**
+     * Change a source's ranking priority. Retrieval reads it at query time, so no
+     * re-index is needed.
+     */
+    fun setPriority(source: KnowledgeSourceConfig, priority: KnowledgeSourcePriority) {
+        val current = currentCollection ?: return
+        scope.launch {
+            try {
+                val updatedSources = current.knowledgeSources.map {
+                    if (it.resourceIdentifier == source.resourceIdentifier) it.withPriority(priority) else it
+                }
+
+                withContext(Dispatchers.IO) {
+                    resourceCollectionService.updateCollection(
+                        collectionId,
+                        current.name,
+                        current.description,
+                        updatedSources,
+                    )
+                }
+
+                loadCollection()
+            } catch (e: Exception) {
+                log.error("Failed to change knowledge source priority", e)
+                errorMessage = ErrorHandler.getUserFriendlyError(
+                    e,
+                    "changing knowledge source priority",
                     LocalizationManager.getString("resourcecollections.error.updating"),
                 )
             }

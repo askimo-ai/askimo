@@ -4,8 +4,14 @@
  */
 package io.askimo.core.chat.domain
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlin.math.abs
 
 /**
  * Base sealed class for all knowledge source configurations.
@@ -18,6 +24,50 @@ import kotlinx.serialization.Serializable
 sealed class KnowledgeSourceConfig {
     abstract val resourceIdentifier: String
     abstract val config: Map<String, String>
+
+    /**
+     * How strongly retrieved content from this source is favoured (see
+     * `HybridContentRetriever`). Defaults to [KnowledgeSourcePriority.NORMAL], which
+     * leaves ranking unchanged, so JSON stored before this field existed decodes as-is.
+     */
+    abstract val priority: KnowledgeSourcePriority
+}
+
+/**
+ * Stores a [KnowledgeSourcePriority] as its [KnowledgeSourcePriority.weight], so the saved
+ * JSON stays a plain number while code passes the enum around.
+ */
+object KnowledgeSourcePrioritySerializer : KSerializer<KnowledgeSourcePriority> {
+    override val descriptor = PrimitiveSerialDescriptor("KnowledgeSourcePriority", PrimitiveKind.DOUBLE)
+
+    override fun serialize(encoder: Encoder, value: KnowledgeSourcePriority) = encoder.encodeDouble(value.weight)
+
+    override fun deserialize(decoder: Decoder) = KnowledgeSourcePriority.fromWeight(decoder.decodeDouble())
+}
+
+/**
+ * The priority levels offered in the UI and the ranking weight each maps to. Saved as the
+ * plain [weight], so the weights can be tuned without migrating saved sources.
+ */
+@Serializable(with = KnowledgeSourcePrioritySerializer::class)
+enum class KnowledgeSourcePriority(val weight: Double) {
+    LOW(0.5),
+    NORMAL(1.0),
+    HIGH(2.0),
+    ALWAYS_PRIORITIZE(100.0),
+    ;
+
+    companion object {
+        /** The level whose weight is closest to [weight], used when reading a saved value. */
+        fun fromWeight(weight: Double): KnowledgeSourcePriority = entries.minBy { abs(it.weight - weight) }
+    }
+}
+
+/** Returns a copy of this source with [priority] replaced, keeping its concrete type. */
+fun KnowledgeSourceConfig.withPriority(priority: KnowledgeSourcePriority): KnowledgeSourceConfig = when (this) {
+    is LocalFoldersKnowledgeSourceConfig -> copy(priority = priority)
+    is LocalFilesKnowledgeSourceConfig -> copy(priority = priority)
+    is UrlKnowledgeSourceConfig -> copy(priority = priority)
 }
 
 /**
@@ -39,6 +89,7 @@ data class LocalFoldersKnowledgeSourceConfig(
     override val resourceIdentifier: String,
     val watchForChanges: Boolean = true,
     override val config: Map<String, String> = emptyMap(),
+    override val priority: KnowledgeSourcePriority = KnowledgeSourcePriority.NORMAL,
 ) : KnowledgeSourceConfig()
 
 /**
@@ -54,6 +105,7 @@ data class LocalFoldersKnowledgeSourceConfig(
 data class LocalFilesKnowledgeSourceConfig(
     override val resourceIdentifier: String,
     override val config: Map<String, String> = emptyMap(),
+    override val priority: KnowledgeSourcePriority = KnowledgeSourcePriority.NORMAL,
 ) : KnowledgeSourceConfig()
 
 /**
@@ -72,6 +124,7 @@ data class LocalFilesKnowledgeSourceConfig(
 data class UrlKnowledgeSourceConfig(
     override val resourceIdentifier: String,
     override val config: Map<String, String> = emptyMap(),
+    override val priority: KnowledgeSourcePriority = KnowledgeSourcePriority.NORMAL,
 ) : KnowledgeSourceConfig()
 
 /**

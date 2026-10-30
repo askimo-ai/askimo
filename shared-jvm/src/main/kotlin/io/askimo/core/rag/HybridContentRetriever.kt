@@ -19,6 +19,11 @@ import io.askimo.core.logging.logger
  * RRF Formula: score(doc) = Σ 1 / (k + rank_i)
  * where k=60 (standard constant) and rank_i is the rank from retriever i
  *
+ * The fused score is then multiplied by the priority of the knowledge source the content
+ * came from (see [KnowledgeSourcePriorityResolver]), so users can favour some reference
+ * materials over others. With every source at the default priority the ranking is
+ * unchanged.
+ *
  * This approach gives better results than pure vector search by:
  * - Catching exact keyword matches
  * - Leveraging semantic understanding
@@ -29,6 +34,7 @@ import io.askimo.core.logging.logger
  * @param maxResults Maximum number of final results to return after fusion
  * @param k RRF constant for rank fusion (configured via AppConfig.rag.rankFusionConstant)
  * @param webRetriever Optional live web search retriever (null = disabled)
+ * @param priorityResolver Resolves each result's source priority (null = all default)
  */
 class HybridContentRetriever(
     private val vectorRetriever: ContentRetriever,
@@ -36,6 +42,7 @@ class HybridContentRetriever(
     private val maxResults: Int,
     private val k: Int,
     private val webRetriever: ContentRetriever? = null,
+    private val priorityResolver: KnowledgeSourcePriorityResolver? = null,
 ) : ContentRetriever {
 
     private val log = logger<HybridContentRetriever>()
@@ -77,24 +84,26 @@ class HybridContentRetriever(
             return emptyList()
         }
 
+        val priorityOf: (Content) -> Double = priorityResolver?.snapshot() ?: { 1.0 }
+
         // If only one source has results, return it directly
         if (vectorResults.isEmpty() && keywordResults.isEmpty()) {
             log.debug("Using only web results (local retrievers returned nothing)")
-            return webResults.take(maxResults)
+            return prioritize(webResults, priorityOf).take(maxResults)
         }
 
         if (vectorResults.isEmpty() && webResults.isEmpty()) {
             log.debug("Using only keyword results (vector/web retrieval failed)")
-            return keywordResults.take(maxResults)
+            return prioritize(keywordResults, priorityOf).take(maxResults)
         }
 
         if (keywordResults.isEmpty() && webResults.isEmpty()) {
             log.debug("Using only vector results (keyword/web retrieval failed)")
-            return vectorResults.take(maxResults)
+            return prioritize(vectorResults, priorityOf).take(maxResults)
         }
 
         // Merge using Reciprocal Rank Fusion across all available sources
-        val merged = reciprocalRankFusion(vectorResults, keywordResults, webResults)
+        val merged = reciprocalRankFusion(vectorResults, keywordResults, webResults, priorityOf)
 
         log.debug(
             "Hybrid retrieval merged ${vectorResults.size} vector + ${keywordResults.size} keyword" +
@@ -112,12 +121,14 @@ class HybridContentRetriever(
      * For each document:
      *   RRF_score = Σ 1 / (k + rank_in_list_i)
      *
-     * Documents are then sorted by RRF score (higher is better).
+     * Documents are then sorted by RRF score multiplied by their source priority
+     * (higher is better).
      */
     private fun reciprocalRankFusion(
         vectorResults: List<Content>,
         keywordResults: List<Content>,
         webResults: List<Content> = emptyList(),
+        priorityOf: (Content) -> Double = { 1.0 },
     ): List<Content> {
         // Map content to unique key for deduplication
         // Using text segment content as key (assumes same content = same document)
@@ -138,9 +149,9 @@ class HybridContentRetriever(
         processResults(keywordResults)
         processResults(webResults)
 
-        // Sort by RRF score (descending)
+        // Sort by priority-weighted RRF score (descending)
         val sortedKeys = scoreMap.entries
-            .sortedByDescending { it.value }
+            .sortedByDescending { it.value * priorityOf(contentMap.getValue(it.key)) }
             .map { it.key }
 
         val totalInput = vectorResults.size + keywordResults.size + webResults.size
@@ -148,4 +159,14 @@ class HybridContentRetriever(
 
         return sortedKeys.mapNotNull { contentMap[it] }
     }
+
+    /**
+     * Applies source priority to a single retriever's list, using the same
+     * `priority / (k + rank)` score as [reciprocalRankFusion]. A stable sort, so a list
+     * whose results all share one priority keeps its original order.
+     */
+    private fun prioritize(results: List<Content>, priorityOf: (Content) -> Double): List<Content> = results
+        .withIndex()
+        .sortedByDescending { (index, content) -> priorityOf(content) / (k + index + 1) }
+        .map { it.value }
 }

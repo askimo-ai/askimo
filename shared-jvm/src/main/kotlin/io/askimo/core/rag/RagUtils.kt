@@ -138,6 +138,7 @@ object RagUtils {
         retriever: ContentRetriever,
         knowledgeSourcePaths: List<String> = emptyList(),
         useWebSearch: Boolean = false,
+        priorityResolver: KnowledgeSourcePriorityResolver? = null,
     ): ContentRetriever {
         val ragConfig = AppConfig.rag
 
@@ -156,6 +157,7 @@ object RagUtils {
                 maxResults = ragConfig.hybridMaxResults,
                 k = ragConfig.rankFusionConstant,
                 webRetriever = webRetriever,
+                priorityResolver = priorityResolver,
             ),
             classifierChatClient,
             knowledgeSourcePaths,
