@@ -171,6 +171,7 @@ import io.askimo.ui.shell.globalSearchDialog
 import io.askimo.ui.shell.happinessGateDialog
 import io.askimo.ui.shell.isScreenshotMode
 import io.askimo.ui.shell.keyboardShortcutsDialog
+import io.askimo.ui.shell.quickSwitcherDialog
 import io.askimo.ui.shell.rememberPersistedWindowState
 import io.askimo.ui.shell.rememberThemeState
 import io.askimo.ui.shell.sharePromptDialog
@@ -423,6 +424,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     var showNewProjectDialog by remember { mutableStateOf(false) }
     var showEditProjectDialog by remember { mutableStateOf(false) }
     var showGlobalSearchDialog by remember { mutableStateOf(false) }
+    var showQuickSwitcherDialog by remember { mutableStateOf(false) }
     var showKeyboardShortcutsDialog by remember { mutableStateOf(false) }
     var editingProjectId by remember { mutableStateOf<String?>(null) }
     var errorDialogState by remember { mutableStateOf(ErrorDialogState()) }
@@ -1023,6 +1025,11 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
 
                                             AppShortcut.GLOBAL_SEARCH -> {
                                                 onSearchInSessionsMenuAction()
+                                                true
+                                            }
+
+                                            AppShortcut.QUICK_OPEN_SESSION -> {
+                                                showQuickSwitcherDialog = true
                                                 true
                                             }
 
@@ -2100,6 +2107,20 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                         log.warn("Message not found or has no timestamp after loading: messageId='$messageId'")
                                     }
                                 }
+                            },
+                        )
+                    }
+
+                    if (showQuickSwitcherDialog) {
+                        quickSwitcherDialog(
+                            sessions = sessionsViewModel.recentSessions,
+                            onDismiss = { showQuickSwitcherDialog = false },
+                            onSelectSession = { sessionId ->
+                                showQuickSwitcherDialog = false
+                                if (currentView != View.CHAT) {
+                                    currentView = View.CHAT
+                                }
+                                handleResumeSession(sessionId)
                             },
                         )
                     }

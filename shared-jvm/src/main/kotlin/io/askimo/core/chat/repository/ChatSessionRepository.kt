@@ -254,6 +254,20 @@ class ChatSessionRepository internal constructor(
         return updated
     }
 
+    /**
+     * Moves every session in [sessionIds] to [projectId] (or removes them from their project when
+     * null) in a single SQL statement, instead of one `UPDATE` per session. Posts a single
+     * [PushDataToServerEvent] for the whole batch.
+     *
+     * @return the number of sessions actually updated.
+     */
+    fun updateSessionProjectForIds(sessionIds: List<String>, projectId: String?): Int {
+        if (sessionIds.isEmpty()) return 0
+        val updated = queries.updateProjectForIds(projectId, Clock.System.now(), sessionIds).value.toInt()
+        if (updated > 0) EventBus.post(PushDataToServerEvent(reason = "$updated session(s) project changed"))
+        return updated
+    }
+
     /** Get multiple sessions by their IDs. */
     fun getSessionsByIds(sessionIds: List<String>): List<ChatSession> {
         if (sessionIds.isEmpty()) return emptyList()

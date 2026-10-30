@@ -13,6 +13,7 @@ import io.askimo.core.chat.service.ChatSessionService
 import io.askimo.core.db.Pageable
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.BookmarkToggledEvent
+import io.askimo.core.event.internal.ProjectsRefreshEvent
 import io.askimo.core.event.internal.SessionCreatedEvent
 import io.askimo.core.event.internal.SessionTitleUpdatedEvent
 import io.askimo.core.event.internal.SessionsRefreshEvent
@@ -20,6 +21,7 @@ import io.askimo.core.exception.ExceptionHandler
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.logging.logger
 import io.askimo.ui.common.export.ExportFormat
+import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.shell.PinnedSidebarState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -62,6 +64,127 @@ class SessionsViewModel(
 
     var recentSessions by mutableStateOf<List<ChatSession>>(emptyList())
         private set
+
+    /** Current sort option for [recentSessions] in the sidebar, persisted across restarts. */
+    var sortOption by mutableStateOf(SessionSortOption.fromPrefValue(ApplicationPreferences.getSidebarSessionsSortOption()))
+        private set
+
+    /** [recentSessions] reordered per [sortOption] for display in the sidebar. */
+    val sortedRecentSessions: List<ChatSession>
+        get() = recentSessions.sortedByOption(sortOption)
+
+    /** Change the sidebar's sessions sort option and persist the choice. */
+    fun selectSortOption(option: SessionSortOption) {
+        if (sortOption == option) return
+        sortOption = option
+        ApplicationPreferences.setSidebarSessionsSortOption(option.prefValue)
+    }
+
+    /** Current group option for [recentSessions] in the sidebar, persisted across restarts. */
+    var groupOption by mutableStateOf(SessionGroupOption.fromPrefValue(ApplicationPreferences.getSidebarSessionsGroupOption()))
+        private set
+
+    /** Change the sidebar's sessions group option and persist the choice. */
+    fun selectGroupOption(option: SessionGroupOption) {
+        if (groupOption == option) return
+        groupOption = option
+        ApplicationPreferences.setSidebarSessionsGroupOption(option.prefValue)
+    }
+
+    /** Transient (non-persisted) inline search query for filtering the sidebar's sessions list. */
+    var sidebarSearchQuery by mutableStateOf("")
+
+    /** [sortedRecentSessions] filtered per [sidebarSearchQuery] for display in the sidebar. */
+    val filteredSortedRecentSessions: List<ChatSession>
+        get() = sortedRecentSessions.filteredByQuery(sidebarSearchQuery)
+
+    /** Whether the sidebar's bulk-selection mode is active. */
+    var selectionMode by mutableStateOf(false)
+        private set
+
+    /** IDs of sessions currently selected while [selectionMode] is active. */
+    var selectedSessionIds by mutableStateOf<Set<String>>(emptySet())
+        private set
+
+    /** Toggles bulk-selection mode. Turning it off always clears any current selection. */
+    fun toggleSelectionMode() {
+        selectionMode = !selectionMode
+        if (!selectionMode) {
+            selectedSessionIds = emptySet()
+        }
+    }
+
+    /** Toggles whether [sessionId] is selected. */
+    fun toggleSessionSelected(sessionId: String) {
+        selectedSessionIds = if (selectedSessionIds.contains(sessionId)) {
+            selectedSessionIds - sessionId
+        } else {
+            selectedSessionIds + sessionId
+        }
+    }
+
+    /** Selects every session in [visibleIds] (the currently visible/filtered sessions only). */
+    fun selectAllVisible(visibleIds: List<String>) {
+        selectedSessionIds = visibleIds.toSet()
+    }
+
+    /** Clears the current selection without leaving selection mode. */
+    fun clearSelection() {
+        selectedSessionIds = emptySet()
+    }
+
+    /** Deletes every currently selected session, then refreshes the list and exits selection mode. */
+    fun bulkDeleteSelected() {
+        val ids = selectedSessionIds
+        if (ids.isEmpty()) return
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    sessionService.deleteSessions(ids.toList())
+                }
+                selectionMode = false
+                selectedSessionIds = emptySet()
+                refresh()
+            } catch (e: Exception) {
+                errorMessage = ExceptionHandler.handle(
+                    e,
+                    "deleting selected sessions",
+                    LocalizationManager.getString("sessions.error.deleting"),
+                )
+            }
+        }
+    }
+
+    /**
+     * Moves every currently selected session to [projectId] (or removes them from their project
+     * when null), then refreshes the list and exits selection mode.
+     */
+    fun bulkMoveSelectedToProject(projectId: String?) {
+        val ids = selectedSessionIds
+        if (ids.isEmpty()) return
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    sessionService.updateSessionProjectForIds(ids.toList(), projectId)
+                }
+                EventBus.post(
+                    ProjectsRefreshEvent(reason = "${ids.size} session(s) moved to project $projectId"),
+                )
+                EventBus.post(
+                    SessionsRefreshEvent(reason = "${ids.size} session(s) moved to project $projectId"),
+                )
+                selectionMode = false
+                selectedSessionIds = emptySet()
+                refresh()
+            } catch (e: Exception) {
+                errorMessage = ExceptionHandler.handle(
+                    e,
+                    "moving selected sessions",
+                    LocalizationManager.getString("sessions.error.deleting"),
+                )
+            }
+        }
+    }
 
     /**
      * All starred sessions, loaded independently via [ChatSessionService.getStarredSessions].
