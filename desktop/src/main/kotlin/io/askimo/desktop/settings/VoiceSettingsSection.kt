@@ -29,13 +29,12 @@ import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.settings.voiceConfigCard
 
 /** [VoiceProvider] entries valid for speech-to-text (LOCAL_PIPER is TTS-only) in the community
- *  edition. [VoiceProvider.NONE] lets the user disable dictation only, while keeping TTS enabled. */
-private val sttProviders = listOf(VoiceProvider.NONE, VoiceProvider.OPENAI, VoiceProvider.LOCAL_WHISPER_CPP, VoiceProvider.LOCAL_WHISPER_FFM)
+ *  edition. */
+private val sttProviders = listOf(VoiceProvider.OPENAI, VoiceProvider.LOCAL_WHISPER_CPP, VoiceProvider.LOCAL_WHISPER_FFM)
 
 /** [VoiceProvider] entries valid for text-to-speech (LOCAL_WHISPER_CPP is STT-only) in the
- *  community edition. [VoiceProvider.NONE] lets the user disable auto-play/playback only, while
- *  keeping dictation enabled. */
-private val ttsProviders = listOf(VoiceProvider.NONE, VoiceProvider.OPENAI, VoiceProvider.LOCAL_PIPER, VoiceProvider.SYSTEM)
+ *  community edition. */
+private val ttsProviders = listOf(VoiceProvider.OPENAI, VoiceProvider.LOCAL_PIPER, VoiceProvider.SYSTEM)
 
 /**
  * Community-edition Voice settings page — thin wrapper around the shared

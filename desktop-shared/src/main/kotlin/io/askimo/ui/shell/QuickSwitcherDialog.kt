@@ -31,7 +31,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -45,6 +44,7 @@ import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
+import io.askimo.ui.common.ui.focusRequesterAutoFocus
 import io.askimo.ui.session.filteredByQuery
 
 /**
@@ -69,8 +69,6 @@ fun quickSwitcherDialog(
     var selectedIndex by remember { mutableIntStateOf(0) }
     val focusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
-
     val results = sessions.filteredByQuery(query)
     LaunchedEffect(query) { selectedIndex = 0 }
 
@@ -94,7 +92,7 @@ fun quickSwitcherDialog(
                 colors = AppColors.outlinedTextFieldColors(),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .focusRequester(focusRequester)
+                    .focusRequesterAutoFocus(focusRequester)
                     .onKeyEvent { keyEvent ->
                         if (keyEvent.type != KeyEventType.KeyDown) return@onKeyEvent false
                         when (keyEvent.key) {

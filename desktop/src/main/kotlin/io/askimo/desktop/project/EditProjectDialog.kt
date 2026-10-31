@@ -35,7 +35,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.input.ImeAction
@@ -65,6 +64,7 @@ import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
+import io.askimo.ui.common.ui.focusRequesterAutoFocus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -250,10 +250,6 @@ private fun editProjectFormDialog(
         )
     }
 
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-    }
-
     AppComponents.scaffoldDialog(
         onDismissRequest = onDismiss,
         onCloseRequest = onDismiss,
@@ -280,7 +276,7 @@ private fun editProjectFormDialog(
                 singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .focusRequester(focusRequester),
+                    .focusRequesterAutoFocus(focusRequester),
                 colors = AppColors.outlinedTextFieldColors(),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
             )

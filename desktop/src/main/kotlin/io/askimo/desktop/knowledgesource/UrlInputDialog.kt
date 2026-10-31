@@ -13,7 +13,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,7 +20,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import io.askimo.core.logging.logger
@@ -32,6 +30,7 @@ import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
+import io.askimo.ui.common.ui.focusRequesterAutoFocus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -57,11 +56,6 @@ fun urlInputDialog(
     var isValidating by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
-
-    // Auto-focus the text field when dialog opens
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-    }
 
     // Validate URL format and accessibility
     suspend fun validateUrlAccessibility(url: String): Result<Unit> = withContext(Dispatchers.IO) {
@@ -164,7 +158,7 @@ fun urlInputDialog(
                 enabled = !isValidating,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .focusRequester(focusRequester),
+                    .focusRequesterAutoFocus(focusRequester),
                 colors = AppColors.outlinedTextFieldColors(),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { handleAdd() }),

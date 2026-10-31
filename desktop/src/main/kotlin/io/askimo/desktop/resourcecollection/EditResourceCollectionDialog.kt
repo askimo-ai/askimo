@@ -25,7 +25,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,7 +33,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.input.ImeAction
@@ -58,6 +56,7 @@ import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
+import io.askimo.ui.common.ui.focusRequesterAutoFocus
 import kotlinx.coroutines.launch
 import java.util.UUID
 import kotlin.collections.plus
@@ -143,10 +142,6 @@ fun editResourceCollectionDialog(
         }
     }
 
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-    }
-
     AppComponents.scaffoldDialog(
         onDismissRequest = onDismiss,
         onCloseRequest = onDismiss,
@@ -173,7 +168,7 @@ fun editResourceCollectionDialog(
                 singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .focusRequester(focusRequester),
+                    .focusRequesterAutoFocus(focusRequester),
                 colors = AppColors.outlinedTextFieldColors(),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
             )

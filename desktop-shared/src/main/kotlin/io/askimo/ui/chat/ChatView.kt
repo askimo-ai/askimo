@@ -112,6 +112,7 @@ import io.askimo.ui.common.theme.LocalBackgroundActive
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.TooltipPlacement
+import io.askimo.ui.common.ui.focusRequesterAutoFocus
 import io.askimo.ui.common.ui.themedRichTooltip
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.common.ui.util.FileDialogUtils
@@ -424,11 +425,11 @@ fun chatView(
         }
     }
 
-    // Focus search field when search mode is activated
+    // Re-focus the main container when search mode is deactivated. The search field's own
+    // focus-on-mount is handled by .focusRequesterAutoFocus(searchFocusRequester) where it's
+    // declared (it's conditionally composed only while isSearchMode is true).
     LaunchedEffect(isSearchMode) {
-        if (isSearchMode) {
-            searchFocusRequester.requestFocus()
-        } else {
+        if (!isSearchMode) {
             chatViewFocusRequester.requestFocus()
         }
     }
@@ -967,7 +968,7 @@ fun chatView(
                                 onValueChange = actions::searchMessages,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .focusRequester(searchFocusRequester),
+                                    .focusRequesterAutoFocus(searchFocusRequester),
                                 placeholder = { Text(stringResource("chat.search.placeholder")) },
                                 singleLine = true,
                                 colors = AppColors.outlinedTextFieldColors(),

@@ -13,11 +13,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -79,4 +85,23 @@ fun Modifier.accessibleFocusable(
             Modifier
         },
     )
+}
+
+/**
+ * Attaches [focusRequester] to this node and auto-focuses it exactly once, the moment this node
+ * is actually placed in the layout tree — Compose's real "attached and ready" signal via
+ * `onGloballyPositioned`, instead of guessing with `LaunchedEffect(Unit) { requestFocus() }` (which
+ * can fire before layout, e.g. behind a loading flag or inside a Dialog's own child composition).
+ */
+@Composable
+fun Modifier.focusRequesterAutoFocus(focusRequester: FocusRequester): Modifier {
+    var hasRequestedFocus by remember { mutableStateOf(false) }
+    return this
+        .focusRequester(focusRequester)
+        .onGloballyPositioned {
+            if (!hasRequestedFocus) {
+                hasRequestedFocus = true
+                focusRequester.requestFocus()
+            }
+        }
 }

@@ -75,11 +75,34 @@ class Logger(private val tag: String) {
     }
 
     fun warn(message: String, vararg args: Any?) {
-        kermitLogger.w { formatMessage(message, args) }
+        val (throwable, placeholderArgs) = extractTrailingThrowable(args)
+        if (throwable != null) {
+            kermitLogger.w(throwable) { formatMessage(message, placeholderArgs) }
+        } else {
+            kermitLogger.w { formatMessage(message, placeholderArgs) }
+        }
     }
 
     fun error(message: String, vararg args: Any?) {
-        kermitLogger.e { formatMessage(message, args) }
+        val (throwable, placeholderArgs) = extractTrailingThrowable(args)
+        if (throwable != null) {
+            kermitLogger.e(throwable) { formatMessage(message, placeholderArgs) }
+        } else {
+            kermitLogger.e { formatMessage(message, placeholderArgs) }
+        }
+    }
+
+    /**
+     * SLF4J convention: if the last vararg is a [Throwable], it's the exception to log
+     * (with stack trace), not a `{}` placeholder value.
+     */
+    private fun extractTrailingThrowable(args: Array<out Any?>): Pair<Throwable?, Array<out Any?>> {
+        val last = args.lastOrNull()
+        return if (last is Throwable) {
+            last to args.copyOfRange(0, args.size - 1)
+        } else {
+            null to args
+        }
     }
 
     private fun formatMessage(message: String, args: Array<out Any?>): String {

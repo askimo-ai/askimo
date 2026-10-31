@@ -691,9 +691,6 @@ data class WebSearchConfig(
  * e.g. a user can chat with Gemini while using OpenAI Whisper for transcription,
  * or a fully local/free STT+TTS stack.
  *
- * - [NONE]: Explicitly disables this direction only — e.g. dictation (STT) with no
- *   auto-played responses, or auto-play (TTS) without a microphone. Distinct from
- *   [VoiceConfig.enabled] = false, which turns off voice entirely (both directions, no UI).
  * - [OPENAI]: Cloud API (Whisper for STT, OpenAI TTS for TTS). Requires an API key.
  * - [LOCAL_WHISPER_CPP]: STT-only. Talks to a user-hosted whisper.cpp/faster-whisper
  *   server exposing an OpenAI-compatible `/v1/audio/transcriptions` endpoint. Free, offline-capable.
@@ -705,10 +702,10 @@ data class WebSearchConfig(
  * - [SYSTEM]: TTS-only. Shells out to the operating system's built-in TTS engine (macOS `say`,
  *   Windows SAPI via PowerShell, Linux `espeak-ng`). Free, fully offline, zero configuration —
  *   but voice quality is more robotic than OpenAI/Piper's neural voices, and requires `espeak-ng`
- *   to be installed on Linux (macOS/Windows ship a TTS engine out of the box).
+ *   to be installed on Linux (macOS/Windows ship a TTS engine out of the box). The default
+ *   [VoiceConfig.ttsProvider] since it requires no API keys/setup and works out of the box.
  */
 enum class VoiceProvider {
-    NONE,
     OPENAI,
     LOCAL_WHISPER_CPP,
     LOCAL_WHISPER_FFM,
@@ -720,8 +717,10 @@ private const val VOICE_OPENAI_KEY = "voice.openai.key"
 private const val VOICE_KEY_PLACEHOLDER = "***keychain***"
 
 /**
- * Configuration for the optional voice input/output feature.
- * Lives under the `voice:` key in askimo.yml. Disabled by default — zero impact on existing users.
+ * Configuration for the voice input/output feature.
+ * Lives under the `voice:` key in askimo.yml. Enabled by default, using fully local/offline
+ * providers ([VoiceProvider.LOCAL_WHISPER_FFM] for STT, [VoiceProvider.SYSTEM] for TTS) that
+ * require no API keys/setup — zero-friction out of the box.
  *
  * The OpenAI API key used for voice is intentionally **separate** from any `OPENAI`
  * [io.askimo.core.providers.ProviderInstance] key — a user may chat exclusively with
@@ -733,9 +732,9 @@ private const val VOICE_KEY_PLACEHOLDER = "***keychain***"
  * `***keychain***` placeholder, never the raw key value.
  */
 data class VoiceConfig(
-    val enabled: Boolean = false,
+    val enabled: Boolean = true,
     val sttProvider: VoiceProvider = VoiceProvider.LOCAL_WHISPER_FFM,
-    val ttsProvider: VoiceProvider = VoiceProvider.OPENAI,
+    val ttsProvider: VoiceProvider = VoiceProvider.SYSTEM,
     val sttModel: String = "whisper-1",
     val ttsModel: String = "tts-1",
     val ttsVoice: String = "alloy",
@@ -800,7 +799,7 @@ data class VoiceConfig(
      * (e.g. a slow mic permission prompt) doesn't immediately auto-finalize into an empty/no-op
      * transcription.
      */
-    val autoStopSilenceDurationMs: Long = 1_500L,
+    val autoStopSilenceDurationMs: Long = 2_500L,
     /**
      * When true, a growing live transcript is written into the input field
      * while recording, for STT providers that support it (see
@@ -836,20 +835,26 @@ data class VoiceConfig(
     val ttsCacheMaxBytes: Long = 4L * 1024 * 1024,
 ) {
     /**
+     * Whether [sttProvider] is [VoiceProvider.LOCAL_WHISPER_FFM] but its required `ggml-*.bin`
+     * model file ([localWhisperModelPath]) hasn't been downloaded yet (or no longer exists on
+     * disk). Split out from [isSttAvailable] so callers that need to distinguish "voice is off"
+     * from "voice is on, just needs a one-time model download" (e.g. to prompt the download
+     * instead of just hiding the mic) can do so without re-deriving this check themselves.
+     */
+    fun isLocalWhisperModelMissing(): Boolean {
+        if (sttProvider != VoiceProvider.LOCAL_WHISPER_FFM) return false
+        return localWhisperModelPath.isBlank() ||
+            !runCatching { Files.exists(Path.of(localWhisperModelPath)) }.getOrDefault(false)
+    }
+
+    /**
      * Whether STT (microphone/dictation) is actually usable, not just "configured".
      *
      * [VoiceProvider.LOCAL_WHISPER_FFM] (the default [sttProvider]) also needs a downloaded
      * `ggml-*.bin` model file ([localWhisperModelPath]) — without this check the mic would be
      * enabled out of the box and only fail after recording.
      */
-    fun isSttAvailable(): Boolean {
-        if (!enabled || sttProvider == VoiceProvider.NONE) return false
-        if (sttProvider == VoiceProvider.LOCAL_WHISPER_FFM) {
-            return localWhisperModelPath.isNotBlank() &&
-                runCatching { Files.exists(Path.of(localWhisperModelPath)) }.getOrDefault(false)
-        }
-        return true
-    }
+    fun isSttAvailable(): Boolean = enabled && !isLocalWhisperModelMissing()
 
     companion object {
         fun isKeyPlaceholder(value: String): Boolean = value == VOICE_KEY_PLACEHOLDER
@@ -1249,6 +1254,7 @@ object AppConfig {
                 val overrideTree = mapper.readTree(raw)
                 val migratedProviders = migrateLegacyProviders(overrideTree)
                 val migratedLocalLlm = migrateStaleLocalLlmProvenance(overrideTree)
+                val migratedVoice = migrateVoiceAlwaysOnDefaults(overrideTree)
 
                 // Merge the current build's compiled-in defaults (base layer, always fresh — see
                 // class doc) with the user's on-disk overrides (override layer, wins per-field) —
@@ -1265,11 +1271,13 @@ object AppConfig {
                 val loaded = mapper.treeToValue(mergedTree, AppConfigData::class.java)
                 val normalized = loaded.copy(memory = normalizeMemoryConfig(loaded.memory))
 
-                if (migratedProviders || migratedLocalLlm) {
+                if (migratedProviders || migratedLocalLlm || migratedVoice) {
                     log.info(
-                        "Migrated askimo.yml (legacy provider instances: {}, stale local_llm provenance: {})",
+                        "Migrated askimo.yml (legacy provider instances: {}, stale local_llm provenance: {}, " +
+                            "voice always-on defaults: {})",
                         migratedProviders,
                         migratedLocalLlm,
+                        migratedVoice,
                     )
                     try {
                         Files.writeString(path, mapper.writerWithDefaultPrettyPrinter().writeValueAsString(overrideTree))
@@ -1376,6 +1384,34 @@ object AppConfig {
         if (!provenanceFields.all { localLlm.has(it) }) return false
         provenanceFields.forEach { localLlm.remove(it) }
         return true
+    }
+
+    /**
+     * One-time, self-terminating cleanup for voice's move to "enabled + fully local by default":
+     * strips a persisted `voice.enabled: false` (so the new compiled default, `true`, takes over
+     * via [deepMerge]), and strips `voice.stt_provider`/`voice.tts_provider` when set to the now
+     * **removed** `NONE` value (see [VoiceProvider] — it no longer has a "disable this direction
+     * only" entry). Without this, `mapper.treeToValue` below would throw on an unrecognized enum
+     * constant for a persisted `NONE`, which would silently discard the user's *entire* config
+     * (see the catch block in [loadOnce]) — not just their voice settings. Naturally idempotent,
+     * matching [migrateLegacyProviders]'s existing pattern: once removed, there's nothing left to
+     * remove on the next launch.
+     */
+    private fun migrateVoiceAlwaysOnDefaults(config: JsonNode): Boolean {
+        val voice = config.path("voice") as? ObjectNode ?: return false
+        var migrated = false
+
+        if (voice.path("enabled").let { it.isBoolean && !it.asBoolean() }) {
+            voice.remove("enabled")
+            migrated = true
+        }
+        for (field in listOf("stt_provider", "tts_provider")) {
+            if (voice.path(field).asText().equals("NONE", ignoreCase = true)) {
+                voice.remove(field)
+                migrated = true
+            }
+        }
+        return migrated
     }
 
     /**

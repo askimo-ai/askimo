@@ -173,3 +173,93 @@ class TtsTextChunkerTest {
         assertEquals(text, chunks.joinToString(""))
     }
 }
+
+/**
+ * Covers [chunkTextForTtsBySentence] — unlike [chunkTextForTts], this never packs multiple
+ * sentences into one chunk; every complete sentence becomes its own chunk regardless of how
+ * short it is, with [maxCharsPerSentence] acting purely as a safety net for pathological input.
+ */
+class TtsTextChunkerBySentenceTest {
+
+    @Test
+    fun `each sentence becomes its own chunk, never merged with neighbors`() {
+        val text = "One. Two. Three."
+        // Unlike chunkTextForTts (which would pack all three into one chunk at this size),
+        // per-sentence chunking always keeps them separate.
+        assertEquals(listOf("One.", "Two.", "Three."), chunkTextForTtsBySentence(text))
+    }
+
+    @Test
+    fun `single sentence returns a single chunk`() {
+        val text = "This is a short sentence."
+        assertEquals(listOf(text), chunkTextForTtsBySentence(text))
+    }
+
+    @Test
+    fun `blank text returns no chunks`() {
+        assertEquals(emptyList(), chunkTextForTtsBySentence(""))
+        assertEquals(emptyList(), chunkTextForTtsBySentence("   \n\t  "))
+    }
+
+    @Test
+    fun `whitespace including newlines and tabs between sentences is normalized`() {
+        val text = "First sentence.\n\nSecond sentence.\tThird sentence."
+        val chunks = chunkTextForTtsBySentence(text)
+
+        assertEquals(listOf("First sentence.", "Second sentence.", "Third sentence."), chunks)
+        chunks.forEach { assertTrue(!it.contains('\n') && !it.contains('\t')) }
+    }
+
+    @Test
+    fun `a sentence longer than maxCharsPerSentence is hard-split as a last resort`() {
+        val longSentence = "a".repeat(95) + "."
+        val chunks = chunkTextForTtsBySentence(longSentence, maxCharsPerSentence = 40)
+
+        assertTrue(chunks.size > 1)
+        chunks.forEach { assertTrue(it.length <= 40) }
+        // No characters lost or reordered by the hard-split.
+        assertEquals(longSentence, chunks.joinToString(""))
+    }
+
+    @Test
+    fun `hard-split of one long sentence does not affect normal neighboring sentences`() {
+        val normal1 = "Short sentence one."
+        val normal2 = "Short sentence two."
+        val longSentence = "b".repeat(90)
+        val text = "$normal1 $normal2 $longSentence"
+
+        val chunks = chunkTextForTtsBySentence(text, maxCharsPerSentence = 30)
+
+        assertEquals(normal1, chunks[0])
+        assertEquals(normal2, chunks[1])
+        chunks.drop(2).forEach { assertTrue(it.length <= 30) }
+        // No characters lost or reordered across the whole hard-split tail.
+        assertEquals(longSentence, chunks.drop(2).joinToString(""))
+    }
+
+    @Test
+    fun `default maxCharsPerSentence is a generous safety net, not a target size`() {
+        assertEquals(1000, MAX_TTS_SENTENCE_CHARS)
+    }
+
+    @Test
+    fun `rejects a non-positive maxCharsPerSentence instead of silently misbehaving`() {
+        assertFailsWith<IllegalArgumentException> { chunkTextForTtsBySentence("hello world", maxCharsPerSentence = 0) }
+        assertFailsWith<IllegalArgumentException> { chunkTextForTtsBySentence("hello world", maxCharsPerSentence = -5) }
+    }
+
+    @Test
+    fun `hard-split never separates a surrogate pair`() {
+        val text = "🎉🎉🎉🎉🎉" // 5 codepoints, 10 UTF-16 chars, no sentence punctuation -> one "sentence"
+        val chunks = chunkTextForTtsBySentence(text, maxCharsPerSentence = 2)
+
+        chunks.forEach { chunk ->
+            chunk.forEachIndexed { i, c ->
+                if (Character.isHighSurrogate(c)) {
+                    assertTrue(i + 1 < chunk.length && Character.isLowSurrogate(chunk[i + 1]))
+                }
+            }
+        }
+        assertEquals(text, chunks.joinToString(""))
+    }
+}
