@@ -39,7 +39,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color.Companion.Transparent
 import androidx.compose.ui.graphics.painter.BitmapPainter
@@ -144,6 +143,7 @@ import io.askimo.ui.common.theme.createCustomTypography
 import io.askimo.ui.common.theme.generateAppColorScheme
 import io.askimo.ui.common.theme.loadCodeFontFamily
 import io.askimo.ui.common.theme.parseAccentColor
+import io.askimo.ui.common.ui.focusRequesterAutoFocus
 import io.askimo.ui.common.ui.util.CustomUriHandler
 import io.askimo.ui.common.ui.util.FileDialogUtils
 import io.askimo.ui.discover.DiscoverViewModel
@@ -379,9 +379,9 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     // the chat input field, etc.) currently holds Compose focus. Used to gate the
     // isWindowFocused reclaim below — see its comment for why this matters.
     var appHasFocus by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        runCatching { rootFocusRequester.requestFocus() }
-    }
+    // Initial focus is handled by .focusRequesterAutoFocus(rootFocusRequester) on the Row below
+    // (fires once that Row is actually placed, regardless of the isReady gate above it) — this
+    // effect only needs to handle re-claiming focus after the OS window regains focus.
     LaunchedEffect(isWindowFocused) {
         // Re-claim focus whenever the OS window regains focus (e.g. after alt-tabbing back),
         // but ONLY if nothing in the app currently holds focus.
@@ -999,7 +999,7 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .weight(1f)
-                                    .focusRequester(rootFocusRequester)
+                                    .focusRequesterAutoFocus(rootFocusRequester)
                                     .onFocusChanged { appHasFocus = it.hasFocus }
                                     .focusable()
                                     .onPreviewKeyEvent { keyEvent ->

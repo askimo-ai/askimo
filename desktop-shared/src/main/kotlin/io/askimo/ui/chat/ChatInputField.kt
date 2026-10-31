@@ -163,6 +163,7 @@ import io.askimo.ui.session.manageDirectivesDialog
 import io.askimo.ui.session.newDirectiveDialog
 import io.askimo.ui.voice.VoiceRecordingState
 import io.askimo.ui.voice.rememberVoiceRecordingController
+import io.askimo.ui.voice.voiceModelRequiredDialog
 import io.askimo.ui.voice.voiceRecordingControls
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -322,6 +323,7 @@ fun chatInputField(
     // itself never re-runs on dropdown clicks.
     var reasoningEffort by remember { mutableStateOf(ReasoningEffort.DEFAULT) }
     var showReasoningDropdown by remember { mutableStateOf(false) }
+    val reasoningEffortScope = rememberCoroutineScope()
 
     // Sync from cache whenever the active provider/model changes.
     LaunchedEffect(resolvedProvider, currentModel) {
@@ -332,17 +334,21 @@ fun chatInputField(
         }
     }
 
-    // Persist effort changes back to cache (only fires when the value actually changes).
-    LaunchedEffect(reasoningEffort) {
+    // Called only from the dropdown's onClick (not a LaunchedEffect on reasoningEffort), since
+    // that state also changes on session switches and we only want to broadcast real user edits.
+    fun updateReasoningEffort(effort: ReasoningEffort) {
+        reasoningEffort = effort
         if (supportsReasoning && resolvedProvider != null && currentModel.isNotBlank()) {
-            ModelCapabilitiesCache.setReasoningLevel(resolvedProvider, currentModel, reasoningEffort)
-            EventBus.emit(
-                ReasoningEffortChangedEvent(
-                    provider = resolvedProvider,
-                    model = currentModel,
-                    newEffort = reasoningEffort,
-                ),
-            )
+            ModelCapabilitiesCache.setReasoningLevel(resolvedProvider, currentModel, effort)
+            reasoningEffortScope.launch {
+                EventBus.emit(
+                    ReasoningEffortChangedEvent(
+                        provider = resolvedProvider,
+                        model = currentModel,
+                        newEffort = effort,
+                    ),
+                )
+            }
         }
     }
 
@@ -361,13 +367,13 @@ fun chatInputField(
 
     // ── Voice input (🎤) ─────────────────────────────────────────────────────
     // Cache off the UI thread like webSearchEnabled above — AppConfig.voice also hits the
-    // keychain. Hidden entirely when disabled (default). isSttAvailable() (vs. just
-    // enabled + sttProvider != NONE) also keeps the mic hidden for the default
-    // LOCAL_WHISPER_FFM provider until a model file is downloaded.
+    // keychain. Hidden entirely when disabled; unlike before, a not-yet-downloaded
+    // LOCAL_WHISPER_FFM model no longer hides the mic — attempting to record instead shows
+    // voiceModelRequiredDialog (see voiceRecordingController.modelDownloadPromptRequested below).
     var voiceInputEnabled by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         val voice = withContext(Dispatchers.IO) { AppConfig.voice }
-        voiceInputEnabled = voice.isSttAvailable()
+        voiceInputEnabled = voice.enabled
     }
 
     // Notify caller whenever the user changes the enabled server selection.
@@ -1166,7 +1172,7 @@ fun chatInputField(
                                                 },
                                                 trailingIcon = null,
                                                 onClick = {
-                                                    reasoningEffort = effort
+                                                    updateReasoningEffort(effort)
                                                     showReasoningDropdown = false
                                                 },
                                                 modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
@@ -1297,6 +1303,16 @@ fun chatInputField(
                 defaultDirectiveId = directiveService.getGlobalDefaultDirectiveId()
             },
         )
+    }
+
+    // ── Voice model-required dialog ──────────────────────────────────────────
+    // Shown instead of starting a recording when voiceRecordingController.toggle() detects the
+    // configured STT provider needs a one-time model download (see VoiceRecordingController's
+    // modelDownloadPromptRequested kdoc). Re-opening this after closing it mid-download (e.g. the
+    // user clicks 🎤 again before it finishes) is "free" — WhisperModelDownloadManager's download
+    // state is app-scoped, so it just picks the same live progress back up.
+    if (voiceRecordingController.modelDownloadPromptRequested) {
+        voiceModelRequiredDialog(onDismiss = voiceRecordingController::dismissModelDownloadPrompt)
     }
 }
 

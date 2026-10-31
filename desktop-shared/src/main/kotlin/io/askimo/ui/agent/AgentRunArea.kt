@@ -92,6 +92,7 @@ import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.service.AvatarService
 import io.askimo.ui.voice.VoiceRecordingState
 import io.askimo.ui.voice.rememberVoiceRecordingController
+import io.askimo.ui.voice.voiceModelRequiredDialog
 import io.askimo.ui.voice.voiceRecordingControls
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -173,14 +174,14 @@ internal fun agenticRunArea(
 
     // ── Voice input (🎤) ─────────────────────────────────────────────────────
     // Cache both flags off the UI thread — AppConfig.voice hits the OS keychain, mirroring
-    // chatInputField's caching. Hidden entirely when disabled (default). isSttAvailable()
-    // (vs. just enabled + sttProvider != NONE) also keeps the mic hidden for the default
-    // LOCAL_WHISPER_FFM provider until a model file is downloaded.
+    // chatInputField's caching. Hidden entirely when disabled; unlike before, a not-yet-downloaded
+    // LOCAL_WHISPER_FFM model no longer hides the mic — attempting to record instead shows
+    // voiceModelRequiredDialog (see voiceRecordingController.modelDownloadPromptRequested below).
     var voiceInputEnabled by remember { mutableStateOf(false) }
     var voiceAutoSendTranscript by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         val voice = withContext(Dispatchers.IO) { AppConfig.voice }
-        voiceInputEnabled = voice.isSttAvailable()
+        voiceInputEnabled = voice.enabled
         voiceAutoSendTranscript = voice.autoSendTranscript
     }
 
@@ -660,6 +661,13 @@ internal fun agenticRunArea(
                 }
             }
         }
+    }
+
+    // ── Voice model-required dialog ──────────────────────────────────────────
+    // See ChatInputField.kt's matching dialog for the full rationale — shown instead of
+    // starting a recording when the configured STT provider needs a one-time model download.
+    if (voiceRecordingController.modelDownloadPromptRequested) {
+        voiceModelRequiredDialog(onDismiss = voiceRecordingController::dismissModelDownloadPrompt)
     }
 }
 

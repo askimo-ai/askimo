@@ -6,10 +6,8 @@ package io.askimo.ui.voice
 
 /**
  * Max characters accepted per [TextToSpeechService.synthesize] call. OpenAI's `/v1/audio/speech`
- * endpoint (used by both `io.askimo.ui.voice.impl.OpenAiTextToSpeechService` and
- * `io.askimo.ui.voice.impl.PiperTextToSpeechService`, which shares the same OpenAI-compatible
- * client) rejects input longer than 4096 characters. Kept a bit under that hard limit as safety
- * margin — see [chunkTextForTts].
+ * endpoint (used by `OpenAiTextToSpeechService` and `PiperTextToSpeechService`) rejects input
+ * longer than 4096 characters; kept a bit under that as safety margin — see [chunkTextForTts].
  */
 const val MAX_TTS_CHARS = 4000
 
@@ -56,6 +54,45 @@ fun chunkTextForTts(text: String, maxChars: Int = MAX_TTS_CHARS): List<String> {
     flush()
 
     return chunks.ifEmpty { listOf(text) }
+}
+
+/**
+ * Safety-net cap (characters) for a single *sentence* in [chunkTextForTtsBySentence] — not a
+ * target size, since every sentence under this becomes its own whole chunk. Only kicks in for
+ * pathological input with no normal sentence-ending punctuation (e.g. a code block or URL).
+ */
+const val MAX_TTS_SENTENCE_CHARS = 1000
+
+/**
+ * Splits [text] into one chunk per *sentence*, unlike [chunkTextForTts] which packs multiple
+ * sentences into each chunk under a character budget. Intended for TTS providers where
+ * [TextToSpeechService.synthesize] is a cheap local call (see [TextToSpeechService.chunkMode]) —
+ * one-sentence chunks mean the first chunk is just the first sentence, so audio starts almost
+ * instantly instead of waiting for an arbitrary number of packed sentences.
+ *
+ * A sentence longer than [maxCharsPerSentence] (pathological input with no sentence-ending
+ * punctuation) is hard-split via [chunkPreservingSurrogatePairs], same as [chunkTextForTts].
+ * Blank input returns an empty list.
+ *
+ * @throws IllegalArgumentException if [maxCharsPerSentence] is not positive.
+ */
+fun chunkTextForTtsBySentence(text: String, maxCharsPerSentence: Int = MAX_TTS_SENTENCE_CHARS): List<String> {
+    require(maxCharsPerSentence > 0) { "maxCharsPerSentence must be positive, was $maxCharsPerSentence" }
+    if (text.isBlank()) return emptyList()
+
+    return text.split(Regex("(?<=[.!?])\\s+"))
+        .asSequence()
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .flatMap { sentence ->
+            if (sentence.length <= maxCharsPerSentence) {
+                sequenceOf(sentence)
+            } else {
+                chunkPreservingSurrogatePairs(sentence, maxCharsPerSentence).asSequence()
+            }
+        }
+        .toList()
+        .ifEmpty { listOf(text.trim()) }
 }
 
 /**

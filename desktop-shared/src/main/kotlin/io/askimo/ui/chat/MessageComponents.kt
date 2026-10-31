@@ -123,7 +123,7 @@ import io.askimo.ui.voice.AudioPlayer
 import io.askimo.ui.voice.VoiceAudioFormat
 import io.askimo.ui.voice.VoiceServiceException
 import io.askimo.ui.voice.VoiceServiceRegistry
-import io.askimo.ui.voice.chunkTextForTts
+import io.askimo.ui.voice.chunkText
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -203,8 +203,10 @@ internal object VoicePlaybackController {
      * any other message's playback first and starts synthesizing+playing [text] via the
      * configured [io.askimo.core.config.VoiceConfig.ttsProvider].
      *
-     * [text] is split via [chunkTextForTts] into pieces under the TTS provider's per-request
-     * character limit; each chunk is synthesized and played back-to-back.
+     * [text] is split via [io.askimo.ui.voice.chunkText] into pieces per the resolved TTS
+     * provider's own [io.askimo.ui.voice.TextToSpeechService.chunkMode] (packed-by-chars for
+     * network providers, one-sentence-per-chunk for local-subprocess ones); each chunk is
+     * synthesized and played back-to-back.
      *
      * If [messageId]'s audio is already cached (see [ttsCache]), playback starts immediately
      * from the cached bytes — no TTS API call is made.
@@ -244,7 +246,7 @@ internal object VoicePlaybackController {
             val thisJob = coroutineContext[Job]
             try {
                 val ttsService = withContext(Dispatchers.IO) { VoiceServiceRegistry.textToSpeech(AppConfig.voice) }
-                val chunks = chunkTextForTts(text)
+                val chunks = ttsService.chunkText(text)
                 val synthesizedChunks = mutableListOf<ByteArray>()
 
                 chunks.forEachIndexed { index, chunk ->

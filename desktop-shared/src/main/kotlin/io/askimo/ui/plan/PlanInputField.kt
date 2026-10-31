@@ -22,6 +22,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +46,7 @@ import io.askimo.ui.common.theme.AppComponents.dropdownMenu
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.themedTooltip
+import kotlinx.coroutines.launch
 
 /**
  * Plan-specific input field.
@@ -111,6 +113,7 @@ fun planInputField(
     }
     var reasoningEffort by remember { mutableStateOf(ReasoningEffort.DEFAULT) }
     var showReasoningDropdown by remember { mutableStateOf(false) }
+    val reasoningEffortScope = rememberCoroutineScope()
 
     LaunchedEffect(resolvedProvider, currentModel) {
         EventBus.internalEvents.collect { event ->
@@ -131,16 +134,21 @@ fun planInputField(
         }
     }
 
-    LaunchedEffect(reasoningEffort) {
+    // Called only from the dropdown's onClick (not a LaunchedEffect on reasoningEffort), since
+    // that state also changes on session switches and we only want to broadcast real user edits.
+    fun updateReasoningEffort(effort: ReasoningEffort) {
+        reasoningEffort = effort
         if (supportsReasoning && resolvedProvider != null && currentModel.isNotBlank()) {
-            ModelCapabilitiesCache.setReasoningLevel(resolvedProvider, currentModel, reasoningEffort)
-            EventBus.emit(
-                ReasoningEffortChangedEvent(
-                    provider = resolvedProvider,
-                    model = currentModel,
-                    newEffort = reasoningEffort,
-                ),
-            )
+            ModelCapabilitiesCache.setReasoningLevel(resolvedProvider, currentModel, effort)
+            reasoningEffortScope.launch {
+                EventBus.emit(
+                    ReasoningEffortChangedEvent(
+                        provider = resolvedProvider,
+                        model = currentModel,
+                        newEffort = effort,
+                    ),
+                )
+            }
         }
     }
 
@@ -233,7 +241,7 @@ fun planInputField(
                                     },
                                     trailingIcon = null,
                                     onClick = {
-                                        reasoningEffort = effort
+                                        updateReasoningEffort(effort)
                                         showReasoningDropdown = false
                                     },
                                     modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),

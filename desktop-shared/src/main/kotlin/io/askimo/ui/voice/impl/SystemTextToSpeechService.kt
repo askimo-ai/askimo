@@ -9,6 +9,7 @@ import io.askimo.core.config.VoiceProvider
 import io.askimo.core.logging.logger
 import io.askimo.ui.voice.TextToSpeechFactory
 import io.askimo.ui.voice.TextToSpeechService
+import io.askimo.ui.voice.TtsChunkMode
 import io.askimo.ui.voice.VoiceAudioFormat
 import io.askimo.ui.voice.VoiceServiceException
 import kotlinx.coroutines.Dispatchers
@@ -26,43 +27,42 @@ internal enum class SystemTtsPlatform {
 }
 
 /**
- * Text-to-speech via the operating system's built-in TTS engine, invoked as a subprocess
- * ([ProcessBuilder]) — no network, no API key, no model download.
+ * Text-to-speech via the operating system's built-in TTS engine, invoked as a subprocess — no
+ * network, no API key, no model download.
  *
  *  - **macOS**: `say`, writing directly to a WAV file via `-o`/`--data-format`.
  *  - **Windows**: PowerShell + `System.Speech.Synthesis.SpeechSynthesizer`, writing a WAV file.
- *    Text is piped via **stdin** (not embedded in the script) to avoid quoting/escaping bugs.
- *  - **Linux**: `espeak-ng --stdout`, streaming WAV bytes directly to stdout (no temp file).
- *    Requires `espeak-ng` to be installed (most distros package it).
+ *    Text is piped via stdin (not embedded in the script) to avoid quoting/escaping bugs.
+ *  - **Linux**: `espeak-ng --stdout`, streaming WAV bytes to stdout (requires `espeak-ng`).
  *
- * Text is always passed via stdin rather than as a command-line argument, so shell-special
- * characters are never an issue — [ProcessBuilder] never spawns a shell, and stdin bytes are
- * opaque to the OS tool.
+ * Text is always passed via stdin, never as a command-line argument, so shell-special
+ * characters are never an issue.
  *
- * [VoiceConfig.ttsVoice] is forwarded as the OS voice name when non-blank (e.g. "Samantha" on
- * macOS, "Microsoft David Desktop" on Windows, "en-us" on espeak-ng). The Settings UI offers a
- * dropdown of voices actually installed on the machine, populated via [listAvailableVoices]. If a
- * stale/invalid voice name is present anyway (hand-edited config, or an uninstalled voice),
- * [synthesize] retries once without it instead of failing outright.
+ * [VoiceConfig.ttsVoice] is forwarded as the OS voice name when non-blank; the Settings UI offers
+ * a dropdown of voices actually installed (see [listAvailableVoices]). A stale/invalid voice name
+ * makes [synthesize] retry once without it instead of failing outright.
  *
- * [VoiceConfig.ttsSpeed] is linearly mapped from Askimo's normalized 0.25x-4.0x range onto each
- * OS tool's own rate scale via [speedArgs]/[windowsRate] — approximate, since the platforms don't
- * share a common unit (words-per-minute vs. a unitless -10..10 scale). [VoiceConfig.ttsModel] has
- * no equivalent here and is ignored.
+ * [VoiceConfig.ttsSpeed] is linearly mapped onto each OS tool's own rate scale via
+ * [speedArgs]/[windowsRate] — approximate, since the platforms don't share a common unit.
+ * [VoiceConfig.ttsModel] has no equivalent here and is ignored.
  */
 class SystemTextToSpeechService(private val config: VoiceConfig) : TextToSpeechService {
     private val log = logger<SystemTextToSpeechService>()
 
     override val outputFormat: VoiceAudioFormat = VoiceAudioFormat.WAV
 
+    // Each synthesize() call here is a cheap local subprocess, not a network round-trip — one
+    // chunk per sentence means the first sentence starts playing almost instantly instead of
+    // waiting for however many sentences a packed chunk would've crammed into the first request.
+    override val chunkMode: TtsChunkMode = TtsChunkMode.PerSentence()
+
     override suspend fun synthesize(text: String): ByteArray = withContext(Dispatchers.IO) {
         val platform = detectPlatform()
         try {
             synthesizeOnce(platform, text, useConfiguredVoice = true)
         } catch (e: VoiceServiceException) {
-            // A leftover voice name from another provider (e.g. OpenAI's "alloy") or hand-edited
-            // config isn't a valid OS voice and makes `say`/espeak-ng fail outright — retry once
-            // without it so the OS falls back to its own default voice.
+            // A leftover voice name from another provider isn't valid here and makes the OS
+            // command fail outright — retry once without it, falling back to the OS default.
             if (config.ttsVoice.isNotBlank()) {
                 log.warn("System TTS failed with configured voice '${config.ttsVoice}', retrying with the OS default voice", e)
                 synthesizeOnce(platform, text, useConfiguredVoice = false)
@@ -130,13 +130,10 @@ class SystemTextToSpeechService(private val config: VoiceConfig) : TextToSpeechS
     }
 
     /**
-     * Ensures [text] ends with sentence-closing punctuation and a trailing newline before
-     * encoding it for stdin — guards against two EOF-timing issues seen with real OS TTS
-     * engines: (1) text ending exactly at punctuation can race the engine's sentence-boundary
-     * detection against immediate EOF, truncating the final utterance; (2) text with no
-     * punctuation at all containing an ambiguous word can leave the engine waiting for
-     * disambiguating context that never arrives. Appending a period (if missing) plus a newline
-     * gives an unambiguous "sentence is complete" signal for both cases, without being audible.
+     * Ensures [text] ends with closing punctuation + a trailing newline before encoding for
+     * stdin — avoids two EOF-timing issues with real OS TTS engines: punctuation right at EOF can
+     * race the engine's sentence-boundary detection, and text with no punctuation at all can
+     * leave it waiting for disambiguating context that never arrives.
      */
     private fun stdinPayload(text: String): ByteArray {
         val closed = if (text.trimEnd().lastOrNull()?.let { it in ".!?" } == true) text else "$text."

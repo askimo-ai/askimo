@@ -36,21 +36,32 @@ object VoiceServiceRegistry {
     )
 
     // Caches the last [SpeechToTextService] built for [cachedConfig] so repeated calls with an
-    // unchanged config (the common case — one dictation after another with the same settings)
-    // reuse the same instance instead of rebuilding one every time. Matters most for
-    // [io.askimo.ui.voice.impl.whispercpp.WhisperCppFfmSpeechToTextService], whose context holds
-    // a multi-GB model in native (off-heap) memory the JVM GC can't reclaim — without this cache,
-    // every dictation would load a fresh model copy and leak the previous one.
-    //
-    // No JVM shutdown hook cleans this up (unlike SessionManager/AgentRunManager): that service's
-    // close() blocks on its mutex for the full, non-cancellable whisper_full call, and the JVM
-    // waits for shutdown hooks to finish — quitting mid-dictation would hang the app for no
-    // benefit, since the OS reclaims all process memory (native included) on exit regardless.
+    // unchanged config reuse the same instance instead of rebuilding one every time. Matters most
+    // for WhisperCppFfmSpeechToTextService, whose context holds a multi-GB model in native
+    // (off-heap) memory the JVM GC can't reclaim.
     @Volatile
     private var cachedConfig: VoiceConfig? = null
 
     @Volatile
     private var cachedService: SpeechToTextService? = null
+
+    init {
+        // Without this, WhisperCppFfmSpeechToTextService's native whisper.cpp context (and its
+        // ggml-metal backend on Apple Silicon) is never freed before the process exits.
+        // whisper.cpp's Metal backend asserts at static teardown that every "residency set" it
+        // tracks has already been released (GGML_ASSERT([rsets->data count] == 0)) — if
+        // whisper_free() never ran for a still-cached context, that assertion fails and the
+        // whole process aborts with a native crash on quit.
+        //
+        // close() blocks on the service's mutex, but by the time the user is quitting there
+        // should be no in-flight transcribe() call holding it, so this returns quickly in
+        // practice — much preferable to a hard native abort().
+        Runtime.getRuntime().addShutdownHook(
+            Thread({
+                synchronized(this) { closeCachedServiceLocked() }
+            }, "voice-service-registry-shutdown"),
+        )
+    }
 
     /**
      * Resolves the configured [VoiceConfig.sttProvider] to a ready-to-use [SpeechToTextService],
