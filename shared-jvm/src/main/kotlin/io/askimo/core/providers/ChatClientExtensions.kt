@@ -344,6 +344,7 @@ fun ChatClient.sendStreamingMessageWithCallback(
 
                             if (GeneratedImageHelper.hasGeneratedImages(aiMessage)) {
                                 val generatedImages = GeneratedImageHelper.getGeneratedImages(aiMessage)
+                                val nonNullImages = generatedImages?.filterNotNull() ?: emptyList()
                                 // Newer Gemini image models emit a draft/"thought" image part
                                 // immediately before the final rendered image for each requested
                                 // image, so the AiMessage's image list alternates
@@ -351,10 +352,13 @@ fun ChatClient.sendStreamingMessageWithCallback(
                                 // each pair (1-based even / 0-based odd index) and drop the drafts.
                                 // When the count is odd (e.g. a single image with no preceding
                                 // draft), the pairing assumption doesn't hold, so keep everything
-                                // rather than risk dropping the only image.
-                                val nonNullImages = generatedImages?.filterNotNull() ?: emptyList()
+                                // rather than risk dropping the only image. This quirk is
+                                // Gemini-specific, so only apply the filtering for that provider.
                                 val finalImages =
-                                    if (nonNullImages.isNotEmpty() && nonNullImages.size % 2 == 0) {
+                                    if (provider == ModelProvider.GEMINI &&
+                                        nonNullImages.isNotEmpty() &&
+                                        nonNullImages.size % 2 == 0
+                                    ) {
                                         nonNullImages.filterIndexed { index, _ -> index % 2 == 1 }
                                     } else {
                                         nonNullImages
