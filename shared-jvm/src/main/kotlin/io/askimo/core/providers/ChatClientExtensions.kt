@@ -344,17 +344,34 @@ fun ChatClient.sendStreamingMessageWithCallback(
 
                             if (GeneratedImageHelper.hasGeneratedImages(aiMessage)) {
                                 val generatedImages = GeneratedImageHelper.getGeneratedImages(aiMessage)
-                                generatedImages?.forEach { image ->
-                                    if (image != null) {
-                                        val base64Data = image.base64Data()
-                                        val mimeType = image.mimeType() ?: "image/png"
-                                        val markdownImage = "\n![Generated Image](data:$mimeType;base64,$base64Data)\n"
-                                        sb.append(markdownImage)
-                                        try {
-                                            onToken(markdownImage)
-                                        } catch (e: Exception) {
-                                            log.warn("onToken callback threw", e)
-                                        }
+                                val nonNullImages = generatedImages?.filterNotNull() ?: emptyList()
+                                // Newer Gemini image models emit a draft/"thought" image part
+                                // immediately before the final rendered image for each requested
+                                // image, so the AiMessage's image list alternates
+                                // [draft, final, draft, final, ...]. Keep only the final image of
+                                // each pair (1-based even / 0-based odd index) and drop the drafts.
+                                // When the count is odd (e.g. a single image with no preceding
+                                // draft), the pairing assumption doesn't hold, so keep everything
+                                // rather than risk dropping the only image. This quirk is
+                                // Gemini-specific, so only apply the filtering for that provider.
+                                val finalImages =
+                                    if (provider == ModelProvider.GEMINI &&
+                                        nonNullImages.isNotEmpty() &&
+                                        nonNullImages.size % 2 == 0
+                                    ) {
+                                        nonNullImages.filterIndexed { index, _ -> index % 2 == 1 }
+                                    } else {
+                                        nonNullImages
+                                    }
+                                finalImages.forEach { image ->
+                                    val base64Data = image.base64Data()
+                                    val mimeType = image.mimeType() ?: "image/png"
+                                    val markdownImage = "\n![Generated Image](data:$mimeType;base64,$base64Data)\n"
+                                    sb.append(markdownImage)
+                                    try {
+                                        onToken(markdownImage)
+                                    } catch (e: Exception) {
+                                        log.warn("onToken callback threw", e)
                                     }
                                 }
                             }
