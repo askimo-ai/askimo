@@ -72,6 +72,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.chat.domain.ChatSession
+import io.askimo.core.chat.domain.Label
 import io.askimo.core.config.FeatureFlags
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.telemetry.LlmInstanceStats
@@ -86,6 +87,7 @@ import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.themedTooltip
+import io.askimo.ui.session.labelBadgeRow
 import io.askimo.ui.session.sessionTooltip
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -128,6 +130,7 @@ fun discoverView(
     onToggleTokenUsageCard: (Boolean) -> Unit,
     onOpenSystemDiagnostics: () -> Unit,
     telemetry: TelemetryCollector,
+    labelsBySessionId: Map<String, List<Label>> = emptyMap(),
     modifier: Modifier = Modifier,
 ) {
     val scrollState = rememberScrollState()
@@ -176,6 +179,7 @@ fun discoverView(
                 recentSessionsSection(
                     sessions = recentSessions,
                     onResumeSession = onResumeSession,
+                    labelsBySessionId = labelsBySessionId,
                 )
             }
         }
@@ -922,6 +926,7 @@ private fun exploreCard(
 private fun recentSessionsSection(
     sessions: List<ChatSession>,
     onResumeSession: (String) -> Unit,
+    labelsBySessionId: Map<String, List<Label>> = emptyMap(),
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
         Text(
@@ -939,7 +944,11 @@ private fun recentSessionsSection(
             Surface(shape = MaterialTheme.shapes.large, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     sessions.forEachIndexed { index, session ->
-                        recentSessionRow(session = session, onResumeSession = onResumeSession)
+                        recentSessionRow(
+                            session = session,
+                            onResumeSession = onResumeSession,
+                            labels = labelsBySessionId[session.id] ?: emptyList(),
+                        )
                         if (index < sessions.lastIndex) {
                             HorizontalDivider(color = AppColors.codeBlockBorderColor())
                         }
@@ -954,6 +963,7 @@ private fun recentSessionsSection(
 private fun recentSessionRow(
     session: ChatSession,
     onResumeSession: (String) -> Unit,
+    labels: List<Label> = emptyList(),
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
@@ -981,8 +991,11 @@ private fun recentSessionRow(
             modifier = Modifier.weight(1f),
         ) {
             Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
-            sessionTooltip(session = session) {
+            sessionTooltip(session = session, modifier = Modifier.weight(1f, fill = false)) {
                 Text(text = session.title, style = AppTextStyles.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            if (labels.isNotEmpty()) {
+                labelBadgeRow(labels = labels, modifier = Modifier.padding(start = Spacing.extraSmall))
             }
         }
         Spacer(modifier = Modifier.width(Spacing.large))

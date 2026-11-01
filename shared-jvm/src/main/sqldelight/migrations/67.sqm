@@ -1,0 +1,16 @@
+CREATE TABLE IF NOT EXISTS labels (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    color TEXT NOT NULL,
+    created_at TEXT AS kotlin.time.Instant NOT NULL,
+    updated_at TEXT AS kotlin.time.Instant NOT NULL,
+    synced_at TEXT AS kotlin.time.Instant
+);
+
+CREATE TABLE IF NOT EXISTS chat_session_labels (
+    session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+    label_id TEXT NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
+    PRIMARY KEY (session_id, label_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_session_labels_label ON chat_session_labels (label_id);

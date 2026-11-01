@@ -18,13 +18,16 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import io.askimo.core.chat.domain.Label
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.ProjectsRefreshEvent
@@ -61,9 +64,36 @@ fun sessionActionsMenu(
 ) {
     var expanded by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showManageLabelsDialog by remember { mutableStateOf(false) }
 
     val sessionRepository = remember { DatabaseManager.getInstance().getChatSessionRepository() }
     val projectRepository = remember { DatabaseManager.getInstance().getProjectRepository() }
+    val labelRepository = remember { DatabaseManager.getInstance().getLabelRepository() }
+
+    // Labels assigned to this session plus every label the user has defined, reloaded whenever
+    // labelsRefreshKey bumps (after a toggle or a create/update/delete in the manage-labels dialog).
+    var labelsRefreshKey by remember { mutableIntStateOf(0) }
+    var allLabels by remember { mutableStateOf<List<Label>>(emptyList()) }
+    var assignedLabels by remember(sessionId) { mutableStateOf<List<Label>>(emptyList()) }
+    LaunchedEffect(sessionId, labelsRefreshKey) {
+        allLabels = labelRepository.list()
+        assignedLabels = labelRepository.labelsForSession(sessionId)
+    }
+    val labelUsageCounts = remember(allLabels) {
+        allLabels.associate { it.id to labelRepository.sessionIdsForLabel(it.id).size }
+    }
+
+    fun toggleSessionLabel(labelId: String) {
+        val isAssigned = assignedLabels.any { it.id == labelId }
+        val newIds = if (isAssigned) {
+            assignedLabels.filterNot { it.id == labelId }.map { it.id }
+        } else {
+            assignedLabels.map { it.id } + labelId
+        }
+        labelRepository.setLabelsForSession(sessionId, newIds)
+        labelsRefreshKey++
+        EventBus.post(SessionsRefreshEvent(reason = "Session $sessionId labels changed"))
+    }
 
     // Load current session to check if it belongs to a project
     val currentSession = remember(sessionId) { sessionRepository.getSession(sessionId) }
@@ -210,6 +240,18 @@ fun sessionActionsMenu(
                 )
             }
 
+            // Labels submenu
+            labelsMenuItem(
+                allLabels = allLabels,
+                assignedLabelIds = assignedLabels.map { it.id }.toSet(),
+                onToggleLabel = ::toggleSessionLabel,
+                onManageLabels = {
+                    expanded = false
+                    showManageLabelsDialog = true
+                },
+                onDismiss = { expanded = false },
+            )
+
             // Show Session Summary - only visible in developer mode
             if (DeveloperModePreferences.isEnabled() &&
                 DeveloperModePreferences.isActive.value
@@ -265,6 +307,29 @@ fun sessionActionsMenu(
                 onDeleteSession(sessionId)
             },
             onDismiss = { showDeleteDialog = false },
+        )
+    }
+
+    if (showManageLabelsDialog) {
+        manageLabelsDialog(
+            labels = allLabels,
+            usageCounts = labelUsageCounts,
+            onCreate = { name, color ->
+                labelRepository.create(Label(name = name.trim(), color = color))
+                labelsRefreshKey++
+                EventBus.post(SessionsRefreshEvent(reason = "Label created"))
+            },
+            onUpdate = { label ->
+                labelRepository.update(label)
+                labelsRefreshKey++
+                EventBus.post(SessionsRefreshEvent(reason = "Label updated"))
+            },
+            onDelete = { labelId ->
+                labelRepository.delete(labelId)
+                labelsRefreshKey++
+                EventBus.post(SessionsRefreshEvent(reason = "Label deleted"))
+            },
+            onDismiss = { showManageLabelsDialog = false },
         )
     }
 }

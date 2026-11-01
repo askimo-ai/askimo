@@ -81,6 +81,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.askimo.core.chat.domain.Label
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.dto.ChatMessageDTO
 import io.askimo.core.chat.dto.FileAttachmentDTO
@@ -88,6 +89,7 @@ import io.askimo.core.config.AppConfig
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.error.AppErrorEvent
+import io.askimo.core.event.internal.SessionsRefreshEvent
 import io.askimo.core.event.user.IndexingCompletedEvent
 import io.askimo.core.event.user.IndexingFailedEvent
 import io.askimo.core.event.user.IndexingInProgressEvent
@@ -117,9 +119,11 @@ import io.askimo.ui.common.ui.themedRichTooltip
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.common.ui.util.FileDialogUtils
 import io.askimo.ui.service.AvatarService
+import io.askimo.ui.session.labelBadgeRow
 import io.askimo.ui.session.sessionActionsMenu
 import io.askimo.ui.session.sessionMemoryDialog
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.context.GlobalContext
@@ -209,6 +213,25 @@ fun chatView(
 
     // Whether the user is currently dragging files over the chat view
     var isDragging by remember { mutableStateOf(false) }
+
+    // Labels assigned to this session — shown as badges in the header and reloaded whenever a
+    // SessionsRefreshEvent fires (e.g. after toggling/managing labels via sessionActionsMenu).
+    val labelRepository = remember { DatabaseManager.getInstance().getLabelRepository() }
+    var sessionLabels by remember(sessionId) { mutableStateOf<List<Label>>(emptyList()) }
+    LaunchedEffect(sessionId) {
+        sessionLabels = if (sessionId != null) {
+            withContext(Dispatchers.IO) { labelRepository.labelsForSession(sessionId) }
+        } else {
+            emptyList()
+        }
+    }
+    LaunchedEffect(sessionId) {
+        EventBus.internalEvents.filterIsInstance<SessionsRefreshEvent>().collect {
+            if (sessionId != null) {
+                sessionLabels = withContext(Dispatchers.IO) { labelRepository.labelsForSession(sessionId) }
+            }
+        }
+    }
 
     // Stable holder for the "process dropped files" logic.
     // Updated via SideEffect so it always captures the latest attachments/sessionId/scope
@@ -718,6 +741,11 @@ fun chatView(
                                             overflow = TextOverflow.Ellipsis,
                                         )
                                     }
+                                }
+
+                                // Label badges — same tinted-pill styling as the sidebar session row.
+                                if (sessionLabels.isNotEmpty()) {
+                                    labelBadgeRow(labels = sessionLabels)
                                 }
                             }
 

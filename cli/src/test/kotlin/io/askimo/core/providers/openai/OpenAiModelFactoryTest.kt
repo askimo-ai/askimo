@@ -38,7 +38,7 @@ class OpenAiModelFactoryTest {
     }
 
     private fun createChatService(): ChatClient {
-        val settings = OpenAiSettings(apiKey = apiKey, defaultModel = "gpt-3.5-turbo")
+        val settings = OpenAiSettings(apiKey = apiKey, defaultModel = "gpt-6-luna")
 
         return OpenAiModelFactory().create(
             settings = settings,

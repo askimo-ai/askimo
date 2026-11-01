@@ -109,10 +109,13 @@ import io.askimo.ui.service.BackgroundImageService
 import io.askimo.ui.util.Platform
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.File
 import java.util.Locale
 import javax.swing.JColorChooser
+import javax.swing.SwingUtilities
 import javax.swing.UIManager
+import kotlin.coroutines.resume
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 import org.jetbrains.skia.Image as SkiaImage
@@ -602,18 +605,28 @@ private fun accentPresetTile(
     }
 }
 
-private fun pickAccentColor(initial: Color?, title: String): Color? {
-    val initialAwt = initial?.toAwtColor() ?: UIManager.getColor("ColorChooser.swatchesDefaultRecentColor")
-    val picked = JColorChooser.showDialog(
-        null,
-        title,
-        initialAwt,
-    ) ?: return null
-    return Color(
-        red = picked.red / 255f,
-        green = picked.green / 255f,
-        blue = picked.blue / 255f,
-    )
+/**
+ * Shows the native color-chooser dialog and returns the picked [Color], or null if cancelled.
+ */
+private suspend fun pickAccentColor(initial: Color?, title: String): Color? = suspendCancellableCoroutine { continuation ->
+    SwingUtilities.invokeLater {
+        val initialAwt = initial?.toAwtColor() ?: UIManager.getColor("ColorChooser.swatchesDefaultRecentColor")
+        val picked = JColorChooser.showDialog(
+            null,
+            title,
+            initialAwt,
+        )
+        val result = picked?.let {
+            Color(
+                red = it.red / 255f,
+                green = it.green / 255f,
+                blue = it.blue / 255f,
+            )
+        }
+        if (continuation.isActive) {
+            continuation.resume(result)
+        }
+    }
 }
 
 private fun Color.toAwtColor(): java.awt.Color {

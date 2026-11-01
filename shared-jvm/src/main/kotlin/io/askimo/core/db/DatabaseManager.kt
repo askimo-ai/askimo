@@ -12,6 +12,7 @@ import io.askimo.core.chat.repository.ChatDirectiveRepository
 import io.askimo.core.chat.repository.ChatMessageAttachmentRepository
 import io.askimo.core.chat.repository.ChatMessageRepository
 import io.askimo.core.chat.repository.ChatSessionRepository
+import io.askimo.core.chat.repository.LabelRepository
 import io.askimo.core.chat.repository.ModelClassificationRepository
 import io.askimo.core.chat.repository.ProjectRepository
 import io.askimo.core.chat.repository.ResourceCollectionRepository
@@ -26,6 +27,7 @@ import io.askimo.core.db.sqldelight.Chat_sessions
 import io.askimo.core.db.sqldelight.File_attachments
 import io.askimo.core.db.sqldelight.File_segments
 import io.askimo.core.db.sqldelight.Index_file_state
+import io.askimo.core.db.sqldelight.Labels
 import io.askimo.core.db.sqldelight.Llm_usage_records
 import io.askimo.core.db.sqldelight.Model_classifications
 import io.askimo.core.db.sqldelight.Phrase_refresh_checkpoint
@@ -87,6 +89,11 @@ class DatabaseManager private constructor(
         ),
         index_file_stateAdapter = Index_file_state.Adapter(
             indexed_atAdapter = InstantColumnAdapter,
+        ),
+        labelsAdapter = Labels.Adapter(
+            created_atAdapter = InstantColumnAdapter,
+            updated_atAdapter = InstantColumnAdapter,
+            synced_atAdapter = InstantColumnAdapter,
         ),
         llm_usage_recordsAdapter = Llm_usage_records.Adapter(
             timestampAdapter = InstantColumnAdapter,
@@ -230,6 +237,12 @@ class DatabaseManager private constructor(
     }
 
     fun getChatDirectiveRepository(): ChatDirectiveRepository = _chatDirectiveRepository
+
+    private val _labelRepository: LabelRepository by lazy {
+        LabelRepository(this)
+    }
+
+    fun getLabelRepository(): LabelRepository = _labelRepository
 
     private val _modelClassificationRepository: ModelClassificationRepository by lazy {
         ModelClassificationRepository(this)

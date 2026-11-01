@@ -5,6 +5,7 @@
 package io.askimo.ui.session
 
 import io.askimo.core.chat.domain.ChatSession
+import io.askimo.core.chat.domain.Label
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.time.toJavaInstant
@@ -18,6 +19,7 @@ import kotlin.time.toJavaInstant
 enum class SessionGroupOption(val prefValue: String) {
     NONE("NONE"),
     BY_DATE("BY_DATE"),
+    BY_LABEL("BY_LABEL"),
     ;
 
     companion object {
@@ -32,6 +34,19 @@ enum class SessionDateBucket {
     YESTERDAY,
     PREVIOUS_7_DAYS,
     OLDER,
+}
+
+/**
+ * Discriminates the kind of group header a bucket of sessions is shown under, uniting
+ * [SessionGroupOption.BY_DATE] and [SessionGroupOption.BY_LABEL] under one return type for
+ * [groupedByOption] (which yields `null` for [SessionGroupOption.NONE]).
+ */
+sealed interface SessionGroupKey {
+    data class ByDate(val bucket: SessionDateBucket) : SessionGroupKey
+    data class ByLabel(val label: Label) : SessionGroupKey
+
+    /** Trailing bucket for sessions with no labels assigned, shown last under [BY_LABEL]. */
+    data object Unlabeled : SessionGroupKey
 }
 
 /**
@@ -56,17 +71,46 @@ fun ChatSession.dateBucket(today: LocalDate = LocalDate.now()): SessionDateBucke
  * - [SessionGroupOption.NONE] yields a single `null`-keyed bucket (i.e. no grouping headers).
  * - [SessionGroupOption.BY_DATE] yields buckets in a fixed chronological order, omitting any
  *   bucket with no matching sessions.
+ * - [SessionGroupOption.BY_LABEL] yields one bucket per label (sorted by name), using
+ *   [labelsBySessionId] to look up each session's assigned labels. A session with multiple
+ *   labels appears in each of its labels' buckets. Sessions with no labels are grouped into a
+ *   trailing [SessionGroupKey.Unlabeled] bucket.
+ *
+ * @param labelsBySessionId sessionId -> assigned labels, only consulted for [SessionGroupOption.BY_LABEL].
  */
 fun List<ChatSession>.groupedByOption(
     option: SessionGroupOption,
     today: LocalDate = LocalDate.now(),
-): List<Pair<SessionDateBucket?, List<ChatSession>>> = when (option) {
+    labelsBySessionId: Map<String, List<Label>> = emptyMap(),
+): List<Pair<SessionGroupKey?, List<ChatSession>>> = when (option) {
     SessionGroupOption.NONE -> listOf(null to this)
 
     SessionGroupOption.BY_DATE -> {
         val byBucket = groupBy { it.dateBucket(today) }
         SessionDateBucket.entries.mapNotNull { bucket ->
-            byBucket[bucket]?.let { bucket to it }
+            byBucket[bucket]?.let { SessionGroupKey.ByDate(bucket) to it }
         }
+    }
+
+    SessionGroupOption.BY_LABEL -> {
+        val labeled = LinkedHashMap<Label, MutableList<ChatSession>>()
+        val unlabeled = mutableListOf<ChatSession>()
+
+        for (session in this) {
+            val labels = labelsBySessionId[session.id].orEmpty()
+            if (labels.isEmpty()) {
+                unlabeled += session
+            } else {
+                for (label in labels) {
+                    labeled.getOrPut(label) { mutableListOf() }.add(session)
+                }
+            }
+        }
+
+        val labelBuckets = labeled.entries
+            .sortedBy { it.key.name.lowercase() }
+            .map { (label, sessions) -> SessionGroupKey.ByLabel(label) as SessionGroupKey to sessions as List<ChatSession> }
+
+        if (unlabeled.isEmpty()) labelBuckets else labelBuckets + (SessionGroupKey.Unlabeled to unlabeled)
     }
 }

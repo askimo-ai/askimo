@@ -1,0 +1,73 @@
+CREATE TABLE IF NOT EXISTS labels (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    color TEXT NOT NULL,
+    created_at TEXT AS kotlin.time.Instant NOT NULL,
+    updated_at TEXT AS kotlin.time.Instant NOT NULL,
+    synced_at TEXT AS kotlin.time.Instant
+);
+
+CREATE TABLE IF NOT EXISTS chat_session_labels (
+    session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+    label_id TEXT NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
+    PRIMARY KEY (session_id, label_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_session_labels_label ON chat_session_labels (label_id);
+
+insertLabel:
+INSERT INTO labels (id, name, color, created_at, updated_at)
+VALUES (:id, :name, :color, :createdAt, :updatedAt);
+
+updateLabel:
+UPDATE labels SET name = :name, color = :color, updated_at = :updatedAt, synced_at = NULL WHERE id = :id;
+
+deleteLabel:
+DELETE FROM labels WHERE id = :id;
+
+selectAllLabelsOrderedByName:
+SELECT * FROM labels ORDER BY name ASC;
+
+selectLabelById:
+SELECT * FROM labels WHERE id = :id;
+
+selectLabelsForSession:
+SELECT l.* FROM labels l
+INNER JOIN chat_session_labels csl ON l.id = csl.label_id
+WHERE csl.session_id = :sessionId
+ORDER BY l.name ASC;
+
+selectLabelsForSessions:
+SELECT csl.session_id, l.* FROM labels l
+INNER JOIN chat_session_labels csl ON l.id = csl.label_id
+WHERE csl.session_id IN :sessionIds
+ORDER BY l.name ASC;
+
+selectSessionIdsForLabel:
+SELECT session_id FROM chat_session_labels WHERE label_id = :labelId;
+
+assignLabel:
+INSERT OR IGNORE INTO chat_session_labels (session_id, label_id) VALUES (:sessionId, :labelId);
+
+unassignLabel:
+DELETE FROM chat_session_labels WHERE session_id = :sessionId AND label_id = :labelId;
+
+clearLabelsForSession:
+DELETE FROM chat_session_labels WHERE session_id = :sessionId;
+
+-- Sync helpers, mirroring ChatDirectives.sq's pattern.
+selectAllLabelsOrderedByUpdatedAt:
+SELECT * FROM labels ORDER BY updated_at ASC;
+
+markLabelSynced:
+UPDATE labels SET synced_at = :syncedAt WHERE id = :id;
+
+selectExistingLabelsByIds:
+SELECT id, updated_at FROM labels WHERE id IN :ids;
+
+insertLabelFromServer:
+INSERT INTO labels (id, name, color, created_at, updated_at, synced_at)
+VALUES (:id, :name, :color, :createdAt, :updatedAt, :syncedAt);
+
+updateLabelFromServer:
+UPDATE labels SET name = :name, color = :color, updated_at = :updatedAt, synced_at = :syncedAt WHERE id = :id;

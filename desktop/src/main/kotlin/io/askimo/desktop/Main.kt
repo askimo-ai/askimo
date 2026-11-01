@@ -2198,6 +2198,7 @@ fun mainContent(
                 onToggleTokenUsageCard = onToggleTokenUsageCard,
                 onOpenSystemDiagnostics = onOpenSystemDiagnostics,
                 telemetry = appContext.telemetry,
+                labelsBySessionId = sessionsViewModel.labelsBySessionId,
                 modifier = Modifier.fillMaxSize(),
             )
 

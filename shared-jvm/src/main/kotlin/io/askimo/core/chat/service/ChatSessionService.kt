@@ -11,6 +11,7 @@ import io.askimo.core.cache.SynchronizedCache
 import io.askimo.core.chat.domain.ChatMessage
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.domain.KnowledgeSourceConfig
+import io.askimo.core.chat.domain.Label
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.chat.domain.SESSION_TITLE_MAX_LENGTH
 import io.askimo.core.chat.dto.ChatMessageDTO
@@ -21,6 +22,7 @@ import io.askimo.core.chat.mapper.ChatMessageMapper.toDTOs
 import io.askimo.core.chat.mapper.ChatMessageMapper.toDomain
 import io.askimo.core.chat.repository.ChatMessageRepository
 import io.askimo.core.chat.repository.ChatSessionRepository
+import io.askimo.core.chat.repository.LabelRepository
 import io.askimo.core.chat.repository.ProjectRepository
 import io.askimo.core.chat.repository.ResourceCollectionRepository
 import io.askimo.core.chat.repository.SessionMemoryRepository
@@ -130,6 +132,7 @@ class ChatSessionService(
     private val sessionMemoryRepository: SessionMemoryRepository = DatabaseManager.getInstance().getSessionMemoryRepository(),
     private val projectRepository: ProjectRepository = DatabaseManager.getInstance().getProjectRepository(),
     private val resourceCollectionRepository: ResourceCollectionRepository = DatabaseManager.getInstance().getResourceCollectionRepository(),
+    private val labelRepository: LabelRepository = DatabaseManager.getInstance().getLabelRepository(),
     private val appContext: AppContext,
 ) {
     private val log = logger<ChatSessionService>()
@@ -453,6 +456,41 @@ class ChatSessionService(
      * @return PagedSessions containing the sessions for the requested page and pagination info
      */
     fun getSessionsPagedWithoutProject(page: Int, pageSize: Int, sortOrder: SortOrder = SortOrder.DESC): Pageable<ChatSession> = sessionRepository.getSessionsPaged(page, pageSize, projectFilter = false, sortOrderDesc = sortOrder == SortOrder.DESC)
+
+    // --- Labels (user-defined, colored, many-to-many with sessions) ---
+
+    /** Lists all labels the user has defined, ordered by name. */
+    fun listLabels(): List<Label> = labelRepository.list()
+
+    /** Lists the labels currently assigned to [sessionId], ordered by name. */
+    fun labelsForSession(sessionId: String): List<Label> = labelRepository.labelsForSession(sessionId)
+
+    /**
+     * Bulk-loads labels for multiple sessions (e.g. the sidebar's visible session list) in a
+     * single query, avoiding N+1 lookups.
+     */
+    fun labelsForSessions(sessionIds: List<String>): Map<String, List<Label>> = labelRepository.labelsForSessions(sessionIds)
+
+    /** Creates a new label (name + color). */
+    fun createLabel(name: String, color: String): Label = labelRepository.create(Label(name = name.trim(), color = color))
+
+    /** Renames/recolors an existing label. @return true if updated, false if it doesn't exist. */
+    fun updateLabel(label: Label): Boolean = labelRepository.update(label)
+
+    /** Deletes a label; it is unassigned from every session it was attached to (cascade). */
+    fun deleteLabel(labelId: String): Boolean = labelRepository.delete(labelId)
+
+    /**
+     * Replaces the full set of labels assigned to [sessionId] with [labelIds] — used by the
+     * sidebar's "Labels" picker menu, which lets the user toggle multiple labels at once.
+     */
+    fun setSessionLabels(sessionId: String, labelIds: List<String>) {
+        labelRepository.setLabelsForSession(sessionId, labelIds)
+        EventBus.post(PushDataToServerEvent(reason = "session labels changed"))
+    }
+
+    /** Session ids currently carrying [labelId] — used by the "group by label"/filter-by-label views. */
+    fun sessionIdsForLabel(labelId: String): List<String> = labelRepository.sessionIdsForLabel(labelId)
 
     /**
      * Returns the cached memory for [sessionId] if currently loaded, or null if never
