@@ -220,8 +220,15 @@ object KeychainManager {
     ): Boolean {
         val account = "askimo-$keyIdentifier"
 
-        val process =
-            ProcessBuilderExt(
+        // Only set -T on creation. Combining -T with -U on an existing item re-applies the ACL
+        // on every genuine key change (the [storeSecretKey] equality guard only filters out no-op
+        // re-saves of an unchanged value) and re-triggers macOS's keychain-permission prompt each
+        // time, which is worse UX than the one-time prompt we actually want. Items created before
+        // this trust logic existed stay untrusted until the user deletes and recreates them (e.g.
+        // by clearing and re-entering the key) — a bounded, one-time migration gap, not a
+        // recurring one.
+        val args =
+            mutableListOf(
                 "security",
                 "add-generic-password",
                 "-a",
@@ -230,12 +237,31 @@ object KeychainManager {
                 SERVICE_NAME,
                 "-w",
                 secretKey,
-                "-U",
-                "-T",
-                "/usr/bin/security",
-            ).start()
+            )
+
+        if (macOSKeychainItemExists(account)) {
+            args += "-U"
+        } else {
+            args += listOf("-T", "/usr/bin/security")
+        }
+
+        val process = ProcessBuilderExt(*args.toTypedArray()).start()
         val exitCode = process.waitFor()
         return exitCode == 0
+    }
+
+    /** Checks item existence via metadata only (no `-w`), avoiding a secret-access prompt. */
+    private fun macOSKeychainItemExists(account: String): Boolean {
+        val process =
+            ProcessBuilderExt(
+                "security",
+                "find-generic-password",
+                "-a",
+                account,
+                "-s",
+                SERVICE_NAME,
+            ).start()
+        return process.waitFor() == 0
     }
 
     private fun retrieveMacOSKeychain(keyIdentifier: String): String? {

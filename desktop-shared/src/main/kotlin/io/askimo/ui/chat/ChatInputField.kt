@@ -1332,6 +1332,11 @@ private fun toolsIndicatorButton(
     var mcpServers by remember { mutableStateOf<List<McpServerInfo>>(emptyList()) }
     var isLoadingServers by remember { mutableStateOf(false) }
 
+    // LaunchedEffect(Unit) below never restarts, so loadMcpServers() would otherwise close over
+    // stale enabledServerIds/onEnabledServerIdsChange from first composition.
+    val currentEnabledServerIds by rememberUpdatedState(enabledServerIds)
+    val currentOnEnabledServerIdsChange by rememberUpdatedState(onEnabledServerIdsChange)
+
     // serverId:toolName -> locally-set value not yet confirmed by a reload that reflects it.
     // Prevents a slow/racy background reload (triggered by this or another toggle's
     // McpInstancesChangedEvent) from reverting a checkbox the user just clicked.
@@ -1367,11 +1372,15 @@ private fun toolsIndicatorButton(
             emptyList()
         }
 
-        val globalServers = withContext(Dispatchers.IO) {
-            globalMcpService?.listActiveMcpServers()?.getOrElse { e ->
+        val (globalServers, mcpCatalogLoadSucceeded) = withContext(Dispatchers.IO) {
+            val result = globalMcpService?.listActiveMcpServers()
+            val servers = result?.getOrElse { e ->
                 log.error("Error loading active MCP servers", e)
                 emptyList()
             } ?: emptyList()
+            // A failed load still needs a "servers" list to render, but isn't an authoritative
+            // empty catalog — don't let a transient failure wipe the enabled-server selection.
+            servers to (globalMcpService == null || result?.isSuccess == true)
         }
 
         // Overlay any not-yet-confirmed local toggle onto the fresh fetch, self-healing once a
@@ -1400,14 +1409,15 @@ private fun toolsIndicatorButton(
         }
         isLoadingServers = false
 
-        // Reconcile against servers deleted from MCP Manager since this was last persisted:
-        // drop any enabled id that no longer exists in the live catalog and persist the
-        // trimmed set immediately, so a stale id doesn't linger in the DB or resurface if a
-        // future server happens to reuse the same id.
-        val liveServerIds = mcpServers.map { it.id }.toSet()
-        val reconciledEnabledIds = enabledServerIds.filter { it in liveServerIds }.toSet()
-        if (reconciledEnabledIds != enabledServerIds) {
-            onEnabledServerIdsChange(reconciledEnabledIds)
+        // Drop any enabled id no longer in the live catalog (server deleted from MCP Manager)
+        // and persist the trimmed set, so a stale id doesn't linger or resurface if reused.
+        // Skip entirely on a failed catalog load to avoid wiping the selection (see above).
+        if (mcpCatalogLoadSucceeded) {
+            val liveServerIds = mcpServers.map { it.id }.toSet()
+            val reconciledEnabledIds = currentEnabledServerIds.filter { it in liveServerIds }.toSet()
+            if (reconciledEnabledIds != currentEnabledServerIds) {
+                currentOnEnabledServerIdsChange(reconciledEnabledIds)
+            }
         }
     }
 

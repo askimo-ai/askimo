@@ -237,6 +237,13 @@ class ChatViewModel(
     // Active subscription jobs keyed by threadId (not chatId), for proper cleanup.
     private val activeSubscriptions = mutableMapOf<String, Job>()
 
+    // Tracks the latest in-flight persistence write per session for optimistic, order-sensitive
+    // settings (MCP servers, resource collections) so a slower earlier write can't clobber a
+    // faster later one — cancelling the previous job before launching a new one enforces
+    // last-write-wins ordering per session, matching the activeSubscriptions pattern above.
+    private val enabledMcpServersWriteJobs = mutableMapOf<String, Job>()
+    private val activeResourceCollectionsWriteJobs = mutableMapOf<String, Job>()
+
     // Scope owned by this ViewModel, parented off the shared app-lifetime `scope` (never
     // cancelled itself). All work here launches on viewModelScope so cleanup() can cancel
     // everything in one shot when SessionManager evicts this instance.
@@ -1422,7 +1429,8 @@ class ChatViewModel(
 
         val sessionId = currentSessionId.value
         if (sessionId != null) {
-            viewModelScope.launch {
+            activeResourceCollectionsWriteJobs[sessionId]?.cancel()
+            activeResourceCollectionsWriteJobs[sessionId] = viewModelScope.launch {
                 try {
                     withContext(Dispatchers.IO) {
                         chatSessionService.updateSessionActiveResourceCollections(sessionId, collectionIds)
@@ -1445,7 +1453,8 @@ class ChatViewModel(
 
         val sessionId = currentSessionId.value
         if (sessionId != null) {
-            viewModelScope.launch {
+            enabledMcpServersWriteJobs[sessionId]?.cancel()
+            enabledMcpServersWriteJobs[sessionId] = viewModelScope.launch {
                 try {
                     withContext(Dispatchers.IO) {
                         chatSessionService.updateSessionEnabledMcpServers(sessionId, serverIds.toList())
