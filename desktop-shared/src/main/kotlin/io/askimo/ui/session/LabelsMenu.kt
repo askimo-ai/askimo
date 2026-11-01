@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Label
@@ -64,7 +65,7 @@ fun labelsMenuItem(
             onClick = { showSubmenu = !showSubmenu },
             leadingIcon = {
                 Icon(
-                    Icons.Default.Label,
+                    Icons.AutoMirrored.Filled.Label,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size((20 * fontScale).dp),

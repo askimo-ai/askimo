@@ -1429,8 +1429,11 @@ class ChatViewModel(
 
         val sessionId = currentSessionId.value
         if (sessionId != null) {
-            activeResourceCollectionsWriteJobs[sessionId]?.cancel()
+            // join(), not cancel() — cancellation can't interrupt an in-flight DB write, so we
+            // chain instead to guarantee last-write-wins ordering.
+            val previousJob = activeResourceCollectionsWriteJobs[sessionId]
             activeResourceCollectionsWriteJobs[sessionId] = viewModelScope.launch {
+                previousJob?.join()
                 try {
                     withContext(Dispatchers.IO) {
                         chatSessionService.updateSessionActiveResourceCollections(sessionId, collectionIds)
@@ -1453,8 +1456,9 @@ class ChatViewModel(
 
         val sessionId = currentSessionId.value
         if (sessionId != null) {
-            enabledMcpServersWriteJobs[sessionId]?.cancel()
+            val previousJob = enabledMcpServersWriteJobs[sessionId]
             enabledMcpServersWriteJobs[sessionId] = viewModelScope.launch {
+                previousJob?.join()
                 try {
                     withContext(Dispatchers.IO) {
                         chatSessionService.updateSessionEnabledMcpServers(sessionId, serverIds.toList())

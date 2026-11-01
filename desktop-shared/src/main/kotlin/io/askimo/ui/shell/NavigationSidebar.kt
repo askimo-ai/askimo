@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Category
@@ -1522,7 +1523,7 @@ private fun sessionsOrganizeMenu(
                             showGroupSubmenu = false
                         },
                         leadingIcon = {
-                            Icon(Icons.Default.Label, contentDescription = null)
+                            Icon(Icons.AutoMirrored.Filled.Label, contentDescription = null)
                         },
                         trailingIcon = {
                             if (selectedLabelFilterIds.isNotEmpty()) {

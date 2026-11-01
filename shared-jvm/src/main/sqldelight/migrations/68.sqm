@@ -1,1 +1,1 @@
-ALTER TABLE chat_sessions ADD COLUMN enabled_mcp_server_ids TEXT DEFAULT '[]';
+-- chat_sessions.enabled_mcp_server_ids — guarded ALTER TABLE ADD COLUMN via SqlDelightSchemaMigrations.callbacks() AfterVersion(68)
