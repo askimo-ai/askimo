@@ -7,7 +7,6 @@ package io.askimo.ui.shell
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -297,7 +296,6 @@ fun navigationSidebar(
 // Expanded sidebar
 // ─────────────────────────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun expandedNavigationSidebar(
     animatedWidth: Dp,
