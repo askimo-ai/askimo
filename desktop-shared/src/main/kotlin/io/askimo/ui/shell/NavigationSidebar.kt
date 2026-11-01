@@ -276,6 +276,20 @@ fun navigationSidebar(
             userProfileContent = userProfileContent,
         )
     }
+
+    // Rendered here (not inside expandedNavigationSidebar) so it's available regardless of
+    // sidebar expand/collapse state, including when opened from SessionsView's table via
+    // sessionsViewModel.openManageLabelsDialog with the sidebar collapsed.
+    if (sessionsViewModel.showManageLabelsDialog) {
+        manageLabelsDialog(
+            labels = sessionsViewModel.allLabels,
+            usageCounts = sessionsViewModel.labelUsageCounts,
+            onCreate = sessionsViewModel::createLabel,
+            onUpdate = sessionsViewModel::updateLabel,
+            onDelete = sessionsViewModel::deleteLabel,
+            onDismiss = sessionsViewModel::closeManageLabelsDialog,
+        )
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -547,17 +561,6 @@ private fun expandedNavigationSidebar(
                     )
                 }
             }
-        }
-
-        if (sessionsViewModel.showManageLabelsDialog) {
-            manageLabelsDialog(
-                labels = sessionsViewModel.allLabels,
-                usageCounts = sessionsViewModel.labelUsageCounts,
-                onCreate = sessionsViewModel::createLabel,
-                onUpdate = sessionsViewModel::updateLabel,
-                onDelete = sessionsViewModel::deleteLabel,
-                onDismiss = sessionsViewModel::closeManageLabelsDialog,
-            )
         }
 
         // Bottom: user profile slot

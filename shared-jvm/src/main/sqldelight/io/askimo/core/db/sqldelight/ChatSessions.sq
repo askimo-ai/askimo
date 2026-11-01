@@ -9,16 +9,17 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
     synced_at TEXT AS kotlin.time.Instant,
     project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
     is_user_renamed INTEGER DEFAULT 0,
-    active_resource_collection_ids TEXT DEFAULT '[]'
+    active_resource_collection_ids TEXT DEFAULT '[]',
+    enabled_mcp_server_ids TEXT DEFAULT '[]'
 );
 
 insertSession:
-INSERT INTO chat_sessions (id, title, created_at, updated_at, directive_id, is_starred, project_id, active_resource_collection_ids)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO chat_sessions (id, title, created_at, updated_at, directive_id, is_starred, project_id, active_resource_collection_ids, enabled_mcp_server_ids)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 insertFromServer:
-INSERT INTO chat_sessions (id, title, created_at, updated_at, project_id, directive_id, is_starred, active_resource_collection_ids, synced_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO chat_sessions (id, title, created_at, updated_at, project_id, directive_id, is_starred, active_resource_collection_ids, enabled_mcp_server_ids, synced_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 countAll:
 SELECT COUNT(*) FROM chat_sessions;
@@ -70,6 +71,9 @@ UPDATE chat_sessions SET directive_id = :directiveId, updated_at = :updatedAt WH
 updateActiveResourceCollectionIds:
 UPDATE chat_sessions SET active_resource_collection_ids = :ids, updated_at = :updatedAt WHERE id = :id;
 
+updateEnabledMcpServerIds:
+UPDATE chat_sessions SET enabled_mcp_server_ids = :ids, updated_at = :updatedAt WHERE id = :id;
+
 deleteById:
 DELETE FROM chat_sessions WHERE id = :id;
 
@@ -117,7 +121,8 @@ SELECT id, updated_at FROM chat_sessions WHERE id IN :ids;
 updateFromServer:
 UPDATE chat_sessions
 SET title = :title, updated_at = :updatedAt, project_id = :projectId, directive_id = :directiveId,
-    is_starred = :isStarred, active_resource_collection_ids = :activeIds, synced_at = :syncedAt
+    is_starred = :isStarred, active_resource_collection_ids = :activeIds, enabled_mcp_server_ids = :enabledMcpServerIds,
+    synced_at = :syncedAt
 WHERE id = :id;
 
 markSynced:

@@ -112,6 +112,8 @@ data class ResumeSessionPaginatedResult(
     val errorMessage: String? = null,
     /** Persistent user-selected resource collections for this session (chip state). */
     val activeResourceCollectionIds: List<String> = emptyList(),
+    /** Persistent set of MCP server IDs enabled in this session's tools popup. */
+    val enabledMcpServerIds: List<String> = emptyList(),
 )
 
 /**
@@ -772,6 +774,16 @@ class ChatSessionService(
     }
 
     /**
+     * Update the persistent set of enabled MCP servers for a session (tools popup
+     * selection — see [ChatSession.enabledMcpServerIds]).
+     *
+     * @param sessionId The ID of the session to update
+     * @param serverIds The full replacement list of enabled MCP server ids
+     * @return true if the session was updated, false if it didn't exist
+     */
+    fun updateSessionEnabledMcpServers(sessionId: String, serverIds: List<String>): Boolean = sessionRepository.updateSessionEnabledMcpServers(sessionId, serverIds)
+
+    /**
      * Add a message to a session and update the session's timestamp.
      *
      * @param message The message to add
@@ -986,6 +998,7 @@ class ChatSessionService(
                 cursor = cursor,
                 hasMore = cursor != null,
                 activeResourceCollectionIds = existingSession.activeResourceCollectionIds,
+                enabledMcpServerIds = existingSession.enabledMcpServerIds,
             )
         } else {
             ResumeSessionPaginatedResult(

@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import io.askimo.core.chat.domain.Label
+import io.askimo.core.chat.domain.toggledLabelIds
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.ProjectsRefreshEvent
@@ -79,17 +80,14 @@ fun sessionActionsMenu(
         allLabels = labelRepository.list()
         assignedLabels = labelRepository.labelsForSession(sessionId)
     }
-    val labelUsageCounts = remember(allLabels) {
+    // Keyed on labelsRefreshKey (not just allLabels) since toggling a label's assignment on this
+    // session changes usage counts without changing the allLabels list itself.
+    val labelUsageCounts = remember(allLabels, labelsRefreshKey) {
         allLabels.associate { it.id to labelRepository.sessionIdsForLabel(it.id).size }
     }
 
     fun toggleSessionLabel(labelId: String) {
-        val isAssigned = assignedLabels.any { it.id == labelId }
-        val newIds = if (isAssigned) {
-            assignedLabels.filterNot { it.id == labelId }.map { it.id }
-        } else {
-            assignedLabels.map { it.id } + labelId
-        }
+        val newIds = assignedLabels.toggledLabelIds(labelId)
         labelRepository.setLabelsForSession(sessionId, newIds)
         labelsRefreshKey++
         EventBus.post(SessionsRefreshEvent(reason = "Session $sessionId labels changed"))

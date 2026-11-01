@@ -20,6 +20,8 @@ data class ChatSession(
     /** Persistent user-selected resource collections for this session (chip state).
      * On-demand mentions (@mention) are tracked per-message, not here. */
     val activeResourceCollectionIds: List<String> = emptyList(),
+    /** Persistent set of MCP server IDs enabled in this session's tools popup. */
+    val enabledMcpServerIds: List<String> = emptyList(),
 )
 
 const val SESSION_TITLE_MAX_LENGTH = 256

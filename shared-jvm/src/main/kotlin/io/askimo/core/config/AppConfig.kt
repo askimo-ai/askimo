@@ -1006,6 +1006,10 @@ object AppConfig {
     val voice: VoiceConfig
         get() {
             val config = delegate.voice
+            val needsOpenAiKey = config.sttProvider == VoiceProvider.OPENAI ||
+                config.ttsProvider == VoiceProvider.OPENAI
+            if (!needsOpenAiKey) return config
+
             val apiKey = if (!VoiceConfig.isActualKey(config.openAiApiKey)) {
                 VoiceConfig.getSecureOpenAiKey() ?: ""
             } else {
