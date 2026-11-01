@@ -61,6 +61,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.chat.domain.ChatSession
+import io.askimo.core.chat.domain.Label
 import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.components.tablePageSizeSelector
 import io.askimo.ui.common.components.tablePagination
@@ -238,6 +239,10 @@ fun sessionsView(
                             onResumeSession = onResumeSession,
                             onDeleteSession = { viewModel.deleteSession(it) },
                             onStarSession = { id, starred -> viewModel.updateSessionStarred(id, starred) },
+                            allLabels = viewModel.allLabels,
+                            labelsBySessionId = viewModel.labelsBySessionId,
+                            onToggleLabel = viewModel::toggleSessionLabel,
+                            onManageLabels = viewModel::openManageLabelsDialog,
                             sortColumn = sortColumn,
                             sortDirection = sortDirection,
                             onSortChange = { col ->
@@ -300,6 +305,10 @@ private fun sessionTable(
     onResumeSession: (String) -> Unit,
     onDeleteSession: (String) -> Unit,
     onStarSession: (String, Boolean) -> Unit,
+    allLabels: List<Label>,
+    labelsBySessionId: Map<String, List<Label>>,
+    onToggleLabel: (sessionId: String, labelId: String) -> Unit,
+    onManageLabels: () -> Unit,
     sortColumn: SessionSortColumn,
     sortDirection: SortDirection,
     onSortChange: (SessionSortColumn) -> Unit,
@@ -372,6 +381,10 @@ private fun sessionTable(
                     onResumeSession = onResumeSession,
                     onDeleteSession = onDeleteSession,
                     onStarSession = onStarSession,
+                    allLabels = allLabels,
+                    assignedLabels = labelsBySessionId[session.id] ?: emptyList(),
+                    onToggleLabel = { labelId -> onToggleLabel(session.id, labelId) },
+                    onManageLabels = onManageLabels,
                 )
                 if (index < sortedSessions.lastIndex) {
                     HorizontalDivider(color = AppColors.codeBlockBorderColor())
@@ -421,6 +434,10 @@ private fun sessionRow(
     onResumeSession: (String) -> Unit,
     onDeleteSession: (String) -> Unit,
     onStarSession: (String, Boolean) -> Unit,
+    allLabels: List<Label>,
+    assignedLabels: List<Label>,
+    onToggleLabel: (labelId: String) -> Unit,
+    onManageLabels: () -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -474,16 +491,24 @@ private fun sessionRow(
             )
         }
 
-        // Title
-        sessionTooltip(session = session, modifier = Modifier.weight(1f)) {
-            Text(
-                text = session.title,
-                style = AppTextStyles.body,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+        // Title + label badge
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            sessionTooltip(session = session, modifier = Modifier.weight(1f, fill = false)) {
+                Text(
+                    text = session.title,
+                    style = AppTextStyles.body,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (assignedLabels.isNotEmpty()) {
+                labelBadgeRow(labels = assignedLabels, modifier = Modifier.padding(start = Spacing.extraSmall))
+            }
         }
 
         // Created date
@@ -530,6 +555,16 @@ private fun sessionRow(
                         )
                     },
                     modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                )
+                labelsMenuItem(
+                    allLabels = allLabels,
+                    assignedLabelIds = assignedLabels.map { it.id }.toSet(),
+                    onToggleLabel = onToggleLabel,
+                    onManageLabels = {
+                        showMenu = false
+                        onManageLabels()
+                    },
+                    onDismiss = { showMenu = false },
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource("action.delete"), color = MaterialTheme.colorScheme.error) },

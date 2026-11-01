@@ -5,6 +5,7 @@
 package io.askimo.ui.session
 
 import io.askimo.core.chat.domain.ChatSession
+import io.askimo.core.chat.domain.Label
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Instant
@@ -62,5 +63,49 @@ class SessionFilterTest {
         val original = sessions.map { it.id }
         sessions.filteredByQuery("apple")
         assertEquals(original, sessions.map { it.id })
+    }
+}
+
+/** Coverage for the sidebar label filter: the [List.filteredByLabels] extension. */
+class SessionFilteredByLabelsTest {
+
+    private fun session(id: String) = ChatSession(
+        id = id,
+        title = "session-$id",
+        createdAt = Instant.parse("2024-01-01T00:00:00Z"),
+        updatedAt = Instant.parse("2024-01-01T00:00:00Z"),
+    )
+
+    private val billing = Label(id = "l-billing", name = "Billing", color = "#FF0000")
+    private val urgent = Label(id = "l-urgent", name = "Urgent", color = "#00FF00")
+
+    private val sessions = listOf(session("1"), session("2"), session("3"))
+    private val labelsBySessionId = mapOf(
+        "1" to listOf(billing),
+        "2" to listOf(urgent),
+        // session 3 has no labels
+    )
+
+    @Test
+    fun `empty selection returns the list unchanged`() {
+        assertEquals(sessions, sessions.filteredByLabels(emptySet(), labelsBySessionId))
+    }
+
+    @Test
+    fun `filters to sessions carrying the selected label`() {
+        val ids = sessions.filteredByLabels(setOf("l-billing"), labelsBySessionId).map { it.id }
+        assertEquals(listOf("1"), ids)
+    }
+
+    @Test
+    fun `multiple selected labels use any-of semantics`() {
+        val ids = sessions.filteredByLabels(setOf("l-billing", "l-urgent"), labelsBySessionId).map { it.id }
+        assertEquals(listOf("1", "2"), ids)
+    }
+
+    @Test
+    fun `sessions with no matching labels are excluded`() {
+        val ids = sessions.filteredByLabels(setOf("l-does-not-exist"), labelsBySessionId).map { it.id }
+        assertEquals(emptyList(), ids)
     }
 }

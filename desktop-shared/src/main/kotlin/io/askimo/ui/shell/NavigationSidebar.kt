@@ -48,6 +48,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
@@ -103,6 +104,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.askimo.core.chat.domain.ChatSession
+import io.askimo.core.chat.domain.Label
 import io.askimo.core.chat.domain.Project
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
@@ -121,12 +123,17 @@ import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.session.SessionActionMenu.sidebarMenu
 import io.askimo.ui.session.SessionDateBucket
+import io.askimo.ui.session.SessionGroupKey
 import io.askimo.ui.session.SessionGroupOption
 import io.askimo.ui.session.SessionSortOption
 import io.askimo.ui.session.SessionsViewModel
 import io.askimo.ui.session.bulkDeleteSessionsDialog
 import io.askimo.ui.session.deleteSessionDialog
 import io.askimo.ui.session.groupedByOption
+import io.askimo.ui.session.labelBadgeRow
+import io.askimo.ui.session.labelColorDot
+import io.askimo.ui.session.labelsMenuItem
+import io.askimo.ui.session.manageLabelsDialog
 import io.askimo.ui.session.moveToProjectMenuItem
 import io.askimo.ui.session.sessionTooltip
 import io.askimo.ui.util.Platform
@@ -399,6 +406,10 @@ private fun expandedNavigationSidebar(
                     onExportSession = onExportSession,
                     onEditProject = onEditProject,
                     onDeleteProject = onDeleteProject,
+                    labelsBySessionId = sessionsViewModel.labelsBySessionId,
+                    allLabels = sessionsViewModel.allLabels,
+                    onToggleLabel = sessionsViewModel::toggleSessionLabel,
+                    onManageLabels = sessionsViewModel::openManageLabelsDialog,
                 )
             }
 
@@ -482,6 +493,10 @@ private fun expandedNavigationSidebar(
                                         onSelectGroup = sessionsViewModel::selectGroupOption,
                                         selectionMode = sessionsViewModel.selectionMode,
                                         onToggleSelectionMode = sessionsViewModel::toggleSelectionMode,
+                                        allLabels = sessionsViewModel.allLabels,
+                                        selectedLabelFilterIds = sessionsViewModel.selectedLabelFilterIds,
+                                        onToggleLabelFilter = sessionsViewModel::toggleLabelFilter,
+                                        onClearLabelFilter = sessionsViewModel::clearLabelFilter,
                                     )
                                 }
                             }
@@ -532,6 +547,17 @@ private fun expandedNavigationSidebar(
                     )
                 }
             }
+        }
+
+        if (sessionsViewModel.showManageLabelsDialog) {
+            manageLabelsDialog(
+                labels = sessionsViewModel.allLabels,
+                usageCounts = sessionsViewModel.labelUsageCounts,
+                onCreate = sessionsViewModel::createLabel,
+                onUpdate = sessionsViewModel::updateLabel,
+                onDelete = sessionsViewModel::deleteLabel,
+                onDismiss = sessionsViewModel::closeManageLabelsDialog,
+            )
         }
 
         // Bottom: user profile slot
@@ -879,6 +905,10 @@ private fun pinnedSection(
     onExportSession: (String) -> Unit = {},
     onEditProject: (String) -> Unit = {},
     onDeleteProject: (String) -> Unit = {},
+    labelsBySessionId: Map<String, List<Label>> = emptyMap(),
+    allLabels: List<Label> = emptyList(),
+    onToggleLabel: (sessionId: String, labelId: String) -> Unit = { _, _ -> },
+    onManageLabels: () -> Unit = {},
 ) {
     if (starredProjects.isEmpty() && starredSessions.isEmpty()) return
 
@@ -948,6 +978,10 @@ private fun pinnedSection(
                         onDelete = { onDeleteSession(session.id) },
                         onRename = { onRenameSession(session.id, session.title) },
                         onExport = { onExportSession(session.id) },
+                        labels = labelsBySessionId[session.id].orEmpty(),
+                        allLabels = allLabels,
+                        onToggleLabel = { labelId -> onToggleLabel(session.id, labelId) },
+                        onManageLabels = onManageLabels,
                     )
                 }
             }
@@ -1047,6 +1081,10 @@ private fun pinnedSessionItem(
     onDelete: () -> Unit,
     onRename: () -> Unit,
     onExport: () -> Unit,
+    labels: List<Label> = emptyList(),
+    allLabels: List<Label> = emptyList(),
+    onToggleLabel: (labelId: String) -> Unit = {},
+    onManageLabels: () -> Unit = {},
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -1077,6 +1115,7 @@ private fun pinnedSessionItem(
             onResumeSession = onResumeSession,
             onMenuClick = { showMenu = true },
             bookmarkCount = bookmarkCount,
+            labels = labels,
         )
 
         Box(modifier = Modifier.align(Alignment.CenterEnd).padding(end = Spacing.small)) {
@@ -1110,6 +1149,16 @@ private fun pinnedSessionItem(
                         onExport()
                     },
                     modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                )
+                labelsMenuItem(
+                    allLabels = allLabels,
+                    assignedLabelIds = labels.map { it.id }.toSet(),
+                    onToggleLabel = onToggleLabel,
+                    onManageLabels = {
+                        showMenu = false
+                        onManageLabels()
+                    },
+                    onDismiss = { showMenu = false },
                 )
                 HorizontalDivider()
                 DropdownMenuItem(
@@ -1154,7 +1203,7 @@ private fun sessionsList(
         ),
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
-        val unstarredSessions = sessionsViewModel.filteredSortedRecentSessions.filter { !it.isStarred }
+        val unstarredSessions = sessionsViewModel.sidebarVisibleSessions.filter { !it.isStarred }
 
         if (sessionsViewModel.recentSessions.isEmpty()) {
             Text(
@@ -1175,20 +1224,14 @@ private fun sessionsList(
                 ),
             )
         } else {
-            val groups = unstarredSessions.groupedByOption(sessionsViewModel.groupOption)
+            val groups = unstarredSessions.groupedByOption(
+                sessionsViewModel.groupOption,
+                labelsBySessionId = sessionsViewModel.labelsBySessionId,
+            )
 
             groups.forEach { (bucket, sessionsInBucket) ->
                 if (bucket != null) {
-                    Text(
-                        text = bucket.label(),
-                        style = AppTextStyles.caption,
-                        color = AppTextStyles.secondaryContent,
-                        modifier = Modifier.padding(
-                            start = Spacing.extraSmall,
-                            top = Spacing.small,
-                            bottom = Spacing.extraSmall,
-                        ),
-                    )
+                    groupHeader(key = bucket)
                 }
                 sessionsInBucket.forEach { session ->
                     sessionItemWithMenu(
@@ -1207,6 +1250,10 @@ private fun sessionsList(
                         selectionMode = sessionsViewModel.selectionMode,
                         isSessionSelected = session.id in sessionsViewModel.selectedSessionIds,
                         onToggleSessionSelected = sessionsViewModel::toggleSessionSelected,
+                        labels = sessionsViewModel.labelsBySessionId[session.id].orEmpty(),
+                        allLabels = sessionsViewModel.allLabels,
+                        onToggleLabel = { labelId -> sessionsViewModel.toggleSessionLabel(session.id, labelId) },
+                        onManageLabels = sessionsViewModel::openManageLabelsDialog,
                     )
                 }
             }
@@ -1231,13 +1278,42 @@ private fun sessionsList(
     }
 }
 
-/** Localized caption shown above each [SessionDateBucket] group in the sidebar. */
+/** Localized caption rendered above each [SessionGroupKey] bucket in the sidebar. */
 @Composable
-private fun SessionDateBucket.label(): String = when (this) {
-    SessionDateBucket.TODAY -> stringResource("message.date.today")
-    SessionDateBucket.YESTERDAY -> stringResource("message.date.yesterday")
-    SessionDateBucket.PREVIOUS_7_DAYS -> stringResource("sidebar.sessions.date.previous7Days")
-    SessionDateBucket.OLDER -> stringResource("sidebar.sessions.date.older")
+private fun groupHeader(key: SessionGroupKey) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+        modifier = Modifier.padding(
+            start = Spacing.extraSmall,
+            top = Spacing.small,
+            bottom = Spacing.extraSmall,
+        ),
+    ) {
+        if (key is SessionGroupKey.ByLabel) {
+            labelColorDot(colorHex = key.label.color, size = 8.dp)
+        }
+        Text(
+            text = key.label(),
+            style = AppTextStyles.caption,
+            color = AppTextStyles.secondaryContent,
+        )
+    }
+}
+
+/** Localized text for a [SessionGroupKey] group header. */
+@Composable
+private fun SessionGroupKey.label(): String = when (this) {
+    is SessionGroupKey.ByDate -> when (bucket) {
+        SessionDateBucket.TODAY -> stringResource("message.date.today")
+        SessionDateBucket.YESTERDAY -> stringResource("message.date.yesterday")
+        SessionDateBucket.PREVIOUS_7_DAYS -> stringResource("sidebar.sessions.date.previous7Days")
+        SessionDateBucket.OLDER -> stringResource("sidebar.sessions.date.older")
+    }
+
+    is SessionGroupKey.ByLabel -> label.name
+
+    SessionGroupKey.Unlabeled -> stringResource("sidebar.sessions.label.unlabeled")
 }
 
 /**
@@ -1253,18 +1329,25 @@ private fun sessionsOrganizeMenu(
     onSelectGroup: (SessionGroupOption) -> Unit,
     selectionMode: Boolean,
     onToggleSelectionMode: () -> Unit,
+    allLabels: List<Label> = emptyList(),
+    selectedLabelFilterIds: Set<String> = emptySet(),
+    onToggleLabelFilter: (labelId: String) -> Unit = {},
+    onClearLabelFilter: () -> Unit = {},
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showSortSubmenu by remember { mutableStateOf(false) }
     var showGroupSubmenu by remember { mutableStateOf(false) }
+    var showLabelFilterSubmenu by remember { mutableStateOf(false) }
     var sortItemWidth by remember { mutableStateOf(0.dp) }
     var groupItemWidth by remember { mutableStateOf(0.dp) }
+    var labelFilterItemWidth by remember { mutableStateOf(0.dp) }
     val density = LocalDensity.current
     val fontScale = LocalFontScale.current
 
     fun closeAll() {
         showMenu = false
         showSortSubmenu = false
+        showLabelFilterSubmenu = false
         showGroupSubmenu = false
     }
 
@@ -1280,6 +1363,7 @@ private fun sessionsOrganizeMenu(
     fun groupLabelFor(option: SessionGroupOption): String = when (option) {
         SessionGroupOption.NONE -> stringResource("sidebar.sessions.group.none")
         SessionGroupOption.BY_DATE -> stringResource("sidebar.sessions.group.byDate")
+        SessionGroupOption.BY_LABEL -> stringResource("sidebar.sessions.group.byLabel")
     }
 
     Box {
@@ -1296,8 +1380,21 @@ private fun sessionsOrganizeMenu(
                     Icons.Default.FilterList,
                     contentDescription = stringResource("sidebar.sessions.organize.tooltip"),
                     modifier = Modifier.size((16 * fontScale).dp),
-                    tint = AppTextStyles.secondaryContent,
+                    tint = if (selectedLabelFilterIds.isNotEmpty()) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        AppTextStyles.secondaryContent
+                    },
                 )
+                if (selectedLabelFilterIds.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size((6 * fontScale).dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary),
+                    )
+                }
             }
         }
 
@@ -1410,6 +1507,82 @@ private fun sessionsOrganizeMenu(
                         }
                     }
                 }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.extraSmall))
+
+                Box {
+                    AppComponents.menuItem(
+                        text = { Text(stringResource("sidebar.sessions.filterByLabel")) },
+                        onClick = {
+                            showLabelFilterSubmenu = !showLabelFilterSubmenu
+                            showSortSubmenu = false
+                            showGroupSubmenu = false
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Default.Label, contentDescription = null)
+                        },
+                        trailingIcon = {
+                            if (selectedLabelFilterIds.isNotEmpty()) {
+                                Text(
+                                    "${selectedLabelFilterIds.size}",
+                                    style = AppTextStyles.caption,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                            Icon(
+                                Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                modifier = Modifier.size((20 * fontScale).dp),
+                            )
+                        },
+                        modifier = Modifier.onGloballyPositioned { coordinates ->
+                            labelFilterItemWidth = with(density) { coordinates.size.width.toDp() }
+                        },
+                    )
+
+                    if (showLabelFilterSubmenu) {
+                        Box(modifier = Modifier.offset(x = labelFilterItemWidth, y = -Spacing.small)) {
+                            dropdownMenu(
+                                expanded = showLabelFilterSubmenu,
+                                onDismissRequest = { showLabelFilterSubmenu = false },
+                            ) {
+                                Column {
+                                    AppComponents.menuItem(
+                                        text = { Text(stringResource("sidebar.sessions.filterByLabel.all")) },
+                                        leadingIcon = {
+                                            if (selectedLabelFilterIds.isEmpty()) {
+                                                Icon(Icons.Default.Check, contentDescription = null)
+                                            }
+                                        },
+                                        onClick = {
+                                            closeAll()
+                                            onClearLabelFilter()
+                                        },
+                                    )
+
+                                    if (allLabels.isNotEmpty()) {
+                                        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.extraSmall))
+                                        allLabels.forEach { label ->
+                                            val isSelected = label.id in selectedLabelFilterIds
+                                            AppComponents.menuItem(
+                                                text = { Text(label.name) },
+                                                leadingIcon = {
+                                                    labelColorDot(colorHex = label.color, size = (10 * fontScale).dp)
+                                                },
+                                                trailingIcon = {
+                                                    if (isSelected) {
+                                                        Icon(Icons.Default.Check, contentDescription = null)
+                                                    }
+                                                },
+                                                onClick = { onToggleLabelFilter(label.id) },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -1461,7 +1634,7 @@ private fun sessionsBulkActionBar(
     var showDeleteDialog by remember { mutableStateOf(false) }
     val fontScale = LocalFontScale.current
     val selectedCount = sessionsViewModel.selectedSessionIds.size
-    val visibleIds = sessionsViewModel.filteredSortedRecentSessions.filter { !it.isStarred }.map { it.id }
+    val visibleIds = sessionsViewModel.sidebarVisibleSessions.filter { !it.isStarred }.map { it.id }
 
     if (showDeleteDialog) {
         bulkDeleteSessionsDialog(
@@ -1585,6 +1758,10 @@ private fun sessionItemWithMenu(
     selectionMode: Boolean = false,
     isSessionSelected: Boolean = false,
     onToggleSessionSelected: (String) -> Unit = {},
+    labels: List<Label> = emptyList(),
+    allLabels: List<Label> = emptyList(),
+    onToggleLabel: (labelId: String) -> Unit = {},
+    onManageLabels: () -> Unit = {},
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -1619,6 +1796,7 @@ private fun sessionItemWithMenu(
             selectionMode = selectionMode,
             isSessionSelected = isSessionSelected,
             onToggleSessionSelected = onToggleSessionSelected,
+            labels = labels,
         )
 
         if (!selectionMode) {
@@ -1648,6 +1826,13 @@ private fun sessionItemWithMenu(
                         },
                         onShowSessionSummary = { onShowSessionSummary(session.id) },
                         onDismiss = { showMenu = false },
+                        allLabels = allLabels,
+                        assignedLabelIds = labels.map { it.id }.toSet(),
+                        onToggleLabel = onToggleLabel,
+                        onManageLabels = {
+                            showMenu = false
+                            onManageLabels()
+                        },
                     )
                 }
             }
@@ -1671,6 +1856,7 @@ private fun sessionDrawerItemContent(
     selectionMode: Boolean = false,
     isSessionSelected: Boolean = false,
     onToggleSessionSelected: (String) -> Unit = {},
+    labels: List<Label> = emptyList(),
 ) {
     val fontScale = LocalFontScale.current
 
@@ -1702,6 +1888,7 @@ private fun sessionDrawerItemContent(
                     isHovered = isHovered && !selectionMode,
                     isSelected = isSelected,
                     bookmarkCount = bookmarkCount,
+                    labels = labels,
                 )
             },
             selected = isSelected,
@@ -1726,6 +1913,7 @@ private fun navigationItemLabelWithMenu(
     isHovered: Boolean,
     isSelected: Boolean = false,
     bookmarkCount: Int = 0,
+    labels: List<Label> = emptyList(),
 ) {
     val fontScale = LocalFontScale.current
     val textColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
@@ -1743,6 +1931,9 @@ private fun navigationItemLabelWithMenu(
             color = textColor,
             modifier = Modifier.weight(1f),
         )
+        if (labels.isNotEmpty()) {
+            labelBadgeRow(labels = labels, modifier = Modifier.padding(start = Spacing.extraSmall))
+        }
         Box(
             modifier = Modifier
                 .padding(start = Spacing.extraSmall)

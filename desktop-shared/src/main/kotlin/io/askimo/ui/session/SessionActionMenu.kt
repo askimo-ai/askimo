@@ -170,6 +170,10 @@ object SessionActionMenu {
         onMoveToExistingProject: (Project) -> Unit,
         onShowSessionSummary: () -> Unit = {},
         onDismiss: () -> Unit,
+        allLabels: List<io.askimo.core.chat.domain.Label> = emptyList(),
+        assignedLabelIds: Set<String> = emptySet(),
+        onToggleLabel: (labelId: String) -> Unit = {},
+        onManageLabels: () -> Unit = {},
     ) {
         exportMenuItem(onExport = onExport, onDismiss = onDismiss)
         renameMenuItem(onRename = onRename, onDismiss = onDismiss)
@@ -180,6 +184,15 @@ object SessionActionMenu {
             projects = projects,
             onNewProject = onMoveToNewProject,
             onSelectProject = onMoveToExistingProject,
+            onDismiss = onDismiss,
+        )
+
+        // Labels submenu
+        labelsMenuItem(
+            allLabels = allLabels,
+            assignedLabelIds = assignedLabelIds,
+            onToggleLabel = onToggleLabel,
+            onManageLabels = onManageLabels,
             onDismiss = onDismiss,
         )
 

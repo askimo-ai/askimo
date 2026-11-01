@@ -260,9 +260,6 @@
   }, {
     "type": "com.github.dockerjava.api.command.ExecCreateCmdResponse",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "id"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -279,11 +276,6 @@
   }, {
     "type": "com.github.dockerjava.api.command.GraphDriver",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "data"
-    }, {
-      "name": "name"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -297,51 +289,6 @@
   }, {
     "type": "com.github.dockerjava.api.command.InspectContainerResponse",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "args"
-    }, {
-      "name": "config"
-    }, {
-      "name": "created"
-    }, {
-      "name": "driver"
-    }, {
-      "name": "execIds"
-    }, {
-      "name": "graphDriver"
-    }, {
-      "name": "hostConfig"
-    }, {
-      "name": "hostnamePath"
-    }, {
-      "name": "hostsPath"
-    }, {
-      "name": "id"
-    }, {
-      "name": "imageId"
-    }, {
-      "name": "logPath"
-    }, {
-      "name": "mountLabel"
-    }, {
-      "name": "mounts"
-    }, {
-      "name": "name"
-    }, {
-      "name": "networkSettings"
-    }, {
-      "name": "path"
-    }, {
-      "name": "platform"
-    }, {
-      "name": "processLabel"
-    }, {
-      "name": "resolvConfPath"
-    }, {
-      "name": "restartCount"
-    }, {
-      "name": "state"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -349,29 +296,6 @@
   }, {
     "type": "com.github.dockerjava.api.command.InspectContainerResponse$ContainerState",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "dead"
-    }, {
-      "name": "error"
-    }, {
-      "name": "exitCode"
-    }, {
-      "name": "finishedAt"
-    }, {
-      "name": "oomKilled"
-    }, {
-      "name": "paused"
-    }, {
-      "name": "pid"
-    }, {
-      "name": "restarting"
-    }, {
-      "name": "running"
-    }, {
-      "name": "startedAt"
-    }, {
-      "name": "status"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ "com.github.dockerjava.api.command.InspectContainerResponse" ]
@@ -379,19 +303,6 @@
   }, {
     "type": "com.github.dockerjava.api.command.InspectContainerResponse$Mount",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "destination"
-    }, {
-      "name": "driver"
-    }, {
-      "name": "mode"
-    }, {
-      "name": "name"
-    }, {
-      "name": "rw"
-    }, {
-      "name": "source"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -402,29 +313,6 @@
   }, {
     "type": "com.github.dockerjava.api.command.InspectExecResponse",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "canRemove"
-    }, {
-      "name": "containerID"
-    }, {
-      "name": "detachKeys"
-    }, {
-      "name": "exitCode"
-    }, {
-      "name": "id"
-    }, {
-      "name": "openStderr"
-    }, {
-      "name": "openStdin"
-    }, {
-      "name": "openStdout"
-    }, {
-      "name": "pid"
-    }, {
-      "name": "processConfig"
-    }, {
-      "name": "running"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -435,15 +323,6 @@
   }, {
     "type": "com.github.dockerjava.api.command.InspectExecResponse$ProcessConfig",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "arguments"
-    }, {
-      "name": "entryPoint"
-    }, {
-      "name": "privileged"
-    }, {
-      "name": "tty"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ "com.github.dockerjava.api.command.InspectExecResponse" ]
@@ -451,39 +330,6 @@
   }, {
     "type": "com.github.dockerjava.api.command.InspectImageResponse",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "arch"
-    }, {
-      "name": "author"
-    }, {
-      "name": "comment"
-    }, {
-      "name": "config"
-    }, {
-      "name": "container"
-    }, {
-      "name": "containerConfig"
-    }, {
-      "name": "created"
-    }, {
-      "name": "dockerVersion"
-    }, {
-      "name": "graphDriver"
-    }, {
-      "name": "id"
-    }, {
-      "name": "os"
-    }, {
-      "name": "parent"
-    }, {
-      "name": "repoDigests"
-    }, {
-      "name": "repoTags"
-    }, {
-      "name": "rootFS"
-    }, {
-      "name": "size"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -491,11 +337,6 @@
   }, {
     "type": "com.github.dockerjava.api.command.RootFS",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "layers"
-    }, {
-      "name": "type"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -574,43 +415,6 @@
   }, {
     "type": "com.github.dockerjava.api.model.ContainerConfig",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "attachStderr"
-    }, {
-      "name": "attachStdin"
-    }, {
-      "name": "attachStdout"
-    }, {
-      "name": "cmd"
-    }, {
-      "name": "domainName"
-    }, {
-      "name": "entrypoint"
-    }, {
-      "name": "env"
-    }, {
-      "name": "exposedPorts"
-    }, {
-      "name": "hostName"
-    }, {
-      "name": "image"
-    }, {
-      "name": "labels"
-    }, {
-      "name": "onBuild"
-    }, {
-      "name": "stdInOnce"
-    }, {
-      "name": "stdinOpen"
-    }, {
-      "name": "tty"
-    }, {
-      "name": "user"
-    }, {
-      "name": "volumes"
-    }, {
-      "name": "workingDir"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -618,31 +422,6 @@
   }, {
     "type": "com.github.dockerjava.api.model.ContainerNetwork",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "aliases"
-    }, {
-      "name": "endpointId"
-    }, {
-      "name": "gateway"
-    }, {
-      "name": "globalIPv6Address"
-    }, {
-      "name": "globalIPv6PrefixLen"
-    }, {
-      "name": "ipAddress"
-    }, {
-      "name": "ipPrefixLen"
-    }, {
-      "name": "ipV6Gateway"
-    }, {
-      "name": "ipamConfig"
-    }, {
-      "name": "links"
-    }, {
-      "name": "macAddress"
-    }, {
-      "name": "networkID"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -695,129 +474,6 @@
   }, {
     "type": "com.github.dockerjava.api.model.HostConfig",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "autoRemove"
-    }, {
-      "name": "binds"
-    }, {
-      "name": "blkioDeviceReadBps"
-    }, {
-      "name": "blkioDeviceReadIOps"
-    }, {
-      "name": "blkioDeviceWriteBps"
-    }, {
-      "name": "blkioDeviceWriteIOps"
-    }, {
-      "name": "blkioWeight"
-    }, {
-      "name": "blkioWeightDevice"
-    }, {
-      "name": "capAdd"
-    }, {
-      "name": "capDrop"
-    }, {
-      "name": "cgroup"
-    }, {
-      "name": "cgroupParent"
-    }, {
-      "name": "cgroupnsMode"
-    }, {
-      "name": "consoleSize"
-    }, {
-      "name": "containerIDFile"
-    }, {
-      "name": "cpuCount"
-    }, {
-      "name": "cpuPercent"
-    }, {
-      "name": "cpuPeriod"
-    }, {
-      "name": "cpuQuota"
-    }, {
-      "name": "cpuRealtimePeriod"
-    }, {
-      "name": "cpuRealtimeRuntime"
-    }, {
-      "name": "cpuShares"
-    }, {
-      "name": "cpusetCpus"
-    }, {
-      "name": "cpusetMems"
-    }, {
-      "name": "deviceCgroupRules"
-    }, {
-      "name": "deviceRequests"
-    }, {
-      "name": "devices"
-    }, {
-      "name": "dns"
-    }, {
-      "name": "dnsOptions"
-    }, {
-      "name": "dnsSearch"
-    }, {
-      "name": "extraHosts"
-    }, {
-      "name": "groupAdd"
-    }, {
-      "name": "ioMaximumBandwidth"
-    }, {
-      "name": "ioMaximumIOps"
-    }, {
-      "name": "ipcMode"
-    }, {
-      "name": "isolation"
-    }, {
-      "name": "links"
-    }, {
-      "name": "logConfig"
-    }, {
-      "name": "memory"
-    }, {
-      "name": "memoryReservation"
-    }, {
-      "name": "memorySwap"
-    }, {
-      "name": "memorySwappiness"
-    }, {
-      "name": "nanoCPUs"
-    }, {
-      "name": "networkMode"
-    }, {
-      "name": "oomKillDisable"
-    }, {
-      "name": "oomScoreAdj"
-    }, {
-      "name": "pidMode"
-    }, {
-      "name": "pidsLimit"
-    }, {
-      "name": "portBindings"
-    }, {
-      "name": "privileged"
-    }, {
-      "name": "publishAllPorts"
-    }, {
-      "name": "readonlyRootfs"
-    }, {
-      "name": "restartPolicy"
-    }, {
-      "name": "runtime"
-    }, {
-      "name": "securityOpts"
-    }, {
-      "name": "shmSize"
-    }, {
-      "name": "ulimits"
-    }, {
-      "name": "usernsMode"
-    }, {
-      "name": "utSMode"
-    }, {
-      "name": "volumeDriver"
-    }, {
-      "name": "volumesFrom"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -1026,25 +682,6 @@
   }, {
     "type": "com.github.dockerjava.api.model.Image",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "containers"
-    }, {
-      "name": "created"
-    }, {
-      "name": "id"
-    }, {
-      "name": "labels"
-    }, {
-      "name": "parentId"
-    }, {
-      "name": "repoDigests"
-    }, {
-      "name": "repoTags"
-    }, {
-      "name": "sharedSize"
-    }, {
-      "name": "size"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -1055,97 +692,6 @@
   }, {
     "type": "com.github.dockerjava.api.model.Info",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "architecture"
-    }, {
-      "name": "cGroupDriver"
-    }, {
-      "name": "cGroupVersion"
-    }, {
-      "name": "containers"
-    }, {
-      "name": "containersPaused"
-    }, {
-      "name": "containersRunning"
-    }, {
-      "name": "containersStopped"
-    }, {
-      "name": "cpuCfsPeriod"
-    }, {
-      "name": "cpuCfsQuota"
-    }, {
-      "name": "cpuSet"
-    }, {
-      "name": "cpuShares"
-    }, {
-      "name": "debug"
-    }, {
-      "name": "dockerRootDir"
-    }, {
-      "name": "driver"
-    }, {
-      "name": "driverStatuses"
-    }, {
-      "name": "experimentalBuild"
-    }, {
-      "name": "httpProxy"
-    }, {
-      "name": "httpsProxy"
-    }, {
-      "name": "id"
-    }, {
-      "name": "images"
-    }, {
-      "name": "indexServerAddress"
-    }, {
-      "name": "ipv4Forwarding"
-    }, {
-      "name": "isolation"
-    }, {
-      "name": "kernelVersion"
-    }, {
-      "name": "labels"
-    }, {
-      "name": "loggingDriver"
-    }, {
-      "name": "memTotal"
-    }, {
-      "name": "memoryLimit"
-    }, {
-      "name": "nEventsListener"
-    }, {
-      "name": "nGoroutines"
-    }, {
-      "name": "name"
-    }, {
-      "name": "ncpu"
-    }, {
-      "name": "nfd"
-    }, {
-      "name": "noProxy"
-    }, {
-      "name": "oomKillDisable"
-    }, {
-      "name": "operatingSystem"
-    }, {
-      "name": "osType"
-    }, {
-      "name": "plugins"
-    }, {
-      "name": "registryConfig"
-    }, {
-      "name": "runtimes"
-    }, {
-      "name": "securityOptions"
-    }, {
-      "name": "serverVersion"
-    }, {
-      "name": "swapLimit"
-    }, {
-      "name": "swarm"
-    }, {
-      "name": "systemTime"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -1153,13 +699,6 @@
   }, {
     "type": "com.github.dockerjava.api.model.InfoRegistryConfig",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "indexConfigs"
-    }, {
-      "name": "insecureRegistryCIDRs"
-    }, {
-      "name": "mirrors"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -1167,15 +706,6 @@
   }, {
     "type": "com.github.dockerjava.api.model.InfoRegistryConfig$IndexConfig",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "mirrors"
-    }, {
-      "name": "name"
-    }, {
-      "name": "official"
-    }, {
-      "name": "secure"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -1212,9 +742,6 @@
   }, {
     "type": "com.github.dockerjava.api.model.LogConfig",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "config"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -1243,15 +770,6 @@
   }, {
     "type": "com.github.dockerjava.api.model.NetworkSettings",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "networks"
-    }, {
-      "name": "ports"
-    }, {
-      "name": "sandboxId"
-    }, {
-      "name": "sandboxKey"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -1319,11 +837,6 @@
   }, {
     "type": "com.github.dockerjava.api.model.RestartPolicy",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "maximumRetryCount"
-    }, {
-      "name": "name"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -1350,19 +863,6 @@
   }, {
     "type": "com.github.dockerjava.api.model.SwarmInfo",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "controlAvailable"
-    }, {
-      "name": "error"
-    }, {
-      "name": "localNodeState"
-    }, {
-      "name": "nodeAddr"
-    }, {
-      "name": "nodeID"
-    }, {
-      "name": "remoteManagers"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -1390,29 +890,6 @@
   }, {
     "type": "com.github.dockerjava.api.model.Version",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "apiVersion"
-    }, {
-      "name": "arch"
-    }, {
-      "name": "buildTime"
-    }, {
-      "name": "components"
-    }, {
-      "name": "gitCommit"
-    }, {
-      "name": "goVersion"
-    }, {
-      "name": "kernelVersion"
-    }, {
-      "name": "minAPIVersion"
-    }, {
-      "name": "operatingSystem"
-    }, {
-      "name": "platform"
-    }, {
-      "name": "version"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -1420,13 +897,6 @@
   }, {
     "type": "com.github.dockerjava.api.model.VersionComponent",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "details"
-    }, {
-      "name": "name"
-    }, {
-      "name": "version"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -1434,9 +904,6 @@
   }, {
     "type": "com.github.dockerjava.api.model.VersionPlatform",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "name"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -1631,6 +1098,12 @@
   }, {
     "type": "dev.langchain4j.model.anthropic.internal.api.AnthropicContent",
     "fields": [ {
+      "name": "id"
+    }, {
+      "name": "input"
+    }, {
+      "name": "name"
+    }, {
       "name": "signature"
     }, {
       "name": "text"
@@ -1703,6 +1176,8 @@
   }, {
     "type": "dev.langchain4j.model.anthropic.internal.api.AnthropicDelta",
     "fields": [ {
+      "name": "partialJson"
+    }, {
       "name": "signature"
     }, {
       "name": "stopReason"
@@ -1804,6 +1279,13 @@
       "name": "type"
     } ]
   }, {
+    "type": "dev.langchain4j.model.anthropic.internal.api.AnthropicThinkingContent",
+    "fields": [ {
+      "name": "signature"
+    }, {
+      "name": "thinking"
+    } ]
+  }, {
     "type": "dev.langchain4j.model.anthropic.internal.api.AnthropicTool",
     "fields": [ {
       "name": "cacheControl"
@@ -1821,6 +1303,15 @@
       "parameterTypes": [ ]
     } ]
   }, {
+    "type": "dev.langchain4j.model.anthropic.internal.api.AnthropicToolResultContent",
+    "fields": [ {
+      "name": "content"
+    }, {
+      "name": "isError"
+    }, {
+      "name": "toolUseId"
+    } ]
+  }, {
     "type": "dev.langchain4j.model.anthropic.internal.api.AnthropicToolSchema",
     "fields": [ {
       "name": "additionalProperties"
@@ -1832,6 +1323,15 @@
       "name": "required"
     }, {
       "name": "type"
+    } ]
+  }, {
+    "type": "dev.langchain4j.model.anthropic.internal.api.AnthropicToolUseContent",
+    "fields": [ {
+      "name": "id"
+    }, {
+      "name": "input"
+    }, {
+      "name": "name"
     } ]
   }, {
     "type": "dev.langchain4j.model.anthropic.internal.api.AnthropicUsage",
@@ -2187,6 +1687,169 @@
   }, {
     "type": "dev.langchain4j.model.image.ImageModel"
   }, {
+    "type": "dev.langchain4j.model.openai.internal.chat.AssistantMessage$Builder",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    }, {
+      "name": "build",
+      "parameterTypes": [ ]
+    }, {
+      "name": "content",
+      "parameterTypes": [ "java.lang.String" ]
+    } ]
+  }, {
+    "type": "dev.langchain4j.model.openai.internal.chat.ChatCompletionChoice$Builder",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    }, {
+      "name": "build",
+      "parameterTypes": [ ]
+    }, {
+      "name": "finishReason",
+      "parameterTypes": [ "java.lang.String" ]
+    }, {
+      "name": "index",
+      "parameterTypes": [ "java.lang.Integer" ]
+    }, {
+      "name": "message",
+      "parameterTypes": [ "dev.langchain4j.model.openai.internal.chat.AssistantMessage" ]
+    } ]
+  }, {
+    "type": "dev.langchain4j.model.openai.internal.chat.ChatCompletionRequest",
+    "fields": [ {
+      "name": "frequencyPenalty"
+    }, {
+      "name": "functionCall"
+    }, {
+      "name": "functions"
+    }, {
+      "name": "logitBias"
+    }, {
+      "name": "logprobs"
+    }, {
+      "name": "maxCompletionTokens"
+    }, {
+      "name": "maxTokens"
+    }, {
+      "name": "messages"
+    }, {
+      "name": "metadata"
+    }, {
+      "name": "model"
+    }, {
+      "name": "n"
+    }, {
+      "name": "parallelToolCalls"
+    }, {
+      "name": "presencePenalty"
+    }, {
+      "name": "promptCacheKey"
+    }, {
+      "name": "promptCacheOptions"
+    }, {
+      "name": "reasoningEffort"
+    }, {
+      "name": "responseFormat"
+    }, {
+      "name": "seed"
+    }, {
+      "name": "serviceTier"
+    }, {
+      "name": "stop"
+    }, {
+      "name": "store"
+    }, {
+      "name": "stream"
+    }, {
+      "name": "streamOptions"
+    }, {
+      "name": "temperature"
+    }, {
+      "name": "toolChoice"
+    }, {
+      "name": "tools"
+    }, {
+      "name": "topLogprobs"
+    }, {
+      "name": "topP"
+    }, {
+      "name": "user"
+    } ],
+    "methods": [ {
+      "name": "customParameters",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "dev.langchain4j.model.openai.internal.chat.ChatCompletionResponse$Builder",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    }, {
+      "name": "build",
+      "parameterTypes": [ ]
+    }, {
+      "name": "choices",
+      "parameterTypes": [ "java.util.List" ]
+    }, {
+      "name": "created",
+      "parameterTypes": [ "java.lang.Long" ]
+    }, {
+      "name": "id",
+      "parameterTypes": [ "java.lang.String" ]
+    }, {
+      "name": "model",
+      "parameterTypes": [ "java.lang.String" ]
+    }, {
+      "name": "systemFingerprint",
+      "parameterTypes": [ "java.lang.String" ]
+    }, {
+      "name": "usage",
+      "parameterTypes": [ "dev.langchain4j.model.openai.internal.shared.Usage" ]
+    } ]
+  }, {
+    "type": "dev.langchain4j.model.openai.internal.chat.Delta$Builder"
+  }, {
+    "type": "dev.langchain4j.model.openai.internal.chat.FunctionCall$Builder"
+  }, {
+    "type": "dev.langchain4j.model.openai.internal.chat.JsonSchema",
+    "fields": [ {
+      "name": "name"
+    }, {
+      "name": "schema"
+    }, {
+      "name": "strict"
+    } ]
+  }, {
+    "type": "dev.langchain4j.model.openai.internal.chat.LogProb$Builder"
+  }, {
+    "type": "dev.langchain4j.model.openai.internal.chat.LogProbs$Builder"
+  }, {
+    "type": "dev.langchain4j.model.openai.internal.chat.Message"
+  }, {
+    "type": "dev.langchain4j.model.openai.internal.chat.ResponseFormat",
+    "fields": [ {
+      "name": "jsonSchema"
+    }, {
+      "name": "type"
+    } ]
+  }, {
+    "type": "dev.langchain4j.model.openai.internal.chat.ResponseFormatType"
+  }, {
+    "type": "dev.langchain4j.model.openai.internal.chat.Role"
+  }, {
+    "type": "dev.langchain4j.model.openai.internal.chat.ToolCall$Builder"
+  }, {
+    "type": "dev.langchain4j.model.openai.internal.chat.UserMessage",
+    "fields": [ {
+      "name": "content"
+    }, {
+      "name": "name"
+    }, {
+      "name": "role"
+    } ]
+  }, {
     "type": "dev.langchain4j.model.openai.internal.embedding.Embedding$Builder",
     "allDeclaredFields": true,
     "methods": [ {
@@ -2208,17 +1871,6 @@
   }, {
     "type": "dev.langchain4j.model.openai.internal.embedding.EmbeddingRequest",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "dimensions"
-    }, {
-      "name": "encodingFormat"
-    }, {
-      "name": "input"
-    }, {
-      "name": "model"
-    }, {
-      "name": "user"
-    } ],
     "methods": [ {
       "name": "customParameters",
       "parameterTypes": [ ]
@@ -2252,8 +1904,12 @@
     "type": "dev.langchain4j.model.openai.internal.shared.CompletionTokensDetails$Builder",
     "allDeclaredFields": true
   }, {
+    "type": "dev.langchain4j.model.openai.internal.shared.PromptCacheOptions"
+  }, {
     "type": "dev.langchain4j.model.openai.internal.shared.PromptTokensDetails$Builder",
     "allDeclaredFields": true
+  }, {
+    "type": "dev.langchain4j.model.openai.internal.shared.StreamOptions"
   }, {
     "type": "dev.langchain4j.model.openai.internal.shared.Usage$Builder",
     "allDeclaredFields": true,
@@ -2263,6 +1919,9 @@
     }, {
       "name": "build",
       "parameterTypes": [ ]
+    }, {
+      "name": "completionTokens",
+      "parameterTypes": [ "java.lang.Integer" ]
     }, {
       "name": "promptTokens",
       "parameterTypes": [ "java.lang.Integer" ]
@@ -2373,9 +2032,6 @@
   }, {
     "type": "io.askimo.cli.commands.CreateRecipeCommandHandlerTest",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "tempDir"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -3502,6 +3158,12 @@
       "name": "<init>",
       "parameterTypes": [ ]
     }, {
+      "name": "deleteTurn should hide the turn and drop stale persisted session memory",
+      "parameterTypes": [ ]
+    }, {
+      "name": "deleteTurn should not touch messages or session memory for an assistant message",
+      "parameterTypes": [ ]
+    }, {
       "name": "forkSession forked messages all belong to the new session",
       "parameterTypes": [ ]
     }, {
@@ -4429,9 +4091,6 @@
   }, {
     "type": "io.askimo.core.config.ProxyConfig",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "Companion"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ "io.askimo.core.config.ProxyType", "java.lang.String", "int", "java.lang.String", "java.lang.String" ]
@@ -4539,6 +4198,12 @@
       "parameterTypes": [ "boolean", "io.askimo.core.config.VoiceProvider", "io.askimo.core.config.VoiceProvider", "java.lang.String", "java.lang.String", "java.lang.String", "double", "boolean", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "boolean", "boolean", "java.util.List", "int", "long", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
     }, {
       "name": "<init>",
+      "parameterTypes": [ "boolean", "io.askimo.core.config.VoiceProvider", "io.askimo.core.config.VoiceProvider", "java.lang.String", "java.lang.String", "java.lang.String", "double", "boolean", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "boolean", "boolean", "boolean", "long", "boolean", "java.util.List", "int", "long" ]
+    }, {
+      "name": "<init>",
+      "parameterTypes": [ "boolean", "io.askimo.core.config.VoiceProvider", "io.askimo.core.config.VoiceProvider", "java.lang.String", "java.lang.String", "java.lang.String", "double", "boolean", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "boolean", "boolean", "boolean", "long", "boolean", "java.util.List", "int", "long", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
+    }, {
+      "name": "<init>",
       "parameterTypes": [ "boolean", "io.askimo.core.config.VoiceProvider", "io.askimo.core.config.VoiceProvider", "java.lang.String", "java.lang.String", "java.lang.String", "double", "boolean", "java.lang.String", "java.lang.String", "java.lang.String", "boolean", "boolean", "java.util.List", "int", "long", "int", "kotlin.jvm.internal.DefaultConstructorMarker" ]
     }, {
       "name": "getAutoPlayResponses",
@@ -4547,7 +4212,16 @@
       "name": "getAutoSendTranscript",
       "parameterTypes": [ ]
     }, {
+      "name": "getAutoStopOnSilence",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getAutoStopSilenceDurationMs",
+      "parameterTypes": [ ]
+    }, {
       "name": "getEnabled",
+      "parameterTypes": [ ]
+    }, {
+      "name": "getLiveTranscriptionEnabled",
       "parameterTypes": [ ]
     }, {
       "name": "getLocalSttEndpoint",
@@ -4593,6 +4267,9 @@
       "parameterTypes": [ ]
     }, {
       "name": "getWhisperModelBaseUrl",
+      "parameterTypes": [ ]
+    }, {
+      "name": "isLocalWhisperModelMissing",
       "parameterTypes": [ ]
     }, {
       "name": "isSttAvailable",
@@ -5676,6 +5353,18 @@
     }, {
       "name": "shouldPreserveToolExecutionResultId",
       "parameterTypes": [ ]
+    }, {
+      "name": "stripThinkingNoOpForNonAiMessage",
+      "parameterTypes": [ ]
+    }, {
+      "name": "stripThinkingNoOpWhenNoThinkingState",
+      "parameterTypes": [ ]
+    }, {
+      "name": "stripThinkingPreservesToolExecutionRequests",
+      "parameterTypes": [ ]
+    }, {
+      "name": "stripThinkingRemovesThinkingStateFromAiMessage",
+      "parameterTypes": [ ]
     } ]
   }, {
     "type": "io.askimo.core.memory.TokenAwareSummarizingMemoryTest",
@@ -5703,6 +5392,9 @@
       "parameterTypes": [ ]
     }, {
       "name": "mergeWithExistingSummary refreshes position of updated key",
+      "parameterTypes": [ ]
+    }, {
+      "name": "messages() should strip thinking state from superseded AiMessages but keep it on the most recent one",
       "parameterTypes": [ ]
     }, {
       "name": "setup",
@@ -5785,6 +5477,9 @@
     }, {
       "name": "tearDown",
       "parameterTypes": [ ]
+    }, {
+      "name": "tool_use and tool_result ids must match after any background summarization pruning",
+      "parameterTypes": [ ]
     } ]
   }, {
     "type": "io.askimo.core.memory.UserMemorySummary"
@@ -5811,9 +5506,6 @@
   }, {
     "type": "io.askimo.core.providers.ChatRequestTransformersTest",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "tempDir"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -6288,8 +5980,14 @@
       "name": "<init>",
       "parameterTypes": [ ]
     }, {
+      "name": "anthropicModelTiers",
+      "parameterTypes": [ ]
+    }, {
       "name": "availableModelsReturnsModelsWithApiKey",
       "parameterTypes": [ ]
+    }, {
+      "name": "canCallToolsAcrossModelTiers",
+      "parameterTypes": [ "java.lang.String" ]
     }, {
       "name": "canCreateChatServiceAndStream",
       "parameterTypes": [ ]
@@ -6300,6 +5998,10 @@
       "name": "setUp",
       "parameterTypes": [ ]
     } ]
+  }, {
+    "type": "io.askimo.core.providers.anthropic.AnthropicModelFactoryTest$Companion"
+  }, {
+    "type": "io.askimo.core.providers.anthropic.AnthropicModelFactoryTestKt"
   }, {
     "type": "io.askimo.core.providers.anthropic.AnthropicSettings",
     "methods": [ {
@@ -6404,6 +6106,24 @@
       "parameterTypes": [ ]
     }, {
       "name": "canCreateChatServiceAndStream",
+      "parameterTypes": [ ]
+    }, {
+      "name": "setUp",
+      "parameterTypes": [ ]
+    } ]
+  }, {
+    "type": "io.askimo.core.providers.ollama.OllamaSummaryIT",
+    "methods": [ {
+      "name": "<init>",
+      "parameterTypes": [ ]
+    }, {
+      "name": "extractsFactsFromDenseConversation",
+      "parameterTypes": [ ]
+    }, {
+      "name": "handlesLowSignalConversation",
+      "parameterTypes": [ ]
+    }, {
+      "name": "returnsParsableSummary",
       "parameterTypes": [ ]
     }, {
       "name": "setUp",
@@ -6677,9 +6397,6 @@
   }, {
     "type": "io.askimo.core.recipes.ToolRegistryTest",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "tempDir"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -7173,9 +6890,6 @@
   }, {
     "type": "io.askimo.core.skills.SkillRepositoryTest",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "tempDir"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ ]
@@ -7347,9 +7061,6 @@
   }, {
     "type": "io.askimo.core.skills.SkillRepositoryTest$ImportFromDirectory",
     "allDeclaredFields": true,
-    "fields": [ {
-      "name": "sourceDir"
-    } ],
     "methods": [ {
       "name": "<init>",
       "parameterTypes": [ "io.askimo.core.skills.SkillRepositoryTest" ]
@@ -7581,6 +7292,27 @@
       "name": "computeRmsLevel returns 1 for a full-scale constant signal",
       "parameterTypes": [ ]
     }, {
+      "name": "decodeToFloatMono and computeRmsLevel agree on amplitude for the same PCM",
+      "parameterTypes": [ ]
+    }, {
+      "name": "decodeToFloatMono handles an empty buffer",
+      "parameterTypes": [ ]
+    }, {
+      "name": "decodeToFloatMono ignores a trailing odd byte",
+      "parameterTypes": [ ]
+    }, {
+      "name": "decodeToFloatMono maps Short MAX_VALUE to just under 1_0",
+      "parameterTypes": [ ]
+    }, {
+      "name": "decodeToFloatMono maps Short MIN_VALUE to exactly -1_0",
+      "parameterTypes": [ ]
+    }, {
+      "name": "decodeToFloatMono preserves sample order and sign",
+      "parameterTypes": [ ]
+    }, {
+      "name": "decodeToFloatMono returns 0f samples for silence",
+      "parameterTypes": [ ]
+    }, {
       "name": "encodeBytesAsWav produces a valid RIFF WAVE header",
       "parameterTypes": [ ]
     }, {
@@ -7679,6 +7411,8 @@
   }, {
     "type": "io.askimo.testcontainers.TestContainersConfig"
   }, {
+    "type": "io.askimo.tools.datetime.DateTimeTools"
+  }, {
     "type": "io.askimo.tools.fs.LocalFsTools",
     "methods": [ {
       "name": "countEntries",
@@ -7689,6 +7423,9 @@
     }, {
       "name": "readFile",
       "parameterTypes": [ "java.lang.String" ]
+    }, {
+      "name": "totalSizeByType",
+      "parameterTypes": [ "java.lang.String", "java.lang.String", "java.lang.String", "java.lang.Boolean" ]
     }, {
       "name": "writeFile",
       "parameterTypes": [ "java.lang.String", "java.lang.String" ]
@@ -8456,6 +8193,8 @@
     "type": "java.util.Collections$UnmodifiableList",
     "allDeclaredFields": true
   }, {
+    "type": "java.util.Collections$UnmodifiableMap"
+  }, {
     "type": "java.util.Collections$UnmodifiableRandomAccessList",
     "allDeclaredFields": true
   }, {
@@ -8592,88 +8331,7 @@
     } ]
   }, {
     "type": "jdk.incubator.vector.VectorOperators",
-    "allPublicFields": true,
-    "fields": [ {
-      "name": "B2D"
-    }, {
-      "name": "B2F"
-    }, {
-      "name": "B2I"
-    }, {
-      "name": "B2L"
-    }, {
-      "name": "B2S"
-    }, {
-      "name": "D2B"
-    }, {
-      "name": "D2F"
-    }, {
-      "name": "D2I"
-    }, {
-      "name": "D2L"
-    }, {
-      "name": "D2S"
-    }, {
-      "name": "F2B"
-    }, {
-      "name": "F2D"
-    }, {
-      "name": "F2I"
-    }, {
-      "name": "F2L"
-    }, {
-      "name": "F2S"
-    }, {
-      "name": "I2B"
-    }, {
-      "name": "I2D"
-    }, {
-      "name": "I2F"
-    }, {
-      "name": "I2L"
-    }, {
-      "name": "I2S"
-    }, {
-      "name": "L2B"
-    }, {
-      "name": "L2D"
-    }, {
-      "name": "L2F"
-    }, {
-      "name": "L2I"
-    }, {
-      "name": "L2S"
-    }, {
-      "name": "REINTERPRET_D2L"
-    }, {
-      "name": "REINTERPRET_F2I"
-    }, {
-      "name": "REINTERPRET_I2F"
-    }, {
-      "name": "REINTERPRET_L2D"
-    }, {
-      "name": "S2B"
-    }, {
-      "name": "S2D"
-    }, {
-      "name": "S2F"
-    }, {
-      "name": "S2I"
-    }, {
-      "name": "S2L"
-    }, {
-      "name": "ZERO_EXTEND_B2I"
-    }, {
-      "name": "ZERO_EXTEND_B2L"
-    }, {
-      "name": "ZERO_EXTEND_B2S"
-    }, {
-      "name": "ZERO_EXTEND_I2L"
-    }, {
-      "name": "ZERO_EXTEND_S2I"
-    }, {
-      "name": "ZERO_EXTEND_S2L"
-    } ]
+    "allPublicFields": true
   }, {
     "type": "jdk.internal.ValueBased"
   }, {
@@ -8859,30 +8517,7 @@
     "type": "kotlin.reflect.jvm.internal.impl.load.java.JavaIncompatibilityRulesOverridabilityCondition"
   }, {
     "type": "kotlin.reflect.jvm.internal.impl.resolve.scopes.DescriptorKindFilter",
-    "allPublicFields": true,
-    "fields": [ {
-      "name": "ALL"
-    }, {
-      "name": "CALLABLES"
-    }, {
-      "name": "CLASSIFIERS"
-    }, {
-      "name": "Companion"
-    }, {
-      "name": "FUNCTIONS"
-    }, {
-      "name": "NON_SINGLETON_CLASSIFIERS"
-    }, {
-      "name": "PACKAGES"
-    }, {
-      "name": "SINGLETON_CLASSIFIERS"
-    }, {
-      "name": "TYPE_ALIASES"
-    }, {
-      "name": "VALUES"
-    }, {
-      "name": "VARIABLES"
-    } ]
+    "allPublicFields": true
   }, {
     "type": "kotlin.reflect.jvm.internal.impl.serialization.deserialization.builtins.BuiltInsLoaderImpl"
   }, {
@@ -10535,6 +10170,8 @@
     "glob": "META-INF/services/dev.langchain4j.model.anthropic.internal.client.AnthropicClientBuilderFactory"
   }, {
     "glob": "META-INF/services/dev.langchain4j.model.openai.internal.spi.OpenAiClientBuilderFactory"
+  }, {
+    "glob": "META-INF/services/dev.langchain4j.model.openai.spi.OpenAiChatModelBuilderFactory"
   }, {
     "glob": "META-INF/services/dev.langchain4j.model.openai.spi.OpenAiEmbeddingModelBuilderFactory"
   }, {

@@ -5,6 +5,7 @@
 package io.askimo.ui.session
 
 import io.askimo.core.chat.domain.ChatSession
+import io.askimo.core.chat.domain.Label
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.test.Test
@@ -102,10 +103,44 @@ class SessionGroupOptionTest {
         // No sessions fall into YESTERDAY, so that bucket must be omitted entirely.
         assertEquals(
             listOf(SessionDateBucket.TODAY, SessionDateBucket.PREVIOUS_7_DAYS, SessionDateBucket.OLDER),
-            groups.map { it.first },
+            groups.map { (it.first as SessionGroupKey.ByDate).bucket },
         )
         assertEquals(listOf("recent-a", "recent-b"), groups[0].second.map { it.id })
         assertEquals(listOf("week-a"), groups[1].second.map { it.id })
         assertEquals(listOf("old-a"), groups[2].second.map { it.id })
+    }
+
+    private fun label(id: String, name: String, color: String = "#FF0000") = Label(id = id, name = name, color = color)
+
+    @Test
+    fun `groupedByOption BY_LABEL groups sessions under each assigned label, sorted by name`() {
+        val sessions = listOf(session("1", today), session("2", today), session("3", today))
+        val billing = label("l-billing", "Billing")
+        val urgent = label("l-urgent", "Urgent")
+        val labelsBySessionId = mapOf(
+            "1" to listOf(billing, urgent),
+            "2" to listOf(billing),
+            // session 3 has no labels -> falls into the trailing Unlabeled bucket
+        )
+
+        val groups = sessions.groupedByOption(SessionGroupOption.BY_LABEL, today, labelsBySessionId)
+
+        assertEquals(3, groups.size)
+        assertEquals(SessionGroupKey.ByLabel(billing), groups[0].first)
+        assertEquals(listOf("1", "2"), groups[0].second.map { it.id })
+        assertEquals(SessionGroupKey.ByLabel(urgent), groups[1].first)
+        assertEquals(listOf("1"), groups[1].second.map { it.id })
+        assertEquals(SessionGroupKey.Unlabeled, groups[2].first)
+        assertEquals(listOf("3"), groups[2].second.map { it.id })
+    }
+
+    @Test
+    fun `groupedByOption BY_LABEL omits the Unlabeled bucket when every session has a label`() {
+        val sessions = listOf(session("1", today))
+        val billing = label("l-billing", "Billing")
+        val groups = sessions.groupedByOption(SessionGroupOption.BY_LABEL, today, mapOf("1" to listOf(billing)))
+
+        assertEquals(1, groups.size)
+        assertEquals(SessionGroupKey.ByLabel(billing), groups.single().first)
     }
 }

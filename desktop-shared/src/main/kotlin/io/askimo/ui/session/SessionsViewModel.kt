@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.askimo.core.chat.domain.ChatSession
+import io.askimo.core.chat.domain.Label
 import io.askimo.core.chat.service.ChatSessionExporterService
 import io.askimo.core.chat.service.ChatSessionService
 import io.askimo.core.db.Pageable
@@ -201,6 +202,146 @@ class SessionsViewModel(
     var bookmarkCountsBySession by mutableStateOf<Map<String, Int>>(emptyMap())
         private set
 
+    /** All labels the user has defined, ordered by name — loaded alongside [recentSessions]. */
+    var allLabels by mutableStateOf<List<Label>>(emptyList())
+        private set
+
+    /** sessionId → assigned labels, bulk-loaded for the sessions currently visible in the sidebar. */
+    var labelsBySessionId by mutableStateOf<Map<String, List<Label>>>(emptyMap())
+        private set
+
+    /**
+     * labelId → total number of sessions carrying that label (across *all* sessions, not just
+     * those currently loaded in the sidebar) — used by [manageLabelsDialog] to warn before
+     * deleting a label that's still in use.
+     */
+    var labelUsageCounts by mutableStateOf<Map<String, Int>>(emptyMap())
+        private set
+
+    /** Label ids currently selected in the sidebar's filter-by-label chip row ("any of" semantics). */
+    var selectedLabelFilterIds by mutableStateOf<Set<String>>(emptySet())
+        private set
+
+    /** [filteredSortedRecentSessions] further filtered by [selectedLabelFilterIds], for sidebar display. */
+    val sidebarVisibleSessions: List<ChatSession>
+        get() = filteredSortedRecentSessions.filteredByLabels(selectedLabelFilterIds, labelsBySessionId)
+
+    /** Toggles whether [labelId] is part of the active sidebar label filter. */
+    fun toggleLabelFilter(labelId: String) {
+        selectedLabelFilterIds = if (labelId in selectedLabelFilterIds) {
+            selectedLabelFilterIds - labelId
+        } else {
+            selectedLabelFilterIds + labelId
+        }
+    }
+
+    /** Clears the active label filter. */
+    fun clearLabelFilter() {
+        selectedLabelFilterIds = emptySet()
+    }
+
+    /** Whether the "Manage labels" dialog is currently shown. */
+    var showManageLabelsDialog by mutableStateOf(false)
+        private set
+
+    fun openManageLabelsDialog() {
+        showManageLabelsDialog = true
+    }
+
+    fun closeManageLabelsDialog() {
+        showManageLabelsDialog = false
+    }
+
+    /**
+     * Loads [allLabels], [labelsBySessionId] (merged with the existing map, scoped to
+     * [sessionIds]), and [labelUsageCounts] (computed across *all* sessions, not just
+     * [sessionIds]). Merging rather than replacing lets independent callers — the sidebar's
+     * recent-sessions scope and the SessionsView table's current-page scope — each keep their own
+     * previously-loaded slice without clobbering the other's entries.
+     */
+    private fun loadLabels(sessionIds: List<String>) {
+        scope.launch {
+            try {
+                val (labels, bySession, usageCounts) = withContext(Dispatchers.IO) {
+                    val labels = sessionService.listLabels()
+                    val bySession = sessionService.labelsForSessions(sessionIds)
+                    val usageCounts = labels.associate { it.id to sessionService.sessionIdsForLabel(it.id).size }
+                    Triple(labels, bySession, usageCounts)
+                }
+                allLabels = labels
+                labelsBySessionId = labelsBySessionId + bySession
+                labelUsageCounts = usageCounts
+            } catch (e: Exception) {
+                log.error("Failed to load labels: ${e.message}", e)
+            }
+        }
+    }
+
+    /** Creates a new label, then refreshes [allLabels]. */
+    fun createLabel(name: String, color: String) {
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) { sessionService.createLabel(name, color) }
+                loadLabels(recentSessions.map { it.id })
+            } catch (e: Exception) {
+                errorMessage = ExceptionHandler.handle(e, "creating label", LocalizationManager.getString("label.error.saving"))
+            }
+        }
+    }
+
+    /** Renames/recolors an existing label, then refreshes [allLabels] and [labelsBySessionId]. */
+    fun updateLabel(label: Label) {
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) { sessionService.updateLabel(label) }
+                loadLabels(recentSessions.map { it.id })
+            } catch (e: Exception) {
+                errorMessage = ExceptionHandler.handle(e, "updating label", LocalizationManager.getString("label.error.saving"))
+            }
+        }
+    }
+
+    /** Deletes a label definition (cascades its assignment off every session), then refreshes state. */
+    fun deleteLabel(labelId: String) {
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) { sessionService.deleteLabel(labelId) }
+                selectedLabelFilterIds = selectedLabelFilterIds - labelId
+                loadLabels(recentSessions.map { it.id })
+            } catch (e: Exception) {
+                errorMessage = ExceptionHandler.handle(e, "deleting label", LocalizationManager.getString("label.error.deleting"))
+            }
+        }
+    }
+
+    /** Toggles whether [labelId] is assigned to [sessionId], applied optimistically then persisted. */
+    fun toggleSessionLabel(sessionId: String, labelId: String) {
+        val current = labelsBySessionId[sessionId].orEmpty()
+        val isAssigned = current.any { it.id == labelId }
+        val newIds = if (isAssigned) {
+            current.filterNot { it.id == labelId }.map { it.id }
+        } else {
+            current.map { it.id } + labelId
+        }
+
+        // Optimistic local update so the chip/menu reflects the change instantly.
+        val label = allLabels.find { it.id == labelId }
+        labelsBySessionId = if (isAssigned || label == null) {
+            labelsBySessionId + (sessionId to current.filterNot { it.id == labelId })
+        } else {
+            labelsBySessionId + (sessionId to current + label)
+        }
+
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) { sessionService.setSessionLabels(sessionId, newIds) }
+            } catch (e: Exception) {
+                log.error("Failed to toggle label {} on session {}: {}", labelId, sessionId, e.message)
+                loadLabels(recentSessions.map { it.id })
+            }
+        }
+    }
+
     var searchQuery by mutableStateOf("")
         private set
 
@@ -347,6 +488,7 @@ class SessionsViewModel(
                 recentSessions = sessions
                 totalSessionCount = total
                 bookmarkCountsBySession = bookmarkCounts
+                loadLabels(sessions.map { it.id })
 
                 log.debug("Loaded ${sessions.size} sessions without projects (showing ${sessions.size} in sidebar, total: $total)")
             } catch (e: Exception) {
@@ -365,6 +507,7 @@ class SessionsViewModel(
                     sessionService.getStarredSessions()
                 }
                 starredSessions = sessions
+                loadLabels(sessions.map { it.id })
                 log.debug("Loaded ${sessions.size} starred sessions for pinned section")
             } catch (e: Exception) {
                 log.error("Failed to load starred sessions: ${e.message}", e)
@@ -389,6 +532,7 @@ class SessionsViewModel(
                     }
                 }
                 pagedSessions = result
+                loadLabels(result.items.map { it.id })
             } catch (e: Exception) {
                 errorMessage = ExceptionHandler.handle(
                     e,
