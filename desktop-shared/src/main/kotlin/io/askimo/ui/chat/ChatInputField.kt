@@ -132,6 +132,7 @@ import io.askimo.core.event.internal.ThinkingSupportDetectedEvent
 import io.askimo.core.event.internal.ToolSupportDetectedEvent
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.intent.ToolRegistry
+import io.askimo.core.intent.requiresApproval
 import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.mcp.McpInstanceService
 import io.askimo.core.mcp.McpServerInfo
@@ -214,6 +215,7 @@ fun chatInputField(
     onCancelEdit: () -> Unit = {},
     sessionId: String? = null,
     placeholder: String = stringResource("chat.input.placeholder"),
+    enabledServerIds: Set<String> = emptySet(),
     onEnabledServerIdsChange: ((Set<String>) -> Unit)? = null,
     onNavigateToMcpSettings: (() -> Unit)? = null,
     selectedDirective: String? = null,
@@ -352,9 +354,6 @@ fun chatInputField(
         }
     }
 
-    // Server IDs enabled via the tools popup; empty by default (opt-in), scoped to the session.
-    var enabledServerIds by remember(sessionId) { mutableStateOf(emptySet<String>()) }
-
     // Session-scoped web-search-in-RAG toggle. Resets when the session changes.
     var webSearchInRag by remember(sessionId) { mutableStateOf(false) }
 
@@ -374,11 +373,6 @@ fun chatInputField(
     LaunchedEffect(Unit) {
         val voice = withContext(Dispatchers.IO) { AppConfig.voice }
         voiceInputEnabled = voice.enabled
-    }
-
-    // Notify caller whenever the user changes the enabled server selection.
-    LaunchedEffect(enabledServerIds) {
-        onEnabledServerIdsChange?.invoke(enabledServerIds)
     }
 
     // Directives chip popup / dialog state
@@ -993,7 +987,7 @@ fun chatInputField(
                             isLoading = isLoading,
                             enabledServerIds = enabledServerIds,
                             onEnabledServerIdsChange = { updated ->
-                                enabledServerIds = updated
+                                onEnabledServerIdsChange?.invoke(updated)
                             },
                             onNavigateToMcpSettings = onNavigateToMcpSettings,
                             iconSize = 28.dp,
@@ -1338,6 +1332,16 @@ private fun toolsIndicatorButton(
     var mcpServers by remember { mutableStateOf<List<McpServerInfo>>(emptyList()) }
     var isLoadingServers by remember { mutableStateOf(false) }
 
+    // LaunchedEffect(Unit) below never restarts, so loadMcpServers() would otherwise close over
+    // stale enabledServerIds/onEnabledServerIdsChange from first composition.
+    val currentEnabledServerIds by rememberUpdatedState(enabledServerIds)
+    val currentOnEnabledServerIdsChange by rememberUpdatedState(onEnabledServerIdsChange)
+
+    // serverId:toolName -> locally-set value not yet confirmed by a reload that reflects it.
+    // Prevents a slow/racy background reload (triggered by this or another toggle's
+    // McpInstancesChangedEvent) from reverting a checkbox the user just clicked.
+    val pendingToolSelections = remember { mutableMapOf<String, Boolean>() }
+
     // Get services
     val globalMcpService = remember {
         try {
@@ -1368,15 +1372,53 @@ private fun toolsIndicatorButton(
             emptyList()
         }
 
-        val globalServers = withContext(Dispatchers.IO) {
-            globalMcpService?.listActiveMcpServers()?.getOrElse { e ->
+        val (globalServers, mcpCatalogLoadSucceeded) = withContext(Dispatchers.IO) {
+            val result = globalMcpService?.listActiveMcpServers()
+            val servers = result?.getOrElse { e ->
                 log.error("Error loading active MCP servers", e)
                 emptyList()
             } ?: emptyList()
+            // A failed load still needs a "servers" list to render, but isn't an authoritative
+            // empty catalog — don't let a transient failure wipe the enabled-server selection.
+            servers to (globalMcpService == null || result?.isSuccess == true)
         }
 
-        mcpServers = builtInServer + globalServers
+        // Overlay any not-yet-confirmed local toggle onto the fresh fetch, self-healing once a
+        // reload naturally reflects the persisted value, so a slow/racy fetch can't silently
+        // flip a checkbox the user just clicked back to its previous state.
+        mcpServers = (builtInServer + globalServers).map { server ->
+            if (server.isBuiltIn) {
+                server
+            } else {
+                server.copy(
+                    tools = server.tools.map { tool ->
+                        val key = "${server.id}:${tool.specification.name()}"
+                        when (val pending = pendingToolSelections[key]) {
+                            null -> tool
+
+                            tool.selected -> {
+                                pendingToolSelections.remove(key)
+                                tool
+                            }
+
+                            else -> tool.copy(selected = pending)
+                        }
+                    },
+                )
+            }
+        }
         isLoadingServers = false
+
+        // Drop any enabled id no longer in the live catalog (server deleted from MCP Manager)
+        // and persist the trimmed set, so a stale id doesn't linger or resurface if reused.
+        // Skip entirely on a failed catalog load to avoid wiping the selection (see above).
+        if (mcpCatalogLoadSucceeded) {
+            val liveServerIds = mcpServers.map { it.id }.toSet()
+            val reconciledEnabledIds = currentEnabledServerIds.filter { it in liveServerIds }.toSet()
+            if (reconciledEnabledIds != currentEnabledServerIds) {
+                currentOnEnabledServerIdsChange(reconciledEnabledIds)
+            }
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -1516,7 +1558,7 @@ private fun toolsIndicatorButton(
 
                 // Content
                 when {
-                    isLoadingServers -> {
+                    isLoadingServers && mcpServers.isEmpty() -> {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1566,6 +1608,8 @@ private fun toolsIndicatorButton(
                                     },
                                     onToolSelectedChange = { toolName, selected ->
                                         if (server.isBuiltIn) return@mcpServerItem
+
+                                        pendingToolSelections["${server.id}:$toolName"] = selected
 
                                         // Keep popup state reactive to instant user toggles.
                                         mcpServers = mcpServers.map { currentServer ->
@@ -1746,6 +1790,7 @@ private fun mcpServerItem(
                             tool.specification.description() ?: stringResource("chat.tools.tool.no.description")
                         val canToggleTool = !server.isBuiltIn && tool.enabled
                         val toolSelected = tool.enabled && tool.selected
+                        val toolRequiresApproval = tool.requiresApproval()
                         val rowBackground = if (index % 2 == 0) {
                             MaterialTheme.colorScheme.surface
                         } else {
@@ -1775,12 +1820,40 @@ private fun mcpServerItem(
                                             )
                                         }
                                         Column(
+                                            modifier = Modifier.weight(1f),
                                             verticalArrangement = Arrangement.spacedBy(Spacing.micro),
                                         ) {
-                                            Text(
-                                                text = toolName,
-                                                style = AppTextStyles.body,
-                                            )
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.fillMaxWidth(),
+                                            ) {
+                                                Text(
+                                                    text = toolName,
+                                                    style = AppTextStyles.body,
+                                                )
+                                                Spacer(modifier = Modifier.weight(1f))
+                                                val approvalTone = if (toolRequiresApproval) {
+                                                    AppColors.warningColor()
+                                                } else {
+                                                    AppColors.statusIconColor(AppColors.StatusTone.SUCCESS)
+                                                }
+                                                Box(
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(4.dp))
+                                                        .background(approvalTone.copy(alpha = 0.15f))
+                                                        .padding(horizontal = Spacing.extraSmall, vertical = Spacing.micro),
+                                                ) {
+                                                    Text(
+                                                        text = if (toolRequiresApproval) {
+                                                            stringResource("chat.tools.tool.approval.required")
+                                                        } else {
+                                                            stringResource("chat.tools.tool.approval.auto")
+                                                        },
+                                                        style = AppTextStyles.hint,
+                                                        color = approvalTone,
+                                                    )
+                                                }
+                                            }
                                             themedTooltip(text = toolDescription, placement = TooltipPlacement.RIGHT) {
                                                 Text(
                                                     text = toolDescription,

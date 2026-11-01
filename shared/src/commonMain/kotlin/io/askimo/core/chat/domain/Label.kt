@@ -26,3 +26,16 @@ data class Label(
 )
 
 const val LABEL_NAME_MAX_LENGTH = 64
+
+/**
+ * Returns the label IDs that should result from toggling [labelId]'s assignment within this
+ * list of currently-assigned labels: dropped if already present, appended otherwise.
+ */
+fun List<Label>.toggledLabelIds(labelId: String): List<String> {
+    val isAssigned = any { it.id == labelId }
+    return if (isAssigned) {
+        filterNot { it.id == labelId }.map { it.id }
+    } else {
+        map { it.id } + labelId
+    }
+}

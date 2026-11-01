@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.askimo.core.chat.domain.ChatSession
 import io.askimo.core.chat.domain.Label
+import io.askimo.core.chat.domain.toggledLabelIds
 import io.askimo.core.chat.service.ChatSessionExporterService
 import io.askimo.core.chat.service.ChatSessionService
 import io.askimo.core.db.Pageable
@@ -253,11 +254,11 @@ class SessionsViewModel(
     }
 
     /**
-     * Loads [allLabels], [labelsBySessionId] (merged with the existing map, scoped to
-     * [sessionIds]), and [labelUsageCounts] (computed across *all* sessions, not just
-     * [sessionIds]). Merging rather than replacing lets independent callers — the sidebar's
-     * recent-sessions scope and the SessionsView table's current-page scope — each keep their own
-     * previously-loaded slice without clobbering the other's entries.
+     * Loads [allLabels] and [labelUsageCounts] (across all sessions), and rebuilds
+     * [labelsBySessionId]: cached entries are reconciled against the fresh catalog (dropping
+     * deleted labels, refreshing renamed/recolored ones), then every id in [sessionIds] is
+     * overwritten with its current labels — including an empty list — since [bySession] omits
+     * unlabeled sessions and would otherwise leave stale entries behind.
      */
     private fun loadLabels(sessionIds: List<String>) {
         scope.launch {
@@ -269,7 +270,16 @@ class SessionsViewModel(
                     Triple(labels, bySession, usageCounts)
                 }
                 allLabels = labels
-                labelsBySessionId = labelsBySessionId + bySession
+
+                val freshById = labels.associateBy { it.id }
+                // Drop deleted labels, refresh renamed/recolored ones in cached entries.
+                val reconciled = labelsBySessionId.mapValues { (_, sessionLabels) ->
+                    sessionLabels.mapNotNull { freshById[it.id] }
+                }
+                // Overwrite every queried session (even to empty) so removed labels disappear.
+                val queried = sessionIds.associateWith { id -> bySession[id].orEmpty() }
+                labelsBySessionId = reconciled + queried
+
                 labelUsageCounts = usageCounts
             } catch (e: Exception) {
                 log.error("Failed to load labels: ${e.message}", e)
@@ -314,15 +324,16 @@ class SessionsViewModel(
         }
     }
 
+    /** Per-session chain of in-flight label-assignment writes — each new write joins the previous
+     *  one before running, so persisted snapshots land in the same order the user toggled them
+     *  instead of racing on Dispatchers.IO and letting an older snapshot overwrite a newer one. */
+    private val labelWriteJobs = mutableMapOf<String, Job>()
+
     /** Toggles whether [labelId] is assigned to [sessionId], applied optimistically then persisted. */
     fun toggleSessionLabel(sessionId: String, labelId: String) {
         val current = labelsBySessionId[sessionId].orEmpty()
         val isAssigned = current.any { it.id == labelId }
-        val newIds = if (isAssigned) {
-            current.filterNot { it.id == labelId }.map { it.id }
-        } else {
-            current.map { it.id } + labelId
-        }
+        val newIds = current.toggledLabelIds(labelId)
 
         // Optimistic local update so the chip/menu reflects the change instantly.
         val label = allLabels.find { it.id == labelId }
@@ -332,14 +343,21 @@ class SessionsViewModel(
             labelsBySessionId + (sessionId to current + label)
         }
 
-        scope.launch {
+        // Captured synchronously (before any suspension), so the chain preserves call order.
+        val previousWrite = labelWriteJobs[sessionId]
+        val write = scope.launch {
+            previousWrite?.join()
             try {
                 withContext(Dispatchers.IO) { sessionService.setSessionLabels(sessionId, newIds) }
+                val delta = if (isAssigned) -1 else 1
+                labelUsageCounts = labelUsageCounts +
+                    (labelId to ((labelUsageCounts[labelId] ?: 0) + delta).coerceAtLeast(0))
             } catch (e: Exception) {
                 log.error("Failed to toggle label {} on session {}: {}", labelId, sessionId, e.message)
                 loadLabels(recentSessions.map { it.id })
             }
         }
+        labelWriteJobs[sessionId] = write
     }
 
     var searchQuery by mutableStateOf("")

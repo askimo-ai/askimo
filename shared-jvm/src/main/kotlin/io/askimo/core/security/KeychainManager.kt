@@ -136,24 +136,35 @@ object KeychainManager {
     /**
      * Stores an secret key securely in the system keychain.
      *
+     * Skips the actual keychain write if the stored value already matches [secretKey]. Callers
+     * (e.g. provider config persistence) often re-save a whole config block — including secret
+     * keys that haven't changed — on every edit; without this guard that would needlessly
+     * rewrite the keychain entry every time (and on macOS, re-trigger the one-time "wants to use
+     * your login keychain" ACL-grant prompt on each no-op save).
+     *
      * @param keyIdentifier The keyIdentifier name that is unique
      * @param secretKey The secret key to store
-     * @return true if stored successfully in keychain, false if keychain failed
+     * @return true if stored successfully in keychain (or already up to date), false if keychain failed
      */
     fun storeSecretKey(
         keyIdentifier: String,
         secretKey: String,
     ): Boolean = try {
-        when (getOperatingSystem()) {
-            MACOS -> storeMacOSKeychain(keyIdentifier, secretKey)
+        if (retrieveSecretKey(keyIdentifier) == secretKey) {
+            log.debug("Secret key for '$keyIdentifier' unchanged; skipping keychain write")
+            true
+        } else {
+            when (getOperatingSystem()) {
+                MACOS -> storeMacOSKeychain(keyIdentifier, secretKey)
 
-            LINUX -> storeLinuxKeyring(keyIdentifier, secretKey)
+                LINUX -> storeLinuxKeyring(keyIdentifier, secretKey)
 
-            WINDOWS -> storeWindowsCredentialManager(keyIdentifier, secretKey)
+                WINDOWS -> storeWindowsCredentialManager(keyIdentifier, secretKey)
 
-            UNKNOWN -> {
-                log.warn("Unknown operating system, keychain storage not available")
-                false
+                UNKNOWN -> {
+                    log.warn("Unknown operating system, keychain storage not available")
+                    false
+                }
             }
         }
     } catch (e: Exception) {
@@ -209,8 +220,13 @@ object KeychainManager {
     ): Boolean {
         val account = "askimo-$keyIdentifier"
 
-        // Only set -T on creation; combining -T with -U on an existing item re-applies the ACL
-        // and triggers a "change access permissions" prompt on every call.
+        // Only set -T on creation. Combining -T with -U on an existing item re-applies the ACL
+        // on every genuine key change (the [storeSecretKey] equality guard only filters out no-op
+        // re-saves of an unchanged value) and re-triggers macOS's keychain-permission prompt each
+        // time, which is worse UX than the one-time prompt we actually want. Items created before
+        // this trust logic existed stay untrusted until the user deletes and recreates them (e.g.
+        // by clearing and re-entering the key) — a bounded, one-time migration gap, not a
+        // recurring one.
         val args =
             mutableListOf(
                 "security",
@@ -223,12 +239,10 @@ object KeychainManager {
                 secretKey,
             )
 
-        if (!macOSKeychainItemExists(account)) {
-            // New item: trust the `security` binary so future calls skip the confirm prompt.
-            args += listOf("-T", "/usr/bin/security")
-        } else {
-            // Existing item: update password only, leave ACL untouched.
+        if (macOSKeychainItemExists(account)) {
             args += "-U"
+        } else {
+            args += listOf("-T", "/usr/bin/security")
         }
 
         val process = ProcessBuilderExt(*args.toTypedArray()).start()

@@ -304,6 +304,13 @@ class SessionManager(
                         chatSessionService.updateSessionActiveResourceCollections(sessionId, activeResourceCollectionIds)
                         log.debug("Applied active resource collections {} to new session {}", activeResourceCollectionIds, sessionId)
                     }
+
+                    // Persist the tools-popup-enabled MCP servers carried over from the
+                    // composer that created this session, if any.
+                    if (enabledServerIds.isNotEmpty()) {
+                        chatSessionService.updateSessionEnabledMcpServers(sessionId, enabledServerIds.toList())
+                        log.debug("Applied enabled MCP servers {} to new session {}", enabledServerIds, sessionId)
+                    }
                 }
             }
         }
@@ -764,6 +771,7 @@ class SessionManager(
                             directiveId = resolvedDirectiveId,
                             projectId = projectId,
                             activeResourceCollectionIds = activeResourceCollectionIds,
+                            enabledMcpServerIds = enabledServerIds.toList(),
                         ),
                     )
                 }
@@ -780,6 +788,7 @@ class SessionManager(
                         project = project,
                         defaultDirectiveId = resolvedDirectiveId,
                         initialActiveResourceCollectionIds = activeResourceCollectionIds,
+                        initialEnabledMcpServerIds = enabledServerIds,
                     )
                 }
                 onComplete()

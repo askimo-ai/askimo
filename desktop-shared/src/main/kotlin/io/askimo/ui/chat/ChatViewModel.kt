@@ -115,6 +115,10 @@ class ChatViewModel(
     var activeResourceCollectionIds by mutableStateOf<List<String>>(emptyList())
         private set
 
+    /** Persistent set of MCP server IDs enabled in this session's tools popup. */
+    var enabledMcpServerIds by mutableStateOf<Set<String>>(emptySet())
+        private set
+
     var sessionTitle by mutableStateOf<String?>(null)
         private set
 
@@ -188,6 +192,7 @@ class ChatViewModel(
             isSearching = isSearching,
             selectedDirective = selectedDirective,
             activeResourceCollectionIds = activeResourceCollectionIds,
+            enabledMcpServerIds = enabledMcpServerIds,
             sessionTitle = sessionTitle ?: "",
             project = project,
             activeTimeline = activeTimeline,
@@ -231,6 +236,13 @@ class ChatViewModel(
 
     // Active subscription jobs keyed by threadId (not chatId), for proper cleanup.
     private val activeSubscriptions = mutableMapOf<String, Job>()
+
+    // Tracks the latest in-flight persistence write per session for optimistic, order-sensitive
+    // settings (MCP servers, resource collections) so a slower earlier write can't clobber a
+    // faster later one — cancelling the previous job before launching a new one enforces
+    // last-write-wins ordering per session, matching the activeSubscriptions pattern above.
+    private val enabledMcpServersWriteJobs = mutableMapOf<String, Job>()
+    private val activeResourceCollectionsWriteJobs = mutableMapOf<String, Job>()
 
     // Scope owned by this ViewModel, parented off the shared app-lifetime `scope` (never
     // cancelled itself). All work here launches on viewModelScope so cleanup() can cancel
@@ -898,6 +910,8 @@ class ChatViewModel(
      *   inside a Compose `Snapshot.withMutableSnapshot` block).
      * @param initialActiveResourceCollectionIds Resource collection chip selection carried
      *   over from the composer that created this session, if any.
+     * @param initialEnabledMcpServerIds MCP servers already enabled in the composer that
+     *   created this session, if any.
      */
     fun bindNewSession(
         sessionId: String,
@@ -905,6 +919,7 @@ class ChatViewModel(
         project: Project?,
         defaultDirectiveId: String?,
         initialActiveResourceCollectionIds: List<String> = emptyList(),
+        initialEnabledMcpServerIds: Set<String> = emptySet(),
     ) {
         currentSessionId.value = sessionId
         sessionTitle = title
@@ -915,6 +930,7 @@ class ChatViewModel(
         bookmarkedMessageIds = emptySet()
         selectedDirective = defaultDirectiveId
         activeResourceCollectionIds = initialActiveResourceCollectionIds
+        enabledMcpServerIds = initialEnabledMcpServerIds
         errorMessage = null
     }
 
@@ -978,6 +994,9 @@ class ChatViewModel(
 
                     // Load resource collections chip selection from the resumed session
                     activeResourceCollectionIds = result.activeResourceCollectionIds
+
+                    // Load enabled MCP servers from the resumed session
+                    enabledMcpServerIds = result.enabledMcpServerIds.toSet()
 
                     // Load session title and project
                     sessionTitle = result.title
@@ -1324,6 +1343,7 @@ class ChatViewModel(
         // collection (or bookmark) picked in the old chat would silently carry over and
         // apply to the brand-new session's first message.
         activeResourceCollectionIds = emptyList()
+        enabledMcpServerIds = emptySet()
         bookmarkedMessageIds = emptySet()
 
         // Clear ephemeral tool/thinking timeline state
@@ -1409,7 +1429,11 @@ class ChatViewModel(
 
         val sessionId = currentSessionId.value
         if (sessionId != null) {
-            viewModelScope.launch {
+            // join(), not cancel() — cancellation can't interrupt an in-flight DB write, so we
+            // chain instead to guarantee last-write-wins ordering.
+            val previousJob = activeResourceCollectionsWriteJobs[sessionId]
+            activeResourceCollectionsWriteJobs[sessionId] = viewModelScope.launch {
+                previousJob?.join()
                 try {
                     withContext(Dispatchers.IO) {
                         chatSessionService.updateSessionActiveResourceCollections(sessionId, collectionIds)
@@ -1417,6 +1441,31 @@ class ChatViewModel(
                     log.debug("Updated active resource collections for session {} to {}", sessionId, collectionIds)
                 } catch (e: Exception) {
                     log.error("Failed to update session active resource collections: ${e.message}", e)
+                }
+            }
+        }
+    }
+
+    /**
+     * Replaces the enabled MCP servers for this session's tools popup; updates state
+     * optimistically and persists in the background (see
+     * `ChatSessionService.updateSessionEnabledMcpServers`).
+     */
+    override fun setEnabledMcpServers(serverIds: Set<String>) {
+        enabledMcpServerIds = serverIds
+
+        val sessionId = currentSessionId.value
+        if (sessionId != null) {
+            val previousJob = enabledMcpServersWriteJobs[sessionId]
+            enabledMcpServersWriteJobs[sessionId] = viewModelScope.launch {
+                previousJob?.join()
+                try {
+                    withContext(Dispatchers.IO) {
+                        chatSessionService.updateSessionEnabledMcpServers(sessionId, serverIds.toList())
+                    }
+                    log.debug("Updated enabled MCP servers for session {} to {}", sessionId, serverIds)
+                } catch (e: Exception) {
+                    log.error("Failed to update session enabled MCP servers: ${e.message}", e)
                 }
             }
         }

@@ -46,6 +46,9 @@ data class ChatState(
     // when the session has no project (see ChatSessionService.createRetrieverForContainer).
     val activeResourceCollectionIds: List<String> = emptyList(),
 
+    // Enabled MCP servers for this session's tools popup (see ChatSession.enabledMcpServerIds).
+    val enabledMcpServerIds: Set<String> = emptySet(),
+
     // Session state
     val sessionTitle: String,
     val project: Project?,

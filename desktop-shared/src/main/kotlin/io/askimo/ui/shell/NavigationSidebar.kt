@@ -7,7 +7,6 @@ package io.askimo.ui.shell
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -31,6 +30,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Category
@@ -276,13 +276,26 @@ fun navigationSidebar(
             userProfileContent = userProfileContent,
         )
     }
+
+    // Rendered here (not inside expandedNavigationSidebar) so it's available regardless of
+    // sidebar expand/collapse state, including when opened from SessionsView's table via
+    // sessionsViewModel.openManageLabelsDialog with the sidebar collapsed.
+    if (sessionsViewModel.showManageLabelsDialog) {
+        manageLabelsDialog(
+            labels = sessionsViewModel.allLabels,
+            usageCounts = sessionsViewModel.labelUsageCounts,
+            onCreate = sessionsViewModel::createLabel,
+            onUpdate = sessionsViewModel::updateLabel,
+            onDelete = sessionsViewModel::deleteLabel,
+            onDismiss = sessionsViewModel::closeManageLabelsDialog,
+        )
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Expanded sidebar
 // ─────────────────────────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun expandedNavigationSidebar(
     animatedWidth: Dp,
@@ -547,17 +560,6 @@ private fun expandedNavigationSidebar(
                     )
                 }
             }
-        }
-
-        if (sessionsViewModel.showManageLabelsDialog) {
-            manageLabelsDialog(
-                labels = sessionsViewModel.allLabels,
-                usageCounts = sessionsViewModel.labelUsageCounts,
-                onCreate = sessionsViewModel::createLabel,
-                onUpdate = sessionsViewModel::updateLabel,
-                onDelete = sessionsViewModel::deleteLabel,
-                onDismiss = sessionsViewModel::closeManageLabelsDialog,
-            )
         }
 
         // Bottom: user profile slot
@@ -1519,7 +1521,7 @@ private fun sessionsOrganizeMenu(
                             showGroupSubmenu = false
                         },
                         leadingIcon = {
-                            Icon(Icons.Default.Label, contentDescription = null)
+                            Icon(Icons.AutoMirrored.Filled.Label, contentDescription = null)
                         },
                         trailingIcon = {
                             if (selectedLabelFilterIds.isNotEmpty()) {

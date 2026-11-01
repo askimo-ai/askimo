@@ -181,6 +181,7 @@ fun chatView(
     val isSearching = state.isSearching
     val selectedDirective = state.selectedDirective
     val activeResourceCollectionIds = state.activeResourceCollectionIds
+    val enabledMcpServerIds = state.enabledMcpServerIds
     val sessionTitle = state.sessionTitle
     val project = state.project
     val activeTimeline = state.activeTimeline
@@ -208,8 +209,6 @@ fun chatView(
     // instead of relying on sessionId change timing (which lags behind "New Chat").
     val editingMessage = state.editingMessage
     var editingAIMessage by remember(sessionId) { mutableStateOf<ChatMessageDTO?>(null) }
-    // Always-current disabled server IDs from ChatInputField
-    var currentEnabledServerIds by remember(sessionId) { mutableStateOf(emptySet<String>()) }
 
     // Whether the user is currently dragging files over the chat view
     var isDragging by remember { mutableStateOf(false) }
@@ -1138,7 +1137,7 @@ fun chatView(
                                     inputText.text,
                                     attachments,
                                     editingMessage,
-                                    currentEnabledServerIds,
+                                    enabledMcpServerIds,
                                 )
                                 inputText = TextFieldValue("")
                                 attachments = emptyList()
@@ -1156,7 +1155,8 @@ fun chatView(
                             attachments = emptyList()
                         },
                         sessionId = sessionId,
-                        onEnabledServerIdsChange = { currentEnabledServerIds = it },
+                        enabledServerIds = enabledMcpServerIds,
+                        onEnabledServerIdsChange = { actions.setEnabledMcpServers(it) },
                         onNavigateToMcpSettings = onNavigateToMcpSettings,
                         // Directives chip — selection controlled here; CRUD managed inside chatInputField
                         selectedDirective = selectedDirective,
@@ -1340,7 +1340,7 @@ fun chatView(
                                             onDownloadAttachment = downloadAttachment,
                                             userAvatarPainter = userAvatarPainter,
                                             aiAvatarPainter = aiAvatarPainter,
-                                            onRetryMessage = { messageId -> actions.retryMessage(messageId, currentEnabledServerIds) },
+                                            onRetryMessage = { messageId -> actions.retryMessage(messageId, enabledMcpServerIds) },
                                             viewportTopY = viewportBounds?.top,
                                             projectId = project?.id,
                                             onForkFromMessage = { messageId -> actions.forkFromMessage(messageId) },
@@ -1366,7 +1366,7 @@ fun chatView(
                                             onDownloadAttachment = downloadAttachment,
                                             userAvatarPainter = userAvatarPainter,
                                             aiAvatarPainter = aiAvatarPainter,
-                                            onRetryMessage = { messageId -> actions.retryMessage(messageId, currentEnabledServerIds) },
+                                            onRetryMessage = { messageId -> actions.retryMessage(messageId, enabledMcpServerIds) },
                                             viewportTopY = viewportBounds?.top,
                                             projectId = project?.id,
                                             activeTimeline = activeTimeline,

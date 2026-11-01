@@ -31,15 +31,16 @@ private fun Chat_sessions.toChatSession(): ChatSession = ChatSession(
     directiveId = directive_id,
     isStarred = is_starred == 1L,
     isUserRenamed = is_user_renamed == 1L,
-    activeResourceCollectionIds = decodeResourceCollectionIds(active_resource_collection_ids),
+    activeResourceCollectionIds = decodeStringListJson(active_resource_collection_ids),
+    enabledMcpServerIds = decodeStringListJson(enabled_mcp_server_ids),
 )
 
 /**
- * Decode the JSON array stored in `active_resource_collection_ids` into a list of collection
- * IDs. Falls back to an empty list for blank/malformed values so a corrupt cell never breaks
- * session loading.
+ * Decode a JSON array column (e.g. `active_resource_collection_ids`,
+ * `enabled_mcp_server_ids`) into a list of string IDs. Falls back to an empty list for
+ * blank/malformed values so a corrupt cell never breaks session loading.
  */
-private fun decodeResourceCollectionIds(raw: String?): List<String> {
+private fun decodeStringListJson(raw: String?): List<String> {
     if (raw.isNullOrBlank()) return emptyList()
     return try {
         json.decodeFromString<List<String>>(raw)
@@ -48,8 +49,8 @@ private fun decodeResourceCollectionIds(raw: String?): List<String> {
     }
 }
 
-/** Encode a list of collection IDs to JSON for storage in `active_resource_collection_ids`. */
-private fun encodeResourceCollectionIds(ids: List<String>): String = json.encodeToString(ids)
+/** Encode a list of string IDs to JSON for storage in a string-list column. */
+private fun encodeStringListJson(ids: List<String>): String = json.encodeToString(ids)
 
 class ChatSessionRepository internal constructor(
     databaseManager: DatabaseManager = DatabaseManager.getInstance(),
@@ -73,7 +74,8 @@ class ChatSessionRepository internal constructor(
             directive_id = sessionWithInjectedFields.directiveId,
             is_starred = if (sessionWithInjectedFields.isStarred) 1L else 0L,
             project_id = sessionWithInjectedFields.projectId,
-            active_resource_collection_ids = encodeResourceCollectionIds(sessionWithInjectedFields.activeResourceCollectionIds),
+            active_resource_collection_ids = encodeStringListJson(sessionWithInjectedFields.activeResourceCollectionIds),
+            enabled_mcp_server_ids = encodeStringListJson(sessionWithInjectedFields.enabledMcpServerIds),
         )
 
         EventBus.post(PushDataToServerEvent(reason = "session created"))
@@ -157,11 +159,25 @@ class ChatSessionRepository internal constructor(
      */
     fun updateSessionActiveResourceCollections(sessionId: String, collectionIds: List<String>): Boolean {
         val updated = queries.updateActiveResourceCollectionIds(
-            encodeResourceCollectionIds(collectionIds),
+            encodeStringListJson(collectionIds),
             Clock.System.now(),
             sessionId,
         ).value > 0
         if (updated) EventBus.post(PushDataToServerEvent(reason = "session active resource collections changed"))
+        return updated
+    }
+
+    /**
+     * Update the persistent set of enabled MCP servers for a chat session (tools popup
+     * selection — see [ChatSession.enabledMcpServerIds]).
+     */
+    fun updateSessionEnabledMcpServers(sessionId: String, serverIds: List<String>): Boolean {
+        val updated = queries.updateEnabledMcpServerIds(
+            encodeStringListJson(serverIds),
+            Clock.System.now(),
+            sessionId,
+        ).value > 0
+        if (updated) EventBus.post(PushDataToServerEvent(reason = "session enabled MCP servers changed"))
         return updated
     }
 
@@ -301,7 +317,8 @@ class ChatSessionRepository internal constructor(
                             project_id = session.projectId,
                             directive_id = session.directiveId,
                             is_starred = if (session.isStarred) 1L else 0L,
-                            active_resource_collection_ids = encodeResourceCollectionIds(session.activeResourceCollectionIds),
+                            active_resource_collection_ids = encodeStringListJson(session.activeResourceCollectionIds),
+                            enabled_mcp_server_ids = encodeStringListJson(session.enabledMcpServerIds),
                             synced_at = now,
                         )
                         log.debug("upsertFromServer: inserted session {}", session.id)
@@ -313,7 +330,8 @@ class ChatSessionRepository internal constructor(
                             projectId = session.projectId,
                             directiveId = session.directiveId,
                             isStarred = if (session.isStarred) 1L else 0L,
-                            activeIds = encodeResourceCollectionIds(session.activeResourceCollectionIds),
+                            activeIds = encodeStringListJson(session.activeResourceCollectionIds),
+                            enabledMcpServerIds = encodeStringListJson(session.enabledMcpServerIds),
                             syncedAt = now,
                             id = session.id,
                         )
