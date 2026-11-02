@@ -118,6 +118,7 @@ private fun webSearchConfigCard() {
     var braveApiKey by remember { mutableStateOf("") }
     var tavilyApiKey by remember { mutableStateOf("") }
     var serplyApiKey by remember { mutableStateOf("") }
+    var serpbaseApiKey by remember { mutableStateOf("") }
     var backendDropdownExpanded by remember { mutableStateOf(false) }
 
     var testStatus by remember { mutableStateOf<TestStatus?>(null) }
@@ -130,6 +131,7 @@ private fun webSearchConfigCard() {
         braveApiKey = if (WebSearchConfig.isActualKey(resolved.braveApiKey)) resolved.braveApiKey else ""
         tavilyApiKey = if (WebSearchConfig.isActualKey(resolved.tavilyApiKey)) resolved.tavilyApiKey else ""
         serplyApiKey = if (WebSearchConfig.isActualKey(resolved.serplyApiKey)) resolved.serplyApiKey else ""
+        serpbaseApiKey = if (WebSearchConfig.isActualKey(resolved.serpbaseApiKey)) resolved.serpbaseApiKey else ""
     }
 
     // ── Debounced saves for typed fields (keychain I/O — must NOT block the UI thread) ──
@@ -146,6 +148,10 @@ private fun webSearchConfigCard() {
     LaunchedEffect(serplyApiKey) {
         delay(500.milliseconds)
         withContext(Dispatchers.IO) { AppConfig.updateField("webSearch.serplyApiKey", serplyApiKey) }
+    }
+    LaunchedEffect(serpbaseApiKey) {
+        delay(500.milliseconds)
+        withContext(Dispatchers.IO) { AppConfig.updateField("webSearch.serpbaseApiKey", serpbaseApiKey) }
     }
     LaunchedEffect(searxngEndpoint) {
         delay(500.milliseconds)
@@ -341,6 +347,17 @@ private fun webSearchConfigCard() {
                     )
                 }
 
+                WebSearchBackend.SERPBASE -> {
+                    HorizontalDivider()
+                    serpbaseApiKeyField(
+                        value = serpbaseApiKey,
+                        onValueChange = { newValue ->
+                            serpbaseApiKey = newValue
+                            testStatus = null
+                        },
+                    )
+                }
+
                 WebSearchBackend.SEARXNG -> {
                     HorizontalDivider()
                     searxngEndpointField(
@@ -497,6 +514,39 @@ private fun serplyApiKeyField(
                 runCatching {
                     if (Desktop.isDesktopSupported()) {
                         Desktop.getDesktop().browse(URI("https://serply.io"))
+                    }
+                }
+            },
+        ) {
+            Icon(Icons.Default.Info, contentDescription = null, tint = linkColor, modifier = Modifier.size(14.dp))
+            Text(
+                text = stringResource("settings.web_search.get_api_key"),
+                style = AppTextStyles.caption.copy(color = linkColor),
+                modifier = Modifier.padding(start = Spacing.extraSmall),
+            )
+        }
+    }
+}
+
+@Composable
+private fun serpbaseApiKeyField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    linkColor: Color = AppTextStyles.primaryContent,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+        AppComponents.appSecretTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = { Text(stringResource("settings.web_search.api_key")) },
+            placeholder = { Text(stringResource("settings.web_search.api_key.placeholder")) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        linkButton(
+            onClick = {
+                runCatching {
+                    if (Desktop.isDesktopSupported()) {
+                        Desktop.getDesktop().browse(URI("https://serpbase.dev/api-keys"))
                     }
                 }
             },

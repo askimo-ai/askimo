@@ -617,11 +617,13 @@ enum class WebSearchBackend {
     BRAVE,
     TAVILY,
     SERPLY,
+    SERPBASE,
 }
 
 private const val WEB_SEARCH_KEY_BRAVE = "websearch.brave.key"
 private const val WEB_SEARCH_KEY_TAVILY = "websearch.tavily.key"
 private const val WEB_SEARCH_KEY_SERPLY = "websearch.serply.key"
+private const val WEB_SEARCH_KEY_SERPBASE = "websearch.serpbase.key"
 private const val WEB_SEARCH_KEY_PLACEHOLDER = "***keychain***"
 
 /**
@@ -641,6 +643,8 @@ data class WebSearchConfig(
     val tavilyApiKey: String = "",
     /** Raw field — may be blank or `***keychain***`. Use [AppConfig.webSearch] resolved accessors. */
     val serplyApiKey: String = "",
+    /** Raw field — may be blank or `***keychain***`. Use [AppConfig.webSearch] resolved accessors. */
+    val serpbaseApiKey: String = "",
 ) {
     companion object {
         /** True if [value] is the keychain placeholder (i.e. not a real key). */
@@ -657,6 +661,9 @@ data class WebSearchConfig(
 
         /** Retrieves the securely stored Serply API key, or null if none is stored. */
         fun getSecureSerplyKey(): String? = SecureKeyManager.retrieveSecretKey(WEB_SEARCH_KEY_SERPLY)
+
+        /** Retrieves the securely stored SerpBase API key, or null if none is stored. */
+        fun getSecureSerpBaseKey(): String? = SecureKeyManager.retrieveSecretKey(WEB_SEARCH_KEY_SERPBASE)
 
         /** Stores (or removes, if [key] is empty) the Brave API key in secure storage. */
         fun setSecureBraveKey(key: String): SecureKeyManager.StorageResult = if (key.isEmpty()) {
@@ -681,6 +688,15 @@ data class WebSearchConfig(
         } else {
             SecureKeyManager.storeSecuredKey(WEB_SEARCH_KEY_SERPLY, key)
         }
+
+        /** Stores (or removes, if [key] is empty) the SerpBase API key in secure storage. */
+        fun setSecureSerpBaseKey(key: String): SecureKeyManager.StorageResult = if (key.isEmpty()) {
+            SecureKeyManager.removeSecretKey(WEB_SEARCH_KEY_SERPBASE)
+            SecureKeyManager.StorageResult(success = true, method = SecureKeyManager.StorageMethod.KEYCHAIN)
+        } else {
+            SecureKeyManager.storeSecuredKey(WEB_SEARCH_KEY_SERPBASE, key)
+        }
+
         fun getKeyPlaceholder(): String = WEB_SEARCH_KEY_PLACEHOLDER
     }
 }
@@ -992,6 +1008,15 @@ object AppConfig {
                     }
                 }
 
+                WebSearchBackend.SERPBASE -> {
+                    if (!WebSearchConfig.isActualKey(config.serpbaseApiKey)) {
+                        val secureKey = WebSearchConfig.getSecureSerpBaseKey()
+                        if (secureKey != null) config.copy(serpbaseApiKey = secureKey) else config
+                    } else {
+                        config
+                    }
+                }
+
                 WebSearchBackend.DUCKDUCKGO, WebSearchBackend.SEARXNG -> config
             }
         }
@@ -1210,6 +1235,7 @@ object AppConfig {
           brave_api_key:
           tavily_api_key:
           serply_api_key:
+          serpbase_api_key:
           enabled: true
 
         voice:
@@ -1997,6 +2023,33 @@ object AppConfig {
                 }
 
                 else -> config.copy(serplyApiKey = key)
+            }
+        }
+
+        "serpbaseApiKey" -> {
+            val key = value as String
+            when {
+                WebSearchConfig.isActualKey(key) -> {
+                    val result = WebSearchConfig.setSecureSerpBaseKey(key)
+                    when (result.method) {
+                        StorageMethod.KEYCHAIN ->
+                            log.debug("SerpBase API key stored securely in keychain")
+
+                        StorageMethod.ENCRYPTED ->
+                            log.warn("SerpBase API key stored with encryption ({})", result.warningMessage)
+
+                        StorageMethod.INSECURE_FALLBACK ->
+                            log.warn("⚠️ SerpBase API key storage: {}", result.warningMessage)
+                    }
+                    config.copy(serpbaseApiKey = WebSearchConfig.getKeyPlaceholder())
+                }
+
+                key.isEmpty() -> {
+                    WebSearchConfig.setSecureSerpBaseKey("")
+                    config.copy(serpbaseApiKey = "")
+                }
+
+                else -> config.copy(serpbaseApiKey = key)
             }
         }
 

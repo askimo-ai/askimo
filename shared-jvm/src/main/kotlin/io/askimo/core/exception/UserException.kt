@@ -96,6 +96,29 @@ class InvalidRequestException(
 }
 
 /**
+ * A web search backend answered, but with an error of its own (bad credentials, quota,
+ * unexpected envelope status, unreadable body).
+ *
+ * Deliberately backend-agnostic: the message carries the backend label and a short excerpt of
+ * what the backend said, so every backend can share one localized error instead of growing its
+ * own exception type. Backends should still map the cases they can explain to the more specific
+ * [AuthenticationException], [RateLimitException] or [InsufficientCreditsException].
+ */
+class SearchBackendException(
+    val backend: String,
+    val details: String = "",
+    cause: Throwable? = null,
+) : UserException("Web search backend '$backend' failed", cause) {
+
+    override fun getMessageKey() = "error.web_search_backend"
+
+    override fun getMessageArgs() = mapOf(
+        "backend" to backend,
+        "details" to details.take(200),
+    )
+}
+
+/**
  * The model doesn't support multimodal (image/file) input — common with OpenAI-compatible
  * local/self-hosted servers (LM Studio, LocalAI, vLLM, etc.) when the user attaches an
  * image/file to a text-only model.

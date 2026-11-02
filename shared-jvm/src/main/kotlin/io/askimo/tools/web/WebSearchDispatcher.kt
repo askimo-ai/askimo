@@ -55,6 +55,16 @@ object WebSearchDispatcher {
                 }
             }
 
+            WebSearchBackend.SERPBASE -> {
+                if (config.serpbaseApiKey.isNotBlank()) {
+                    log.debug("Using SerpBase backend")
+                    SerpBaseBackend(config.serpbaseApiKey)
+                } else {
+                    log.debug("SerpBase backend selected but no API key — falling back to DuckDuckGo")
+                    null
+                }
+            }
+
             WebSearchBackend.SEARXNG -> {
                 log.debug("Using SearxNG backend: {}", config.searxngEndpoint)
                 SearxNGBackend(config.searxngEndpoint)
