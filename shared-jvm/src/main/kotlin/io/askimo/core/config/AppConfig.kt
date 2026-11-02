@@ -24,6 +24,7 @@ import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.LanguageDirectiveChangedEvent
 import io.askimo.core.logging.logger
 import io.askimo.core.providers.ModelProvider
+import io.askimo.core.rag.MetadataAwareContentInjector
 import io.askimo.core.security.SecureKeyManager
 import io.askimo.core.security.SecureKeyManager.StorageMethod
 import io.askimo.core.security.SecureSessionManager
@@ -387,6 +388,8 @@ data class RagConfig(
     val rankFusionConstant: Int = 60,
     /** Use absolute file paths in citations (true) or relative filenames (false) */
     val useAbsolutePathInCitations: Boolean = true,
+    /** How to format source citations in RAG responses (MINIMAL, COMPACT, DETAILED) */
+    val citationStyle: MetadataAwareContentInjector.CitationStyle = MetadataAwareContentInjector.CitationStyle.COMPACT,
 )
 
 /**
@@ -1760,6 +1763,13 @@ object AppConfig {
         "hybridMaxResults" -> config.copy(hybridMaxResults = value as Int)
         "rankFusionConstant" -> config.copy(rankFusionConstant = value as Int)
         "useAbsolutePathInCitations" -> config.copy(useAbsolutePathInCitations = value as Boolean)
+        "citationStyle" -> {
+            val newStyle = when (value) {
+                is MetadataAwareContentInjector.CitationStyle -> value
+                else -> runCatching { MetadataAwareContentInjector.CitationStyle.valueOf(value.toString()) }.getOrElse { config.citationStyle }
+            }
+            config.copy(citationStyle = newStyle)
+        }
         else -> config
     }
 
