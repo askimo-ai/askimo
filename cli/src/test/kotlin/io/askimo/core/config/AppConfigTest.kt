@@ -12,6 +12,7 @@ import io.askimo.core.providers.openai.OpenAiSettings
 import io.askimo.core.providers.openaicompatible.OpenAiCompatibleSettings
 import io.askimo.core.providers.openaicompatible.OpenAiCompatibleTemplate
 import io.askimo.core.providers.xai.XAiSettings
+import io.askimo.core.rag.MetadataAwareContentInjector
 import io.askimo.core.util.AskimoHome
 import io.askimo.test.extensions.AskimoTestHome
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -66,6 +67,17 @@ class AppConfigTest {
         val updated = updateRagFieldHelper(config, "useAbsolutePathInCitations", false)
 
         assertFalse(updated.useAbsolutePathInCitations)
+    }
+
+    @Test
+    fun `updateRagField should handle citationStyle`() {
+        val config = RagConfig(citationStyle = MetadataAwareContentInjector.CitationStyle.COMPACT)
+
+        val updatedWithEnum = updateRagFieldHelper(config, "citationStyle", MetadataAwareContentInjector.CitationStyle.DETAILED)
+        assertEquals(MetadataAwareContentInjector.CitationStyle.DETAILED, updatedWithEnum.citationStyle)
+
+        val updatedWithString = updateRagFieldHelper(config, "citationStyle", "MINIMAL")
+        assertEquals(MetadataAwareContentInjector.CitationStyle.MINIMAL, updatedWithString.citationStyle)
     }
 
     @Test

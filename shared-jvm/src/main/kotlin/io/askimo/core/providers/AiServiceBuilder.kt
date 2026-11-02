@@ -89,6 +89,7 @@ object AiServiceBuilder {
                 .contentRetriever(retriever)
                 .contentInjector(
                     MetadataAwareContentInjector(
+                        citationStyle = AppConfig.rag.citationStyle,
                         useAbsolutePaths = AppConfig.rag.useAbsolutePathInCitations,
                     ),
                 )
