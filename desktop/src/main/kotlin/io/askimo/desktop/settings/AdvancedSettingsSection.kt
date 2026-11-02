@@ -8,6 +8,7 @@ import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,8 +17,13 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,13 +32,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import io.askimo.core.config.AppConfig
+import io.askimo.core.rag.MetadataAwareContentInjector
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
+import io.askimo.ui.common.ui.clickableCard
+import io.askimo.ui.common.ui.themedTooltip
 import io.askimo.ui.settings.analyticsSection
 import io.askimo.ui.settings.developerModeSection
 import io.askimo.ui.settings.logLevelCard
@@ -126,6 +137,9 @@ fun advancedSettingsSection() {
 
 @Composable
 private fun ragConfigurationSection() {
+    var citationStyle by remember { mutableStateOf(AppConfig.rag.citationStyle) }
+    var citationStyleDropdownExpanded by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = AppColors.cardColors(AppColors.Elevation.RAISED),
@@ -197,6 +211,93 @@ private fun ragConfigurationSection() {
                     AppConfig.updateField("rag.useAbsolutePathInCitations", newValue)
                 },
             )
+
+            // Citation Style
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f).padding(end = Spacing.large),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                ) {
+                    Text(
+                        text = stringResource("settings.rag.citation.style"),
+                        style = AppTextStyles.fieldLabel,
+                    )
+                    Text(
+                        text = stringResource("settings.rag.citation.style.hint"),
+                        style = AppTextStyles.caption,
+                    )
+                }
+
+                Box(modifier = Modifier.widthIn(min = 160.dp, max = 280.dp)) {
+                    themedTooltip(
+                        text = stringResource("settings.rag.citation.style.${citationStyle.name.lowercase()}.description"),
+                    ) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickableCard { citationStyleDropdownExpanded = true },
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface,
+                            ),
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(Spacing.medium),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = stringResource("settings.rag.citation.style.${citationStyle.name.lowercase()}"),
+                                    style = AppTextStyles.body,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f).padding(end = Spacing.small),
+                                )
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = "Change citation style",
+                                    tint = AppTextStyles.primaryContent,
+                                )
+                            }
+                        }
+                    }
+
+                    AppComponents.dropdownMenu(
+                        expanded = citationStyleDropdownExpanded,
+                        onDismissRequest = { citationStyleDropdownExpanded = false },
+                    ) {
+                        val styles = MetadataAwareContentInjector.CitationStyle.entries
+                        styles.forEachIndexed { index, style ->
+                            AppComponents.themedDropdownMenuItem(
+                                text = {
+                                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+                                        Text(
+                                            text = stringResource("settings.rag.citation.style.${style.name.lowercase()}"),
+                                            style = AppTextStyles.body,
+                                        )
+                                        Text(
+                                            text = stringResource("settings.rag.citation.style.${style.name.lowercase()}.description"),
+                                            style = AppTextStyles.caption,
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    citationStyle = style
+                                    AppConfig.updateField("rag.citationStyle", style)
+                                    citationStyleDropdownExpanded = false
+                                },
+                                isSelected = style == citationStyle,
+                                showDivider = index < styles.lastIndex,
+                            )
+                        }
+                    }
+                }
+            }
 
             // Divider before embedding configuration
             HorizontalDivider(
