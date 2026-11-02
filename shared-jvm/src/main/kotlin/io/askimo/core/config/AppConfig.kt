@@ -1759,10 +1759,15 @@ object AppConfig {
     /** Updates a single [RagConfig] field by name; unknown fields are ignored. */
     private fun updateRagField(config: RagConfig, field: String, value: Any): RagConfig = when (field) {
         "vectorSearchMaxResults" -> config.copy(vectorSearchMaxResults = value as Int)
+
         "vectorSearchMinScore" -> config.copy(vectorSearchMinScore = (value as Number).toDouble())
+
         "hybridMaxResults" -> config.copy(hybridMaxResults = value as Int)
+
         "rankFusionConstant" -> config.copy(rankFusionConstant = value as Int)
+
         "useAbsolutePathInCitations" -> config.copy(useAbsolutePathInCitations = value as Boolean)
+
         "citationStyle" -> {
             val newStyle = when (value) {
                 is MetadataAwareContentInjector.CitationStyle -> value
@@ -1770,6 +1775,7 @@ object AppConfig {
             }
             config.copy(citationStyle = newStyle)
         }
+
         else -> config
     }
 
