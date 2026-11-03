@@ -83,7 +83,7 @@ class StdioMcpConnector(
 
         val exitedInTime = process.waitFor(PROBE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
         if (!exitedInTime) {
-            process.destroyForcibly()
+            destroyProcessTree(process)
             stdoutThread.join(500)
             stderrThread.join(500)
             return@withContext ProbeResult.Ok
@@ -102,6 +102,19 @@ class StdioMcpConnector(
         } else {
             ProbeResult.Ok
         }
+    }
+
+    /**
+     * Forcibly destroys [process] and all of its descendants.
+     *
+     * [resolveFullCommand] may wrap the command in `bash -c`/`cmd /c`, and launchers like `uvx`/`npx`
+     * spawn the real MCP server as a child of their own process. Destroying only [process] can leave
+     * that descendant running (and its reader threads blocked) after a timed-out probe, so the whole
+     * process tree is torn down here.
+     */
+    private fun destroyProcessTree(process: Process) {
+        process.toHandle().descendants().forEach { it.destroyForcibly() }
+        process.destroyForcibly()
     }
 
     /** Resolves the executable + wraps it for a working-directory `cd` if configured. */
