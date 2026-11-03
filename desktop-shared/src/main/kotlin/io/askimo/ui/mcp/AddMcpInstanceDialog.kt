@@ -79,6 +79,8 @@ import java.util.UUID
  * When [templateDefinition] is null (manual setup or editing an existing instance), the full
  * raw STDIO / HTTP configuration fields are shown.
  */
+private enum class McpDialogAction { TEST, SAVE }
+
 @Composable
 fun addMcpInstanceDialog(
     existingInstance: McpInstance? = null,
@@ -185,8 +187,10 @@ fun addMcpInstanceDialog(
         )
     }
 
-    // Connection test state
-    var isTesting by remember { mutableStateOf(false) }
+    // Connection test state. Tracks which action (test or save) is currently in flight,
+    // so only that button shows a busy state while the other stays disabled but idle.
+    var activeAction by remember { mutableStateOf<McpDialogAction?>(null) }
+    val isTesting = activeAction != null
     var testSuccess by remember { mutableStateOf<Boolean?>(null) }
     var availableTools by remember { mutableStateOf<List<ToolSpecification>>(emptyList()) }
 
@@ -414,11 +418,12 @@ fun addMcpInstanceDialog(
             }
             Spacer(Modifier.width(Spacing.small))
             secondaryButton(
+                enabled = !isTesting,
                 onClick = {
                     dialogState.clearError()
                     testSuccess = null
                     availableTools = emptyList()
-                    isTesting = true
+                    activeAction = McpDialogAction.TEST
                     scope.launch {
                         try {
                             testConnection()
@@ -435,20 +440,27 @@ fun addMcpInstanceDialog(
                             availableTools = emptyList()
                             dialogState.setError(e, "Connection test failed")
                         } finally {
-                            isTesting = false
+                            activeAction = null
                         }
                     }
                 },
             ) {
-                Text(stringResource("mcp.instance.test.connection"))
+                if (activeAction == McpDialogAction.TEST) {
+                    AppComponents.loadingSpinner(modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(Spacing.extraSmall))
+                    Text(stringResource("mcp.instance.testing"))
+                } else {
+                    Text(stringResource("mcp.instance.test.connection"))
+                }
             }
             Spacer(Modifier.width(Spacing.small))
             primaryButton(
+                enabled = !isTesting,
                 onClick = {
                     dialogState.clearError()
                     testSuccess = null
                     availableTools = emptyList()
-                    isTesting = true
+                    activeAction = McpDialogAction.SAVE
                     scope.launch {
                         try {
                             testConnection()
@@ -470,12 +482,21 @@ fun addMcpInstanceDialog(
                             availableTools = emptyList()
                             dialogState.setError(e, "Failed to save MCP instance")
                         } finally {
-                            isTesting = false
+                            activeAction = null
                         }
                     }
                 },
             ) {
-                Text(stringResource("action.save"))
+                if (activeAction == McpDialogAction.SAVE) {
+                    AppComponents.loadingSpinner(
+                        modifier = Modifier.size(16.dp),
+                        trackColor = AppColors.onPrimaryTrackColor(),
+                    )
+                    Spacer(Modifier.width(Spacing.extraSmall))
+                    Text(stringResource("mcp.instance.saving"))
+                } else {
+                    Text(stringResource("action.save"))
+                }
             }
         },
     ) {

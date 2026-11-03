@@ -10,6 +10,7 @@ import io.askimo.core.intent.ToolCategory
 import io.askimo.core.intent.ToolStrategy
 import io.askimo.core.logging.logger
 import io.askimo.core.mcp.config.McpServersConfig
+import kotlinx.coroutines.CancellationException
 
 private val log = logger<McpClientFactory>()
 
@@ -58,29 +59,37 @@ class McpClientFactory(
             }
 
             log.trace("Creating transport for connector '${instance.name}'")
-            val transport = try {
-                connector.createTransport()
+            val client = try {
+                val transport = connector.createTransport()
+                val builder = DefaultMcpClient.builder()
+                    .key(clientKey)
+                    .transport(transport)
+                resolvedDefinition.protocolVersion?.let {
+                    log.debug("Using explicit MCP protocol version '{}' for '{}'", it, instance.name)
+                    builder.protocolVersion(it)
+                }
+                builder.build()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                return Result.failure(
-                    IllegalStateException(
-                        "Cannot connect to '${instance.name}': ${e.message}",
-                        e,
-                    ),
-                )
+                log.debug("Connect failed for '${instance.name}', probing for root cause", e)
+                val diagnostic = try {
+                    connector.probeStartup()
+                } catch (pe: CancellationException) {
+                    throw pe
+                } catch (pe: Exception) {
+                    null
+                }
+                val message = (diagnostic as? ProbeResult.Failed)
+                    ?.let { "Cannot start '${instance.name}': ${it.message}" }
+                    ?: "Cannot connect to '${instance.name}': ${e.message}"
+                return Result.failure(IllegalStateException(message, e))
             }
-
-            log.trace("Creating MCP client for instance '${instance.name}'")
-            val builder = DefaultMcpClient.builder()
-                .key(clientKey)
-                .transport(transport)
-            resolvedDefinition.protocolVersion?.let {
-                log.debug("Using explicit MCP protocol version '{}' for '{}'", it, instance.name)
-                builder.protocolVersion(it)
-            }
-            val client = builder.build()
 
             log.debug("Successfully created MCP client for '${instance.name}'")
             Result.success(client)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             log.debug("Failed to create MCP client for '${instance.name}'", e)
             Result.failure(

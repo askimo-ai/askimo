@@ -20,6 +20,25 @@ abstract class McpConnector {
      * Validates the connector configuration
      */
     abstract fun validate(): ValidationResult
+
+    /**
+     * Optional pre-flight check run before [createTransport]/handshake.
+     *
+     * langchain4j's MCP client only waits on the JSON-RPC handshake and surfaces a generic
+     * [java.util.concurrent.TimeoutException] when a stdio server never responds — it does not
+     * expose the child process's stderr or exit code. Connectors that can cheaply detect a
+     * doomed launch (e.g. a process that crashes or exits before ever reaching the handshake)
+     * should override this to return the real root cause instead.
+     */
+    open suspend fun probeStartup(): ProbeResult = ProbeResult.Ok
+}
+
+/**
+ * Result of a [McpConnector.probeStartup] pre-flight check.
+ */
+sealed class ProbeResult {
+    object Ok : ProbeResult()
+    data class Failed(val message: String) : ProbeResult()
 }
 
 /**

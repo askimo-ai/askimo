@@ -49,6 +49,7 @@ import io.askimo.core.logging.LogLevel
 import io.askimo.core.logging.LoggingService
 import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.user.repository.UserProfileRepository
+import io.askimo.core.util.suspendRunCatching
 import io.askimo.ui.common.components.dangerButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
@@ -568,7 +569,7 @@ fun typingSuggestionsSection() {
                     onClick = {
                         showConfirmDialog = false
                         coroutineScope.launch {
-                            runCatching {
+                            suspendRunCatching {
                                 val profileId = userProfileRepository.getProfile().id
                                 phraseHabitRefreshService.resetSuggestions(profileId)
                             }.onSuccess {

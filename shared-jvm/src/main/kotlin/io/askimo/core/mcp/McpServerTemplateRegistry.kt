@@ -129,6 +129,42 @@ object McpServerTemplateRegistry {
             tags = listOf("popular", "utilities"),
             author = "Anthropic",
         ),
+
+        McpServerDefinition(
+            id = "template-markitdown",
+            name = "MarkItDown",
+            description = "Convert files and office documents (PDF, Word, Excel, PowerPoint, images, and more) to Markdown.",
+            transportType = TransportType.STDIO,
+            stdioConfig = StdioConfig(
+                // `--with "pydantic<2.14"` works around markitdown-mcp@0.0.1a4's loose `mcp~=1.8.0`
+                // pin: mcp 1.8.x reaches into a pydantic internal (`eval_type_backport`) that was
+                // removed in pydantic 2.14, which `uv` otherwise resolves to by default.
+                commandTemplate = listOf("uvx", "--with", "pydantic<2.14", "markitdown-mcp@0.0.1a4"),
+                envTemplate = mapOf("UV_PYTHON" to "{{uvPythonVersion}}"),
+            ),
+            // mcp~=1.8.0 (used by markitdown-mcp@0.0.1a4) predates langchain4j's newer
+            // protocol-detection probe and crashes the server process when it receives that
+            // unrecognized request. Pinning the protocol version explicitly skips detection.
+            protocolVersion = "2025-11-25",
+            parameters = listOf(
+                Parameter(
+                    key = "uvPythonVersion",
+                    label = "Python Version (for uv)",
+                    type = ParameterType.STRING,
+                    required = false,
+                    defaultValue = "3.12",
+                    description = "Pins the Python interpreter uv uses to run markitdown-mcp, independent of " +
+                        "your system's default Python. markitdown's dependencies (onnxruntime/magika) may lag " +
+                        "behind the newest Python releases, so a slightly older pinned version avoids " +
+                        "'no wheels available' errors. uv downloads this version automatically if needed. " +
+                        "Leave blank to let uv pick automatically.",
+                    placeholder = "3.12",
+                    location = ParameterLocation.ENVIRONMENT,
+                ),
+            ),
+            tags = listOf("utilities"),
+            author = "Microsoft",
+        ),
     )
 
     /** Returns templates matching the given category label (case-insensitive). "All" returns everything. */
@@ -148,7 +184,7 @@ object McpServerTemplateRegistry {
         val resolvedStdio = template.stdioConfig?.let { cfg ->
             StdioConfig(
                 commandTemplate = cfg.commandTemplate.map { it.resolve() }.filter { it.isNotBlank() },
-                envTemplate = cfg.envTemplate.mapValues { (_, v) -> v.resolve() },
+                envTemplate = cfg.envTemplate.mapValues { (_, v) -> v.resolve() }.filterValues { it.isNotBlank() },
                 workingDirectory = cfg.workingDirectory?.resolve(),
             )
         }
