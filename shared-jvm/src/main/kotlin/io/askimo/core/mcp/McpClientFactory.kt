@@ -6,6 +6,7 @@ package io.askimo.core.mcp
 
 import dev.langchain4j.agent.tool.ToolSpecification
 import dev.langchain4j.mcp.client.DefaultMcpClient
+import dev.langchain4j.mcp.client.transport.McpTransport
 import io.askimo.core.intent.ToolCategory
 import io.askimo.core.intent.ToolStrategy
 import io.askimo.core.logging.logger
@@ -59,8 +60,9 @@ class McpClientFactory(
             }
 
             log.trace("Creating transport for connector '${instance.name}'")
+            var transport: McpTransport? = null
             val client = try {
-                val transport = connector.createTransport()
+                transport = connector.createTransport()
                 val builder = DefaultMcpClient.builder()
                     .key(clientKey)
                     .transport(transport)
@@ -73,6 +75,13 @@ class McpClientFactory(
                 throw e
             } catch (e: Exception) {
                 log.debug("Connect failed for '${instance.name}', probing for root cause", e)
+                // DefaultMcpClient.builder().build() may have already started the transport's
+                // child process (via transport.start(...)) before failing. Close it first so the
+                // reactive probe below doesn't launch a second, competing copy of the same command.
+                transport?.let { t ->
+                    runCatching { t.close() }
+                        .onFailure { ce -> log.debug("Failed to close transport for '${instance.name}'", ce) }
+                }
                 val diagnostic = try {
                     connector.probeStartup()
                 } catch (pe: CancellationException) {

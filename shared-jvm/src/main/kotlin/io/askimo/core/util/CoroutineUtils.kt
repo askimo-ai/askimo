@@ -14,7 +14,7 @@ import kotlinx.coroutines.CancellationException
  *
  * Use this instead of [kotlin.runCatching] whenever [block] may call `suspend` functions.
  */
-inline fun <T> suspendRunCatching(block: () -> T): Result<T> = try {
+suspend inline fun <T> suspendRunCatching(block: suspend () -> T): Result<T> = try {
     Result.success(block())
 } catch (e: CancellationException) {
     throw e
