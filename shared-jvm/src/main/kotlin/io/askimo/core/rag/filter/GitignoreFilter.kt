@@ -161,7 +161,7 @@ class GitignoreParser(private val rootPath: Path) {
             hasLeadingDoubleAsterisk -> "(^|.*/)$regexPattern(/.*|\$)"
 
             // Pattern starts with / - anchored to root (relative to .gitignore location)
-            line.startsWith("/") -> "^${regexPattern.substring(1)}(/.*|\$)"
+            pattern.startsWith("/") -> "^${regexPattern.substring(1)}(/.*|\$)"
 
             // Pattern contains / - match from current directory down
             pattern.contains("/") -> "^$regexPattern(/.*|\$)"

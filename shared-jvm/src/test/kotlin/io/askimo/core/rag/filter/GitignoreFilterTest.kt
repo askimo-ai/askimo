@@ -221,6 +221,34 @@ class GitignoreFilterTest {
     }
 
     @Test
+    fun `should handle rooted negation patterns`(@TempDir tempDir: Path) {
+        val gitDir = tempDir.resolve(".git")
+        Files.createDirectory(gitDir)
+
+        val gitignore = tempDir.resolve(".gitignore")
+        Files.writeString(
+            gitignore,
+            """
+            *.log
+            !/important.log
+            """.trimIndent(),
+        )
+
+        val filter = GitignoreFilter()
+
+        // Should NOT exclude important.log at root (rooted negation)
+        val importantLog = tempDir.resolve("important.log")
+        Files.createFile(importantLog)
+        assertFalse(filter.shouldExclude(importantLog, false, createContext(importantLog, tempDir)))
+
+        // Should still exclude important.log in subdirectory
+        val subImportantLog = tempDir.resolve("src/important.log")
+        Files.createDirectories(subImportantLog.parent)
+        Files.createFile(subImportantLog)
+        assertTrue(filter.shouldExclude(subImportantLog, false, createContext(subImportantLog, tempDir)))
+    }
+
+    @Test
     fun `should handle double asterisk patterns`(@TempDir tempDir: Path) {
         val gitDir = tempDir.resolve(".git")
         Files.createDirectory(gitDir)
