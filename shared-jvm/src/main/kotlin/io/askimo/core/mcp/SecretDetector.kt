@@ -4,6 +4,8 @@
  */
 package io.askimo.core.mcp
 
+import io.askimo.core.util.Masking
+
 /**
  * Determines whether a parameter value should be stored securely via [SecureKeyManager].
  *
@@ -67,4 +69,31 @@ object SecretDetector {
         .lowercase()
         .split(" ")
         .filter { it.isNotEmpty() }
+
+    /**
+     * Redacts [resolvedValue] if [rawTemplate] references any secret parameter (per [isSecret]),
+     * for safe inclusion in logs. Non-secret values are returned unchanged.
+     */
+    fun redactValue(rawTemplate: String, resolvedValue: String, definition: McpServerDefinition? = null): String {
+        val vars = VariableExtractor.extractFromString(rawTemplate)
+        return if (vars.any { isSecret(it, definition) }) Masking.maskSecret(resolvedValue) else resolvedValue
+    }
+
+    /** Map variant of [redactValue] — pairs each resolved entry with its raw template by key. */
+    fun redactMap(
+        rawTemplate: Map<String, String>,
+        resolved: Map<String, String>,
+        definition: McpServerDefinition? = null,
+    ): Map<String, String> = resolved.mapValues { (key, value) ->
+        redactValue(rawTemplate[key].orEmpty(), value, definition)
+    }
+
+    /** List variant of [redactValue] — pairs each resolved entry with its raw template by index. */
+    fun redactList(
+        rawTemplate: List<String>,
+        resolved: List<String>,
+        definition: McpServerDefinition? = null,
+    ): List<String> = resolved.mapIndexed { i, value ->
+        redactValue(rawTemplate.getOrElse(i) { "" }, value, definition)
+    }
 }

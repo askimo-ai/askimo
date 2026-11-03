@@ -252,4 +252,102 @@ class McpInstanceServiceTest {
         // Cleanup
         service.deleteInstance(instance.id)
     }
+
+    @Test
+    fun `updateInstance preserves list order (regression - toggling instance 1 must not reorder the list)`() {
+        val service = McpInstanceService()
+
+        val serverId = "global-test-order-123"
+        val serverDef = McpServerDefinition(
+            id = serverId,
+            name = "Test Order Server",
+            description = "Test server for order preservation",
+            transportType = TransportType.HTTP,
+            httpConfig = HttpConfig(
+                urlTemplate = "https://api.example.com",
+                headersTemplate = emptyMap(),
+                timeoutMs = 30000,
+            ),
+            tags = listOf("global"),
+        )
+        McpServersConfig.add(serverDef)
+
+        val instance1 = service.createInstance(serverId, "Instance 1", emptyMap()).getOrNull()!!
+        val instance2 = service.createInstance(serverId, "Instance 2", emptyMap()).getOrNull()!!
+
+        val beforeIds = service.getInstances().map { it.id }
+        val index1Before = beforeIds.indexOf(instance1.id)
+        val index2Before = beforeIds.indexOf(instance2.id)
+        assertTrue(index1Before < index2Before, "Instance 1 should appear before Instance 2 initially")
+
+        // Toggle instance 1 (simulates the UI "enable/disable" switch)
+        service.updateInstance(instanceId = instance1.id, enabled = false)
+
+        val afterIds = service.getInstances().map { it.id }
+        assertEquals(
+            index1Before,
+            afterIds.indexOf(instance1.id),
+            "Instance 1 must stay at its original position after being toggled",
+        )
+        assertEquals(
+            index2Before,
+            afterIds.indexOf(instance2.id),
+            "Instance 2 must stay at its original position after Instance 1 is toggled",
+        )
+
+        // Cleanup
+        service.deleteInstance(instance1.id)
+        service.deleteInstance(instance2.id)
+    }
+
+    @Test
+    fun `McpServersConfig add preserves list order when updating an existing definition`() {
+        val serverId1 = "global-test-order-def-1"
+        val serverId2 = "global-test-order-def-2"
+
+        fun def(id: String, name: String) = McpServerDefinition(
+            id = id,
+            name = name,
+            description = "test",
+            transportType = TransportType.HTTP,
+            httpConfig = HttpConfig(
+                urlTemplate = "https://api.example.com",
+                headersTemplate = emptyMap(),
+                timeoutMs = 30000,
+            ),
+            tags = listOf("global"),
+        )
+
+        McpServersConfig.add(def(serverId1, "Definition 1"))
+        McpServersConfig.add(def(serverId2, "Definition 2"))
+
+        val beforeIds = McpServersConfig.getAll().map { it.id }
+        val index1Before = beforeIds.indexOf(serverId1)
+        val index2Before = beforeIds.indexOf(serverId2)
+        assertTrue(index1Before < index2Before, "Definition 1 should appear before Definition 2 initially")
+
+        // Update (re-add) definition 1 — must not move it to the end of the list
+        McpServersConfig.add(def(serverId1, "Definition 1 Renamed"))
+
+        val afterIds = McpServersConfig.getAll().map { it.id }
+        assertEquals(
+            index1Before,
+            afterIds.indexOf(serverId1),
+            "Definition 1 must stay at its original position after being updated",
+        )
+        assertEquals(
+            index2Before,
+            afterIds.indexOf(serverId2),
+            "Definition 2 must stay at its original position after Definition 1 is updated",
+        )
+        assertEquals(
+            "Definition 1 Renamed",
+            McpServersConfig.get(serverId1)?.name,
+            "Definition 1's update should still be applied",
+        )
+
+        // Cleanup
+        McpServersConfig.remove(serverId1)
+        McpServersConfig.remove(serverId2)
+    }
 }

@@ -70,17 +70,19 @@ object McpServersConfig {
     fun get(id: String): McpServerDefinition? = ephemeral[id] ?: (cached ?: loadFromDisk()).find { it.id == id }
 
     /**
-     * Add a new MCP server definition
+     * Add a new MCP server definition, or replace it in place if one with the same
+     * id already exists (preserves list order on update).
      */
     fun add(definition: McpServerDefinition) {
         synchronized(this) {
             val current = getAll().toMutableList()
 
-            // Remove if already exists (update)
-            current.removeIf { it.id == definition.id }
-
-            // Add new definition
-            current.add(definition)
+            val index = current.indexOfFirst { it.id == definition.id }
+            if (index >= 0) {
+                current[index] = definition
+            } else {
+                current.add(definition)
+            }
 
             // Update cache and persist
             cached = current

@@ -17,6 +17,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,6 +42,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -251,12 +253,12 @@ object AppComponents {
     /**
      * A selectable filter chip with standardized hover behavior.
      *
-     * Material3's [androidx.compose.material3.FilterChip] draws its own hover/focus indication
-     * *in addition to* any explicit `border` passed to it, which on desktop renders as a visible
-     * double border on hover. This composable avoids that by disabling the built-in indication
-     * (`indication = null`) and drawing a single border ourselves — same approach as
-     * [clickableCard]: one `MutableInteractionSource` drives both the background and the border,
-     * so hover and selection never produce overlapping rings.
+     * Material3's [androidx.compose.material3.FilterChip] draws its own hover/focus ring
+     * *in addition to* any explicit `border`, causing a visible double border on desktop hover.
+     * We avoid that by disabling the built-in indication (`indication = null`) and drawing a
+     * single border ourselves — same approach as [clickableCard]. [Modifier.selectable] (not
+     * plain `clickable`) preserves selected-state semantics for accessibility, and the border
+     * widens on keyboard focus to replace the suppressed default focus ring.
      */
     @Composable
     fun filterChip(
@@ -268,6 +270,7 @@ object AppComponents {
     ) {
         val interactionSource = remember { MutableInteractionSource() }
         val isHovered by interactionSource.collectIsHoveredAsState()
+        val isFocused by interactionSource.collectIsFocusedAsState()
         val isEmphasized = selected || isHovered
 
         val containerColor = if (isEmphasized) {
@@ -287,14 +290,16 @@ object AppComponents {
         } else {
             AppColors.codeBlockBorderColor()
         }
+        val borderWidth = if (isFocused) 2.dp else 1.dp
 
         Box(
             modifier = modifier
                 .clip(shape)
                 .background(containerColor, shape)
-                .border(BorderStroke(1.dp, borderColor), shape)
+                .border(BorderStroke(borderWidth, borderColor), shape)
                 .hoverable(interactionSource)
-                .clickable(
+                .selectable(
+                    selected = selected,
                     interactionSource = interactionSource,
                     indication = null,
                     onClick = onClick,

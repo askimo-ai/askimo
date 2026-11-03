@@ -54,8 +54,8 @@ data class McpInstance(
         val resolvedWorkingDir = stdioConfig.workingDirectory?.let { resolver.resolve(it) }
         log.debug(
             "Create the MCP connector with command: {}, env: {}, workingDir: {}",
-            resolvedCommand,
-            resolvedEnv,
+            SecretDetector.redactList(stdioConfig.commandTemplate, resolvedCommand, definition),
+            SecretDetector.redactMap(stdioConfig.envTemplate, resolvedEnv, definition),
             resolvedWorkingDir,
         )
 
@@ -82,7 +82,7 @@ data class McpInstance(
         val resolvedHeaders = resolver.resolveMap(httpConfig.headersTemplate)
         log.debug(
             "Create the HTTP MCP connector with url: {}",
-            resolvedUrl,
+            SecretDetector.redactValue(httpConfig.urlTemplate, resolvedUrl, definition),
         )
 
         return HttpMcpConnector(
