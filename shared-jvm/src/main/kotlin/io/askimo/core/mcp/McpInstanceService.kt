@@ -25,6 +25,7 @@ import io.askimo.core.logging.logger
 import io.askimo.core.mcp.config.McpInstancesConfig
 import io.askimo.core.mcp.config.McpServersConfig
 import io.askimo.core.util.AskimoHome
+import io.askimo.core.util.suspendRunCatching
 import java.nio.file.Files
 import java.time.LocalDateTime
 import java.util.UUID
@@ -326,10 +327,10 @@ class McpInstanceService(
         return Result.success(if (filterDisabled) allTools.filter { it.enabled } else allTools)
     }
 
-    suspend fun getGlobalTools(): Result<List<ToolConfig>> = runCatching {
+    suspend fun getGlobalTools(): Result<List<ToolConfig>> = suspendRunCatching {
         globalToolsCache?.let { cached ->
             log.debug("Returning cached global tools ({} tools)", cached.size)
-            return@runCatching cached
+            return@suspendRunCatching cached
         }
 
         log.debug("Cache miss for global tools, fetching from MCP servers")
@@ -337,7 +338,7 @@ class McpInstanceService(
         val instances = getEnabledInstances()
         if (instances.isEmpty()) {
             log.debug("No active global MCP instances, returning empty list")
-            return@runCatching emptyList()
+            return@suspendRunCatching emptyList()
         }
 
         val userConfigs = loadToolConfigs()
@@ -374,10 +375,10 @@ class McpInstanceService(
      * chat sessions are instant; the cache is only rebuilt after [invalidateCache] runs (i.e.
      * when instances or tool configs actually change).
      */
-    suspend fun listActiveMcpServers(): Result<List<McpServerInfo>> = runCatching {
+    suspend fun listActiveMcpServers(): Result<List<McpServerInfo>> = suspendRunCatching {
         activeServersCache?.let { cached ->
             log.debug("Returning cached active MCP servers ({} servers)", cached.size)
-            return@runCatching cached
+            return@suspendRunCatching cached
         }
 
         log.debug("Cache miss for active MCP servers, fetching from MCP servers")
