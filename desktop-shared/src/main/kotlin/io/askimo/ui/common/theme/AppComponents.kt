@@ -11,6 +11,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.MarqueeAnimationMode
 import androidx.compose.foundation.ScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -72,11 +73,13 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
@@ -241,6 +244,69 @@ object AppComponents {
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             content = { content(cardIsHovered) },
         )
+    }
+
+    // ── Chips ─────────────────────────────────────────────────────────────────
+
+    /**
+     * A selectable filter chip with standardized hover behavior.
+     *
+     * Material3's [androidx.compose.material3.FilterChip] draws its own hover/focus indication
+     * *in addition to* any explicit `border` passed to it, which on desktop renders as a visible
+     * double border on hover. This composable avoids that by disabling the built-in indication
+     * (`indication = null`) and drawing a single border ourselves — same approach as
+     * [clickableCard]: one `MutableInteractionSource` drives both the background and the border,
+     * so hover and selection never produce overlapping rings.
+     */
+    @Composable
+    fun filterChip(
+        label: String,
+        selected: Boolean,
+        onClick: () -> Unit,
+        modifier: Modifier = Modifier,
+        shape: Shape = RoundedCornerShape(8.dp),
+    ) {
+        val interactionSource = remember { MutableInteractionSource() }
+        val isHovered by interactionSource.collectIsHoveredAsState()
+        val isEmphasized = selected || isHovered
+
+        val containerColor = if (isEmphasized) {
+            AppColors.surfaceColor(AppColors.Elevation.SELECTED)
+        } else {
+            AppColors.surfaceColor(AppColors.Elevation.RAISED)
+        }
+        val contentColor = if (isEmphasized) {
+            AppColors.contentColorFor(AppColors.Elevation.SELECTED)
+        } else {
+            AppColors.contentColorFor(AppColors.Elevation.RAISED)
+        }
+        val borderColor = if (selected) {
+            MaterialTheme.colorScheme.primary
+        } else if (isHovered) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+        } else {
+            AppColors.codeBlockBorderColor()
+        }
+
+        Box(
+            modifier = modifier
+                .clip(shape)
+                .background(containerColor, shape)
+                .border(BorderStroke(1.dp, borderColor), shape)
+                .hoverable(interactionSource)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = onClick,
+                )
+                .pointerHoverIcon(PointerIcon.Hand)
+                .padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
+            contentAlignment = Alignment.Center,
+        ) {
+            CompositionLocalProvider(LocalContentColor provides contentColor) {
+                Text(text = label, style = AppTextStyles.hint)
+            }
+        }
     }
 
     // ── Inputs ────────────────────────────────────────────────────────────────

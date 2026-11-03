@@ -19,7 +19,7 @@ package io.askimo.core.mcp
  */
 object McpServerTemplateRegistry {
 
-    val CATEGORIES = listOf("All", "Popular", "Dev Tools", "Productivity", "Databases", "Search", "Utilities")
+    val CATEGORIES = listOf("All", "Popular", "Dev Tools", "Productivity", "Databases", "Search", "Travel", "Finance", "Utilities")
 
     val templates: List<McpServerDefinition> = listOf(
 
@@ -118,6 +118,50 @@ object McpServerTemplateRegistry {
         ),
 
         McpServerDefinition(
+            id = "template-sequential-thinking",
+            name = "Sequential Thinking",
+            description = "Structured scratchpad for step-by-step reasoning: break a problem into revisable " +
+                "thoughts, branch alternatives, and track progress toward a solution. No configuration required.",
+            transportType = TransportType.STDIO,
+            stdioConfig = StdioConfig(
+                commandTemplate = listOf("npx", "-y", "@modelcontextprotocol/server-sequential-thinking"),
+            ),
+            parameters = emptyList(),
+            tags = listOf("popular", "utilities"),
+            author = "Anthropic",
+        ),
+
+        McpServerDefinition(
+            id = "template-memory",
+            name = "Memory",
+            description = "Persistent knowledge-graph scratchpad: store entities, relations, and observations " +
+                "that survive across chat sessions. The model only reads/writes memory when explicitly asked " +
+                "to (e.g. \"remember that...\" or \"what do you know about...\") — it is not injected " +
+                "automatically into every conversation.",
+            transportType = TransportType.STDIO,
+            stdioConfig = StdioConfig(
+                commandTemplate = listOf("npx", "-y", "@modelcontextprotocol/server-memory"),
+                envTemplate = mapOf("MEMORY_FILE_PATH" to "{{memoryFilePath}}"),
+            ),
+            parameters = listOf(
+                Parameter(
+                    key = "memoryFilePath",
+                    label = "Memory File Path",
+                    type = ParameterType.PATH,
+                    required = false,
+                    defaultValue = "${System.getProperty("user.home")}/.askimo/mcp-memory/memory.json",
+                    description = "Pinned to an absolute path so the same memory file is reused across every " +
+                        "chat session and process restart. Without this, the server may fall back to a path " +
+                        "relative to its install location, making stored memories appear to vanish.",
+                    placeholder = "/Users/you/.askimo/mcp-memory/memory.json",
+                    location = ParameterLocation.ENVIRONMENT,
+                ),
+            ),
+            tags = listOf("popular", "utilities"),
+            author = "Anthropic",
+        ),
+
+        McpServerDefinition(
             id = "template-fetch",
             name = "Fetch",
             description = "Fetch any URL and convert the response to Markdown for easy reading.",
@@ -131,6 +175,102 @@ object McpServerTemplateRegistry {
         ),
 
         McpServerDefinition(
+            id = "template-playwright",
+            name = "Playwright (Browser Automation)",
+            description = "Automate and read content from web pages using a real browser, driven by Playwright. " +
+                "Point it at your existing Chrome profile to reuse logged-in sessions (SSO, Confluence, etc.) " +
+                "so protected pages can be navigated and extracted without re-authenticating.",
+            transportType = TransportType.STDIO,
+            stdioConfig = StdioConfig(
+                commandTemplate = listOf("npx", "-y", "@playwright/mcp@latest"),
+                envTemplate = mapOf(
+                    "PLAYWRIGHT_MCP_BROWSER" to "{{browserChannel}}",
+                    "PLAYWRIGHT_MCP_USER_DATA_DIR" to "{{userDataDir}}",
+                    "PLAYWRIGHT_MCP_HEADLESS" to "{{headless}}",
+                ),
+            ),
+            parameters = listOf(
+                Parameter(
+                    key = "browserChannel",
+                    label = "Browser",
+                    type = ParameterType.STRING,
+                    required = false,
+                    defaultValue = "chrome",
+                    description = "Browser or Chrome channel to launch: chrome, msedge, firefox, or webkit.",
+                    placeholder = "chrome",
+                    location = ParameterLocation.ENVIRONMENT,
+                ),
+                Parameter(
+                    key = "userDataDir",
+                    label = "Chrome User Data Directory",
+                    type = ParameterType.PATH,
+                    required = false,
+                    description = "Point this at your real Chrome profile directory to reuse its cookies/SSO " +
+                        "session (e.g. so protected Confluence pages are already logged in). Leave blank to " +
+                        "use a fresh, isolated profile. On macOS Chrome's default profile lives under " +
+                        "'~/Library/Application Support/Google/Chrome'.",
+                    placeholder = "/Users/you/Library/Application Support/Google/Chrome",
+                    location = ParameterLocation.ENVIRONMENT,
+                ),
+                Parameter(
+                    key = "headless",
+                    label = "Headless",
+                    type = ParameterType.BOOLEAN,
+                    required = false,
+                    defaultValue = "false",
+                    description = "Run the browser without a visible window. Keep this off the first time so " +
+                        "you can complete any interactive login prompts.",
+                    location = ParameterLocation.ENVIRONMENT,
+                ),
+            ),
+            tags = listOf("popular", "utilities"),
+            author = "Microsoft",
+        ),
+
+        // ── Travel ────────────────────────────────────────────────────────────
+
+        McpServerDefinition(
+            id = "template-google-maps",
+            name = "Google Maps",
+            description = "Search places, geocode addresses, get directions, distances, timezones, and " +
+                "elevation via the Google Maps Platform. Useful for travel planning and itineraries.",
+            transportType = TransportType.STDIO,
+            stdioConfig = StdioConfig(
+                commandTemplate = listOf("npx", "-y", "@cablate/mcp-google-map", "--stdio"),
+                envTemplate = mapOf("GOOGLE_MAPS_API_KEY" to "{{googleMapsApiKey}}"),
+            ),
+            parameters = listOf(
+                Parameter(
+                    key = "googleMapsApiKey",
+                    label = "Google Maps API Key",
+                    type = ParameterType.SECRET,
+                    description = "Create at console.cloud.google.com. Enable Places API (New), Routes API, " +
+                        "and Geocoding API for your project. Calls to the Google Maps Platform may be billable.",
+                    placeholder = "AIza...",
+                    location = ParameterLocation.ENVIRONMENT,
+                ),
+            ),
+            tags = listOf("popular", "travel"),
+            author = "cablate",
+        ),
+
+        // ── Finance ───────────────────────────────────────────────────────────
+
+        McpServerDefinition(
+            id = "template-yfinance",
+            name = "Yahoo Finance",
+            description = "Look up stock quotes, historical prices, financial statements, dividends, " +
+                "earnings, and analyst data from Yahoo Finance. No API key required.",
+            transportType = TransportType.STDIO,
+            stdioConfig = StdioConfig(
+                commandTemplate = listOf("uvx", "--system-certs", "--with", "mcp<2", "yfinance-mcp"),
+            ),
+            parameters = emptyList(),
+            tags = listOf("popular", "finance"),
+            author = "Community",
+        ),
+
+        McpServerDefinition(
             id = "template-markitdown",
             name = "MarkItDown",
             description = "Convert files and office documents (PDF, Word, Excel, PowerPoint, images, and more) to Markdown.",
@@ -139,7 +279,13 @@ object McpServerTemplateRegistry {
                 // `--with "pydantic<2.14"` works around markitdown-mcp@0.0.1a4's loose `mcp~=1.8.0`
                 // pin: mcp 1.8.x reaches into a pydantic internal (`eval_type_backport`) that was
                 // removed in pydantic 2.14, which `uv` otherwise resolves to by default.
-                commandTemplate = listOf("uvx", "--with", "pydantic<2.14", "markitdown-mcp@0.0.1a4"),
+                commandTemplate = listOf(
+                    "uvx",
+                    "--system-certs",
+                    "--with",
+                    "pydantic<2.14",
+                    "markitdown-mcp@0.0.1a4",
+                ),
                 envTemplate = mapOf("UV_PYTHON" to "{{uvPythonVersion}}"),
             ),
             // mcp~=1.8.0 (used by markitdown-mcp@0.0.1a4) predates langchain4j's newer
