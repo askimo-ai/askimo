@@ -55,9 +55,9 @@ Present the date and time in a human-friendly format. Include:
     )
     fun getCurrentDateTime(
         @P("IANA timezone ID (e.g. 'America/New_York', 'Asia/Tokyo', 'UTC'). Leave empty for system local time.")
-        timezone: String = "",
+        timezone: String? = "",
     ): String = try {
-        val zone = resolveZone(timezone)
+        val zone = resolveZone(timezone ?: "")
         val now = ZonedDateTime.now(zone)
         val dateStr = now.format(DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy", Locale.ENGLISH))
         val timeStr = now.format(DateTimeFormatter.ofPattern("HH:mm:ss", Locale.ENGLISH))
@@ -89,7 +89,7 @@ Present the date and time in a human-friendly format. Include:
     } catch (e: Exception) {
         ToolResponseBuilder.failure(
             error = "Could not get current date/time: ${e.message}",
-            metadata = mapOf("timezone" to timezone),
+            metadata = mapOf("timezone" to (timezone ?: "")),
         )
     }
 

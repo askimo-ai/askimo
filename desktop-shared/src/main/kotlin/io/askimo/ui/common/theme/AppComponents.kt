@@ -11,11 +11,13 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.MarqueeAnimationMode
 import androidx.compose.foundation.ScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,6 +42,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -72,11 +75,13 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
@@ -84,6 +89,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -241,6 +247,73 @@ object AppComponents {
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             content = { content(cardIsHovered) },
         )
+    }
+
+    // ── Chips ─────────────────────────────────────────────────────────────────
+
+    /**
+     * A selectable filter chip with standardized hover behavior.
+     *
+     * Material3's [androidx.compose.material3.FilterChip] draws its own hover/focus ring
+     * *in addition to* any explicit `border`, causing a visible double border on desktop hover.
+     * We avoid that by disabling the built-in indication (`indication = null`) and drawing a
+     * single border ourselves — same approach as [clickableCard]. [Modifier.selectable] (not
+     * plain `clickable`) preserves selected-state semantics for accessibility, and the border
+     * widens on keyboard focus to replace the suppressed default focus ring.
+     */
+    @Composable
+    fun filterChip(
+        label: String,
+        selected: Boolean,
+        onClick: () -> Unit,
+        modifier: Modifier = Modifier,
+        shape: Shape = RoundedCornerShape(8.dp),
+    ) {
+        val interactionSource = remember { MutableInteractionSource() }
+        val isHovered by interactionSource.collectIsHoveredAsState()
+        val isFocused by interactionSource.collectIsFocusedAsState()
+        val isEmphasized = selected || isHovered
+
+        val containerColor = if (isEmphasized) {
+            AppColors.surfaceColor(AppColors.Elevation.SELECTED)
+        } else {
+            AppColors.surfaceColor(AppColors.Elevation.RAISED)
+        }
+        val contentColor = if (isEmphasized) {
+            AppColors.contentColorFor(AppColors.Elevation.SELECTED)
+        } else {
+            AppColors.contentColorFor(AppColors.Elevation.RAISED)
+        }
+        val borderColor = if (selected) {
+            MaterialTheme.colorScheme.primary
+        } else if (isHovered) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+        } else {
+            AppColors.codeBlockBorderColor()
+        }
+        val borderWidth = if (isFocused) 2.dp else 1.dp
+
+        Box(
+            modifier = modifier
+                .clip(shape)
+                .background(containerColor, shape)
+                .border(BorderStroke(borderWidth, borderColor), shape)
+                .hoverable(interactionSource)
+                .selectable(
+                    selected = selected,
+                    interactionSource = interactionSource,
+                    indication = null,
+                    role = Role.RadioButton,
+                    onClick = onClick,
+                )
+                .pointerHoverIcon(PointerIcon.Hand)
+                .padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
+            contentAlignment = Alignment.Center,
+        ) {
+            CompositionLocalProvider(LocalContentColor provides contentColor) {
+                Text(text = label, style = AppTextStyles.hint)
+            }
+        }
     }
 
     // ── Inputs ────────────────────────────────────────────────────────────────

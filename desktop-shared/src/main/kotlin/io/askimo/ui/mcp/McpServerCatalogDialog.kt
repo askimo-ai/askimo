@@ -15,13 +15,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -109,28 +108,13 @@ fun mcpServerCatalogDialog(
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                 verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                modifier = Modifier.selectableGroup(),
             ) {
                 McpServerTemplateRegistry.CATEGORIES.forEach { cat ->
-                    val isSelected = cat == selectedCategory
-                    FilterChip(
-                        selected = isSelected,
+                    AppComponents.filterChip(
+                        label = cat,
+                        selected = cat == selectedCategory,
                         onClick = { selectedCategory = cat },
-                        label = { Text(cat, style = AppTextStyles.hint) },
-                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                        colors = FilterChipDefaults.filterChipColors(
-                            containerColor = AppColors.surfaceColor(AppColors.Elevation.RAISED),
-                            labelColor = AppColors.contentColorFor(AppColors.Elevation.RAISED),
-                            selectedContainerColor = AppColors.surfaceColor(AppColors.Elevation.SELECTED),
-                            selectedLabelColor = AppColors.contentColorFor(AppColors.Elevation.SELECTED),
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            enabled = true,
-                            selected = isSelected,
-                            borderColor = AppColors.codeBlockBorderColor(),
-                            selectedBorderColor = MaterialTheme.colorScheme.primary,
-                            borderWidth = 1.dp,
-                            selectedBorderWidth = 1.dp,
-                        ),
                     )
                 }
             }

@@ -65,8 +65,12 @@ object McpInstancesConfig {
 
     fun add(instance: McpInstance) {
         val instances = load().toMutableList()
-        instances.removeIf { it.id == instance.id }
-        instances.add(instance)
+        val index = instances.indexOfFirst { it.id == instance.id }
+        if (index >= 0) {
+            instances[index] = instance
+        } else {
+            instances.add(instance)
+        }
         save(instances)
     }
 

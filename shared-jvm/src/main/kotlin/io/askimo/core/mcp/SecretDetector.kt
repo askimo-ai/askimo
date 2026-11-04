@@ -4,6 +4,8 @@
  */
 package io.askimo.core.mcp
 
+import io.askimo.core.util.Masking
+
 /**
  * Determines whether a parameter value should be stored securely via [SecureKeyManager].
  *
@@ -67,4 +69,46 @@ object SecretDetector {
         .lowercase()
         .split(" ")
         .filter { it.isNotEmpty() }
+
+    /**
+     * Redacts [resolvedValue] if [rawTemplate] references any secret parameter (per [isSecret]),
+     * for safe inclusion in logs. Non-secret values are returned unchanged.
+     */
+    fun redactValue(rawTemplate: String, resolvedValue: String, definition: McpServerDefinition? = null): String {
+        val vars = VariableExtractor.extractFromString(rawTemplate)
+        return if (vars.any { isSecret(it, definition) }) Masking.maskSecret(resolvedValue) else resolvedValue
+    }
+
+    /**
+     * Map variant of [redactValue] — pairs each entry with its raw template by key.
+     * [rawTemplate] must be from [TemplateResolver.resolveMapWithSources], not the original
+     * template map (keys may differ after comma-expansion).
+     *
+     * Also checks [isSecret] on the output key, since some definitions (e.g. templates resolved
+     * via `McpServerTemplateRegistry.resolve`) bake the value in directly with no placeholder left.
+     */
+    fun redactMap(
+        rawTemplate: Map<String, String>,
+        resolved: Map<String, String>,
+        definition: McpServerDefinition? = null,
+    ): Map<String, String> = resolved.mapValues { (key, value) ->
+        if (isSecret(key, definition)) {
+            Masking.maskSecret(value)
+        } else {
+            redactValue(rawTemplate[key].orEmpty(), value, definition)
+        }
+    }
+
+    /**
+     * List variant of [redactValue] — pairs each entry with its raw template by index.
+     * [rawTemplate] must be from [TemplateResolver.resolveListWithSources], not the original
+     * template list (filtered entries shift the index out of alignment).
+     */
+    fun redactList(
+        rawTemplate: List<String>,
+        resolved: List<String>,
+        definition: McpServerDefinition? = null,
+    ): List<String> = resolved.mapIndexed { i, value ->
+        redactValue(rawTemplate.getOrElse(i) { "" }, value, definition)
+    }
 }

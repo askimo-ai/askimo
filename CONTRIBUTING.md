@@ -108,9 +108,29 @@ fix(desktop): handle missing API key gracefully
 docs: update CONTRIBUTING with test instructions
 ```
 
+## ✍️ Contributor License Agreement (CLA)
+
+Before we can merge your **first** pull request, you must sign our CLA. This is a **one-time
+requirement per contributor** — you won't need to sign it again on future PRs.
+
+When you open a PR, the **CLA Assistant** bot will post a comment on it. To sign, reply to that
+comment with exactly:
+
+```
+I have read the CLA Document and I hereby sign the CLA
+```
+
+The bot will update the PR status check once your signature is recorded. If the check doesn't
+update right away, comment `recheck` on the PR to re-trigger it.
+
+> **Note:** Signing the CLA is **separate from, and in addition to**, signing off your commits
+> with DCO (see below). Both are required on every PR — the CLA is a one-time, account-level
+> signature, while the DCO sign-off (`git commit -s`) is required on every individual commit.
+
 ## 📝 Developer Certificate of Origin (DCO)
 
-The DCO is a lightweight alternative to a CLA. By signing off your commits, you certify that:
+In addition to the CLA above, every commit must also carry a DCO sign-off. By signing off your
+commits, you certify that:
 
 > The contribution is your original work, or you have the right to submit it under the project's
 > license, and you agree it can be distributed under the AGPLv3 License.

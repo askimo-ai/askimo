@@ -12,6 +12,7 @@ import io.askimo.core.mcp.ProbeResult
 import io.askimo.core.mcp.StdioMcpTransportConfig
 import io.askimo.core.mcp.ValidationResult
 import io.askimo.core.util.ProcessBuilderExt
+import io.askimo.core.util.redactErrorText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -31,7 +32,7 @@ class StdioMcpConnector(
         val env = buildEnv()
 
         log.debug("[MCP '${config.name}'] Launching stdio transport")
-        log.debug("[MCP '${config.name}']   command : {}", command)
+        log.debug("[MCP '${config.name}']   command : {}", command.map { redactErrorText(it) })
         log.debug("[MCP '${config.name}']   workDir : {}", config.workingDirectory ?: "<none>")
         log.debug("[MCP '${config.name}']   env keys: {}", env.keys)
         log.debug("[MCP '${config.name}']   PATH    : {}", env["PATH"])
@@ -62,7 +63,7 @@ class StdioMcpConnector(
             }.start()
         } catch (e: Exception) {
             return@withContext ProbeResult.Failed(
-                "Failed to launch '${command.joinToString(" ")}': ${e.message}",
+                "Failed to launch '${command.joinToString(" ") { redactErrorText(it) }}': ${e.message}",
             )
         }
 
