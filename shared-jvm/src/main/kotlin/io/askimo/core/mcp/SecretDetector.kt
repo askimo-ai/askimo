@@ -80,24 +80,29 @@ object SecretDetector {
     }
 
     /**
-     * Map variant of [redactValue] — pairs each resolved entry with its raw template by key.
-     * [rawTemplate] must be the per-output-key source map, e.g. from
-     * [TemplateResolver.resolveMapWithSources], not the original template map (whose keys
-     * may not match after comma-expansion).
+     * Map variant of [redactValue] — pairs each entry with its raw template by key.
+     * [rawTemplate] must be from [TemplateResolver.resolveMapWithSources], not the original
+     * template map (keys may differ after comma-expansion).
+     *
+     * Also checks [isSecret] on the output key, since some definitions (e.g. templates resolved
+     * via `McpServerTemplateRegistry.resolve`) bake the value in directly with no placeholder left.
      */
     fun redactMap(
         rawTemplate: Map<String, String>,
         resolved: Map<String, String>,
         definition: McpServerDefinition? = null,
     ): Map<String, String> = resolved.mapValues { (key, value) ->
-        redactValue(rawTemplate[key].orEmpty(), value, definition)
+        if (isSecret(key, definition)) {
+            Masking.maskSecret(value)
+        } else {
+            redactValue(rawTemplate[key].orEmpty(), value, definition)
+        }
     }
 
     /**
-     * List variant of [redactValue] — pairs each resolved entry with its raw template by index.
-     * [rawTemplate] must be index-aligned with [resolved], e.g. from
-     * [TemplateResolver.resolveListWithSources], not the original template list (whose blank/
-     * filtered entries would shift the index out of alignment).
+     * List variant of [redactValue] — pairs each entry with its raw template by index.
+     * [rawTemplate] must be from [TemplateResolver.resolveListWithSources], not the original
+     * template list (filtered entries shift the index out of alignment).
      */
     fun redactList(
         rawTemplate: List<String>,

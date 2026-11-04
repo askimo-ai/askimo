@@ -106,6 +106,28 @@ class SecretDetectorRedactionTest {
     }
 
     @Test
+    fun `redactMap masks an already-baked secret even when the template no longer contains a placeholder`() {
+        // Regression: McpServerTemplateRegistry.resolve() bakes {{key}} placeholders into literal
+        // values and clears definition.parameters before the definition is saved, so by the time
+        // McpInstance logs it there is no {{placeholder}} left in rawTemplate to introspect. The
+        // output key name itself ("GOOGLE_MAPS_API_KEY") must still be checked via isSecret as a
+        // fallback.
+        val bakedDefinition = googleMapsDefinition.copy(
+            stdioConfig = StdioConfig(
+                commandTemplate = listOf("npx", "-y", "@cablate/mcp-google-map", "--stdio"),
+                envTemplate = mapOf("GOOGLE_MAPS_API_KEY" to "AIzaSyD-real-secret-value-1234567890"),
+            ),
+            parameters = emptyList(),
+        )
+        val rawTemplate = mapOf("GOOGLE_MAPS_API_KEY" to "AIzaSyD-real-secret-value-1234567890")
+        val resolved = mapOf("GOOGLE_MAPS_API_KEY" to "AIzaSyD-real-secret-value-1234567890")
+
+        val result = SecretDetector.redactMap(rawTemplate, resolved, bakedDefinition)
+
+        assertFalse(result.getValue("GOOGLE_MAPS_API_KEY").contains("AIzaSyD-real-secret-value-1234567890"))
+    }
+
+    @Test
     fun `redactList masks only the resolved arguments whose template slot is a secret`() {
         val rawTemplate = listOf("npx", "-y", "{{apiKey}}", "--stdio")
         val resolved = listOf("npx", "-y", "sk-abcdef1234567890", "--stdio")
