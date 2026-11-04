@@ -6,9 +6,6 @@ package io.askimo.ui.onboarding
 
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.border
-import androidx.compose.foundation.hoverable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,14 +24,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -70,19 +63,18 @@ import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.clickableCard
 import java.util.Locale
 
-private const val TOTAL_STEPS = 7
+private const val TOTAL_STEPS = 3
 
 /**
  * Onboarding wizard shown on first launch.
  *
  * Steps:
  *  0 — Language selection  (required — no skip)
- *  1 — Welcome
- *  2 — Profile (name + occupation, skippable)
- *  3 — Directives (intro)
- *  4 — Persona (intro)
- *  5 — Analytics consent   (required — user must choose Yes or No)
- *  6 — Ready
+ *  1 — Profile (name + occupation, skippable)
+ *  2 — Analytics consent   (required — user must choose Yes or No; final step)
+ *
+ * Feature-area visibility (plans/skills/projects) defaults to "everything" shown;
+ * users can customize what's visible later via the app menu.
  *
  * @param initialName        Pre-filled name (from existing profile, if any).
  * @param initialOccupation  Pre-filled occupation.
@@ -100,13 +92,20 @@ fun onboardingWizardDialog(
     var analyticsAccepted by remember { mutableStateOf(true) }
     var name by remember { mutableStateOf(initialName) }
     var occupation by remember { mutableStateOf(initialOccupation) }
-    var selectedPersona by remember { mutableStateOf("everything") }
+
+    // Default all feature areas to visible; users can toggle individual areas later via the app menu.
+    LaunchedEffect(Unit) {
+        ApplicationPreferences.setShowPlansInSidebar(true)
+        ApplicationPreferences.setShowSkillsInSidebar(true)
+        ApplicationPreferences.setShowProjectsInSidebar(true)
+        onPersonaSelected?.invoke(true, true, true)
+    }
 
     // Reset scroll on each step change
     val scrollState = rememberScrollState()
     LaunchedEffect(currentStep) { scrollState.animateScrollTo(0) }
 
-    // Analytics step (step 1) uses the shared nav bar like all other steps
+    // Analytics step (final step) uses the shared nav bar like all other steps
 
     Dialog(
         onDismissRequest = { /* prevent accidental dismissal */ },
@@ -166,40 +165,17 @@ fun onboardingWizardDialog(
                                     onLocaleChange = { selectedLocale = it },
                                 )
 
-                                1 -> onboardingStepWelcome()
-
-                                2 -> onboardingStepProfile(
+                                1 -> onboardingStepProfile(
                                     name = name,
                                     occupation = occupation,
                                     onNameChange = { name = it },
                                     onOccupationChange = { occupation = it },
                                 )
 
-                                3 -> onboardingStepDirectives()
-
-                                4 -> onboardingStepPersona(
-                                    selectedPersona = selectedPersona,
-                                    onPersonaSelected = { persona ->
-                                        selectedPersona = persona
-                                        val (plans, skills, projects) = when (persona) {
-                                            "developer" -> Triple(false, true, true)
-                                            "researcher" -> Triple(true, false, true)
-                                            "manager" -> Triple(true, false, false)
-                                            else -> Triple(true, true, true) // "everything"
-                                        }
-                                        ApplicationPreferences.setShowPlansInSidebar(plans)
-                                        ApplicationPreferences.setShowSkillsInSidebar(skills)
-                                        ApplicationPreferences.setShowProjectsInSidebar(projects)
-                                        onPersonaSelected?.invoke(plans, skills, projects)
-                                    },
-                                )
-
-                                5 -> onboardingStepAnalytics(
+                                2 -> onboardingStepAnalytics(
                                     analyticsAccepted = analyticsAccepted,
                                     onAnalyticsAcceptedChange = { analyticsAccepted = it },
                                 )
-
-                                6 -> onboardingStepReady()
                             }
                         }
 
@@ -364,45 +340,7 @@ private fun onboardingStepLanguage(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Step 1: Welcome
-// ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun onboardingStepWelcome() {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
-        Text(
-            text = stringResource("onboarding.step.welcome.title"),
-            style = AppTextStyles.sectionTitle,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        Text(
-            text = stringResource("onboarding.step.welcome.description"),
-            style = AppTextStyles.bodySecondary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        Spacer(modifier = Modifier.height(Spacing.small))
-
-        onboardingFeatureCard(
-            title = stringResource("onboarding.step.welcome.feature1.title"),
-            description = stringResource("onboarding.step.welcome.feature1.description"),
-        )
-        onboardingFeatureCard(
-            title = stringResource("onboarding.step.welcome.feature2.title"),
-            description = stringResource("onboarding.step.welcome.feature2.description"),
-        )
-        onboardingFeatureCard(
-            title = stringResource("onboarding.step.welcome.feature3.title"),
-            description = stringResource("onboarding.step.welcome.feature3.description"),
-        )
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 2: Profile
+// Step 1: Profile
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -468,181 +406,7 @@ private fun onboardingStepProfile(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Step 3: Directives
-// ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun onboardingStepDirectives() {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
-        Text(
-            text = stringResource("onboarding.step.directives.title"),
-            style = AppTextStyles.sectionTitle,
-        )
-
-        Text(
-            text = stringResource("onboarding.step.directives.description"),
-            style = AppTextStyles.bodySecondary,
-        )
-
-        Spacer(modifier = Modifier.height(Spacing.small))
-
-        onboardingFeatureCard(
-            title = stringResource("onboarding.step.directives.feature1.title"),
-            description = stringResource("onboarding.step.directives.feature1.description"),
-        )
-        onboardingFeatureCard(
-            title = stringResource("onboarding.step.directives.feature2.title"),
-            description = stringResource("onboarding.step.directives.feature2.description"),
-        )
-        onboardingFeatureCard(
-            title = stringResource("onboarding.step.directives.feature3.title"),
-            description = stringResource("onboarding.step.directives.feature3.description"),
-        )
-
-        Spacer(modifier = Modifier.height(Spacing.small))
-
-        onboardingDocLink(
-            label = stringResource("onboarding.step.directives.link"),
-            url = "https://$DOMAIN/docs/desktop/directives/",
-        )
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 4: Persona
-// ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun onboardingStepPersona(
-    selectedPersona: String,
-    onPersonaSelected: (String) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
-        Text(
-            text = stringResource("onboarding.step.persona.title"),
-            style = AppTextStyles.sectionTitle,
-        )
-
-        Text(
-            text = stringResource("onboarding.step.persona.description"),
-            style = AppTextStyles.bodySecondary,
-        )
-
-        Spacer(modifier = Modifier.height(Spacing.small))
-
-        personaCard(
-            emoji = "💻",
-            title = stringResource("persona.developer"),
-            description = stringResource("onboarding.step.persona.developer.description"),
-            features = stringResource("onboarding.step.persona.developer.features"),
-            isSelected = selectedPersona == "developer",
-            onClick = { onPersonaSelected("developer") },
-        )
-        personaCard(
-            emoji = "🔬",
-            title = stringResource("persona.researcher"),
-            description = stringResource("onboarding.step.persona.researcher.description"),
-            features = stringResource("onboarding.step.persona.researcher.features"),
-            isSelected = selectedPersona == "researcher",
-            onClick = { onPersonaSelected("researcher") },
-        )
-        personaCard(
-            emoji = "📋",
-            title = stringResource("persona.manager"),
-            description = stringResource("onboarding.step.persona.manager.description"),
-            features = stringResource("onboarding.step.persona.manager.features"),
-            isSelected = selectedPersona == "manager",
-            onClick = { onPersonaSelected("manager") },
-        )
-        personaCard(
-            emoji = "⚡",
-            title = stringResource("persona.everything"),
-            description = stringResource("onboarding.step.persona.everything.description"),
-            features = stringResource("onboarding.step.persona.everything.features"),
-            isSelected = selectedPersona == "everything",
-            onClick = { onPersonaSelected("everything") },
-        )
-    }
-}
-
-@Composable
-private fun personaCard(
-    emoji: String,
-    title: String,
-    description: String,
-    features: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isHovered by interactionSource.collectIsHoveredAsState()
-    val highlighted = isSelected || isHovered
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .hoverable(interactionSource)
-            .clickableCard { onClick() }
-            .then(
-                if (isSelected) {
-                    Modifier.border(
-                        width = 2.dp,
-                        color = MaterialTheme.colorScheme.primary,
-                        shape = MaterialTheme.shapes.medium,
-                    )
-                } else {
-                    Modifier
-                },
-            ),
-        colors = AppColors.cardColors(
-            if (highlighted) AppColors.Elevation.SELECTED else AppColors.Elevation.RAISED,
-        ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(Spacing.large),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = emoji,
-                style = MaterialTheme.typography.headlineMedium,
-            )
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.micro)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = title,
-                        style = AppTextStyles.itemTitle,
-                    )
-                    if (isSelected) {
-                        Icon(
-                            Icons.Default.Check,
-                            contentDescription = null,
-                            tint = AppTextStyles.primaryContent,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-                }
-                Text(
-                    text = description,
-                    style = AppTextStyles.caption,
-                )
-                Text(
-                    text = features,
-                    style = AppTextStyles.hint,
-                )
-            }
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 5: Analytics
+// Step 2: Analytics (final step)
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -792,126 +556,4 @@ private fun analyticsPrivacyRow(text: String, positive: Boolean) {
         style = AppTextStyles.caption,
         color = if (positive) AppTextStyles.primaryContent else AppTextStyles.secondaryContent,
     )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 6: Ready
-// ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun onboardingStepReady() {
-    val uriHandler = LocalUriHandler.current
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
-        Text(
-            text = stringResource("onboarding.step.ready.title"),
-            style = AppTextStyles.sectionTitle,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        Text(
-            text = stringResource("onboarding.step.ready.description"),
-            style = AppTextStyles.bodySecondary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        Spacer(modifier = Modifier.height(Spacing.small))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(Spacing.large),
-                verticalArrangement = Arrangement.spacedBy(Spacing.medium),
-            ) {
-                onboardingLinkItem(
-                    title = stringResource("onboarding.step.ready.link.docs"),
-                    onClick = { uriHandler.openUri("https://$DOMAIN/docs/") },
-                )
-                HorizontalDivider(color = AppColors.secondaryContentColorFor(AppColors.Elevation.ACCENT).copy(alpha = 0.3f))
-                onboardingLinkItem(
-                    title = stringResource("onboarding.step.ready.link.providers"),
-                    onClick = { uriHandler.openUri("https://$DOMAIN/docs/desktop/ai-providers/") },
-                )
-                HorizontalDivider(color = AppColors.secondaryContentColorFor(AppColors.Elevation.ACCENT).copy(alpha = 0.3f))
-                onboardingLinkItem(
-                    title = stringResource("onboarding.step.ready.link.github"),
-                    onClick = { uriHandler.openUri("https://github.com/askimo-ai/askimo") },
-                )
-            }
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Shared sub-components
-// ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun onboardingFeatureCard(title: String, description: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(Spacing.large),
-            verticalArrangement = Arrangement.spacedBy(Spacing.small),
-        ) {
-            Text(
-                text = title,
-                style = AppTextStyles.sectionTitle,
-            )
-            Text(
-                text = description,
-                style = AppTextStyles.bodySecondary,
-            )
-        }
-    }
-}
-
-@Composable
-private fun onboardingDocLink(label: String, url: String) {
-    val uriHandler = LocalUriHandler.current
-    TextButton(
-        onClick = { uriHandler.openUri(url) },
-        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-        colors = AppColors.primaryTextButtonColors(),
-    ) {
-        Text(
-            text = label,
-            style = AppTextStyles.bodySecondary,
-        )
-    }
-}
-
-@Composable
-private fun onboardingLinkItem(title: String, onClick: () -> Unit) {
-    TextButton(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .pointerHoverIcon(PointerIcon.Hand),
-        colors = ButtonDefaults.textButtonColors(contentColor = LocalContentColor.current),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = title,
-                style = AppTextStyles.body,
-            )
-            Text(
-                text = "→",
-                style = AppTextStyles.body,
-            )
-        }
-    }
 }

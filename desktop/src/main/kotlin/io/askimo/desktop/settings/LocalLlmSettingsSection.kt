@@ -53,7 +53,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.config.AppConfig
 import io.askimo.core.i18n.LocalizationManager
+import io.askimo.core.providers.ModelProvider
+import io.askimo.core.providers.ProviderInstanceService
+import io.askimo.core.providers.ProviderRegistry
+import io.askimo.core.providers.llama.CapabilityCheck
 import io.askimo.core.providers.llama.HuggingFaceGgufBrowser
+import io.askimo.core.providers.llama.LlamaCapabilityChecker
+import io.askimo.core.providers.llama.LlamaCapabilityResult
 import io.askimo.core.providers.llama.LlamaDownloadManager
 import io.askimo.core.providers.llama.LlamaModelCatalog
 import io.askimo.core.providers.llama.LlamaModelDownloader
@@ -62,6 +68,8 @@ import io.askimo.core.providers.llama.LlamaServerCatalog
 import io.askimo.core.providers.llama.LlamaServerDownloader
 import io.askimo.core.providers.llama.LlamaServerPlatform
 import io.askimo.core.providers.llama.LlamaServerProcessManager
+import io.askimo.core.providers.openaicompatible.OpenAiCompatibleSettings
+import io.askimo.core.providers.openaicompatible.OpenAiCompatibleTemplate
 import io.askimo.core.util.AskimoHome
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppColors
@@ -75,6 +83,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.koin.core.context.GlobalContext
 import java.awt.Desktop
 import java.net.URI
 import java.time.Instant
@@ -87,13 +96,16 @@ import java.time.format.DateTimeFormatter
  * `io.askimo.core.providers.openaicompatible.OpenAiCompatibleTemplate.ASKIMO_LOCAL_LLM` provider
  * without installing Ollama/LM Studio.
  *
- * This page only manages *downloads* (binary + models) — once a model is downloaded, it's
- * selected as the chat/utility/embedding model for a "Local LLM (built-in)" provider instance the
- * normal way, from Settings > AI Provider > Add Provider, exactly like any other provider's model
- * picker (the field just holds the `.gguf` file name instead of a cloud model id).
+ * This page manages *downloads* (binary + models). Once the engine is running and at least one
+ * non-embedding model has been downloaded, a "Local LLM (built-in)" provider instance is
+ * auto-created/activated (see `autoFinishLocalLlmProviderSetup`) so chatting works immediately —
+ * no separate trip through Settings > AI Provider > Add Provider is needed. If an instance
+ * already exists, auto-creation is skipped (e.g. the user is just downloading another model).
  *
  * All downloads are explicit (user clicks "Download") — never triggered lazily on first use,
  * same rule already applied to the Whisper STT model in [voiceSettingsSection].
+ *
+ * Enabling the engine itself is hard-gated by [LlamaCapabilityChecker] — see [localLlmBinaryCard].
  */
 @Composable
 fun localLlmSettingsSection() {
@@ -149,6 +161,7 @@ fun localLlmSettingsSection() {
 private fun localLlmBinaryCard() {
     val scope = rememberCoroutineScope()
     val platform: LlamaServerPlatform? = remember { LlamaServerCatalog.detectCurrentPlatform() }
+    val capability = remember { LlamaCapabilityChecker.check() }
 
     val binaryDownloadState by LlamaDownloadManager.binaryDownload.collectAsState()
     val downloading = binaryDownloadState != null && binaryDownloadState?.error == null
@@ -232,7 +245,7 @@ private fun localLlmBinaryCard() {
                 if (platform != null) {
                     Switch(
                         checked = isDownloaded || downloading,
-                        enabled = !downloading,
+                        enabled = !downloading && capability.isCapable,
                         onCheckedChange = { checked ->
                             if (checked) {
                                 LlamaDownloadManager.startBinaryDownload(platform)
@@ -260,6 +273,17 @@ private fun localLlmBinaryCard() {
                     color = AppColors.warningColor(),
                 )
                 return@Column
+            }
+
+            if (!capability.isCapable) {
+                Text(
+                    text = LocalizationManager.getString(
+                        "settings.local_llm.binary.insufficient_hardware",
+                        formatCapabilityFailures(capability),
+                    ),
+                    style = AppTextStyles.caption,
+                    color = AppColors.warningColor(),
+                )
             }
 
             HorizontalDivider()
@@ -610,6 +634,22 @@ private fun localLlmModelsCard() {
         .distinctBy { it.fileName }
         .filter { it.fileName !in downloadedFileNames }
 
+    // Auto-finishes provider setup: once the engine is running and at least one non-embedding
+    // (chat-capable) model is on disk, create & activate the "Local LLM (built-in)" provider
+    // instance automatically, so the user lands in a working chat without a separate trip
+    // through Settings > AI Provider > Add Provider. Guarded by autoFinishHandled so this only
+    // ever fires once per composition — repeat model downloads shouldn't re-trigger it, and
+    // skipped entirely if an instance already exists (see autoFinishLocalLlmProviderSetup).
+    val proxyStatus by LlamaServerProcessManager.proxyStatus.collectAsState()
+    var autoFinishHandled by remember { mutableStateOf(false) }
+    var autoFinishSucceeded by remember { mutableStateOf(false) }
+    LaunchedEffect(proxyStatus.running, downloadedEntries) {
+        if (autoFinishHandled || !proxyStatus.running) return@LaunchedEffect
+        val chatEntry = downloadedEntries.firstOrNull { !it.isEmbedding } ?: return@LaunchedEffect
+        autoFinishHandled = true
+        autoFinishSucceeded = withContext(Dispatchers.IO) { autoFinishLocalLlmProviderSetup(chatEntry) }
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = AppColors.cardColors(AppColors.Elevation.RAISED),
@@ -641,6 +681,14 @@ private fun localLlmModelsCard() {
                         modifier = Modifier.padding(start = Spacing.extraSmall),
                     )
                 }
+            }
+
+            if (autoFinishSucceeded) {
+                Text(
+                    text = stringResource("settings.local_llm.auto_finish.success"),
+                    style = AppTextStyles.caption,
+                    color = AppColors.statusIconColor(AppColors.StatusTone.SUCCESS),
+                )
             }
 
             // Downloaded models always come first, regardless of search state.
@@ -733,6 +781,73 @@ private fun formatMetricCount(count: Long): String = when {
     else -> count.toString()
 }
 
+/**
+ * Auto-creates & activates a "Local LLM (built-in)" ([ASKIMO_LOCAL_LLM]) provider instance once
+ * the engine is running and [chatEntry] (a downloaded, non-embedding model) is available — so
+ * the user can start chatting immediately without a separate trip through the provider wizard.
+ *
+ * No-ops (returns `false`) if a `ASKIMO_LOCAL_LLM` instance already exists, so this never
+ * duplicates or silently overwrites a user's existing local-LLM configuration.
+ *
+ * `internal` (not `private`) because [io.askimo.desktop.settings.LocalLlmQuickSetupDialog]'s
+ * quick-setup flow calls this too — both paths must funnel through the same provider-creation
+ * logic rather than duplicating it.
+ *
+ * Resolves [ProviderInstanceService] via Koin's [GlobalContext] rather than a constructor
+ * parameter, since this composable (unlike the view-model-backed settings sections) has no
+ * existing DI entry point.
+ */
+internal fun autoFinishLocalLlmProviderSetup(chatEntry: LlamaModelEntry): Boolean {
+    val providerInstanceService = GlobalContext.get().get<ProviderInstanceService>()
+
+    val alreadyExists = providerInstanceService.all.any { instance ->
+        instance.providerType == ModelProvider.OPENAI_COMPATIBLE &&
+            (instance.settings as? OpenAiCompatibleSettings)?.templateName == OpenAiCompatibleTemplate.ASKIMO_LOCAL_LLM.name
+    }
+    if (alreadyExists) return false
+
+    val template = OpenAiCompatibleTemplate.ASKIMO_LOCAL_LLM
+    val settings = OpenAiCompatibleSettings(
+        baseUrl = LlamaServerProcessManager.proxyBaseUrl,
+        apiMode = template.apiMode,
+        httpVersion = template.httpVersion,
+        isTemplate = true,
+        templateName = template.name,
+        defaultModel = chatEntry.fileName,
+    )
+    val instance = ProviderRegistry.createInstance(
+        providerType = ModelProvider.OPENAI_COMPATIBLE,
+        displayName = template.displayName,
+        settings = settings,
+    )
+    return providerInstanceService.add(instance).isSuccess
+}
+
+/**
+ * Formats the failed [LlamaCapabilityResult.failedChecks] into a short human-readable summary,
+ * e.g. `"8 GB RAM (16 GB required), 2 CPU cores (4 required)"` — used in the inline warning shown
+ * when [LlamaCapabilityChecker] determines the machine isn't powerful enough to run the engine.
+ *
+ * `internal` so `Main.kt`'s "Use Built-in Local AI" CTA can show the same message inline when the
+ * capability check fails at click time, before the quick-setup dialog would otherwise open.
+ */
+internal fun formatCapabilityFailures(result: LlamaCapabilityResult): String {
+    fun gb(bytes: Long) = "%.1f".format(bytes / (1024.0 * 1024.0 * 1024.0))
+
+    return result.failedChecks.joinToString(", ") { check ->
+        when (check) {
+            CapabilityCheck.RAM ->
+                "${gb(result.totalRamBytes)} GB RAM (${gb(LlamaCapabilityChecker.MIN_RAM_BYTES)} GB required)"
+
+            CapabilityCheck.CPU_CORES ->
+                "${result.cpuCores} CPU cores (${LlamaCapabilityChecker.MIN_CPU_CORES} required)"
+
+            CapabilityCheck.DISK_SPACE ->
+                "${gb(result.freeDiskBytes)} GB free disk (${gb(LlamaCapabilityChecker.MIN_DISK_BYTES)} GB required)"
+        }
+    }
+}
+
 /** Parses a Hugging Face API ISO-8601 timestamp (e.g. `lastModified`) into a short local date, e.g. `2026-10-12`. */
 private fun formatHfTimestamp(isoTimestamp: String): String = try {
     DateTimeFormatter.ofPattern("yyyy-MM-dd")
@@ -743,7 +858,7 @@ private fun formatHfTimestamp(isoTimestamp: String): String = try {
 }
 
 @Composable
-private fun localLlmModelRow(entry: LlamaModelEntry, onModelDeleted: () -> Unit) {
+internal fun localLlmModelRow(entry: LlamaModelEntry, onModelDeleted: () -> Unit) {
     val scope = rememberCoroutineScope()
     val downloadsByFileName by LlamaDownloadManager.modelDownloads.collectAsState()
     val downloadState = downloadsByFileName[entry.fileName]
@@ -908,7 +1023,7 @@ private fun localLlmModelRow(entry: LlamaModelEntry, onModelDeleted: () -> Unit)
 }
 
 @Composable
-private fun downloadProgress(downloadedBytes: Long, totalBytes: Long, onCancel: (() -> Unit)? = null) {
+internal fun downloadProgress(downloadedBytes: Long, totalBytes: Long, onCancel: (() -> Unit)? = null) {
     val progress = if (totalBytes > 0) (downloadedBytes.toFloat() / totalBytes.toFloat()) else 0f
     LinearProgressIndicator(
         progress = { progress },

@@ -107,11 +107,23 @@ data class IndexingConfig(
     val filters: FilterConfig = FilterConfig(),
     val customExcludes: Set<String> = emptySet(),
     @field:JsonDeserialize(using = CommaSeparatedSetDeserializer::class)
-    val supportedExtensions: Set<String> = setOf(),
+    val supportedExtensions: Set<String> = setOf(
+        "java", "kt", "kts", "py", "js", "ts", "jsx", "tsx", "go", "rs", "c", "cpp", "h", "hpp",
+        "cs", "rb", "php", "swift", "scala", "groovy", "sh", "bash", "yaml", "yml", "json", "xml",
+        "md", "txt", "gradle", "properties", "toml", "pdf",
+    ),
     @field:JsonDeserialize(using = CommaSeparatedSetDeserializer::class)
-    val binaryExtensions: Set<String> = setOf(),
+    val binaryExtensions: Set<String> = setOf(
+        "png", "jpg", "jpeg", "gif", "svg", "ico", "webp", "bmp", "mp4", "avi", "mov", "mkv",
+        "mp3", "wav", "ogg", "flac", "zip", "tar", "gz", "7z", "rar", "exe", "dll", "so", "dylib",
+        "bin", "db", "sqlite", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "ttf", "otf", "woff",
+        "woff2", "class", "jar", "pyc", "icns",
+    ),
     @field:JsonDeserialize(using = CommaSeparatedSetDeserializer::class)
-    val excludeFileNames: Set<String> = setOf(),
+    val excludeFileNames: Set<String> = setOf(
+        ".DS_Store", "Thumbs.db", "desktop.ini", "package-lock.json", "yarn.lock",
+        "pnpm-lock.yaml", "poetry.lock", "Gemfile.lock", ".project", ".classpath", ".factorypath",
+    ),
     val projectTypes: List<ProjectType> = listOf(
         ProjectType(
             name = "Gradle",
@@ -1138,8 +1150,8 @@ object AppConfig {
         # This file was auto-generated because none was found.
 
         embedding:
-          max_chars_per_chunk: 4000
-          chunk_overlap: 200
+          max_chars_per_chunk: 3000
+          chunk_overlap: 100
 
         retry:
           attempts: 4
@@ -1149,8 +1161,8 @@ object AppConfig {
           per_request_sleep_ms: 30
 
         indexing:
-          max_file_bytes: 2000000
-          concurrent_indexing_threads: 10
+          max_file_bytes: 5000000
+          concurrent_indexing_threads: 3
           supported_extensions: java,kt,kts,py,js,ts,jsx,tsx,go,rs,c,cpp,h,hpp,cs,rb,php,swift,scala,groovy,sh,bash,yaml,yml,json,xml,md,txt,gradle,properties,toml,pdf
           binary_extensions: png,jpg,jpeg,gif,svg,ico,webp,bmp,mp4,avi,mov,mkv,mp3,wav,ogg,flac,zip,tar,gz,7z,rar,exe,dll,so,dylib,bin,db,sqlite,doc,docx,xls,xlsx,ppt,pptx,ttf,otf,woff,woff2,class,jar,pyc,icns
           exclude_file_names: .DS_Store,Thumbs.db,desktop.ini,package-lock.json,yarn.lock,pnpm-lock.yaml,poetry.lock,Gemfile.lock,.project,.classpath,.factorypath
@@ -1185,7 +1197,7 @@ object AppConfig {
           use_absolute_path_in_citations: true
 
         models:
-          max_tool_calling_round_trips: 10
+          max_tool_calling_round_trips: 50
           request_timeout_in_seconds: 600
           tool_approval_timeout_ms: 120000
 
@@ -1213,9 +1225,9 @@ object AppConfig {
           enabled: true
 
         voice:
-          enabled: false
-          stt_provider: OPENAI
-          tts_provider: OPENAI
+          enabled: true
+          stt_provider: LOCAL_WHISPER_FFM
+          tts_provider: SYSTEM
           stt_model: whisper-1
           tts_model: tts-1
           tts_voice: alloy
