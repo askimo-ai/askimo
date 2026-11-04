@@ -37,6 +37,7 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.nio.file.Files
+import java.nio.file.Path
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ExecutorService
@@ -593,7 +594,7 @@ object LlamaServerProcessManager {
      * currently-loaded model in that slot first. Returns the child process's internal port once
      * ready. Only ever contends with other requests targeting the *same* slot — see class doc.
      */
-    private suspend fun ensureModelLoaded(slot: ChildSlot, modelPath: java.nio.file.Path, embeddingMode: Boolean): Int = slot.mutex.withLock {
+    private suspend fun ensureModelLoaded(slot: ChildSlot, modelPath: Path, embeddingMode: Boolean): Int = slot.mutex.withLock {
         slot.lastUsedAt = Instant.now()
         val fileName = modelPath.fileName.toString()
         val resolvedPooling = if (embeddingMode) LlamaModelCatalog.fromFileName(fileName)?.poolingType ?: "mean" else null
@@ -649,7 +650,7 @@ object LlamaServerProcessManager {
         logSlotStatuses()
     }
 
-    private suspend fun startSlotLocked(slot: ChildSlot, modelPath: java.nio.file.Path, embeddingMode: Boolean) {
+    private suspend fun startSlotLocked(slot: ChildSlot, modelPath: Path, embeddingMode: Boolean) {
         val platform = LlamaServerCatalog.detectCurrentPlatform()
             ?: error("Unsupported OS/architecture for the built-in local LLM provider.")
         val exe = LlamaServerDownloader.executablePath(platform)
@@ -902,7 +903,7 @@ object LlamaServerProcessManager {
  * reports a normal "not downloaded" error instead of touching the path at all.
  */
 private object AskimoHomeModelsFallback {
-    fun resolve(fileName: String): java.nio.file.Path? {
+    fun resolve(fileName: String): Path? {
         val modelsDir = AskimoHome.llamaModelsDir().toAbsolutePath().normalize()
         val candidate = modelsDir.resolve(fileName).normalize()
         if (candidate.parent != modelsDir) return null

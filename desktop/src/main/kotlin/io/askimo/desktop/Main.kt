@@ -12,15 +12,21 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -43,12 +49,14 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color.Companion.Transparent
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -82,6 +90,8 @@ import io.askimo.core.logging.LoggingService
 import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.mcp.McpInstanceService
 import io.askimo.core.providers.ModelProvider
+import io.askimo.core.providers.llama.LlamaCapabilityChecker
+import io.askimo.core.providers.llama.LlamaServerCatalog
 import io.askimo.core.providers.llama.LlamaServerProcessManager
 import io.askimo.core.user.domain.UserProfile
 import io.askimo.core.util.AskimoHome
@@ -102,6 +112,8 @@ import io.askimo.desktop.settings.AIProviderViewModel
 import io.askimo.desktop.settings.SettingsSection
 import io.askimo.desktop.settings.aboutDialog
 import io.askimo.desktop.settings.fileViewerDialog
+import io.askimo.desktop.settings.formatCapabilityFailures
+import io.askimo.desktop.settings.localLlmQuickSetupDialog
 import io.askimo.desktop.settings.providerWizardDialog
 import io.askimo.desktop.settings.settingsViewWithSidebar
 import io.askimo.desktop.shell.footerBar
@@ -114,6 +126,7 @@ import io.askimo.ui.bookmarks.bookmarksView
 import io.askimo.ui.chat.ChatViewModel
 import io.askimo.ui.chat.chatView
 import io.askimo.ui.common.components.dangerButton
+import io.askimo.ui.common.components.linkButton
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.components.successIcon
@@ -126,6 +139,7 @@ import io.askimo.ui.common.keymap.KeyMapManager.AppShortcut
 import io.askimo.ui.common.preferences.AccountPreferences
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppColors
+import io.askimo.ui.common.theme.AppComponents
 import io.askimo.ui.common.theme.AppComponents.alertDialog
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.BackgroundImage
@@ -143,6 +157,7 @@ import io.askimo.ui.common.theme.createCustomTypography
 import io.askimo.ui.common.theme.generateAppColorScheme
 import io.askimo.ui.common.theme.loadCodeFontFamily
 import io.askimo.ui.common.theme.parseAccentColor
+import io.askimo.ui.common.ui.clickableCard
 import io.askimo.ui.common.ui.focusRequesterAutoFocus
 import io.askimo.ui.common.ui.util.CustomUriHandler
 import io.askimo.ui.common.ui.util.FileDialogUtils
@@ -636,6 +651,8 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
     }
 
     var showProviderSetupDialog by remember { mutableStateOf(false) }
+    var showLocalLlmQuickSetupDialog by remember { mutableStateOf(false) }
+    var localAiCapabilityFailureMessage by remember { mutableStateOf<String?>(null) }
     var showSessionMemoryDialog by remember { mutableStateOf(false) }
     var sessionMemorySessionId by remember { mutableStateOf<String?>(null) }
 
@@ -1546,36 +1563,98 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
 
                     // Provider setup required dialog
                     if (showProviderSetupDialog) {
-                        alertDialog(
-                            onDismissRequest = { showProviderSetupDialog = false },
+                        AppComponents.scaffoldDialog(
+                            onDismissRequest = {
+                                showProviderSetupDialog = false
+                                localAiCapabilityFailureMessage = null
+                            },
+                            width = 520.dp,
                             title = {
                                 Text(
                                     text = stringResource("provider.setup.required.title"),
                                     style = AppTextStyles.pageTitle,
                                 )
                             },
-                            text = {
+                        ) {
+                            Text(
+                                text = stringResource("provider.setup.required.message"),
+                                style = AppTextStyles.body,
+                            )
+                            localAiCapabilityFailureMessage?.let { message ->
                                 Text(
-                                    text = stringResource("provider.setup.required.message"),
-                                    style = AppTextStyles.body,
+                                    text = message,
+                                    style = AppTextStyles.caption,
+                                    color = AppColors.warningColor(),
                                 )
-                            },
-                            confirmButton = {
-                                primaryButton(
+                            }
+
+                            Spacer(Modifier.height(Spacing.large))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
+                            ) {
+                                providerSetupOptionCard(
+                                    icon = Icons.Default.Cloud,
+                                    title = stringResource("provider.setup.required.button"),
+                                    subtitle = stringResource("provider.setup.required.button.subtitle"),
                                     onClick = {
                                         showProviderSetupDialog = false
                                         settingsViewModel.onChangeProvider()
                                     },
-                                ) {
-                                    Text(stringResource("provider.setup.required.button"))
-                                }
-                            },
-                            dismissButton = {
-                                secondaryButton(
-                                    onClick = { showProviderSetupDialog = false },
+                                    modifier = Modifier.weight(1f),
+                                )
+                                providerSetupOptionCard(
+                                    icon = Icons.Default.Computer,
+                                    title = stringResource("provider.setup.required.use_local_ai"),
+                                    subtitle = stringResource("provider.setup.required.use_local_ai.subtitle"),
+                                    onClick = {
+                                        val platformSupported = LlamaServerCatalog.detectCurrentPlatform() != null
+                                        val capability = LlamaCapabilityChecker.check()
+                                        if (platformSupported && capability.isCapable) {
+                                            showProviderSetupDialog = false
+                                            localAiCapabilityFailureMessage = null
+                                            showLocalLlmQuickSetupDialog = true
+                                        } else {
+                                            localAiCapabilityFailureMessage = if (!platformSupported) {
+                                                LocalizationManager.getString("settings.local_llm.binary.unsupported_platform")
+                                            } else {
+                                                LocalizationManager.getString(
+                                                    "settings.local_llm.binary.insufficient_hardware",
+                                                    formatCapabilityFailures(capability),
+                                                )
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+
+                            Spacer(Modifier.height(Spacing.large))
+
+                            // De-emphasized "do nothing for now" escape hatch, set apart from
+                            // the two real setup paths above.
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                                linkButton(
+                                    onClick = {
+                                        showProviderSetupDialog = false
+                                        localAiCapabilityFailureMessage = null
+                                    },
                                 ) {
                                     Text(stringResource("provider.setup.required.skip"))
                                 }
+                            }
+                        }
+                    }
+
+                    if (showLocalLlmQuickSetupDialog) {
+                        localLlmQuickSetupDialog(
+                            onDismiss = { showLocalLlmQuickSetupDialog = false },
+                            onOpenFullSettings = {
+                                showLocalLlmQuickSetupDialog = false
+                                settingsSection = SettingsSection.LOCAL_LLM
+                                previousView = currentView
+                                currentView = View.SETTINGS
                             },
                         )
                     }
@@ -2127,6 +2206,46 @@ fun app(frameWindowScope: FrameWindowScope? = null, windowState: WindowState? = 
                 } // MaterialTheme
             } // CompositionLocalProvider
         } // ProvideLocalization
+    }
+}
+
+@Composable
+private fun providerSetupOptionCard(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.clickableCard(cornerRadius = 12.dp, onClick = onClick),
+        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.large),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(Spacing.small),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(28.dp),
+            )
+            Text(
+                text = title,
+                style = AppTextStyles.sectionTitle,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = subtitle,
+                style = AppTextStyles.caption,
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }
 

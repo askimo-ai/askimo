@@ -583,7 +583,7 @@ object AppComponents {
         titleContentColor: Color = AlertDialogDefaults.titleContentColor,
         textContentColor: Color = AlertDialogDefaults.textContentColor,
         tonalElevation: Dp = AppColors.popupSurfaceTonalElevation,
-        properties: DialogProperties = DialogProperties(usePlatformDefaultWidth = false),
+        properties: DialogProperties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false),
     ) {
         val border = AppColors.popupBorderStroke()
         MaterialTheme(colorScheme = AppColors.popupColorScheme()) {
@@ -675,7 +675,7 @@ object AppComponents {
         modifier: Modifier = Modifier,
         width: Dp = 650.dp,
         maxHeightFraction: Float = 0.85f,
-        properties: DialogProperties = DialogProperties(),
+        properties: DialogProperties = DialogProperties(dismissOnClickOutside = false),
         shape: Shape = MaterialTheme.shapes.large,
         containerColor: Color = MaterialTheme.colorScheme.surface,
         tonalElevation: Dp = AppColors.popupSurfaceTonalElevation,
@@ -782,7 +782,7 @@ object AppComponents {
         modifier: Modifier = Modifier,
         width: Dp = 650.dp,
         maxHeightFraction: Float = 0.85f,
-        properties: DialogProperties = DialogProperties(),
+        properties: DialogProperties = DialogProperties(dismissOnClickOutside = false),
         shape: Shape = MaterialTheme.shapes.large,
         containerColor: Color = MaterialTheme.colorScheme.surface,
         tonalElevation: Dp = AppColors.popupSurfaceTonalElevation,

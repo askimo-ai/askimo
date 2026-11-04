@@ -33,6 +33,40 @@ fun encodeUrlPathSegments(path: String): String = path.split("/").joinToString("
 }
 
 /**
+ * Resolves the actual byte size of a (typically redirecting) download URL via a `HEAD` request,
+ * following redirects — used for Hugging Face `resolve/main/...` URLs, which redirect to a CDN
+ * that reports the real `Content-Length` (the initial Hugging Face response doesn't; see
+ * [io.askimo.core.providers.llama.HuggingFaceGgufBrowser]'s `approxSizeBytes = 0L` comment).
+ * Returns `null` on any failure, including a non-2xx final status — e.g. a gated repo (requires
+ * HF login + license acceptance) responds `401` with a small JSON error body whose
+ * `Content-Length` would otherwise look like a (wildly wrong) file size — rather than throwing,
+ * since callers use this only to *prefer* same-size candidates, not as a hard requirement.
+ */
+fun httpHeadContentLength(
+    url: String,
+    connectTimeoutMs: Long = 5_000,
+    readTimeoutMs: Long = 8_000,
+): Long? = try {
+    val client = ProxyUtil.configureProxy(HttpClient.newBuilder(), url)
+        .connectTimeout(Duration.ofMillis(connectTimeoutMs))
+        .followRedirects(HttpClient.Redirect.NORMAL)
+        .build()
+    val request = HttpRequest.newBuilder()
+        .uri(URI(url))
+        .timeout(Duration.ofMillis(readTimeoutMs))
+        .method("HEAD", HttpRequest.BodyPublishers.noBody())
+        .build()
+    val response = client.send(request, HttpResponse.BodyHandlers.discarding())
+    if (response.statusCode() !in 200..299) {
+        null
+    } else {
+        response.headers().firstValueAsLong("Content-Length").orElse(-1L).takeIf { it > 0 }
+    }
+} catch (e: Exception) {
+    null
+}
+
+/**
  * Perform a GET request to a local/remote URL with proxy support.
  * Returns the HTTP status code and response body, or throws on connection failure.
  */

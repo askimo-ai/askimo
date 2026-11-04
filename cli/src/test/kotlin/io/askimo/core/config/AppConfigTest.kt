@@ -35,7 +35,7 @@ class AppConfigTest {
         // should reflect the YAML defaults.
         val models = AppConfig.models
 
-        assertEquals(10, models.maxToolCallingRoundTrips)
+        assertEquals(50, models.maxToolCallingRoundTrips)
 
         assertEquals(600L, models.requestTimeoutInSeconds)
     }
