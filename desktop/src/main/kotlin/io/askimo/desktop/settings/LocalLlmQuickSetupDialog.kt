@@ -74,9 +74,11 @@ fun localLlmQuickSetupDialog(onDismiss: () -> Unit, onOpenFullSettings: () -> Un
     }
 
     // Kicks off the download as soon as the dialog opens — this dialog's whole reason to exist
-    // is skipping the manual "enable" switch in localLlmBinaryCard.
+    // is skipping the manual "enable" switch in localLlmBinaryCard. Also auto-retries a prior
+    // failure, since this flow has no Retry action of its own; startBinaryDownload() no-ops if
+    // a download is already in progress, so calling it unconditionally here is safe.
     LaunchedEffect(platform) {
-        if (platform != null && !isBinaryDownloaded && LlamaDownloadManager.binaryDownload.value == null) {
+        if (platform != null && !isBinaryDownloaded) {
             LlamaDownloadManager.startBinaryDownload(platform)
         }
     }
