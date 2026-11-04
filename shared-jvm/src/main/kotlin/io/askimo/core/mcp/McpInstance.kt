@@ -49,13 +49,13 @@ data class McpInstance(
         val stdioConfig = definition.stdioConfig
             ?: error("STDIO config missing for ${definition.id}")
 
-        val resolvedCommand = resolver.resolveList(stdioConfig.commandTemplate)
-        val resolvedEnv = resolver.resolveMap(stdioConfig.envTemplate)
+        val (resolvedCommand, commandSources) = resolver.resolveListWithSources(stdioConfig.commandTemplate)
+        val (resolvedEnv, envSources) = resolver.resolveMapWithSources(stdioConfig.envTemplate)
         val resolvedWorkingDir = stdioConfig.workingDirectory?.let { resolver.resolve(it) }
         log.debug(
             "Create the MCP connector with command: {}, env: {}, workingDir: {}",
-            SecretDetector.redactList(stdioConfig.commandTemplate, resolvedCommand, definition),
-            SecretDetector.redactMap(stdioConfig.envTemplate, resolvedEnv, definition),
+            SecretDetector.redactList(commandSources, resolvedCommand, definition),
+            SecretDetector.redactMap(envSources, resolvedEnv, definition),
             resolvedWorkingDir,
         )
 

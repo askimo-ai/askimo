@@ -119,6 +119,38 @@ class SecretDetectorRedactionTest {
     }
 
     @Test
+    fun `redactList masks a secret whose index shifted after an earlier conditional flag was filtered out`() {
+        // Regression: TemplateResolver.resolveList drops blank/unmet conditional entries, which
+        // shifts later entries' indices. redactList must be given the index-aligned source
+        // templates (via TemplateResolver.resolveListWithSources), not the original template
+        // list, or the secret gets checked against the wrong template slot and leaks.
+        val definition = McpServerDefinition(
+            id = "template-conditional-secret",
+            name = "Conditional Secret",
+            description = "test",
+            transportType = TransportType.STDIO,
+            stdioConfig = StdioConfig(
+                commandTemplate = listOf("{{?debug:--verbose}}", "{{apiKey}}"),
+            ),
+            parameters = listOf(
+                Parameter(
+                    key = "apiKey",
+                    label = "API Key",
+                    type = ParameterType.SECRET,
+                    location = ParameterLocation.COMMAND,
+                ),
+            ),
+        )
+        val resolver = TemplateResolver(mapOf("debug" to "false", "apiKey" to "sk-real-secret-value-1234567890"))
+        val (resolvedCommand, commandSources) = resolver.resolveListWithSources(definition.stdioConfig!!.commandTemplate)
+
+        val result = SecretDetector.redactList(commandSources, resolvedCommand, definition)
+
+        assertEquals(listOf("sk-real-secret-value-1234567890"), resolvedCommand)
+        assertFalse(result.joinToString(" ").contains("sk-real-secret-value-1234567890"))
+    }
+
+    @Test
     fun `redactValue is deterministic and masking still flags the value as redacted`() {
         val value = "AIzaSyD-real-secret-value-1234567890"
         val first = SecretDetector.redactValue("{{googleMapsApiKey}}", value, googleMapsDefinition)
@@ -126,5 +158,40 @@ class SecretDetectorRedactionTest {
 
         assertEquals(first, second)
         assertTrue(first != value)
+    }
+
+    @Test
+    fun `redactMap masks a secret expanded from a comma-separated KEY=value template entry`() {
+        // A single envTemplate entry ("ENV") expands into two output keys (API_KEY, MODE) whose
+        // names don't exist in the original template map. redactMap must be given the
+        // per-output-key source template (via TemplateResolver.resolveMapWithSources), not the
+        // original template map, or the secret placeholder reference is lost and nothing is masked.
+        val definition = McpServerDefinition(
+            id = "template-comma-env",
+            name = "Comma Env",
+            description = "test",
+            transportType = TransportType.STDIO,
+            stdioConfig = StdioConfig(
+                commandTemplate = listOf("npx", "-y", "some-server"),
+                envTemplate = mapOf("ENV" to "API_KEY={{apiKey}},MODE=prod"),
+            ),
+            parameters = listOf(
+                Parameter(
+                    key = "apiKey",
+                    label = "API Key",
+                    type = ParameterType.SECRET,
+                    location = ParameterLocation.ENVIRONMENT,
+                ),
+            ),
+        )
+        val resolver = TemplateResolver(mapOf("apiKey" to "sk-real-secret-value-1234567890"))
+        val (resolvedEnv, envSources) = resolver.resolveMapWithSources(definition.stdioConfig!!.envTemplate)
+
+        val result = SecretDetector.redactMap(envSources, resolvedEnv, definition)
+
+        assertFalse(result.getValue("API_KEY").contains("sk-real-secret-value-1234567890"))
+        // MODE is expanded from the same source template as API_KEY, so it is also redacted
+        // (coarser but safe: redact every output produced by a secret-bearing template slot).
+        assertFalse(result.getValue("MODE").contains("prod"))
     }
 }

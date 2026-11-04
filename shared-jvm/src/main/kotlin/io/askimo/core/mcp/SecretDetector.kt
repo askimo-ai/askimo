@@ -79,7 +79,12 @@ object SecretDetector {
         return if (vars.any { isSecret(it, definition) }) Masking.maskSecret(resolvedValue) else resolvedValue
     }
 
-    /** Map variant of [redactValue] — pairs each resolved entry with its raw template by key. */
+    /**
+     * Map variant of [redactValue] — pairs each resolved entry with its raw template by key.
+     * [rawTemplate] must be the per-output-key source map, e.g. from
+     * [TemplateResolver.resolveMapWithSources], not the original template map (whose keys
+     * may not match after comma-expansion).
+     */
     fun redactMap(
         rawTemplate: Map<String, String>,
         resolved: Map<String, String>,
@@ -88,7 +93,12 @@ object SecretDetector {
         redactValue(rawTemplate[key].orEmpty(), value, definition)
     }
 
-    /** List variant of [redactValue] — pairs each resolved entry with its raw template by index. */
+    /**
+     * List variant of [redactValue] — pairs each resolved entry with its raw template by index.
+     * [rawTemplate] must be index-aligned with [resolved], e.g. from
+     * [TemplateResolver.resolveListWithSources], not the original template list (whose blank/
+     * filtered entries would shift the index out of alignment).
+     */
     fun redactList(
         rawTemplate: List<String>,
         resolved: List<String>,

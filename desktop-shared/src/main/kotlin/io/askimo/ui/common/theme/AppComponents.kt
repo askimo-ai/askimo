@@ -89,6 +89,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -302,6 +303,7 @@ object AppComponents {
                     selected = selected,
                     interactionSource = interactionSource,
                     indication = null,
+                    role = Role.RadioButton,
                     onClick = onClick,
                 )
                 .pointerHoverIcon(PointerIcon.Hand)

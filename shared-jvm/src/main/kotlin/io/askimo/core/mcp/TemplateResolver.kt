@@ -51,10 +51,28 @@ class TemplateResolver(private val parameterValues: Map<String, String>) {
     /**
      * Resolves a list of template strings, filtering out empty results
      */
-    fun resolveList(templates: List<String>): List<String> = templates.mapNotNull { template ->
-        val resolved = resolve(template)
-        // Skip empty strings (useful for optional conditional flags)
-        resolved.ifBlank { null }
+    fun resolveList(templates: List<String>): List<String> = resolveListWithSources(templates).first
+
+    /**
+     * Same as [resolveList], but also returns each surviving entry's source template
+     * (needed because blank/filtered entries shift the result index out of alignment with
+     * [templates], e.g. for secret redaction that must pair a resolved value with the
+     * template slot that produced it).
+     */
+    fun resolveListWithSources(templates: List<String>): Pair<List<String>, List<String>> {
+        val result = mutableListOf<String>()
+        val sources = mutableListOf<String>()
+
+        templates.forEach { template ->
+            val resolved = resolve(template)
+            // Skip empty strings (useful for optional conditional flags)
+            if (resolved.isNotBlank()) {
+                result.add(resolved)
+                sources.add(template)
+            }
+        }
+
+        return result to sources
     }
 
     /**
@@ -63,8 +81,16 @@ class TemplateResolver(private val parameterValues: Map<String, String>) {
      * If a resolved value contains "KEY=value,KEY2=value2", it will be split
      * into multiple environment variables.
      */
-    fun resolveMap(templates: Map<String, String>): Map<String, String> {
+    fun resolveMap(templates: Map<String, String>): Map<String, String> = resolveMapWithSources(templates).first
+
+    /**
+     * Same as [resolveMap], but also returns each output key's original source template
+     * (needed since comma-expanded `KEY=value` entries produce keys absent from [templates],
+     * e.g. for secret redaction that must trace back to the originating template slot).
+     */
+    fun resolveMapWithSources(templates: Map<String, String>): Pair<Map<String, String>, Map<String, String>> {
         val result = mutableMapOf<String, String>()
+        val sources = mutableMapOf<String, String>()
 
         templates.forEach { (templateKey, template) ->
             val resolved = resolve(template)
@@ -78,18 +104,21 @@ class TemplateResolver(private val parameterValues: Map<String, String>) {
                     if (trimmed.contains('=')) {
                         val (key, value) = trimmed.split('=', limit = 2)
                         result[key.trim()] = value.trim()
+                        sources[key.trim()] = template
                     } else {
                         // Not a KEY=value format, use as-is with template key
                         result[templateKey] = resolved
+                        sources[templateKey] = template
                     }
                 }
             } else {
                 // Simple value, use template key
                 result[templateKey] = resolved
+                sources[templateKey] = template
             }
         }
 
-        return result
+        return result to sources
     }
 
     companion object {
