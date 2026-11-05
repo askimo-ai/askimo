@@ -58,6 +58,10 @@
   }, {
     "moduleLicense": "Common Public License - v 1.0"
   }, {
+    "moduleLicense": "CDDL + GPLv2 with classpath exception"
+  }, {
+    "moduleLicense": "CDDL-1.0"
+  }, {
     "moduleName": "com.github.albfernandez:juniversalchardet",
     "moduleLicense": "Mozilla Public License Version 1.1"
   } ],

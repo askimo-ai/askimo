@@ -6,16 +6,13 @@ package io.askimo.core.providers.gemini
 
 import dev.langchain4j.data.message.TextContent
 import dev.langchain4j.memory.ChatMemory
-import dev.langchain4j.model.chat.Capability
 import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.StreamingChatModel
 import dev.langchain4j.model.embedding.EmbeddingModel
-import dev.langchain4j.model.googleai.GeminiThinkingConfig
-import dev.langchain4j.model.googleai.GeminiThinkingConfig.GeminiThinkingLevel
-import dev.langchain4j.model.googleai.GoogleAiEmbeddingModel
-import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel
-import dev.langchain4j.model.googleai.GoogleAiGeminiImageModel
-import dev.langchain4j.model.googleai.GoogleAiGeminiStreamingChatModel
+import dev.langchain4j.model.google.genai.GoogleGenAiChatModel
+import dev.langchain4j.model.google.genai.GoogleGenAiEmbeddingModel
+import dev.langchain4j.model.google.genai.GoogleGenAiImageModel
+import dev.langchain4j.model.google.genai.GoogleGenAiStreamingChatModel
 import dev.langchain4j.model.image.ImageModel
 import dev.langchain4j.rag.content.retriever.ContentRetriever
 import dev.langchain4j.service.AiServices
@@ -37,7 +34,6 @@ import io.askimo.core.providers.sendStreamingMessageWithCallback
 import io.askimo.core.telemetry.TelemetryChatModelListener
 import io.askimo.core.util.ApiKeyUtils.safeApiKey
 import io.askimo.core.util.appJson
-import io.askimo.core.util.createJdkHttpClientBuilder
 import io.askimo.core.util.httpGet
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -47,6 +43,7 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.time.Duration
+import java.util.concurrent.Executors
 
 class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
 
@@ -162,16 +159,12 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
      * This is called only once per model — the result is cached in [ModelCapabilitiesCache].
      */
     private fun probeThinkingSupport(settings: GeminiSettings): Boolean = try {
-        val testModel = GoogleAiGeminiStreamingChatModel
+        val executor = Executors.newVirtualThreadPerTaskExecutor()
+        val testModel = GoogleGenAiStreamingChatModel
             .builder()
-            .httpClientBuilder(createJdkHttpClientBuilder())
+            .executor(executor)
             .apiKey(safeApiKey(settings.apiKey))
             .modelName(settings.defaultModel)
-            .thinkingConfig(
-                GeminiThinkingConfig.builder()
-                    .thinkingLevel(GeminiThinkingLevel.LOW)
-                    .build(),
-            )
             .sendThinking(true)
             .returnThinking(true)
             .build()
@@ -190,38 +183,33 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
 
     override fun createImageModel(
         settings: GeminiSettings,
-    ): ImageModel = GoogleAiGeminiImageModel.builder()
+    ): ImageModel = GoogleGenAiImageModel.builder()
         .apiKey(safeApiKey(settings.apiKey))
-        .httpClientBuilder(createJdkHttpClientBuilder())
-        .baseUrl(settings.baseUrl)
         .modelName(settings.imageModel)
         .build()
 
     override fun createStreamingModel(settings: GeminiSettings): StreamingChatModel {
+        val executor = Executors.newVirtualThreadPerTaskExecutor()
         val telemetry = AppContext.getInstance().telemetry
 
         val supportsThinking = ModelCapabilitiesCache.supportsThinking(GEMINI, settings.defaultModel)
         val reasoningLevel = ModelCapabilitiesCache.getReasoningLevel(GEMINI, settings.defaultModel)
 
-        return GoogleAiGeminiStreamingChatModel.builder()
-            .httpClientBuilder(createJdkHttpClientBuilder())
+        return GoogleGenAiStreamingChatModel.builder()
             .apiKey(safeApiKey(settings.apiKey))
             .modelName(settings.defaultModel)
             .timeout(Duration.ofSeconds(AppConfig.models.requestTimeoutInSeconds))
+            .executor(executor)
             .listeners(listOf(TelemetryChatModelListener(telemetry, GEMINI.name.lowercase())))
             .apply {
                 if (supportsThinking && reasoningLevel.isEnabled) {
                     val geminiLevel = when (reasoningLevel) {
-                        ReasoningEffort.LOW -> GeminiThinkingLevel.LOW
-                        ReasoningEffort.HIGH -> GeminiThinkingLevel.HIGH
-                        else -> GeminiThinkingLevel.MEDIUM
+                        ReasoningEffort.LOW -> "LOW"
+                        ReasoningEffort.HIGH -> "HIGH"
+                        else -> "MEDIUM"
                     }
-                    thinkingConfig(
-                        GeminiThinkingConfig.builder()
-                            .thinkingLevel(geminiLevel)
-                            .includeThoughts(true)
-                            .build(),
-                    )
+                    thinkingLevel(geminiLevel)
+                        .includeThoughts(true)
                     sendThinking(true)
                     returnThinking(true)
                 }
@@ -229,9 +217,7 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
             .build()
     }
 
-    override fun createSecondaryModel(settings: GeminiSettings): ChatModel = GoogleAiGeminiChatModel.builder()
-        .httpClientBuilder(createJdkHttpClientBuilder())
-        .supportedCapabilities(Capability.RESPONSE_FORMAT_JSON_SCHEMA)
+    override fun createSecondaryModel(settings: GeminiSettings): ChatModel = GoogleGenAiChatModel.builder()
         .apiKey(safeApiKey(settings.apiKey))
         .modelName(
             settings.utilityModel
@@ -240,8 +226,7 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
         .timeout(Duration.ofSeconds(AppConfig.models.requestTimeoutInSeconds))
         .build()
 
-    override fun createModel(settings: GeminiSettings): ChatModel = GoogleAiGeminiChatModel.builder()
-        .httpClientBuilder(createJdkHttpClientBuilder())
+    override fun createModel(settings: GeminiSettings): ChatModel = GoogleGenAiChatModel.builder()
         .apiKey(safeApiKey(settings.apiKey))
         .modelName(settings.defaultModel)
         .timeout(Duration.ofSeconds(AppConfig.models.requestTimeoutInSeconds))
@@ -260,9 +245,8 @@ class GeminiModelFactory : ChatModelFactory<GeminiSettings> {
             "No embedding model is configured for ${GEMINI.name}. " +
                 "Go to Settings > AI Provider and select an embedding model under the provider configuration card."
         }
-        return GoogleAiEmbeddingModel.builder()
+        return GoogleGenAiEmbeddingModel.builder()
             .apiKey(safeApiKey(settings.apiKey))
-            .httpClientBuilder(createJdkHttpClientBuilder())
             .modelName(settings.embeddingModel)
             .build()
     }

@@ -18,7 +18,6 @@ import dev.langchain4j.model.chat.request.json.JsonArraySchema
 import dev.langchain4j.model.chat.request.json.JsonObjectSchema
 import dev.langchain4j.model.chat.request.json.JsonSchema
 import dev.langchain4j.model.chat.request.json.JsonStringSchema
-import dev.langchain4j.model.googleai.GeneratedImageHelper
 import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
 import io.askimo.core.context.ChatContext
@@ -344,7 +343,7 @@ fun ChatClient.sendStreamingMessageWithCallback(
 
                             if (GeneratedImageHelper.hasGeneratedImages(aiMessage)) {
                                 val generatedImages = GeneratedImageHelper.getGeneratedImages(aiMessage)
-                                val nonNullImages = generatedImages?.filterNotNull() ?: emptyList()
+                                val nonNullImages = generatedImages.filterNotNull() ?: emptyList()
                                 // Newer Gemini image models emit a draft/"thought" image part
                                 // immediately before the final rendered image for each requested
                                 // image, so the AiMessage's image list alternates
