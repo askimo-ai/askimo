@@ -224,6 +224,76 @@ else
   exit 1
 fi
 
+# --- 6. Patch C_LONG to be portable across LP64 (macOS/Linux) and LLP64 (Windows) ----
+# jextract generates (in "whisper_h$shared.java"):
+#   public static final ValueLayout.OfLong C_LONG = (ValueLayout.OfLong) Linker.nativeLinker().canonicalLayouts().get("long");
+#
+# Every struct field in these bindings that uses C_LONG is actually a C `size_t`
+# (whisper.h: n_heads, n_grammar_rules, i_start_rule, dtw_mem_size), not a true C
+# `long`. jextract names this constant "C_LONG" only because on the generation
+# host (macOS/Linux, LP64) `long` happens to be 8 bytes, matching size_t.
+#
+# On Windows (LLP64), `long` is 4 bytes while size_t is still 8 bytes, so deriving
+# this layout from the host's canonical "long" mapping is wrong — and fatal at
+# runtime on Windows: Linker.nativeLinker().canonicalLayouts().get("long") returns
+# a 4-byte OfInt there, so the (ValueLayout.OfLong) cast throws
+# ClassCastException during this class's <clinit>, surfacing as
+# ExceptionInInitializerError at every call site (even though these bindings are
+# committed once and shared across all three OSes).
+#
+# Fix: use the portable 8-byte layout directly instead of deriving it from the
+# host's "long" mapping, matching size_t on every 64-bit target we support (same
+# technique already used for C_LONG_LONG via "long long", which is genuinely 8
+# bytes on both LP64 and LLP64). This is a no-op on macOS/Linux (same size, same
+# native byte order) and fixes the crash on Windows.
+SHARED_FILE="${PKG_DIR}/whisper_h\$shared.java"
+if [[ -f "${SHARED_FILE}" ]]; then
+  echo "Patching C_LONG to use a portable 8-byte layout in ${SHARED_FILE}..."
+  python3 - "${SHARED_FILE}" << 'PYEOF'
+import re
+import sys
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as f:
+    content = f.read()
+
+pattern = re.compile(
+    r'public static final ValueLayout\.OfLong C_LONG = '
+    r'\(ValueLayout\.OfLong\) Linker\.nativeLinker\(\)\.canonicalLayouts\(\)\.get\("long"\);',
+)
+replacement = (
+    '// NOTE: every struct field using C_LONG in these bindings is actually a C\n'
+    '    // `size_t` (see whisper.h: n_heads, n_grammar_rules, i_start_rule,\n'
+    '    // dtw_mem_size), not a true C `long`. jextract names this constant "C_LONG"\n'
+    '    // only because on the generation host (macOS/Linux, LP64) `long` happens to\n'
+    '    // be 8 bytes, matching size_t. On Windows (LLP64), `long` is 4 bytes while\n'
+    '    // size_t is still 8 bytes, so deriving this layout from the host\'s\n'
+    '    // canonical "long" mapping is wrong — and fatal on Windows:\n'
+    '    // Linker.nativeLinker().canonicalLayouts().get("long") returns a 4-byte\n'
+    '    // OfInt there, so the (ValueLayout.OfLong) cast throws ClassCastException\n'
+    '    // during this class\'s <clinit>, surfacing as ExceptionInInitializerError\n'
+    '    // at every call site. Use the portable 8-byte layout directly instead,\n'
+    '    // matching size_t on every 64-bit target we support (same technique\n'
+    '    // already used for C_LONG_LONG via "long long", which is 8 bytes on both\n'
+    '    // ABIs).\n'
+    '    public static final ValueLayout.OfLong C_LONG = JAVA_LONG;'
+)
+new_content, count = pattern.subn(replacement, content, count=1)
+if count != 1:
+    print(f"error: expected exactly 1 match to patch in {path}, found {count}", file=sys.stderr)
+    print("jextract's generated code may have changed shape — update the patch regex in generate-whisper-bindings.sh", file=sys.stderr)
+    sys.exit(1)
+
+with open(path, "w", encoding="utf-8") as f:
+    f.write(new_content)
+print("Patched successfully.")
+PYEOF
+else
+  echo "error: expected to patch ${SHARED_FILE} but it does not exist." >&2
+  echo "jextract's output file naming may have changed — update SHARED_FILE above." >&2
+  exit 1
+fi
+
 echo ""
 echo "Done. Generated sources are under:"
 echo "  ${OUTPUT_DIR}/$(echo "${TARGET_PACKAGE}" | tr '.' '/')"
