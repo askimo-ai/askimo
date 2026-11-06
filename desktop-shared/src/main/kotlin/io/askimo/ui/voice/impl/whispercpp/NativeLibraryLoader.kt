@@ -7,6 +7,11 @@ package io.askimo.ui.voice.impl.whispercpp
 import io.askimo.core.logging.logger
 import io.askimo.core.util.AskimoHome
 import java.io.File
+import java.lang.foreign.Arena
+import java.lang.foreign.FunctionDescriptor
+import java.lang.foreign.Linker
+import java.lang.foreign.SymbolLookup
+import java.lang.foreign.ValueLayout
 import java.net.URL
 import java.nio.file.Files
 import java.nio.file.Path
@@ -26,8 +31,11 @@ import java.util.Locale
  * path — hence the fallback-only lookup and the mandatory preload.)
  *
  * All sibling files in the platform folder are extracted together. CPU dispatch variants
- * (`libggml-cpu-*`) need no special handling — ggml's backend registry finds them at runtime
- * next to `ggml-base`. The *direct* dependencies ([PlatformTarget.preloadOrder]) do need
+ * (`libggml-cpu-*`) are dynamic ggml backend *plugins*, not auto-discovered — [ensureLoaded]
+ * explicitly registers them via `ggml_backend_load_all_from_path` (see [loadGgmlBackendPlugins])
+ * after the main library loads; skipping this leaves ggml's backend registry empty (zero
+ * devices, zero backends) and crashes `whisper_init` with `GGML_ASSERT(device)` even for plain
+ * CPU inference. The *direct* dependencies ([PlatformTarget.preloadOrder]) do need
  * explicit, ordered [System.load] calls before the main library, so the OS loader resolves
  * `whisper`'s `ggml`/`ggml-base` imports against them by name instead of relying on default
  * search-path behavior (unreliable for our temp dir on Linux/Windows).
@@ -116,7 +124,28 @@ object NativeLibraryLoader {
 
             log.info("Loading whisper.cpp native library from {}", mainLibPath)
             System.load(mainLibPath.toAbsolutePath().toString())
+            loadGgmlBackendPlugins(destDir)
             loaded = true
+        }
+    }
+
+    /**
+     * Registers ggml's dynamic backend plugins (the `ggml-cpu-*.dll`/`.so` dispatch variants,
+     * and any future GPU backend plugins) found in [dir]. Without this, whisper.cpp's backend
+     * registry stays empty — zero devices, zero backends — and `whisper_init` aborts with
+     * `GGML_ASSERT(device)` even for plain CPU inference, since this build uses dynamic backend
+     * plugins rather than statically linking them.
+     */
+    private fun loadGgmlBackendPlugins(dir: Path) {
+        val addr = SymbolLookup.loaderLookup().find("ggml_backend_load_all_from_path").orElse(null)
+        if (addr == null) {
+            log.warn("ggml_backend_load_all_from_path not found; backend auto-discovery may fail")
+            return
+        }
+        val handle = Linker.nativeLinker().downcallHandle(addr, FunctionDescriptor.ofVoid(ValueLayout.ADDRESS))
+        Arena.ofConfined().use { arena ->
+            val pathSegment = arena.allocateFrom(dir.toAbsolutePath().toString())
+            handle.invoke(pathSegment)
         }
     }
 
