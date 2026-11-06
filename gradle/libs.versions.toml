@@ -18,6 +18,7 @@ spotless = "8.11.0"
 detekt = "2.0.0-alpha.6"
 kover = "0.9.11"
 licenseReport = "3.1.5"
+lincheck = "2.39"
 graalvmSvm = "25.0.5.0.3"
 sqldelight = "2.4.1"
 compose = "1.12.2"
@@ -89,6 +90,9 @@ kotlinx-serialization-json-jvm = { module = "org.jetbrains.kotlinx:kotlinx-seria
 
 # Kotlinx Coroutines
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
+
+# Lincheck — concurrency correctness testing (model checking / stress testing)
+lincheck = { module = "org.jetbrains.kotlinx:lincheck", version.ref = "lincheck" }
 
 # Kotlinx DateTime
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetime" }

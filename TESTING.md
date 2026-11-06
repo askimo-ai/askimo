@@ -14,7 +14,63 @@ Some `cli` integration tests spin up real models via Testcontainers/Ollama and n
 Set `DISABLE_DOCKER_TESTS=true` to skip them (this is what CI's Windows leg does, since
 Testcontainers isn't available there).
 
-## Coverage reporting
+## Concurrency tests (Lincheck)
+
+`desktop-shared` has a separate `lincheckTest` task (not part of `test`) for
+[Lincheck](https://github.com/JetBrains/lincheck)-based concurrency tests — these exercise
+code under real multi-threaded stress and check its results against a sequential reference,
+rather than asserting a single hand-picked interleaving the way a normal test does.
+
+```bash
+./gradlew :desktop-shared:lincheckTest
+```
+
+It's kept separate from `test` because Lincheck needs extra JVM args (`--add-opens`/
+`--add-exports` into JDK internals; see `desktop-shared/build.gradle.kts`) that regular tests
+don't, and because these tests are slower (deliberately running thousands of randomized
+concurrent trials). `tasks.check` depends on it, so `./gradlew check` still runs it, and CI
+runs it on all three OSes alongside `test` (see `.github/workflows/shared-tests.yml`).
+
+- `OrderedEventQueueLincheckTest` — proves `OrderedEventQueue` preserves real-time
+  submission order under concurrent producers; this is the FIFO abstraction streaming
+  callbacks must route through instead of a per-event `scope.launch` (see that class's KDoc,
+  and `UnsafeLaunchInStreamingCallback` in `:detekt-rules`, for the bug this prevents).
+- `UnsafeLaunchCanaryLincheckTest` — a canary that reconstructs the old buggy
+  `scope.launch`-per-event + `Mutex` pattern and asserts Lincheck *does* report a failure for
+  it. If this canary ever stops failing, the Lincheck setup itself has lost its ability to
+  catch this bug class and needs investigating before trusting the real test's green runs.
+
+When writing a new Lincheck test for an async/coroutine-based component, prefer:
+`@Operation` methods taking explicit parameters (Lincheck's own generated values) rather than
+anything derived from `Thread.currentThread()`/`ThreadLocal` — Lincheck's verifier replays
+operations sequentially on its own thread when checking a candidate ordering, so any
+thread-identity-derived value is silently unreproducible there and produces false positives
+unrelated to the code under test. Prefer `StressOptions` (real-thread repeated stress) over
+`ModelCheckingOptions` (bytecode-instrumenting) for anything that hands work off to a
+background coroutine dispatcher outside Lincheck's own declared operation threads —
+`ModelCheckingOptions` has been found to fail transforming `kotlinx-coroutines` internals in
+that situation, and a managed/deterministically-scheduled thread blocking on a real unmanaged
+background thread risks deadlocking its scheduler.
+
+### Known harmless warning on newer JDKs
+
+On JDK 25 (and possibly other very new JDKs released after the Lincheck version in use),
+`lincheckTest` may print a warning like:
+
+```
+Unable to transform org/gradle/internal/classloader/CachingClassLoader
+java.lang.IllegalArgumentException: Unsupported class file major version 69
+	at org.objectweb.asm.ClassReader.<init>(...)
+```
+
+This is **not a test failure** — it doesn't affect the pass/fail result. Lincheck's Java agent
+always eagerly instruments any class whose name contains `"ClassLoader"` (to wrap `loadClass`
+calls so they don't get misattributed as shared-memory accesses), bypassing its usual
+package-based skip-list that would otherwise ignore `org.gradle.*`. The bundled ASM version in
+this Lincheck release predates JDK 25's finalization and can't parse its class file version
+(69), so the attempted transform throws; Lincheck catches that exception internally, logs it,
+and falls back to the original unmodified bytecode for that class. A future Lincheck release
+with an updated ASM dependency is expected to resolve this cleanly.
 
 Coverage is measured with [Kover](https://kotlin.github.io/kotlinx-kover/) and aggregated at
 the root project, which is configured as Kover's "merging module" (`dependencies { kover(project(":x")) }`

@@ -54,6 +54,7 @@ dependencies {
     implementation(libs.filekit.compose)
     testImplementation(kotlin("test"))
     testImplementation(testFixtures(project(":shared-jvm")))
+    testImplementation(libs.lincheck)
 }
 
 kotlin {
@@ -64,5 +65,36 @@ kotlin {
 }
 
 tasks.test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags("lincheck")
+    }
+}
+
+// Lincheck instruments/model-checks concurrent code and needs JVM internals opened up that
+// regular tests don't — kept as its own task (not folded into `test`) so everyday test runs
+// stay fast and don't need these extra JVM args. See TESTING.md for details.
+val lincheckTest by tasks.registering(Test::class) {
+    description = "Runs Lincheck-based concurrency tests (see OrderedEventQueueLincheckTest)."
+    group = "verification"
+    testClassesDirs = tasks.test.get().testClassesDirs
+    classpath = tasks.test.get().classpath
+    useJUnitPlatform {
+        includeTags("lincheck")
+    }
+    jvmArgs(
+        "--add-opens",
+        "java.base/java.lang=ALL-UNNAMED",
+        "--add-opens",
+        "java.base/jdk.internal.misc=ALL-UNNAMED",
+        "--add-exports",
+        "java.base/jdk.internal.util=ALL-UNNAMED",
+        // JEP 519 compact object headers are off by default, but a known Lincheck issue
+        // (JetBrains/lincheck#915) crashes its Unsafe-based instrumentation if they're ever
+        // turned on for this JVM — disable explicitly as a defensive guard.
+        "-XX:-UseCompactObjectHeaders",
+    )
+}
+
+tasks.check {
+    dependsOn(lincheckTest)
 }
