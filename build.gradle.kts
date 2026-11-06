@@ -416,13 +416,21 @@ tasks.register("detekt") {
     doLast {
         val reportDir = layout.buildDirectory.dir("reports/detekt").get().asFile.also { it.mkdirs() }
 
+        // Rules that must always fail the build when found — regardless of the severity
+        // Detekt itself reports (custom rules are always reported as "warning", and 2.x
+        // no longer lets detekt.yml override per-rule severity).
+        val hardStopRules = setOf(
+            "UnsafeLaunchInStreamingCallback",
+            "RememberCoroutineScopeInConditionalComposable",
+        )
+
         // ── 1. Collect findings from every subproject SARIF report ─────────
         val findings = subprojects.flatMap { sub ->
             val sarif = sub.layout.buildDirectory.file("reports/detekt/detekt.sarif").get().asFile
             parseDetektSarif(sarif)
         }
-        val errors   = findings.filter { it["severity"] == "error" }
-        val warnings = findings.filter { it["severity"] == "warning" }
+        val errors   = findings.filter { it["severity"] == "error" || it["rule"] in hardStopRules }
+        val warnings = findings.filter { it["severity"] != "error" && it["rule"] !in hardStopRules }
 
         // ── 2. Generate merged HTML report ─────────────────────────────────
         val htmlFile = reportDir.resolve("detekt.html")

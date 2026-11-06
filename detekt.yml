@@ -588,3 +588,13 @@ style:
       - 'java.util.*'
       - 'kotlinx.android.synthetic.*'
       - 'androidx.compose.*'
+
+# ── Askimo custom rule set (:detekt-rules) ─────────────────────────────────
+# Detekt 2.x requires third-party rule sets to be explicitly activated — they
+# are not active-by-default the way built-in rule sets are.
+askimo:
+  active: true
+  RememberCoroutineScopeInConditionalComposable:
+    active: true
+  UnsafeLaunchInStreamingCallback:
+    active: true

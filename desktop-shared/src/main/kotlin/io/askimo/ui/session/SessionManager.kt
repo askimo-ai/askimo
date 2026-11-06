@@ -435,11 +435,11 @@ class SessionManager(
                                                 toolName = toolName,
                                                 arguments = arguments,
                                                 approve = {
-                                                    streamingScope.launch { thread.clearApproval() }
+                                                    thread.enqueue { thread.clearApproval() }
                                                     approve()
                                                 },
                                                 deny = {
-                                                    streamingScope.launch { thread.clearApproval() }
+                                                    thread.enqueue { thread.clearApproval() }
                                                     deny()
                                                 },
                                             ),
@@ -447,7 +447,7 @@ class SessionManager(
                                     }
                                 },
                                 onToolApprovalTimedOut = {
-                                    streamingScope.launch { thread.clearApproval() }
+                                    thread.enqueue { thread.clearApproval() }
                                 },
                                 // Awaitable companion to onToolFinished: used only on approval
                                 // timeout/denial so markToolDone() applies before the exception
