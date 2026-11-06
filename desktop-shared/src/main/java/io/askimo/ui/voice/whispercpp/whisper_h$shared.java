@@ -27,7 +27,20 @@ public class whisper_h$shared {
     public static final ValueLayout.OfDouble C_DOUBLE = (ValueLayout.OfDouble) Linker.nativeLinker().canonicalLayouts().get("double");
     public static final AddressLayout C_POINTER = ((AddressLayout) Linker.nativeLinker().canonicalLayouts().get("void*"))
             .withTargetLayout(MemoryLayout.sequenceLayout(java.lang.Long.MAX_VALUE, C_CHAR));
-    public static final ValueLayout.OfLong C_LONG = (ValueLayout.OfLong) Linker.nativeLinker().canonicalLayouts().get("long");
+    // NOTE: every struct field in these bindings that uses C_LONG is actually a C
+    // `size_t` (see whisper.h: n_heads, n_grammar_rules, i_start_rule, dtw_mem_size),
+    // not a true C `long`. jextract names this constant "C_LONG" only because on the
+    // generation host (macOS/Linux, LP64) `long` happens to be 8 bytes, matching
+    // size_t. On Windows (LLP64), `long` is 4 bytes while size_t is still 8 bytes, so
+    // deriving this layout from the host's canonical "long" mapping is wrong — and
+    // fatal on Windows: Linker.nativeLinker().canonicalLayouts().get("long") returns
+    // a 4-byte OfInt there, so the (ValueLayout.OfLong) cast throws
+    // ClassCastException during this class's <clinit>, surfacing as
+    // ExceptionInInitializerError at every call site. Use the portable 8-byte
+    // layout directly instead, matching size_t on every 64-bit target we support
+    // (same technique already used for C_LONG_LONG via "long long", which is 8
+    // bytes on both ABIs).
+    public static final ValueLayout.OfLong C_LONG = JAVA_LONG;
 
     static final boolean TRACE_DOWNCALLS = Boolean.getBoolean("jextract.trace.downcalls");
 

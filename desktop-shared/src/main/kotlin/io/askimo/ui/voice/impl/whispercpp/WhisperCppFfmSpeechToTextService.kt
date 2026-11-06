@@ -14,6 +14,7 @@ import io.askimo.ui.voice.SpeechToTextStream
 import io.askimo.ui.voice.StreamingSpeechToTextService
 import io.askimo.ui.voice.VoiceAudioFormat
 import io.askimo.ui.voice.VoiceServiceException
+import io.askimo.ui.voice.whispercpp.whisper_context_params
 import io.askimo.ui.voice.whispercpp.whisper_full_params
 import io.askimo.ui.voice.whispercpp.whisper_h
 import kotlinx.coroutines.CoroutineScope
@@ -283,6 +284,10 @@ class WhisperCppFfmSpeechToTextService(private val config: VoiceConfig) :
         log.info("Loading whisper.cpp model from {}", modelPath)
         Arena.ofConfined().use { arena ->
             val contextParams = whisper_h.whisper_context_default_params(arena)
+            // The bundled native library has no GPU backend (CUDA/Vulkan) registered on this
+            // platform; leaving use_gpu at its default (true) makes whisper.cpp try to select a
+            // GPU backend device and crash with GGML_ASSERT(device) when none is found.
+            whisper_context_params.use_gpu(contextParams, false)
             val pathSegment = arena.allocateFrom(modelPath)
             val newContext = whisper_h.whisper_init_from_file_with_params(pathSegment, contextParams)
             if (newContext == MemorySegment.NULL) {

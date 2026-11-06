@@ -53,6 +53,7 @@ dependencies {
     // FileKit — consistent native file/folder picker on all platforms
     implementation(libs.filekit.compose)
     testImplementation(kotlin("test"))
+    testImplementation(testFixtures(project(":shared-jvm")))
 }
 
 kotlin {

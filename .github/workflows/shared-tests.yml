@@ -16,6 +16,8 @@ jobs:
             name: linux
           - os: windows-latest
             name: windows
+          - os: macos-latest
+            name: macos
 
     steps:
       - name: Checkout

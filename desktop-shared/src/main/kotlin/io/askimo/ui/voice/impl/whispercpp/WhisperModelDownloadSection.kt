@@ -14,7 +14,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +36,7 @@ import io.askimo.core.config.VoiceConfig
 import io.askimo.core.config.VoiceProvider
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.ui.common.i18n.stringResource
+import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.ui.clickableCard
@@ -121,12 +121,8 @@ fun whisperModelDownloadSection(
                                 WhisperModelDownloadManager.clearError()
                             }
                         },
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isSelected) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.surface
-                        },
+                    colors = AppColors.cardColors(
+                        if (isSelected) AppColors.Elevation.SELECTED else AppColors.Elevation.RAISED,
                     ),
                 ) {
                     Column(
