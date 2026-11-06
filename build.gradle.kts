@@ -117,6 +117,12 @@ val manualThirdPartyNotices = listOf(
     ),
 )
 
+// `compose.desktop.currentOs` resolves only the host's skiko-awt-runtime-<os>-<arch> jar, so the
+// notices file would otherwise differ by build machine. Strip the suffix to keep it deterministic.
+val platformSpecificArtifactSuffix = Regex("-(macos|windows|linux)-(x64|arm64|x86)$")
+
+fun canonicalDependencyName(rawName: String): String = rawName.replace(platformSpecificArtifactSuffix, "")
+
 tasks.register("collectThirdPartyNotices") {
     group = "documentation"
     description = "Merges every subproject's resolved dependency licenses, plus manually-tracked " +
@@ -146,7 +152,8 @@ tasks.register("collectThirdPartyNotices") {
             val deps = data["dependencies"] as? List<Map<String, Any>> ?: emptyList()
 
             deps.forEach { d ->
-                val name = d["moduleName"] as? String ?: return@forEach
+                val rawName = d["moduleName"] as? String ?: return@forEach
+                val name = canonicalDependencyName(rawName)
                 val version = d["moduleVersion"] as? String ?: ""
                 val urls = (d["moduleUrls"] as? List<String>) ?: emptyList()
                 val licenses = ((d["moduleLicenses"] as? List<Map<String, Any>>) ?: emptyList())

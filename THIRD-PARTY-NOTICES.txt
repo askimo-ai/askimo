@@ -2,7 +2,7 @@ Askimo — Third-Party Software Notices
 This file lists every third-party dependency bundled in Askimo's distributed artifacts (CLI, desktop app) across all modules, deduplicated, along with its license.
 ================================================================================
 
-Total unique dependencies: 317
+Total unique dependencies: 316
 
 * androidx.annotation:annotation-jvm:1.10.0
   URL: https://developer.android.com/jetpack/androidx/releases/annotation#1.10.0
@@ -906,10 +906,6 @@ Total unique dependencies: 317
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.compose.desktop:desktop-jvm-windows-x64:1.12.2
-  URL: https://github.com/JetBrains/compose-multiplatform
-  License(s): Apache License, Version 2.0
-
 * org.jetbrains.compose.desktop:desktop-jvm:1.12.2
   URL: https://github.com/JetBrains/compose-multiplatform
   License(s): Apache License, Version 2.0
@@ -1170,7 +1166,7 @@ Total unique dependencies: 317
   URL: https://github.com/JetBrains/JetBrainsRuntimeApi
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.skiko:skiko-awt-runtime-windows-x64:0.150.2
+* org.jetbrains.skiko:skiko-awt-runtime:0.150.2
   URL: https://www.github.com/JetBrains/skiko
   License(s): Apache License, Version 2.0
 

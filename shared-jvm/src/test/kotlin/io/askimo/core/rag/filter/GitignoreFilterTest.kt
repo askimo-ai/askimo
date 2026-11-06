@@ -528,4 +528,228 @@ class GitignoreFilterTest {
         Files.createFile(nestedReadme)
         assertTrue(filter.shouldExclude(nestedReadme, false, createContext(nestedReadme, tempDir)))
     }
+
+    @Test
+    fun `should support character class patterns`(@TempDir tempDir: Path) {
+        val gitDir = tempDir.resolve(".git")
+        Files.createDirectory(gitDir)
+
+        val gitignore = tempDir.resolve(".gitignore")
+        Files.writeString(
+            gitignore,
+            """
+            file[0-9].txt
+            [!a-z]name.txt
+            """.trimIndent(),
+        )
+
+        val filter = GitignoreFilter()
+
+        val file1 = tempDir.resolve("file1.txt")
+        Files.createFile(file1)
+        assertTrue(filter.shouldExclude(file1, false, createContext(file1, tempDir)))
+
+        val fileA = tempDir.resolve("fileA.txt")
+        Files.createFile(fileA)
+        assertFalse(filter.shouldExclude(fileA, false, createContext(fileA, tempDir)))
+
+        // Negated character class [!a-z] should match a non-lowercase-letter first char
+        val upperName = tempDir.resolve("1name.txt")
+        Files.createFile(upperName)
+        assertTrue(filter.shouldExclude(upperName, false, createContext(upperName, tempDir)))
+
+        val lowerName = tempDir.resolve("bname.txt")
+        Files.createFile(lowerName)
+        assertFalse(filter.shouldExclude(lowerName, false, createContext(lowerName, tempDir)))
+    }
+
+    @Test
+    fun `should treat a leading caret as class negation like the exclamation mark`(@TempDir tempDir: Path) {
+        val gitDir = tempDir.resolve(".git")
+        Files.createDirectory(gitDir)
+
+        val gitignore = tempDir.resolve(".gitignore")
+        // git's wildmatch treats '^' right after '[' as negation, same as '!'.
+        Files.writeString(
+            gitignore,
+            """
+            [^a-z]caret.txt
+            """.trimIndent(),
+        )
+
+        val filter = GitignoreFilter()
+
+        // Negated class [^a-z] should match a non-lowercase-letter first char
+        val upperCaret = tempDir.resolve("1caret.txt")
+        Files.createFile(upperCaret)
+        assertTrue(filter.shouldExclude(upperCaret, false, createContext(upperCaret, tempDir)))
+
+        // Should NOT match when the first char IS in the excluded a-z range
+        val lowerCaret = tempDir.resolve("bcaret.txt")
+        Files.createFile(lowerCaret)
+        assertFalse(filter.shouldExclude(lowerCaret, false, createContext(lowerCaret, tempDir)))
+    }
+
+    @Test
+    fun `should support a backslash-escaped closing bracket inside a character class`(@TempDir tempDir: Path) {
+        val gitDir = tempDir.resolve(".git")
+        Files.createDirectory(gitDir)
+
+        val gitignore = tempDir.resolve(".gitignore")
+        // The class [\]] matches a single literal ']' character.
+        Files.writeString(
+            gitignore,
+            """
+            a[\]]b.txt
+            """.trimIndent(),
+        )
+
+        val filter = GitignoreFilter()
+
+        // Should match the literal ']' matched by the escaped-bracket class
+        val literalBracketFile = tempDir.resolve("a]b.txt")
+        Files.createFile(literalBracketFile)
+        assertTrue(filter.shouldExclude(literalBracketFile, false, createContext(literalBracketFile, tempDir)))
+
+        // Should NOT match other characters in that position
+        val otherCharFile = tempDir.resolve("axb.txt")
+        Files.createFile(otherCharFile)
+        assertFalse(filter.shouldExclude(otherCharFile, false, createContext(otherCharFile, tempDir)))
+
+        // Sanity check: other, unrelated .gitignore patterns in the same repo
+        // (parsed after this class) must still work, proving the regex compiled successfully.
+        val readme = tempDir.resolve("README.md")
+        Files.createFile(readme)
+        assertFalse(filter.shouldExclude(readme, false, createContext(readme, tempDir)))
+    }
+
+    @Test
+    fun `should support backslash-escaped special characters`(@TempDir tempDir: Path) {
+        val gitDir = tempDir.resolve(".git")
+        Files.createDirectory(gitDir)
+
+        val gitignore = tempDir.resolve(".gitignore")
+        Files.writeString(
+            gitignore,
+            """
+            \#notacomment.txt
+            \!important.txt
+            literal\*star.txt
+            """.trimIndent(),
+        )
+
+        val filter = GitignoreFilter()
+
+        val hashFile = tempDir.resolve("#notacomment.txt")
+        Files.createFile(hashFile)
+        assertTrue(filter.shouldExclude(hashFile, false, createContext(hashFile, tempDir)))
+
+        // "\!important.txt" is a literal pattern (escaped '!'), not a negation
+        val bangFile = tempDir.resolve("!important.txt")
+        Files.createFile(bangFile)
+        assertTrue(filter.shouldExclude(bangFile, false, createContext(bangFile, tempDir)))
+
+        // Escaped '*' should be matched literally, not as a wildcard
+        val literalStarFile = tempDir.resolve("literal*star.txt")
+        Files.createFile(literalStarFile)
+        assertTrue(filter.shouldExclude(literalStarFile, false, createContext(literalStarFile, tempDir)))
+
+        val otherStarFile = tempDir.resolve("literalXstar.txt")
+        Files.createFile(otherStarFile)
+        assertFalse(filter.shouldExclude(otherStarFile, false, createContext(otherStarFile, tempDir)))
+    }
+
+    @Test
+    fun `should ignore unescaped trailing spaces but keep escaped ones`(@TempDir tempDir: Path) {
+        val gitDir = tempDir.resolve(".git")
+        Files.createDirectory(gitDir)
+
+        val gitignore = tempDir.resolve(".gitignore")
+        // "trailing.txt   " (unescaped trailing spaces, should be ignored)
+        // "escaped.txt\ " (escaped trailing space, should be kept as part of the pattern)
+        Files.writeString(gitignore, "trailing.txt   \nescaped.txt\\ \n")
+
+        val filter = GitignoreFilter()
+
+        val trailingFile = tempDir.resolve("trailing.txt")
+        Files.createFile(trailingFile)
+        assertTrue(filter.shouldExclude(trailingFile, false, createContext(trailingFile, tempDir)))
+
+        // Pattern should be "escaped.txt " (with trailing space) due to escaping
+        val escapedFileWithSpace = tempDir.resolve("escaped.txt ")
+        Files.createFile(escapedFileWithSpace)
+        assertTrue(filter.shouldExclude(escapedFileWithSpace, false, createContext(escapedFileWithSpace, tempDir)))
+
+        // The no-space variant should NOT match, proving the trailing space was preserved
+        // (not stripped) as a significant part of the pattern.
+        val escapedFileNoSpace = tempDir.resolve("escaped.txt")
+        Files.createFile(escapedFileNoSpace)
+        assertFalse(filter.shouldExclude(escapedFileNoSpace, false, createContext(escapedFileNoSpace, tempDir)))
+    }
+
+    @Test
+    fun `should match zero or more directories with mid-pattern double asterisk`(@TempDir tempDir: Path) {
+        val gitDir = tempDir.resolve(".git")
+        Files.createDirectory(gitDir)
+
+        val gitignore = tempDir.resolve(".gitignore")
+        Files.writeString(
+            gitignore,
+            """
+            a/**/b
+            """.trimIndent(),
+        )
+
+        val filter = GitignoreFilter()
+
+        // Zero directories in between
+        val directChild = tempDir.resolve("a/b")
+        Files.createDirectories(directChild.parent)
+        Files.createFile(directChild)
+        assertTrue(filter.shouldExclude(directChild, false, createContext(directChild, tempDir)))
+
+        // One directory in between
+        val oneLevel = tempDir.resolve("a/x/b")
+        Files.createDirectories(oneLevel.parent)
+        Files.createFile(oneLevel)
+        assertTrue(filter.shouldExclude(oneLevel, false, createContext(oneLevel, tempDir)))
+
+        // Multiple directories in between
+        val multiLevel = tempDir.resolve("a/x/y/b")
+        Files.createDirectories(multiLevel.parent)
+        Files.createFile(multiLevel)
+        assertTrue(filter.shouldExclude(multiLevel, false, createContext(multiLevel, tempDir)))
+
+        // Unrelated file should not be excluded
+        val unrelated = tempDir.resolve("a/x/c")
+        Files.createFile(unrelated)
+        assertFalse(filter.shouldExclude(unrelated, false, createContext(unrelated, tempDir)))
+    }
+
+    @Test
+    fun `should not re-include a file via negation when parent directory is ignored`(@TempDir tempDir: Path) {
+        val gitDir = tempDir.resolve(".git")
+        Files.createDirectory(gitDir)
+
+        val gitignore = tempDir.resolve(".gitignore")
+        Files.writeString(
+            gitignore,
+            """
+            build/
+            !build/keep.txt
+            """.trimIndent(),
+        )
+
+        val buildDir = tempDir.resolve("build")
+        Files.createDirectories(buildDir)
+
+        val keepFile = buildDir.resolve("keep.txt")
+        Files.createFile(keepFile)
+
+        val filter = GitignoreFilter()
+
+        // Negation should NOT re-include the file because the parent "build/" dir is ignored
+        assertTrue(filter.shouldExclude(keepFile, false, createContext(keepFile, tempDir)))
+        assertTrue(filter.shouldExclude(buildDir, true, createContext(buildDir, tempDir)))
+    }
 }
