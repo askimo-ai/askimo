@@ -564,6 +564,66 @@ class GitignoreFilterTest {
     }
 
     @Test
+    fun `should treat a leading caret as class negation like the exclamation mark`(@TempDir tempDir: Path) {
+        val gitDir = tempDir.resolve(".git")
+        Files.createDirectory(gitDir)
+
+        val gitignore = tempDir.resolve(".gitignore")
+        // git's wildmatch treats '^' right after '[' as negation, same as '!'.
+        Files.writeString(
+            gitignore,
+            """
+            [^a-z]caret.txt
+            """.trimIndent(),
+        )
+
+        val filter = GitignoreFilter()
+
+        // Negated class [^a-z] should match a non-lowercase-letter first char
+        val upperCaret = tempDir.resolve("1caret.txt")
+        Files.createFile(upperCaret)
+        assertTrue(filter.shouldExclude(upperCaret, false, createContext(upperCaret, tempDir)))
+
+        // Should NOT match when the first char IS in the excluded a-z range
+        val lowerCaret = tempDir.resolve("bcaret.txt")
+        Files.createFile(lowerCaret)
+        assertFalse(filter.shouldExclude(lowerCaret, false, createContext(lowerCaret, tempDir)))
+    }
+
+    @Test
+    fun `should support a backslash-escaped closing bracket inside a character class`(@TempDir tempDir: Path) {
+        val gitDir = tempDir.resolve(".git")
+        Files.createDirectory(gitDir)
+
+        val gitignore = tempDir.resolve(".gitignore")
+        // The class [\]] matches a single literal ']' character.
+        Files.writeString(
+            gitignore,
+            """
+            a[\]]b.txt
+            """.trimIndent(),
+        )
+
+        val filter = GitignoreFilter()
+
+        // Should match the literal ']' matched by the escaped-bracket class
+        val literalBracketFile = tempDir.resolve("a]b.txt")
+        Files.createFile(literalBracketFile)
+        assertTrue(filter.shouldExclude(literalBracketFile, false, createContext(literalBracketFile, tempDir)))
+
+        // Should NOT match other characters in that position
+        val otherCharFile = tempDir.resolve("axb.txt")
+        Files.createFile(otherCharFile)
+        assertFalse(filter.shouldExclude(otherCharFile, false, createContext(otherCharFile, tempDir)))
+
+        // Sanity check: other, unrelated .gitignore patterns in the same repo
+        // (parsed after this class) must still work, proving the regex compiled successfully.
+        val readme = tempDir.resolve("README.md")
+        Files.createFile(readme)
+        assertFalse(filter.shouldExclude(readme, false, createContext(readme, tempDir)))
+    }
+
+    @Test
     fun `should support backslash-escaped special characters`(@TempDir tempDir: Path) {
         val gitDir = tempDir.resolve(".git")
         Files.createDirectory(gitDir)
@@ -616,6 +676,12 @@ class GitignoreFilterTest {
         assertTrue(filter.shouldExclude(trailingFile, false, createContext(trailingFile, tempDir)))
 
         // Pattern should be "escaped.txt " (with trailing space) due to escaping
+        val escapedFileWithSpace = tempDir.resolve("escaped.txt ")
+        Files.createFile(escapedFileWithSpace)
+        assertTrue(filter.shouldExclude(escapedFileWithSpace, false, createContext(escapedFileWithSpace, tempDir)))
+
+        // The no-space variant should NOT match, proving the trailing space was preserved
+        // (not stripped) as a significant part of the pattern.
         val escapedFileNoSpace = tempDir.resolve("escaped.txt")
         Files.createFile(escapedFileNoSpace)
         assertFalse(filter.shouldExclude(escapedFileNoSpace, false, createContext(escapedFileNoSpace, tempDir)))

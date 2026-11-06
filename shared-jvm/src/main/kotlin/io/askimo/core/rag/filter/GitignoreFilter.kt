@@ -140,13 +140,21 @@ class GitignoreParser(private val rootPath: Path) {
      * Find the index of the closing ']' for a character class starting at
      * [openIdx] (the index of '['). A ']' immediately after '[' or '[!'/'[^'
      * is treated as a literal member of the class rather than the closer,
-     * matching standard glob/fnmatch semantics.
+     * matching standard glob/fnmatch semantics. A backslash-escaped ']'
+     * (e.g. the class `[\]]`, matching a literal ']') is also skipped over
+     * rather than mistaken for the closing bracket.
      */
     private fun findClosingBracket(pattern: String, openIdx: Int): Int {
         var j = openIdx + 1
         if (j < pattern.length && (pattern[j] == '!' || pattern[j] == '^')) j++
         if (j < pattern.length && pattern[j] == ']') j++
-        while (j < pattern.length && pattern[j] != ']') j++
+        while (j < pattern.length && pattern[j] != ']') {
+            if (pattern[j] == '\\' && j + 1 < pattern.length) {
+                j += 2 // Skip the escaped character; it can't close the class
+            } else {
+                j++
+            }
+        }
         return if (j < pattern.length) j else -1
     }
 
@@ -198,11 +206,13 @@ class GitignoreParser(private val rootPath: Path) {
                         val closeIdx = findClosingBracket(pattern, i)
                         if (closeIdx != -1) {
                             var content = pattern.substring(i + 1, closeIdx)
-                            // Glob negation inside a class uses '!', regex uses '^'
-                            content = when {
-                                content.startsWith("!") -> "^" + content.substring(1)
-                                content.startsWith("^") -> "\\^" + content.substring(1)
-                                else -> content
+                            // git's wildmatch treats both '!' and '^' right after '[' as class
+                            // negation (see NEGATE_CLASS / NEGATE_CLASS2 in wildmatch.c) - there is
+                            // no way to escape a literal leading '^' in a non-negated class.
+                            content = if (content.startsWith("!") || content.startsWith("^")) {
+                                "^" + content.substring(1)
+                            } else {
+                                content
                             }
                             append("[").append(content).append("]")
                             i = closeIdx // Advance to the closing ']' (loop will i++ past it)
