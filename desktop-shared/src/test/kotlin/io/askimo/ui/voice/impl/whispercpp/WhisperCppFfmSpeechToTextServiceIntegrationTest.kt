@@ -52,9 +52,11 @@ class WhisperCppFfmSpeechToTextServiceIntegrationTest {
         modelPath = try {
             downloadModelIfMissing()
         } catch (e: Exception) {
-            null.also {
-                println("Skipping ${javaClass.simpleName}: could not download whisper model (${e.message})")
+            if (System.getenv("CI") != null) {
+                throw IllegalStateException("Could not download whisper model for integration test in CI", e)
             }
+            println("Skipping ${javaClass.simpleName}: could not download whisper model (${e.message})")
+            null
         }
     }
 
