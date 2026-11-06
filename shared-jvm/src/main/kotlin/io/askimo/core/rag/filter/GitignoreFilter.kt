@@ -76,7 +76,7 @@ class GitignoreParser(private val rootPath: Path) {
         globalGitignorePaths.forEach { gitignoreFile ->
             try {
                 Files.readAllLines(gitignoreFile)
-                    .map { it.trim() }
+                    .map { trimTrailingUnescapedSpaces(it) }
                     .filterNot { it.isEmpty() || it.startsWith("#") }
                     .forEach { line ->
                         // Global gitignore patterns apply from the root
@@ -98,7 +98,7 @@ class GitignoreParser(private val rootPath: Path) {
                     try {
                         val gitignoreDir = gitignoreFile.parent
                         Files.readAllLines(gitignoreFile)
-                            .map { it.trim() }
+                            .map { trimTrailingUnescapedSpaces(it) }
                             .filterNot { it.isEmpty() || it.startsWith("#") }
                             .forEach { line ->
                                 patterns.add(parsePattern(line, gitignoreDir))
@@ -111,6 +111,43 @@ class GitignoreParser(private val rootPath: Path) {
         } catch (e: Exception) {
             log.warn("Failed to walk directory tree for .gitignore files", e)
         }
+    }
+
+    /**
+     * Strip trailing spaces from a raw .gitignore line, unless they are
+     * escaped with a backslash (per gitignore spec). Leading whitespace is
+     * preserved since it is treated as significant/literal by git.
+     */
+    private fun trimTrailingUnescapedSpaces(rawLine: String): String {
+        // Drop any stray \r left over from CRLF line endings.
+        val line = rawLine.removeSuffix("\r")
+        var end = line.length
+        while (end > 0 && line[end - 1] == ' ') {
+            var backslashCount = 0
+            var j = end - 2
+            while (j >= 0 && line[j] == '\\') {
+                backslashCount++
+                j--
+            }
+            // An odd number of preceding backslashes means this space is escaped.
+            if (backslashCount % 2 == 1) break
+            end--
+        }
+        return line.substring(0, end)
+    }
+
+    /**
+     * Find the index of the closing ']' for a character class starting at
+     * [openIdx] (the index of '['). A ']' immediately after '[' or '[!'/'[^'
+     * is treated as a literal member of the class rather than the closer,
+     * matching standard glob/fnmatch semantics.
+     */
+    private fun findClosingBracket(pattern: String, openIdx: Int): Int {
+        var j = openIdx + 1
+        if (j < pattern.length && (pattern[j] == '!' || pattern[j] == '^')) j++
+        if (j < pattern.length && pattern[j] == ']') j++
+        while (j < pattern.length && pattern[j] != ']') j++
+        return if (j < pattern.length) j else -1
     }
 
     private fun parsePattern(line: String, gitignoreDir: Path): GitignorePattern {
@@ -134,9 +171,17 @@ class GitignoreParser(private val rootPath: Path) {
                 when (val c = pattern[i]) {
                     '*' -> {
                         if (i + 1 < pattern.length && pattern[i + 1] == '*') {
-                            // ** in middle or end - matches any number of directories
-                            append(".*")
-                            i++ // Skip next *
+                            val precededBySlash = isNotEmpty() && last() == '/'
+                            val followedBySlash = i + 2 < pattern.length && pattern[i + 2] == '/'
+                            if (precededBySlash && followedBySlash) {
+                                // "/**/" matches zero or more path segments
+                                append("(?:.*/)?")
+                                i += 2 // Skip the second '*' and the following '/'
+                            } else {
+                                // ** at the start/end (no slash on both sides) - matches any number of directories
+                                append(".*")
+                                i++ // Skip next *
+                            }
                         } else {
                             // * matches anything except /
                             append("[^/]*")
@@ -148,6 +193,34 @@ class GitignoreParser(private val rootPath: Path) {
                     '.' -> append("\\.")
 
                     '/' -> append("/")
+
+                    '[' -> {
+                        val closeIdx = findClosingBracket(pattern, i)
+                        if (closeIdx != -1) {
+                            var content = pattern.substring(i + 1, closeIdx)
+                            // Glob negation inside a class uses '!', regex uses '^'
+                            content = when {
+                                content.startsWith("!") -> "^" + content.substring(1)
+                                content.startsWith("^") -> "\\^" + content.substring(1)
+                                else -> content
+                            }
+                            append("[").append(content).append("]")
+                            i = closeIdx // Advance to the closing ']' (loop will i++ past it)
+                        } else {
+                            // No closing ']' - treat '[' as a literal character
+                            append(Regex.escape("["))
+                        }
+                    }
+
+                    '\\' -> {
+                        // Backslash escapes the next character so it is matched literally
+                        if (i + 1 < pattern.length) {
+                            append(Regex.escape(pattern[i + 1].toString()))
+                            i++ // Skip the escaped character
+                        } else {
+                            append(Regex.escape("\\"))
+                        }
+                    }
 
                     else -> append(Regex.escape(c.toString()))
                 }
@@ -161,7 +234,7 @@ class GitignoreParser(private val rootPath: Path) {
             hasLeadingDoubleAsterisk -> "(^|.*/)$regexPattern(/.*|\$)"
 
             // Pattern starts with / - anchored to root (relative to .gitignore location)
-            line.startsWith("/") -> "^${regexPattern.substring(1)}(/.*|\$)"
+            pattern.startsWith("/") -> "^${regexPattern.substring(1)}(/.*|\$)"
 
             // Pattern contains / - match from current directory down
             pattern.contains("/") -> "^$regexPattern(/.*|\$)"
@@ -239,11 +312,42 @@ class GitignoreParser(private val rootPath: Path) {
             }
         }
 
+        // Per gitignore spec, a negated pattern cannot re-include a file if one
+        // of its parent directories is itself ignored.
+        if (!ignored && matchedPattern?.isNegation == true && hasIgnoredAncestor(path)) {
+            ignored = true
+            log.trace(
+                "Negation pattern '${matchedPattern.pattern}' overridden for $absoluteRelativePath " +
+                    "because a parent directory is ignored",
+            )
+        }
+
         if (ignored && matchedPattern != null) {
             log.trace("Path excluded by gitignore filter: $absoluteRelativePath (pattern: '${matchedPattern.pattern}', regex: '${matchedPattern.regex.pattern}')")
         }
 
         return ignored
+    }
+
+    /**
+     * Check whether any ancestor directory of [path] (excluding the path
+     * itself and the root) is ignored. Used to prevent negation patterns from
+     * re-including files whose parent directory is already excluded.
+     */
+    private fun hasIgnoredAncestor(path: Path): Boolean {
+        var current = path.parent
+        while (current != null) {
+            val relative = try {
+                rootPath.relativize(current).toString()
+            } catch (_: Exception) {
+                null
+            }
+            if (relative.isNullOrEmpty()) break // Reached (or escaped) the root
+
+            if (shouldIgnore(current, isDirectory = true)) return true
+            current = current.parent
+        }
+        return false
     }
 
     fun hasPatterns(): Boolean = patterns.isNotEmpty()
