@@ -55,7 +55,7 @@ sealed interface KeyModifierScheme {
  * macOS modifier model: Cmd (the "primary modifier") and Ctrl are distinct physical keys that
  * can be chorded together, so they're matched/displayed fully independently.
  */
-private object MacKeyModifierScheme : KeyModifierScheme {
+internal object MacKeyModifierScheme : KeyModifierScheme {
     override val displaySeparator = ""
 
     override fun matches(modifiers: ShortcutModifiers, keyEvent: KeyEvent): Boolean {
@@ -89,7 +89,7 @@ private object MacKeyModifierScheme : KeyModifierScheme {
  * [ShortcutModifiers.requiresPrimaryModifier] instead of stacking on top of it, and Meta
  * (the Windows/Super key) never participates in any shortcut on these platforms.
  */
-private object StandardKeyModifierScheme : KeyModifierScheme {
+internal object StandardKeyModifierScheme : KeyModifierScheme {
     override val displaySeparator = "+"
 
     override fun matches(modifiers: ShortcutModifiers, keyEvent: KeyEvent): Boolean {

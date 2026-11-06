@@ -8,12 +8,30 @@ import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
+// These tests assert the Windows/Linux ("non-mac") modifier behavior explicitly, matching the
+// CI matrix in shared-tests.yml (ubuntu-latest / windows-latest; macOS is never exercised there).
+// The scheme is pinned here rather than left to depend on the host OS so the suite behaves the
+// same on a developer's Mac as it does in CI.
 @OptIn(InternalComposeUiApi::class)
 class KeyMapManagerTest {
+
+    private val originalScheme = KeyMapManager.modifierScheme
+
+    @BeforeTest
+    fun pinStandardScheme() {
+        KeyMapManager.modifierScheme = StandardKeyModifierScheme
+    }
+
+    @AfterTest
+    fun restoreScheme() {
+        KeyMapManager.modifierScheme = originalScheme
+    }
 
     private fun keyEvent(
         key: Key,

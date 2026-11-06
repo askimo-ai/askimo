@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.graalvm.native) apply false
     alias(libs.plugins.detekt) apply false
     alias(libs.plugins.license.report) apply false
+    alias(libs.plugins.kover)
 }
 
 group = property("projectGroup") as String
@@ -252,6 +253,58 @@ subprojects {
     plugins.withId("org.jetbrains.kotlin.multiplatform") { configureKotlinQualityTools() }
 }
 
+// ── Kover test coverage ────────────────────────────────────────────────────
+// Every Kotlin module except :detekt-rules (a build-tooling module with no test
+// source — measuring it would just dilute the real numbers) gets Kover applied
+// and configured to exclude SQLDelight-generated code (it's never hand-written,
+// so its "coverage" is meaningless noise). The root project is the Kover
+// "merging module": it depends on every module via `kover(project(":x"))`, so
+// `:koverXmlReport` / `:koverHtmlReport` run at the root produce one genuine,
+// Kover-native merged report in addition to each module's own per-module report.
+//
+// Usage:
+//   ./gradlew coverageReport     — run tests, merge coverage, print/HTML summary
+//   ./gradlew koverHtmlReport    — just the root merged HTML (reports/kover/html)
+
+val koverExcludedPackages = listOf("io.askimo.core.db.sqldelight", "io.askimo.core.db.sqldelight.generated")
+
+subprojects {
+    if (name == "detekt-rules") return@subprojects
+
+    val configureKoverForModule: () -> Unit = {
+        plugins.apply("org.jetbrains.kotlinx.kover")
+
+        configure<kotlinx.kover.gradle.plugin.dsl.KoverProjectExtension> {
+            reports {
+                filters {
+                    excludes {
+                        packages(koverExcludedPackages)
+                    }
+                }
+            }
+        }
+    }
+
+    plugins.withId("org.jetbrains.kotlin.jvm") { configureKoverForModule() }
+    plugins.withId("org.jetbrains.kotlin.multiplatform") { configureKoverForModule() }
+}
+
+kover {
+    reports {
+        filters {
+            excludes {
+                packages(koverExcludedPackages)
+            }
+        }
+    }
+}
+
+dependencies {
+    subprojects.filter { it.name != "detekt-rules" }.forEach { sub ->
+        add("kover", project(sub.path))
+    }
+}
+
 // ── Detekt aggregated reports ─────────────────────────────────────────────
 // Usage:
 //   ./gradlew detekt            — analyse all modules, write merged HTML, fail if errors
@@ -407,6 +460,279 @@ tasks.register("detekt") {
         if (errors.isNotEmpty()) {
             throw GradleException("Detekt found ${errors.size} error(s) that must be fixed. See report above.")
         }
+    }
+}
+
+// ── Kover coverage aggregation report ──────────────────────────────────────
+// Usage:
+//   ./gradlew coverageReport  — run every module's tests, merge coverage, write a
+//                               combined HTML dashboard (root total + per-module
+//                               breakdown), and print a console summary table.
+
+/** One module/project's (or the merged total's) coverage counters, in percent. */
+data class CoverageStat(
+    val name: String,
+    val lineCoveredPct: Double,
+    val linesCovered: Int,
+    val linesMissed: Int,
+    val branchCoveredPct: Double,
+    val branchesCovered: Int,
+    val branchesMissed: Int,
+)
+
+/** Parses a Kover-generated, JaCoCo-compatible XML report and returns its top-level LINE/BRANCH counters. */
+@Suppress("UNCHECKED_CAST")
+fun parseKoverXmlCounters(name: String, xmlFile: java.io.File): CoverageStat? {
+    if (!xmlFile.exists()) return null
+    return try {
+        val doc = javax.xml.parsers.DocumentBuilderFactory.newInstance().apply {
+            // The JaCoCo XML report references a DTD by URL; disable fetching/validating it.
+            setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+            isValidating = false
+        }.newDocumentBuilder().parse(xmlFile)
+
+        var linesCovered = 0
+        var linesMissed = 0
+        var branchesCovered = 0
+        var branchesMissed = 0
+
+        val counters = doc.documentElement.childNodes
+        for (i in 0 until counters.length) {
+            val node = counters.item(i)
+            if (node.nodeName != "counter") continue
+            val attrs = node.attributes
+            val type = attrs.getNamedItem("type")?.textContent ?: continue
+            val missed = attrs.getNamedItem("missed")?.textContent?.toIntOrNull() ?: 0
+            val covered = attrs.getNamedItem("covered")?.textContent?.toIntOrNull() ?: 0
+            when (type) {
+                "LINE" -> { linesMissed = missed; linesCovered = covered }
+                "BRANCH" -> { branchesMissed = missed; branchesCovered = covered }
+            }
+        }
+
+        fun pct(covered: Int, missed: Int) = if (covered + missed == 0) 0.0 else (covered * 100.0) / (covered + missed)
+
+        CoverageStat(
+            name = name,
+            lineCoveredPct = pct(linesCovered, linesMissed),
+            linesCovered = linesCovered,
+            linesMissed = linesMissed,
+            branchCoveredPct = pct(branchesCovered, branchesMissed),
+            branchesCovered = branchesCovered,
+            branchesMissed = branchesMissed,
+        )
+    } catch (e: Exception) {
+        logger.warn("Could not parse Kover XML ${xmlFile.path}: ${e.message}")
+        null
+    }
+}
+
+/** Builds a single-page HTML coverage dashboard from the merged total plus each module's own stat. */
+fun buildCoverageHtml(total: CoverageStat?, perModule: List<CoverageStat>): String {
+    fun barColor(pct: Double) = when {
+        pct >= 80.0 -> "#2e7d32"
+        pct >= 50.0 -> "#b8860b"
+        else -> "#cc0000"
+    }
+
+    fun row(stat: CoverageStat) = """
+        <tr style="border-top:1px solid #ddd">
+            <td style="padding:6px 8px;font-weight:bold">${stat.name}</td>
+            <td style="padding:6px 8px;text-align:center;color:${barColor(stat.lineCoveredPct)};font-weight:bold">
+                ${"%.1f".format(stat.lineCoveredPct)}%
+            </td>
+            <td style="padding:6px 8px;text-align:center">${stat.linesCovered} / ${stat.linesCovered + stat.linesMissed}</td>
+            <td style="padding:6px 8px;text-align:center;color:${barColor(stat.branchCoveredPct)};font-weight:bold">
+                ${"%.1f".format(stat.branchCoveredPct)}%
+            </td>
+            <td style="padding:6px 8px;text-align:center">${stat.branchesCovered} / ${stat.branchesCovered + stat.branchesMissed}</td>
+        </tr>
+    """.trimIndent()
+
+    val totalBlock = total?.let {
+        """
+        <div style="display:flex;gap:24px;margin:16px 0">
+          <div style="padding:16px 24px;background:#f0f0f0;border-radius:8px;text-align:center">
+            <div style="font-size:36px;font-weight:bold;color:${barColor(it.lineCoveredPct)}">${"%.1f".format(it.lineCoveredPct)}%</div>
+            <div style="color:#666">Line coverage (total)</div>
+          </div>
+          <div style="padding:16px 24px;background:#f0f0f0;border-radius:8px;text-align:center">
+            <div style="font-size:36px;font-weight:bold;color:${barColor(it.branchCoveredPct)}">${"%.1f".format(it.branchCoveredPct)}%</div>
+            <div style="color:#666">Branch coverage (total)</div>
+          </div>
+        </div>
+        """.trimIndent()
+    } ?: "<p style='color:#cc0000'>No merged report found — run <code>./gradlew koverXmlReport</code> first.</p>"
+
+    return """<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Coverage Report</title>
+<style>body{font-family:sans-serif;max-width:1200px;margin:0 auto;padding:24px}
+table{width:100%;border-collapse:collapse;margin:16px 0}
+th{text-align:left;padding:6px 8px;background:#f0f0f0}</style>
+</head><body>
+<h1>Askimo Coverage Report</h1>
+<p>Generated: ${java.time.LocalDateTime.now()}</p>
+$totalBlock
+<h2>Per-module breakdown</h2>
+<table>
+<tr><th>Module</th><th style="text-align:center">Line %</th><th style="text-align:center">Lines</th>
+<th style="text-align:center">Branch %</th><th style="text-align:center">Branches</th></tr>
+${perModule.sortedBy { it.name }.joinToString("\n") { row(it) }}
+</table>
+</body></html>"""
+}
+
+tasks.register("coverageReport") {
+    group = "verification"
+    description = "Runs tests + Kover on every module, merges coverage, and writes a combined HTML dashboard."
+
+    dependsOn("koverXmlReport")
+    dependsOn(subprojects.mapNotNull { sub -> sub.tasks.findByName("koverXmlReport") })
+    outputs.upToDateWhen { false }
+
+    doLast {
+        val reportDir = layout.buildDirectory.dir("reports/kover").get().asFile.also { it.mkdirs() }
+
+        // ── 1. Root-level merged "total" report (Kover-native, spans all modules) ──
+        val totalXml = layout.buildDirectory.file("reports/kover/report.xml").get().asFile
+        val total = parseKoverXmlCounters("TOTAL (merged)", totalXml)
+
+        // ── 2. Each module's own per-module report, for the breakdown table ────────
+        val perModule = subprojects.mapNotNull { sub ->
+            val xml = sub.layout.buildDirectory.file("reports/kover/report.xml").get().asFile
+            parseKoverXmlCounters(sub.name, xml)
+        }
+
+        // ── 3. Combined HTML dashboard ──────────────────────────────────────────────
+        val htmlFile = reportDir.resolve("coverage-summary.html")
+        htmlFile.writeText(buildCoverageHtml(total, perModule))
+
+        // ── 4. Console summary ──────────────────────────────────────────────────────
+        println("\n======================================================")
+        println("  Coverage Report Summary")
+        println("======================================================")
+        if (total != null) {
+            println("  TOTAL line coverage   : ${"%.1f".format(total.lineCoveredPct)}% (${total.linesCovered}/${total.linesCovered + total.linesMissed})")
+            println("  TOTAL branch coverage : ${"%.1f".format(total.branchCoveredPct)}% (${total.branchesCovered}/${total.branchesCovered + total.branchesMissed})")
+        } else {
+            println("  No merged report found.")
+        }
+        println("------------------------------------------------------")
+        perModule.sortedBy { it.name }.forEach { s ->
+            println("  %-18s line %6.1f%%   branch %6.1f%%".format(s.name, s.lineCoveredPct, s.branchCoveredPct))
+        }
+        println("======================================================\n")
+        println("Report: file://${htmlFile.absolutePath}")
+    }
+}
+
+// ── Coverage non-regression ratchet ────────────────────────────────────────
+// gradle/coverage-baseline.json records the last-known-good line-coverage % for the
+// merged total and each module. `checkCoverageRegression` re-reads the same XML reports
+// coverageReport just produced and fails only if a number *drops* below baseline - tolerance
+// — it never fails for an improvement, and it never ratchets itself (that's a separate,
+// explicit, human-reviewed step via `updateCoverageBaseline`).
+//
+// Usage:
+//   ./gradlew checkCoverageRegression   — fails the build if coverage dropped
+//   ./gradlew updateCoverageBaseline    — overwrite the baseline with today's numbers
+//                                         (run this deliberately after reviewing a genuine
+//                                         improvement; never just to silence a failure)
+
+val coverageBaselineFile = rootProject.file("gradle/coverage-baseline.json")
+
+@Suppress("UNCHECKED_CAST")
+fun readCoverageBaseline(): Pair<Double, Map<String, Double>> {
+    if (!coverageBaselineFile.exists()) return 0.0 to emptyMap()
+    val json = groovy.json.JsonSlurper().parse(coverageBaselineFile) as Map<String, Any>
+    val total = ((json["total"] as? Map<String, Any>)?.get("linePct") as? Number)?.toDouble() ?: 0.0
+    val modules = (json["modules"] as? Map<String, Any>)?.mapNotNull { (name, v) ->
+        val pct = ((v as? Map<String, Any>)?.get("linePct") as? Number)?.toDouble() ?: return@mapNotNull null
+        name to pct
+    }?.toMap() ?: emptyMap()
+    return total to modules
+}
+
+fun coverageTolerance(): Double {
+    if (!coverageBaselineFile.exists()) return 1.0
+    @Suppress("UNCHECKED_CAST")
+    val json = groovy.json.JsonSlurper().parse(coverageBaselineFile) as Map<String, Any>
+    return (json["toleranceLinePct"] as? Number)?.toDouble() ?: 1.0
+}
+
+tasks.register("checkCoverageRegression") {
+    group = "verification"
+    description = "Fails if merged or per-module line coverage dropped below gradle/coverage-baseline.json (minus tolerance)."
+    dependsOn("coverageReport")
+    outputs.upToDateWhen { false }
+
+    doLast {
+        val totalXml = layout.buildDirectory.file("reports/kover/report.xml").get().asFile
+        val total = parseKoverXmlCounters("TOTAL (merged)", totalXml)
+        val perModule = subprojects.mapNotNull { sub ->
+            parseKoverXmlCounters(sub.name, sub.layout.buildDirectory.file("reports/kover/report.xml").get().asFile)
+        }.associateBy { it.name }
+
+        val (baselineTotal, baselineModules) = readCoverageBaseline()
+        val tolerance = coverageTolerance()
+        val regressions = mutableListOf<String>()
+
+        if (total != null && total.lineCoveredPct < baselineTotal - tolerance) {
+            regressions += "TOTAL: ${"%.1f".format(total.lineCoveredPct)}% < baseline ${"%.1f".format(baselineTotal)}% (-$tolerance tolerance)"
+        }
+        baselineModules.forEach { (name, baselinePct) ->
+            val current = perModule[name]?.lineCoveredPct
+            if (current != null && current < baselinePct - tolerance) {
+                regressions += "$name: ${"%.1f".format(current)}% < baseline ${"%.1f".format(baselinePct)}% (-$tolerance tolerance)"
+            }
+        }
+
+        if (regressions.isNotEmpty()) {
+            println("\nCoverage regressions detected:")
+            regressions.forEach { println("  - $it") }
+            throw GradleException(
+                "Line coverage dropped below baseline (gradle/coverage-baseline.json) for " +
+                    "${regressions.size} target(s). See above. If this drop is expected/accepted, " +
+                    "run ./gradlew updateCoverageBaseline after review.",
+            )
+        }
+        println("Coverage regression check passed (no module dropped below its baseline).")
+    }
+}
+
+tasks.register("updateCoverageBaseline") {
+    group = "verification"
+    description = "Overwrites gradle/coverage-baseline.json with the current coverageReport numbers. Run deliberately, not automatically."
+    dependsOn("coverageReport")
+    outputs.upToDateWhen { false }
+
+    doLast {
+        val totalXml = layout.buildDirectory.file("reports/kover/report.xml").get().asFile
+        val total = parseKoverXmlCounters("TOTAL (merged)", totalXml)
+        val perModule = subprojects.mapNotNull { sub ->
+            parseKoverXmlCounters(sub.name, sub.layout.buildDirectory.file("reports/kover/report.xml").get().asFile)
+        }
+
+        val tolerance = coverageTolerance()
+        val modulesJson = perModule.sortedBy { it.name }
+            .joinToString(",\n") { """    "${it.name}": { "linePct": ${"%.1f".format(it.lineCoveredPct)} }""" }
+
+        val json = """
+            {
+              "_comment": "Non-regression floor for ./gradlew coverageReport's checkCoverageRegression task. Line-coverage percentages only (branch is reported but not ratcheted, since Kover's branch counting can shift slightly across versions without any real code change). Update via `./gradlew updateCoverageBaseline` after a deliberate, reviewed improvement — never lower a number just to make the build pass.",
+              "toleranceLinePct": $tolerance,
+              "total": {
+                "linePct": ${"%.1f".format(total?.lineCoveredPct ?: 0.0)}
+              },
+              "modules": {
+            $modulesJson
+              }
+            }
+        """.trimIndent() + "\n"
+
+        coverageBaselineFile.writeText(json)
+        println("Updated ${coverageBaselineFile.path}")
     }
 }
 

@@ -53,3 +53,28 @@ jobs:
           path: "**/build/reports/tests/test"
           retention-days: 7
 
+      # Report-only: reuses the tests that just ran (no re-execution) to produce the merged
+      # Kover coverage dashboard. Uses --continue and continue-on-error so a flaky/failing test
+      # elsewhere never blocks this job — pass/fail for the job is still decided by the `test`
+      # step above. See TESTING.md for how to read/interpret the numbers.
+      - name: Generate coverage report (Linux/macOS)
+        if: always() && runner.os != 'Windows'
+        continue-on-error: true
+        run: ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx2g" --continue coverageReport
+
+      - name: Generate coverage report (Windows)
+        if: always() && runner.os == 'Windows'
+        continue-on-error: true
+        shell: pwsh
+        env:
+          DISABLE_DOCKER_TESTS: 'true'
+        run: .\gradlew.bat --no-daemon "-Dorg.gradle.jvmargs=-Xmx2g" -PDISABLE_DOCKER_TESTS=true --continue coverageReport
+
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: coverage-reports-${{ matrix.name }}-attempt${{ github.run_attempt }}
+          path: "build/reports/kover/**"
+          retention-days: 7
+
