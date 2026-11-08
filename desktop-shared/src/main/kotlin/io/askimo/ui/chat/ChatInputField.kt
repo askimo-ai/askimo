@@ -1606,7 +1606,7 @@ private fun toolsIndicatorButton(
                                             },
                                         )
                                     },
-                                    onToolSelectedChange = { toolName, selected ->
+                                    onToolSelectedChange = @Suppress("UnsafeLaunchInStreamingCallback") { toolName, selected ->
                                         if (server.isBuiltIn) return@mcpServerItem
 
                                         pendingToolSelections["${server.id}:$toolName"] = selected
@@ -1628,6 +1628,9 @@ private fun toolsIndicatorButton(
                                             }
                                         }
 
+                                        // Not a streaming/ordered-event callback despite the "onTool*" name —
+                                        // a one-shot settings toggle, not shared-state append; plain
+                                        // `scope.launch` fire-and-forget is safe here.
                                         scope.launch(Dispatchers.IO) {
                                             globalMcpService?.setToolSelected(server.id, toolName, selected)
                                         }

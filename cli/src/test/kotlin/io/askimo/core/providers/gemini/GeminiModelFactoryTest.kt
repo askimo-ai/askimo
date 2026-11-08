@@ -39,7 +39,7 @@ class GeminiModelFactoryTest {
     }
 
     private fun createChatService(): ChatClient {
-        val settings = GeminiSettings(apiKey = apiKey, defaultModel = "gemini-2.5-flash")
+        val settings = GeminiSettings(apiKey = apiKey, defaultModel = "gemini-3.5-flash-lite")
 
         return GeminiModelFactory().create(
             settings = settings,

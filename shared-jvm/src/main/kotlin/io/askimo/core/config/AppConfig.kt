@@ -22,7 +22,7 @@ import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.context.AppContextParams
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.LanguageDirectiveChangedEvent
-import io.askimo.core.logging.logger
+import io.askimo.core.logging.currentFileLogger
 import io.askimo.core.providers.ModelProvider
 import io.askimo.core.rag.MetadataAwareContentInjector
 import io.askimo.core.security.SecureKeyManager
@@ -39,8 +39,7 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 import kotlin.io.path.isRegularFile
 
-private object AppConfigObject
-private val log = logger<AppConfigObject>()
+private val log = currentFileLogger()
 
 data class EmbeddingConfig(
     val maxCharsPerChunk: Int = 3000,

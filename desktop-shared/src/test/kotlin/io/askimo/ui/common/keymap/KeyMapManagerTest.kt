@@ -8,12 +8,26 @@ import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 @OptIn(InternalComposeUiApi::class)
 class KeyMapManagerTest {
+
+    private val originalScheme = KeyMapManager.modifierScheme
+
+    @BeforeTest
+    fun pinStandardScheme() {
+        KeyMapManager.modifierScheme = StandardKeyModifierScheme
+    }
+
+    @AfterTest
+    fun restoreScheme() {
+        KeyMapManager.modifierScheme = originalScheme
+    }
 
     private fun keyEvent(
         key: Key,

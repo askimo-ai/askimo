@@ -16,9 +16,9 @@ import io.askimo.core.i18n.LocalizationManager
  * Handles all keyboard shortcuts and provides platform-specific key mappings.
  */
 object KeyMapManager {
-    // Encapsulates macOS vs. Windows/Linux modifier-key differences — see KeyModifierScheme.kt
-    // for why that logic lives in its own per-platform classes rather than inline branches here.
-    private val modifierScheme: KeyModifierScheme = KeyModifierScheme.forCurrentPlatform()
+    // Per-platform modifier-key differences (see KeyModifierScheme.kt). Internal and mutable
+    // so tests can pin a specific scheme instead of depending on the host OS.
+    internal var modifierScheme: KeyModifierScheme = KeyModifierScheme.forCurrentPlatform()
 
     /**
      * Defines all application shortcuts

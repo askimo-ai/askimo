@@ -45,11 +45,58 @@ jobs:
           DISABLE_DOCKER_TESTS: 'true'
         run: .\gradlew.bat --no-daemon "-Dorg.gradle.jvmargs=-Xmx2g" -PDISABLE_DOCKER_TESTS=true test
 
+      # Lincheck concurrency tests (see desktop-shared/.../OrderedEventQueueLincheckTest.kt):
+      # kept as a separate task/step from `test` because it needs extra JVM args Lincheck
+      # requires (see desktop-shared/build.gradle.kts) and can be slower. Runs on all three
+      # OSes like regular tests, since concurrency/scheduling behavior is platform-sensitive.
+      - name: Run Lincheck concurrency tests (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx2g" lincheckTest
+
+      - name: Run Lincheck concurrency tests (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: .\gradlew.bat --no-daemon "-Dorg.gradle.jvmargs=-Xmx2g" lincheckTest
+
+      - name: Upload Lincheck test reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: lincheck-test-reports-${{ matrix.name }}-attempt${{ github.run_attempt }}
+          path: "**/build/reports/tests/lincheckTest"
+          retention-days: 7
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: test-reports-${{ matrix.name }}-attempt${{ github.run_attempt }}
           path: "**/build/reports/tests/test"
+          retention-days: 7
+
+      # Report-only: reuses the tests that just ran (no re-execution) to produce the merged
+      # Kover coverage dashboard. Uses --continue and continue-on-error so a flaky/failing test
+      # elsewhere never blocks this job — pass/fail for the job is still decided by the `test`
+      # step above. See the module Kover config in build.gradle.kts for how the numbers are
+      # computed.
+      - name: Generate coverage report (Linux/macOS)
+        if: always() && runner.os != 'Windows'
+        continue-on-error: true
+        run: ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx2g" --continue coverageReport
+
+      - name: Generate coverage report (Windows)
+        if: always() && runner.os == 'Windows'
+        continue-on-error: true
+        shell: pwsh
+        env:
+          DISABLE_DOCKER_TESTS: 'true'
+        run: .\gradlew.bat --no-daemon "-Dorg.gradle.jvmargs=-Xmx2g" -PDISABLE_DOCKER_TESTS=true --continue coverageReport
+
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: coverage-reports-${{ matrix.name }}-attempt${{ github.run_attempt }}
+          path: "build/reports/kover/**"
           retention-days: 7
 

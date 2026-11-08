@@ -38,6 +38,7 @@ import io.askimo.core.providers.sendStreamingMessageWithCallback
 import io.askimo.core.vision.ImageProcessor
 import io.askimo.ui.chat.ChatViewModel
 import io.askimo.ui.chat.CreationMode
+import io.askimo.ui.common.OrderedEventQueue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -47,7 +48,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -56,7 +56,6 @@ import kotlinx.coroutines.withContext
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.time.Clock
 
 /**
@@ -174,6 +173,21 @@ class SessionManager(
         }
 
         private val mutex = Mutex()
+
+        // Serializes onToken/onThinkingToken/onToolStarted/onToolFinished so they apply in
+        // true arrival order — see OrderedEventQueue's KDoc for the out-of-order-text bug this
+        // prevents. `mutex` above still guards each individual read-modify-write, but ordering
+        // itself is guaranteed by this single-consumer queue, not by the mutex.
+        private val eventQueue = OrderedEventQueue()
+
+        /** Enqueues [action] to run on the single timeline-processing coroutine, preserving the caller's call order. Call synchronously from the callback that observed the event. */
+        fun enqueue(action: suspend () -> Unit) = eventQueue.enqueue(action)
+
+        /** Starts the single consumer draining this thread's event queue in FIFO order. */
+        fun startEventProcessing(scope: CoroutineScope): Job = eventQueue.startProcessing(scope)
+
+        /** Signals no more events will be enqueued; callers must still join [startEventProcessing]'s Job to await full drain. */
+        fun closeEventQueue() = eventQueue.close()
 
         /** Appends a response-text chunk as a Token entry, at its true chronological position. */
         suspend fun appendChunk(chunk: String) {
@@ -337,10 +351,10 @@ class SessionManager(
         // LAZY: gives a real, stable, cancellable Job before the coroutine body runs — without
         // passing an external Job into launch()'s context, which breaks structured concurrency.
         thread.job = streamingScope.launch(start = CoroutineStart.LAZY) {
-            // Tracks fire-and-forget timeline-mutating jobs (onToken, onThinkingToken,
-            // onToolStarted, onToolFinished); joined before any thread.timeline read below so
-            // persistence never misses an update still in flight.
-            val pendingUpdateJobs = ConcurrentLinkedQueue<Job>()
+            // Single consumer applying timeline-mutating events in enqueue order (see
+            // OrderedEventQueue's KDoc). Must be closed + joined before any thread.timeline
+            // read below so persistence never misses or misorders an in-flight update.
+            val eventProcessingJob = thread.startEventProcessing(streamingScope)
             try {
                 if (mode is CreationMode.Chat) {
                     var capturedInputTokens: Int? = null
@@ -376,21 +390,13 @@ class SessionManager(
 
                     val fullResponse = try {
                         val sessionContext = chatSessionService.getOrCreateContextForSession(sessionId)
-                        // Keyed by the tool request id (not toolName/arguments) so two parallel
-                        // calls to the same tool with identical arguments don't collide.
-                        // markToolDone joins the matching start job first so a delayed
-                        // RUNNING-append can't land after a faster DONE-append and leave the
-                        // tool stuck RUNNING.
-                        val pendingToolStartJobs = ConcurrentHashMap<String, Job>()
                         sessionContext.chatClient
                             .sendStreamingMessageWithCallback(
                                 projectId = projectId,
                                 userContents = promptWithContext,
                                 enabledServerIds = enabledServerIds,
                                 onToken = { token ->
-                                    pendingUpdateJobs += streamingScope.launch {
-                                        thread.appendChunk(token)
-                                    }
+                                    thread.enqueue { thread.appendChunk(token) }
                                 },
                                 onFollowUpSuggestion = { suggestion ->
                                     log.debug("Follow-up suggestion for session $sessionId: ${suggestion.question}")
@@ -403,26 +409,17 @@ class SessionManager(
                                     log.debug("Token usage for session $sessionId: input=$input, output=$output, total=$total, duration=${durationMs}ms")
                                 },
                                 onToolStarted = { id, toolName, arguments ->
-                                    val job = streamingScope.launch {
-                                        thread.markToolRunning(id, toolName, arguments)
-                                    }
-                                    pendingToolStartJobs[id] = job
-                                    pendingUpdateJobs += job
+                                    thread.enqueue { thread.markToolRunning(id, toolName, arguments) }
                                 },
                                 onToolFinished = { id, toolName, arguments, result, hasFailed ->
-                                    pendingUpdateJobs += streamingScope.launch {
-                                        pendingToolStartJobs.remove(id)?.join()
-                                        thread.markToolDone(id, toolName, arguments, result, hasFailed)
-                                    }
+                                    thread.enqueue { thread.markToolDone(id, toolName, arguments, result, hasFailed) }
                                 },
                                 onThinkingToken = { token ->
-                                    pendingUpdateJobs += streamingScope.launch {
-                                        thread.appendThinkingChunk(token)
-                                    }
+                                    thread.enqueue { thread.appendThinkingChunk(token) }
                                 },
                                 resolvedTools = resolvedTools,
                                 onToolApprovalRequired = { toolName, arguments, approve, deny ->
-                                    streamingScope.launch {
+                                    thread.enqueue {
                                         val argBlock = if (!arguments.isNullOrBlank()) {
                                             ":\n```json\n$arguments\n```"
                                         } else {
@@ -436,11 +433,11 @@ class SessionManager(
                                                 toolName = toolName,
                                                 arguments = arguments,
                                                 approve = {
-                                                    streamingScope.launch { thread.clearApproval() }
+                                                    thread.enqueue { thread.clearApproval() }
                                                     approve()
                                                 },
                                                 deny = {
-                                                    streamingScope.launch { thread.clearApproval() }
+                                                    thread.enqueue { thread.clearApproval() }
                                                     deny()
                                                 },
                                             ),
@@ -448,16 +445,15 @@ class SessionManager(
                                     }
                                 },
                                 onToolApprovalTimedOut = {
-                                    streamingScope.launch { thread.clearApproval() }
+                                    thread.enqueue { thread.clearApproval() }
                                 },
                                 // Awaitable companion to onToolFinished: used only on approval
                                 // timeout/denial so markToolDone() applies before the exception
                                 // propagates — otherwise the tool could be persisted as RUNNING.
                                 onToolFinishedAwaitable = { id, toolName, arguments, result, hasFailed ->
                                     CompletableFuture<Unit>().apply {
-                                        streamingScope.launch {
+                                        thread.enqueue {
                                             try {
-                                                pendingToolStartJobs.remove(id)?.join()
                                                 thread.markToolDone(id, toolName, arguments, result, hasFailed)
                                             } finally {
                                                 complete(Unit)
@@ -473,8 +469,11 @@ class SessionManager(
                         if (needsMessageCorrelation) ProxyChatContext.clear()
                     }
 
-                    // Wait for in-flight timeline updates before reading it below.
-                    pendingUpdateJobs.joinAll()
+                    // Close the queue then join its consumer — guarantees every in-flight
+                    // timeline update has actually applied before reading it below (not just
+                    // that it was enqueued).
+                    thread.closeEventQueue()
+                    eventProcessingJob.join()
 
                     val savedMessage = chatSessionService.saveAiResponse(
                         sessionId = sessionId,
@@ -537,7 +536,8 @@ class SessionManager(
                 thread.markFailed()
 
                 // Same reason as the success path — updates may still be in flight.
-                pendingUpdateJobs.joinAll()
+                thread.closeEventQueue()
+                eventProcessingJob.join()
 
                 val partialResponse = thread.getCurrentContent()
                 val failedResponse = if (e is ConfigurationErrorException) {
