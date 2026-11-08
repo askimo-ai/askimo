@@ -537,7 +537,12 @@ internal class AgentRunViewModel(
         val turnTimelineQueue = OrderedEventQueue()
         timelineQueue = turnTimelineQueue
         currentRunJob = scope.launch {
-            timelineProcessingJob = turnTimelineQueue.startProcessing(scope)
+            // Kept as a local in addition to the `timelineProcessingJob` field: this turn's own
+            // completion path below must join *this* job specifically, not whatever the field
+            // happens to hold by the time it gets there — see the join() call near the end of
+            // this block for why.
+            val turnTimelineProcessingJob = turnTimelineQueue.startProcessing(scope)
+            timelineProcessingJob = turnTimelineProcessingJob
             // Clear the timeline for this turn now that turnId is bumped — any pending
             // callback from a superseded turn will fail the turnId check above regardless of
             // whether this clear has run yet.
@@ -615,11 +620,13 @@ internal class AgentRunViewModel(
             isWaitingForFirstEvent = false
             // Close this turn's queue and await full drain *before* taking the final snapshot
             // below — `agent.runTracked` returning only means the agent process finished
-            // emitting events, not that every enqueued timeline mutation has applied yet.
-            // Without this, trailing tokens/tool-calls could still be in flight and silently
-            // missing from `finalTimeline`/the persisted record.
+            // emitting events, not that every enqueued mutation has applied yet. Joins the
+            // local `turnTimelineProcessingJob`, not the `timelineProcessingJob` field:
+            // `isRunning` just flipped false, so the next turn could already be overwriting
+            // that field, which would join the wrong job (or null) and miss/race entries in
+            // `finalTimeline` below.
             turnTimelineQueue.close()
-            timelineProcessingJob?.join()
+            turnTimelineProcessingJob.join()
             // Ensure the last tool call of the turn ends up DONE even if no trailing event
             // arrived to flip it, and capture the final snapshot while still holding the lock —
             // reading `timeline` in a separate statement after release would leave a window for
