@@ -297,12 +297,23 @@ internal class AgentRunViewModel(
     private var runningAgent: ExternalAgent? = null
     private var currentRunJob: Job? = null
 
-    // Single-consumer queue the current turn's onToken/onToolCall/onStatus/onThinking
-    // callbacks enqueue into (see OrderedEventQueue's KDoc for why per-callback `scope.launch`
-    // doesn't preserve order). Recreated per turn in [executeAgentic]; kept as instance vars so
-    // cancelRun()'s forced-timeout path can also close + join it before its final snapshot.
-    private var timelineQueue: OrderedEventQueue? = null
-    private var timelineProcessingJob: Job? = null
+    /**
+     * Bundles a turn's single-consumer [OrderedEventQueue] (which its
+     * onToken/onToolCall/onStatus/onThinking callbacks enqueue into — see that class's KDoc for
+     * why per-callback `scope.launch` doesn't preserve order) with the [Job] draining it, so the
+     * two always move together as one atomic unit instead of two separately-reassignable
+     * fields. That used to let a reader end up with one turn's queue paired with a *different*
+     * turn's job (or vice versa) if it read them as two separate field accesses after the next
+     * turn had already started overwriting them.
+     */
+    private data class TurnTimelineSession(val queue: OrderedEventQueue, val job: Job?)
+
+    // The current turn's timeline session, set in [executeAgentic] and read by cancelRun()'s
+    // forced-timeout path. Callers needing to act on *this specific turn's* session — including
+    // executeAgentic's own completion path — must capture a local reference up front rather
+    // than re-reading this field later: it can be overwritten by the next turn as soon as
+    // `isRunning` flips back to false.
+    private var timelineSession: TurnTimelineSession? = null
 
     // Safety-net timer started by cancelRun() — forces UI state back to "not running" if
     // executeAgentic's coroutine somehow never observes the cancellation and finalizes on its
@@ -342,8 +353,10 @@ internal class AgentRunViewModel(
                 // Close this turn's event queue and await full drain before taking the
                 // snapshot below — otherwise an already-enqueued (but not yet applied) token
                 // could still land after this "final" read, corrupting the forced snapshot.
-                timelineQueue?.close()
-                timelineProcessingJob?.join()
+                timelineSession?.let {
+                    it.queue.close()
+                    it.job?.join()
+                }
                 // Freeze any still-running tool entry as DONE, then capture the snapshot while
                 // still holding the lock — reading `timeline` in a separate statement after
                 // release would leave a window for one of those still-in-flight (but now
@@ -535,14 +548,14 @@ internal class AgentRunViewModel(
 
         runningAgent = agent
         val turnTimelineQueue = OrderedEventQueue()
-        timelineQueue = turnTimelineQueue
+        timelineSession = TurnTimelineSession(turnTimelineQueue, job = null)
         currentRunJob = scope.launch {
-            // Kept as a local in addition to the `timelineProcessingJob` field: this turn's own
+            // Kept as a local in addition to the `timelineSession` field: this turn's own
             // completion path below must join *this* job specifically, not whatever the field
             // happens to hold by the time it gets there — see the join() call near the end of
             // this block for why.
             val turnTimelineProcessingJob = turnTimelineQueue.startProcessing(scope)
-            timelineProcessingJob = turnTimelineProcessingJob
+            timelineSession = TurnTimelineSession(turnTimelineQueue, turnTimelineProcessingJob)
             // Clear the timeline for this turn now that turnId is bumped — any pending
             // callback from a superseded turn will fail the turnId check above regardless of
             // whether this clear has run yet.
@@ -618,13 +631,11 @@ internal class AgentRunViewModel(
             val errorText = exception?.message?.takeIf { !isCancelled }
             isRunning = false
             isWaitingForFirstEvent = false
-            // Close this turn's queue and await full drain *before* taking the final snapshot
-            // below — `agent.runTracked` returning only means the agent process finished
-            // emitting events, not that every enqueued mutation has applied yet. Joins the
-            // local `turnTimelineProcessingJob`, not the `timelineProcessingJob` field:
-            // `isRunning` just flipped false, so the next turn could already be overwriting
-            // that field, which would join the wrong job (or null) and miss/race entries in
-            // `finalTimeline` below.
+            // Close and await full drain before the final snapshot below — run() returning
+            // doesn't mean every enqueued mutation has applied yet. Joins the local
+            // `turnTimelineProcessingJob`, not the `timelineSession` field: `isRunning` just
+            // flipped false, so the next turn may already have overwritten that field — see
+            // TurnSessionJoinRaceTest.
             turnTimelineQueue.close()
             turnTimelineProcessingJob.join()
             // Ensure the last tool call of the turn ends up DONE even if no trailing event

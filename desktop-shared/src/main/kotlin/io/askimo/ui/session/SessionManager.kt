@@ -43,6 +43,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -576,6 +577,17 @@ class SessionManager(
                 // replaces the temporary message with the saved one from the database.
                 thread.markComplete()
             } finally {
+                // Safety net: idempotent (close/join on an already-closed queue/completed job
+                // are no-ops), so this drains any branch above that doesn't explicitly do so
+                // (e.g. image generation) without double-draining paths that already did for
+                // read-ordering. NonCancellable: `thread.job` may already be cancelling (see
+                // the cancel() call sites), where a plain suspend call would throw instead of
+                // awaiting the drain.
+                withContext(NonCancellable) {
+                    thread.closeEventQueue()
+                    eventProcessingJob.join()
+                }
+
                 // Do NOT remove from activeThreads here — ChatViewModel.subscribeToThread()
                 // reads this thread to get savedMessage and replace the temp UI message with
                 // the persisted one (real ID, isFailed flag). If a fast failure removed the
