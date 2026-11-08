@@ -560,6 +560,10 @@ internal class AgentRunViewModel(
             // callback from a superseded turn will fail the turnId check above regardless of
             // whether this clear has run yet.
             resetTimeline()
+            // Local mirror of `currentTurnResponse`: the shared field is reset to "" by the
+            // *next* turn's start (before this turn's own completion path below gets to read
+            // it) — see AgentRunViewModelTurnIsolationTest. This local is this turn's alone.
+            val turnResponseBuilder = StringBuilder()
             val result = withContext(Dispatchers.IO) {
                 // Materialize every skill in the catalog into the agent's own native
                 // skill-discovery location (e.g. Claude Code's `.claude/skills/<name>/`) so its
@@ -574,11 +578,12 @@ internal class AgentRunViewModel(
                         workDir = workDir,
                         resumeSessionId = resumeSessionId,
                         onToken = { token ->
-                            // Same turnId guard as the timeline append below — otherwise a
-                            // stale callback (e.g. after a forced cancel-timeout) could keep
-                            // appending to currentTurnResponse after its timeline writes are
-                            // already rejected, desyncing the persisted response from
-                            // finalTimeline.
+                            // turnResponseBuilder is local to this turn's own closure — always
+                            // safe to append. `currentTurnResponse` (shared, UI-bound) is
+                            // guarded: a stale callback (e.g. after a forced cancel-timeout)
+                            // could otherwise keep appending after its timeline writes are
+                            // already rejected, desyncing the live display from finalTimeline.
+                            turnResponseBuilder.append(token)
                             if (turnId == currentTurnId.get()) {
                                 currentTurnResponse += token
                             }
@@ -647,12 +652,19 @@ internal class AgentRunViewModel(
                 completeRunningTools()
                 timeline
             }
-            runningAgent = null
-            currentRunJob = null
-            // Normal completion path reached — the cancelRun() safety net (if one was started)
-            // is no longer needed.
-            cancelTimeoutJob?.cancel()
-            cancelTimeoutJob = null
+            // Only clear these if no newer turn has already claimed them — bumpTurnId() means
+            // a new turn started in the (now closed) window after `isRunning = false` above,
+            // and unconditionally nulling here would null *that* turn's active agent/job and
+            // cancel its own safety-net timer, making its cancelRun() a silent no-op. See
+            // AgentRunViewModelTurnIsolationTest.
+            if (turnId == currentTurnId.get()) {
+                runningAgent = null
+                currentRunJob = null
+                // Normal completion path reached — the cancelRun() safety net (if one was
+                // started) is no longer needed.
+                cancelTimeoutJob?.cancel()
+                cancelTimeoutJob = null
+            }
 
             // Capture (or keep) the session id so the next follow-up turn can resume this
             // exact conversation — including after a cancellation, since the underlying CLI
@@ -673,7 +685,7 @@ internal class AgentRunViewModel(
             messages = messages
                 .ensureStreamingAiMessage()
                 .finalizeStreamingAiMessage(
-                    finalContent = currentTurnResponse.ifBlank { errorText.orEmpty() },
+                    finalContent = turnResponseBuilder.toString().ifBlank { errorText.orEmpty() },
                     isFailed = errorText != null,
                     usage = usage,
                     messageId = finalizedMessageId,
@@ -691,7 +703,7 @@ internal class AgentRunViewModel(
                 conversationId = activeConversationId,
                 title = conversationTitle ?: TitleGenerator.fallbackTitle(input),
                 userInput = input,
-                response = currentTurnResponse,
+                response = turnResponseBuilder.toString(),
                 error = errorText,
                 isCancelled = isCancelled,
                 agentId = agent.id,
