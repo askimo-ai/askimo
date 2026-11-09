@@ -21,14 +21,6 @@ object TestContainersConfig {
 
         System.setProperty("api.version", "1.44")
 
-        // Testcontainers only honors reuse.enable from ~/.testcontainers.properties,
-        // not from a system property — write it so CI runners (and fresh machines) opt in too.
-        val propsFile = java.io.File(System.getProperty("user.home"), ".testcontainers.properties")
-        val alreadyEnabled = propsFile.exists() && propsFile.readText().contains("testcontainers.reuse.enable=true")
-        if (!alreadyEnabled) {
-            propsFile.appendText("testcontainers.reuse.enable=true\n")
-        }
-
         configured = true
     }
 }

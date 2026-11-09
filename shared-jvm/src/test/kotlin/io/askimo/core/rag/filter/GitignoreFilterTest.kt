@@ -681,15 +681,27 @@ class GitignoreFilterTest {
         Files.createDirectory(gitDir)
 
         val gitignore = tempDir.resolve(".gitignore")
-        // "trailing.txt   " (unescaped trailing spaces, should be ignored)
-        // "escaped.txt\ " (escaped trailing space, should be kept as part of the pattern)
-        Files.writeString(gitignore, "trailing.txt   \nescaped.txt\\ \n")
+        Files.writeString(gitignore, "trailing.txt   \n")
 
         val filter = GitignoreFilter()
 
         val trailingFile = tempDir.resolve("trailing.txt")
         Files.createFile(trailingFile)
         assertTrue(filter.shouldExclude(trailingFile, false, createContext(trailingFile, tempDir)))
+    }
+
+    // Windows' Path parser rejects a trailing space in a path component with
+    // InvalidPathException — the Path itself can't be constructed there, not just the file.
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    fun `should keep an escaped trailing space as part of the pattern`(@TempDir tempDir: Path) {
+        val gitDir = tempDir.resolve(".git")
+        Files.createDirectory(gitDir)
+
+        val gitignore = tempDir.resolve(".gitignore")
+        Files.writeString(gitignore, "escaped.txt\\ \n")
+
+        val filter = GitignoreFilter()
 
         // Pattern should be "escaped.txt " (with trailing space) due to escaping. Not actually
         // created on disk: Windows' Win32 CreateFile API silently strips trailing spaces from

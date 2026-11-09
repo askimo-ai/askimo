@@ -34,6 +34,13 @@ jobs:
         with:
           cache-read-only: true
 
+      # Explicit, ephemeral-runner-scoped opt-in for Testcontainers' container reuse (see
+      # cli/src/test/kotlin/io/askimo/testcontainers/TestContainersConfig.kt for why this isn't
+      # done from test code). Safe here: the runner's home is discarded after the job.
+      - name: Enable Testcontainers reuse
+        if: runner.os != 'Windows'
+        run: echo "testcontainers.reuse.enable=true" >> ~/.testcontainers.properties
+
       - name: Run tests (Linux/macOS)
         if: runner.os != 'Windows'
         run: ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx2g" test
