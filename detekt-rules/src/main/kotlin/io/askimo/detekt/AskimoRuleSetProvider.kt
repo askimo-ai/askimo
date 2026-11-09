@@ -22,6 +22,9 @@ class AskimoRuleSetProvider : RuleSetProvider {
             RuleName("RememberCoroutineScopeInConditionalComposable") to { config: Config ->
                 RememberCoroutineScopeInConditionalComposable(config)
             },
+            RuleName("UnsafeLaunchInStreamingCallback") to { config: Config ->
+                UnsafeLaunchInStreamingCallback(config)
+            },
         ),
     )
 }

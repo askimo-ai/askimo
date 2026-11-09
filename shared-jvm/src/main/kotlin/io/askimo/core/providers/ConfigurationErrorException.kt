@@ -13,7 +13,10 @@ package io.askimo.core.providers
  * to retry the message after fixing the underlying configuration issue.
  *
  * @property displayMessage The human-readable error message already sent to the UI via [onToken].
+ * @param cause The original provider/streaming exception, preserved so logs (and test
+ *   failures) show the real root cause instead of just the localized display message.
  */
 class ConfigurationErrorException(
     val displayMessage: String,
-) : RuntimeException(displayMessage)
+    cause: Throwable? = null,
+) : RuntimeException(displayMessage, cause)

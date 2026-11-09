@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -218,7 +219,7 @@ fun localLlmQuickSetupDialog(onDismiss: () -> Unit, onOpenFullSettings: () -> Un
                     )
 
                     when {
-                        isLoadingModels -> Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        isLoadingModels -> Row(verticalAlignment = Alignment.CenterVertically) {
                             CircularProgressIndicator(modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(Spacing.small))
                             Text(stringResource("settings.local_llm.quick_setup.phase2.loading"), style = AppTextStyles.caption)

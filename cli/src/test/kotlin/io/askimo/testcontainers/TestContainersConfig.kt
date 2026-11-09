@@ -19,7 +19,6 @@ object TestContainersConfig {
     fun ensureConfigured() {
         if (configured) return
 
-        System.setProperty("testcontainers.reuse.enable", "true")
         System.setProperty("api.version", "1.44")
 
         configured = true

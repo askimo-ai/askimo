@@ -31,6 +31,7 @@ import io.askimo.core.db.DatabaseManager
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.AgentRunTitleUpdatedEvent
 import io.askimo.core.logging.currentFileLogger
+import io.askimo.ui.common.OrderedEventQueue
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -296,6 +297,24 @@ internal class AgentRunViewModel(
     private var runningAgent: ExternalAgent? = null
     private var currentRunJob: Job? = null
 
+    /**
+     * Bundles a turn's single-consumer [OrderedEventQueue] (which its
+     * onToken/onToolCall/onStatus/onThinking callbacks enqueue into — see that class's KDoc for
+     * why per-callback `scope.launch` doesn't preserve order) with the [Job] draining it, so the
+     * two always move together as one atomic unit instead of two separately-reassignable
+     * fields. That used to let a reader end up with one turn's queue paired with a *different*
+     * turn's job (or vice versa) if it read them as two separate field accesses after the next
+     * turn had already started overwriting them.
+     */
+    private data class TurnTimelineSession(val queue: OrderedEventQueue, val job: Job?)
+
+    // The current turn's timeline session, set in [executeAgentic] and read by cancelRun()'s
+    // forced-timeout path. Callers needing to act on *this specific turn's* session — including
+    // executeAgentic's own completion path — must capture a local reference up front rather
+    // than re-reading this field later: it can be overwritten by the next turn as soon as
+    // `isRunning` flips back to false.
+    private var timelineSession: TurnTimelineSession? = null
+
     // Safety-net timer started by cancelRun() — forces UI state back to "not running" if
     // executeAgentic's coroutine somehow never observes the cancellation and finalizes on its
     // own (e.g. the OS process refuses to die). Cancelled once the run finishes normally.
@@ -317,13 +336,19 @@ internal class AgentRunViewModel(
         if (!isRunning) return
         val agent = runningAgent ?: return
         log.debug("Cancel requested for active agent run (agent={})", agent.id)
+        // Captured so the delayed fallback below can verify it's still acting on *this* turn
+        // once it fires — see the guard inside scope.launch.
+        val turnId = currentTurnId.get()
         scope.launch(Dispatchers.IO) {
             agent.cancel()
         }
         cancelTimeoutJob?.cancel()
         cancelTimeoutJob = scope.launch {
             delay(8_000.milliseconds)
-            if (isRunning) {
+            // isRunning alone just means "some turn is active" — it could be a newer turn that
+            // started after this one's own completion ran. The turnId check keeps this
+            // fallback from cancelling/finalizing that newer turn instead.
+            if (isRunning && turnId == currentTurnId.get()) {
                 log.warn("Agent run did not finalize within 8s of cancel(); forcing job cancellation")
                 currentRunJob?.cancel()
                 // Invalidate this turn so any callback coroutine still in flight (not a child
@@ -331,6 +356,13 @@ internal class AgentRunViewModel(
                 // currentRunJob above does not stop them) can no longer append to `timeline`
                 // once we read it below.
                 bumpTurnId()
+                // Close this turn's event queue and await full drain before taking the
+                // snapshot below — otherwise an already-enqueued (but not yet applied) token
+                // could still land after this "final" read, corrupting the forced snapshot.
+                timelineSession?.let {
+                    it.queue.close()
+                    it.job?.join()
+                }
                 // Freeze any still-running tool entry as DONE, then capture the snapshot while
                 // still holding the lock — reading `timeline` in a separate statement after
                 // release would leave a window for one of those still-in-flight (but now
@@ -521,11 +553,23 @@ internal class AgentRunViewModel(
         startElapsedTimer()
 
         runningAgent = agent
+        val turnTimelineQueue = OrderedEventQueue()
+        timelineSession = TurnTimelineSession(turnTimelineQueue, job = null)
         currentRunJob = scope.launch {
+            // Kept as a local in addition to the `timelineSession` field: this turn's own
+            // completion path below must join *this* job specifically, not whatever the field
+            // happens to hold by the time it gets there — see the join() call near the end of
+            // this block for why.
+            val turnTimelineProcessingJob = turnTimelineQueue.startProcessing(scope)
+            timelineSession = TurnTimelineSession(turnTimelineQueue, turnTimelineProcessingJob)
             // Clear the timeline for this turn now that turnId is bumped — any pending
             // callback from a superseded turn will fail the turnId check above regardless of
             // whether this clear has run yet.
             resetTimeline()
+            // Local mirror of `currentTurnResponse`: the shared field is reset to "" by the
+            // *next* turn's start (before this turn's own completion path below gets to read
+            // it) — see AgentRunViewModelTurnIsolationTest. This local is this turn's alone.
+            val turnResponseBuilder = StringBuilder()
             val result = withContext(Dispatchers.IO) {
                 // Materialize every skill in the catalog into the agent's own native
                 // skill-discovery location (e.g. Claude Code's `.claude/skills/<name>/`) so its
@@ -540,21 +584,26 @@ internal class AgentRunViewModel(
                         workDir = workDir,
                         resumeSessionId = resumeSessionId,
                         onToken = { token ->
-                            // Same turnId guard as the timeline append below — otherwise a
-                            // stale callback (e.g. after a forced cancel-timeout) could keep
-                            // appending to currentTurnResponse after its timeline writes are
-                            // already rejected, desyncing the persisted response from
-                            // finalTimeline.
+                            // turnResponseBuilder is local to this turn's own closure — always
+                            // safe to append. `currentTurnResponse` (shared, UI-bound) is
+                            // guarded: a stale callback (e.g. after a forced cancel-timeout)
+                            // could otherwise keep appending after its timeline writes are
+                            // already rejected, desyncing the live display from finalTimeline.
+                            turnResponseBuilder.append(token)
                             if (turnId == currentTurnId.get()) {
                                 currentTurnResponse += token
                             }
-                            scope.launch {
+                            // Enqueued (not independently `scope.launch`-ed) so this and every
+                            // other event below apply in true arrival order — see
+                            // OrderedEventQueue's KDoc for why a per-callback `scope.launch`
+                            // doesn't guarantee that despite `timelineMutex`.
+                            turnTimelineQueue.enqueue {
                                 isWaitingForFirstEvent = false
                                 appendTimelineEntry(turnId, TurnTimelineEntry.Token(token))
                             }
                         },
                         onToolCall = { toolName, detail ->
-                            scope.launch {
+                            turnTimelineQueue.enqueue {
                                 isWaitingForFirstEvent = false
                                 appendTimelineEntry(
                                     turnId,
@@ -565,13 +614,13 @@ internal class AgentRunViewModel(
                             }
                         },
                         onStatus = { status ->
-                            scope.launch {
+                            turnTimelineQueue.enqueue {
                                 isWaitingForFirstEvent = false
                                 appendTimelineEntry(turnId, TurnTimelineEntry.Status(status))
                             }
                         },
                         onThinking = { chunk ->
-                            scope.launch {
+                            turnTimelineQueue.enqueue {
                                 isWaitingForFirstEvent = false
                                 appendTimelineEntry(turnId, TurnTimelineEntry.Thinking(chunk))
                             }
@@ -593,6 +642,13 @@ internal class AgentRunViewModel(
             val errorText = exception?.message?.takeIf { !isCancelled }
             isRunning = false
             isWaitingForFirstEvent = false
+            // Close and await full drain before the final snapshot below — run() returning
+            // doesn't mean every enqueued mutation has applied yet. Joins the local
+            // `turnTimelineProcessingJob`, not the `timelineSession` field: `isRunning` just
+            // flipped false, so the next turn may already have overwritten that field — see
+            // TurnSessionJoinRaceTest.
+            turnTimelineQueue.close()
+            turnTimelineProcessingJob.join()
             // Ensure the last tool call of the turn ends up DONE even if no trailing event
             // arrived to flip it, and capture the final snapshot while still holding the lock —
             // reading `timeline` in a separate statement after release would leave a window for
@@ -602,12 +658,19 @@ internal class AgentRunViewModel(
                 completeRunningTools()
                 timeline
             }
-            runningAgent = null
-            currentRunJob = null
-            // Normal completion path reached — the cancelRun() safety net (if one was started)
-            // is no longer needed.
-            cancelTimeoutJob?.cancel()
-            cancelTimeoutJob = null
+            // Only clear these if no newer turn has already claimed them — bumpTurnId() means
+            // a new turn started in the (now closed) window after `isRunning = false` above,
+            // and unconditionally nulling here would null *that* turn's active agent/job and
+            // cancel its own safety-net timer, making its cancelRun() a silent no-op. See
+            // AgentRunViewModelTurnIsolationTest.
+            if (turnId == currentTurnId.get()) {
+                runningAgent = null
+                currentRunJob = null
+                // Normal completion path reached — the cancelRun() safety net (if one was
+                // started) is no longer needed.
+                cancelTimeoutJob?.cancel()
+                cancelTimeoutJob = null
+            }
 
             // Capture (or keep) the session id so the next follow-up turn can resume this
             // exact conversation — including after a cancellation, since the underlying CLI
@@ -628,7 +691,7 @@ internal class AgentRunViewModel(
             messages = messages
                 .ensureStreamingAiMessage()
                 .finalizeStreamingAiMessage(
-                    finalContent = currentTurnResponse.ifBlank { errorText.orEmpty() },
+                    finalContent = turnResponseBuilder.toString().ifBlank { errorText.orEmpty() },
                     isFailed = errorText != null,
                     usage = usage,
                     messageId = finalizedMessageId,
@@ -646,7 +709,7 @@ internal class AgentRunViewModel(
                 conversationId = activeConversationId,
                 title = conversationTitle ?: TitleGenerator.fallbackTitle(input),
                 userInput = input,
-                response = currentTurnResponse,
+                response = turnResponseBuilder.toString(),
                 error = errorText,
                 isCancelled = isCancelled,
                 agentId = agent.id,
