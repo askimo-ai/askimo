@@ -4,9 +4,11 @@
  */
 package io.askimo.core.memory
 
+import dev.langchain4j.agent.tool.ToolExecutionRequest
 import dev.langchain4j.data.message.AiMessage
 import dev.langchain4j.data.message.ChatMessage
 import dev.langchain4j.data.message.SystemMessage
+import dev.langchain4j.data.message.ToolExecutionResultMessage
 import dev.langchain4j.data.message.UserMessage
 import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.request.ChatRequest
@@ -15,8 +17,11 @@ import io.askimo.core.chat.domain.SessionMemory
 import io.askimo.core.chat.repository.SessionMemoryRepository
 import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
+import io.askimo.core.context.MessageRole
 import io.askimo.core.providers.ChatClient
+import io.askimo.core.util.JsonUtils
 import io.askimo.test.extensions.AskimoTestHome
+import kotlinx.serialization.builtins.ListSerializer
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -26,6 +31,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.atLeastOnce
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
@@ -402,7 +408,7 @@ class TokenAwareSummarizingMemoryTest {
     fun `loadFromFilteredMemory should keep valid text and tool-call messages`() {
         memory = createMemory(asyncSummarization = false)
 
-        val request = dev.langchain4j.agent.tool.ToolExecutionRequest.builder()
+        val request = ToolExecutionRequest.builder()
             .id("toolu_valid")
             .name("some_tool")
             .arguments("{}")
@@ -411,7 +417,7 @@ class TokenAwareSummarizingMemoryTest {
         val filtered = listOf(
             MemoryMessage(content = "Hello", type = io.askimo.core.context.MessageRole.USER.value),
             MemoryMessage.from(AiMessage.from(request)),
-            MemoryMessage.from(dev.langchain4j.data.message.ToolExecutionResultMessage.from(request, "tool output")),
+            MemoryMessage.from(ToolExecutionResultMessage.from(request, "tool output")),
         )
 
         memory.loadFromFilteredMemory(filtered)
@@ -675,13 +681,13 @@ class TokenAwareSummarizingMemoryTest {
 
         repeat(20) { i ->
             memory.add(UserMessage.from("filler before $i"))
-            val request = dev.langchain4j.agent.tool.ToolExecutionRequest.builder()
+            val request = ToolExecutionRequest.builder()
                 .id("toolu_pair_$i")
                 .name("some_tool")
                 .arguments("{}")
                 .build()
             memory.add(AiMessage.from(request))
-            memory.add(dev.langchain4j.data.message.ToolExecutionResultMessage.from(request, "output $i"))
+            memory.add(ToolExecutionResultMessage.from(request, "output $i"))
             memory.add(UserMessage.from("filler after $i"))
         }
 
@@ -695,7 +701,7 @@ class TokenAwareSummarizingMemoryTest {
             .map { it.id() }
             .toSet()
         val toolResultIds = finalMessages
-            .filterIsInstance<dev.langchain4j.data.message.ToolExecutionResultMessage>()
+            .filterIsInstance<ToolExecutionResultMessage>()
             .map { it.id() }
             .toSet()
 
@@ -704,6 +710,215 @@ class TokenAwareSummarizingMemoryTest {
             toolResultIds,
             "Every surviving tool_use id must have exactly one matching tool_result and vice versa " +
                 "— a mismatch means a summarization cycle split a tool_use/tool_result pair",
+        )
+    }
+
+    // ── Finalized tool-call round-trip pruning ──────────────────────────────────
+
+    @Test
+    fun `add() should prune a finalized single tool-call round-trip`() {
+        memory = createMemory(asyncSummarization = false)
+
+        val request = ToolExecutionRequest.builder()
+            .id("toolu_1")
+            .name("list_repos")
+            .arguments("{}")
+            .build()
+
+        memory.add(UserMessage.from("What repos do I have?"))
+        memory.add(AiMessage.from(request))
+        memory.add(ToolExecutionResultMessage.from(request, "repo1, repo2, repo3"))
+        memory.add(AiMessage.from("You have 3 repos: repo1, repo2, repo3"))
+
+        val messages = memory.messages()
+        assertEquals(2, messages.size, "Tool-call round-trip should collapse once the turn's final answer arrives")
+        assertTrue(messages[0] is UserMessage)
+        assertEquals("You have 3 repos: repo1, repo2, repo3", (messages[1] as AiMessage).text())
+    }
+
+    @Test
+    fun `add() should prune all rounds of a multi-round tool-call loop once finalized`() {
+        memory = createMemory(asyncSummarization = false)
+
+        val request1 = ToolExecutionRequest.builder()
+            .id("toolu_1").name("list_repos").arguments("{}").build()
+        val request2 = ToolExecutionRequest.builder()
+            .id("toolu_2").name("get_repo_details").arguments("{}").build()
+
+        memory.add(UserMessage.from("What's in my top repo?"))
+        memory.add(AiMessage.from(request1))
+        memory.add(ToolExecutionResultMessage.from(request1, "repo1, repo2, repo3"))
+        memory.add(AiMessage.from(request2))
+        memory.add(ToolExecutionResultMessage.from(request2, "repo1 has 42 stars"))
+        memory.add(AiMessage.from("Your top repo is repo1 with 42 stars."))
+
+        val messages = memory.messages()
+        assertEquals(2, messages.size, "Both tool-call rounds should collapse once the turn's final answer arrives")
+        assertTrue(messages[0] is UserMessage)
+        assertEquals("Your top repo is repo1 with 42 stars.", (messages[1] as AiMessage).text())
+    }
+
+    @Test
+    fun `add() should not prune a turn that never used tools`() {
+        memory = createMemory(asyncSummarization = false)
+        memory.add(UserMessage.from("Hello"))
+        memory.add(AiMessage.from("Hi there!"))
+
+        assertEquals(2, memory.messages().size, "Plain conversation turns must never be touched by tool-call pruning")
+    }
+
+    @Test
+    fun `add() should persist pruning even when the terminal AiMessage has blank text`() {
+        memory = createMemory(asyncSummarization = false)
+
+        val request = ToolExecutionRequest.builder()
+            .id("toolu_1").name("list_repos").arguments("{}").build()
+
+        memory.add(UserMessage.from("What repos do I have?"))
+        memory.add(AiMessage.from(request))
+        memory.add(ToolExecutionResultMessage.from(request, "repo1, repo2, repo3"))
+        // Terminal answer with blank text (e.g. an image-only response). addMessageToDb()'s
+        // blank-text short-circuit must not suppress the database flush of this turn's pruning —
+        // otherwise the DB would keep the stale tool-call round-trip and it would reappear on
+        // the next session load.
+        memory.add(AiMessage.from(""))
+
+        val messages = memory.messages()
+        assertEquals(2, messages.size, "Tool-call round-trip should collapse in memory even with a blank terminal answer")
+        assertTrue(messages[0] is UserMessage)
+        assertEquals("", (messages[1] as AiMessage).text())
+
+        val savedMemoryCaptor = argumentCaptor<SessionMemory>()
+        verify(mockRepository, atLeastOnce()).saveMemory(savedMemoryCaptor.capture())
+        val persistedMessages = JsonUtils.json.decodeFromString(
+            ListSerializer(MemoryMessage.serializer()),
+            savedMemoryCaptor.lastValue.memoryMessages,
+        )
+        assertTrue(
+            persistedMessages.none { it.toolExecutionRequests.isNotEmpty() },
+            "Persisted memoryMessages must not retain the pruned tool-call AiMessage even though the " +
+                "terminal answer is blank: $persistedMessages",
+        )
+        assertTrue(
+            persistedMessages.none { it.type == MessageRole.TOOL_EXECUTION_RESULT_MESSAGE.value },
+            "Persisted memoryMessages must not retain the pruned ToolExecutionResultMessage even though the " +
+                "terminal answer is blank: $persistedMessages",
+        )
+    }
+
+    @Test
+    fun `add() should leave an unfinished tool-call turn untouched`() {
+        memory = createMemory(asyncSummarization = false)
+
+        val request = ToolExecutionRequest.builder()
+            .id("toolu_1").name("list_repos").arguments("{}").build()
+
+        memory.add(UserMessage.from("What repos do I have?"))
+        memory.add(AiMessage.from(request))
+        memory.add(ToolExecutionResultMessage.from(request, "repo1, repo2, repo3"))
+        // No terminal AiMessage yet — the turn is still in flight (e.g. app closed mid tool-call).
+
+        val messages = memory.messages()
+        assertEquals(3, messages.size, "Must not prune a turn before its final answer has arrived")
+    }
+
+    @Test
+    fun `add() should only prune settled turns, leaving a later in-flight turn intact`() {
+        memory = createMemory(asyncSummarization = false)
+
+        val request1 = ToolExecutionRequest.builder()
+            .id("toolu_1").name("list_repos").arguments("{}").build()
+        val request2 = ToolExecutionRequest.builder()
+            .id("toolu_2").name("get_repo_details").arguments("{}").build()
+
+        memory.add(UserMessage.from("turn 1 question"))
+        memory.add(AiMessage.from(request1))
+        memory.add(ToolExecutionResultMessage.from(request1, "turn 1 tool output"))
+        memory.add(AiMessage.from("turn 1 answer"))
+
+        memory.add(UserMessage.from("turn 2 question"))
+        memory.add(AiMessage.from(request2))
+        memory.add(ToolExecutionResultMessage.from(request2, "turn 2 tool output"))
+        // Turn 2 is still in flight — no final answer yet.
+
+        val messages = memory.messages()
+        assertEquals(5, messages.size)
+        assertTrue(messages[0] is UserMessage)
+        assertEquals("turn 1 answer", (messages[1] as AiMessage).text())
+        assertTrue(messages[2] is UserMessage)
+        assertTrue((messages[3] as AiMessage).hasToolExecutionRequests(), "Turn 2's tool-call AiMessage must survive while unfinished")
+        assertTrue(messages[4] is ToolExecutionResultMessage)
+    }
+
+    @Test
+    fun `loading legacy persisted memory should prune its finalized tool-call round-trips and persist the cleanup`() {
+        val legacyMemory = SessionMemory(
+            sessionId = sessionId,
+            memorySummary = null,
+            memoryMessages = """
+                [
+                    {"type": "user", "content": "What repos do I have?"},
+                    {
+                        "type": "assistant",
+                        "content": "",
+                        "toolExecutionRequests": [{"id": "toolu_1", "name": "list_repos", "arguments": "{}"}]
+                    },
+                    {
+                        "type": "tool_result_message",
+                        "content": "repo1, repo2, repo3 (... 1000 words of raw tool output ...)",
+                        "toolCallId": "toolu_1",
+                        "toolName": "list_repos"
+                    },
+                    {"type": "assistant", "content": "You have 3 repos: repo1, repo2, repo3"},
+                    {"type": "user", "content": "Tell me more about repo1"}
+                ]
+            """.trimIndent(),
+            lastUpdated = Clock.System.now(),
+        )
+        whenever(mockRepository.getBySessionId(sessionId)).thenReturn(legacyMemory)
+
+        memory = createMemory(asyncSummarization = false)
+
+        val messages = memory.messages()
+        assertEquals(
+            3,
+            messages.size,
+            "The legacy finalized tool-call round-trip must be pruned on load, keeping only the two user turns and the final answer",
+        )
+        assertTrue(messages[0] is UserMessage)
+        assertEquals("You have 3 repos: repo1, repo2, repo3", (messages[1] as AiMessage).text())
+        assertTrue(messages[2] is UserMessage)
+        assertTrue(
+            messages.none { it is ToolExecutionResultMessage },
+            "No ToolExecutionResultMessage should survive for an already-finalized legacy turn",
+        )
+
+        // Verify the pruned state was actually persisted, not just that *some* save happened —
+        // a regression that keeps writing the stale pre-prune JSON would still satisfy a bare
+        // atLeastOnce() check with any(). Deserialize (rather than substring-match) since the
+        // schema always serializes a `toolExecutionRequests` field — an empty array for plain
+        // messages — so raw string matching on the field name would be a false positive.
+        val savedMemoryCaptor = argumentCaptor<SessionMemory>()
+        verify(mockRepository, atLeastOnce()).saveMemory(savedMemoryCaptor.capture())
+        val persistedMessages = JsonUtils.json.decodeFromString(
+            ListSerializer(MemoryMessage.serializer()),
+            savedMemoryCaptor.lastValue.memoryMessages,
+        )
+        assertTrue(
+            persistedMessages.none { it.toolExecutionRequests.isNotEmpty() },
+            "Persisted memoryMessages must not retain the pruned tool-call AiMessage: $persistedMessages",
+        )
+        assertTrue(
+            persistedMessages.none { it.type == MessageRole.TOOL_EXECUTION_RESULT_MESSAGE.value },
+            "Persisted memoryMessages must not retain the pruned ToolExecutionResultMessage: $persistedMessages",
+        )
+        assertTrue(
+            persistedMessages.any { it.content == "You have 3 repos: repo1, repo2, repo3" },
+            "Persisted memoryMessages must retain the final answer: $persistedMessages",
+        )
+        assertTrue(
+            persistedMessages.any { it.content == "Tell me more about repo1" },
+            "Persisted memoryMessages must retain the later user turn: $persistedMessages",
         )
     }
 

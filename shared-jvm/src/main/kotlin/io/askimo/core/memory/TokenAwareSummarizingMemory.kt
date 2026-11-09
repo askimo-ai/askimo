@@ -4,6 +4,7 @@
  */
 package io.askimo.core.memory
 
+import dev.langchain4j.data.message.AiMessage
 import dev.langchain4j.data.message.ChatMessage
 import dev.langchain4j.data.message.ChatMessageType
 import dev.langchain4j.data.message.SystemMessage
@@ -314,6 +315,7 @@ class TokenAwareSummarizingMemory(
      * the same message twice in exported/replayed conversations.
      */
     override fun add(message: ChatMessage) {
+        var prunedToolCallUnits = false
         synchronized(messages) {
             if (isDuplicateRetryMessage(message)) {
                 log.debug(
@@ -323,9 +325,91 @@ class TokenAwareSummarizingMemory(
                 return
             }
             messages.add(message)
+
+            // Once a turn's terminal AiMessage lands, its now-redundant tool-call round-trip
+            // can be collapsed. Only the current turn is scanned — earlier turns were already
+            // pruned when they finalized, so rescanning the whole history on every add() would
+            // be wasted work.
+            if (message is AiMessage && !message.hasToolExecutionRequests()) {
+                val turnStart = messages.indexOfLast { it is UserMessage }.coerceAtLeast(0)
+                prunedToolCallUnits = pruneCurrentTurnIfFinalized(turnStart) > 0
+            }
         }
         messagesSinceLastSummary.incrementAndGet()
-        addMessageToDb(message)
+        addMessageToDb(message, forcePersist = prunedToolCallUnits)
+    }
+
+    /** True if [message] is a turn's terminal [AiMessage] — a real answer, no pending tool calls. */
+    private fun isTerminalAnswer(message: ChatMessage): Boolean = message is AiMessage && !message.hasToolExecutionRequests()
+
+    /** True if [message] is part of a tool-call round-trip (tool-call [AiMessage] or [ToolExecutionResultMessage]). */
+    private fun isToolCallUnitMember(message: ChatMessage): Boolean = message is ToolExecutionResultMessage || (message is AiMessage && message.hasToolExecutionRequests())
+
+    /**
+     * Returns [source] with every *finalized* tool-call round-trip collapsed away.
+     *
+     * A turn's tool-call [AiMessage]s/[ToolExecutionResultMessage]s become redundant once it
+     * has a terminal [AiMessage] (the answer already captures what the model needed). A turn
+     * still mid tool-call loop is left untouched — a `tool_use`/`tool_result` pair must never be
+     * split (see [groupIntoToolCallUnits]). The audit `ChatMessage` table is unaffected either way.
+     *
+     * Turns are delimited by [dev.langchain4j.data.message.UserMessage] and pruned independently.
+     * Pure and idempotent. Used for the one-time whole-history sweep in [importState]; [add] uses
+     * the cheaper tail-anchored [pruneCurrentTurnIfFinalized] instead.
+     */
+    private fun pruneFinalizedToolCallUnits(source: List<ChatMessage>): List<ChatMessage> {
+        if (source.isEmpty()) return source
+
+        val result = ArrayList<ChatMessage>(source.size)
+        var turnStart = 0
+
+        fun flushTurn(endExclusive: Int) {
+            val turn = source.subList(turnStart, endExclusive)
+            if (turn.any(::isTerminalAnswer)) {
+                turn.filterNotTo(result, ::isToolCallUnitMember)
+            } else {
+                result.addAll(turn)
+            }
+        }
+
+        for (index in source.indices) {
+            if (index != turnStart && source[index] is UserMessage) {
+                flushTurn(index)
+                turnStart = index
+            }
+        }
+        flushTurn(source.size)
+
+        return result
+    }
+
+    /**
+     * Tail-anchored counterpart to [pruneFinalizedToolCallUnits], used by [add]. Prunes only
+     * the current turn — [messages] from [turnStart] to the end — in place, instead of
+     * rescanning the whole history. Caller must already hold the [messages] lock.
+     *
+     * @return the number of messages removed, so [add] can tell its caller that the in-memory
+     *   state changed even when the triggering terminal [AiMessage] itself has blank text (e.g.
+     *   an image-only response) and would otherwise be skipped by [addMessageToDb]'s blank-text
+     *   short-circuit — without this, the pruned round-trip would never be flushed to the
+     *   database or reflected in [pressureLevel].
+     */
+    private fun pruneCurrentTurnIfFinalized(turnStart: Int): Int {
+        if (turnStart !in messages.indices) return 0
+        val hasTerminalAnswer = (turnStart until messages.size).any { isTerminalAnswer(messages[it]) }
+        if (!hasTerminalAnswer) return 0
+
+        var removed = 0
+        for (idx in messages.size - 1 downTo turnStart) {
+            if (isToolCallUnitMember(messages[idx])) {
+                messages.removeAt(idx)
+                removed++
+            }
+        }
+        if (removed > 0) {
+            log.debug("Pruned {} finalized tool-call round-trip message(s) for session: {}", removed, sessionId)
+        }
+        return removed
     }
 
     /**
@@ -343,8 +427,11 @@ class TokenAwareSummarizingMemory(
         return last == message
     }
 
-    private fun addMessageToDb(message: ChatMessage) {
-        if (message.getTextContent().isBlank()) {
+    private fun addMessageToDb(
+        message: ChatMessage,
+        forcePersist: Boolean = false,
+    ) {
+        if (message.getTextContent().isBlank() && !forcePersist) {
             return
         }
         log.debug("Added message {}, type {}. Total messages: {}", message.getTextContent().take(100), message.type(), messages.size)
@@ -857,6 +944,16 @@ class TokenAwareSummarizingMemory(
         messages.addAll(state.messages.mapNotNull { it.toChatMessage() })
         structuredSummary = state.summary
         basicSummary = null // Clear basic summary when importing
+
+        // One-time cleanup for legacy sessions persisted before per-turn pruning existed in
+        // add(): collapse any already-finalized tool-call round-trips across the whole
+        // restored history. See pruneFinalizedToolCallUnits()'s doc.
+        val pruned = pruneFinalizedToolCallUnits(messages)
+        if (pruned.size != messages.size) {
+            messages.clear()
+            messages.addAll(pruned)
+        }
+
         updatePressure()
     }
 
@@ -877,7 +974,19 @@ class TokenAwareSummarizingMemory(
             val savedMemory = sessionMemoryRepository.getBySessionId(sessionId)
             if (savedMemory != null) {
                 val state = deserializeMemoryState(savedMemory)
+                val sizeBeforeImport = state.messages.size
                 importState(state)
+                // importState() may have pruned legacy, now-finalized tool-call round-trips
+                // (see its doc) — persist that cleanup back so it doesn't get redone (and
+                // doesn't keep bloating memoryMessages) on every future load of this session.
+                if (messages.size != sizeBeforeImport) {
+                    log.info(
+                        "Pruned {} finalized tool-call round-trip message(s) while loading legacy memory for session: {}",
+                        sizeBeforeImport - messages.size,
+                        sessionId,
+                    )
+                    persistToDatabase()
+                }
                 // Reset dirty counter — state is fully persisted, nothing new to summarize.
                 messagesSinceLastSummary.set(0)
                 log.debug("Loaded memory from database for session: $sessionId (${messages.size} messages)")
