@@ -36,14 +36,23 @@ jobs:
 
       # Explicit, ephemeral-runner-scoped opt-in for Testcontainers' container reuse (see
       # cli/src/test/kotlin/io/askimo/testcontainers/TestContainersConfig.kt for why this isn't
-      # done from test code). Safe here: the runner's home is discarded after the job.
+      # done from test code). Safe here: the runner's home is discarded after the job. Linux
+      # only — macOS runners have no Docker, so Docker-based tests are disabled there entirely.
       - name: Enable Testcontainers reuse
-        if: runner.os != 'Windows'
+        if: runner.os == 'Linux'
         run: echo "testcontainers.reuse.enable=true" >> ~/.testcontainers.properties
 
-      - name: Run tests (Linux/macOS)
-        if: runner.os != 'Windows'
+      - name: Run tests (Linux)
+        if: runner.os == 'Linux'
         run: ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx2g" test
+
+      # GitHub-hosted macOS runners don't support Docker (no nested virtualization), so
+      # Testcontainers-based tests are skipped here, same as on Windows below.
+      - name: Run tests (macOS)
+        if: runner.os == 'macOS'
+        env:
+          DISABLE_DOCKER_TESTS: 'true'
+        run: ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx2g" -PDISABLE_DOCKER_TESTS=true test
 
       - name: Run tests (Windows)
         if: runner.os == 'Windows'
@@ -86,10 +95,17 @@ jobs:
       # elsewhere never blocks this job — pass/fail for the job is still decided by the `test`
       # step above. See the module Kover config in build.gradle.kts for how the numbers are
       # computed.
-      - name: Generate coverage report (Linux/macOS)
-        if: always() && runner.os != 'Windows'
+      - name: Generate coverage report (Linux)
+        if: always() && runner.os == 'Linux'
         continue-on-error: true
         run: ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx2g" --continue coverageReport
+
+      - name: Generate coverage report (macOS)
+        if: always() && runner.os == 'macOS'
+        continue-on-error: true
+        env:
+          DISABLE_DOCKER_TESTS: 'true'
+        run: ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx2g" -PDISABLE_DOCKER_TESTS=true --continue coverageReport
 
       - name: Generate coverage report (Windows)
         if: always() && runner.os == 'Windows'
