@@ -25,6 +25,7 @@ import io.askimo.test.extensions.AskimoTestHome
 import io.askimo.test.extensions.RetryOnFailure
 import io.askimo.testcontainers.SharedOllama
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -207,7 +208,11 @@ class TokenAwareSummarizingMemoryOllamaIT {
             ),
         )
         memory.add(ToolExecutionResultMessage.from("call-1", "countEntries", "12 files, 3 directories"))
-        memory.add(AiMessage.from("There are 12 files and 3 directories in the current directory."))
+        // Deliberately no terminal AiMessage here: add() only collapses a finalized tool-call
+        // round-trip once a terminal answer lands (see add()'s doc). Leaving this turn
+        // "unfinished" is the only way to get an un-collapsed tool_use/tool_result pair into
+        // memory, so forceCompact()'s own unit-aware pruning — not add()'s per-turn cleanup —
+        // is what gets exercised below.
 
         repeat(5) { i ->
             memory.add(UserMessage.from("Follow-up question number $i about the file count."))
@@ -220,16 +225,18 @@ class TokenAwareSummarizingMemoryOllamaIT {
         val messages = memory.messages()
         assertTrue(messages.isNotEmpty(), "Memory should still contain messages after forceCompact")
 
-        // The tool-call round-trip was among the oldest units, so COMPACT pruning should have
-        // summarized it away entirely — no orphaned tool-call AiMessage/ToolExecutionResultMessage.
-        assertTrue(
-            messages.none { it is ToolExecutionResultMessage },
-            "Tool-call round-trip should have been summarized away by forceCompact",
+        // groupIntoToolCallUnits() always keeps a ToolExecutionResultMessage attached to its
+        // preceding AiMessage as one atomic unit, so forceCompact's unit-aware pruning can never
+        // prune one half without the other — assert that invariant instead of assuming which way
+        // COMPACT's threshold happens to fall.
+        val toolResultSurvived = messages.any { it is ToolExecutionResultMessage }
+        val toolCallAiSurvived = messages.any { it is AiMessage && it.hasToolExecutionRequests() }
+        assertEquals(
+            toolCallAiSurvived,
+            toolResultSurvived,
+            "Tool-call AiMessage and its ToolExecutionResultMessage must be pruned together, never split",
         )
-        assertTrue(
-            messages.none { it is AiMessage && it.hasToolExecutionRequests() },
-            "Tool-call AiMessage should have been summarized away by forceCompact",
-        )
+
         assertTrue(
             messages.any { it is UserMessage && it.getTextContent().contains("Follow-up question number 4") },
             "Most recent follow-up turn should remain verbatim (protected recent turns)",

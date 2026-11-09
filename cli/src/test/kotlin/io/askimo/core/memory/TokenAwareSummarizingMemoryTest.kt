@@ -17,8 +17,11 @@ import io.askimo.core.chat.domain.SessionMemory
 import io.askimo.core.chat.repository.SessionMemoryRepository
 import io.askimo.core.config.AppConfig
 import io.askimo.core.context.AppContext
+import io.askimo.core.context.MessageRole
 import io.askimo.core.providers.ChatClient
+import io.askimo.core.util.JsonUtils
 import io.askimo.test.extensions.AskimoTestHome
+import kotlinx.serialization.builtins.ListSerializer
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -28,6 +31,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.atLeastOnce
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
@@ -850,7 +854,33 @@ class TokenAwareSummarizingMemoryTest {
             "No ToolExecutionResultMessage should survive for an already-finalized legacy turn",
         )
 
-        verify(mockRepository, atLeastOnce()).saveMemory(any())
+        // Verify the pruned state was actually persisted, not just that *some* save happened —
+        // a regression that keeps writing the stale pre-prune JSON would still satisfy a bare
+        // atLeastOnce() check with any(). Deserialize (rather than substring-match) since the
+        // schema always serializes a `toolExecutionRequests` field — an empty array for plain
+        // messages — so raw string matching on the field name would be a false positive.
+        val savedMemoryCaptor = argumentCaptor<SessionMemory>()
+        verify(mockRepository, atLeastOnce()).saveMemory(savedMemoryCaptor.capture())
+        val persistedMessages = JsonUtils.json.decodeFromString(
+            ListSerializer(MemoryMessage.serializer()),
+            savedMemoryCaptor.lastValue.memoryMessages,
+        )
+        assertTrue(
+            persistedMessages.none { it.toolExecutionRequests.isNotEmpty() },
+            "Persisted memoryMessages must not retain the pruned tool-call AiMessage: $persistedMessages",
+        )
+        assertTrue(
+            persistedMessages.none { it.type == MessageRole.TOOL_EXECUTION_RESULT_MESSAGE.value },
+            "Persisted memoryMessages must not retain the pruned ToolExecutionResultMessage: $persistedMessages",
+        )
+        assertTrue(
+            persistedMessages.any { it.content == "You have 3 repos: repo1, repo2, repo3" },
+            "Persisted memoryMessages must retain the final answer: $persistedMessages",
+        )
+        assertTrue(
+            persistedMessages.any { it.content == "Tell me more about repo1" },
+            "Persisted memoryMessages must retain the later user turn: $persistedMessages",
+        )
     }
 
     // ── Helper ───────────────────────────────────────────────────────────────
