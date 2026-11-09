@@ -315,6 +315,7 @@ class TokenAwareSummarizingMemory(
      * the same message twice in exported/replayed conversations.
      */
     override fun add(message: ChatMessage) {
+        var prunedToolCallUnits = false
         synchronized(messages) {
             if (isDuplicateRetryMessage(message)) {
                 log.debug(
@@ -331,11 +332,11 @@ class TokenAwareSummarizingMemory(
             // be wasted work.
             if (message is AiMessage && !message.hasToolExecutionRequests()) {
                 val turnStart = messages.indexOfLast { it is UserMessage }.coerceAtLeast(0)
-                pruneCurrentTurnIfFinalized(turnStart)
+                prunedToolCallUnits = pruneCurrentTurnIfFinalized(turnStart) > 0
             }
         }
         messagesSinceLastSummary.incrementAndGet()
-        addMessageToDb(message)
+        addMessageToDb(message, forcePersist = prunedToolCallUnits)
     }
 
     /** True if [message] is a turn's terminal [AiMessage] — a real answer, no pending tool calls. */
@@ -386,11 +387,17 @@ class TokenAwareSummarizingMemory(
      * Tail-anchored counterpart to [pruneFinalizedToolCallUnits], used by [add]. Prunes only
      * the current turn — [messages] from [turnStart] to the end — in place, instead of
      * rescanning the whole history. Caller must already hold the [messages] lock.
+     *
+     * @return the number of messages removed, so [add] can tell its caller that the in-memory
+     *   state changed even when the triggering terminal [AiMessage] itself has blank text (e.g.
+     *   an image-only response) and would otherwise be skipped by [addMessageToDb]'s blank-text
+     *   short-circuit — without this, the pruned round-trip would never be flushed to the
+     *   database or reflected in [pressureLevel].
      */
-    private fun pruneCurrentTurnIfFinalized(turnStart: Int) {
-        if (turnStart !in messages.indices) return
+    private fun pruneCurrentTurnIfFinalized(turnStart: Int): Int {
+        if (turnStart !in messages.indices) return 0
         val hasTerminalAnswer = (turnStart until messages.size).any { isTerminalAnswer(messages[it]) }
-        if (!hasTerminalAnswer) return
+        if (!hasTerminalAnswer) return 0
 
         var removed = 0
         for (idx in messages.size - 1 downTo turnStart) {
@@ -402,6 +409,7 @@ class TokenAwareSummarizingMemory(
         if (removed > 0) {
             log.debug("Pruned {} finalized tool-call round-trip message(s) for session: {}", removed, sessionId)
         }
+        return removed
     }
 
     /**
@@ -419,8 +427,11 @@ class TokenAwareSummarizingMemory(
         return last == message
     }
 
-    private fun addMessageToDb(message: ChatMessage) {
-        if (message.getTextContent().isBlank()) {
+    private fun addMessageToDb(
+        message: ChatMessage,
+        forcePersist: Boolean = false,
+    ) {
+        if (message.getTextContent().isBlank() && !forcePersist) {
             return
         }
         log.debug("Added message {}, type {}. Total messages: {}", message.getTextContent().take(100), message.type(), messages.size)

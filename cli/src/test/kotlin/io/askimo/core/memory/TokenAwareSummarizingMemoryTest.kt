@@ -768,6 +768,45 @@ class TokenAwareSummarizingMemoryTest {
     }
 
     @Test
+    fun `add() should persist pruning even when the terminal AiMessage has blank text`() {
+        memory = createMemory(asyncSummarization = false)
+
+        val request = ToolExecutionRequest.builder()
+            .id("toolu_1").name("list_repos").arguments("{}").build()
+
+        memory.add(UserMessage.from("What repos do I have?"))
+        memory.add(AiMessage.from(request))
+        memory.add(ToolExecutionResultMessage.from(request, "repo1, repo2, repo3"))
+        // Terminal answer with blank text (e.g. an image-only response). addMessageToDb()'s
+        // blank-text short-circuit must not suppress the database flush of this turn's pruning —
+        // otherwise the DB would keep the stale tool-call round-trip and it would reappear on
+        // the next session load.
+        memory.add(AiMessage.from(""))
+
+        val messages = memory.messages()
+        assertEquals(2, messages.size, "Tool-call round-trip should collapse in memory even with a blank terminal answer")
+        assertTrue(messages[0] is UserMessage)
+        assertEquals("", (messages[1] as AiMessage).text())
+
+        val savedMemoryCaptor = argumentCaptor<SessionMemory>()
+        verify(mockRepository, atLeastOnce()).saveMemory(savedMemoryCaptor.capture())
+        val persistedMessages = JsonUtils.json.decodeFromString(
+            ListSerializer(MemoryMessage.serializer()),
+            savedMemoryCaptor.lastValue.memoryMessages,
+        )
+        assertTrue(
+            persistedMessages.none { it.toolExecutionRequests.isNotEmpty() },
+            "Persisted memoryMessages must not retain the pruned tool-call AiMessage even though the " +
+                "terminal answer is blank: $persistedMessages",
+        )
+        assertTrue(
+            persistedMessages.none { it.type == MessageRole.TOOL_EXECUTION_RESULT_MESSAGE.value },
+            "Persisted memoryMessages must not retain the pruned ToolExecutionResultMessage even though the " +
+                "terminal answer is blank: $persistedMessages",
+        )
+    }
+
+    @Test
     fun `add() should leave an unfinished tool-call turn untouched`() {
         memory = createMemory(asyncSummarization = false)
 
