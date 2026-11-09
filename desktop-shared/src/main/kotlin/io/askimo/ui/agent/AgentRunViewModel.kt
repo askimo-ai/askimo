@@ -336,13 +336,19 @@ internal class AgentRunViewModel(
         if (!isRunning) return
         val agent = runningAgent ?: return
         log.debug("Cancel requested for active agent run (agent={})", agent.id)
+        // Captured so the delayed fallback below can verify it's still acting on *this* turn
+        // once it fires — see the guard inside scope.launch.
+        val turnId = currentTurnId.get()
         scope.launch(Dispatchers.IO) {
             agent.cancel()
         }
         cancelTimeoutJob?.cancel()
         cancelTimeoutJob = scope.launch {
             delay(8_000.milliseconds)
-            if (isRunning) {
+            // isRunning alone just means "some turn is active" — it could be a newer turn that
+            // started after this one's own completion ran. The turnId check keeps this
+            // fallback from cancelling/finalizing that newer turn instead.
+            if (isRunning && turnId == currentTurnId.get()) {
                 log.warn("Agent run did not finalize within 8s of cancel(); forcing job cancellation")
                 currentRunJob?.cancel()
                 // Invalidate this turn so any callback coroutine still in flight (not a child

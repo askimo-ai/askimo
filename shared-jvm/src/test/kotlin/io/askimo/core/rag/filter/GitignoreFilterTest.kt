@@ -7,6 +7,8 @@ package io.askimo.core.rag.filter
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.condition.DisabledOnOs
+import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
@@ -634,7 +636,6 @@ class GitignoreFilterTest {
             """
             \#notacomment.txt
             \!important.txt
-            literal\*star.txt
             """.trimIndent(),
         )
 
@@ -648,6 +649,21 @@ class GitignoreFilterTest {
         val bangFile = tempDir.resolve("!important.txt")
         Files.createFile(bangFile)
         assertTrue(filter.shouldExclude(bangFile, false, createContext(bangFile, tempDir)))
+    }
+
+    // Windows' filesystem (NTFS/FAT) disallows '*' in filenames, so a Path containing it can't
+    // even be constructed there (InvalidPathException) — this escaped-literal-'*' case is
+    // covered on POSIX platforms only.
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    fun `should support a backslash-escaped literal asterisk`(@TempDir tempDir: Path) {
+        val gitDir = tempDir.resolve(".git")
+        Files.createDirectory(gitDir)
+
+        val gitignore = tempDir.resolve(".gitignore")
+        Files.writeString(gitignore, "literal\\*star.txt\n")
+
+        val filter = GitignoreFilter()
 
         // Escaped '*' should be matched literally, not as a wildcard
         val literalStarFile = tempDir.resolve("literal*star.txt")
@@ -675,9 +691,12 @@ class GitignoreFilterTest {
         Files.createFile(trailingFile)
         assertTrue(filter.shouldExclude(trailingFile, false, createContext(trailingFile, tempDir)))
 
-        // Pattern should be "escaped.txt " (with trailing space) due to escaping
+        // Pattern should be "escaped.txt " (with trailing space) due to escaping. Not actually
+        // created on disk: Windows' Win32 CreateFile API silently strips trailing spaces from
+        // filenames, so creating it there would really create "escaped.txt" (no space) and
+        // collide with the no-space variant below — shouldIgnore() only inspects the Path
+        // string, so an on-disk file isn't needed to exercise the match.
         val escapedFileWithSpace = tempDir.resolve("escaped.txt ")
-        Files.createFile(escapedFileWithSpace)
         assertTrue(filter.shouldExclude(escapedFileWithSpace, false, createContext(escapedFileWithSpace, tempDir)))
 
         // The no-space variant should NOT match, proving the trailing space was preserved
