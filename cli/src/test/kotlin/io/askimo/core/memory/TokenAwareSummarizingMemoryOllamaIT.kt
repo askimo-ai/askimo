@@ -195,6 +195,14 @@ class TokenAwareSummarizingMemoryOllamaIT {
         // High threshold: only the explicit forceCompact() call below should trigger summarization.
         memory = createMemory(summarizationThreshold = 0.9)
 
+        repeat(5) { i ->
+            memory.add(UserMessage.from("Follow-up question number $i about the file count."))
+            memory.add(AiMessage.from("Follow-up answer number $i."))
+        }
+
+        // Placed last (most recent turn), so it falls inside COMPACT's protectedRecentTurns (3)
+        // window regardless of how many units the real model's output ends up producing — this
+        // is what lets us assert survival deterministically below, not just non-splitting.
         memory.add(UserMessage.from("Count the files in the current directory."))
         memory.add(
             AiMessage.from(
@@ -214,23 +222,24 @@ class TokenAwareSummarizingMemoryOllamaIT {
         // memory, so forceCompact()'s own unit-aware pruning — not add()'s per-turn cleanup —
         // is what gets exercised below.
 
-        repeat(5) { i ->
-            memory.add(UserMessage.from("Follow-up question number $i about the file count."))
-            memory.add(AiMessage.from("Follow-up answer number $i."))
-        }
-
         memory.forceCompact()
         awaitSummarization(memory)
 
         val messages = memory.messages()
         assertTrue(messages.isNotEmpty(), "Memory should still contain messages after forceCompact")
 
-        // groupIntoToolCallUnits() always keeps a ToolExecutionResultMessage attached to its
-        // preceding AiMessage as one atomic unit, so forceCompact's unit-aware pruning can never
-        // prune one half without the other — assert that invariant instead of assuming which way
-        // COMPACT's threshold happens to fall.
         val toolResultSurvived = messages.any { it is ToolExecutionResultMessage }
         val toolCallAiSurvived = messages.any { it is AiMessage && it.hasToolExecutionRequests() }
+
+        // The round-trip is the most recent unit — inside the protected window — so
+        // forceCompact() must preserve it. This is the behavior the test's name actually promises.
+        assertTrue(toolCallAiSurvived, "Tool-call AiMessage must survive forceCompact() as the most recent (protected) turn")
+        assertTrue(toolResultSurvived, "ToolExecutionResultMessage must survive forceCompact() as the most recent (protected) turn")
+
+        // Separately: groupIntoToolCallUnits() always keeps a ToolExecutionResultMessage attached
+        // to its preceding AiMessage as one atomic unit, so pruning can never split one half
+        // without the other — keep this parity invariant regardless of which units end up
+        // protected.
         assertEquals(
             toolCallAiSurvived,
             toolResultSurvived,
@@ -238,8 +247,8 @@ class TokenAwareSummarizingMemoryOllamaIT {
         )
 
         assertTrue(
-            messages.any { it is UserMessage && it.getTextContent().contains("Follow-up question number 4") },
-            "Most recent follow-up turn should remain verbatim (protected recent turns)",
+            messages.any { it is UserMessage && it.getTextContent().contains("Count the files") },
+            "Most recent turn (the in-flight tool call) should remain verbatim (protected recent turns)",
         )
     }
 }
