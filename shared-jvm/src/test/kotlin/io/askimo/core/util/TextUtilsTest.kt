@@ -62,6 +62,16 @@ class TextUtilsTest {
     }
 
     @Test
+    fun `preserves plain exception class names without digits`() {
+        val result = redactErrorText("java.net.ConnectException: Connection refused")
+        assertTrue(result.contains("ConnectException"))
+        assertFalse(result.contains("[id]"))
+
+        val unknownHost = redactErrorText("java.net.UnknownHostException: api.example.com")
+        assertTrue(unknownHost.contains("UnknownHostException"))
+    }
+
+    @Test
     fun `preserves safe diagnostic words needed to classify new error shapes`() {
         val result = redactErrorText(
             "unknown model architecture: 'mllama' — llama-server process has terminated",

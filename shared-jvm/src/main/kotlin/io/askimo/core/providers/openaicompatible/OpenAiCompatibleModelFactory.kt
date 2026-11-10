@@ -58,6 +58,17 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
     override fun defaultSettings(): OpenAiCompatibleSettings = OpenAiCompatibleSettings()
     override fun resolveApiKey(settings: OpenAiCompatibleSettings): String = safeApiKey(settings.apiKey.ifBlank { "not-needed" })
 
+    /** Reports `openai-compatible:<template>` when a template is set, else the generic key. */
+    override fun telemetryProviderKey(settings: OpenAiCompatibleSettings): String {
+        val template = settings.templateName
+            ?.let { name -> OpenAiCompatibleTemplate.entries.find { it.name == name } }
+        return if (template != null) {
+            "${getProvider().providerKey()}:${template.name.lowercase().replace('_', '-')}"
+        } else {
+            getProvider().providerKey()
+        }
+    }
+
     override fun availableModels(settings: OpenAiCompatibleSettings): List<ModelDTO> {
         if (!canFetchModels(settings)) return emptyList()
         val baseUrl = effectiveBaseUrl(settings)
@@ -120,7 +131,7 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
     }
 
     override fun createStreamingModel(settings: OpenAiCompatibleSettings): StreamingChatModel {
-        val listener = createTelemetryListener()
+        val listener = createTelemetryListener(settings)
         val baseUrl = effectiveBaseUrl(settings)
         return delegate(settings).createStreamingModel(
             baseUrl = baseUrl,
@@ -133,7 +144,7 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
     }
 
     override fun createSecondaryModel(settings: OpenAiCompatibleSettings): ChatModel {
-        val listener = createTelemetryListener()
+        val listener = createTelemetryListener(settings)
         val modelName = settings.utilityModel.ifBlank { utilityModelFallback(settings) }
         val baseUrl = effectiveBaseUrl(settings)
         return delegate(settings).createSecondaryModel(
@@ -146,7 +157,7 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
     }
 
     override fun createModel(settings: OpenAiCompatibleSettings): ChatModel {
-        val listener = createTelemetryListener()
+        val listener = createTelemetryListener(settings)
         val baseUrl = effectiveBaseUrl(settings)
         return delegate(settings).createModel(
             baseUrl = baseUrl,
