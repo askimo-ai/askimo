@@ -72,6 +72,15 @@ class TextUtilsTest {
     }
 
     @Test
+    fun `redacts unqualified secret-shaped tokens even if they end in Error or Exception`() {
+        // Regression guard: the qualified-class-name exemption must not leak arbitrary
+        // PascalCase secrets that merely happen to end in Exception/Error.
+        val result = redactErrorText("provider returned LeakedCustomerError")
+        assertFalse(result.contains("LeakedCustomerError"))
+        assertTrue(result.contains("[id]"))
+    }
+
+    @Test
     fun `still redacts long alphabetic tokens that are not exception class names`() {
         val result = redactErrorText("leaked secret: abcdefghijklmnopqrstuvwxyz")
         assertFalse(result.contains("abcdefghijklmnopqrstuvwxyz"))

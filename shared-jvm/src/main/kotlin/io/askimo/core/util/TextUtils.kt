@@ -74,8 +74,10 @@ fun redactErrorText(message: String): String {
         .replace(Regex("""(?i)bearer\s+\S+"""), "[token]")
         .replace(Regex("""\b(sk|pk|key)-[A-Za-z0-9_-]{10,}\b"""), "[api-key]")
         .replace(Regex("""(?:[A-Za-z]:\\|/)[\w./\\-]{3,}"""), "[path]")
-        // Bare opaque tokens are redacted, except PascalCase ...Exception/...Error names.
-        .replace(Regex("""\b(?!(?:[A-Z][A-Za-z]+(?:Exception|Error))\b)[A-Za-z0-9_-]{16,}\b"""), "[id]")
+        // Bare opaque tokens are redacted, except dotted-qualified class names (e.g.
+        // java.net.ConnectException) — the exemption requires a preceding "." so an
+        // unqualified secret-shaped word (e.g. "LeakedCustomerError") still gets redacted.
+        .replace(Regex("""\b(?!(?<=\.)[A-Z][A-Za-z0-9]*(?:Exception|Error)\b)[A-Za-z0-9_-]{16,}\b"""), "[id]")
 
     return result.take(500)
 }
