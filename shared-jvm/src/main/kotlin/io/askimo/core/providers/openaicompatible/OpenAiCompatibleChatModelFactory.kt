@@ -135,10 +135,13 @@ abstract class OpenAiCompatibleChatModelFactory<T>(
 
     // ── Shared helpers ─────────────────────────────────────────────────────────
 
+    /** Provider key recorded in telemetry/analytics for models built from [settings]. Override to report a more specific key than [getProvider]. */
+    protected open fun telemetryProviderKey(settings: T): String = getProvider().providerKey()
+
     /**
      * Creates the [TelemetryChatModelListener] attached to every model built by this factory.
      */
-    protected open fun createTelemetryListener(): TelemetryChatModelListener = TelemetryChatModelListener(AppContext.getInstance().telemetry, getProvider().providerKey())
+    protected open fun createTelemetryListener(settings: T): TelemetryChatModelListener = TelemetryChatModelListener(AppContext.getInstance().telemetry, telemetryProviderKey(settings))
 
     // ── ChatModelFactory implementation ────────────────────────────────────────
 
@@ -204,9 +207,8 @@ abstract class OpenAiCompatibleChatModelFactory<T>(
         // On success the cache is updated and the memory chip re-renders with a real %.
         val modelKey = ModelCapabilitiesCache.modelKey(getProvider(), settings.defaultModel)
         if (!ModelCapabilitiesCache.isContextSizeLearned(modelKey)) {
-            val capturedSettings = settings
             CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
-                probeContextSize(capturedSettings)?.let { size ->
+                probeContextSize(settings)?.let { size ->
                     ModelCapabilitiesCache.setContextSize(modelKey, size)
                 }
             }
@@ -225,7 +227,7 @@ abstract class OpenAiCompatibleChatModelFactory<T>(
     }
 
     override fun createStreamingModel(settings: T): StreamingChatModel {
-        val listener = createTelemetryListener()
+        val listener = createTelemetryListener(settings)
         return apiDelegate.createStreamingModel(
             baseUrl = settings.baseUrl,
             apiKey = resolveApiKey(settings),
@@ -237,7 +239,7 @@ abstract class OpenAiCompatibleChatModelFactory<T>(
     }
 
     override fun createSecondaryModel(settings: T): ChatModel {
-        val listener = createTelemetryListener()
+        val listener = createTelemetryListener(settings)
         val modelName = settings.utilityModel.ifBlank { utilityModelFallback(settings) }
         return apiDelegate.createSecondaryModel(
             baseUrl = settings.baseUrl,
@@ -249,7 +251,7 @@ abstract class OpenAiCompatibleChatModelFactory<T>(
     }
 
     override fun createModel(settings: T): ChatModel {
-        val listener = createTelemetryListener()
+        val listener = createTelemetryListener(settings)
         return apiDelegate.createModel(
             baseUrl = settings.baseUrl,
             apiKey = resolveApiKey(settings),
