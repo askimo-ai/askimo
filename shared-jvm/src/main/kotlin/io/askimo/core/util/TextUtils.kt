@@ -74,12 +74,8 @@ fun redactErrorText(message: String): String {
         .replace(Regex("""(?i)bearer\s+\S+"""), "[token]")
         .replace(Regex("""\b(sk|pk|key)-[A-Za-z0-9_-]{10,}\b"""), "[api-key]")
         .replace(Regex("""(?:[A-Za-z]:\\|/)[\w./\\-]{3,}"""), "[path]")
-        // Bare opaque tokens (session ids, hashes, API keys without a known prefix, etc.) are
-        // redacted — but only when they contain a digit. Plain alphabetic CamelCase words of
-        // the same length (e.g. Java exception class names like `ConnectException`,
-        // `UnknownHostException`) are left intact, since they carry no identifying info and
-        // are exactly what we need to triage "which exception fired on the user's machine".
-        .replace(Regex("""\b(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{16,}\b"""), "[id]")
+        // Bare opaque tokens are redacted, except PascalCase ...Exception/...Error names.
+        .replace(Regex("""\b(?!(?:[A-Z][A-Za-z]+(?:Exception|Error))\b)[A-Za-z0-9_-]{16,}\b"""), "[id]")
 
     return result.take(500)
 }

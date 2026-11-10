@@ -58,12 +58,17 @@ class OpenAiCompatibleModelFactory : OpenAiCompatibleChatModelFactory<OpenAiComp
     override fun defaultSettings(): OpenAiCompatibleSettings = OpenAiCompatibleSettings()
     override fun resolveApiKey(settings: OpenAiCompatibleSettings): String = safeApiKey(settings.apiKey.ifBlank { "not-needed" })
 
-    /** Reports `openai-compatible:<template>` when a template is set, else the generic key. */
+    /**
+     * Reports `openai-compatible-<template>` when a template is set, else the generic key.
+     * Must not use `:` — downstream consumers (`TelemetryCollector`, `LlmUsageRepository`,
+     * `DiscoverView`, `TelemetryExportService`) split `instanceKey` on the first `:` to
+     * separate provider from model (models can themselves contain `:`, e.g. `llama3:8b`).
+     */
     override fun telemetryProviderKey(settings: OpenAiCompatibleSettings): String {
         val template = settings.templateName
             ?.let { name -> OpenAiCompatibleTemplate.entries.find { it.name == name } }
         return if (template != null) {
-            "${getProvider().providerKey()}:${template.name.lowercase().replace('_', '-')}"
+            "${getProvider().providerKey()}-${template.name.lowercase().replace('_', '-')}"
         } else {
             getProvider().providerKey()
         }

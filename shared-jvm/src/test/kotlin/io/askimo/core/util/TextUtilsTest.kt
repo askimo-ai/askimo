@@ -62,13 +62,20 @@ class TextUtilsTest {
     }
 
     @Test
-    fun `preserves plain exception class names without digits`() {
+    fun `preserves plain exception class names`() {
         val result = redactErrorText("java.net.ConnectException: Connection refused")
         assertTrue(result.contains("ConnectException"))
         assertFalse(result.contains("[id]"))
 
         val unknownHost = redactErrorText("java.net.UnknownHostException: api.example.com")
         assertTrue(unknownHost.contains("UnknownHostException"))
+    }
+
+    @Test
+    fun `still redacts long alphabetic tokens that are not exception class names`() {
+        val result = redactErrorText("leaked secret: abcdefghijklmnopqrstuvwxyz")
+        assertFalse(result.contains("abcdefghijklmnopqrstuvwxyz"))
+        assertTrue(result.contains("[id]"))
     }
 
     @Test
