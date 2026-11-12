@@ -4,13 +4,34 @@
  */
 package io.askimo.core.chat.util
 
+import io.askimo.core.util.AskimoHome
+import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class FileContentExtractorTest {
+
+    companion object {
+        private lateinit var testBaseScope: AskimoHome.TestBaseScope
+
+        // FileContentExtractor reads AppConfig on init, which needs AskimoHome
+        @JvmStatic
+        @BeforeAll
+        fun setUpClass(@TempDir tempDir: Path) {
+            testBaseScope = AskimoHome.withTestBase(tempDir)
+        }
+
+        @JvmStatic
+        @AfterAll
+        fun tearDownClass() {
+            if (::testBaseScope.isInitialized) testBaseScope.close()
+        }
+    }
 
     @Test
     fun `should support PDF files`(@TempDir tempDir: Path) {
@@ -88,5 +109,64 @@ class FileContentExtractorTest {
         val extracted = FileContentExtractor.extractContent(mdFile)
         assertTrue(extracted.contains("My Project"))
         assertTrue(extracted.contains("test markdown file"))
+    }
+
+    @Test
+    fun `should extract text from Dockerfile`(@TempDir tempDir: Path) {
+        val file = tempDir.resolve("Dockerfile").toFile()
+        file.writeText("FROM eclipse-temurin:21\nCOPY app.jar /app.jar")
+
+        assertTrue(FileContentExtractor.isSupported(file))
+        assertTrue(FileContentExtractor.extractContent(file).contains("FROM eclipse-temurin:21"))
+    }
+
+    @Test
+    fun `should extract text from gitignore`(@TempDir tempDir: Path) {
+        val file = tempDir.resolve(".gitignore").toFile()
+        file.writeText("build/\n*.log")
+
+        assertTrue(FileContentExtractor.isSupported(file))
+        assertTrue(FileContentExtractor.extractContent(file).contains("build/"))
+    }
+
+    @Test
+    fun `should extract text from env variant files`(@TempDir tempDir: Path) {
+        for (name in listOf(".env.local", ".ENV.production")) {
+            val file = tempDir.resolve(name).toFile()
+            file.writeText("API_URL=http://localhost:8080")
+
+            assertTrue(FileContentExtractor.isSupported(file), name)
+            assertTrue(FileContentExtractor.extractContent(file).contains("API_URL"), name)
+        }
+    }
+
+    @Test
+    fun `should extract text from unknown extensionless text file`(@TempDir tempDir: Path) {
+        val file = tempDir.resolve("CODEOWNERS").toFile()
+        file.writeText("* @askimo-ai/maintainers")
+
+        assertTrue(FileContentExtractor.isSupported(file))
+        assertTrue(FileContentExtractor.extractContent(file).contains("@askimo-ai/maintainers"))
+    }
+
+    @Test
+    fun `should extract empty gitignore and env files`(@TempDir tempDir: Path) {
+        // Empty files give Tika nothing to sniff, so detection has to rely on the name
+        for (name in listOf(".gitignore", ".env.local")) {
+            val file = tempDir.resolve(name).toFile()
+            file.writeText("")
+
+            assertTrue(FileContentExtractor.isSupported(file), name)
+            assertTrue(FileContentExtractor.isTextFile(file), name)
+            assertEquals("", FileContentExtractor.extractContent(file), name)
+        }
+    }
+
+    @Test
+    fun `isTextFile by name recognises gitignore and env files`() {
+        assertTrue(FileContentExtractor.isTextFile(".gitignore"))
+        assertTrue(FileContentExtractor.isTextFile(".env.production"))
+        assertTrue(FileContentExtractor.isTextFile("Dockerfile"))
+        assertFalse(FileContentExtractor.isTextFile("archive.bin"))
     }
 }
