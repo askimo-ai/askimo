@@ -161,7 +161,7 @@ private fun newVersionDialog(
                 // Version info card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+                    colors = AppColors.cardColors(AppColors.Elevation.RAISED),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(Spacing.large),
@@ -211,7 +211,7 @@ private fun newVersionDialog(
                     )
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+                        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
                     ) {
                         Column(
                             modifier = Modifier
@@ -277,7 +277,7 @@ private fun upToDateDialog(
                 )
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+                    colors = AppColors.cardColors(AppColors.Elevation.RAISED),
                 ) {
                     Column(
                         modifier = Modifier.padding(Spacing.large),
@@ -322,7 +322,7 @@ private fun errorDialog(
         text = {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = AppColors.cardColors(AppColors.Elevation.ACCENT),
+                colors = AppColors.cardColors(AppColors.Elevation.RAISED),
             ) {
                 Text(
                     text = message,

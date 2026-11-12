@@ -172,6 +172,19 @@ object ThemePreferences {
         prefs.put(THEME_MODE_KEY, mode.name)
     }
 
+    /**
+     * Dev-only: flips the *effective* appearance between light and dark — a quick way to
+     * visually audit a screen in both themes.
+     */
+    fun toggleDarkLightMode() {
+        val effectivelyDark = when (_themeMode.value) {
+            ThemeMode.DARK -> true
+            ThemeMode.LIGHT -> false
+            ThemeMode.SYSTEM -> detectMacOSDarkMode()
+        }
+        setThemeMode(if (effectivelyDark) ThemeMode.LIGHT else ThemeMode.DARK)
+    }
+
     fun setFontSettings(settings: FontSettings) {
         _fontSettings.value = settings
         prefs.put(UI_FONT_FAMILY_KEY, settings.uiFontFamily)
