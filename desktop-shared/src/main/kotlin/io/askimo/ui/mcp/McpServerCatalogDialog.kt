@@ -97,6 +97,9 @@ fun mcpServerCatalogDialog(
         sections.associate { it.label to it.templates }
     }
 
+    // Fallback provenance when a template has no [McpServerDefinition.author] — keyed by
+    // the first section it appears in. Only meaningful for source sections (e.g.
+    // "Organization"), not category groupings like "Popular"/"Dev Tools".
     val templateSectionLabel = remember(sections) {
         val map = mutableMapOf<String, String>()
         sections.forEach { section -> section.templates.forEach { t -> map.putIfAbsent(t.id, section.label) } }
@@ -205,9 +208,11 @@ fun mcpServerCatalogDialog(
                     row.forEach { template ->
                         mcpTemplateCatalogCard(
                             template = template,
-                            // Only attribute a source when more than one section was supplied —
-                            // avoids redundant noise for a single-source caller (e.g. OSS client).
-                            sourceLabel = if (sections.size > 1) templateSectionLabel[template.id] else null,
+                            // Prefer the real author; categories aren't sources, so only fall
+                            // back to the section label (e.g. "Organization") when there's no
+                            // author and more than one section is shown.
+                            sourceLabel = template.author
+                                ?: if (sections.size > 1) templateSectionLabel[template.id] else null,
                             modifier = Modifier.weight(1f),
                             onSelect = { onSelectTemplate(template) },
                         )

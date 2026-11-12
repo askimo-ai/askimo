@@ -27,7 +27,7 @@ import java.awt.event.KeyEvent as AwtKeyEvent
  */
 fun installDevThemeToggleShortcut() {
     KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher { event ->
-        if (event.id != AwtKeyEvent.KEY_PRESSED || event.keyCode != AwtKeyEvent.VK_A) {
+        if (event.id != AwtKeyEvent.KEY_PRESSED || event.keyCode != AwtKeyEvent.VK_B) {
             return@addKeyEventDispatcher false
         }
         if (event.isAltDown || event.isShiftDown) return@addKeyEventDispatcher false
