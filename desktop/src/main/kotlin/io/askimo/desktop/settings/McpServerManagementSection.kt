@@ -49,6 +49,7 @@ import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.mcp.McpInstance
 import io.askimo.core.mcp.McpInstanceService
 import io.askimo.core.mcp.McpServerDefinition
+import io.askimo.core.mcp.McpServerTemplateRegistry
 import io.askimo.core.mcp.config.McpServersConfig
 import io.askimo.ui.common.components.dangerButton
 import io.askimo.ui.common.components.linkButton
@@ -61,6 +62,7 @@ import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.themedTooltip
+import io.askimo.ui.mcp.McpTemplateSection
 import io.askimo.ui.mcp.addMcpInstanceDialog
 import io.askimo.ui.mcp.mcpServerCatalogDialog
 import io.askimo.ui.mcp.mcpToolsDialog
@@ -203,6 +205,7 @@ fun mcpServerTemplatesSection() {
     // Step 1 — Catalog picker (shown when user clicks "Add")
     if (showCatalogDialog) {
         mcpServerCatalogDialog(
+            sections = builtInTemplateSections(),
             onSelectTemplate = { template ->
                 selectedTemplate = template
                 showCatalogDialog = false
@@ -402,4 +405,13 @@ private fun mcpInstanceCard(
             onDismiss = { showToolsDialog = false },
         )
     }
+}
+
+/**
+ * Builds [McpTemplateSection]s from the built-in [McpServerTemplateRegistry], one per
+ * category (excluding the synthetic "All" entry, which [mcpServerCatalogDialog] always
+ * derives itself from the union of every section).
+ */
+private fun builtInTemplateSections(): List<McpTemplateSection> = McpServerTemplateRegistry.CATEGORIES.drop(1).map { category ->
+    McpTemplateSection(label = category, templates = McpServerTemplateRegistry.getByCategory(category))
 }

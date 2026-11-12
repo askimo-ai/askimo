@@ -136,6 +136,7 @@ import io.askimo.ui.common.i18n.provideLocalization
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.keymap.KeyMapManager
 import io.askimo.ui.common.keymap.KeyMapManager.AppShortcut
+import io.askimo.ui.common.keymap.installDevThemeToggleShortcut
 import io.askimo.ui.common.preferences.AccountPreferences
 import io.askimo.ui.common.preferences.ApplicationPreferences
 import io.askimo.ui.common.theme.AppColors
@@ -300,6 +301,8 @@ fun main(args: Array<String>) {
         val profileId = koin.get<DatabaseManager>().getUserProfileRepository().getProfile().id
         koin.get<PhraseHabitRefreshService>().start(profileId)
     }.onFailure { e -> log.warn("Failed to start PhraseHabitRefreshService: ${e.message}") }
+
+    installDevThemeToggleShortcut()
 
     application {
         val savedLocale = ThemePreferences.locale.value

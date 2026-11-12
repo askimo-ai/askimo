@@ -37,7 +37,6 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.mcp.McpServerDefinition
-import io.askimo.core.mcp.McpServerTemplateRegistry
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
 import io.askimo.ui.common.i18n.stringResource
@@ -47,35 +46,82 @@ import io.askimo.ui.common.theme.AppTextStyles
 import io.askimo.ui.common.theme.Spacing
 
 /**
- * Two-panel dialog for picking an MCP server from the built-in catalog or opting for manual setup.
+ * A single labeled group of templates to show as a filter chip/category in
+ * [mcpServerCatalogDialog] — e.g. "Popular", "Dev Tools", or "Organization".
  *
+ * The dialog itself has no knowledge of where templates come from (a built-in
+ * registry, a server-curated catalog, etc.) — each caller composes whatever
+ * [McpTemplateSection]s make sense for its edition.
+ */
+data class McpTemplateSection(
+    val label: String,
+    val templates: List<McpServerDefinition>,
+)
+
+/**
+ * Two-panel dialog for picking an MCP server from a caller-supplied catalog, or opting
+ * for manual setup.
+ *
+ * This component is source-agnostic: it only renders whatever [sections] it's given.
+ * Callers decide what templates exist and how they're grouped (e.g. the OSS client
+ * groups its built-in [io.askimo.core.mcp.McpServerTemplateRegistry]; the Team client
+ * additionally supplies an "Organization" section from its own org MCP catalog).
+ *
+ * @param sections          Labeled template groups. An implicit "All" chip (the union of
+ *                           every section, de-duplicated by [McpServerDefinition.id]) is
+ *                           always shown first.
  * @param onSelectTemplate  Called with a pre-filled [McpServerDefinition] when the user picks a catalog entry.
  * @param onManualSetup     Called when the user wants to configure a server from scratch.
+ *                          Pass `null` to hide the "Manual setup" action entirely.
  * @param onDismiss         Called when the dialog is closed without a selection.
  */
 @Composable
 fun mcpServerCatalogDialog(
+    sections: List<McpTemplateSection>,
     onSelectTemplate: (McpServerDefinition) -> Unit,
-    onManualSetup: () -> Unit,
+    onManualSetup: (() -> Unit)?,
     onDismiss: () -> Unit,
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
 
-    val visibleTemplates = remember(searchQuery, selectedCategory) {
-        McpServerTemplateRegistry.getByCategory(selectedCategory)
-            .let { list ->
-                if (searchQuery.isBlank()) {
-                    list
-                } else {
-                    val q = searchQuery.trim().lowercase()
-                    list.filter {
-                        it.name.lowercase().contains(q) ||
-                            it.description.lowercase().contains(q) ||
-                            it.tags.any { t -> t.contains(q) }
-                    }
-                }
+    val allTemplates = remember(sections) {
+        sections.flatMap { it.templates }.distinctBy { it.id }
+    }
+
+    val categories = remember(sections) {
+        listOf("All") + sections.filter { it.templates.isNotEmpty() }.map { it.label }
+    }
+
+    val templatesByCategory = remember(sections) {
+        sections.associate { it.label to it.templates }
+    }
+
+    // Fallback provenance when a template has no [McpServerDefinition.author] — keyed by
+    // the first section it appears in. Only meaningful for source sections (e.g.
+    // "Organization"), not category groupings like "Popular"/"Dev Tools".
+    val templateSectionLabel = remember(sections) {
+        val map = mutableMapOf<String, String>()
+        sections.forEach { section -> section.templates.forEach { t -> map.putIfAbsent(t.id, section.label) } }
+        map
+    }
+
+    val visibleTemplates = remember(searchQuery, selectedCategory, allTemplates, templatesByCategory) {
+        val byCategory = if (selectedCategory == "All") {
+            allTemplates
+        } else {
+            templatesByCategory[selectedCategory] ?: emptyList()
+        }
+        if (searchQuery.isBlank()) {
+            byCategory
+        } else {
+            val q = searchQuery.trim().lowercase()
+            byCategory.filter {
+                it.name.lowercase().contains(q) ||
+                    it.description.lowercase().contains(q) ||
+                    it.tags.any { t -> t.contains(q) }
             }
+        }
     }
 
     AppComponents.scaffoldDialog(
@@ -110,7 +156,7 @@ fun mcpServerCatalogDialog(
                 verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                 modifier = Modifier.selectableGroup(),
             ) {
-                McpServerTemplateRegistry.CATEGORIES.forEach { cat ->
+                categories.forEach { cat ->
                     AppComponents.filterChip(
                         label = cat,
                         selected = cat == selectedCategory,
@@ -129,13 +175,15 @@ fun mcpServerCatalogDialog(
 
             Spacer(Modifier.weight(1f))
 
-            secondaryButton(
-                onClick = onManualSetup,
-                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-            ) {
-                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(Spacing.small))
-                Text(stringResource("mcp.catalog.action.manual"))
+            if (onManualSetup != null) {
+                secondaryButton(
+                    onClick = onManualSetup,
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(Spacing.small))
+                    Text(stringResource("mcp.catalog.action.manual"))
+                }
             }
         },
     ) {
@@ -160,6 +208,11 @@ fun mcpServerCatalogDialog(
                     row.forEach { template ->
                         mcpTemplateCatalogCard(
                             template = template,
+                            // Prefer the real author; categories aren't sources, so only fall
+                            // back to the section label (e.g. "Organization") when there's no
+                            // author and more than one section is shown.
+                            sourceLabel = template.author
+                                ?: if (sections.size > 1) templateSectionLabel[template.id] else null,
                             modifier = Modifier.weight(1f),
                             onSelect = { onSelectTemplate(template) },
                         )
@@ -175,6 +228,7 @@ fun mcpServerCatalogDialog(
 @Composable
 private fun mcpTemplateCatalogCard(
     template: McpServerDefinition,
+    sourceLabel: String?,
     modifier: Modifier = Modifier,
     onSelect: () -> Unit,
 ) {
@@ -218,6 +272,13 @@ private fun mcpTemplateCatalogCard(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(),
             )
+
+            if (sourceLabel != null) {
+                Text(
+                    text = stringResource("mcp.catalog.card.source", sourceLabel),
+                    style = AppTextStyles.hint,
+                )
+            }
 
             val credentialLabel = if (template.parameters.isNotEmpty()) {
                 stringResource("mcp.catalog.card.credentials.required", template.parameters.count { it.required }.toString())
