@@ -37,6 +37,13 @@ class PlanExecutionCodecTest {
     }
 
     @Test
+    fun `decodeInputs reads the legacy key=value format, with escaped-newline unescaping`() {
+        val decoded = PlanExecutionCodec.decodeInputs("note=line1\\nline2")
+
+        assertEquals(mapOf("note" to "line1\nline2"), decoded)
+    }
+
+    @Test
     fun `decodeStepOutputs round-trips structured output`() {
         val steps = listOf(
             PlanStepOutput(stepName = "step-a", output = "out-a", inputTokens = 10, outputTokens = 20, totalTokens = 30, durationMs = 500),
@@ -50,14 +57,5 @@ class PlanExecutionCodecTest {
     @Test
     fun `encodeStepOutputs returns null for an empty list`() {
         assertEquals(null, PlanExecutionCodec.encodeStepOutputs(emptyList()))
-    }
-
-    @Test
-    fun `decodeStepOutputs tolerates the legacy stepName-output line format`() {
-        val decoded = PlanExecutionCodec.decodeStepOutputs("step-a|out-a\nstep-b|out-b")
-
-        assertEquals(2, decoded.size)
-        assertEquals("step-a", decoded[0].stepName)
-        assertEquals("out-a", decoded[0].output)
     }
 }

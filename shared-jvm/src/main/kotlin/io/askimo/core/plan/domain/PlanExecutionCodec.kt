@@ -5,13 +5,6 @@
 package io.askimo.core.plan.domain
 
 import io.askimo.core.util.JsonUtils.json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.longOrNull
 
 /**
  * Shared TEXT encoding for [PlanExecution.inputs] and [PlanExecution.stepOutputs].
@@ -25,10 +18,27 @@ object PlanExecutionCodec {
     /** Encodes [inputs] as a JSON object. */
     fun encodeInputs(inputs: Map<String, String>): String = json.encodeToString(inputs)
 
-    /** Decodes the JSON object produced by [encodeInputs]. */
+    /** Decodes the JSON object produced by [encodeInputs], tolerating the legacy `key=value` format. */
     fun decodeInputs(raw: String): Map<String, String> {
         if (raw.isBlank() || raw == "{}") return emptyMap()
-        return json.decodeFromString(raw)
+
+        // New format: JSON object.
+        runCatching {
+            json.decodeFromString<Map<String, String>>(raw)
+        }.getOrNull()?.let { return it }
+
+        // Legacy format: one "key=value" entry per line, predating the switch to JSON. Rows
+        // written by the old encoder still exist in local databases that have only run
+        // migration 69 (which adds synced_at but does not rewrite inputs), so this must stay
+        // until those rows are rewritten.
+        return raw.lines()
+            .filter { it.contains('=') }
+            .associate { line ->
+                val idx = line.indexOf('=')
+                val key = line.substring(0, idx)
+                val value = line.substring(idx + 1).replace("\\n", "\n")
+                key to value
+            }
     }
 
     /** Encodes structured step outputs as a JSON array; `null` when empty. */
@@ -37,45 +47,9 @@ object PlanExecutionCodec {
         return json.encodeToString(steps)
     }
 
-    /** Decodes the JSON array produced by [encodeStepOutputs], tolerating legacy formats. */
+    /** Decodes the JSON array produced by [encodeStepOutputs]. */
     fun decodeStepOutputs(raw: String?): List<PlanStepOutput> {
         if (raw.isNullOrBlank()) return emptyList()
-
-        // New format: JSON array of PlanStepOutput.
-        runCatching {
-            json.decodeFromString<List<PlanStepOutput>>(raw)
-        }.getOrNull()?.let { return it }
-
-        // Compatibility format: JSON with legacy keys {"step":"...","output":"..."}.
-        val legacySteps = runCatching {
-            val element = json.parseToJsonElement(raw)
-            if (element !is JsonArray) return@runCatching null
-            element.jsonArray.mapNotNull { item ->
-                val obj = item as? JsonObject ?: return@mapNotNull null
-                val stepName = obj["stepName"]?.jsonPrimitive?.contentOrNull
-                    ?: obj["step"]?.jsonPrimitive?.contentOrNull
-                    ?: return@mapNotNull null
-                val output = obj["output"]?.jsonPrimitive?.contentOrNull ?: ""
-                PlanStepOutput(
-                    stepName = stepName,
-                    output = output,
-                    inputTokens = obj["inputTokens"]?.jsonPrimitive?.intOrNull,
-                    outputTokens = obj["outputTokens"]?.jsonPrimitive?.intOrNull,
-                    totalTokens = obj["totalTokens"]?.jsonPrimitive?.intOrNull,
-                    durationMs = obj["durationMs"]?.jsonPrimitive?.longOrNull,
-                )
-            }
-        }.getOrNull()
-        if (legacySteps != null) return legacySteps
-
-        // Legacy line format: stepName|output
-        return raw.lines().mapNotNull { line ->
-            val sep = line.indexOf('|')
-            if (sep < 0) return@mapNotNull null
-            PlanStepOutput(
-                stepName = line.substring(0, sep),
-                output = line.substring(sep + 1).replace("\\n", "\n"),
-            )
-        }
+        return json.decodeFromString(raw)
     }
 }
