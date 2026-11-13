@@ -127,6 +127,8 @@ object SqlDelightSchemaMigrations {
         66L to { d -> addColumnIfMissing(d, "chat_messages", "deleted_at", "TEXT") },
 
         68L to { d -> addColumnIfMissing(d, "chat_sessions", "enabled_mcp_server_ids", "VARCHAR(2000) DEFAULT '[]'") },
+
+        69L to { d -> addColumnIfMissing(d, "plan_executions", "synced_at", "TEXT") },
     )
 
     fun callbacks(): Array<AfterVersion> = migrationActions.map { (version, action) ->

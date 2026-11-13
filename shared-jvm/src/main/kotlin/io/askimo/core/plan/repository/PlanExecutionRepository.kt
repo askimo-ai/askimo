@@ -7,18 +7,15 @@ package io.askimo.core.plan.repository
 import io.askimo.core.db.AbstractRepository
 import io.askimo.core.db.DatabaseManager
 import io.askimo.core.db.sqldelight.Plan_executions
+import io.askimo.core.event.EventBus
+import io.askimo.core.event.internal.PushDataToServerEvent
 import io.askimo.core.logging.logger
 import io.askimo.core.plan.domain.PlanExecution
+import io.askimo.core.plan.domain.PlanExecutionCodec.decodeInputs
+import io.askimo.core.plan.domain.PlanExecutionCodec.decodeStepOutputs
+import io.askimo.core.plan.domain.PlanExecutionCodec.encodeInputs
+import io.askimo.core.plan.domain.PlanExecutionCodec.encodeStepOutputs
 import io.askimo.core.plan.domain.PlanExecutionStatus
-import io.askimo.core.plan.domain.PlanStepOutput
-import io.askimo.core.util.JsonUtils.json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.longOrNull
 import java.util.UUID
 import kotlin.time.Clock
 
@@ -43,67 +40,6 @@ private fun Plan_executions.toPlanExecution() = PlanExecution(
     createdAt = created_at,
     updatedAt = updated_at,
 )
-
-private fun encodeInputs(inputs: Map<String, String>): String = inputs.entries.joinToString("\n") { (k, v) -> "$k=${v.replace("\n", "\\n")}" }
-
-private fun decodeInputs(raw: String): Map<String, String> {
-    if (raw.isBlank() || raw == "{}") return emptyMap()
-    return raw.lines()
-        .filter { it.contains('=') }
-        .associate { line ->
-            val idx = line.indexOf('=')
-            val key = line.substring(0, idx)
-            val value = line.substring(idx + 1).replace("\\n", "\n")
-            key to value
-        }
-}
-
-/** Encodes structured step outputs as a JSON array. */
-private fun encodeStepOutputs(steps: List<PlanStepOutput>): String? {
-    if (steps.isEmpty()) return null
-    return json.encodeToString(steps)
-}
-
-private fun decodeStepOutputs(raw: String?): List<PlanStepOutput> {
-    if (raw.isNullOrBlank()) return emptyList()
-
-    // New format: JSON array of PlanStepOutput.
-    runCatching {
-        json.decodeFromString<List<PlanStepOutput>>(raw)
-    }.getOrNull()?.let { return it }
-
-    // Compatibility format: JSON with legacy keys {"step":"...","output":"..."}.
-    val legacySteps = runCatching {
-        val element = json.parseToJsonElement(raw)
-        if (element !is JsonArray) return@runCatching null
-        element.jsonArray.mapNotNull { item ->
-            val obj = item as? JsonObject ?: return@mapNotNull null
-            val stepName = obj["stepName"]?.jsonPrimitive?.contentOrNull
-                ?: obj["step"]?.jsonPrimitive?.contentOrNull
-                ?: return@mapNotNull null
-            val output = obj["output"]?.jsonPrimitive?.contentOrNull ?: ""
-            PlanStepOutput(
-                stepName = stepName,
-                output = output,
-                inputTokens = obj["inputTokens"]?.jsonPrimitive?.intOrNull,
-                outputTokens = obj["outputTokens"]?.jsonPrimitive?.intOrNull,
-                totalTokens = obj["totalTokens"]?.jsonPrimitive?.intOrNull,
-                durationMs = obj["durationMs"]?.jsonPrimitive?.longOrNull,
-            )
-        }
-    }.getOrNull()
-    if (legacySteps != null) return legacySteps
-
-    // Legacy line format: stepName|output
-    return raw.lines().mapNotNull { line ->
-        val sep = line.indexOf('|')
-        if (sep < 0) return@mapNotNull null
-        PlanStepOutput(
-            stepName = line.substring(0, sep),
-            output = line.substring(sep + 1).replace("\\n", "\n"),
-        )
-    }
-}
 
 /**
  *
@@ -149,6 +85,7 @@ class PlanExecutionRepository internal constructor(
         )
 
         log.debug("Created plan execution '{}' for plan '{}'", record.id, record.planId)
+        EventBus.post(PushDataToServerEvent(reason = "plan execution created"))
         return record
     }
 
@@ -174,6 +111,7 @@ class PlanExecutionRepository internal constructor(
             id = record.id,
         )
 
+        EventBus.post(PushDataToServerEvent(reason = "plan execution updated"))
         return record
     }
 
@@ -191,10 +129,12 @@ class PlanExecutionRepository internal constructor(
             updatedAt = Clock.System.now(),
             id = id,
         )
+        EventBus.post(PushDataToServerEvent(reason = "plan execution status changed"))
     }
 
     fun delete(id: String) {
         queries.deleteById(id)
+        EventBus.post(PushDataToServerEvent(reason = "plan execution deleted"))
     }
 
     fun findById(id: String): PlanExecution? = queries.selectById(id).executeAsOneOrNull()?.toPlanExecution()
@@ -208,4 +148,85 @@ class PlanExecutionRepository internal constructor(
      * Returns all executions, newest first.
      */
     fun findAll(): List<PlanExecution> = queries.selectAllOrderedDesc().executeAsList().map { it.toPlanExecution() }
+
+    // ── Sync support ─────────────────────────────────────────────────────────
+
+    /**
+     * Mark an execution as successfully synced to the server by setting `synced_at`
+     * to the current timestamp.
+     */
+    fun markSynced(id: String): Boolean = queries.markSynced(Clock.System.now(), id).value > 0
+
+    /**
+     * Returns executions that have never been synced or were modified locally since
+     * their last successful sync, ordered by `updated_at` ascending.
+     *
+     * @param limit Maximum rows to return in one batch.
+     */
+    fun getUnsynced(limit: Int = 50): List<PlanExecution> = queries.selectAllOrderedByUpdatedAtAsc().executeAsList()
+        .mapNotNull { row ->
+            val updatedAt = row.updated_at
+            val syncedAt = row.synced_at
+            if (syncedAt == null || updatedAt > syncedAt) row.toPlanExecution() else null
+        }
+        .take(limit)
+
+    /**
+     * Upserts a single execution received from a remote pull, mirroring
+     * [io.askimo.core.chat.repository.ChatSessionRepository.upsertFromServer]'s last-writer-wins
+     * check done in Kotlin (the project's sqldelight dialect predates native SQL upsert syntax).
+     * A brand-new row is inserted; an existing row is overwritten only when [execution.updatedAt]
+     * is strictly newer than what's stored locally. Marks the row as synced immediately since it
+     * was just applied from the remote source.
+     */
+    fun upsertFromServer(execution: PlanExecution) {
+        val now = Clock.System.now()
+        val storedUpdatedAt = queries.selectExistingByIds(listOf(execution.id)).executeAsList()
+            .firstOrNull()?.updated_at
+
+        if (storedUpdatedAt == null) {
+            queries.insertFromServer(
+                id = execution.id,
+                planId = execution.planId,
+                planName = execution.planName,
+                inputs = encodeInputs(execution.inputs),
+                status = execution.status.name,
+                runCount = execution.runCount.toLong(),
+                sessionId = execution.sessionId,
+                output = execution.output,
+                stepOutputs = encodeStepOutputs(execution.stepOutputs),
+                totalInputTokens = execution.totalInputTokens?.toLong(),
+                totalOutputTokens = execution.totalOutputTokens?.toLong(),
+                totalTokens = execution.totalTokens?.toLong(),
+                totalDurationMs = execution.totalDurationMs,
+                errorMessage = execution.errorMessage,
+                createdAt = execution.createdAt,
+                updatedAt = execution.updatedAt,
+                syncedAt = now,
+            )
+            log.debug("upsertFromServer: inserted plan execution {}", execution.id)
+        } else if (execution.updatedAt > storedUpdatedAt) {
+            queries.updateFromServer(
+                planId = execution.planId,
+                planName = execution.planName,
+                inputs = encodeInputs(execution.inputs),
+                status = execution.status.name,
+                runCount = execution.runCount.toLong(),
+                sessionId = execution.sessionId,
+                output = execution.output,
+                stepOutputs = encodeStepOutputs(execution.stepOutputs),
+                totalInputTokens = execution.totalInputTokens?.toLong(),
+                totalOutputTokens = execution.totalOutputTokens?.toLong(),
+                totalTokens = execution.totalTokens?.toLong(),
+                totalDurationMs = execution.totalDurationMs,
+                errorMessage = execution.errorMessage,
+                updatedAt = execution.updatedAt,
+                syncedAt = now,
+                id = execution.id,
+            )
+            log.debug("upsertFromServer: updated plan execution {} (server newer)", execution.id)
+        } else {
+            log.debug("upsertFromServer: skipped plan execution {} (local is same age or newer)", execution.id)
+        }
+    }
 }

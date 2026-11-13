@@ -105,6 +105,7 @@ class DatabaseManager private constructor(
         plan_executionsAdapter = Plan_executions.Adapter(
             created_atAdapter = InstantColumnAdapter,
             updated_atAdapter = InstantColumnAdapter,
+            synced_atAdapter = InstantColumnAdapter,
         ),
         projectsAdapter = Projects.Adapter(
             created_atAdapter = InstantColumnAdapter,

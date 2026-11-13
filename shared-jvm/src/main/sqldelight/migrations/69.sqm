@@ -1,0 +1,1 @@
+-- plan_executions.synced_at — guarded ALTER TABLE ADD COLUMN via SqlDelightSchemaMigrations.callbacks() AfterVersion(69)
