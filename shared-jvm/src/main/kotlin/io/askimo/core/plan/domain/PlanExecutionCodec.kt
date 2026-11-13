@@ -22,20 +22,13 @@ import kotlinx.serialization.json.longOrNull
  * drifting out of sync with each other.
  */
 object PlanExecutionCodec {
-    /** Encodes [inputs] as a simple `key=value` text, one entry per line. */
-    fun encodeInputs(inputs: Map<String, String>): String = inputs.entries.joinToString("\n") { (k, v) -> "$k=${v.replace("\n", "\\n")}" }
+    /** Encodes [inputs] as a JSON object. */
+    fun encodeInputs(inputs: Map<String, String>): String = json.encodeToString(inputs)
 
-    /** Decodes the `key=value` text produced by [encodeInputs]. */
+    /** Decodes the JSON object produced by [encodeInputs]. */
     fun decodeInputs(raw: String): Map<String, String> {
         if (raw.isBlank() || raw == "{}") return emptyMap()
-        return raw.lines()
-            .filter { it.contains('=') }
-            .associate { line ->
-                val idx = line.indexOf('=')
-                val key = line.substring(0, idx)
-                val value = line.substring(idx + 1).replace("\\n", "\n")
-                key to value
-            }
+        return json.decodeFromString(raw)
     }
 
     /** Encodes structured step outputs as a JSON array; `null` when empty. */

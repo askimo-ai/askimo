@@ -64,7 +64,7 @@ selectAllOrderedDesc:
 SELECT * FROM plan_executions ORDER BY created_at DESC;
 
 markSynced:
-UPDATE plan_executions SET synced_at = :syncedAt WHERE id = :id;
+UPDATE plan_executions SET synced_at = :syncedAt WHERE id = :id AND updated_at = :expectedUpdatedAt;
 
 selectAllOrderedByUpdatedAtAsc:
 SELECT * FROM plan_executions ORDER BY updated_at ASC;
