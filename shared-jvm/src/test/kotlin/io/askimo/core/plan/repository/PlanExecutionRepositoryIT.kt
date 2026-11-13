@@ -21,6 +21,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.collections.get
 import kotlin.text.get
+import kotlin.time.Clock
 
 /**
  * Integration tests for the SQLDelight-backed [PlanExecutionRepository] /
@@ -174,5 +175,86 @@ class PlanExecutionRepositoryIT {
         val found = repository.findById(created.id)!!
         assertTrue(found.inputs.isEmpty())
         assertTrue(found.stepOutputs.isEmpty())
+    }
+
+    @Test
+    fun `markSynced succeeds and removes the row from getUnsynced when the revision matches`() {
+        val created = repository.create(PlanExecution(id = "", planId = "plan-1", planName = "P"))
+        assertTrue(repository.getUnsynced().any { it.id == created.id })
+
+        val result = repository.markSynced(created.id, created.updatedAt)
+
+        assertTrue(result)
+        assertTrue(repository.getUnsynced().none { it.id == created.id })
+    }
+
+    @Test
+    fun `markSynced is a no-op when the row changed since the pushed revision`() {
+        val created = repository.create(PlanExecution(id = "", planId = "plan-1", planName = "P"))
+        val staleUpdatedAt = created.updatedAt
+
+        // Simulate a concurrent local edit landing while a push for the original
+        // revision is still in flight.
+        Thread.sleep(5)
+        repository.updateStatus(created.id, PlanExecutionStatus.RUNNING)
+
+        // The in-flight push for the stale revision completes and tries to mark synced.
+        val result = repository.markSynced(created.id, staleUpdatedAt)
+
+        assertTrue(!result)
+        // The newer revision must remain eligible for the next push.
+        assertTrue(repository.getUnsynced().any { it.id == created.id })
+    }
+
+    @Test
+    fun `upsertFromServer inserts a row that does not exist locally`() {
+        val remote = PlanExecution(
+            id = "remote-1",
+            planId = "plan-1",
+            planName = "P",
+            status = PlanExecutionStatus.COMPLETED,
+            output = "remote output",
+        )
+
+        repository.upsertFromServer(remote)
+
+        val found = repository.findById("remote-1")
+        assertNotNull(found)
+        assertEquals("remote output", found.output)
+        assertTrue(repository.getUnsynced().none { it.id == "remote-1" })
+    }
+
+    @Test
+    fun `upsertFromServer overwrites the local row when the remote revision is newer`() {
+        val created = repository.create(PlanExecution(id = "", planId = "plan-1", planName = "P"))
+        Thread.sleep(5)
+        val newerRemote = created.copy(
+            status = PlanExecutionStatus.COMPLETED,
+            output = "newer remote output",
+            updatedAt = Clock.System.now(),
+        )
+
+        repository.upsertFromServer(newerRemote)
+
+        val found = repository.findById(created.id)!!
+        assertEquals(PlanExecutionStatus.COMPLETED, found.status)
+        assertEquals("newer remote output", found.output)
+    }
+
+    @Test
+    fun `upsertFromServer skips the write when the local row is the same age or newer`() {
+        val created = repository.create(PlanExecution(id = "", planId = "plan-1", planName = "P"))
+        Thread.sleep(5)
+        repository.updateStatus(created.id, PlanExecutionStatus.RUNNING)
+        val newerLocal = repository.findById(created.id)!!
+
+        // A stale remote copy (same updatedAt as the original create) must not clobber
+        // the newer local edit.
+        repository.upsertFromServer(created.copy(status = PlanExecutionStatus.FAILED, output = "stale remote output"))
+
+        val found = repository.findById(created.id)!!
+        assertEquals(PlanExecutionStatus.RUNNING, found.status)
+        assertNull(found.output)
+        assertEquals(newerLocal.updatedAt, found.updatedAt)
     }
 }

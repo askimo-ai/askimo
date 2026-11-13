@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS plan_executions (
     total_input_tokens INTEGER,
     total_output_tokens INTEGER,
     total_tokens INTEGER,
-    total_duration_ms INTEGER
+    total_duration_ms INTEGER,
+    synced_at     TEXT AS kotlin.time.Instant
 );
 
 CREATE INDEX IF NOT EXISTS idx_plan_executions_plan_id ON plan_executions (plan_id, created_at);
@@ -61,4 +62,44 @@ SELECT * FROM plan_executions WHERE plan_id = :planId ORDER BY created_at DESC;
 
 selectAllOrderedDesc:
 SELECT * FROM plan_executions ORDER BY created_at DESC;
+
+markSynced:
+UPDATE plan_executions SET synced_at = :syncedAt WHERE id = :id AND updated_at = :expectedUpdatedAt;
+
+selectAllOrderedByUpdatedAtAsc:
+SELECT * FROM plan_executions ORDER BY updated_at ASC;
+
+insertFromServer:
+INSERT INTO plan_executions (
+    id, plan_id, plan_name, inputs, status, run_count, session_id, output, step_outputs,
+    total_input_tokens, total_output_tokens, total_tokens, total_duration_ms, error_message,
+    created_at, updated_at, synced_at
+)
+VALUES (
+    :id, :planId, :planName, :inputs, :status, :runCount, :sessionId, :output, :stepOutputs,
+    :totalInputTokens, :totalOutputTokens, :totalTokens, :totalDurationMs, :errorMessage,
+    :createdAt, :updatedAt, :syncedAt
+);
+
+updateFromServer:
+UPDATE plan_executions SET
+    plan_id = :planId,
+    plan_name = :planName,
+    inputs = :inputs,
+    status = :status,
+    run_count = :runCount,
+    session_id = :sessionId,
+    output = :output,
+    step_outputs = :stepOutputs,
+    total_input_tokens = :totalInputTokens,
+    total_output_tokens = :totalOutputTokens,
+    total_tokens = :totalTokens,
+    total_duration_ms = :totalDurationMs,
+    error_message = :errorMessage,
+    updated_at = :updatedAt,
+    synced_at = :syncedAt
+WHERE id = :id;
+
+selectExistingByIds:
+SELECT id, updated_at FROM plan_executions WHERE id IN :ids;
 
