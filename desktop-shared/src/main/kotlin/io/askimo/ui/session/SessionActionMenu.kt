@@ -174,18 +174,21 @@ object SessionActionMenu {
         assignedLabelIds: Set<String> = emptySet(),
         onToggleLabel: (labelId: String) -> Unit = {},
         onManageLabels: () -> Unit = {},
+        showMoveToProject: Boolean = true,
     ) {
         exportMenuItem(onExport = onExport, onDismiss = onDismiss)
         renameMenuItem(onRename = onRename, onDismiss = onDismiss)
         starMenuItem(isStarred = isStarred, onStar = onStar, onDismiss = onDismiss)
 
-        // Move to Project submenu
-        moveToProjectMenuItem(
-            projects = projects,
-            onNewProject = onMoveToNewProject,
-            onSelectProject = onMoveToExistingProject,
-            onDismiss = onDismiss,
-        )
+        // Move to Project submenu — only shown when the host app supports Projects
+        if (showMoveToProject) {
+            moveToProjectMenuItem(
+                projects = projects,
+                onNewProject = onMoveToNewProject,
+                onSelectProject = onMoveToExistingProject,
+                onDismiss = onDismiss,
+            )
+        }
 
         // Labels submenu
         labelsMenuItem(

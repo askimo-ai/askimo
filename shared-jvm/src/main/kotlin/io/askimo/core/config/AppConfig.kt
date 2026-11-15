@@ -23,7 +23,9 @@ import io.askimo.core.context.AppContextParams
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.LanguageDirectiveChangedEvent
 import io.askimo.core.logging.currentFileLogger
+import io.askimo.core.providers.HasTransientCredential
 import io.askimo.core.providers.ModelProvider
+import io.askimo.core.providers.ProviderSettings
 import io.askimo.core.rag.MetadataAwareContentInjector
 import io.askimo.core.security.SecureKeyManager
 import io.askimo.core.security.SecureKeyManager.StorageMethod
@@ -1134,6 +1136,20 @@ object AppConfig {
             )
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
             .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
+
+    /**
+     * Registers an additional runtime subtype for polymorphic [ProviderSettings] (de)serialization.
+     *
+     * [ProviderSettings]'s static `@JsonSubTypes` list only covers settings classes defined in this
+     * module. Downstream editions (e.g. askimo-app's Askimo Pro provider) define their own
+     * [ProviderSettings] implementations that live outside shared-jvm and therefore can't be added
+     * to that static list without introducing a reverse module dependency. Those editions should
+     * call this once at startup — before any [AppConfig] load/save touches YAML — so their settings
+     * type round-trips correctly instead of being silently dropped.
+     */
+    fun registerProviderSettingsSubtype(type: Class<out ProviderSettings>, typeName: String) {
+        mapper.registerSubtypes(com.fasterxml.jackson.databind.jsontype.NamedType(type, typeName))
+    }
     // NOTE: sparse (overrides-only) writing is implemented manually via sparseDiff() below rather
     // than Jackson's built-in JsonInclude.Include.NON_DEFAULT — that inclusion mode needs a plain
     // no-arg Java constructor to build its internal "default instance" for comparison, which
@@ -1541,11 +1557,17 @@ object AppConfig {
         synchronized(this) {
             val sanitized = secureSessionManager.saveSecureSession(params)
 
-            // ASKIMO_PRO instances carry a transient accessToken and a type not registered
-            // in shared's @JsonSubTypes — strip them before persisting to disk.
+            // Instances with a transient (non-persistable) credential
             val persistable = sanitized.copy(
                 providerInstances = sanitized.providerInstances
-                    .filter { it.providerType != ModelProvider.ASKIMO_PRO }
+                    .map { instance ->
+                        val settingsCopy = instance.settings
+                        if (settingsCopy is HasTransientCredential) {
+                            instance.copy(settings = settingsCopy.withoutTransientCredential())
+                        } else {
+                            instance
+                        }
+                    }
                     .toMutableList(),
             )
 

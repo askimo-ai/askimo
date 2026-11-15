@@ -677,6 +677,20 @@ private fun tokenUsageSectionHeader(
     }
 }
 
+/**
+ * Some provider settings compose `defaultModel` as `"<instanceId>:<modelName>"` so a proxying
+ * backend can route a request to the correct upstream instance (e.g. a team-managed provider
+ * instance behind a shared endpoint). This lives in shared UI code, so it applies to any edition
+ * — community or team — whose model name happens to carry that prefix; everything else passes
+ * through unchanged. Users only care about the model name, so strip the leading UUID prefix
+ * for display purposes.
+ */
+private val INSTANCE_ID_MODEL_PREFIX = Regex(
+    "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}:",
+)
+
+private fun displayModelName(model: String): String = model.replaceFirst(INSTANCE_ID_MODEL_PREFIX, "")
+
 @Composable
 private fun tokenUsageChartCard(
     totalTokens: Long,
@@ -706,10 +720,12 @@ private fun tokenUsageChartCard(
             ) {
                 // 3-column summary strip: Tokens used / Calls made / Top model
                 val topModelName = topModels.firstOrNull()?.let { stat ->
-                    stat.model.ifBlank {
-                        stat.instanceKey.split(":", limit = 2).getOrElse(0) { stat.instanceKey }
-                            .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-                    }
+                    displayModelName(
+                        stat.model.ifBlank {
+                            stat.instanceKey.split(":", limit = 2).getOrElse(0) { stat.instanceKey }
+                                .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                        },
+                    )
                 }
                 tokenUsageSummaryStrip(totalTokens = totalTokens, totalCalls = totalCalls, topModel = topModelName)
                 HorizontalDivider(color = AppColors.codeBlockBorderColor())
@@ -718,7 +734,7 @@ private fun tokenUsageChartCard(
                     val provider = stat.instanceKey
                         .split(":", limit = 2).getOrElse(0) { stat.instanceKey }
                         .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-                    val model = stat.model.ifBlank { provider }
+                    val model = displayModelName(stat.model.ifBlank { provider })
                     val fraction = stat.tokens.toFloat() / totalTokens.toFloat()
                     val pctFormatted = LocalizationManager.formatNumber((fraction * 100).toInt()) + "%"
 

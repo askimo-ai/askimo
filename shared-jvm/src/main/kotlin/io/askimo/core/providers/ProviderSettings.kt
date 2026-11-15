@@ -132,3 +132,15 @@ interface HasApiKey {
 interface HasBaseUrl {
     var baseUrl: String
 }
+
+/**
+ * Marker for settings holding a short-lived, non-persistable credential (e.g. a JWT
+ * refreshed automatically at runtime by the owning module's own auth/session flow).
+ * Unlike [HasApiKey], there is no keychain storage involved — the credential is simply
+ * blanked before writing to disk so the rest of the instance (id, baseUrl, defaultModel, ...)
+ * can still be persisted and reused across restarts.
+ */
+interface HasTransientCredential {
+    /** Returns a copy of this settings instance with the transient credential blanked out. */
+    fun withoutTransientCredential(): ProviderSettings
+}
