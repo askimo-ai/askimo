@@ -1314,7 +1314,7 @@ object AppConfig {
                         migratedVoice,
                     )
                     try {
-                        Files.writeString(path, mapper.writerWithDefaultPrettyPrinter().writeValueAsString(overrideTree))
+                        writeMigratedOverrideTree(path, overrideTree)
                     } catch (e: Exception) {
                         log.error("Failed to write migrated config", e)
                     }
@@ -1427,6 +1427,28 @@ object AppConfig {
     }
 
     /**
+     * Writes [overrideTree] — [loadOnce]'s raw, migrated askimo.yml tree — back to [path] as-is,
+     * preserving every unmodeled/unknown top-level key verbatim. Deliberately **not** routed
+     * through [writeSparseConfig], which would silently drop anything [AppConfigData] doesn't
+     * model.
+     *
+     * `context.provider_instances` — the one subtree that can carry a [HasTransientCredential]
+     * value — is still sanitized in place: deserialize it, run it through
+     * [stripTransientCredentials], and splice the result back before writing. Otherwise a
+     * transient credential already present in an older askimo.yml would survive any unrelated
+     * migration.
+     */
+    private fun writeMigratedOverrideTree(path: Path, overrideTree: JsonNode) {
+        val migratedData = mapper.treeToValue(overrideTree, AppConfigData::class.java)
+        val sanitizedData = stripTransientCredentials(migratedData)
+        if (sanitizedData !== migratedData) {
+            val sanitizedInstancesNode = mapper.valueToTree<JsonNode>(sanitizedData.context.providerInstances)
+            (overrideTree as ObjectNode).with("context").replace("provider_instances", sanitizedInstancesNode)
+        }
+        Files.writeString(path, mapper.writerWithDefaultPrettyPrinter().writeValueAsString(overrideTree))
+    }
+
+    /**
      * One-time, self-terminating cleanup: strips `local_llm`'s download-provenance fields
      * (`release_tag`, the five `*_download_url` fields, the five `*_sha256` fields) from a user's
      * persisted askimo.yml, but **only when every single one of those 11 fields is present
@@ -1484,24 +1506,25 @@ object AppConfig {
 
     /**
      * Writes a snapshot of the fully-resolved effective configuration (compiled defaults merged
-     * with the user's askimo.yml overrides, i.e. exactly what [loadOnce] just computed) to
-     * `askimo.effective.yml` next to askimo.yml — purely for human/support inspection (e.g.
-     * "what llama.cpp mirror URL is this install actually using right now").
+     * with askimo.yml overrides, i.e. what [loadOnce] just computed) to `askimo.effective.yml`,
+     * for human/support inspection only.
      *
-     * **Never read back by the app** (not referenced anywhere in [loadOnce] or [resolveOrCreateConfigPath]) —
-     * the header comment says so explicitly — so a stale, hand-edited, or corrupted copy of this
-     * file can never affect runtime behavior. Best-effort: failures are logged, never thrown,
-     * since this is a convenience file and must never block startup.
+     * **Never read back by the app**, so a stale/hand-edited copy can't affect runtime behavior.
+     * Best-effort: failures are logged, never thrown — must not block startup.
+     *
+     * Sanitizes via [stripTransientCredentials] on every call, so a transient credential already
+     * present in [data] (e.g. from an older askimo.yml) is never copied into this file.
      */
     private fun writeEffectiveConfigSnapshot(data: AppConfigData) {
         try {
+            val sanitizedData = stripTransientCredentials(data)
             val snapshotPath = AskimoHome.base().resolve("askimo.effective.yml")
             val header =
                 "# Snapshot of the currently effective Askimo configuration (compiled defaults\n" +
                     "# merged with your askimo.yml overrides) — regenerated on every launch.\n" +
                     "# DO NOT EDIT: this file is NEVER read back by the app. To override a value,\n" +
                     "# edit askimo.yml instead.\n\n"
-            val body = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(data)
+            val body = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(sanitizedData)
             Files.writeString(snapshotPath, header + body)
         } catch (e: Exception) {
             log.debug("Failed to write effective config snapshot: ${e.message}")

@@ -314,6 +314,23 @@ class AppConfigTest {
         return method.invoke(AppConfig, config, field, value) as ProxyConfig
     }
 
+    /**
+     * Invokes [AppConfig]'s private `stripTransientCredentials` via reflection — the single
+     * choke-point function both `writeSparseConfig` and `writeMigratedOverrideTree` (loadOnce's
+     * migration write-back) call before ever writing to disk.
+     */
+    private fun stripTransientCredentialsHelper(data: AppConfigData): AppConfigData {
+        val method = AppConfig::class.java.getDeclaredMethod("stripTransientCredentials", AppConfigData::class.java)
+        method.isAccessible = true
+        return method.invoke(AppConfig, data) as AppConfigData
+    }
+
+    private fun writeEffectiveConfigSnapshotHelper(data: AppConfigData) {
+        val method = AppConfig::class.java.getDeclaredMethod("writeEffectiveConfigSnapshot", AppConfigData::class.java)
+        method.isAccessible = true
+        method.invoke(AppConfig, data)
+    }
+
     private fun updateVoiceFieldHelper(config: VoiceConfig, field: String, value: Any): VoiceConfig {
         val method = AppConfig::class.java.getDeclaredMethod(
             "updateVoiceField",
@@ -585,6 +602,61 @@ class AppConfigTest {
         // The live credential must still be usable in memory for the rest of this process.
         val storedSettings = AppConfig.context.providerInstances.firstOrNull()?.settings as? FakeTransientCredentialSettings
         assertEquals("jwt-super-secret-token", storedSettings?.sessionToken)
+    }
+
+    @Test
+    fun `stripTransientCredentials sanitizes provider instances for any disk-write path`() {
+        // Exercised directly via reflection: this is the single choke-point both writeSparseConfig
+        // and writeMigratedOverrideTree (loadOnce's migration write-back) call before serializing —
+        // see AppConfig.stripTransientCredentials's doc. A full loadOnce()-driven end-to-end test
+        // (stale askimo.yml containing a transient credential -> migration triggers -> write-back)
+        // would additionally require making FakeTransientCredentialSettings deserializable via
+        // AppConfig's shared ObjectMapper, but Jackson caches that mapper's polymorphic
+        // deserializer on first use across the *whole test JVM* — once any other test class has
+        // already deserialized a ProviderInstance, registering a new subtype afterwards silently
+        // has no effect, making such a test's outcome depend on cross-class execution order (see
+        // the investigation in this PR). This test instead covers the exact function both
+        // disk-write paths share, which is what the guarantee actually rests on.
+        val transientInstance = ProviderInstance.create(
+            displayName = "Askimo Pro",
+            providerType = ModelProvider.UNKNOWN,
+            settings = FakeTransientCredentialSettings(sessionToken = "jwt-super-secret-token"),
+        )
+        val data = AppConfigData(
+            context = AppContextParams(
+                currentInstanceId = transientInstance.id,
+                providerInstances = mutableListOf(transientInstance),
+            ),
+        )
+
+        val sanitized = stripTransientCredentialsHelper(data)
+
+        val sanitizedSettings = sanitized.context.providerInstances.first().settings as FakeTransientCredentialSettings
+        assertEquals("", sanitizedSettings.sessionToken)
+        // The instance passed in is untouched — the live credential stays usable in memory.
+        assertEquals(
+            "jwt-super-secret-token",
+            (transientInstance.settings as FakeTransientCredentialSettings).sessionToken,
+        )
+    }
+
+    @Test
+    fun `writeEffectiveConfigSnapshot never writes a transient credential to askimo effective yml`() {
+        val instance = ProviderInstance.create(
+            displayName = "Askimo Pro",
+            providerType = ModelProvider.UNKNOWN,
+            settings = FakeTransientCredentialSettings(sessionToken = "jwt-super-secret-token"),
+        )
+        AppConfig.saveContext(
+            AppContextParams(currentInstanceId = instance.id, providerInstances = mutableListOf(instance)),
+        )
+        // cached (unlike what's on disk) legitimately still holds the live credential — pass it
+        // straight into writeEffectiveConfigSnapshot, exactly like loadOnce does with its result.
+        writeEffectiveConfigSnapshotHelper(AppConfigData(context = AppConfig.context))
+
+        val snapshotFile = AskimoHome.base().resolve("askimo.effective.yml")
+        val snapshot = Files.readString(snapshotFile)
+        assertFalse(snapshot.contains("jwt-super-secret-token"), "askimo.effective.yml must never contain the transient credential")
     }
 
     @Test
