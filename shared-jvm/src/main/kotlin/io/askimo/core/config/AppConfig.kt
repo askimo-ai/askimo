@@ -1313,11 +1313,7 @@ object AppConfig {
                         migratedLocalLlm,
                         migratedVoice,
                     )
-                    try {
-                        writeMigratedOverrideTree(path, overrideTree)
-                    } catch (e: Exception) {
-                        log.error("Failed to write migrated config", e)
-                    }
+                    writeSparseConfig(path, normalized)
                 }
                 normalized
             } catch (e: Exception) {
@@ -1424,28 +1420,6 @@ object AppConfig {
         } catch (e: Exception) {
             log.error("Failed to persist config to $configPath", e)
         }
-    }
-
-    /**
-     * Writes [overrideTree] — [loadOnce]'s raw, migrated askimo.yml tree — back to [path] as-is,
-     * preserving every unmodeled/unknown top-level key verbatim. Deliberately **not** routed
-     * through [writeSparseConfig], which would silently drop anything [AppConfigData] doesn't
-     * model.
-     *
-     * `context.provider_instances` — the one subtree that can carry a [HasTransientCredential]
-     * value — is still sanitized in place: deserialize it, run it through
-     * [stripTransientCredentials], and splice the result back before writing. Otherwise a
-     * transient credential already present in an older askimo.yml would survive any unrelated
-     * migration.
-     */
-    private fun writeMigratedOverrideTree(path: Path, overrideTree: JsonNode) {
-        val migratedData = mapper.treeToValue(overrideTree, AppConfigData::class.java)
-        val sanitizedData = stripTransientCredentials(migratedData)
-        if (sanitizedData !== migratedData) {
-            val sanitizedInstancesNode = mapper.valueToTree<JsonNode>(sanitizedData.context.providerInstances)
-            (overrideTree as ObjectNode).with("context").replace("provider_instances", sanitizedInstancesNode)
-        }
-        Files.writeString(path, mapper.writerWithDefaultPrettyPrinter().writeValueAsString(overrideTree))
     }
 
     /**
