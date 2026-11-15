@@ -5,8 +5,12 @@
 package io.askimo.core.config
 
 import io.askimo.core.context.AppContextParams
+import io.askimo.core.providers.HasTransientCredential
 import io.askimo.core.providers.ModelProvider
+import io.askimo.core.providers.ProviderConfigField
 import io.askimo.core.providers.ProviderInstance
+import io.askimo.core.providers.ProviderSettings
+import io.askimo.core.providers.SettingField
 import io.askimo.core.providers.anthropic.AnthropicSettings
 import io.askimo.core.providers.openai.OpenAiSettings
 import io.askimo.core.providers.openaicompatible.OpenAiCompatibleSettings
@@ -21,6 +25,27 @@ import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
+
+/**
+ * Minimal [ProviderSettings] implementing [HasTransientCredential] — stands in for
+ * `AskimoProSettings` (Askimo Pro's JWT-backed settings, defined in the askimo-app repo
+ * and unavailable here) so the OSS [AppConfig]'s transient-credential sanitization can
+ * still be exercised by a unit test in this repo.
+ */
+private data class FakeTransientCredentialSettings(
+    val sessionToken: String = "",
+    override val defaultModel: String = "",
+) : ProviderSettings,
+    HasTransientCredential {
+    override fun describe(): List<String> = listOf("sessionToken: $sessionToken")
+    override fun getFields(): List<SettingField> = emptyList()
+    override fun updateField(fieldName: String, value: String): ProviderSettings = this
+    override fun getSetupHelpText(messageResolver: (String) -> String): String = ""
+    override fun getConfigFields(messageResolver: (String) -> String): List<ProviderConfigField> = emptyList()
+    override fun applyConfigFields(fields: Map<String, String>): ProviderSettings = this
+    override fun deepCopy(): ProviderSettings = copy()
+    override fun withoutTransientCredential(): ProviderSettings = copy(sessionToken = "")
+}
 
 /**
  * Tests for AppConfig field update methods.
@@ -512,6 +537,54 @@ class AppConfigTest {
         val storedInstance = AppConfig.context.providerInstances.firstOrNull { it.providerType == ModelProvider.OPENAI }
         val storedKey = (storedInstance?.settings as? OpenAiSettings)?.apiKey
         assertNotEquals("sk-super-secret-key", storedKey)
+    }
+
+    @Test
+    fun `saveContext never writes a transient credential to disk`() {
+        val configFile = AskimoHome.base().resolve("askimo.yml")
+        val instance = ProviderInstance.create(
+            displayName = "Askimo Pro",
+            providerType = ModelProvider.UNKNOWN,
+            settings = FakeTransientCredentialSettings(sessionToken = "jwt-super-secret-token"),
+        )
+        val params = AppContextParams(
+            currentInstanceId = instance.id,
+            providerInstances = mutableListOf(instance),
+        )
+
+        AppConfig.saveContext(params)
+
+        val yaml = Files.readString(configFile)
+        assertFalse(yaml.contains("jwt-super-secret-token"), "Persisted YAML must never contain the transient credential")
+    }
+
+    @Test
+    fun `an unrelated updateField call after saveContext still never writes the transient credential`() {
+        // Regression test: cached (unlike the disk-write path) legitimately keeps the live
+        // credential in memory, but every write to disk — not just the triggering saveContext
+        // call — must still sanitize it. See AppConfig.writeSparseConfig/stripTransientCredentials.
+        val configFile = AskimoHome.base().resolve("askimo.yml")
+        val instance = ProviderInstance.create(
+            displayName = "Askimo Pro",
+            providerType = ModelProvider.UNKNOWN,
+            settings = FakeTransientCredentialSettings(sessionToken = "jwt-super-secret-token"),
+        )
+        val params = AppContextParams(
+            currentInstanceId = instance.id,
+            providerInstances = mutableListOf(instance),
+        )
+        AppConfig.saveContext(params)
+
+        // Any unrelated setting change triggers a fresh writeSparseConfig(configPath, cached!!) —
+        // this must not resurrect the transient credential on disk.
+        AppConfig.updateField("developer.active", true)
+
+        val yaml = Files.readString(configFile)
+        assertFalse(yaml.contains("jwt-super-secret-token"), "Persisted YAML must never contain the transient credential")
+
+        // The live credential must still be usable in memory for the rest of this process.
+        val storedSettings = AppConfig.context.providerInstances.firstOrNull()?.settings as? FakeTransientCredentialSettings
+        assertEquals("jwt-super-secret-token", storedSettings?.sessionToken)
     }
 
     @Test

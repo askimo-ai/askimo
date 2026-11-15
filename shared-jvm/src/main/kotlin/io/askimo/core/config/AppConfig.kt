@@ -1372,6 +1372,35 @@ object AppConfig {
     }
 
     /**
+     * Returns a copy of [data] with every [HasTransientCredential] provider instance's
+     * credential blanked out via [HasTransientCredential.withoutTransientCredential].
+     *
+     * Applied unconditionally inside [writeSparseConfig] — the single choke point every
+     * disk write passes through (`saveContext`, `updateField`, ...) — rather than at each
+     * call site, so a transient credential (e.g. a session JWT) can never reach askimo.yml
+     * no matter which code path triggers the write. [cached] itself is left untouched by
+     * this function; it's still free to hold the live credential in memory for runtime use.
+     */
+    private fun stripTransientCredentials(data: AppConfigData): AppConfigData {
+        val context = data.context
+        val hasTransientCredential = context.providerInstances.any { it.settings is HasTransientCredential }
+        if (!hasTransientCredential) return data
+
+        val sanitizedInstances = context.providerInstances
+            .map { instance ->
+                val settings = instance.settings
+                if (settings is HasTransientCredential) {
+                    instance.copy(settings = settings.withoutTransientCredential())
+                } else {
+                    instance
+                }
+            }
+            .toMutableList()
+
+        return data.copy(context = context.copy(providerInstances = sanitizedInstances))
+    }
+
+    /**
      * Serializes [data] to askimo.yml, keeping only fields that differ from [AppConfigData]'s
      * current compiled defaults (via [sparseDiff]) — so saving one setting never bakes untouched
      * sections (e.g. `local_llm`'s download URLs/checksums) into the file, which would otherwise
@@ -1380,10 +1409,15 @@ object AppConfig {
      * compiled-defaults merge is the read-side half. Best-effort: failures are logged, never
      * thrown — the in-memory [cached] value stays authoritative for the rest of this process
      * either way, it just won't survive a restart if the write fails.
+     *
+     * [stripTransientCredentials] is applied here, not by each caller, so every disk write —
+     * present and future — is guaranteed to never persist a transient (e.g. JWT) credential,
+     * regardless of whether [data] (often [cached] itself) still carries the live value.
      */
     private fun writeSparseConfig(configPath: Path, data: AppConfigData) {
         try {
-            val currentTree = mapper.valueToTree<JsonNode>(data)
+            val sanitizedData = stripTransientCredentials(data)
+            val currentTree = mapper.valueToTree<JsonNode>(sanitizedData)
             val defaultTree = mapper.valueToTree<JsonNode>(AppConfigData())
             val sparseTree = sparseDiff(currentTree, defaultTree) ?: mapper.createObjectNode()
             Files.writeString(configPath, mapper.writerWithDefaultPrettyPrinter().writeValueAsString(sparseTree))
@@ -1551,25 +1585,14 @@ object AppConfig {
     /**
      * Persists the given [AppContextParams] into the in-memory cache and YAML file,
      * replacing the current `context:` section.
-     * API keys are sanitised via [SecureSessionManager] before writing to disk.
+     * API keys are sanitised via [SecureSessionManager] before writing to disk; any
+     * [HasTransientCredential] provider settings (e.g. a session JWT) are additionally
+     * blanked out inside [writeSparseConfig] before every disk write, not just this one —
+     * see its doc for why that's the single choke point for this sanitization.
      */
     fun saveContext(params: AppContextParams) {
         synchronized(this) {
             val sanitized = secureSessionManager.saveSecureSession(params)
-
-            // Instances with a transient (non-persistable) credential
-            val persistable = sanitized.copy(
-                providerInstances = sanitized.providerInstances
-                    .map { instance ->
-                        val settingsCopy = instance.settings
-                        if (settingsCopy is HasTransientCredential) {
-                            instance.copy(settings = settingsCopy.withoutTransientCredential())
-                        } else {
-                            instance
-                        }
-                    }
-                    .toMutableList(),
-            )
 
             val current = cached ?: loadOnce()
 
@@ -1577,7 +1600,7 @@ object AppConfig {
 
             val configPath = resolveOrCreateConfigPath()
             if (configPath != null && configPath.exists()) {
-                writeSparseConfig(configPath, current.copy(context = persistable))
+                writeSparseConfig(configPath, cached!!)
                 log.info("Saved context to $configPath")
             }
         }
