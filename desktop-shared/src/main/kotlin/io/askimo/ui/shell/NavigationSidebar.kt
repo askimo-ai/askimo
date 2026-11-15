@@ -204,6 +204,9 @@ fun navigationSidebar(
     onEditProject: (String) -> Unit = {},
     onDeleteProject: (String) -> Unit = {},
     onMoveSessionToNewProject: (sessionId: String) -> Unit = {},
+    // Whether the host app supports the Projects feature — controls visibility of
+    // the "Move to Project" menu items (Askimo App/Team edition has no Projects feature).
+    showMoveToProject: Boolean = true,
     // Slot: the caller renders the bottom user-profile row (avatar + menu)
     userProfileContent: @Composable () -> Unit,
 ) {
@@ -263,6 +266,7 @@ fun navigationSidebar(
             onEditProject = onEditProject,
             onDeleteProject = onDeleteProject,
             onMoveSessionToNewProject = onMoveSessionToNewProject,
+            showMoveToProject = showMoveToProject,
             userProfileContent = userProfileContent,
         )
     } else {
@@ -322,6 +326,7 @@ private fun expandedNavigationSidebar(
     onEditProject: (String) -> Unit,
     onDeleteProject: (String) -> Unit,
     onMoveSessionToNewProject: (sessionId: String) -> Unit,
+    showMoveToProject: Boolean,
     userProfileContent: @Composable () -> Unit,
 ) {
     val fontScale = LocalFontScale.current
@@ -536,6 +541,7 @@ private fun expandedNavigationSidebar(
                                 sessionsViewModel = sessionsViewModel,
                                 availableProjects = projectsState.projects,
                                 onMoveSessionToNewProject = { onMoveSessionToNewProject(it) },
+                                showMoveToProject = showMoveToProject,
                             )
                         }
                     }
@@ -557,6 +563,7 @@ private fun expandedNavigationSidebar(
                         onShowSessionSummary = onShowSessionSummary,
                         availableProjects = projectsState.projects,
                         onMoveSessionToNewProject = onMoveSessionToNewProject,
+                        showMoveToProject = showMoveToProject,
                     )
                 }
             }
@@ -1195,6 +1202,7 @@ private fun sessionsList(
     onShowSessionSummary: (String) -> Unit = {},
     availableProjects: List<Project>,
     onMoveSessionToNewProject: (sessionId: String) -> Unit,
+    showMoveToProject: Boolean = true,
 ) {
     Column(
         modifier = Modifier.padding(
@@ -1248,6 +1256,7 @@ private fun sessionsList(
                         onShowSessionSummary = onShowSessionSummary,
                         availableProjects = availableProjects,
                         onMoveSessionToNewProject = onMoveSessionToNewProject,
+                        showMoveToProject = showMoveToProject,
                         bookmarkCount = sessionsViewModel.bookmarkCountsBySession[session.id] ?: 0,
                         selectionMode = sessionsViewModel.selectionMode,
                         isSessionSelected = session.id in sessionsViewModel.selectedSessionIds,
@@ -1632,6 +1641,7 @@ private fun sessionsBulkActionBar(
     sessionsViewModel: SessionsViewModel,
     availableProjects: List<Project>,
     onMoveSessionToNewProject: (sessionId: String) -> Unit,
+    showMoveToProject: Boolean = true,
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     val fontScale = LocalFontScale.current
@@ -1690,29 +1700,31 @@ private fun sessionsBulkActionBar(
 
             Box {
                 var showMoveMenu by remember { mutableStateOf(false) }
-                themedTooltip(text = stringResource("session.move.to.project")) {
-                    IconButton(
-                        onClick = { showMoveMenu = true },
-                        enabled = selectedCount > 0,
-                        modifier = Modifier.size((24 * fontScale).dp).pointerHoverIcon(PointerIcon.Hand),
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.DriveFileMove, contentDescription = stringResource("session.move.to.project"))
+                if (showMoveToProject) {
+                    themedTooltip(text = stringResource("session.move.to.project")) {
+                        IconButton(
+                            onClick = { showMoveMenu = true },
+                            enabled = selectedCount > 0,
+                            modifier = Modifier.size((24 * fontScale).dp).pointerHoverIcon(PointerIcon.Hand),
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.DriveFileMove, contentDescription = stringResource("session.move.to.project"))
+                        }
                     }
-                }
-                dropdownMenu(expanded = showMoveMenu, onDismissRequest = { showMoveMenu = false }) {
-                    moveToProjectMenuItem(
-                        projects = availableProjects,
-                        onNewProject = {
-                            showMoveMenu = false
-                            val firstSelected = sessionsViewModel.selectedSessionIds.firstOrNull()
-                            if (firstSelected != null) onMoveSessionToNewProject(firstSelected)
-                        },
-                        onSelectProject = { project ->
-                            showMoveMenu = false
-                            sessionsViewModel.bulkMoveSelectedToProject(project.id)
-                        },
-                        onDismiss = { showMoveMenu = false },
-                    )
+                    dropdownMenu(expanded = showMoveMenu, onDismissRequest = { showMoveMenu = false }) {
+                        moveToProjectMenuItem(
+                            projects = availableProjects,
+                            onNewProject = {
+                                showMoveMenu = false
+                                val firstSelected = sessionsViewModel.selectedSessionIds.firstOrNull()
+                                if (firstSelected != null) onMoveSessionToNewProject(firstSelected)
+                            },
+                            onSelectProject = { project ->
+                                showMoveMenu = false
+                                sessionsViewModel.bulkMoveSelectedToProject(project.id)
+                            },
+                            onDismiss = { showMoveMenu = false },
+                        )
+                    }
                 }
             }
 
@@ -1756,6 +1768,7 @@ private fun sessionItemWithMenu(
     onShowSessionSummary: (String) -> Unit = {},
     availableProjects: List<Project>,
     onMoveSessionToNewProject: (sessionId: String) -> Unit,
+    showMoveToProject: Boolean = true,
     bookmarkCount: Int = 0,
     selectionMode: Boolean = false,
     isSessionSelected: Boolean = false,
@@ -1835,6 +1848,7 @@ private fun sessionItemWithMenu(
                             showMenu = false
                             onManageLabels()
                         },
+                        showMoveToProject = showMoveToProject,
                     )
                 }
             }

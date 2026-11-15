@@ -1331,12 +1331,14 @@ internal fun thinkingSection(
                             .verticalScroll(scrollState)
                             .padding(start = Spacing.small, end = Spacing.medium, top = Spacing.micro, bottom = Spacing.micro),
                     ) {
-                        inlineMarkdownText(
-                            markdown = thinkingContent,
-                            style = AppTextStyles.caption.copy(fontStyle = FontStyle.Italic),
-                            color = AppColors.secondaryIconColor(),
-                            onLinkClick = onLinkClick,
-                        )
+                        SelectionContainer {
+                            inlineMarkdownText(
+                                markdown = thinkingContent,
+                                style = AppTextStyles.caption.copy(fontStyle = FontStyle.Italic),
+                                color = AppColors.secondaryIconColor(),
+                                onLinkClick = onLinkClick,
+                            )
+                        }
                     }
                     // Only render once we know the viewport height (after the first layout pass).
                     if (viewportHeightPx > 0) {

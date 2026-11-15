@@ -23,7 +23,9 @@ import io.askimo.core.context.AppContextParams
 import io.askimo.core.event.EventBus
 import io.askimo.core.event.internal.LanguageDirectiveChangedEvent
 import io.askimo.core.logging.currentFileLogger
+import io.askimo.core.providers.HasTransientCredential
 import io.askimo.core.providers.ModelProvider
+import io.askimo.core.providers.ProviderSettings
 import io.askimo.core.rag.MetadataAwareContentInjector
 import io.askimo.core.security.SecureKeyManager
 import io.askimo.core.security.SecureKeyManager.StorageMethod
@@ -1134,6 +1136,20 @@ object AppConfig {
             )
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
             .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
+
+    /**
+     * Registers an additional runtime subtype for polymorphic [ProviderSettings] (de)serialization.
+     *
+     * [ProviderSettings]'s static `@JsonSubTypes` list only covers settings classes defined in this
+     * module. Downstream editions (e.g. askimo-app's Askimo Pro provider) define their own
+     * [ProviderSettings] implementations that live outside shared-jvm and therefore can't be added
+     * to that static list without introducing a reverse module dependency. Those editions should
+     * call this once at startup — before any [AppConfig] load/save touches YAML — so their settings
+     * type round-trips correctly instead of being silently dropped.
+     */
+    fun registerProviderSettingsSubtype(type: Class<out ProviderSettings>, typeName: String) {
+        mapper.registerSubtypes(com.fasterxml.jackson.databind.jsontype.NamedType(type, typeName))
+    }
     // NOTE: sparse (overrides-only) writing is implemented manually via sparseDiff() below rather
     // than Jackson's built-in JsonInclude.Include.NON_DEFAULT — that inclusion mode needs a plain
     // no-arg Java constructor to build its internal "default instance" for comparison, which
@@ -1297,11 +1313,7 @@ object AppConfig {
                         migratedLocalLlm,
                         migratedVoice,
                     )
-                    try {
-                        Files.writeString(path, mapper.writerWithDefaultPrettyPrinter().writeValueAsString(overrideTree))
-                    } catch (e: Exception) {
-                        log.error("Failed to write migrated config", e)
-                    }
+                    writeSparseConfig(path, normalized)
                 }
                 normalized
             } catch (e: Exception) {
@@ -1356,6 +1368,35 @@ object AppConfig {
     }
 
     /**
+     * Returns a copy of [data] with every [HasTransientCredential] provider instance's
+     * credential blanked out via [HasTransientCredential.withoutTransientCredential].
+     *
+     * Applied unconditionally inside [writeSparseConfig] — the single choke point every
+     * disk write passes through (`saveContext`, `updateField`, ...) — rather than at each
+     * call site, so a transient credential (e.g. a session JWT) can never reach askimo.yml
+     * no matter which code path triggers the write. [cached] itself is left untouched by
+     * this function; it's still free to hold the live credential in memory for runtime use.
+     */
+    private fun stripTransientCredentials(data: AppConfigData): AppConfigData {
+        val context = data.context
+        val hasTransientCredential = context.providerInstances.any { it.settings is HasTransientCredential }
+        if (!hasTransientCredential) return data
+
+        val sanitizedInstances = context.providerInstances
+            .map { instance ->
+                val settings = instance.settings
+                if (settings is HasTransientCredential) {
+                    instance.copy(settings = settings.withoutTransientCredential())
+                } else {
+                    instance
+                }
+            }
+            .toMutableList()
+
+        return data.copy(context = context.copy(providerInstances = sanitizedInstances))
+    }
+
+    /**
      * Serializes [data] to askimo.yml, keeping only fields that differ from [AppConfigData]'s
      * current compiled defaults (via [sparseDiff]) — so saving one setting never bakes untouched
      * sections (e.g. `local_llm`'s download URLs/checksums) into the file, which would otherwise
@@ -1364,10 +1405,15 @@ object AppConfig {
      * compiled-defaults merge is the read-side half. Best-effort: failures are logged, never
      * thrown — the in-memory [cached] value stays authoritative for the rest of this process
      * either way, it just won't survive a restart if the write fails.
+     *
+     * [stripTransientCredentials] is applied here, not by each caller, so every disk write —
+     * present and future — is guaranteed to never persist a transient (e.g. JWT) credential,
+     * regardless of whether [data] (often [cached] itself) still carries the live value.
      */
     private fun writeSparseConfig(configPath: Path, data: AppConfigData) {
         try {
-            val currentTree = mapper.valueToTree<JsonNode>(data)
+            val sanitizedData = stripTransientCredentials(data)
+            val currentTree = mapper.valueToTree<JsonNode>(sanitizedData)
             val defaultTree = mapper.valueToTree<JsonNode>(AppConfigData())
             val sparseTree = sparseDiff(currentTree, defaultTree) ?: mapper.createObjectNode()
             Files.writeString(configPath, mapper.writerWithDefaultPrettyPrinter().writeValueAsString(sparseTree))
@@ -1434,24 +1480,25 @@ object AppConfig {
 
     /**
      * Writes a snapshot of the fully-resolved effective configuration (compiled defaults merged
-     * with the user's askimo.yml overrides, i.e. exactly what [loadOnce] just computed) to
-     * `askimo.effective.yml` next to askimo.yml — purely for human/support inspection (e.g.
-     * "what llama.cpp mirror URL is this install actually using right now").
+     * with askimo.yml overrides, i.e. what [loadOnce] just computed) to `askimo.effective.yml`,
+     * for human/support inspection only.
      *
-     * **Never read back by the app** (not referenced anywhere in [loadOnce] or [resolveOrCreateConfigPath]) —
-     * the header comment says so explicitly — so a stale, hand-edited, or corrupted copy of this
-     * file can never affect runtime behavior. Best-effort: failures are logged, never thrown,
-     * since this is a convenience file and must never block startup.
+     * **Never read back by the app**, so a stale/hand-edited copy can't affect runtime behavior.
+     * Best-effort: failures are logged, never thrown — must not block startup.
+     *
+     * Sanitizes via [stripTransientCredentials] on every call, so a transient credential already
+     * present in [data] (e.g. from an older askimo.yml) is never copied into this file.
      */
     private fun writeEffectiveConfigSnapshot(data: AppConfigData) {
         try {
+            val sanitizedData = stripTransientCredentials(data)
             val snapshotPath = AskimoHome.base().resolve("askimo.effective.yml")
             val header =
                 "# Snapshot of the currently effective Askimo configuration (compiled defaults\n" +
                     "# merged with your askimo.yml overrides) — regenerated on every launch.\n" +
                     "# DO NOT EDIT: this file is NEVER read back by the app. To override a value,\n" +
                     "# edit askimo.yml instead.\n\n"
-            val body = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(data)
+            val body = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(sanitizedData)
             Files.writeString(snapshotPath, header + body)
         } catch (e: Exception) {
             log.debug("Failed to write effective config snapshot: ${e.message}")
@@ -1535,19 +1582,14 @@ object AppConfig {
     /**
      * Persists the given [AppContextParams] into the in-memory cache and YAML file,
      * replacing the current `context:` section.
-     * API keys are sanitised via [SecureSessionManager] before writing to disk.
+     * API keys are sanitised via [SecureSessionManager] before writing to disk; any
+     * [HasTransientCredential] provider settings (e.g. a session JWT) are additionally
+     * blanked out inside [writeSparseConfig] before every disk write, not just this one —
+     * see its doc for why that's the single choke point for this sanitization.
      */
     fun saveContext(params: AppContextParams) {
         synchronized(this) {
             val sanitized = secureSessionManager.saveSecureSession(params)
-
-            // ASKIMO_PRO instances carry a transient accessToken and a type not registered
-            // in shared's @JsonSubTypes — strip them before persisting to disk.
-            val persistable = sanitized.copy(
-                providerInstances = sanitized.providerInstances
-                    .filter { it.providerType != ModelProvider.ASKIMO_PRO }
-                    .toMutableList(),
-            )
 
             val current = cached ?: loadOnce()
 
@@ -1555,7 +1597,7 @@ object AppConfig {
 
             val configPath = resolveOrCreateConfigPath()
             if (configPath != null && configPath.exists()) {
-                writeSparseConfig(configPath, current.copy(context = persistable))
+                writeSparseConfig(configPath, cached!!)
                 log.info("Saved context to $configPath")
             }
         }

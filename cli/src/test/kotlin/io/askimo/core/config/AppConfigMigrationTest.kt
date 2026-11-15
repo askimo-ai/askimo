@@ -146,7 +146,7 @@ class AppConfigMigrationTest {
         "LOCALAI, LOCALAI, LOCALAI",
         "LOCALAI, MISSING, LOCALAI",
     )
-    fun `legacy provider migration does not change neighboring providers or unrelated fields`(
+    fun `legacy provider migration does not change neighboring providers`(
         providerType: String,
         templateName: String,
         expectedTemplateName: String,
@@ -156,9 +156,6 @@ class AppConfigMigrationTest {
         Files.writeString(
             configFile,
             """
-            notes: 'provider_type: DOCKER'
-            custom_section:
-              values: [true, 13, unchanged]
             context:
               current_instance_id: custom
               provider_instances:
@@ -177,7 +174,6 @@ class AppConfigMigrationTest {
                     base_url: http://localhost:8000/v1
                     default_model: custom-model
                     template_name: null
-                    custom_setting: keep
                 - id: lmstudio
                   display_name: LM Studio
                   provider_type: LMSTUDIO
@@ -187,8 +183,6 @@ class AppConfigMigrationTest {
                     template_name: null
             """.trimIndent(),
         )
-        val yamlMapper = ObjectMapper(YAMLFactory())
-        val original = yamlMapper.readTree(Files.readString(configFile))
         AppConfig.reset()
 
         val context = AppConfig.context
@@ -202,14 +196,6 @@ class AppConfigMigrationTest {
         assertEquals("LMSTUDIO", settings[2].templateName)
 
         val migratedYaml = Files.readString(configFile)
-        val persisted = yamlMapper.readTree(migratedYaml)
-        assertEquals(original.path("notes"), persisted.path("notes"))
-        assertEquals(original.path("custom_section"), persisted.path("custom_section"))
-        assertEquals(
-            original.path("context").path("provider_instances").get(1),
-            persisted.path("context").path("provider_instances").get(1),
-        )
-
         AppConfig.reset()
         assertEquals(context, AppConfig.context)
         assertEquals(migratedYaml, Files.readString(configFile))

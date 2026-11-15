@@ -708,7 +708,12 @@ class SessionManager(
         activeSessionId = sessionId
         // Don't create in DB yet - will be created lazily on first message
         val viewModel = getOrCreateChatViewModel(sessionId)
-        viewModel.resumeSession(sessionId)
+        viewModel.bindNewSession(
+            sessionId = sessionId,
+            title = "",
+            project = null,
+            defaultDirectiveId = null,
+        )
     }
 
     /**
