@@ -74,7 +74,7 @@ object FileContentExtractor {
                 FileTypeSupport.isTextExtractable(extension) &&
                     extension in (FileTypeSupport.TEXT_EXTENSIONS + FileTypeSupport.CODE_EXTENSIONS)
                 ) ||
-            file.name.lowercase() in FileTypeSupport.CONFIG_EXTENSIONS
+            FileTypeSupport.isConfigFile(file.name)
         ) {
             return ContentSanitizer.sanitizeTemplateVariables(file.readText())
         }
@@ -162,7 +162,7 @@ object FileContentExtractor {
         if (mimeType == "application/octet-stream" || mimeType.startsWith("application/x-")) {
             val extension = FileTypeSupport.getExtension(file.name)
             return extension in (FileTypeSupport.TEXT_EXTENSIONS + FileTypeSupport.CODE_EXTENSIONS) ||
-                file.name.lowercase() in FileTypeSupport.CONFIG_EXTENSIONS
+                FileTypeSupport.isConfigFile(file.name)
         }
 
         return false
@@ -180,7 +180,7 @@ object FileContentExtractor {
     fun isTextFile(fileName: String): Boolean {
         val ext = FileTypeSupport.getExtension(fileName).lowercase()
         return ext in (FileTypeSupport.TEXT_EXTENSIONS + FileTypeSupport.CODE_EXTENSIONS) ||
-            fileName.lowercase() in FileTypeSupport.CONFIG_EXTENSIONS
+            FileTypeSupport.isConfigFile(fileName)
     }
 
     /**
@@ -202,7 +202,7 @@ object FileContentExtractor {
         if (mimeType == "application/octet-stream" || mimeType.startsWith("application/x-")) {
             val extension = FileTypeSupport.getExtension(file.name)
             return extension in (FileTypeSupport.TEXT_EXTENSIONS + FileTypeSupport.CODE_EXTENSIONS) ||
-                file.name.lowercase() in FileTypeSupport.CONFIG_EXTENSIONS
+                FileTypeSupport.isConfigFile(file.name)
         }
 
         return false

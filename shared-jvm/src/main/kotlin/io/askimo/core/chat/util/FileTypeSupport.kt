@@ -126,13 +126,18 @@ object FileTypeSupport {
     fun getExtension(fileName: String): String = fileName.substringAfterLast('.', "")
 
     /**
-     * Check if a filename is a known extensionless configuration file.
+     * Check if a filename is a known configuration file that should be read as plain text
+     * even though it has no usable extension: the names in CONFIG_EXTENSIONS, `.gitignore`,
+     * and `.env.*` variants such as `.env.local`.
      * Comparison is case-insensitive.
      *
      * @param fileName The file name (without path)
-     * @return true if the filename is in CONFIG_EXTENSIONS
+     * @return true if the filename is a known configuration file
      */
-    fun isConfigFile(fileName: String): Boolean = fileName.lowercase() in CONFIG_EXTENSIONS
+    fun isConfigFile(fileName: String): Boolean {
+        val name = fileName.lowercase()
+        return name in CONFIG_EXTENSIONS || name == ".gitignore" || name.startsWith(".env.")
+    }
 
     /**
      * Returns the list of all supported file extensions (text + images).

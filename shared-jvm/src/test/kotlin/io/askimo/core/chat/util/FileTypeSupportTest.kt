@@ -462,6 +462,20 @@ class FileTypeSupportTest {
     }
 
     @Test
+    fun `isConfigFile returns true for gitignore`() {
+        assertTrue(FileTypeSupport.isConfigFile(".gitignore"))
+        assertTrue(FileTypeSupport.isConfigFile(".GITIGNORE"))
+    }
+
+    @Test
+    fun `isConfigFile returns true for env variants`() {
+        assertTrue(FileTypeSupport.isConfigFile(".env.local"))
+        assertTrue(FileTypeSupport.isConfigFile(".env.production"))
+        assertTrue(FileTypeSupport.isConfigFile(".ENV.Development"))
+        assertFalse(FileTypeSupport.isConfigFile("app.env.local"))
+    }
+
+    @Test
     fun `isConfigFile returns false for file with extension`() {
         assertFalse(FileTypeSupport.isConfigFile("docker-compose.yml"))
         assertFalse(FileTypeSupport.isConfigFile("Makefile.am"))
