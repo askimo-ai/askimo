@@ -73,18 +73,28 @@ class TelemetryChatModelListener(
     /**
      * Per-request UUID for the `X-Correlation-Id` request header and the usage-sync payload.
      *
-     * [ThreadLocal] so concurrent requests on different threads each carry their own ID.
+     * Plain `@Volatile` field — **not** a [ThreadLocal]. [onRequest] and the subsequent HTTP
+     * `send()`/`sendAsync()` call are *not* guaranteed to run on the same OS thread: request
+     * construction goes through Kotlin coroutines (`Dispatchers.IO`), which can resume a
+     * suspended coroutine on a different pooled thread than the one it suspended on. A
+     * `ThreadLocal` would silently manufacture a fresh, unrelated random UUID on whatever
+     * thread `send()` happens to land on (via `ThreadLocal.withInitial`), diverging from the
+     * ID written to `context.attributes()` — causing the server's `/usage/sync` lookup to miss
+     * (`no log found for correlationId=...`) even though the chat request succeeded.
+     *
+     * A volatile field only needs *ordering* (onRequest happens-before the matching send()),
+     * not thread identity, which langchain4j's listener contract already guarantees.
      * Initialised eagerly with a random UUID so [requestHeaders] is always safe to call,
      * even before [onRequest] fires (e.g. during HTTP-client construction).
      *
      * Lifecycle:
-     *  1. [onRequest] → generate a fresh UUID, write to ThreadLocal **and** to
+     *  1. [onRequest] → generate a fresh UUID, write to this field **and** to
      *     `context.attributes()` for the [onResponse] → sync leg.
-     *  2. HTTP `send()` fires on the same thread immediately after [onRequest] →
-     *     [requestHeaders] reads the ThreadLocal → header and sync payload always agree.
+     *  2. HTTP `send()` fires (possibly on a different thread) → [requestHeaders] reads the
+     *     volatile field → header and sync payload always agree.
      */
-    private val correlationId: ThreadLocal<String> =
-        ThreadLocal.withInitial { UUID.randomUUID().toString() }
+    @Volatile
+    private var correlationId: String = UUID.randomUUID().toString()
 
     /**
      * Returns the two tracking headers to inject into every outgoing HTTP request.
@@ -94,21 +104,19 @@ class TelemetryChatModelListener(
      */
     fun requestHeaders(): Map<String, String> = mapOf(
         "X-Client-Id" to clientId,
-        "X-Correlation-Id" to correlationId.get(),
+        "X-Correlation-Id" to correlationId,
     )
 
     override fun onRequest(context: ChatModelRequestContext) {
         val attrs = context.attributes()
 
-        // Rotate to a fresh per-request UUID. onRequest fires before the HTTP send()
-        // on the same thread, so requestHeaders() will read this new value.
-        val newCorrelationId = if (usageSyncConfig != null) {
-            UUID.randomUUID().toString().also { id ->
-                correlationId.set(id)
-                attrs[ATTR_CORRELATION_ID] = id
-            }
-        } else {
-            correlationId.get()
+        // Rotate to a fresh per-request UUID, shared via a volatile field (see field doc)
+        // rather than a ThreadLocal, so requestHeaders() reads the correct value regardless
+        // of which thread performs the actual HTTP send().
+        if (usageSyncConfig != null) {
+            val id = UUID.randomUUID().toString()
+            correlationId = id
+            attrs[ATTR_CORRELATION_ID] = id
         }
 
         attrs[ATTR_START_TIME] = System.currentTimeMillis()
