@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Token
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Workspaces
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
@@ -49,7 +50,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -698,10 +698,10 @@ private fun tokenUsageChartCard(
     topModels: List<LlmInstanceStats>,
     selectedPeriod: TokenUsagePeriod,
 ) {
-    Surface(
-        shape = MaterialTheme.shapes.large,
-        tonalElevation = 1.dp,
+    Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = AppColors.cardColors(AppColors.Elevation.RAISED),
     ) {
         if (totalTokens == 0L) {
             Box(
@@ -715,7 +715,7 @@ private fun tokenUsageChartCard(
             }
         } else {
             Column(
-                modifier = Modifier.fillMaxWidth().padding(Spacing.large),
+                modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.large),
                 verticalArrangement = Arrangement.spacedBy(Spacing.medium),
             ) {
                 // 3-column summary strip: Tokens used / Calls made / Top model
@@ -727,7 +727,9 @@ private fun tokenUsageChartCard(
                         },
                     )
                 }
-                tokenUsageSummaryStrip(totalTokens = totalTokens, totalCalls = totalCalls, topModel = topModelName)
+                Box(modifier = Modifier.padding(horizontal = Spacing.large)) {
+                    tokenUsageSummaryStrip(totalTokens = totalTokens, totalCalls = totalCalls, topModel = topModelName)
+                }
                 HorizontalDivider(color = AppColors.codeBlockBorderColor())
 
                 topModels.forEachIndexed { index, stat ->
@@ -738,14 +740,16 @@ private fun tokenUsageChartCard(
                     val fraction = stat.tokens.toFloat() / totalTokens.toFloat()
                     val pctFormatted = LocalizationManager.formatNumber((fraction * 100).toInt()) + "%"
 
-                    tokenBarRow(
-                        provider = provider,
-                        model = model,
-                        tokens = stat.tokens,
-                        fraction = fraction,
-                        pctFormatted = pctFormatted,
-                        calls = stat.calls,
-                    )
+                    Box(modifier = Modifier.padding(horizontal = Spacing.large)) {
+                        tokenBarRow(
+                            provider = provider,
+                            model = model,
+                            tokens = stat.tokens,
+                            fraction = fraction,
+                            pctFormatted = pctFormatted,
+                            calls = stat.calls,
+                        )
+                    }
 
                     if (index < topModels.lastIndex) {
                         HorizontalDivider(
@@ -847,7 +851,7 @@ private fun tokenBarRow(
                 text = abbreviateTokens(tokens),
                 style = AppTextStyles.caption,
                 textAlign = TextAlign.End,
-                modifier = Modifier.width(52.dp),
+                modifier = Modifier.width(70.dp),
             )
         }
 
@@ -864,7 +868,7 @@ private fun tokenBarRow(
             text = stringResource("discover.tokens.calls", LocalizationManager.formatNumber(calls)),
             style = AppTextStyles.hint,
             textAlign = TextAlign.End,
-            modifier = Modifier.width(52.dp),
+            modifier = Modifier.width(70.dp),
         )
     }
 }
@@ -957,7 +961,11 @@ private fun recentSessionsSection(
                 modifier = Modifier.padding(vertical = Spacing.small),
             )
         } else {
-            Surface(shape = MaterialTheme.shapes.large, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                colors = AppColors.cardColors(AppColors.Elevation.RAISED),
+            ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     sessions.forEachIndexed { index, session ->
                         recentSessionRow(
