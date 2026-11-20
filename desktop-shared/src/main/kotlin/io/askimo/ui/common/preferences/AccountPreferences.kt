@@ -99,12 +99,6 @@ class AccountPreferences private constructor(private val prefs: PropertyFilePref
     /** Records the last time plans were synced. */
     fun saveLastPlanSyncedAt(at: LocalDateTime = LocalDateTime.now()) = safePut("sync.plan_last_synced_at", at.toString())
 
-    // ── AI model ──────────────────────────────────────────────────────────────
-
-    /** The user's chosen default AI model ID, or null if never set. */
-    fun getDefaultModel(): String? = safeGet("ui.default_model", null)
-    fun setDefaultModel(modelId: String) = safePut("ui.default_model", modelId)
-
     // ── Plan inputs ───────────────────────────────────────────────────────────
 
     /** Returns last-used input values for a plan (keyed by input key). */
