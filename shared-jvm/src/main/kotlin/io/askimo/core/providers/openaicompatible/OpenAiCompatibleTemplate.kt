@@ -140,6 +140,16 @@ enum class OpenAiCompatibleTemplate(
         helpTextKey = "provider.template.nvidia_nim.help",
     ),
 
+    OPENLLM(
+        displayName = "OpenLLM",
+        initials = "OP",
+        taglineKey = "provider.template.openllm.tagline",
+        baseUrl = "https://www.openllm.sh/v1",
+        apiKeyRequired = true,
+        apiKeyUrl = "https://www.openllm.sh",
+        helpTextKey = "provider.template.openllm.help",
+    ),
+
     OPENROUTER(
         displayName = "OpenRouter",
         initials = "OR",
