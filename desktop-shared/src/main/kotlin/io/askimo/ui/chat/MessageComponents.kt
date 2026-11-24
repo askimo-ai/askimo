@@ -142,7 +142,7 @@ import kotlin.time.Instant
  * [AudioPlayer] and Compose state so every [aiMessageBubble] reflects whichever message is
  * currently synthesizing/playing.
  */
-internal object VoicePlaybackController {
+object VoicePlaybackController {
     private val player = AudioPlayer()
 
     /** Coroutine currently synthesizing/playing, if any — cancelled by [stopAll]. */
@@ -1524,57 +1524,6 @@ private fun tickingStatusText(text: String, tickerKey: String) {
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.fillMaxWidth(),
     )
-}
-
-/**
- * A content-derived identity for a [TurnTimelineGroup]:
- *
- * - [TurnTimelineGroup.StatusGroup] — `"status:"` + entry texts joined with `|`.
- * - [TurnTimelineGroup.ToolGroup] — `"tool:"` + entry tool names joined with `|` (arguments/
- *   result/status excluded since those mutate as a call goes from running to done).
- * - [TurnTimelineGroup.ThinkingGroup] / [TurnTimelineGroup.TokenGroup] — `"thinking:"`/`"token:"`
- *   + a compact digest of the accumulated text (see [textDigest]).
- *
- * Used as the base for [key] in [turnTimelineView] via [renderKey], which substitutes a fixed
- * marker for the streaming group and appends an occurrence suffix to break ties.
- */
-internal fun TurnTimelineGroup.stableKey(): String = when (this) {
-    is TurnTimelineGroup.StatusGroup -> "status:" + entries.joinToString("|") { it.text }
-    is TurnTimelineGroup.ToolGroup -> "tool:" + entries.joinToString("|") { it.toolCall.toolName }
-    is TurnTimelineGroup.ThinkingGroup -> "thinking:" + text.textDigest()
-    is TurnTimelineGroup.TokenGroup -> "token:" + text.textDigest()
-}
-
-/**
- * Compact, non-copying identity for a (potentially large) accumulated text, used by
- * [stableKey] instead of the full text: length + [String.hashCode], as `"<length>:<hashCode>"`.
- */
-private fun String.textDigest(): String = "$length:${hashCode()}"
-
-/**
- * Computes the [key] to use for a group in [turnTimelineView].
- *
- * - If [isStreamingTail], uses a fixed content-independent marker (`"live:thinking"`/
- *   `"live:token"`/`"live:status"`/`"live:tool"`) instead of [stableKey]. This matters most for
- *   [TurnTimelineGroup.ToolGroup]: its [stableKey] grows with each new tool call, so using it
- *   directly while streaming would remount the composable (losing expand/scroll state) on every
- *   new call. Only one group is ever the streaming tail, so this marker never collides.
- * - Otherwise, the base key is [stableKey].
- * - [occurrence] (count of prior groups with the same base key) is appended as `"#<occurrence>"`
- *   when non-zero, so duplicate content still gets unique keys.
- */
-internal fun TurnTimelineGroup.renderKey(isStreamingTail: Boolean, occurrence: Int): String {
-    val base = if (isStreamingTail) {
-        when (this) {
-            is TurnTimelineGroup.ThinkingGroup -> "live:thinking"
-            is TurnTimelineGroup.TokenGroup -> "live:token"
-            is TurnTimelineGroup.StatusGroup -> "live:status"
-            is TurnTimelineGroup.ToolGroup -> "live:tool"
-        }
-    } else {
-        stableKey()
-    }
-    return if (occurrence > 0) "$base#$occurrence" else base
 }
 
 /**

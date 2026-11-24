@@ -4,7 +4,7 @@
  */
 package io.askimo.core.providers.openaicompatible
 
-import dev.langchain4j.http.client.jdk.JdkHttpClientBuilder
+import dev.langchain4j.http.client.HttpClientBuilder
 import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.StreamingChatModel
 import dev.langchain4j.model.openai.OpenAiChatModel
@@ -26,7 +26,7 @@ class CompletionsApiDelegate : OpenAiApiDelegate {
         baseUrl: String,
         apiKey: String,
         modelName: String,
-        httpClientBuilder: JdkHttpClientBuilder,
+        httpClientBuilder: HttpClientBuilder,
         listener: TelemetryChatModelListener,
         provider: ModelProvider,
     ): StreamingChatModel = OpenAiStreamingChatModel.builder()
@@ -41,7 +41,7 @@ class CompletionsApiDelegate : OpenAiApiDelegate {
         baseUrl: String,
         apiKey: String,
         modelName: String,
-        httpClientBuilder: JdkHttpClientBuilder,
+        httpClientBuilder: HttpClientBuilder,
         listener: TelemetryChatModelListener,
     ): ChatModel = OpenAiChatModel.builder()
         .httpClientBuilder(httpClientBuilder)
@@ -55,7 +55,7 @@ class CompletionsApiDelegate : OpenAiApiDelegate {
         baseUrl: String,
         apiKey: String,
         modelName: String,
-        httpClientBuilder: JdkHttpClientBuilder,
+        httpClientBuilder: HttpClientBuilder,
         listener: TelemetryChatModelListener,
         provider: ModelProvider,
     ): ChatModel = OpenAiChatModel.builder()
@@ -71,7 +71,7 @@ class CompletionsApiDelegate : OpenAiApiDelegate {
         baseUrl: String,
         apiKey: String,
         modelName: String,
-        httpClientBuilder: JdkHttpClientBuilder,
+        httpClientBuilder: HttpClientBuilder,
         log: Logger,
     ): Boolean = false
 }

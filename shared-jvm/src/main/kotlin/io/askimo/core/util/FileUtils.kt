@@ -8,6 +8,7 @@ import java.net.URL
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.nio.file.FileSystem
+import java.nio.file.FileSystemAlreadyExistsException
 import java.nio.file.FileSystemNotFoundException
 import java.nio.file.FileSystems
 import java.nio.file.Files
@@ -28,6 +29,9 @@ fun formatFileSize(bytes: Long): String = when {
 
 /** Sentinel used to resolve classpath resources from within top-level functions. */
 private object ResourceAnchor
+
+/** Guards jar [FileSystem] creation to avoid a get/create race across threads/coroutines. */
+private val jarFsLock = Any()
 
 /**
  * Walks a classpath resource directory and invokes [action] for each matching file.
@@ -53,10 +57,18 @@ fun walkResourceDirectory(
         val uri = resourceUrl.toURI()
         if (uri.scheme == "jar") {
             var ownedFs: FileSystem? = null
-            val fs = try {
-                FileSystems.getFileSystem(uri)
-            } catch (_: FileSystemNotFoundException) {
-                FileSystems.newFileSystem(uri, emptyMap<String, Any>()).also { ownedFs = it }
+            val fs = synchronized(jarFsLock) {
+                try {
+                    FileSystems.getFileSystem(uri)
+                } catch (_: FileSystemNotFoundException) {
+                    try {
+                        FileSystems.newFileSystem(uri, emptyMap<String, Any>()).also { ownedFs = it }
+                    } catch (_: FileSystemAlreadyExistsException) {
+                        // Another thread created it between getFileSystem() and newFileSystem();
+                        // reuse the one that won the race instead of owning/closing it here.
+                        FileSystems.getFileSystem(uri)
+                    }
+                }
             }
             ownedFs.use { _ ->
                 Files.walk(fs.getPath(jarPath))

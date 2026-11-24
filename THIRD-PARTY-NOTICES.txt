@@ -2,14 +2,22 @@ Askimo — Third-Party Software Notices
 This file lists every third-party dependency bundled in Askimo's distributed artifacts (CLI, desktop app) across all modules, deduplicated, along with its license.
 ================================================================================
 
-Total unique dependencies: 316
+Total unique dependencies: 318
 
 * androidx.annotation:annotation-jvm:1.10.0
   URL: https://developer.android.com/jetpack/androidx/releases/annotation#1.10.0
   License(s): Apache License, Version 2.0
 
+* androidx.annotation:annotation-jvm:1.9.1
+  URL: https://developer.android.com/jetpack/androidx/releases/annotation#1.9.1
+  License(s): Apache License, Version 2.0
+
 * androidx.annotation:annotation:1.10.0
   URL: https://developer.android.com/jetpack/androidx/releases/annotation#1.10.0
+  License(s): Apache License, Version 2.0
+
+* androidx.annotation:annotation:1.9.1
+  URL: https://developer.android.com/jetpack/androidx/releases/annotation#1.9.1
   License(s): Apache License, Version 2.0
 
 * androidx.arch.core:core-common:2.2.0

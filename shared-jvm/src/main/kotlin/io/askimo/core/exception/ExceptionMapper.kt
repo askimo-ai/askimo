@@ -215,12 +215,17 @@ object ExceptionMapper {
                 combinedMessage.contains("server is currently processing", ignoreCase = true) ->
                 RemoteServerException(details = combinedMessage.take(300), cause = rootCause)
 
-            // Network connectivity issues
+            // Network connectivity issues. "Broken pipe"/"Connection reset" cover a
+            // mid-stream socket drop (app backgrounded, Wi-Fi/VPN blip, OS network-suspend)
+            // rather than a failed initial connect — same user-facing remedy (retry), so they
+            // share this bucket instead of falling through to the generic SystemException below.
             combinedMessage.contains("Connection refused", ignoreCase = true) ||
                 combinedMessage.contains("Network is unreachable", ignoreCase = true) ||
                 combinedMessage.contains("Connection timeout", ignoreCase = true) ||
                 combinedMessage.contains("Failed to connect", ignoreCase = true) ||
-                combinedMessage.contains("ConnectException", ignoreCase = true) ->
+                combinedMessage.contains("ConnectException", ignoreCase = true) ||
+                combinedMessage.contains("Broken pipe", ignoreCase = true) ||
+                combinedMessage.contains("Connection reset", ignoreCase = true) ->
                 NetworkException(cause = rootCause)
 
             // Authentication issues

@@ -5,6 +5,7 @@
 package io.askimo.core.db
 
 import app.cash.sqldelight.db.QueryResult
+import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.askimo.core.agent.repository.AgentRunHistoryRepository
 import io.askimo.core.agent.repository.WorkspaceRepository
@@ -51,14 +52,25 @@ import java.util.Properties
 
 /**
  * Singleton manager for the SQLDelight-backed SQLite connection.
+ *
+ * The default is SQLDelight's JDBC driver ([JdbcSqliteDriver], backed by
+ * `org.xerial:sqlite-jdbc`'s native binary), which only loads on JVM desktop
+ * platforms. Platforms whose runtime cannot load that native binary can supply
+ * their own pre-built [SqlDriver] instead — via [driverOverride] or
+ * [initializeWithDriver] — without this module taking on any dependency of its own
+ * beyond the common `SqlDriver` interface.
  */
 class DatabaseManager private constructor(
     val databaseFileName: String = "askimo.db",
     useInMemory: Boolean = false,
+    driverOverride: SqlDriver? = null,
 ) : AutoCloseable {
 
-    /** Underlying SQLDelight JDBC driver — a single pooled connection is sufficient for SQLite. */
-    val driver: JdbcSqliteDriver = createDriver(databaseFileName, useInMemory)
+    /**
+     * The active SQLDelight driver — [JdbcSqliteDriver] by default (desktop/CLI), or
+     * whatever [driverOverride] was supplied (e.g. Android's `AndroidSqliteDriver`).
+     */
+    val driver: SqlDriver = driverOverride?.also { migrateIfNeeded(it) } ?: createDriver(databaseFileName, useInMemory)
 
     val db: AskimoDatabase = AskimoDatabase(
         driver = driver,
@@ -181,7 +193,7 @@ class DatabaseManager private constructor(
      * from the stored version (including 0) through every `.sqm` step in order — mirrors the old
      * JDBC loop's "replay everything, idempotently" behavior for legacy/ad-hoc databases.
      */
-    private fun migrateIfNeeded(driver: JdbcSqliteDriver) {
+    private fun migrateIfNeeded(driver: SqlDriver) {
         val oldVersion = currentUserVersion(driver)
         val newVersion = AskimoDatabase.Schema.version
         if (oldVersion < newVersion) {
@@ -197,7 +209,7 @@ class DatabaseManager private constructor(
         SqlDelightSchemaMigrations.repairAll(driver)
     }
 
-    private fun currentUserVersion(driver: JdbcSqliteDriver): Long = driver.executeQuery(
+    private fun currentUserVersion(driver: SqlDriver): Long = driver.executeQuery(
         null,
         "PRAGMA user_version",
         { cursor ->
@@ -207,7 +219,7 @@ class DatabaseManager private constructor(
         0,
     ).value
 
-    private fun setUserVersion(driver: JdbcSqliteDriver, version: Long) {
+    private fun setUserVersion(driver: SqlDriver, version: Long) {
         driver.execute(null, "PRAGMA user_version = $version", 0)
     }
 
@@ -330,6 +342,17 @@ class DatabaseManager private constructor(
         /** Get the singleton manager for production use (default "askimo.db" file). */
         @Synchronized
         fun getInstance(): DatabaseManager = instance ?: DatabaseManager().also { instance = it }
+
+        /**
+         * Platform bootstrap hook for callers that must supply their own [SqlDriver]
+         * instead of the default JDBC one. Must be called once, before the first
+         * [getInstance] call on that platform (e.g. during app startup / DI module
+         * init); once the singleton exists, subsequent calls — from either
+         * [initializeWithDriver] or [getInstance] — just return the already-initialized
+         * instance, so this is safe to call defensively.
+         */
+        @Synchronized
+        fun initializeWithDriver(driver: SqlDriver, databaseFileName: String = "askimo.db"): DatabaseManager = instance ?: DatabaseManager(databaseFileName = databaseFileName, driverOverride = driver).also { instance = it }
 
         /**
          * Create an in-memory test manager — mirrors
