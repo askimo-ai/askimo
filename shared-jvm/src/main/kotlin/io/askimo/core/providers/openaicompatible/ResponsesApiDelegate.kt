@@ -5,7 +5,7 @@
 package io.askimo.core.providers.openaicompatible
 
 import dev.langchain4j.data.message.TextContent
-import dev.langchain4j.http.client.jdk.JdkHttpClientBuilder
+import dev.langchain4j.http.client.HttpClientBuilder
 import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.StreamingChatModel
 import dev.langchain4j.model.openai.OpenAiResponsesChatModel
@@ -33,7 +33,7 @@ class ResponsesApiDelegate : OpenAiApiDelegate {
         baseUrl: String,
         apiKey: String,
         modelName: String,
-        httpClientBuilder: JdkHttpClientBuilder,
+        httpClientBuilder: HttpClientBuilder,
         listener: TelemetryChatModelListener,
         provider: ModelProvider,
     ): StreamingChatModel {
@@ -59,7 +59,7 @@ class ResponsesApiDelegate : OpenAiApiDelegate {
         baseUrl: String,
         apiKey: String,
         modelName: String,
-        httpClientBuilder: JdkHttpClientBuilder,
+        httpClientBuilder: HttpClientBuilder,
         listener: TelemetryChatModelListener,
     ): ChatModel = OpenAiResponsesChatModel.builder()
         .httpClientBuilder(httpClientBuilder)
@@ -73,7 +73,7 @@ class ResponsesApiDelegate : OpenAiApiDelegate {
         baseUrl: String,
         apiKey: String,
         modelName: String,
-        httpClientBuilder: JdkHttpClientBuilder,
+        httpClientBuilder: HttpClientBuilder,
         listener: TelemetryChatModelListener,
         provider: ModelProvider,
     ): ChatModel {
@@ -101,7 +101,7 @@ class ResponsesApiDelegate : OpenAiApiDelegate {
         baseUrl: String,
         apiKey: String,
         modelName: String,
-        httpClientBuilder: JdkHttpClientBuilder,
+        httpClientBuilder: HttpClientBuilder,
         log: Logger,
     ): Boolean = try {
         val testModel = OpenAiResponsesStreamingChatModel.builder()

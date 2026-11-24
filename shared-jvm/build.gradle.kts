@@ -44,6 +44,14 @@ dependencies {
 
     api(libs.bundles.langchain4j)
 
+    // Compose Runtime (NOT `compose.desktop.currentOs`/Material/Foundation — those pull in AWT
+    // and desktop-only rendering). `ChatViewModel`/`SessionManager` use `mutableStateOf` for
+    // observable view-model state and nothing else from Compose. `org.jetbrains.compose.runtime:
+    // runtime` is a thin multiplatform-metadata wrapper around the common Compose runtime
+    // artifact shared across all Compose targets, so this is safe to depend on directly from a
+    // plain `kotlin("jvm")` module without pulling in any platform-specific rendering stack.
+    api("org.jetbrains.compose.runtime:runtime:${libs.versions.compose.asProvider().get()}")
+
     api(libs.kotlinx.serialization.json.jvm)
     api(libs.kotlinx.coroutines.core)
     api(kotlin("stdlib"))

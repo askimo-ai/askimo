@@ -30,6 +30,18 @@ object WebSearchTools {
     private val log = logger<WebSearchTools>()
 
     /**
+     * Resolves which [SearchBackend] to use. Defaults to BYOK resolution via
+     * [WebSearchDispatcher] against the local [AppConfig.webSearch] settings. Overridable
+     * at startup for consumers that need different backend resolution. A settable var
+     * rather than constructor injection, since [WebSearchTools] stays a Kotlin `object`
+     * (required by [io.askimo.core.tools.ToolProviderImpl]'s reflection-based tool
+     * invocation).
+     */
+    var backendProvider: SearchBackendProvider = SearchBackendProvider {
+        WebSearchDispatcher.activeBackend(AppConfig.webSearch)
+    }
+
+    /**
      * Search the web for current information using the configured backend.
      *
      * @param query      The search query string.
@@ -71,7 +83,7 @@ Always cite the source URLs in your response.
         }
 
         val safeMax = maxResults.coerceIn(1, 10)
-        val backend = WebSearchDispatcher.activeBackend(config)
+        val backend = backendProvider.get()
 
         log.debug("searchWeb: query='{}', backend='{}', maxResults={}", query, backend.name, safeMax)
 

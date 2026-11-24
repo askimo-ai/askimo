@@ -50,6 +50,20 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 
 /**
+ * Pluggable hook invoked when an AI message's content is edited in place, so a platform-specific
+ * cache keyed by message id can be invalidated. No-op by default.
+ *
+ * Exists solely to decouple [ChatViewModel] (shared-jvm, used by both desktop and Android) from
+ * desktop-only voice playback (`VoicePlaybackController`, `desktop-shared` — uses `AudioPlayer`/
+ * `javax.sound.sampled`, never ported to Android). Desktop wires this to
+ * `VoicePlaybackController::invalidate` at startup (see `DesktopModule.kt`); Android has no
+ * voice-playback feature in its MVP scope, so it leaves this as the default no-op.
+ */
+object ChatMessageContentHooks {
+    var onContentInvalidated: (String) -> Unit = {}
+}
+
+/**
  * ViewModel for chat state and interactions: messages, sending to the AI, loading/error
  * states, and resuming previous sessions.
  */
@@ -1486,7 +1500,7 @@ class ChatViewModel(
                 }
 
                 // Content changed — any cached TTS audio for the old content is now stale.
-                VoicePlaybackController.invalidate(messageId)
+                ChatMessageContentHooks.onContentInvalidated(messageId)
 
                 // Update the message in the local state
                 messages = messages.map { message ->
