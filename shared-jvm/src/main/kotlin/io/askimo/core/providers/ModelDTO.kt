@@ -4,6 +4,7 @@
  */
 package io.askimo.core.providers
 
+import io.askimo.core.providers.openaicompatible.OpenAiApiMode
 import kotlinx.serialization.Serializable
 
 /**
@@ -18,6 +19,13 @@ import kotlinx.serialization.Serializable
  * @property modelId     The identifier sent as the `model` field in API requests.
  * @property displayName Human-readable label shown in the dropdown / dialog.
  *                       Defaults to [modelId] when not explicitly set.
+ * @property apiMode     Which OpenAI-compatible wire format the upstream expects — relevant
+ *                       for model factories that support dispatching to either a
+ *                       `/v1/responses` or `/v1/chat/completions` endpoint/delegate based on
+ *                       this value. Defaults to [OpenAiApiMode.RESPONSES] to preserve today's
+ *                       exact behaviour for callers that don't set it.
+ * @property httpVersion HTTP protocol preferred for this model's upstream connection.
+ *                       Defaults to [HttpVersion.HTTP_1_1].
  */
 @Serializable
 data class ModelDTO(
@@ -27,6 +35,8 @@ data class ModelDTO(
     val category: ModelCategory? = null,
     /** True when this EMBEDDING model is the designated RAG anchor. */
     val isRagDefault: Boolean = false,
+    val apiMode: OpenAiApiMode = OpenAiApiMode.RESPONSES,
+    val httpVersion: HttpVersion = HttpVersion.HTTP_1_1,
 ) {
     companion object {
         /**

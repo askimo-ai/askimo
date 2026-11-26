@@ -125,8 +125,9 @@ class AvatarService {
      * The result is cached by path — decoded only on first call for a given path
      * (or after [invalidateUserAvatarCache]).
      *
-     * If [avatarPath] starts with "/" it is treated as a server-relative URL and fetched
-     * via HTTP using [serverBaseUrl]. Otherwise it is treated as a local file path.
+     * If [avatarPath] is an existing local file it is read from disk. Otherwise, if it starts
+     * with "/" it is treated as a server-relative URL and fetched via HTTP using
+     * [serverBaseUrl]; absolute "http(s)://" URLs are fetched as-is.
      *
      * Pass the path from [UserProfile.preferences]["serverAvatarUrl"] or ["avatarPath"].
      */
@@ -136,7 +137,16 @@ class AvatarService {
         // Return cached painter if path hasn't changed
         if (avatarPath == cachedUserAvatarPath) return cachedUserAvatarPainter
 
+        // A bare "/" prefix is ambiguous: on macOS/Linux every local absolute file path also
+        // starts with "/", so a freshly-picked local avatar (not yet uploaded to the server)
+        // must never be mistaken for a server-relative URL just because `serverBaseUrl` is
+        // set. Checking local-file existence first resolves the ambiguity.
+        val localFile = File(avatarPath)
         val bytes: ByteArray? = when {
+            !avatarPath.startsWith("http://") && !avatarPath.startsWith("https://") && localFile.exists() -> {
+                localFile.readBytes()
+            }
+
             avatarPath.startsWith("/") && serverBaseUrl != null -> {
                 // Server-relative URL — fetch via HTTP
                 fetchRemoteAvatar("$serverBaseUrl$avatarPath")
@@ -146,11 +156,7 @@ class AvatarService {
                 fetchRemoteAvatar(avatarPath)
             }
 
-            else -> {
-                // Local file path
-                val file = File(avatarPath)
-                if (file.exists()) file.readBytes() else null
-            }
+            else -> null
         }
 
         if (bytes == null) return null
@@ -173,9 +179,11 @@ class AvatarService {
             .connectTimeout(Duration.ofSeconds(10))
             .version(HttpClient.Version.HTTP_1_1)
             .build()
-        // Strip query string for cache key but keep full URL for request
+        // Keep the full URL (including any `?v=` cache-busting query) in the actual
+        // request — stripping it would defeat the server's cache-busting and could
+        // serve a stale cached avatar once any caching proxy sits in front of it.
         val request = HttpRequest.newBuilder()
-            .uri(URI.create(url.substringBefore("?")))
+            .uri(URI.create(url))
             .timeout(Duration.ofSeconds(15))
             .GET()
             .build()

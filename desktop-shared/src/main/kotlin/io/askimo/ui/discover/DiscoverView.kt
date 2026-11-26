@@ -132,6 +132,10 @@ fun discoverView(
     telemetry: TelemetryCollector,
     labelsBySessionId: Map<String, List<Label>> = emptyMap(),
     modifier: Modifier = Modifier,
+    // Optional override for the Token Usage card's content. When null (the default), the
+    // built-in `tokenUsageSection` below is used. Callers that need a different data source
+    // for token usage can supply their own composable here instead of cloning this whole view.
+    tokenUsageContent: (@Composable () -> Unit)? = null,
 ) {
     val scrollState = rememberScrollState()
 
@@ -170,7 +174,7 @@ fun discoverView(
                 exploreFeaturesSection()
 
                 if (showTokenUsageCard) {
-                    tokenUsageSection(
+                    tokenUsageContent?.invoke() ?: tokenUsageSection(
                         telemetry = telemetry,
                         onOpenSystemDiagnostics = onOpenSystemDiagnostics,
                     )
@@ -379,7 +383,7 @@ private fun statCard(
  * [Past24Hours], [PastWeek], and [PastMonth] use rolling windows ending at *now*.
  * [Custom] carries explicit `from`/`to` [Instant] boundaries chosen by the user.
  */
-private sealed class TokenUsagePeriod {
+sealed class TokenUsagePeriod {
     object Past24Hours : TokenUsagePeriod()
     object PastWeek : TokenUsagePeriod()
     object PastMonth : TokenUsagePeriod()
@@ -476,7 +480,7 @@ private fun tokenUsageSection(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun tokenUsageCustomDateDialog(
+fun tokenUsageCustomDateDialog(
     onConfirm: (from: Instant, to: Instant) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -570,7 +574,7 @@ private fun tokenUsageCustomDateDialog(
 }
 
 @Composable
-private fun tokenUsageSectionHeader(
+fun tokenUsageSectionHeader(
     totalTokens: Long,
     onOpenSystemDiagnostics: () -> Unit,
     selectedPeriod: TokenUsagePeriod,
@@ -692,7 +696,7 @@ private val INSTANCE_ID_MODEL_PREFIX = Regex(
 private fun displayModelName(model: String): String = model.replaceFirst(INSTANCE_ID_MODEL_PREFIX, "")
 
 @Composable
-private fun tokenUsageChartCard(
+fun tokenUsageChartCard(
     totalTokens: Long,
     totalCalls: Int,
     topModels: List<LlmInstanceStats>,
