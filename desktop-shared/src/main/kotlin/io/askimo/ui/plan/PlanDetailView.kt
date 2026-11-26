@@ -75,6 +75,7 @@ import androidx.compose.ui.unit.sp
 import io.askimo.core.i18n.LocalizationManager
 import io.askimo.core.plan.PlanStepEvent
 import io.askimo.core.plan.domain.PlanInput
+import io.askimo.core.plan.domain.PlanScope
 import io.askimo.core.util.TimeUtil
 import io.askimo.ui.common.components.primaryButton
 import io.askimo.ui.common.components.secondaryButton
@@ -215,7 +216,7 @@ fun planDetailView(
                             }
                         }
 
-                        if (onEditPlan != null && !plan.builtIn) {
+                        if (onEditPlan != null && !plan.builtIn && plan.scope != PlanScope.TEAM) {
                             themedTooltip(text = stringResource("plans.editor.menu.edit")) {
                                 IconButton(
                                     onClick = onEditPlan,
@@ -230,7 +231,7 @@ fun planDetailView(
                             }
                         }
 
-                        if (onDuplicatePlan != null && plan.builtIn) {
+                        if (onDuplicatePlan != null && (plan.builtIn || plan.scope == PlanScope.TEAM)) {
                             themedTooltip(text = stringResource("plans.duplicate")) {
                                 IconButton(
                                     onClick = onDuplicatePlan,

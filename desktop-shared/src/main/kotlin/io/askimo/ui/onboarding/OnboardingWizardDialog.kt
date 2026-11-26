@@ -63,30 +63,44 @@ import io.askimo.ui.common.theme.ThemePreferences
 import io.askimo.ui.common.ui.clickableCard
 import java.util.Locale
 
-private const val TOTAL_STEPS = 3
+/** Steps that can appear in the onboarding wizard, in display order. */
+private enum class OnboardingStep { LANGUAGE, PROFILE, ANALYTICS }
 
 /**
  * Onboarding wizard shown on first launch.
  *
- * Steps:
- *  0 — Language selection  (required — no skip)
- *  1 — Profile (name + occupation, skippable)
- *  2 — Analytics consent   (required — user must choose Yes or No; final step)
+ * Steps (Profile is omitted entirely when [showProfileStep] is false):
+ *  — Language selection  (required — no skip)
+ *  — Profile (name + occupation, skippable) — hidden when identity already comes
+ *    from a linked account (e.g. Team edition), since re-asking is redundant.
+ *  — Analytics consent   (required — user must choose Yes or No; final step)
  *
  * Feature-area visibility (plans/skills/projects) defaults to "everything" shown;
  * users can customize what's visible later via the app menu.
  *
  * @param initialName        Pre-filled name (from existing profile, if any).
  * @param initialOccupation  Pre-filled occupation.
+ * @param showProfileStep    Whether to show the name/occupation step. Set to false when the
+ *                           user's identity already comes from a linked account (e.g. Team
+ *                           edition), so onboarding doesn't ask for information already known.
  * @param onComplete         Called with (locale, analyticsAccepted, name, occupation) when the wizard finishes.
  */
 @Composable
 fun onboardingWizardDialog(
     initialName: String = "",
     initialOccupation: String = "",
+    showProfileStep: Boolean = true,
     onPersonaSelected: ((showPlans: Boolean, showSkills: Boolean, showProjects: Boolean) -> Unit)? = null,
     onComplete: (locale: Locale, analyticsAccepted: Boolean, name: String, occupation: String) -> Unit,
 ) {
+    val steps = remember(showProfileStep) {
+        buildList {
+            add(OnboardingStep.LANGUAGE)
+            if (showProfileStep) add(OnboardingStep.PROFILE)
+            add(OnboardingStep.ANALYTICS)
+        }
+    }
+    val totalSteps = steps.size
     var currentStep by remember { mutableStateOf(0) }
     var selectedLocale by remember { mutableStateOf(Locale.ENGLISH) }
     var analyticsAccepted by remember { mutableStateOf(true) }
@@ -141,7 +155,7 @@ fun onboardingWizardDialog(
                         )
                         Spacer(modifier = Modifier.height(Spacing.extraSmall))
                         Text(
-                            text = stringResource("onboarding.step.indicator", currentStep + 1, TOTAL_STEPS),
+                            text = stringResource("onboarding.step.indicator", currentStep + 1, totalSteps),
                             style = AppTextStyles.bodySecondary,
                         )
                     }
@@ -159,20 +173,20 @@ fun onboardingWizardDialog(
                                 .fillMaxWidth()
                                 .verticalScroll(scrollState),
                         ) {
-                            when (currentStep) {
-                                0 -> onboardingStepLanguage(
+                            when (steps[currentStep]) {
+                                OnboardingStep.LANGUAGE -> onboardingStepLanguage(
                                     selectedLocale = selectedLocale,
                                     onLocaleChange = { selectedLocale = it },
                                 )
 
-                                1 -> onboardingStepProfile(
+                                OnboardingStep.PROFILE -> onboardingStepProfile(
                                     name = name,
                                     occupation = occupation,
                                     onNameChange = { name = it },
                                     onOccupationChange = { occupation = it },
                                 )
 
-                                2 -> onboardingStepAnalytics(
+                                OnboardingStep.ANALYTICS -> onboardingStepAnalytics(
                                     analyticsAccepted = analyticsAccepted,
                                     onAnalyticsAcceptedChange = { analyticsAccepted = it },
                                 )
@@ -194,7 +208,7 @@ fun onboardingWizardDialog(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        repeat(TOTAL_STEPS) { index ->
+                        repeat(totalSteps) { index ->
                             Card(
                                 modifier = Modifier
                                     .width(if (index == currentStep) 32.dp else 8.dp)
@@ -207,7 +221,7 @@ fun onboardingWizardDialog(
                                     },
                                 ),
                             ) {}
-                            if (index < TOTAL_STEPS - 1) {
+                            if (index < totalSteps - 1) {
                                 Spacer(modifier = Modifier.width(Spacing.small))
                             }
                         }
@@ -230,7 +244,7 @@ fun onboardingWizardDialog(
                             }
                         }
 
-                        if (currentStep < TOTAL_STEPS - 1) {
+                        if (currentStep < totalSteps - 1) {
                             primaryButton(onClick = { currentStep++ }) {
                                 Text(stringResource("onboarding.next"))
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)

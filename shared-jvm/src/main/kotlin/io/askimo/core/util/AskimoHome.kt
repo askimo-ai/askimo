@@ -56,6 +56,13 @@ object AskimoHome {
 
     fun recipesDir(): Path = base().resolve("recipes")
     fun plansDir(): Path = base().resolve("plans")
+
+    /**
+     * Read-only cache of TEAM-scoped plans pulled from the server's sync feed.
+     * Never written to by the user — only by [io.askimo.core.plan.repository.PlanDefRepository]'s
+     * sync-pull entry points. Mirrors how built-in plans live outside [plansDir].
+     */
+    fun teamPlansDir(): Path = base().resolve("team-plans")
     fun skillsDir(): Path = base().resolve("skills")
     fun skillsWorkspaceDir(): Path = base().resolve("skills-workspace")
     fun projectsDir(): Path = base().resolve("projects")

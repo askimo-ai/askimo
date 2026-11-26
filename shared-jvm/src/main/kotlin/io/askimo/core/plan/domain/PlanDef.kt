@@ -5,6 +5,17 @@
 package io.askimo.core.plan.domain
 
 /**
+ * Discriminates who owns and can mutate a plan.
+ *
+ * - [PERSONAL] — owned by an individual user; synced across their own devices only.
+ * - [TEAM]     — created by a tenant admin; distributed read-only to all tenant members
+ *                via the pull delta. Clients must never push TEAM plans back, and must
+ *                treat them as read-only (though a user may duplicate one into an
+ *                editable PERSONAL copy). Mirrors [io.askimo.core.chat.domain.DirectiveScope].
+ */
+enum class PlanScope { PERSONAL, TEAM }
+
+/**
  * Complete definition of an AI plan loaded from a YAML file.
  *
  * A [PlanDef] is immutable and provider-agnostic — it is pure declaration with no
@@ -81,6 +92,10 @@ package io.askimo.core.plan.domain
  * @param steps       Map of step id → [PlanStep]. Referenced by [WorkflowNode.Step.stepId].
  * @param workflow    Root [WorkflowNode] defining execution topology.
  * @param builtIn     True for plans bundled with Askimo (read-only, not deletable).
+ * @param scope       Ownership scope — [PlanScope.PERSONAL] (default) or [PlanScope.TEAM].
+ *                    Assigned by [io.askimo.core.plan.repository.PlanDefRepository] based on
+ *                    which source directory the plan was loaded from; not stored in the YAML
+ *                    body itself (mirrors how [builtIn] is assigned, not YAML-declared).
  */
 data class PlanDef(
     val id: String,
@@ -92,4 +107,5 @@ data class PlanDef(
     val steps: Map<String, PlanStep>,
     val workflow: WorkflowNode,
     val builtIn: Boolean = false,
+    val scope: PlanScope = PlanScope.PERSONAL,
 )

@@ -34,6 +34,8 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -56,6 +58,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.askimo.core.AppConstants.DOMAIN
 import io.askimo.core.plan.domain.PlanDef
+import io.askimo.core.plan.domain.PlanScope
 import io.askimo.ui.common.i18n.stringResource
 import io.askimo.ui.common.theme.AppColors
 import io.askimo.ui.common.theme.AppComponents
@@ -263,15 +266,18 @@ fun plansGalleryView(
                         horizontalArrangement = Arrangement.spacedBy(Spacing.large),
                     ) {
                         row.forEach { plan ->
+                            // TEAM plans are admin-managed and read-only on the client — only
+                            // built-in and PERSONAL (user-owned) plans allow edit/delete.
+                            val isEditable = !plan.builtIn && plan.scope != PlanScope.TEAM
                             planCard(
                                 plan = plan,
                                 onSelect = { onSelectPlan(plan) },
-                                onDelete = if (!plan.builtIn) {
+                                onDelete = if (isEditable) {
                                     { viewModel.deletePlan(plan.id) }
                                 } else {
                                     null
                                 },
-                                onEdit = if (!plan.builtIn) {
+                                onEdit = if (isEditable) {
                                     { onEditPlan(plan.id) }
                                 } else {
                                     null
@@ -405,6 +411,27 @@ private fun planCard(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f).padding(top = Spacing.extraSmall),
                 )
+                if (plan.scope == PlanScope.TEAM) {
+                    AssistChip(
+                        onClick = {},
+                        label = {
+                            Text(
+                                text = stringResource("directive.scope.team"),
+                                style = AppTextStyles.hint,
+                            )
+                        },
+                        modifier = Modifier.height(24.dp),
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                            labelColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        ),
+                        border = AssistChipDefaults.assistChipBorder(
+                            enabled = true,
+                            borderColor = MaterialTheme.colorScheme.outlineVariant,
+                        ),
+                    )
+                    Spacer(modifier = Modifier.width(Spacing.extraSmall))
+                }
                 if (onDelete != null || onEdit != null || onDuplicate != null) {
                     Box {
                         IconButton(onClick = { showMenu = true }, modifier = Modifier.size(24.dp)) {
