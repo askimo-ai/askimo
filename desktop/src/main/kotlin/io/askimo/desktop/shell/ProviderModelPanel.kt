@@ -84,6 +84,13 @@ import io.askimo.ui.common.ui.themedTooltip
 
 internal val MODEL_PANEL_WIDTH = 800.dp
 
+// Both panel headers (left: "Manage providers" + add button, right: provider name + model
+// count) must render at the same height so their HorizontalDividers line up. The left
+// header's height is driven by its 28.dp IconButton plus Spacing.extraSmall padding on
+// each side; the right header has no such fixed-size child, so without an explicit height
+// it measures shorter. Pin both headers to this shared height instead of relying on content.
+private val PANEL_HEADER_HEIGHT = 36.dp
+
 // ── Provider badge ─────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -162,7 +169,8 @@ internal fun providerModelPanel(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = Spacing.medium, end = Spacing.extraSmall, top = Spacing.extraSmall, bottom = Spacing.extraSmall),
+                        .height(PANEL_HEADER_HEIGHT)
+                        .padding(start = Spacing.medium, end = Spacing.extraSmall),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -234,9 +242,10 @@ internal fun providerModelPanel(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .height(PANEL_HEADER_HEIGHT)
                         .clickable { onAddProvider() }
                         .pointerHoverIcon(PointerIcon.Hand)
-                        .padding(horizontal = Spacing.medium, vertical = Spacing.small),
+                        .padding(horizontal = Spacing.medium),
                     horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -291,7 +300,8 @@ internal fun providerModelPanel(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(start = Spacing.small, end = Spacing.medium, top = Spacing.extraSmall, bottom = Spacing.extraSmall),
+                                        .height(PANEL_HEADER_HEIGHT)
+                                        .padding(start = Spacing.small, end = Spacing.medium),
                                     horizontalArrangement = Arrangement.spacedBy(Spacing.small),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {

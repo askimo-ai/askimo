@@ -89,6 +89,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
@@ -544,6 +545,18 @@ object AppComponents {
         )
     }
 
+    // Material3's DropdownMenu hardcodes 8.dp of internal vertical padding with no way to
+    // override it, leaving a gap at the top/bottom of our content. This cancels it by
+    // shrinking the reported size and shifting placement up to fill the popup edge-to-edge.
+    private val dropdownVerticalPaddingFix = Modifier.layout { measurable, constraints ->
+        val placeable = measurable.measure(constraints)
+        val verticalPaddingPx = 8.dp.roundToPx()
+        val height = (placeable.height - verticalPaddingPx * 2).coerceAtLeast(0)
+        layout(placeable.width, height) {
+            placeable.placeRelative(0, -verticalPaddingPx)
+        }
+    }
+
     @Composable
     fun dropdownMenu(
         expanded: Boolean,
@@ -558,11 +571,13 @@ object AppComponents {
                 expanded = expanded,
                 onDismissRequest = onDismissRequest,
                 offset = offset,
-                modifier = modifier.border(
-                    width = border.width,
-                    brush = border.brush,
-                    shape = RoundedCornerShape(4.dp),
-                ),
+                modifier = modifier
+                    .border(
+                        width = border.width,
+                        brush = border.brush,
+                        shape = RoundedCornerShape(4.dp),
+                    )
+                    .then(dropdownVerticalPaddingFix),
                 content = content,
             )
         }

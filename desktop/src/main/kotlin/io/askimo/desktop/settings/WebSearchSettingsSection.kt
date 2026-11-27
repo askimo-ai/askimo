@@ -200,10 +200,7 @@ private fun webSearchConfigCard() {
             // ── Zero-config info banner ───────────────────────────────────────────
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = AppColors.surfaceColor(AppColors.Elevation.SELECTED),
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                ),
+                colors = AppColors.cardColors(AppColors.Elevation.SELECTED),
             ) {
                 Row(
                     modifier = Modifier.padding(Spacing.medium),
@@ -214,12 +211,12 @@ private fun webSearchConfigCard() {
                         Icons.Default.Info,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp).padding(top = Spacing.micro),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        tint = AppColors.contentColorFor(AppColors.Elevation.SELECTED),
                     )
                     Text(
                         text = stringResource("settings.web_search.zero_config_note"),
                         style = AppTextStyles.caption,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        color = AppColors.contentColorFor(AppColors.Elevation.SELECTED),
                     )
                 }
             }
@@ -523,6 +520,7 @@ private fun searxngEndpointField(
         placeholder = { Text(stringResource("settings.web_search.endpoint.placeholder")) },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
+        colors = AppColors.outlinedTextFieldColors(),
     )
 }
 

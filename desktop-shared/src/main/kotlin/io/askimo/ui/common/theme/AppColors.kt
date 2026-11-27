@@ -397,7 +397,7 @@ object AppColors {
     @Composable
     fun outlinedTextFieldColors(
         focusedBorderColor: Color = MaterialTheme.colorScheme.onSurface,
-        unfocusedBorderColor: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.42f),
+        unfocusedBorderColor: Color = MaterialTheme.colorScheme.outlineVariant,
         focusedLabelColor: Color = MaterialTheme.colorScheme.onSurface,
         unfocusedLabelColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
         focusedTextColor: Color = MaterialTheme.colorScheme.onSurface,
