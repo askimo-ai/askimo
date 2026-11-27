@@ -53,6 +53,7 @@ class AuthenticationException(
  */
 class RateLimitException(
     val retryAfterSeconds: Long? = null,
+    val provider: String? = null,
     cause: Throwable? = null,
 ) : UserException("Rate limit exceeded", cause) {
 
@@ -60,6 +61,7 @@ class RateLimitException(
 
     override fun getMessageArgs() = mapOf(
         "retryAfter" to (retryAfterSeconds?.toString() ?: ""),
+        "provider" to (provider?.let { " ($it)" } ?: ""),
     )
 
     // Provider explicitly asked us to slow down — worth a backoff retry.
@@ -71,12 +73,16 @@ class RateLimitException(
  */
 class TimeoutException(
     val timeoutSeconds: Int,
+    val provider: String? = null,
     cause: Throwable? = null,
 ) : UserException("Request timeout", cause) {
 
     override fun getMessageKey() = "error.timeout"
 
-    override fun getMessageArgs() = mapOf("timeout" to timeoutSeconds.toString())
+    override fun getMessageArgs() = mapOf(
+        "timeout" to timeoutSeconds.toString(),
+        "provider" to (provider?.let { " ($it)" } ?: ""),
+    )
 
     // A slow response doesn't mean the next attempt will also time out — worth a backoff retry.
     override val retryPolicy = RetryPolicy.BACKOFF
@@ -197,10 +203,14 @@ class AttachmentException(
  */
 class RemoteServerException(
     val details: String = "",
+    val provider: String? = null,
     cause: Throwable? = null,
 ) : UserException("Remote AI server error", cause) {
     override fun getMessageKey() = "error.remote_server"
-    override fun getMessageArgs() = mapOf("details" to details)
+    override fun getMessageArgs() = mapOf(
+        "details" to details,
+        "provider" to (provider?.let { " ($it)" } ?: ""),
+    )
 
     // Transient infrastructure overload on the provider's side — worth a backoff retry.
     override val retryPolicy = RetryPolicy.BACKOFF

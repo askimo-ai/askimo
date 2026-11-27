@@ -10,6 +10,8 @@ import io.askimo.core.chat.util.AttachmentStorageException
 import io.askimo.core.chat.util.FileSizeExceededException
 import io.askimo.core.config.AppConfig
 import io.askimo.core.logging.logger
+import io.askimo.core.providers.ModelProvider
+import io.askimo.core.providers.ProviderRegistry
 import io.askimo.core.providers.isContextLengthMessage
 import io.askimo.core.util.formatFileSize
 import java.net.ConnectException
@@ -36,9 +38,15 @@ object ExceptionMapper {
      * Otherwise, analyzes all exceptions in the chain and maps to the appropriate type.
      *
      * @param throwable The exception to map
+     * @param provider The active AI provider, if known — named in timeout/rate-limit/remote-
+     * server messages (e.g. "Gemini (overloaded)"). Pass `null` if unknown; falls back to
+     * generic phrasing.
      * @return An AskimoException (either user or system error)
      */
-    fun map(throwable: Throwable): AskimoException {
+    fun map(
+        throwable: Throwable,
+        provider: ModelProvider? = null,
+    ): AskimoException {
         // Build the complete exception chain
         val exceptionChain = buildExceptionChain(throwable)
 
@@ -51,14 +59,19 @@ object ExceptionMapper {
 
         val rootCause = exceptionChain.last()
 
+        // Resolve once: null for an unknown/absent provider so exception classes can apply
+        // their own generic fallback text (e.g. "the AI provider").
+        val providerName = provider?.takeIf { it != ModelProvider.UNKNOWN }
+            ?.let { ProviderRegistry.getProviderDisplayName(it) }
+
         // Try to match by exception type first (checking all in chain)
         exceptionChain.forEach { exception ->
-            matchByType(exception)?.let { return it }
+            matchByType(exception, providerName)?.let { return it }
         }
 
         // Try to match by message pattern (checking all messages in chain)
         val allMessages = exceptionChain.mapNotNull { it.message }.toSet()
-        return matchByMessage(allMessages, rootCause)
+        return matchByMessage(allMessages, rootCause, providerName)
     }
 
     /**
@@ -123,9 +136,13 @@ object ExceptionMapper {
      * Try to match an exception by its concrete type.
      *
      * @param exception The exception to check
+     * @param providerName Display name of the active provider (e.g. "Gemini"), or null if unknown
      * @return An AskimoException if matched, null otherwise
      */
-    private fun matchByType(exception: Throwable): AskimoException? = when (exception) {
+    private fun matchByType(
+        exception: Throwable,
+        providerName: String?,
+    ): AskimoException? = when (exception) {
         // Network exceptions — includes UnresolvedAddressException (thrown when a hostname
         // can't be resolved to a socket address, e.g. offline / bad DNS), which previously
         // had its own hand-rolled, non-localized message duplicated at the streaming call site.
@@ -138,7 +155,11 @@ object ExceptionMapper {
         // Timeout exceptions
         is SocketTimeoutException,
         is java.util.concurrent.TimeoutException,
-        -> TimeoutException(timeoutSeconds = AppConfig.models.requestTimeoutInSeconds.toInt(), cause = exception)
+        -> TimeoutException(
+            timeoutSeconds = AppConfig.models.requestTimeoutInSeconds.toInt(),
+            provider = providerName,
+            cause = exception,
+        )
 
         is ModelNotFoundException -> ModelNotFoundChatException(
             model = exception.message?.substringAfterLast(" ") ?: "unknown",
@@ -153,7 +174,7 @@ object ExceptionMapper {
             if (isLocalServerMessage(msg)) {
                 LocalServerException(details = msg.take(300), cause = exception)
             } else {
-                RemoteServerException(details = msg, cause = exception)
+                RemoteServerException(details = msg, provider = providerName, cause = exception)
             }
         }
 
@@ -181,9 +202,14 @@ object ExceptionMapper {
      *
      * @param messages All messages from the exception chain
      * @param rootCause The root cause exception to use in the created AskimoException
+     * @param providerName Display name of the active provider (e.g. "Gemini"), or null if unknown
      * @return An AskimoException based on message pattern matching
      */
-    private fun matchByMessage(messages: Set<String>, rootCause: Throwable): AskimoException {
+    private fun matchByMessage(
+        messages: Set<String>,
+        rootCause: Throwable,
+        providerName: String?,
+    ): AskimoException {
         val combinedMessage = messages.joinToString(" | ")
 
         return when {
@@ -213,7 +239,7 @@ object ExceptionMapper {
                 combinedMessage.contains("temporarily unavailable", ignoreCase = true) ||
                 combinedMessage.contains("server is busy", ignoreCase = true) ||
                 combinedMessage.contains("server is currently processing", ignoreCase = true) ->
-                RemoteServerException(details = combinedMessage.take(300), cause = rootCause)
+                RemoteServerException(details = combinedMessage.take(300), provider = providerName, cause = rootCause)
 
             // Network connectivity issues. "Broken pipe"/"Connection reset" cover a
             // mid-stream socket drop (app backgrounded, Wi-Fi/VPN blip, OS network-suspend)
@@ -254,12 +280,16 @@ object ExceptionMapper {
                 combinedMessage.contains("quota exceeded", ignoreCase = true) ||
                 combinedMessage.contains("too many requests", ignoreCase = true) ||
                 combinedMessage.contains("429", ignoreCase = true) ->
-                RateLimitException(cause = rootCause)
+                RateLimitException(provider = providerName, cause = rootCause)
 
             // Timeout
             combinedMessage.contains("timeout", ignoreCase = true) ||
                 combinedMessage.contains("timed out", ignoreCase = true) ->
-                TimeoutException(timeoutSeconds = AppConfig.models.requestTimeoutInSeconds.toInt(), cause = rootCause)
+                TimeoutException(
+                    timeoutSeconds = AppConfig.models.requestTimeoutInSeconds.toInt(),
+                    provider = providerName,
+                    cause = rootCause,
+                )
 
             // Insufficient credits
             combinedMessage.contains("credit balance is too low", ignoreCase = true) ||
