@@ -163,6 +163,16 @@ enum class OpenAiCompatibleTemplate(
         },
     ),
 
+    LLMTR(
+        displayName = "LLMTR",
+        initials = "LT",
+        taglineKey = "provider.template.llmtr.tagline",
+        baseUrl = "https://llmtr.com/v1",
+        apiKeyRequired = true,
+        apiKeyUrl = "https://llmtr.com/dashboard/keys",
+        helpTextKey = "provider.template.llmtr.help",
+    ),
+
     TOGETHER_AI(
         displayName = "Together AI",
         initials = "TA",
