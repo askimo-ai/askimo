@@ -165,7 +165,7 @@ internal fun classifyStreamingError(
         )
     }
 
-    val askimoException = ExceptionMapper.map(e)
+    val askimoException = ExceptionMapper.map(e, provider)
 
     // Only IMMEDIATE has an actual retry mechanism wired up at this call site (the
     // context-retry loop in `sendStreamingMessageWithCallback`, bounded at 20 attempts).
