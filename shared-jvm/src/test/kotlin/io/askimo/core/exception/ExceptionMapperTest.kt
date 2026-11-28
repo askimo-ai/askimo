@@ -9,6 +9,7 @@ import io.askimo.core.chat.util.AttachmentStorageException
 import io.askimo.core.chat.util.FileSizeExceededException
 import org.junit.jupiter.api.Test
 import java.io.IOException
+import java.net.SocketTimeoutException
 import java.util.concurrent.CompletionException
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -184,9 +185,31 @@ class ExceptionMapperTest {
     }
 
     @Test
-    fun `rootCauseMessage falls back to unknown when no message exists anywhere in the chain`() {
+    fun `rootCauseMessage falls back to the root cause's class name when no message exists anywhere in the chain`() {
         val e = RuntimeException(null as String?, RuntimeException(null as String?))
-        assertEquals("unknown", ExceptionMapper.rootCauseMessage(e))
+        assertEquals("RuntimeException", ExceptionMapper.rootCauseMessage(e))
+    }
+
+    @Test
+    fun `rootCauseMessage skips a blank root-cause message and falls back to its class name`() {
+        val blankTimeout = SocketTimeoutException("")
+        assertEquals("SocketTimeoutException", ExceptionMapper.rootCauseMessage(blankTimeout))
+    }
+
+    @Test
+    fun `rootCauseMessage skips a blank deepest cause and returns the nearest non-blank message up the chain`() {
+        val blankRootCause = IOException("")
+        val wrapped = RuntimeException("connection reset while streaming", blankRootCause)
+
+        assertEquals("connection reset while streaming", ExceptionMapper.rootCauseMessage(wrapped))
+    }
+
+    @Test
+    fun `rootCauseMessage returned value is never blank for a blank InternalServerException, so analytics error_excerpt is never empty`() {
+        val e = InternalServerException("   ")
+        val result = ExceptionMapper.rootCauseMessage(e)
+        assertTrue(result.isNotBlank(), "rootCauseMessage must never return a blank string")
+        assertEquals("InternalServerException", result)
     }
 
     // ── renderMessage — exactly what the user sees, without re-logging ─────────

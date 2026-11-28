@@ -166,22 +166,30 @@
         </g>
 
         <g>
-            <rect x="720" y="470" width="165" height="38" rx="19"
+            <rect x="705" y="470" width="190" height="38" rx="19"
                   fill="#FFFFFF" stroke="#CBD5E1" stroke-width="2"/>
-            <text x="802.5" y="489" fill="#334155">Docker AI</text>
+            <text x="800" y="489" fill="#334155">OpenRouter</text>
         </g>
 
         <g>
             <rect x="705" y="310" width="140" height="38" rx="19"
                   fill="#FFFFFF" stroke="#CBD5E1" stroke-width="2"/>
-            <text x="775" y="329" fill="#334155">LocalAI</text>
+            <text x="775" y="329" fill="#334155">DeepSeek</text>
         </g>
 
         <g>
             <rect x="760" y="155" width="90" height="38" rx="19"
                   fill="#FFFFFF" stroke="#CBD5E1" stroke-width="2"/>
-            <text x="805" y="174" fill="#334155">X</text>
+            <text x="805" y="174" fill="#334155">Groq</text>
         </g>
+    </g>
+
+    <!-- "Extensible" badge: communicates OpenAI-compatible API support beyond the named pills -->
+    <g font-family="Inter, SF Pro Display, Arial" font-size="18" font-weight="700"
+       text-anchor="middle" dominant-baseline="middle">
+        <rect x="850" y="40" width="380" height="36" rx="18"
+              fill="none" stroke="#6366F1" stroke-width="2" stroke-dasharray="6 4"/>
+        <text x="1040" y="58" fill="#334155">+ Any OpenAI-compatible API</text>
     </g>
 
     <!-- Askimo logo (BLACK STROKE, CENTERED) -->

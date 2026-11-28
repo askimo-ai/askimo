@@ -42,21 +42,6 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/OpenAI-Supported-412991" alt="OpenAI">
-  <img src="https://img.shields.io/badge/Claude-Supported-542683" alt="Claude">
-  <img src="https://img.shields.io/badge/Gemini-Supported-4285F4" alt="Gemini">
-  <img src="https://img.shields.io/badge/Grok-Supported-1DA1F2" alt="Grok">
-  <img src="https://img.shields.io/badge/Ollama-Supported-000000" alt="Ollama">
-  <img src="https://img.shields.io/badge/LMStudio-Supported-6B46C1" alt="LMStudio">
-  <img src="https://img.shields.io/badge/DockerAI-Supported-2496ED" alt="DockerAI">
-  <img src="https://img.shields.io/badge/OpenRouter-Supported-6366F1" alt="OpenRouter">
-  <img src="https://img.shields.io/badge/NVIDIA_NIM-Supported-76B900" alt="NVIDIA NIM">
-  <img src="https://img.shields.io/badge/Together_AI-Supported-FF6B35" alt="Together AI">
-  <img src="https://img.shields.io/badge/vLLM_Server-Supported-EF4444" alt="vLLM Server">
-  <img src="https://img.shields.io/badge/OpenAI--Compatible-Any_Endpoint-gray" alt="OpenAI-Compatible">
-</p>
-
-<p align="center">
   <a href="https://github.com/askimo-ai/askimo/releases/latest"><strong>📥 Download</strong></a> •
   <a href="https://askimo.chat/docs/"><strong>📖 Documentation</strong></a> •
   <a href="https://github.com/askimo-ai/askimo/discussions"><strong>💬 Discussions</strong></a>
@@ -74,7 +59,7 @@
 
 You shouldn't have to choose between the best AI model, your privacy, and getting real work done.
 
-- **One app, every model.** Stop juggling browser tabs. Chat with OpenAI, Claude, Gemini, Grok, or a local Ollama model, switch in seconds, no copy-pasting.
+- **One app, every model.** Stop juggling browser tabs. Chat with OpenAI, Claude, Gemini, Grok, a local Ollama model, or any OpenAI-compatible API (OpenRouter, Groq, DeepSeek, self-hosted vLLM, and more), switch in seconds, no copy-pasting.
 - **Built as a native desktop app.** Not a web wrapper. Starts fast, runs lean, and stays responsive even after hours of use and thousands of messages in a single conversation.
 - **Long conversations that actually work.** No crashes, no tab reloads, no lost context. Askimo handles deep, extended sessions the way a real desktop app should.
 - **More than just chat.** Delegate real work to autonomous agent CLIs (Claude Code, Codex, Antigravity), chain multi-step AI Plans from a form UI, and connect MCP tools, all from the same app.
@@ -112,7 +97,7 @@ You shouldn't have to choose between the best AI model, your privacy, and gettin
 **[Download for macOS, Windows, or Linux →](https://askimo.chat/download/)**
 
 1. Install and open Askimo
-2. Add a provider - paste an API key (OpenAI, Claude, Gemini…) or point it at a running Ollama instance
+2. Add a provider - paste an API key (OpenAI, Claude, Gemini…), point it at a running Ollama/LM Studio instance, or connect any OpenAI-compatible endpoint (OpenRouter, Groq, DeepSeek, self-hosted, etc.)
 3. Start chatting
 
 [Full setup guide →](https://askimo.chat/docs/desktop/ai-providers/)
@@ -130,7 +115,7 @@ You shouldn't have to choose between the best AI model, your privacy, and gettin
 ## Features
 
 **AI & Providers**
-- **Multi-provider** - Switch between OpenAI, Claude, Gemini, Grok, Ollama, LM Studio, Docker AI, OpenRouter, NVIDIA NIM, Together AI, vLLM Server, or any OpenAI-compatible endpoint per session
+- **Multi-provider** - OpenAI, Claude, Gemini, Grok, and Ollama built in, plus one-click templates for OpenRouter, Groq, DeepSeek, Together AI, NVIDIA NIM, Hugging Face, Cloudflare AI, and LiteLLM, or connect **any OpenAI-compatible endpoint** (self-hosted vLLM, LocalAI, Docker Model Runner, internal proxies) with a custom base URL
 - **Vision** - Attach images to conversations; works with any multimodal model
 
 **Search & Data**

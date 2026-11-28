@@ -96,19 +96,22 @@ object ExceptionMapper {
     }
 
     /**
-     * Returns the message of the deepest exception in the cause chain — the true root cause —
-     * as opposed to `throwable.message`, which may only be a shallow wrapper message (e.g.
-     * `CompletionException("request failed")` wrapping a deeper `IOException` with the actual
-     * detail). [matchByMessage] itself matches against the full joined chain, not just the top
-     * message, so callers that want to know exactly what text drove classification (e.g.
-     * analytics/telemetry) should use this instead of `throwable.message` directly.
+     * Returns the deepest non-blank message in [throwable]'s cause chain — the true root cause —
+     * as opposed to `throwable.message`, which may only be a shallow wrapper (e.g.
+     * `CompletionException("request failed")` wrapping a deeper `IOException` with the real
+     * detail). Used by callers needing the exact text that drove classification (e.g.
+     * analytics/telemetry), rather than `throwable.message` directly.
      *
      * @param throwable The exception to inspect
-     * @return The root cause's message, falling back to [throwable]'s own message, then "unknown"
+     * @return The deepest non-blank message in the chain, or the root cause's class name if
+     * every exception in the chain has a null/blank message.
      */
     fun rootCauseMessage(throwable: Throwable): String {
         val chain = buildExceptionChain(throwable)
-        return chain.last().message ?: throwable.message ?: "unknown"
+        chain.asReversed().forEach { ex ->
+            if (!ex.message.isNullOrBlank()) return ex.message!!
+        }
+        return chain.last()::class.simpleName ?: "unknown"
     }
 
     /**
@@ -296,7 +299,7 @@ object ExceptionMapper {
                 combinedMessage.contains("insufficient_funds", ignoreCase = true) ||
                 combinedMessage.contains("billing", ignoreCase = true) ||
                 combinedMessage.contains("upgrade or purchase credits", ignoreCase = true) ->
-                InsufficientCreditsException(cause = rootCause)
+                InsufficientCreditsException(provider = providerName, cause = rootCause)
 
             // Unsupported sampling parameters — some models (esp. reasoning models) reject
             // temperature/top_p entirely. Checked before the generic 400 bucket below.
