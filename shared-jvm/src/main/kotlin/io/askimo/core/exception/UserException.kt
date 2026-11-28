@@ -139,12 +139,15 @@ class ToolExecutionException(
  * Insufficient API credits/balance.
  */
 class InsufficientCreditsException(
+    val provider: String? = null,
     cause: Throwable? = null,
 ) : UserException("Insufficient API credits", cause) {
 
     override fun getMessageKey() = "error.insufficient_credits"
 
-    override fun getMessageArgs() = emptyMap<String, String>()
+    override fun getMessageArgs() = mapOf(
+        "provider" to (provider?.let { " ($it)" } ?: ""),
+    )
 }
 
 /**
