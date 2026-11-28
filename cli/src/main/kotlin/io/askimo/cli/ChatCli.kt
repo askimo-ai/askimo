@@ -13,6 +13,7 @@ import io.askimo.cli.commands.CopyCommandHandler
 import io.askimo.cli.commands.CreateRecipeCommandHandler
 import io.askimo.cli.commands.DeleteRecipeCommandHandler
 import io.askimo.cli.commands.DeleteSessionCommandHandler
+import io.askimo.cli.commands.ExitCommandHandler
 import io.askimo.cli.commands.HelpCommandHandler
 import io.askimo.cli.commands.ListProvidersCommandHandler
 import io.askimo.cli.commands.ListRecipesCommandHandler
@@ -26,6 +27,7 @@ import io.askimo.cli.commands.SetParamCommandHandler
 import io.askimo.cli.commands.SetProviderCommandHandler
 import io.askimo.cli.commands.VersionDisplayCommandHandler
 import io.askimo.cli.context.CliInteractiveContext
+import io.askimo.cli.logging.initializeCliLogging
 import io.askimo.cli.recipes.DefaultRecipeInitializer
 import io.askimo.cli.recipes.RecipeDef
 import io.askimo.cli.recipes.RecipeExecutor
@@ -79,6 +81,7 @@ private val log = logger<ChatCliLogger>()
 fun main(args: Array<String>) {
     // Register PersonalAskimoHome before any path is accessed
     AskimoHome.register(PersonalAskimoHome)
+    initializeCliLogging()
 
     DefaultRecipeInitializer.initializeDefaultTemplates()
 
@@ -291,6 +294,7 @@ fun main(args: Array<String>) {
             NewSessionCommandHandler(chatSessionService),
             ResumeSessionCommandHandler(chatSessionService),
             DeleteSessionCommandHandler(appContext),
+            ExitCommandHandler(),
         )
 
         (interactiveCommandHandlers.find { it.keyword == ":help" } as? HelpCommandHandler)?.setCommands(interactiveCommandHandlers)
@@ -311,7 +315,10 @@ fun main(args: Array<String>) {
             ) {
                 terminal.writer().println("Thank you for using askimo. Goodbye!")
                 terminal.flush()
-                break
+                terminal.close()
+                // Force JVM exit: lingering non-daemon threads (JLine input pump, etc.)
+                // otherwise keep the process alive after main() returns.
+                kotlin.system.exitProcess(0)
             }
 
             val keyword = parsedLine.words().firstOrNull()

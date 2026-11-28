@@ -2,18 +2,18 @@ Askimo — Third-Party Software Notices
 This file lists every third-party dependency bundled in Askimo's distributed artifacts (CLI, desktop app) across all modules, deduplicated, along with its license.
 ================================================================================
 
-Total unique dependencies: 318
+Total unique dependencies: 323
 
-* androidx.annotation:annotation-jvm:1.10.0
-  URL: https://developer.android.com/jetpack/androidx/releases/annotation#1.10.0
+* androidx.annotation:annotation-jvm:1.11.0
+  URL: https://developer.android.com/jetpack/androidx/releases/annotation#1.11.0
   License(s): Apache License, Version 2.0
 
 * androidx.annotation:annotation-jvm:1.9.1
   URL: https://developer.android.com/jetpack/androidx/releases/annotation#1.9.1
   License(s): Apache License, Version 2.0
 
-* androidx.annotation:annotation:1.10.0
-  URL: https://developer.android.com/jetpack/androidx/releases/annotation#1.10.0
+* androidx.annotation:annotation:1.11.0
+  URL: https://developer.android.com/jetpack/androidx/releases/annotation#1.11.0
   License(s): Apache License, Version 2.0
 
 * androidx.annotation:annotation:1.9.1
@@ -168,6 +168,14 @@ Total unique dependencies: 318
   URL: https://github.com/sqldelight/sqldelight/
   License(s): Apache License, Version 2.0
 
+* ch.qos.logback:logback-classic:1.6.8
+  URL: http://www.qos.ch
+  License(s): Eclipse Public License - v 2.0 OR GNU LESSER GENERAL PUBLIC LICENSE, Version 2.1
+
+* ch.qos.logback:logback-core:1.6.8
+  URL: http://www.qos.ch
+  License(s): Eclipse Public License - v 2.0 OR GNU LESSER GENERAL PUBLIC LICENSE, Version 2.1
+
 * co.touchlab:kermit-core-jvm:2.2.0
   URL: https://github.com/touchlab/Kermit
   License(s): Apache License, Version 2.0
@@ -240,41 +248,41 @@ Total unique dependencies: 318
   URL: https://github.com/touchlab/Stately
   License(s): Apache License, Version 2.0
 
-* com.aayushatharva.brotli4j:brotli4j:1.23.0
+* com.aayushatharva.brotli4j:brotli4j:1.24.0
   License(s): Apache License, Version 2.0
 
-* com.aayushatharva.brotli4j:service:1.23.0
+* com.aayushatharva.brotli4j:service:1.24.0
   License(s): Apache License, Version 2.0
 
-* com.fasterxml.jackson.core:jackson-annotations:2.22
+* com.fasterxml.jackson.core:jackson-annotations:2.23
   URL: https://github.com/FasterXML/jackson
   License(s): Apache License, Version 2.0
 
-* com.fasterxml.jackson.core:jackson-core:2.22.4
+* com.fasterxml.jackson.core:jackson-core:2.23.0
   URL: https://github.com/FasterXML/jackson-core
   License(s): Apache License, Version 2.0
 
-* com.fasterxml.jackson.core:jackson-databind:2.22.4
+* com.fasterxml.jackson.core:jackson-databind:2.23.0
   URL: https://github.com/FasterXML/jackson
   License(s): Apache License, Version 2.0
 
-* com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.22.4
+* com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.23.0
   URL: https://github.com/FasterXML/jackson-dataformats-text
   License(s): Apache License, Version 2.0
 
-* com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.22.4
+* com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.23.0
   URL: https://github.com/FasterXML/jackson-modules-java8/jackson-datatype-jdk8
   License(s): Apache License, Version 2.0
 
-* com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.22.4
+* com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.23.0
   URL: https://github.com/FasterXML/jackson-modules-java8/jackson-datatype-jsr310
   License(s): Apache License, Version 2.0
 
-* com.fasterxml.jackson.module:jackson-module-kotlin:2.22.4
+* com.fasterxml.jackson.module:jackson-module-kotlin:2.23.0
   URL: https://github.com/FasterXML/jackson-module-kotlin
   License(s): Apache License, Version 2.0
 
-* com.fasterxml.jackson:jackson-bom:2.22.4
+* com.fasterxml.jackson:jackson-bom:2.23.0
   URL: https://github.com/FasterXML/jackson-bom
   License(s): Apache License, Version 2.0
 
@@ -306,13 +314,13 @@ Total unique dependencies: 318
   URL: https://github.com/docker-java/docker-java
   License(s): Apache License, Version 2.0
 
-* com.github.hypfvieh:dbus-java-core:5.2.0
+* com.github.hypfvieh:dbus-java-core:5.2.2
   License(s): MIT License
 
-* com.github.hypfvieh:dbus-java-transport-native-unixsocket:5.2.0
+* com.github.hypfvieh:dbus-java-transport-native-unixsocket:5.2.2
   License(s): MIT License
 
-* com.github.librepdf:openpdf:3.0.5
+* com.github.librepdf:openpdf:3.0.6
   License(s): GNU LESSER GENERAL PUBLIC LICENSE, Version 2.1 OR Mozilla Public License, Version 2.0
 
 * com.github.virtuald:curvesapi:1.08
@@ -344,7 +352,7 @@ Total unique dependencies: 318
   URL: https://errorprone.info/error_prone_annotations
   License(s): Apache License, Version 2.0
 
-* com.google.genai:google-genai:1.77.0
+* com.google.genai:google-genai:2.3.0
   URL: https://github.com/googleapis/java-genai
   License(s): Apache License, Version 2.0
 
@@ -459,51 +467,51 @@ Total unique dependencies: 318
   URL: https://github.com/drewhamilton/Poko
   License(s): Apache License, Version 2.0
 
-* dev.langchain4j:langchain4j-agentic:1.23.0-beta33
+* dev.langchain4j:langchain4j-agentic:1.24.0-beta34
   URL: https://github.com/langchain4j/langchain4j/tree/main/langchain4j-agentic
   License(s): Apache License, Version 2.0
 
-* dev.langchain4j:langchain4j-anthropic:1.23.0
+* dev.langchain4j:langchain4j-anthropic:1.24.1
   URL: https://github.com/langchain4j/langchain4j/tree/main/langchain4j-anthropic
   License(s): Apache License, Version 2.0
 
-* dev.langchain4j:langchain4j-community-jvector:1.23.0-beta33
+* dev.langchain4j:langchain4j-community-jvector:1.24.0-beta34
   URL: https://github.com/langchain4j/langchain4j-community/embedding-stores/langchain4j-community-jvector
   License(s): Apache License, Version 2.0
 
-* dev.langchain4j:langchain4j-core:1.23.0
+* dev.langchain4j:langchain4j-core:1.24.1
   URL: https://github.com/langchain4j/langchain4j/tree/main/langchain4j-core
   License(s): Apache License, Version 2.0
 
-* dev.langchain4j:langchain4j-google-genai:1.23.0-beta33
+* dev.langchain4j:langchain4j-google-genai:1.24.0-beta34
   URL: https://github.com/langchain4j/langchain4j/tree/main/langchain4j-google-genai
   License(s): Apache License, Version 2.0
 
-* dev.langchain4j:langchain4j-http-client-jdk:1.23.0
+* dev.langchain4j:langchain4j-http-client-jdk:1.24.1
   URL: https://github.com/langchain4j/langchain4j/tree/main/langchain4j-http-client-jdk
   License(s): Apache License, Version 2.0
 
-* dev.langchain4j:langchain4j-http-client:1.23.0
+* dev.langchain4j:langchain4j-http-client:1.24.1
   URL: https://github.com/langchain4j/langchain4j/tree/main/langchain4j-http-client
   License(s): Apache License, Version 2.0
 
-* dev.langchain4j:langchain4j-mcp-docker:1.23.0-beta33
+* dev.langchain4j:langchain4j-mcp-docker:1.24.0-beta34
   URL: https://github.com/langchain4j/langchain4j/tree/main/langchain4j-mcp-docker
   License(s): Apache License, Version 2.0
 
-* dev.langchain4j:langchain4j-mcp:1.23.0-beta33
+* dev.langchain4j:langchain4j-mcp:1.24.0-beta34
   URL: https://github.com/langchain4j/langchain4j/tree/main/langchain4j-mcp
   License(s): Apache License, Version 2.0
 
-* dev.langchain4j:langchain4j-open-ai:1.23.0
+* dev.langchain4j:langchain4j-open-ai:1.24.1
   URL: https://github.com/langchain4j/langchain4j/tree/main/langchain4j-open-ai
   License(s): Apache License, Version 2.0
 
-* dev.langchain4j:langchain4j-reactive-streaming:1.23.0-beta33
+* dev.langchain4j:langchain4j-reactive-streaming:1.24.1-beta34
   URL: https://github.com/langchain4j/langchain4j/tree/main/langchain4j-reactive-streaming
   License(s): Apache License, Version 2.0
 
-* dev.langchain4j:langchain4j:1.23.0
+* dev.langchain4j:langchain4j:1.24.1
   URL: https://github.com/langchain4j/langchain4j/tree/main/langchain4j
   License(s): Apache License, Version 2.0
 
@@ -559,7 +567,7 @@ Total unique dependencies: 318
   URL: https://github.com/coil-kt/coil
   License(s): Apache License, Version 2.0
 
-* io.github.jbellis:jvector:4.0.1
+* io.github.jbellis:jvector:4.0.2
   URL: https://github.com/jbellis/jvector
   License(s): Apache License, Version 2.0
 
@@ -571,27 +579,27 @@ Total unique dependencies: 318
   URL: https://github.com/reactivecircus/cache4k
   License(s): Apache License, Version 2.0
 
-* io.github.vinceglb:filekit-core-jvm:0.16.0
+* io.github.vinceglb:filekit-core-jvm:0.17.1
   URL: https://github.com/vinceglb/FileKit
   License(s): MIT License
 
-* io.github.vinceglb:filekit-core:0.16.0
+* io.github.vinceglb:filekit-core:0.17.1
   URL: https://github.com/vinceglb/FileKit
   License(s): MIT License
 
-* io.github.vinceglb:filekit-dialogs-compose-jvm:0.16.0
+* io.github.vinceglb:filekit-dialogs-compose-jvm:0.17.1
   URL: https://github.com/vinceglb/FileKit
   License(s): MIT License
 
-* io.github.vinceglb:filekit-dialogs-compose:0.16.0
+* io.github.vinceglb:filekit-dialogs-compose:0.17.1
   URL: https://github.com/vinceglb/FileKit
   License(s): MIT License
 
-* io.github.vinceglb:filekit-dialogs-jvm:0.16.0
+* io.github.vinceglb:filekit-dialogs-jvm:0.17.1
   URL: https://github.com/vinceglb/FileKit
   License(s): MIT License
 
-* io.github.vinceglb:filekit-dialogs:0.16.0
+* io.github.vinceglb:filekit-dialogs:0.17.1
   URL: https://github.com/vinceglb/FileKit
   License(s): MIT License
 
@@ -846,21 +854,17 @@ Total unique dependencies: 318
   URL: https://www.bouncycastle.org/download/bouncy-castle-java/
   License(s): MIT License
 
-* org.commonmark:commonmark-ext-autolink:0.32.0
+* org.commonmark:commonmark-ext-autolink:0.33.0
   License(s): The 2-Clause BSD License
 
 * org.commonmark:commonmark-ext-gfm-strikethrough:0.31.0
   License(s): The 2-Clause BSD License
 
-* org.commonmark:commonmark-ext-gfm-tables:0.32.0
+* org.commonmark:commonmark-ext-gfm-tables:0.33.0
   License(s): The 2-Clause BSD License
 
-* org.commonmark:commonmark:0.32.0
+* org.commonmark:commonmark:0.33.0
   License(s): The 2-Clause BSD License
-
-* org.fusesource.jansi:jansi:2.4.2
-  URL: http://fusesource.com/, http://fusesource.github.io/jansi
-  License(s): Apache License, Version 2.0
 
 * org.jetbrains.androidx.lifecycle:lifecycle-common:2.9.6
   URL: https://github.com/JetBrains/compose-jb
@@ -1130,39 +1134,55 @@ Total unique dependencies: 318
   URL: https://github.com/Kotlin/kotlinx-datetime
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.kotlinx:kotlinx-io-bytestring-jvm:0.9.1
+* org.jetbrains.kotlinx:kotlinx-io-bytestring-jvm:0.8.0
   URL: https://github.com/Kotlin/kotlinx-io
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.kotlinx:kotlinx-io-bytestring:0.9.1
+* org.jetbrains.kotlinx:kotlinx-io-bytestring-jvm:0.9.3
   URL: https://github.com/Kotlin/kotlinx-io
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.kotlinx:kotlinx-io-core-jvm:0.9.1
+* org.jetbrains.kotlinx:kotlinx-io-bytestring:0.8.0
   URL: https://github.com/Kotlin/kotlinx-io
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.kotlinx:kotlinx-io-core:0.9.1
+* org.jetbrains.kotlinx:kotlinx-io-bytestring:0.9.3
   URL: https://github.com/Kotlin/kotlinx-io
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.kotlinx:kotlinx-serialization-bom:1.12.0
+* org.jetbrains.kotlinx:kotlinx-io-core-jvm:0.8.0
+  URL: https://github.com/Kotlin/kotlinx-io
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlinx:kotlinx-io-core-jvm:0.9.3
+  URL: https://github.com/Kotlin/kotlinx-io
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlinx:kotlinx-io-core:0.8.0
+  URL: https://github.com/Kotlin/kotlinx-io
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlinx:kotlinx-io-core:0.9.3
+  URL: https://github.com/Kotlin/kotlinx-io
+  License(s): Apache License, Version 2.0
+
+* org.jetbrains.kotlinx:kotlinx-serialization-bom:1.13.0
   URL: https://github.com/Kotlin/kotlinx.serialization
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.12.0
+* org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.13.0
   URL: https://github.com/Kotlin/kotlinx.serialization
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.kotlinx:kotlinx-serialization-core:1.12.0
+* org.jetbrains.kotlinx:kotlinx-serialization-core:1.13.0
   URL: https://github.com/Kotlin/kotlinx.serialization
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.12.0
+* org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.13.0
   URL: https://github.com/Kotlin/kotlinx.serialization
   License(s): Apache License, Version 2.0
 
-* org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0
+* org.jetbrains.kotlinx:kotlinx-serialization-json:1.13.0
   URL: https://github.com/Kotlin/kotlinx.serialization
   License(s): Apache License, Version 2.0
 
@@ -1198,21 +1218,17 @@ Total unique dependencies: 318
   URL: https://github.com/JetBrains/java-annotations
   License(s): Apache License, Version 2.0
 
-* org.jline:jline-native:3.30.6
-  URL: https://github.com/jline/jline3/jline-native
+* org.jline:jline-native:4.7.1
   License(s): The 3-Clause BSD License
 
-* org.jline:jline-terminal-jansi:3.30.6
-  URL: https://github.com/jline/jline3/jline-terminal-jansi
+* org.jline:jline-terminal-ffm:4.7.1
   License(s): The 3-Clause BSD License
 
-* org.jline:jline-terminal:3.30.6
-  URL: https://github.com/jline/jline3/jline-terminal
-  License(s): The 3-Clause BSD License
+* org.jline:jline-terminal:4.7.1
+  License(s): Apache License, Version 2.0 OR The 3-Clause BSD License
 
-* org.jline:jline:3.30.6
-  URL: https://github.com/jline/jline3/jline
-  License(s): The 3-Clause BSD License
+* org.jline:jline:4.7.1
+  License(s): Apache License, Version 2.0 OR The 3-Clause BSD License
 
 * org.jsoup:jsoup:1.24.1
   URL: https://jsoup.org/

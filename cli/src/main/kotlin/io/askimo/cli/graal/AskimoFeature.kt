@@ -4,6 +4,10 @@
  */
 package io.askimo.cli.graal
 
+import ch.qos.logback.classic.AsyncAppender
+import ch.qos.logback.classic.encoder.PatternLayoutEncoder
+import ch.qos.logback.core.rolling.RollingFileAppender
+import ch.qos.logback.core.rolling.TimeBasedRollingPolicy
 import io.askimo.core.config.AnalyticsConfig
 import io.askimo.core.config.AppConfigData
 import io.askimo.core.config.ChatConfig
@@ -53,6 +57,15 @@ class AskimoFeature : Feature {
     override fun beforeAnalysis(access: Feature.BeforeAnalysisAccess) {
         // Register Askimo tool classes invoked via reflection by your ToolRegistry
         registerAllDeclared(LocalFsTools::class.java, GitTools::class.java)
+
+        // Logback's Joran config calls inherited setters (setFile, setEncoder, etc.) reflectively
+        // when parsing logback.xml. registerHierarchy walks superclasses so those aren't stripped.
+        registerHierarchy(
+            AsyncAppender::class.java,
+            RollingFileAppender::class.java,
+            TimeBasedRollingPolicy::class.java,
+            PatternLayoutEncoder::class.java,
+        )
 
         // Register AskimoPromptTemplateFactory for ServiceLoader + reflection
         registerAllDeclared(
