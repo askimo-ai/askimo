@@ -1,11 +1,11 @@
 [versions]
-graalvm-plugin = "1.1.18"
-jline = "3.30.6"
-langchain4j = "1.23.0"
-langchain4j-extra = "1.23.0-beta33"
-langchain4j-jvector = "1.23.0-beta33"
-commonmark = "0.32.0"
-kotlinxSerializationJson = "1.12.0"
+graalvm-plugin = "1.1.19"
+jline = "4.7.1"
+langchain4j = "1.24.1"
+langchain4j-extra = "1.24.0-beta34"
+langchain4j-jvector = "1.24.0-beta34"
+commonmark = "0.33.0"
+kotlinxSerializationJson = "1.13.0"
 kotlinxCoroutines = "1.11.0"
 kotlinxDatetime = "0.8.0"
 kermit = "2.2.0"
@@ -13,14 +13,15 @@ junitBom = "6.1.3"
 testcontainers = "1.21.4"
 mockitoKotlin = "6.4.0"
 kotlin = "2.4.21"
-jackson = "2.22.4"
-spotless = "8.11.0"
+jackson = "2.23.0"
+spotless = "8.12.0"
 detekt = "2.0.0-alpha.6"
 kover = "0.9.11"
 licenseReport = "3.1.5"
 lincheck = "2.39"
-graalvmSvm = "25.0.5.0.3"
+graalvmSvm = "25.0.5.1"
 sqldelight = "2.4.1"
+logback = "1.6.8"
 compose = "1.12.2"
 compose-material3 = "1.9.0"
 compose-material-icons = "1.7.3"
@@ -33,9 +34,9 @@ jsoup = "1.24.1"
 konform = "0.11.1"
 pty4j = "0.14.0"
 jediterm = "3.73"
-openpdf = "3.0.5"
+openpdf = "3.0.6"
 poi = "6.0.0"
-filekit = "0.16.0"
+filekit = "0.17.1"
 materialKolor = "5.0.1"
 mp3spi = "1.9.5.4"
 jna = "5.19.1"
@@ -43,7 +44,7 @@ jna = "5.19.1"
 [libraries]
 # JLine
 jline = { module = "org.jline:jline", version.ref = "jline" }
-jline-terminal-jansi = { module = "org.jline:jline-terminal-jansi", version.ref = "jline" }
+jline-terminal-ffm = { module = "org.jline:jline-terminal-ffm", version.ref = "jline" }
 
 # GraalVM Native Image (SVM)
 graalvm-nativeimage-svm = { module = "org.graalvm.nativeimage:svm", version.ref = "graalvmSvm" }
@@ -124,6 +125,9 @@ jna-platform = { module = "net.java.dev.jna:jna-platform", version.ref = "jna" }
 kermit = { module = "co.touchlab:kermit", version.ref = "kermit" }
 kermit-io = { module = "co.touchlab:kermit-io", version.ref = "kermit" }
 kermit-jvm = { module = "co.touchlab:kermit-jvm", version.ref = "kermit" }
+
+
+logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 
 # Apache Tika (File type detection and content extraction)
 tika-core = { module = "org.apache.tika:tika-core", version.ref = "tika" }
@@ -215,7 +219,7 @@ logging = [
 
 jline = [
     "jline",
-    "jline-terminal-jansi"
+    "jline-terminal-ffm"
 ]
 
 jediterm = [

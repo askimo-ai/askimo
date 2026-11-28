@@ -13,6 +13,12 @@ plugins {
 group = rootProject.group
 version = rootProject.version
 
+// Shared GraalVM spec for kotlin{}, java{}, and the native binary's javaLauncher below.
+fun org.gradle.jvm.toolchain.JavaToolchainSpec.graalVm() {
+    languageVersion.set(JavaLanguageVersion.of((property("jvmVersion") as String).toInt()))
+    nativeImageCapable.set(true)
+}
+
 // Function to load environment variables from .env file
 fun loadEnvFile(): Map<String, String> {
     val envFile = File(rootProject.projectDir, ".env")
@@ -38,6 +44,8 @@ dependencies {
     implementation(libs.bundles.commonmark)
     implementation(kotlin("stdlib"))
     implementation(project(":shared-jvm"))
+    implementation(libs.kermit.io)
+    implementation(libs.logback.classic)
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockito.kotlin)
@@ -70,11 +78,19 @@ tasks.test {
 }
 
 kotlin {
-    jvmToolchain((property("jvmVersion") as String).toInt())
+    // GraalVM required: compileOnly depends on org.graalvm.nativeimage.svm, and the agent
+    // task runs `test` under the GraalVM tracing agent.
+    jvmToolchain { graalVm() }
     compilerOptions {
         javaParameters.set(true)
         optIn.add("kotlin.time.ExperimentalTime")
     }
+}
+
+// kotlin.jvmToolchain{} above only covers Kotlin compile tasks. metadataCopy resolves its
+// JavaLauncher from java{}/JavaPluginExtension independently, so it's set here too.
+java {
+    toolchain { graalVm() }
 }
 
 application {
@@ -158,6 +174,10 @@ tasks.named<ProcessResources>("processResources") {
 }
 
 graalvmNative {
+    // Without this, metadataCopy ignores java{}/kotlin{} toolchain config and falls back to
+    // GRAALVM_HOME/JAVA_HOME/the daemon's own JVM env vars, which may be stale.
+    toolchainDetection.set(true)
+
     agent {
         enabled.set(project.hasProperty("agent"))
         defaultMode.set("standard")
@@ -190,9 +210,7 @@ graalvmNative {
     binaries {
         named("main") {
             imageName.set("askimo")
-            javaLauncher.set(
-                javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of((property("jvmVersion") as String).toInt())) },
-            )
+            javaLauncher.set(javaToolchains.launcherFor { graalVm() })
 
             val graalvmMemory = project.findProperty("graalvm.native-image.memory") as? String ?: "8g"
 
